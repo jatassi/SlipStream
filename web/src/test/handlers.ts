@@ -63,7 +63,11 @@ export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 export const noPasskeys: SystemPasskeys = { available: false, reason: "plain_http" };
 
 const controller = getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys });
-const nothingMoving = getGetCountsMockHandler({ activity: 0, alerts: { nodes: null } });
+const nothingMoving = getGetCountsMockHandler({
+  activity: 0,
+  downloads: { done: 0, wanted: 0, allPaused: false },
+  alerts: { nodes: null },
+});
 const signedInAsAda = getGetSessionMockHandler({
   account: ada,
   pinRequired: false,

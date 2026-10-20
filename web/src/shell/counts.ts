@@ -5,7 +5,9 @@ import { getCounts, getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { useAccount } from "../session/session";
 import type { AlertTone, CountDot } from "../ui/count";
 
-export type CountKey = Exclude<keyof ShellCounts, "alerts">;
+export type CountKey = {
+  [K in keyof ShellCounts]: ShellCounts[K] extends number ? K : never;
+}[keyof ShellCounts];
 
 export type AlertKey = keyof ShellAlerts;
 

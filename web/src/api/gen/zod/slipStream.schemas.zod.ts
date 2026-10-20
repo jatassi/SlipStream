@@ -18,6 +18,19 @@ export const AccountPatchInputBody = zod.object({
 export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
 export type AccountPatchInputBodyOutput = zod.output<typeof AccountPatchInputBody>;
 
+export const ActInputBody = zod.object({
+  action: zod.enum(["pause", "resume", "announce", "recheck", "mark-failed", "remove"]),
+  deleteFiles: zod.boolean().exactOptional().describe("remove: also delete each download copy"),
+  dryRun: zod
+    .boolean()
+    .exactOptional()
+    .describe("remove, mark-failed and recheck: say what it would do and change nothing"),
+  ids: zod.array(zod.uuid()).min(1),
+});
+
+export type ActInputBody = zod.input<typeof ActInputBody>;
+export type ActInputBodyOutput = zod.output<typeof ActInputBody>;
+
 export const checkFolderInputBodyPathMax = 4096;
 
 export const CheckFolderInputBody = zod.object({
@@ -43,6 +56,71 @@ export const DialInputBody = zod.object({
 export type DialInputBody = zod.input<typeof DialInputBody>;
 export type DialInputBodyOutput = zod.output<typeof DialInputBody>;
 
+export const DownloadclientsRefusal = zod.object({
+  acceptsAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("window: when every tracker accepts an announce"),
+  code: zod.enum([
+    "not_found",
+    "removed",
+    "importing",
+    "not_stalled",
+    "offline",
+    "window",
+    "not_running",
+    "failed",
+  ]),
+  workId: zod.uuid().exactOptional().describe("importing: the Work whose import holds it"),
+});
+
+export type DownloadclientsRefusal = zod.input<typeof DownloadclientsRefusal>;
+export type DownloadclientsRefusalOutput = zod.output<typeof DownloadclientsRefusal>;
+
+export const DownloadclientsActResult = zod.object({
+  done: zod.boolean(),
+  id: zod.uuid(),
+  refusal: DownloadclientsRefusal.exactOptional().describe("Why it wasn't done"),
+});
+
+export type DownloadclientsActResult = zod.input<typeof DownloadclientsActResult>;
+export type DownloadclientsActResultOutput = zod.output<typeof DownloadclientsActResult>;
+
+export const DownloadclientsCanceled = zod.object({
+  grabId: zod.uuid(),
+  release: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type DownloadclientsCanceled = zod.input<typeof DownloadclientsCanceled>;
+export type DownloadclientsCanceledOutput = zod.output<typeof DownloadclientsCanceled>;
+
+export const downloadclientsPreviewFreesMin = 0;
+
+export const DownloadclientsPreview = zod.object({
+  cancels: zod
+    .array(DownloadclientsCanceled)
+    .describe("The Grabs at downloading that a remove fails"),
+  frees: zod
+    .int()
+    .min(downloadclientsPreviewFreesMin)
+    .nullable()
+    .describe("Bytes deleting the download copies frees, null while a Node can't say"),
+  linked: zod.boolean().describe("Some file is also a library file, as a recheck reads it"),
+  stopSeeding: zod.array(zod.uuid()).describe("The Works whose complete Torrents stop seeding"),
+});
+
+export type DownloadclientsPreview = zod.input<typeof DownloadclientsPreview>;
+export type DownloadclientsPreviewOutput = zod.output<typeof DownloadclientsPreview>;
+
+export const DownloadclientsActed = zod.object({
+  preview: DownloadclientsPreview.exactOptional().describe("What a dry run would do"),
+  results: zod.array(DownloadclientsActResult).describe("One for each id, in the order sent"),
+});
+
+export type DownloadclientsActed = zod.input<typeof DownloadclientsActed>;
+export type DownloadclientsActedOutput = zod.output<typeof DownloadclientsActed>;
+
 export const DownloadclientsAggregate = zod.object({
   allPaused: zod.boolean().describe("There are downloads and every one is paused"),
   done: zod.int().describe("Bytes the downloads hold, live while sampled"),
@@ -59,6 +137,96 @@ export const DownloadclientsChanged = zod.object({
 export type DownloadclientsChanged = zod.input<typeof DownloadclientsChanged>;
 export type DownloadclientsChangedOutput = zod.output<typeof DownloadclientsChanged>;
 
+export const DownloadclientsClientFacts = zod.object({
+  bound: zod
+    .string()
+    .exactOptional()
+    .describe("The address and port it listens on, absent while it has no listener"),
+  libtorrent: zod.string().describe("libtorrent's version"),
+  listen: zod.string().describe("The listen address and port it is set to"),
+  listenError: zod.string().exactOptional().describe("Why it has no listener"),
+  peerIdPrefix: zod
+    .string()
+    .describe("The peer ID prefix it announces, which a tracker's allow list names"),
+  reach: zod
+    .enum(["reachable", "unproven"])
+    .describe("reachable once a peer from the internet connected in to where it listens now"),
+  reachedAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When the first such peer connected in"),
+  userAgent: zod.string().describe("The user agent it announces"),
+});
+
+export type DownloadclientsClientFacts = zod.input<typeof DownloadclientsClientFacts>;
+export type DownloadclientsClientFactsOutput = zod.output<typeof DownloadclientsClientFacts>;
+
+export const downloadclientsLimitsActiveDownloadsMin = 0;
+
+export const downloadclientsLimitsDownloadLimitMin = 0;
+
+export const downloadclientsLimitsUploadLimitMin = 0;
+
+export const DownloadclientsLimits = zod.object({
+  activeChecks: zod.int().min(1),
+  activeDownloads: zod
+    .int()
+    .min(downloadclientsLimitsActiveDownloadsMin)
+    .describe("0 for no limit"),
+  connections: zod.int().min(1),
+  downloadLimit: zod
+    .int()
+    .min(downloadclientsLimitsDownloadLimitMin)
+    .describe("Bytes a second, 0 for no limit"),
+  stalledAfterSeconds: zod.int().min(1),
+  uploadLimit: zod
+    .int()
+    .min(downloadclientsLimitsUploadLimitMin)
+    .describe("Bytes a second, 0 for no limit"),
+  utp: zod.boolean(),
+});
+
+export type DownloadclientsLimits = zod.input<typeof DownloadclientsLimits>;
+export type DownloadclientsLimitsOutput = zod.output<typeof DownloadclientsLimits>;
+
+export const downloadclientsTotalsActiveSecondsMin = 0;
+
+export const downloadclientsTotalsDownloadedMin = 0;
+
+export const downloadclientsTotalsSeedingSecondsMin = 0;
+
+export const downloadclientsTotalsUploadedMin = 0;
+
+export const DownloadclientsTotals = zod.object({
+  activeSeconds: zod.int().min(downloadclientsTotalsActiveSecondsMin),
+  downloaded: zod.int().min(downloadclientsTotalsDownloadedMin).describe("Bytes"),
+  seedingSeconds: zod.int().min(downloadclientsTotalsSeedingSecondsMin),
+  uploaded: zod.int().min(downloadclientsTotalsUploadedMin).describe("Bytes"),
+});
+
+export type DownloadclientsTotals = zod.input<typeof DownloadclientsTotals>;
+export type DownloadclientsTotalsOutput = zod.output<typeof DownloadclientsTotals>;
+
+export const downloadclientsClientCardTorrentsMin = 0;
+
+export const DownloadclientsClientCard = zod.object({
+  client: DownloadclientsClientFacts.exactOptional().describe(
+    "The built-in client as it reports itself, absent until it does and while the Node is out of step",
+  ),
+  inStep: zod.boolean().describe("The Node is in step; while it isn't the card has no client"),
+  limits: DownloadclientsLimits,
+  nodeId: zod.uuid(),
+  nodeName: zod.string(),
+  torrents: zod
+    .int()
+    .min(downloadclientsClientCardTorrentsMin)
+    .describe("The Node's live Torrents"),
+  totals: DownloadclientsTotals.describe("Added up over the Node's live Torrents"),
+});
+
+export type DownloadclientsClientCard = zod.input<typeof DownloadclientsClientCard>;
+export type DownloadclientsClientCardOutput = zod.output<typeof DownloadclientsClientCard>;
+
 export const DownloadclientsClientsChanged = zod.object({
   nodeIds: zod
     .array(zod.string())
@@ -67,6 +235,138 @@ export const DownloadclientsClientsChanged = zod.object({
 
 export type DownloadclientsClientsChanged = zod.input<typeof DownloadclientsClientsChanged>;
 export type DownloadclientsClientsChangedOutput = zod.output<typeof DownloadclientsClientsChanged>;
+
+export const SettingDurationField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Seconds"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  floor: zod
+    .string()
+    .exactOptional()
+    .describe("Why the minimum protects someone outside the install"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["duration"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Seconds"),
+  min: zod.int().describe("Seconds"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Seconds"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  step: zod.int().describe("Seconds: a second, minute, hour or day"),
+  value: zod.int().describe("Seconds"),
+});
+
+export type SettingDurationField = zod.input<typeof SettingDurationField>;
+export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
+
+export const DownloadclientsThresholds = zod.object({
+  faultStall: SettingDurationField,
+  unregisteredGap: SettingDurationField,
+});
+
+export type DownloadclientsThresholds = zod.input<typeof DownloadclientsThresholds>;
+export type DownloadclientsThresholdsOutput = zod.output<typeof DownloadclientsThresholds>;
+
+export const DownloadclientsClientsList = zod.object({
+  cards: zod
+    .array(DownloadclientsClientCard)
+    .describe("Each Node assigned Downloading or draining it, in Node order"),
+  thresholds: DownloadclientsThresholds,
+});
+
+export type DownloadclientsClientsList = zod.input<typeof DownloadclientsClientsList>;
+export type DownloadclientsClientsListOutput = zod.output<typeof DownloadclientsClientsList>;
+
+export const downloadclientsNodeCountTorrentsMin = 0;
+
+export const DownloadclientsNodeCount = zod.object({
+  nodeId: zod.uuid(),
+  torrents: zod.int().min(downloadclientsNodeCountTorrentsMin),
+});
+
+export type DownloadclientsNodeCount = zod.input<typeof DownloadclientsNodeCount>;
+export type DownloadclientsNodeCountOutput = zod.output<typeof DownloadclientsNodeCount>;
+
+export const downloadclientsStateCountTorrentsMin = 0;
+
+export const DownloadclientsStateCount = zod.object({
+  state: zod.enum([
+    "removing",
+    "failed",
+    "tracker-error",
+    "paused",
+    "checking",
+    "queued",
+    "stalled",
+    "downloading",
+    "seeding",
+  ]),
+  torrents: zod.int().min(downloadclientsStateCountTorrentsMin),
+});
+
+export type DownloadclientsStateCount = zod.input<typeof DownloadclientsStateCount>;
+export type DownloadclientsStateCountOutput = zod.output<typeof DownloadclientsStateCount>;
+
+export const downloadclientsTabCountTorrentsMin = 0;
+
+export const DownloadclientsTabCount = zod.object({
+  tab: zod.enum(["downloading", "seeding", "problems", "all"]),
+  torrents: zod.int().min(downloadclientsTabCountTorrentsMin),
+});
+
+export type DownloadclientsTabCount = zod.input<typeof DownloadclientsTabCount>;
+export type DownloadclientsTabCountOutput = zod.output<typeof DownloadclientsTabCount>;
+
+export const DownloadclientsCounts = zod.object({
+  byNode: zod.array(DownloadclientsNodeCount).describe("Each Node holding any, in Node order"),
+  byState: zod.array(DownloadclientsStateCount).describe("Each state, in order of precedence"),
+  byTab: zod.array(DownloadclientsTabCount).describe("Each tab, in the view's order"),
+});
+
+export type DownloadclientsCounts = zod.input<typeof DownloadclientsCounts>;
+export type DownloadclientsCountsOutput = zod.output<typeof DownloadclientsCounts>;
+
+export const DownloadclientsFault = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  kind: zod.enum(["engine_error", "unregistered", "no_payload"]),
+  sentence: zod.string().describe("Why the release looks bad, in plain words"),
+});
+
+export type DownloadclientsFault = zod.input<typeof DownloadclientsFault>;
+export type DownloadclientsFaultOutput = zod.output<typeof DownloadclientsFault>;
+
+export const downloadclientsFileDetailDoneMin = 0;
+
+export const downloadclientsFileDetailIndexMin = 0;
+
+export const downloadclientsFileDetailSizeMin = 0;
+
+export const DownloadclientsFileDetail = zod.object({
+  done: zod
+    .int()
+    .min(downloadclientsFileDetailDoneMin)
+    .exactOptional()
+    .describe("Bytes done, absent while unknown"),
+  index: zod.int().min(downloadclientsFileDetailIndexMin),
+  itemId: zod.uuid().exactOptional().describe("The Item it filled once a Grab imported it"),
+  path: zod.string().describe("Under the save folder, with / between folders"),
+  size: zod.int().min(downloadclientsFileDetailSizeMin),
+});
+
+export type DownloadclientsFileDetail = zod.input<typeof DownloadclientsFileDetail>;
+export type DownloadclientsFileDetailOutput = zod.output<typeof DownloadclientsFileDetail>;
 
 export const DownloadclientsLiveRow = zod.object({
   done: zod.int().describe("Bytes downloaded"),
@@ -166,41 +466,6 @@ export const SettingRateField = zod.object({
 export type SettingRateField = zod.input<typeof SettingRateField>;
 export type SettingRateFieldOutput = zod.output<typeof SettingRateField>;
 
-export const SettingDurationField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int().describe("Seconds"),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  floor: zod
-    .string()
-    .exactOptional()
-    .describe("Why the minimum protects someone outside the install"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["duration"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  max: zod.int().describe("Seconds"),
-  min: zod.int().describe("Seconds"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int().describe("Seconds"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  step: zod.int().describe("Seconds: a second, minute, hour or day"),
-  value: zod.int().describe("Seconds"),
-});
-
-export type SettingDurationField = zod.input<typeof SettingDurationField>;
-export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
-
 export const SettingSwitchField = zod.object({
   applies: zod.enum(["live", "restart"]),
   default: zod.boolean(),
@@ -260,6 +525,363 @@ export const DownloadclientsSettingsPatch = zod.object({
 
 export type DownloadclientsSettingsPatch = zod.input<typeof DownloadclientsSettingsPatch>;
 export type DownloadclientsSettingsPatchOutput = zod.output<typeof DownloadclientsSettingsPatch>;
+
+export const DownloadclientsThresholdsPatch = zod.object({
+  faultStall: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  unregisteredGap: zod.int().nullish().describe("Seconds; null resets it to its default"),
+});
+
+export type DownloadclientsThresholdsPatch = zod.input<typeof DownloadclientsThresholdsPatch>;
+export type DownloadclientsThresholdsPatchOutput = zod.output<
+  typeof DownloadclientsThresholdsPatch
+>;
+
+export const DownloadclientsTorrentGrab = zod.object({
+  id: zod.uuid(),
+  itemId: zod.uuid(),
+  release: zod.string(),
+  stage: zod.enum(["downloading", "importing", "imported", "failed"]),
+  workId: zod.uuid(),
+});
+
+export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrentGrab>;
+export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
+
+export const DownloadclientsTrackerCell = zod.object({
+  host: zod.string().describe("Empty when its tracker list is unknown"),
+  message: zod
+    .string()
+    .exactOptional()
+    .describe("The tracker's failure reason or warning, verbatim"),
+  retryAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When it tries a failing tracker again"),
+  status: zod.enum(["working", "updating", "error", "unregistered", "not_contacted"]),
+});
+
+export type DownloadclientsTrackerCell = zod.input<typeof DownloadclientsTrackerCell>;
+export type DownloadclientsTrackerCellOutput = zod.output<typeof DownloadclientsTrackerCell>;
+
+export const downloadclientsTrackerDetailMinIntervalSecondsMin = 0;
+
+export const downloadclientsTrackerDetailTierMin = 0;
+
+export const DownloadclientsTrackerDetail = zod.object({
+  acceptsAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("The earliest it accepts an announce, set while live"),
+  answeredAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("Its last answer, set while live"),
+  message: zod
+    .string()
+    .exactOptional()
+    .describe("The tracker's failure reason or warning, verbatim"),
+  minIntervalSeconds: zod
+    .int()
+    .min(downloadclientsTrackerDetailMinIntervalSecondsMin)
+    .exactOptional()
+    .describe("Its min interval as the announce policy holds to it, set while live"),
+  nextAnnounce: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When its next announce is due, set while live"),
+  retryAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When it tries a failing tracker again, from the last report"),
+  status: zod.enum(["working", "updating", "error", "unregistered", "not_contacted"]),
+  tier: zod.int().min(downloadclientsTrackerDetailTierMin),
+  url: zod.string().describe("With its passkey hidden"),
+});
+
+export type DownloadclientsTrackerDetail = zod.input<typeof DownloadclientsTrackerDetail>;
+export type DownloadclientsTrackerDetailOutput = zod.output<typeof DownloadclientsTrackerDetail>;
+
+export const downloadclientsTorrentDetailActiveSecondsMin = 0;
+
+export const downloadclientsTorrentDetailDoneMin = 0;
+
+export const downloadclientsTorrentDetailDownloadedMin = 0;
+
+export const downloadclientsTorrentDetailQueuePositionMin = 0;
+
+export const downloadclientsTorrentDetailRatioMin = 0;
+
+export const downloadclientsTorrentDetailSeedingSecondsMin = 0;
+
+export const downloadclientsTorrentDetailSizeMin = 0;
+
+export const downloadclientsTorrentDetailUploadedMin = 0;
+
+export const DownloadclientsTorrentDetail = zod.object({
+  activeSeconds: zod
+    .int()
+    .min(downloadclientsTorrentDetailActiveSecondsMin)
+    .describe("All-time seconds it ran"),
+  addedAt: zod.iso.datetime({ offset: true }),
+  announceAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("The earliest every tracker accepts an announce, set while live"),
+  contentType: zod.string().describe("The Content Type it was first grabbed for"),
+  done: zod
+    .int()
+    .min(downloadclientsTorrentDetailDoneMin)
+    .describe("Bytes done as its Node last reported them; torrents.live carries the live figure"),
+  downloaded: zod
+    .int()
+    .min(downloadclientsTorrentDetailDownloadedMin)
+    .describe("All-time bytes downloaded"),
+  edition: zod.string().exactOptional().describe("Its newest Grab's Edition"),
+  error: zod.string().exactOptional().describe("The engine's words for why it failed it"),
+  fault: DownloadclientsFault.exactOptional().describe(
+    "Why the release itself looks bad, once it does",
+  ),
+  files: zod.array(DownloadclientsFileDetail).describe("In its metainfo's order"),
+  grabs: zod.array(DownloadclientsTorrentGrab).describe("The Grabs that used it, newest first"),
+  hold: zod
+    .enum([
+      "wanted",
+      "window",
+      "disk_full",
+      "slot",
+      "check_slot",
+      "disk_guard",
+      "draining",
+      "controller",
+    ])
+    .exactOptional()
+    .describe("Why its Node holds it back, as its Node last reported"),
+  id: zod.uuid(),
+  infoHash: zod.string().describe("The v1 info hash in hex"),
+  lastKnown: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When its Node last reported it, set while the Node is out of step"),
+  live: zod
+    .boolean()
+    .describe("Its Node answered now, so trackers and files are live rather than its last report"),
+  name: zod
+    .string()
+    .describe(
+      "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+    ),
+  nodeId: zod.uuid(),
+  pending: zod
+    .enum(["pause", "resume"])
+    .exactOptional()
+    .describe("An Admin's pause or resume its Node has yet to act on"),
+  pieceSize: zod.int().min(1).describe("Bytes"),
+  private: zod.boolean(),
+  quality: zod
+    .enum([
+      "sdtv",
+      "dvd",
+      "webrip-480p",
+      "hdtv-720p",
+      "webrip-720p",
+      "webdl-720p",
+      "bluray-720p",
+      "hdtv-1080p",
+      "webrip-1080p",
+      "webdl-1080p",
+      "bluray-1080p",
+      "remux-1080p",
+      "hdtv-2160p",
+      "webrip-2160p",
+      "webdl-2160p",
+      "bluray-2160p",
+      "remux-2160p",
+      "cam",
+    ])
+    .exactOptional()
+    .describe("The quality its newest Grab's release title names"),
+  queuePosition: zod
+    .int()
+    .min(downloadclientsTorrentDetailQueuePositionMin)
+    .exactOptional()
+    .describe("Its place, from 1, among its Node's downloads waiting for a slot"),
+  ratio: zod
+    .number()
+    .min(downloadclientsTorrentDetailRatioMin)
+    .describe("Uploaded over the larger of downloaded and size"),
+  saveFolder: zod
+    .string()
+    .exactOptional()
+    .describe("Where its Node keeps it, absent until its Node reports it"),
+  seedingSeconds: zod
+    .int()
+    .min(downloadclientsTorrentDetailSeedingSecondsMin)
+    .describe("All-time seconds seeded"),
+  severity: zod.enum(["none", "warning", "failure"]),
+  size: zod.int().min(downloadclientsTorrentDetailSizeMin).describe("Bytes wanted"),
+  state: zod.enum([
+    "removing",
+    "failed",
+    "tracker-error",
+    "paused",
+    "checking",
+    "queued",
+    "stalled",
+    "downloading",
+    "seeding",
+  ]),
+  tabs: zod
+    .array(zod.enum(["downloading", "seeding", "problems", "all"]))
+    .describe("The Torrents view's tabs it shows under"),
+  tracker: DownloadclientsTrackerCell.exactOptional().describe(
+    "Absent when its metainfo names no tracker",
+  ),
+  trackers: zod.array(DownloadclientsTrackerDetail).describe("In its metainfo's order"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When a window hold starts it, or a check resumes it"),
+  uploaded: zod
+    .int()
+    .min(downloadclientsTorrentDetailUploadedMin)
+    .describe("All-time bytes uploaded"),
+  workId: zod
+    .uuid()
+    .exactOptional()
+    .describe("Its newest Grab's Work, absent once no Grab is left"),
+});
+
+export type DownloadclientsTorrentDetail = zod.input<typeof DownloadclientsTorrentDetail>;
+export type DownloadclientsTorrentDetailOutput = zod.output<typeof DownloadclientsTorrentDetail>;
+
+export const downloadclientsTorrentRowDoneMin = 0;
+
+export const downloadclientsTorrentRowQueuePositionMin = 0;
+
+export const downloadclientsTorrentRowRatioMin = 0;
+
+export const downloadclientsTorrentRowSeedingSecondsMin = 0;
+
+export const downloadclientsTorrentRowSizeMin = 0;
+
+export const downloadclientsTorrentRowUploadedMin = 0;
+
+export const DownloadclientsTorrentRow = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  contentType: zod.string().describe("The Content Type it was first grabbed for"),
+  done: zod
+    .int()
+    .min(downloadclientsTorrentRowDoneMin)
+    .describe("Bytes done as its Node last reported them; torrents.live carries the live figure"),
+  edition: zod.string().exactOptional().describe("Its newest Grab's Edition"),
+  error: zod.string().exactOptional().describe("The engine's words for why it failed it"),
+  fault: DownloadclientsFault.exactOptional().describe(
+    "Why the release itself looks bad, once it does",
+  ),
+  hold: zod
+    .enum([
+      "wanted",
+      "window",
+      "disk_full",
+      "slot",
+      "check_slot",
+      "disk_guard",
+      "draining",
+      "controller",
+    ])
+    .exactOptional()
+    .describe("Why its Node holds it back, as its Node last reported"),
+  id: zod.uuid(),
+  lastKnown: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When its Node last reported it, set while the Node is out of step"),
+  name: zod
+    .string()
+    .describe(
+      "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+    ),
+  nodeId: zod.uuid(),
+  pending: zod
+    .enum(["pause", "resume"])
+    .exactOptional()
+    .describe("An Admin's pause or resume its Node has yet to act on"),
+  quality: zod
+    .enum([
+      "sdtv",
+      "dvd",
+      "webrip-480p",
+      "hdtv-720p",
+      "webrip-720p",
+      "webdl-720p",
+      "bluray-720p",
+      "hdtv-1080p",
+      "webrip-1080p",
+      "webdl-1080p",
+      "bluray-1080p",
+      "remux-1080p",
+      "hdtv-2160p",
+      "webrip-2160p",
+      "webdl-2160p",
+      "bluray-2160p",
+      "remux-2160p",
+      "cam",
+    ])
+    .exactOptional()
+    .describe("The quality its newest Grab's release title names"),
+  queuePosition: zod
+    .int()
+    .min(downloadclientsTorrentRowQueuePositionMin)
+    .exactOptional()
+    .describe("Its place, from 1, among its Node's downloads waiting for a slot"),
+  ratio: zod
+    .number()
+    .min(downloadclientsTorrentRowRatioMin)
+    .describe("Uploaded over the larger of downloaded and size"),
+  seedingSeconds: zod
+    .int()
+    .min(downloadclientsTorrentRowSeedingSecondsMin)
+    .describe("All-time seconds seeded"),
+  severity: zod.enum(["none", "warning", "failure"]),
+  size: zod.int().min(downloadclientsTorrentRowSizeMin).describe("Bytes wanted"),
+  state: zod.enum([
+    "removing",
+    "failed",
+    "tracker-error",
+    "paused",
+    "checking",
+    "queued",
+    "stalled",
+    "downloading",
+    "seeding",
+  ]),
+  tabs: zod
+    .array(zod.enum(["downloading", "seeding", "problems", "all"]))
+    .describe("The Torrents view's tabs it shows under"),
+  tracker: DownloadclientsTrackerCell.exactOptional().describe(
+    "Absent when its metainfo names no tracker",
+  ),
+  until: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When a window hold starts it, or a check resumes it"),
+  uploaded: zod.int().min(downloadclientsTorrentRowUploadedMin).describe("All-time bytes uploaded"),
+  workId: zod
+    .uuid()
+    .exactOptional()
+    .describe("Its newest Grab's Work, absent once no Grab is left"),
+});
+
+export type DownloadclientsTorrentRow = zod.input<typeof DownloadclientsTorrentRow>;
+export type DownloadclientsTorrentRowOutput = zod.output<typeof DownloadclientsTorrentRow>;
+
+export const DownloadclientsTorrentList = zod.object({
+  counts: DownloadclientsCounts.describe("Every Torrent live or Removing, whatever the filter"),
+  rows: zod.array(DownloadclientsTorrentRow).describe("In the order they were added"),
+});
+
+export type DownloadclientsTorrentList = zod.input<typeof DownloadclientsTorrentList>;
+export type DownloadclientsTorrentListOutput = zod.output<typeof DownloadclientsTorrentList>;
 
 export const emailChangeInputBodyEmailMax = 254;
 
@@ -537,6 +1159,29 @@ export const GrabsGrab = zod.object({
   progress: GrabsProgress.exactOptional().describe(
     "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring",
   ),
+  quality: zod
+    .enum([
+      "sdtv",
+      "dvd",
+      "webrip-480p",
+      "hdtv-720p",
+      "webrip-720p",
+      "webdl-720p",
+      "bluray-720p",
+      "hdtv-1080p",
+      "webrip-1080p",
+      "webdl-1080p",
+      "bluray-1080p",
+      "remux-1080p",
+      "hdtv-2160p",
+      "webrip-2160p",
+      "webdl-2160p",
+      "bluray-2160p",
+      "remux-2160p",
+      "cam",
+    ])
+    .exactOptional()
+    .describe("The quality the release title names, absent when it names none"),
   releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
   releaseTitle: zod.string(),
   stage: zod.enum([
@@ -549,6 +1194,10 @@ export const GrabsGrab = zod.object({
     "failed",
   ]),
   targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
+  torrentId: zod
+    .uuid()
+    .nullable()
+    .describe("The Torrent it downloads, null until the .torrent is fetched"),
   workId: zod.uuid(),
 });
 
@@ -2744,6 +3393,9 @@ export const shellCountsActivityMin = 0;
 export const ShellCounts = zod.object({
   activity: zod.int().min(shellCountsActivityMin).describe("The Grabs neither imported nor failed"),
   alerts: ShellAlerts,
+  downloads: DownloadclientsAggregate.describe(
+    "Every download at once; torrents.live keeps it current",
+  ),
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;

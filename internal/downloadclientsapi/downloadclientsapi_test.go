@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
@@ -16,9 +17,13 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 type unlinked struct{}
@@ -34,10 +39,6 @@ func (unlinked) Stats(link.Key) (link.Stats, bool)            { return link.Stat
 
 type changes struct{}
 
-type told struct{}
-
-func (told) Publish(context.Context, downloadclients.ClientsChanged) {}
-
 func (changes) Publish(context.Context, nodes.Changed) {}
 
 type controller struct {
@@ -48,19 +49,89 @@ type controller struct {
 func (c controller) DownloadClients() (*downloadclients.Clients, bool) { return c.clients, true }
 func (c controller) Nodes() (*nodes.Service, bool)                     { return c.roster, true }
 
+// downloaders is the roster as downloadclients reads it: every Node
+// serving Downloading, each in step unless away.
+type downloaders struct {
+	serving []role.NodeID
+	away    map[role.NodeID]bool
+}
+
+func (d *downloaders) InStep(n role.NodeID) bool              { return !d.away[n] }
+func (d *downloaders) WrittenOff(role.Name, role.NodeID) bool { return false }
+func (d *downloaders) Changed() <-chan struct{}               { return nil }
+func (d *downloaders) Serving(name role.Name) []role.NodeID {
+	if name != role.Downloading {
+		return nil
+	}
+	return d.serving
+}
+
+// uses is the Grabs of each Torrent as a test sets them.
+type uses map[downloadclients.ID][]downloadclients.Use
+
+func (u uses) Of(_ context.Context, _ storage.Reader[storage.Library], ids []downloadclients.ID) (map[downloadclients.ID][]downloadclients.Use, error) {
+	out := map[downloadclients.ID][]downloadclients.Use{}
+	for _, id := range ids {
+		out[id] = u[id]
+	}
+	return out, nil
+}
+
+// heard is what the Clients told: the Nodes whose intents they touched
+// and the download-clients.changed events.
+type heard struct {
+	touched []role.NodeID
+	cards   [][]string
+}
+
+func (h *heard) Publish(_ context.Context, c downloadclients.ClientsChanged) {
+	h.cards = append(h.cards, c.NodeIDs)
+}
+
+type torrentsChanged struct{}
+
+func (torrentsChanged) Publish(context.Context, downloadclients.Changed) {}
+
+// world is a Controller whose only Node is itself, serving Downloading
+// with a client that answers Inspect, Act and Frees as the test sets it.
+type world struct {
+	o      *ownertest.Owner
+	lib    *storage.DB[storage.Library]
+	self   role.NodeID
+	roster *downloaders
+	uses   uses
+	node   *node
+	facts  map[role.NodeID]*dlv1.Facts
+	heard  *heard
+	hashes map[downloadclients.ID]string
+}
+
+func serveWorld(t *testing.T) *world {
+	t.Helper()
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), downloadclients.Schema())
+	side, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Changed: changes{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := &world{lib: lib, self: side.Self(), roster: &downloaders{serving: []role.NodeID{side.Self()}, away: map[role.NodeID]bool{}}, uses: uses{}, node: &node{}, facts: map[role.NodeID]*dlv1.Facts{}, heard: &heard{}, hashes: map[downloadclients.ID]string{}}
+	clients := downloadclients.New(downloadclients.Config{
+		Library: lib, Touch: func(n ...role.NodeID) { w.heard.touched = append(w.heard.touched, n...) }, Changed: torrentsChanged{},
+		CardsChanged: w.heard, Roster: w.roster, Uses: w.uses,
+		Facts:  func(n role.NodeID) (*dlv1.Facts, bool) { f, ok := w.facts[n]; return f, ok },
+		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return w.node },
+		Live:   downloadclients.LiveConfig{Sample: time.Second},
+		Log:    slog.New(slog.DiscardHandler),
+	})
+	w.o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, side}) })
+	return w
+}
+
 // serve is the operations on a Controller whose only Node is itself, and
 // the Nodes whose intents they touched.
 func serve(t *testing.T) (o *ownertest.Owner, self role.NodeID, touched *[]role.NodeID) {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), downloadclients.Schema())
-	roster, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Changed: changes{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	touched = &[]role.NodeID{}
-	clients := downloadclients.New(downloadclients.Config{Library: lib, Touch: func(n ...role.NodeID) { *touched = append(*touched, n...) }, CardsChanged: told{}})
-	o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, roster}) })
-	return o, roster.Self(), touched
+	w := serveWorld(t)
+	return w.o, w.self, &w.heard.touched
 }
 
 type field[T any] struct {

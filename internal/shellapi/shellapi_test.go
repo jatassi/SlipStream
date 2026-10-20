@@ -34,10 +34,12 @@ func (discard[T]) Publish(context.Context, T) {}
 type shell struct {
 	g *grabs.Grabs
 	n *nodes.Service
+	c *downloadclients.Clients
 }
 
-func (s shell) Grabs() (*grabs.Grabs, bool)   { return s.g, true }
-func (s shell) Nodes() (*nodes.Service, bool) { return s.n, true }
+func (s shell) Grabs() (*grabs.Grabs, bool)                       { return s.g, true }
+func (s shell) Nodes() (*nodes.Service, bool)                     { return s.n, true }
+func (s shell) DownloadClients() (*downloadclients.Clients, bool) { return s.c, true }
 
 type unlinked struct{}
 
@@ -84,9 +86,11 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := ownertest.Serve(t, lib, func(r *api.Router) { shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster}) })
+	s := ownertest.Serve(t, lib, func(r *api.Router) {
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib})})
+	})
 
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"alerts":{"nodes":null}}`)
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null}}`)
 	home, indexer, torrent := roster.Self(), storage.NewUUID(), storage.NewUUID()
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, home); err != nil {
@@ -107,5 +111,5 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"alerts":{"nodes":null}}`)
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"downloads":{"done":0,"wanted":4096,"allPaused":false},"alerts":{"nodes":null}}`)
 }

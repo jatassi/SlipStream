@@ -25,6 +25,43 @@
         },
         "type": "object"
       },
+      "ActInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "pause",
+              "resume",
+              "announce",
+              "recheck",
+              "mark-failed",
+              "remove"
+            ],
+            "type": "string"
+          },
+          "deleteFiles": {
+            "description": "remove: also delete each download copy",
+            "type": "boolean"
+          },
+          "dryRun": {
+            "description": "remove, mark-failed and recheck: say what it would do and change nothing",
+            "type": "boolean"
+          },
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "action",
+          "ids"
+        ],
+        "type": "object"
+      },
       "CheckFolderInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -66,6 +103,47 @@
         ],
         "type": "object"
       },
+      "DownloadclientsActResult": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "refusal": {
+            "$ref": "#/components/schemas/DownloadclientsRefusal",
+            "description": "Why it wasn't done"
+          }
+        },
+        "required": [
+          "id",
+          "done"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsActed": {
+        "additionalProperties": false,
+        "properties": {
+          "preview": {
+            "$ref": "#/components/schemas/DownloadclientsPreview",
+            "description": "What a dry run would do"
+          },
+          "results": {
+            "description": "One for each id, in the order sent",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsActResult"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
       "DownloadclientsAggregate": {
         "additionalProperties": false,
         "properties": {
@@ -91,6 +169,28 @@
         ],
         "type": "object"
       },
+      "DownloadclientsCanceled": {
+        "additionalProperties": false,
+        "properties": {
+          "grabId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "release": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grabId",
+          "workId",
+          "release"
+        ],
+        "type": "object"
+      },
       "DownloadclientsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -107,6 +207,98 @@
         ],
         "type": "object"
       },
+      "DownloadclientsClientCard": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "$ref": "#/components/schemas/DownloadclientsClientFacts",
+            "description": "The built-in client as it reports itself, absent until it does and while the Node is out of step"
+          },
+          "inStep": {
+            "description": "The Node is in step; while it isn't the card has no client",
+            "type": "boolean"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/DownloadclientsLimits"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeName": {
+            "type": "string"
+          },
+          "torrents": {
+            "description": "The Node's live Torrents",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/DownloadclientsTotals",
+            "description": "Added up over the Node's live Torrents"
+          }
+        },
+        "required": [
+          "nodeId",
+          "nodeName",
+          "inStep",
+          "limits",
+          "totals",
+          "torrents"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsClientFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "bound": {
+            "description": "The address and port it listens on, absent while it has no listener",
+            "type": "string"
+          },
+          "libtorrent": {
+            "description": "libtorrent's version",
+            "type": "string"
+          },
+          "listen": {
+            "description": "The listen address and port it is set to",
+            "type": "string"
+          },
+          "listenError": {
+            "description": "Why it has no listener",
+            "type": "string"
+          },
+          "peerIdPrefix": {
+            "description": "The peer ID prefix it announces, which a tracker's allow list names",
+            "type": "string"
+          },
+          "reach": {
+            "description": "reachable once a peer from the internet connected in to where it listens now",
+            "enum": [
+              "reachable",
+              "unproven"
+            ],
+            "type": "string"
+          },
+          "reachedAt": {
+            "description": "When the first such peer connected in",
+            "format": "date-time",
+            "type": "string"
+          },
+          "userAgent": {
+            "description": "The user agent it announces",
+            "type": "string"
+          }
+        },
+        "required": [
+          "libtorrent",
+          "peerIdPrefix",
+          "userAgent",
+          "listen",
+          "reach"
+        ],
+        "type": "object"
+      },
       "DownloadclientsClientsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -120,6 +312,172 @@
         },
         "required": [
           "nodeIds"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsClientsList": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "description": "Each Node assigned Downloading or draining it, in Node order",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsClientCard"
+            },
+            "type": "array"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/DownloadclientsThresholds"
+          }
+        },
+        "required": [
+          "cards",
+          "thresholds"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "byNode": {
+            "description": "Each Node holding any, in Node order",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsNodeCount"
+            },
+            "type": "array"
+          },
+          "byState": {
+            "description": "Each state, in order of precedence",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsStateCount"
+            },
+            "type": "array"
+          },
+          "byTab": {
+            "description": "Each tab, in the view's order",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsTabCount"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "byState",
+          "byTab",
+          "byNode"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsFault": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "engine_error",
+              "unregistered",
+              "no_payload"
+            ],
+            "type": "string"
+          },
+          "sentence": {
+            "description": "Why the release looks bad, in plain words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "sentence"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsFileDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "description": "Bytes done, absent while unknown",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "index": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "itemId": {
+            "description": "The Item it filled once a Grab imported it",
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "description": "Under the save folder, with / between folders",
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index",
+          "path",
+          "size"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "activeChecks": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "activeDownloads": {
+            "description": "0 for no limit",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "connections": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "downloadLimit": {
+            "description": "Bytes a second, 0 for no limit",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stalledAfterSeconds": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "uploadLimit": {
+            "description": "Bytes a second, 0 for no limit",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utp": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "downloadLimit",
+          "uploadLimit",
+          "activeDownloads",
+          "activeChecks",
+          "connections",
+          "utp",
+          "stalledAfterSeconds"
         ],
         "type": "object"
       },
@@ -192,6 +550,97 @@
           "at",
           "rows",
           "downloads"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsNodeCount": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "torrents": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nodeId",
+          "torrents"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "cancels": {
+            "description": "The Grabs at downloading that a remove fails",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsCanceled"
+            },
+            "type": "array"
+          },
+          "frees": {
+            "description": "Bytes deleting the download copies frees, null while a Node can't say",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "linked": {
+            "description": "Some file is also a library file, as a recheck reads it",
+            "type": "boolean"
+          },
+          "stopSeeding": {
+            "description": "The Works whose complete Torrents stop seeding",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "cancels",
+          "stopSeeding",
+          "frees",
+          "linked"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsRefusal": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptsAt": {
+            "description": "window: when every tracker accepts an announce",
+            "format": "date-time",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "not_found",
+              "removed",
+              "importing",
+              "not_stalled",
+              "offline",
+              "window",
+              "not_running",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "workId": {
+            "description": "importing: the Work whose import holds it",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -290,6 +739,728 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "DownloadclientsStateCount": {
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": [
+              "removing",
+              "failed",
+              "tracker-error",
+              "paused",
+              "checking",
+              "queued",
+              "stalled",
+              "downloading",
+              "seeding"
+            ],
+            "type": "string"
+          },
+          "torrents": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "torrents"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTabCount": {
+        "additionalProperties": false,
+        "properties": {
+          "tab": {
+            "enum": [
+              "downloading",
+              "seeding",
+              "problems",
+              "all"
+            ],
+            "type": "string"
+          },
+          "torrents": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tab",
+          "torrents"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsThresholds": {
+        "additionalProperties": false,
+        "properties": {
+          "faultStall": {
+            "$ref": "#/components/schemas/SettingDurationField"
+          },
+          "unregisteredGap": {
+            "$ref": "#/components/schemas/SettingDurationField"
+          }
+        },
+        "required": [
+          "faultStall",
+          "unregisteredGap"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsThresholdsPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "faultStall": {
+            "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "unregisteredGap": {
+            "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "DownloadclientsTorrentDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSeconds": {
+            "description": "All-time seconds it ran",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "announceAt": {
+            "description": "The earliest every tracker accepts an announce, set while live",
+            "format": "date-time",
+            "type": "string"
+          },
+          "contentType": {
+            "description": "The Content Type it was first grabbed for",
+            "type": "string"
+          },
+          "done": {
+            "description": "Bytes done as its Node last reported them; torrents.live carries the live figure",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "downloaded": {
+            "description": "All-time bytes downloaded",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "edition": {
+            "description": "Its newest Grab's Edition",
+            "type": "string"
+          },
+          "error": {
+            "description": "The engine's words for why it failed it",
+            "type": "string"
+          },
+          "fault": {
+            "$ref": "#/components/schemas/DownloadclientsFault",
+            "description": "Why the release itself looks bad, once it does"
+          },
+          "files": {
+            "description": "In its metainfo's order",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsFileDetail"
+            },
+            "type": "array"
+          },
+          "grabs": {
+            "description": "The Grabs that used it, newest first",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsTorrentGrab"
+            },
+            "type": "array"
+          },
+          "hold": {
+            "description": "Why its Node holds it back, as its Node last reported",
+            "enum": [
+              "wanted",
+              "window",
+              "disk_full",
+              "slot",
+              "check_slot",
+              "disk_guard",
+              "draining",
+              "controller"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "infoHash": {
+            "description": "The v1 info hash in hex",
+            "type": "string"
+          },
+          "lastKnown": {
+            "description": "When its Node last reported it, set while the Node is out of step",
+            "format": "date-time",
+            "type": "string"
+          },
+          "live": {
+            "description": "Its Node answered now, so trackers and files are live rather than its last report",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "pending": {
+            "description": "An Admin's pause or resume its Node has yet to act on",
+            "enum": [
+              "pause",
+              "resume"
+            ],
+            "type": "string"
+          },
+          "pieceSize": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "quality": {
+            "description": "The quality its newest Grab's release title names",
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
+          "queuePosition": {
+            "description": "Its place, from 1, among its Node's downloads waiting for a slot",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ratio": {
+            "description": "Uploaded over the larger of downloaded and size",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "saveFolder": {
+            "description": "Where its Node keeps it, absent until its Node reports it",
+            "type": "string"
+          },
+          "seedingSeconds": {
+            "description": "All-time seconds seeded",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "severity": {
+            "enum": [
+              "none",
+              "warning",
+              "failure"
+            ],
+            "type": "string"
+          },
+          "size": {
+            "description": "Bytes wanted",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "removing",
+              "failed",
+              "tracker-error",
+              "paused",
+              "checking",
+              "queued",
+              "stalled",
+              "downloading",
+              "seeding"
+            ],
+            "type": "string"
+          },
+          "tabs": {
+            "description": "The Torrents view's tabs it shows under",
+            "items": {
+              "enum": [
+                "downloading",
+                "seeding",
+                "problems",
+                "all"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tracker": {
+            "$ref": "#/components/schemas/DownloadclientsTrackerCell",
+            "description": "Absent when its metainfo names no tracker"
+          },
+          "trackers": {
+            "description": "In its metainfo's order",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsTrackerDetail"
+            },
+            "type": "array"
+          },
+          "until": {
+            "description": "When a window hold starts it, or a check resumes it",
+            "format": "date-time",
+            "type": "string"
+          },
+          "uploaded": {
+            "description": "All-time bytes uploaded",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "workId": {
+            "description": "Its newest Grab's Work, absent once no Grab is left",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "downloaded",
+          "activeSeconds",
+          "infoHash",
+          "pieceSize",
+          "private",
+          "trackers",
+          "files",
+          "grabs",
+          "live",
+          "id",
+          "nodeId",
+          "name",
+          "contentType",
+          "state",
+          "severity",
+          "tabs",
+          "size",
+          "done",
+          "uploaded",
+          "ratio",
+          "seedingSeconds",
+          "addedAt"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTorrentGrab": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "release": {
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "downloading",
+              "importing",
+              "imported",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workId",
+          "itemId",
+          "release",
+          "stage"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTorrentList": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/DownloadclientsCounts",
+            "description": "Every Torrent live or Removing, whatever the filter"
+          },
+          "rows": {
+            "description": "In the order they were added",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsTorrentRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "counts"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTorrentRow": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "contentType": {
+            "description": "The Content Type it was first grabbed for",
+            "type": "string"
+          },
+          "done": {
+            "description": "Bytes done as its Node last reported them; torrents.live carries the live figure",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "edition": {
+            "description": "Its newest Grab's Edition",
+            "type": "string"
+          },
+          "error": {
+            "description": "The engine's words for why it failed it",
+            "type": "string"
+          },
+          "fault": {
+            "$ref": "#/components/schemas/DownloadclientsFault",
+            "description": "Why the release itself looks bad, once it does"
+          },
+          "hold": {
+            "description": "Why its Node holds it back, as its Node last reported",
+            "enum": [
+              "wanted",
+              "window",
+              "disk_full",
+              "slot",
+              "check_slot",
+              "disk_guard",
+              "draining",
+              "controller"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastKnown": {
+            "description": "When its Node last reported it, set while the Node is out of step",
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "description": "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "pending": {
+            "description": "An Admin's pause or resume its Node has yet to act on",
+            "enum": [
+              "pause",
+              "resume"
+            ],
+            "type": "string"
+          },
+          "quality": {
+            "description": "The quality its newest Grab's release title names",
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
+          "queuePosition": {
+            "description": "Its place, from 1, among its Node's downloads waiting for a slot",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ratio": {
+            "description": "Uploaded over the larger of downloaded and size",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "seedingSeconds": {
+            "description": "All-time seconds seeded",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "severity": {
+            "enum": [
+              "none",
+              "warning",
+              "failure"
+            ],
+            "type": "string"
+          },
+          "size": {
+            "description": "Bytes wanted",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "removing",
+              "failed",
+              "tracker-error",
+              "paused",
+              "checking",
+              "queued",
+              "stalled",
+              "downloading",
+              "seeding"
+            ],
+            "type": "string"
+          },
+          "tabs": {
+            "description": "The Torrents view's tabs it shows under",
+            "items": {
+              "enum": [
+                "downloading",
+                "seeding",
+                "problems",
+                "all"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tracker": {
+            "$ref": "#/components/schemas/DownloadclientsTrackerCell",
+            "description": "Absent when its metainfo names no tracker"
+          },
+          "until": {
+            "description": "When a window hold starts it, or a check resumes it",
+            "format": "date-time",
+            "type": "string"
+          },
+          "uploaded": {
+            "description": "All-time bytes uploaded",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "workId": {
+            "description": "Its newest Grab's Work, absent once no Grab is left",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nodeId",
+          "name",
+          "contentType",
+          "state",
+          "severity",
+          "tabs",
+          "size",
+          "done",
+          "uploaded",
+          "ratio",
+          "seedingSeconds",
+          "addedAt"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTotals": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSeconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "downloaded": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seedingSeconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "uploaded": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uploaded",
+          "downloaded",
+          "seedingSeconds",
+          "activeSeconds"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTrackerCell": {
+        "additionalProperties": false,
+        "properties": {
+          "host": {
+            "description": "Empty when its tracker list is unknown",
+            "type": "string"
+          },
+          "message": {
+            "description": "The tracker's failure reason or warning, verbatim",
+            "type": "string"
+          },
+          "retryAt": {
+            "description": "When it tries a failing tracker again",
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "working",
+              "updating",
+              "error",
+              "unregistered",
+              "not_contacted"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "status"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTrackerDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptsAt": {
+            "description": "The earliest it accepts an announce, set while live",
+            "format": "date-time",
+            "type": "string"
+          },
+          "answeredAt": {
+            "description": "Its last answer, set while live",
+            "format": "date-time",
+            "type": "string"
+          },
+          "message": {
+            "description": "The tracker's failure reason or warning, verbatim",
+            "type": "string"
+          },
+          "minIntervalSeconds": {
+            "description": "Its min interval as the announce policy holds to it, set while live",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nextAnnounce": {
+            "description": "When its next announce is due, set while live",
+            "format": "date-time",
+            "type": "string"
+          },
+          "retryAt": {
+            "description": "When it tries a failing tracker again, from the last report",
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "working",
+              "updating",
+              "error",
+              "unregistered",
+              "not_contacted"
+            ],
+            "type": "string"
+          },
+          "tier": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "url": {
+            "description": "With its passkey hidden",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "tier",
+          "status"
+        ],
         "type": "object"
       },
       "EmailChangeInputBody": {
@@ -885,6 +2056,30 @@
             "$ref": "#/components/schemas/GrabsProgress",
             "description": "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"
           },
+          "quality": {
+            "description": "The quality the release title names, absent when it names none",
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
           "releaseSize": {
             "format": "int64",
             "minimum": 0,
@@ -912,6 +2107,14 @@
             },
             "type": "array"
           },
+          "torrentId": {
+            "description": "The Torrent it downloads, null until the .torrent is fetched",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "workId": {
             "format": "uuid",
             "type": "string"
@@ -928,6 +2131,7 @@
           "indexerId",
           "nodeId",
           "fetchNodeId",
+          "torrentId",
           "infoHash",
           "stage",
           "history",
@@ -5995,10 +7199,15 @@
           },
           "alerts": {
             "$ref": "#/components/schemas/ShellAlerts"
+          },
+          "downloads": {
+            "$ref": "#/components/schemas/DownloadclientsAggregate",
+            "description": "Every download at once; torrents.live keeps it current"
           }
         },
         "required": [
           "activity",
+          "downloads",
           "alerts"
         ],
         "type": "object"
@@ -12516,6 +13725,310 @@
         "summary": "Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact",
         "tags": [
           "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/download-clients": {
+      "get": {
+        "operationId": "listDownloadClients",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsClientsList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List each downloading Node's built-in client, and the thresholds for a bad release",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/download-clients/thresholds": {
+      "patch": {
+        "operationId": "setDownloadClientThresholds",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadclientsThresholdsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsThresholds"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change when a release counts as bad, which every downloading Node applies at once",
+        "tags": [
+          "downloadclients"
         ],
         "x-slipstream-access": "admin"
       }
@@ -31048,6 +32561,615 @@
         "summary": "Run a task now over every unit; its schedule stays as it was",
         "tags": [
           "tasks"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/torrents": {
+      "get": {
+        "operationId": "listTorrents",
+        "parameters": [
+          {
+            "description": "Only these Torrents, such as the ones a torrents.changed named",
+            "explode": false,
+            "in": "query",
+            "name": "ids",
+            "schema": {
+              "description": "Only these Torrents, such as the ones a torrents.changed named",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "tab",
+            "schema": {
+              "enum": [
+                "downloading",
+                "seeding",
+                "problems",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "nodeId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Matches the release name, the Grabs' release titles and their Works' labels, ignoring case",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Matches the release name, the Grabs' release titles and their Works' labels, ignoring case",
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsTorrentList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Torrents every Node's built-in client holds, with their state and counts",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/torrents/actions": {
+      "post": {
+        "operationId": "actOnTorrents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsActed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_preview"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Pause, resume, announce, recheck, mark failed or remove Torrents, answering for each",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/torrents/{id}": {
+      "get": {
+        "operationId": "getTorrent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsTorrentDetail"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "torrent_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while it answers",
+        "tags": [
+          "downloadclients"
         ],
         "x-slipstream-access": "admin"
       }
