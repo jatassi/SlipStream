@@ -26,7 +26,7 @@ func shelf(t *testing.T, f *contenttypetest.Fixture) (tree works.Tree, timings f
 	t.Helper()
 	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(f.Def()))...)
 	w, err := works.Open(t.Context(), works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: f}, Source: f.Source(), Timings: works.DefaultTimings(),
+		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: f}, Source: f.Source(), Artwork: f, Timings: works.DefaultTimings(),
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {

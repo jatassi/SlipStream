@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -91,6 +92,7 @@ func openLibrary(t *testing.T, pages int) *library {
 		},
 		Changed: &changes{}, Timings: timings, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
 		Types: []works.TypeID{contenttypetest.ID}, TypeChanged: works.TypeChangedEvent.Bind(hub),
+		Local: storagetest.Local(t, artwork.Schema()), ArtworkDir: t.TempDir(),
 	})
 	if err != nil {
 		t.Fatal(err)

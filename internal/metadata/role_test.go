@@ -13,6 +13,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -96,6 +97,8 @@ func (s shelf) Fetch(_ context.Context, ask metadata.Ask, key works.Key) (works.
 	}
 	return works.Fetched{Label: "The Attic", Children: []works.Entry{{Key: "i1", Label: "Lamp"}}}, nil
 }
+
+func (shelf) Sources() []artwork.Source { return nil }
 
 // unreachable is a Node whose link is down: no call reaches it.
 type unreachable struct {
@@ -252,6 +255,8 @@ type twice struct {
 func (twice) Search(context.Context, metadata.Ask, string) ([]works.Candidate, error) {
 	return nil, nil
 }
+
+func (twice) Sources() []artwork.Source { return nil }
 
 func (s twice) Fetch(ctx context.Context, ask metadata.Ask, _ works.Key) (works.Fetched, error) {
 	var v struct{}

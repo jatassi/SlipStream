@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node"
@@ -99,9 +100,10 @@ func added(t *testing.T, s scenario.Scenario, artist works.Key) (contenttype.Lib
 	t.Helper()
 	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
 	m := library()
+	src := metadatatest.Serve(map[works.TypeID]metadata.Source{music.Def.ID(): open(faketest.Loopback(t, musicmeta.Fake, s))})
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
-		Source:  metadatatest.Serve(map[works.TypeID]metadata.Source{music.Def.ID(): open(faketest.Loopback(t, musicmeta.Fake, s))}),
+		Source: src, Artwork: src,
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
@@ -154,6 +156,7 @@ func lanternsRevision(second bool) works.Fetched {
 	return works.Fetched{
 		Label:     "The Lanterns",
 		SortLabel: "Lanterns, The",
+		Artwork:   []works.Art{{Kind: "cover", Ref: artwork.Ref{Source: music.CoverArtID, Shape: artwork.ShapeCover, Path: "b1000000-0000-4000-8000-000000000001"}}},
 		Children: []works.Entry{
 			{Key: "b1000000-0000-4000-8000-000000000001", Label: "Harbor Lights", Children: []works.Entry{
 				{Key: "b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000001", Label: "Tidewater"},

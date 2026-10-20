@@ -76,6 +76,7 @@ type Fixture struct {
 	libraries []contenttype.LibraryDeps
 	timings   map[works.ItemID]targets.Timing
 	cuts      []release.Cut
+	prefetch  []artwork.Want
 	depth     *int64
 	changed   []works.Key
 	changeErr error
@@ -166,6 +167,20 @@ func (f *Fixture) SourceAs(ids ...works.TypeID) works.Source {
 	return metadatatest.Serve(sources)
 }
 
+// Prefetch records wants, as works.Config's Artwork.
+func (f *Fixture) Prefetch(wants []artwork.Want) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.prefetch = append(f.prefetch, wants...)
+}
+
+// Prefetched is every image works asked to prefetch, in order.
+func (f *Fixture) Prefetched() []artwork.Want {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.prefetch)
+}
+
 // Calls is every Search and Fetch the provider halves answered, in order.
 func (f *Fixture) Calls() []Call {
 	f.mu.Lock()
@@ -222,6 +237,8 @@ type source struct {
 	f    *Fixture
 	open int
 }
+
+func (*source) Sources() []artwork.Source { return nil }
 
 // Search matches a case-folded substring of each Work's label, in key
 // order.

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadata/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
@@ -61,6 +62,12 @@ type Config struct {
 	// TypeChanged.
 	Types       []works.TypeID
 	TypeChanged works.Publisher[works.TypeChanged]
+	// Minter opens the artwork tokens the API hands out.
+	Minter artwork.Minter
+	// Local indexes the artwork store, whose images are files under
+	// ArtworkDir.
+	Local      *storage.DB[storage.Local]
+	ArtworkDir string
 }
 
 type Publisher interface {
@@ -88,6 +95,8 @@ type Metadata struct {
 	yours    map[ProviderID]string
 	statuses map[ProviderID]*status
 	retests  map[reach]*retest
+
+	gallery *gallery
 }
 
 // New is the Controller's metadata with no Admin key read. Open reads
@@ -95,7 +104,7 @@ type Metadata struct {
 func New(cfg Config) *Metadata {
 	m := &Metadata{
 		cfg: cfg, generation: cfg.Rand.Uint64(), bundled: parseBundled(bundled), wake: make(chan struct{}, 1),
-		yours: map[ProviderID]string{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{},
+		yours: map[ProviderID]string{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{}, gallery: newGallery(),
 	}
 	for _, p := range cfg.Providers {
 		m.statuses[p.ID] = newStatus(p)
@@ -103,9 +112,9 @@ func New(cfg Config) *Metadata {
 	return m
 }
 
-// Open is New with the Admin keys library.db holds. It reaches no
-// provider: status starts unused, and Run retests what calls find
-// unreachable.
+// Open is New with the Admin keys library.db holds and the artwork store.
+// It reaches no provider: status starts unused, and Run retests what calls
+// find unreachable.
 func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 	m := New(cfg)
 	q := db.New(cfg.Library)
@@ -114,6 +123,9 @@ func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 		return nil, fmt.Errorf("read the metadata settings: %w", err)
 	}
 	m.settings = settings
+	if m.gallery.store, err = m.openStore(ctx); err != nil {
+		return nil, err
+	}
 	rows, err := q.ListKeys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read the metadata keys: %w", err)
@@ -228,7 +240,7 @@ func send[R reply](ctx context.Context, m *Metadata, via role.NodeID, do func(co
 // A call pinned to via goes there alone and fails with the rpc error
 // itself, so a Scheduled task's runner reads a Node that couldn't take it
 // as a skipped unit, not a failed one.
-func call[R reply](ctx context.Context, m *Metadata, via role.NodeID, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, role.NodeID, error) {
+func call[R any](ctx context.Context, m *Metadata, via role.NodeID, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, role.NodeID, error) {
 	var none R
 	if !via.IsZero() {
 		res, err := do(ctx, m.cfg.Service(via))

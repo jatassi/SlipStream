@@ -117,7 +117,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(),
+		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{

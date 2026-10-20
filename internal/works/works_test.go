@@ -16,6 +16,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/works"
@@ -49,15 +50,28 @@ type harness struct {
 	changed *recorder[works.WorkChanged]
 	types   *recorder[works.ContentTypesChanged]
 	log     *bytes.Buffer
+	art     *prefetched
+}
+
+type prefetched struct {
+	mu    sync.Mutex
+	wants []artwork.Want
+}
+
+func (p *prefetched) Prefetch(wants []artwork.Want) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.wants = append(p.wants, wants...)
 }
 
 func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog, source works.Source) (*works.Works, *harness) {
 	t.Helper()
-	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}}
+	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}}
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     catalogs,
 		Source:       source,
+		Artwork:      h.art,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      h.changed,
 		TypesChanged: h.types,

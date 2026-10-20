@@ -12,6 +12,7 @@ test("Settings moves between its sections by tabs on desktop and pushed pages on
     "Nodes",
     "API key",
     "Library roots",
+    "Metadata",
     "Targets",
     "Profiles",
     "Editions",

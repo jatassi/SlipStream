@@ -5,6 +5,7 @@ package tmdb
 
 import (
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -188,4 +189,26 @@ func route(p string) string {
 		return "movie"
 	}
 	return p
+}
+
+// Configuration decodes /configuration/<list> at e into v, read with key.
+func Configuration(t *testing.T, e provider.Endpoints, key, list string, v any) {
+	t.Helper()
+	u := e.API.JoinPath("configuration", list)
+	u.RawQuery = "api_key=" + key
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := (&http.Client{Timeout: time.Minute}).Do(req)
+	if err != nil {
+		t.Fatalf("GET /configuration/%s: %v", list, err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("GET /configuration/%s: %s", list, res.Status)
+	}
+	if err := json.NewDecoder(res.Body).Decode(v); err != nil {
+		t.Fatalf("GET /configuration/%s: %v", list, err)
+	}
 }

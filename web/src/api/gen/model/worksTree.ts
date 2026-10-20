@@ -1,3 +1,4 @@
+import type { WorksArt } from "./worksArt.ts";
 import type { WorksFieldValue } from "./worksFieldValue.ts";
 import type { WorksItem } from "./worksItem.ts";
 import type { WorksLevel } from "./worksLevel.ts";
@@ -5,6 +6,8 @@ import type { WorksRating } from "./worksRating.ts";
 
 export interface WorksTree {
   addedAt: string;
+  /** The Work's own images, by kind */
+  artwork: WorksArt[];
   /** @pattern ^[a-z][a-z0-9]{1,15}$ */
   contentType: string;
   fields: WorksFieldValue[];

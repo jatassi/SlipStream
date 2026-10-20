@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/works"
@@ -20,6 +21,10 @@ type Source struct {
 	tmdb *tmdb.Client
 	omdb *omdb.Client
 }
+
+// Sources is TMDB's image host, which every artwork reference of a movie
+// names.
+func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.tmdb.Images()} }
 
 // Fetch reads the movie whose TMDB id is key in one TMDB call, and its
 // OMDb ratings and awards when ask asks for ratings and the movie has an
