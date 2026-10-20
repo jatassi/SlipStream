@@ -34,7 +34,6 @@ var (
 // stored is each metadata setting's override, nil at its default.
 type stored = db.MetadataSetting
 
-// column is one setting kept in a metadata_settings column.
 type column struct {
 	key   string
 	field func(stored) setting.Field
