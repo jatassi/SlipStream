@@ -1,51 +1,155 @@
-// The Downloading Role's messages: the torrents a Node's built-in client
-// keeps, their progress, and how each Grab's download ended.
+// The Downloading Role's messages: what each Node's built-in client holds
+// and how, what it reports of each torrent, and what it asks the
+// Controller for a torrent it holds no data for.
 syntax = "proto3";
 
 package slipstream.downloading.v1;
 
-// Intent is every torrent the Node keeps, ordered by info hash, then Grab
-// id, so its version is stable.
+import "slipstream/node/v1/options.proto";
+
+// Intent is what the Node acts on every pass and nothing more: a pause
+// changes a few bytes of it, and it carries no metainfo and no totals.
 message Intent {
+  // torrents are in added order.
   repeated Torrent torrents = 1;
+  // discards are the removed Torrents the Node has not yet confirmed, in
+  // added order.
+  repeated Discard discards = 2;
+  Settings settings = 3;
+  // hold_downloads is the disk guard holding new downloads.
+  bool hold_downloads = 4;
+  Thresholds thresholds = 5;
 }
 
 message Torrent {
-  bytes info_hash = 1;
-  bytes metainfo = 2;
-  bytes grab_id = 3;
+  bytes id = 1;
+  bytes info_hash = 2;
+  Wanted wanted = 3;
+  int64 order = 4;
 }
 
-// Facts are each kept torrent's progress, ordered by info hash.
+enum Wanted {
+  WANTED_UNSPECIFIED = 0;
+  WANTED_STARTED = 1;
+  WANTED_PAUSED = 2;
+}
+
+message Discard {
+  bytes id = 1;
+  bytes info_hash = 2;
+  bool delete_files = 3;
+}
+
+// Settings are the Node's client settings with every default applied.
+message Settings {
+  // download_limit and upload_limit are bytes a second, 0 for none.
+  int64 download_limit = 1;
+  int64 upload_limit = 2;
+  // active_downloads is 0 for no limit.
+  int32 active_downloads = 3;
+  int32 active_checks = 4;
+  int32 connections = 5;
+  bool utp = 6;
+  int64 stalled_after_seconds = 7;
+}
+
+// Thresholds decide when a release counts as bad.
+message Thresholds {
+  int64 fault_stall_seconds = 1;
+  int64 unregistered_gap_seconds = 2;
+}
+
+// Facts are the Node's client itself. They change rarely.
 message Facts {
-  repeated TorrentFacts torrents = 1;
+  string libtorrent = 1;
+  string peer_id_prefix = 2;
+  string user_agent = 3;
+  // listen is the configured address and port.
+  string listen = 4;
+  bool bound = 5;
+  string listen_error = 6;
 }
 
-message TorrentFacts {
-  bytes info_hash = 1;
-  string state = 2;
-  int64 done = 3;
-  int64 wanted = 4;
-  int32 peers = 5;
-  // uploaded is every byte of payload the Node sent for the torrent since
-  // its client added it.
-  int64 uploaded = 6;
-}
-
-// Result is how one Grab's download ended. It names the Grab, because two
-// Grabs can share a torrent.
-message Result {
-  bytes grab_id = 1;
-  oneof outcome {
-    Completed completed = 2;
-    Failed failed = 3;
+// Report is one outbox entry: the torrents whose report changed, a totals
+// batch, or a removal's confirmation.
+message Report {
+  oneof kind {
+    Torrents torrents = 1;
+    Totals totals = 2;
+    Parted parted = 3;
   }
 }
 
-// Completed lists the torrent's files as they lie under its save path.
-message Completed {
-  bytes info_hash = 1;
-  repeated File files = 2;
+message Torrents {
+  repeated TorrentReport reports = 1;
+}
+
+// TorrentReport is the Node's whole word on one torrent: each one replaces
+// the last.
+message TorrentReport {
+  bytes id = 1;
+  int64 at_unix_ms = 2;
+  EngineState engine = 3;
+  Hold hold = 4;
+  // until_unix_ms is when a window hold starts the torrent, 0 for none.
+  int64 until_unix_ms = 5;
+  bool complete = 6;
+  bool stalled = 7;
+  // error is the engine's error text while engine is failed.
+  string error = 8;
+  repeated TrackerLine trackers = 9;
+  // completion is the files as they lie, once complete.
+  Completion completion = 10;
+  // save_folder is where the Node keeps the torrent, opaque to the
+  // Controller.
+  string save_folder = 12;
+  int64 done = 13;
+  int64 wanted = 14;
+  TotalsRow totals = 15;
+}
+
+enum EngineState {
+  ENGINE_STATE_UNSPECIFIED = 0;
+  ENGINE_STATE_CHECKING = 1;
+  ENGINE_STATE_DOWNLOADING = 2;
+  ENGINE_STATE_SEEDING = 3;
+  ENGINE_STATE_FAILED = 4;
+}
+
+// Hold is why a torrent the Node could run doesn't.
+enum Hold {
+  HOLD_UNSPECIFIED = 0;
+  HOLD_WANTED = 1;
+  HOLD_WINDOW = 2;
+  HOLD_DISK_FULL = 3;
+  HOLD_SLOT = 4;
+  HOLD_CHECK_SLOT = 5;
+  HOLD_DISK_GUARD = 6;
+  HOLD_DRAINING = 7;
+  HOLD_CONTROLLER = 8;
+}
+
+message TrackerLine {
+  // index is into the metainfo's tracker list.
+  int32 index = 1;
+  TrackerStatus status = 2;
+  // message is the tracker's failure reason or warning, verbatim.
+  string message = 3;
+  // retry_at_unix_ms is set while status is error or unregistered.
+  int64 retry_at_unix_ms = 4;
+}
+
+enum TrackerStatus {
+  TRACKER_STATUS_UNSPECIFIED = 0;
+  TRACKER_STATUS_WORKING = 1;
+  TRACKER_STATUS_UPDATING = 2;
+  TRACKER_STATUS_ERROR = 3;
+  TRACKER_STATUS_UNREGISTERED = 4;
+  TRACKER_STATUS_NOT_CONTACTED = 5;
+}
+
+message Completion {
+  repeated File files = 1;
 }
 
 message File {
@@ -54,7 +158,49 @@ message File {
   int64 size = 3;
 }
 
-message Failed {
-  bytes info_hash = 1;
-  string error = 2;
+message Totals {
+  repeated TotalsRow rows = 1;
+}
+
+// TotalsRow is a torrent's all-time counters, which never go down.
+message TotalsRow {
+  bytes id = 1;
+  int64 uploaded = 2;
+  int64 downloaded = 3;
+  int64 active_seconds = 4;
+  int64 seeding_seconds = 5;
+  // done is the bytes done, sent only while incomplete.
+  int64 done = 6;
+}
+
+// Parted confirms a discard: the Node no longer holds the torrent.
+message Parted {
+  bytes id = 1;
+  // freed is the bytes the delete freed.
+  int64 freed = 2;
+}
+
+// DownloadingControlService is the Controller, as a downloading Node calls
+// it.
+service DownloadingControlService {
+  option (slipstream.node.v1.served_by) = {controller: true};
+  // Torrent is what a Node needs to add a torrent of its intent it holds
+  // no data for. It answers only the Torrent's own Node, and NotFound for
+  // a removed one.
+  rpc Torrent(TorrentRequest) returns (TorrentResponse);
+}
+
+message TorrentRequest {
+  bytes id = 1;
+}
+
+message TorrentResponse {
+  bytes metainfo = 1;
+  // baseline is the totals the Controller recorded, which the Node's
+  // counters start from.
+  TotalsRow baseline = 2;
+  // save_folder is the folder the Node reported, empty for a new torrent.
+  string save_folder = 3;
+  // content_type is the Content Type's name, for a new torrent's folder.
+  string content_type = 4;
 }

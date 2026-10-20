@@ -36,7 +36,13 @@ type Attached struct {
 	// They stay once it is removed, for a Grab already past downloading.
 	Files   []engine.File
 	Outcome Outcome
+	// Progress is nil before the Node's first report.
+	Progress *Progress
 }
+
+// Progress is a Torrent's bytes done, as its Node last reported them, of
+// its size.
+type Progress struct{ Done, Size int64 }
 
 // Outcomes is each of ids' Torrents as its Grabs read it, in r's
 // snapshot. The precedence is StateOf's: Gone, then Failed, then
@@ -66,11 +72,12 @@ func attachedOf(row db.ListAttachedRow) (Attached, error) {
 		}
 		a.Files, a.Outcome = c.Files, Completed{}
 	}
-	if row.Report != nil {
-		var rep Report
-		if err := json.Unmarshal([]byte(*row.Report), &rep); err != nil {
-			return Attached{}, fmt.Errorf("report: %w", err)
-		}
+	rep, err := reportOf(row.Report)
+	if err != nil {
+		return Attached{}, err
+	}
+	if rep != nil {
+		a.Progress = &Progress{Done: rep.done(row.Size), Size: row.Size}
 		if rep.Engine == EngineFailed {
 			a.Outcome = Failed{Error: rep.Error}
 		}

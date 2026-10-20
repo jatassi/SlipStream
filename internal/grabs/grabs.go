@@ -20,7 +20,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -144,7 +143,9 @@ type Roster interface {
 // Downloads is the Downloading Role's Controller half.
 type Downloads interface {
 	Touch(nodes ...role.NodeID)
-	Facts(node role.NodeID) (*dlv1.Facts, bool)
+	// Moved is closed once a Node's reports that may move a Torrent's
+	// outcome commit.
+	Moved() <-chan struct{}
 }
 
 // Roots is the library roots as a Grab reaches them: bytes go into a
@@ -167,14 +168,13 @@ type Staging interface {
 }
 
 type Config struct {
-	Library  *storage.DB[file]
-	Works    *works.Works
-	Targets  *targets.Targets
-	Files    *files.Files
-	Indexers *indexers.Indexers
-	Terms    map[works.TypeID]indexers.Facet
-	Roster   Roster
-	// Downloads is the Downloading Role's *role.Control.
+	Library    *storage.DB[file]
+	Works      *works.Works
+	Targets    *targets.Targets
+	Files      *files.Files
+	Indexers   *indexers.Indexers
+	Terms      map[works.TypeID]indexers.Facet
+	Roster     Roster
 	Downloads  Downloads
 	Media      media.Remote
 	Roots      Roots

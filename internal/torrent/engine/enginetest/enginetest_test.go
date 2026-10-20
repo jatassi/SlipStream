@@ -17,6 +17,15 @@ import (
 
 const single = "d4:infod6:lengthi5e4:name5:a.mkv12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"
 
+func statusOf(t *testing.T, e engine.Engine, h engine.Handle) (engine.Status, error) {
+	t.Helper()
+	fake, ok := e.(*enginetest.Engine)
+	if !ok {
+		t.Fatalf("engine %T is not the in-memory one", e)
+	}
+	return fake.Status(h)
+}
+
 func add(seed bool) engine.AddParams {
 	return engine.AddParams{Metainfo: []byte(single), SeedMode: seed}
 }
@@ -32,14 +41,14 @@ func TestAnAddedTorrentIsTrackedUntilRemoved(t *testing.T) {
 	seeding, _ := e.Add(add(true))
 	downloading, _ := e.Add(add(false))
 	for h, want := range map[engine.Handle]engine.State{seeding: engine.StateSeeding, downloading: engine.StateDownloading} {
-		if s, err := e.Status(h); err != nil || s.State != want {
+		if s, err := statusOf(t, e, h); err != nil || s.State != want {
 			t.Fatalf("Status(%d) = %+v, %v; want %s", h, s, err, want)
 		}
 	}
 	if err := e.Remove(seeding, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.Status(seeding); !errors.Is(err, engine.ErrUnknownTorrent) {
+	if _, err := statusOf(t, e, seeding); !errors.Is(err, engine.ErrUnknownTorrent) {
 		t.Fatalf("Status of a removed torrent = %v, want unknown torrent", err)
 	}
 	if err := e.Close(); err != nil {
@@ -118,13 +127,13 @@ func TestADownloadWithAPayloadFinishesIntoItsSavePathOnceResumed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s, err := e.Status(h); err != nil || s.State != engine.StateDownloading || !s.Paused || s.Done != 0 {
+	if s, err := statusOf(t, e, h); err != nil || s.State != engine.StateDownloading || !s.Paused || s.Done != 0 {
 		t.Fatalf("added, Status = %+v, %v; want paused downloading with nothing done", s, err)
 	}
 	if err := e.Resume(h); err != nil {
 		t.Fatal(err)
 	}
-	if s, err := e.Status(h); err != nil || s.State != engine.StateSeeding || s.Done != 5 || s.Wanted != 5 || s.Totals.Downloaded != 5 {
+	if s, err := statusOf(t, e, h); err != nil || s.State != engine.StateSeeding || s.Done != 5 || s.Wanted != 5 || s.Totals.Downloaded != 5 {
 		t.Fatalf("resumed, Status = %+v, %v; want seeding 5 of 5, all downloaded", s, err)
 	}
 	if got, err := os.ReadFile(filepath.Join(dir, "a.mkv")); err != nil || string(got) != "hello" {
@@ -167,7 +176,7 @@ func TestAPacedDownloadThatFindsTheDiskFullPausesUntilResumed(t *testing.T) {
 		}
 		time.Sleep(2 * time.Second)
 		w.DiskFull(true)
-		if s, err := e.Status(h); err != nil || !s.Paused || s.Done != 2 {
+		if s, err := statusOf(t, e, h); err != nil || !s.Paused || s.Done != 2 {
 			t.Fatalf("on a full disk two seconds into a 1 B/s download, Status = %+v, %v; want paused with 2 bytes done", s, err)
 		}
 		w.DiskFull(false)
@@ -175,7 +184,7 @@ func TestAPacedDownloadThatFindsTheDiskFullPausesUntilResumed(t *testing.T) {
 			t.Fatal(err)
 		}
 		time.Sleep(3 * time.Second)
-		if s, err := e.Status(h); err != nil || s.State != engine.StateSeeding || s.Done != 5 {
+		if s, err := statusOf(t, e, h); err != nil || s.State != engine.StateSeeding || s.Done != 5 {
 			t.Fatalf("resumed with room again, Status = %+v, %v; want seeding 5 of 5", s, err)
 		}
 		want := []engine.Event{

@@ -22,12 +22,14 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
-// added is an engine that remembers the handle of each torrent it adds, by
-// info hash, so the test can point it at a seeder and ask after it.
+// added is an engine that remembers the handle of each torrent it adds,
+// by info hash, and each it resumes, so the test can point it at a seeder
+// once it runs.
 type added struct {
 	engine.Engine
 	mu      sync.Mutex
 	handles map[bencode.InfoHash]engine.Handle
+	resumed map[engine.Handle]bool
 }
 
 func (a *added) Add(p engine.AddParams) (engine.Handle, error) {
@@ -40,11 +42,18 @@ func (a *added) Add(p engine.AddParams) (engine.Handle, error) {
 	return h, err
 }
 
-func (a *added) handle(h bencode.InfoHash) (engine.Handle, bool) {
+func (a *added) Resume(h engine.Handle) error {
+	a.mu.Lock()
+	a.resumed[h] = true
+	a.mu.Unlock()
+	return a.Engine.Resume(h)
+}
+
+func (a *added) running(h bencode.InfoHash) (engine.Handle, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	handle, ok := a.handles[h]
-	return handle, ok
+	return handle, ok && a.resumed[handle]
 }
 
 // intents is Downloading's holder half as the test drives it.
@@ -67,7 +76,18 @@ func (in intents) Intent(ctx context.Context) iter.Seq[role.Snapshot[*dlv1.Inten
 
 func (intents) SetFacts(*dlv1.Facts) {}
 
-func (intents) Report(context.Context, *storage.Tx[storage.Local], *dlv1.Result) error { return nil }
+func (intents) Report(context.Context, *storage.Tx[storage.Local], *dlv1.Report) error { return nil }
+
+// controller answers each Torrent fetch from the metainfo it holds by id.
+type controller map[storage.UUID][]byte
+
+func (c controller) Torrent(_ context.Context, req *dlv1.TorrentRequest) (*dlv1.TorrentResponse, error) {
+	id, err := storage.UUIDFromBytes(req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return &dlv1.TorrentResponse{Metainfo: c[id], ContentType: "Movies"}, nil
+}
 
 type seeded struct {
 	name    string
@@ -107,9 +127,10 @@ func until(t *testing.T, what string, ok func() bool) {
 }
 
 // TestDownloadingLetsTorrentsGoAndKeepsTheirFiles downloads two torrents
-// through Downloading's client on libtorrent, then takes one out of its
-// intent and releases the Role: each torrent leaves the engine, and each
-// file it downloaded stays on disk whole.
+// through Downloading's client on libtorrent, then discards one, keeping
+// its files, and releases the Role: each torrent leaves the engine, and
+// each file it downloaded stays on disk whole, under the Content Type's
+// folder.
 func TestDownloadingLetsTorrentsGoAndKeepsTheirFiles(t *testing.T) {
 	seedDir, dir := t.TempDir(), t.TempDir()
 	seeder := open(t)
@@ -119,14 +140,19 @@ func TestDownloadingLetsTorrentsGoAndKeepsTheirFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := &added{Engine: open(t), handles: map[bencode.InfoHash]engine.Handle{}}
-	c := downloading.NewClient(downloading.Config{Engine: e, Dir: dir, Timings: downloading.DefaultTimings(), Log: slog.New(slog.DiscardHandler)})
+	e := &added{Engine: open(t), handles: map[bencode.InfoHash]engine.Handle{}, resumed: map[engine.Handle]bool{}}
+	c := downloading.NewClient(downloading.Config{
+		Engine: e, Dir: dir, Timings: downloading.DefaultTimings(), RetryMin: time.Second, RetryMax: time.Second,
+		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
+	})
+	ids := map[bencode.InfoHash]storage.UUID{first.hash: storage.NewUUID(), second.hash: storage.NewUUID()}
+	ctl := controller{ids[first.hash]: first.meta, ids[second.hash]: second.meta}
 	in := make(intents)
 	ctx, cancel := context.WithCancel(t.Context())
 	var wg sync.WaitGroup
-	wg.Go(func() { _ = c.Drain(ctx) })
+	wg.Go(func() { _ = c.Loop(ctx) })
 	wg.Go(func() {
-		if err := c.Run(storagetest.Local(t))(ctx, in); err != nil {
+		if err := c.Run(storagetest.Local(t, downloading.Schema()), ctl)(ctx, in); err != nil {
 			t.Errorf("run: %v", err)
 		}
 	})
@@ -135,17 +161,14 @@ func TestDownloadingLetsTorrentsGoAndKeepsTheirFiles(t *testing.T) {
 		wg.Wait()
 	})
 
-	torrent := func(s seeded) *dlv1.Torrent {
-		return &dlv1.Torrent{InfoHash: s.hash[:], Metainfo: s.meta, GrabId: storage.NewUUID().Bytes()}
+	settings := &dlv1.Settings{ActiveDownloads: 3, ActiveChecks: 1, StalledAfterSeconds: 600}
+	torrent := func(s seeded, order int64) *dlv1.Torrent {
+		return &dlv1.Torrent{Id: ids[s.hash].Bytes(), InfoHash: s.hash[:], Wanted: dlv1.Wanted_WANTED_STARTED, Order: order}
 	}
-	both := []*dlv1.Torrent{torrent(first), torrent(second)}
-	if bytes.Compare(first.hash[:], second.hash[:]) > 0 {
-		both[0], both[1] = both[1], both[0]
-	}
-	in <- role.Snapshot[*dlv1.Intent]{Intent: &dlv1.Intent{Torrents: both}, Standing: role.Live}
+	in <- role.Snapshot[*dlv1.Intent]{Intent: &dlv1.Intent{Torrents: []*dlv1.Torrent{torrent(first, 1), torrent(second, 2)}, Settings: settings}, Standing: role.Live}
 	for _, s := range []seeded{first, second} {
-		until(t, "the client adds "+s.name, func() bool { _, ok := e.handle(s.hash); return ok })
-		h, _ := e.handle(s.hash)
+		until(t, "the client starts "+s.name, func() bool { _, ok := e.running(s.hash); return ok })
+		h, _ := e.running(s.hash)
 		if err := e.ConnectPeer(h, seederAddr); err != nil {
 			t.Fatalf("connect %s to the seeder: %v", s.name, err)
 		}
@@ -156,29 +179,31 @@ func TestDownloadingLetsTorrentsGoAndKeepsTheirFiles(t *testing.T) {
 
 	gone := func(s seeded) {
 		t.Helper()
-		h, _ := e.handle(s.hash)
+		h, _ := e.running(s.hash)
 		until(t, "the engine no longer holds "+s.name, func() bool {
-			_, err := e.Status(h)
+			_, err := e.Files(h)
 			return errors.Is(err, engine.ErrUnknownTorrent)
 		})
 		if _, err := c.Path(s.hash, 0); !errors.Is(err, downloading.ErrNotPresent) {
 			t.Errorf("Path of %s once let go = %v, want ErrNotPresent", s.name, err)
 		}
-		got, err := os.ReadFile(filepath.Join(dir, s.hash.String(), s.name))
+		got, err := os.ReadFile(filepath.Join(dir, "Movies", s.hash.String(), s.name))
 		if err != nil || !bytes.Equal(got, s.payload) {
 			t.Errorf("%s once let go holds %d bytes, %v; want the %d bytes it downloaded", s.name, len(got), err, len(s.payload))
 		}
 	}
 
-	in <- role.Snapshot[*dlv1.Intent]{Intent: &dlv1.Intent{Torrents: []*dlv1.Torrent{torrent(second)}}, Standing: role.Live}
+	in <- role.Snapshot[*dlv1.Intent]{Intent: &dlv1.Intent{
+		Torrents: []*dlv1.Torrent{torrent(second, 2)},
+		Discards: []*dlv1.Discard{{Id: ids[first.hash].Bytes(), InfoHash: first.hash[:]}},
+		Settings: settings,
+	}, Standing: role.Live}
 	gone(first)
-	h, _ := e.handle(second.hash)
-	if _, err := e.Status(h); err != nil {
+	h, _ := e.running(second.hash)
+	if _, err := e.Files(h); err != nil {
 		t.Fatalf("the engine dropped %s, which the intent still lists: %v", second.name, err)
 	}
 
-	cancel()
-	wg.Wait()
 	if err := c.Release(t.Context()); err != nil {
 		t.Fatalf("release: %v", err)
 	}

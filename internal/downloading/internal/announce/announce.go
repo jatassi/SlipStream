@@ -96,7 +96,7 @@ func (l *Ledger) Replied(h bencode.InfoHash, t Tracker, r Reply) time.Duration {
 // tracker has now called the torrent unregistered on answers at least gap
 // apart with no success between them.
 func (l *Ledger) Failed(h bencode.InfoHash, t Tracker, reason string, gap time.Duration, at time.Time) bool {
-	if !unregistered(reason) {
+	if !Unregistered(reason) {
 		return false
 	}
 	ln := l.line(h, t)
@@ -173,7 +173,9 @@ func (ln *line) open(now time.Time, minInterval time.Duration) bool {
 	return !ln.opened.IsZero() && now.Before(ln.opened.Add(minInterval))
 }
 
-func unregistered(reason string) bool {
+// Unregistered reports whether a tracker's failure reason says the torrent
+// is unregistered there.
+func Unregistered(reason string) bool {
 	r := strings.ToLower(reason)
 	return strings.Contains(r, "unregistered") || strings.Contains(r, "not registered")
 }

@@ -60,14 +60,19 @@ INSERT INTO downloadclients_torrent (
 );
 
 -- name: ListAttached :many
-SELECT id, info_hash, removed_reason, report, completion FROM downloadclients_torrent
+SELECT id, info_hash, size, removed_reason, report, completion FROM downloadclients_torrent
 WHERE id IN (sqlc.slice(ids))
 ORDER BY id;
 
 -- name: ListIntent :many
-SELECT id, info_hash, metainfo FROM downloadclients_torrent
+SELECT id, info_hash, wanted, added_order, removed_at, delete_files FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL
+ORDER BY added_order;
+
+-- name: ListKept :many
+SELECT id, info_hash, size, report FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL
-ORDER BY info_hash, id;
+ORDER BY added_order;
 
 -- name: CountHeld :one
 SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes FROM downloadclients_torrent
@@ -77,9 +82,26 @@ WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL;
 UPDATE downloadclients_torrent SET completion = sqlc.arg(completion), completed_at = sqlc.arg(completed_at)
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND completion IS NULL;
 
--- name: SetReport :exec
+-- name: SetReport :execrows
 UPDATE downloadclients_torrent SET report = sqlc.arg(report), reported_at = sqlc.arg(reported_at)
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+
+-- name: SetSaveFolder :exec
+UPDATE downloadclients_torrent SET save_folder = sqlc.arg(save_folder)
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND save_folder IS NULL;
+
+-- name: SetDone :exec
+UPDATE downloadclients_torrent SET report = json_set(report, '$.done', CAST(sqlc.arg(done) AS INTEGER))
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND report IS NOT NULL;
+
+-- name: SetParted :execrows
+UPDATE downloadclients_torrent SET parted_at = sqlc.arg(parted_at), freed = sqlc.arg(freed)
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND removed_at IS NOT NULL AND parted_at IS NULL;
+
+-- name: GetFetched :one
+SELECT node_id, metainfo, content_type, save_folder, removed_at,
+       uploaded, downloaded, active_seconds, seeding_seconds
+FROM downloadclients_torrent WHERE id = sqlc.arg(id);
 
 -- name: ListHoldingNodes :many
 SELECT DISTINCT node_id FROM downloadclients_torrent WHERE parted_at IS NULL ORDER BY node_id;

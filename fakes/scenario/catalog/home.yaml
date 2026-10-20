@@ -23,6 +23,8 @@ nodes:
 timings:
   node:
     stop_deadline: 5s
+  downloading:
+    totals_report: 2s
 tmdb:
   movies:
     - id: 9000001

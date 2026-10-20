@@ -32,7 +32,7 @@ func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]node
 	var out []nodes.Grabbed
 	for _, h := range held {
 		for _, row := range of[h.ID] {
-			out = append(out, nodes.Grabbed{Grab: row.ID.UUID, InfoHash: h.InfoHash, Title: row.ReleaseTitle})
+			out = append(out, nodes.Grabbed{Grab: row.ID.UUID, InfoHash: h.InfoHash, Title: row.ReleaseTitle, Done: h.Done, Wanted: h.Size})
 		}
 	}
 	return out, nil
