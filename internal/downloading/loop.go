@@ -56,10 +56,7 @@ type loop struct {
 	facts  *dlv1.Facts
 	// sentFacts is nil until facts go to a run.
 	sentFacts *dlv1.Facts
-	// warned is each tracker host already logged as announced to from
-	// more than one address.
-	warned map[string]bool
-	wake   *time.Timer
+	wake      *time.Timer
 	// limits is what the engine was last configured with, nil before the
 	// first intent.
 	limits *engine.Limits
@@ -103,7 +100,7 @@ func (c *Client) Loop(ctx context.Context) error {
 	l := &loop{
 		c: c, eng: c.cfg.Engine, ledger: announce.New(c.cfg.Rand, t.AnnounceJitter, t.AnnounceFloor),
 		torrents: map[bencode.InfoHash]*torrent{}, byHandle: map[engine.Handle]*torrent{},
-		warned: map[string]bool{}, wake: time.NewTimer(time.Hour), facts: c.facts(),
+		wake: time.NewTimer(time.Hour), facts: c.facts(),
 	}
 	defer l.wake.Stop()
 	facts, resume, totals := time.NewTicker(t.Facts), time.NewTicker(t.ResumeSave), time.NewTicker(t.TotalsReport)
@@ -573,10 +570,6 @@ func (l *loop) trackerList(t *torrent, trackers []engine.Tracker) {
 	t.trackers = trackers
 	now := time.Now()
 	for _, tr := range trackers {
-		if tr.Endpoints > 1 && !l.warned[hostOf(tr.URL)] {
-			l.warned[hostOf(tr.URL)] = true
-			l.c.cfg.Log.Warn("Torrents announce to this tracker from more than one address, so it may see each start twice", "host", hostOf(tr.URL), "addresses", tr.Endpoints)
-		}
 		at, ok := t.replied[tr.Index]
 		if !ok {
 			continue
