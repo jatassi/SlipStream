@@ -300,7 +300,7 @@ func removable(row db.ListActedRow, uses []Use, kind ActionKind) (*Refusal, erro
 }
 
 // add counts a removed Torrent's Grabs into p: those downloading it are
-// cancelled, and once complete, every Work it seeds for stops seeding.
+// canceled, and once complete, every Work it seeds for stops seeding.
 func (p *Preview) add(row db.ListActedRow, uses []Use) {
 	for _, u := range uses {
 		if u.Stage == UseDownloading {
@@ -350,7 +350,7 @@ func (c *Clients) freesOn(ctx context.Context, node role.NodeID, ids []ID) ([]*d
 	ctx, cancel := context.WithTimeout(ctx, c.cfg.Live.Sample)
 	defer cancel()
 	res, err := c.cfg.Remote(node).Frees(ctx, &dlv1.FreesRequest{Ids: wireIDs(ids)})
-	return res.GetFreed(), err //nolint:wrapcheck // the caller logs it
+	return res.GetFreed(), err
 }
 
 func (c *Clients) previewRecheck(ctx context.Context, a Action) ([]Result, *Preview, error) {
@@ -438,6 +438,8 @@ func refusalFromWire(r *dlv1.ActResult) *Refusal {
 		return &Refusal{Code: RefusedNotRunning}
 	case dlv1.Refusal_REFUSAL_FAILED:
 		return &Refusal{Code: RefusedFailed}
+	case dlv1.Refusal_REFUSAL_NOT_HELD:
+		return &Refusal{Code: RefusedNotFound}
 	}
 	return &Refusal{Code: RefusedNotFound}
 }

@@ -11,9 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Kept is every Torrent node's client keeps, in its intent's order,
-// titled by its newest Grab's release, or by its name once no Grab is
-// left.
 // TorrentUses answers downloadclients which Grabs used each Torrent.
 type TorrentUses struct{}
 
@@ -41,6 +38,9 @@ var useStages = map[Stage]downloadclients.UseStage{
 	Failed:       downloadclients.UseFailed,
 }
 
+// Kept is every Torrent node's client keeps, in its intent's order,
+// titled by its newest Grab's release, or by its name once no Grab is
+// left.
 func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]nodes.Kept, error) {
 	held, err := downloadclients.Kept(ctx, r, node)
 	if err != nil {

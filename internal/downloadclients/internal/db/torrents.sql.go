@@ -490,6 +490,33 @@ func (q *Queries) ListKept(ctx context.Context, nodeID role.NodeID) ([]ListKeptR
 	return items, nil
 }
 
+const listUnparted = `-- name: ListUnparted :many
+SELECT id FROM downloadclients_torrent WHERE node_id = ?1 AND parted_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListUnparted(ctx context.Context, nodeID role.NodeID) ([]TorrentID, error) {
+	rows, err := q.db.QueryContext(ctx, listUnparted, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TorrentID
+	for rows.Next() {
+		var id TorrentID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const mergeTotals = `-- name: MergeTotals :exec
 UPDATE downloadclients_torrent SET
     uploaded = MAX(uploaded, CAST(?1 AS INTEGER)),
@@ -757,13 +784,12 @@ func (q *Queries) SetWanted(ctx context.Context, arg SetWantedParams) error {
 	return err
 }
 
-const writeOff = `-- name: WriteOff :many
+const writeOff = `-- name: WriteOff :exec
 UPDATE downloadclients_torrent SET
     removed_at = coalesce(removed_at, ?1),
     removed_reason = 'node_written_off',
     parted_at = ?1
 WHERE node_id = ?2 AND parted_at IS NULL
-RETURNING id
 `
 
 type WriteOffParams struct {
@@ -771,25 +797,7 @@ type WriteOffParams struct {
 	NodeID role.NodeID
 }
 
-func (q *Queries) WriteOff(ctx context.Context, arg WriteOffParams) ([]TorrentID, error) {
-	rows, err := q.db.QueryContext(ctx, writeOff, arg.At, arg.NodeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TorrentID
-	for rows.Next() {
-		var id TorrentID
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) WriteOff(ctx context.Context, arg WriteOffParams) error {
+	_, err := q.db.ExecContext(ctx, writeOff, arg.At, arg.NodeID)
+	return err
 }

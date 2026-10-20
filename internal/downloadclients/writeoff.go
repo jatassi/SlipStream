@@ -33,8 +33,12 @@ func (c *Clients) settleWriteOffs(ctx context.Context) {
 		parted = nil
 		now := storage.Now()
 		for _, node := range written {
-			ids, err := db.New(tx).WriteOff(ctx, db.WriteOffParams{At: now, NodeID: node})
+			q := db.New(tx)
+			ids, err := q.ListUnparted(ctx, node)
 			if err != nil {
+				return err
+			}
+			if err := q.WriteOff(ctx, db.WriteOffParams{At: now, NodeID: node}); err != nil {
 				return err
 			}
 			parted = append(parted, ids...)

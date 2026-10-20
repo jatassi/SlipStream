@@ -144,10 +144,10 @@ func (h *heard) Publish(_ context.Context, c dc.Changed) {
 	h.changed = append(h.changed, c.IDs...)
 }
 
-func (h *heard) touch(nodes ...role.NodeID) {
+func (h *heard) touch(ids ...role.NodeID) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.touched = append(h.touched, nodes...)
+	h.touched = append(h.touched, ids...)
 }
 
 func (h *heard) touchedNodes() []role.NodeID {
@@ -355,7 +355,7 @@ func TestARemovePreviewNamesWhatItCancelsStopsAndFrees(t *testing.T) {
 	_, preview := act(t, c, dc.Action{Kind: dc.Remove, IDs: []dc.ID{s.orchard, s.attic, s.harbor}, DryRun: true})
 	if preview == nil || !slices.Equal(preview.Cancels, []dc.Use{downloading}) || !slices.Equal(preview.StopSeeding, []works.WorkID{harborWork}) ||
 		preview.Frees == nil || *preview.Frees != 624 || !preview.Linked {
-		t.Fatalf("the preview is %+v, want the Orchard's Grab cancelled, the Harbor's Work no longer seeded, 624 bytes freed and a library file", preview)
+		t.Fatalf("the preview is %+v, want the Orchard's Grab canceled, the Harbor's Work no longer seeded, 624 bytes freed and a library file", preview)
 	}
 	if got := intentOf(t, s.lib, s.box); len(got) != 3 {
 		t.Errorf("after a preview seedbox's intent holds %v, want all three", got)

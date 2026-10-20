@@ -196,9 +196,9 @@ func seeding(t *testing.T, h node.Half) int {
 
 // launchSwarm launches home with seedbox's engines in swarm, followed by
 // box, and swarm's tracker at idleTracker answering by rules.
-func launchSwarm(t *testing.T, rules enginetest.TrackerRules, box *engines, opts ...sim.Option) (*sim.World, *enginetest.World) {
+func launchSwarm(t *testing.T, rules enginetest.TrackerRules, box *engines, opts ...sim.Option) (w *sim.World, swarm *enginetest.World) {
 	t.Helper()
-	swarm := enginetest.NewWorld()
+	swarm = enginetest.NewWorld()
 	swarm.Tracker(idleTracker, rules)
 	opts = append(opts, onSeedbox(func(e *node.Env) { e.Engine = box.wrap(swarm.Open) }))
 	return sim.Launch(t, home(t), opts...), swarm
