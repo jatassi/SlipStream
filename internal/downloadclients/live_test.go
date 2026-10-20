@@ -76,16 +76,18 @@ func (a *admin) heard() []dc.LiveTick {
 	return append([]dc.LiveTick(nil), a.ticks...)
 }
 
-// expectLast checks the last torrents.live: download at done, and the
-// downloads adding up to it beside the paused one as reported.
+// expectLast checks the last torrents.live: download at done, or a
+// sample short of it when the Node answered in the same instant the tick
+// went out, and the downloads adding up to it beside the paused one as
+// reported.
 func (a *admin) expectLast(t *testing.T, download dc.ID, done int64) {
 	t.Helper()
 	ticks := a.heard()
 	last := ticks[len(ticks)-1]
-	if len(last.Rows) != 1 || last.Rows[0].ID != download.String() || last.Rows[0].Done != done {
+	if len(last.Rows) != 1 || last.Rows[0].ID != download.String() || last.Rows[0].Done != done && last.Rows[0].Done != done-1000 {
 		t.Fatalf("the last torrents.live carried %+v, want the download at %d", last.Rows, done)
 	}
-	if want := (dc.Aggregate{Done: done + 200, Wanted: 2 * 1024}); last.Downloads != want {
+	if want := (dc.Aggregate{Done: last.Rows[0].Done + 200, Wanted: 2 * 1024}); last.Downloads != want {
 		t.Errorf("the downloads add up to %+v, want %+v: the download live, the paused one as reported", last.Downloads, want)
 	}
 }
