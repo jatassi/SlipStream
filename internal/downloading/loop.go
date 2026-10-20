@@ -3,6 +3,7 @@ package downloading
 import (
 	"context"
 	"errors"
+	"maps"
 	"net/url"
 	"path/filepath"
 	"slices"
@@ -376,6 +377,7 @@ func (l *loop) do(cmd plan.Command, now time.Time) time.Time {
 		if cmd.DeleteFiles {
 			t.freed = t.status.Done
 		}
+		l.publish()
 		l.call(t, "remove a torrent", l.eng.Remove(t.handle, cmd.DeleteFiles))
 	case plan.Parted:
 		l.part(l.torrents[cmd.Hash])
@@ -422,17 +424,18 @@ func (l *loop) call(t *torrent, what string, err error) {
 }
 
 func (l *loop) release() error {
-	for _, t := range l.torrents {
-		if t.handle != 0 && t.Phase != plan.Parting {
-			l.call(t, "remove a torrent", l.eng.Remove(t.handle, false))
-		}
-		l.ledger.Forget(t.Hash)
-	}
+	held := slices.Collect(maps.Values(l.torrents))
 	clear(l.torrents)
 	clear(l.byHandle)
 	clear(l.rows)
 	l.parted, l.intent = nil, role.Snapshot[*dlv1.Intent]{}
 	l.publish()
+	for _, t := range held {
+		if t.handle != 0 && t.Phase != plan.Parting {
+			l.call(t, "remove a torrent", l.eng.Remove(t.handle, false))
+		}
+		l.ledger.Forget(t.Hash)
+	}
 	if l.local == nil {
 		return nil
 	}
@@ -481,7 +484,8 @@ func (l *loop) tick() {
 }
 
 // publish stores the finished torrents and the save folders for Path,
-// Seeding and Folders.
+// Seeding and Folders. Loop publishes before it asks the engine to remove
+// a torrent, as the engine forgets the handle Path would use at once.
 func (l *loop) publish() {
 	p := &published{finished: map[bencode.InfoHash]finished{}, folders: []string{l.c.cfg.Dir}}
 	for _, t := range l.torrents {
