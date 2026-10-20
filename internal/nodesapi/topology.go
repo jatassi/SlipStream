@@ -61,15 +61,15 @@ type storageVolume struct {
 }
 
 type downloadingResource struct {
-	Torrents []torrentView `json:"torrents" nullable:"false" doc:"Each Grab whose torrent the client keeps"`
+	Torrents []torrentView `json:"torrents" nullable:"false" doc:"Each Torrent the client keeps, in added order"`
 }
 
 type torrentView struct {
-	GrabID string `json:"grabId" format:"uuid"`
-	Title  string `json:"title"`
-	Done   int64  `json:"done" doc:"Bytes downloaded"`
-	Wanted int64  `json:"wanted" doc:"Bytes the torrent's selected files hold"`
-	Peers  int    `json:"peers"`
+	TorrentID string `json:"torrentId" format:"uuid"`
+	Title     string `json:"title" doc:"Its newest Grab's release, or its name once no Grab is left"`
+	Done      int64  `json:"done" doc:"Bytes downloaded, live while an Admin listens"`
+	Wanted    int64  `json:"wanted" doc:"Bytes the torrent's selected files hold"`
+	Peers     int    `json:"peers" doc:"0 while its Node isn't sampled"`
 }
 
 type topologyLink struct {
@@ -106,7 +106,7 @@ func topologyOf(t nodes.Topology) topology {
 			v.Resources.Downloading = &downloadingResource{Torrents: []torrentView{}}
 			for _, tr := range d.Torrents {
 				v.Resources.Downloading.Torrents = append(v.Resources.Downloading.Torrents, torrentView{
-					GrabID: tr.Grab.String(), Title: tr.Title, Done: tr.Done, Wanted: tr.Wanted, Peers: tr.Peers,
+					TorrentID: tr.ID.String(), Title: tr.Title, Done: tr.Done, Wanted: tr.Wanted, Peers: tr.Peers,
 				})
 			}
 		}

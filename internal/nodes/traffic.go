@@ -2,10 +2,11 @@ package nodes
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -15,7 +16,7 @@ import (
 type Traffic struct {
 	At    time.Time     `json:"at"`
 	Links []LinkTraffic `json:"links" nullable:"false" doc:"Every live link, between the Controller and a Worker"`
-	Nodes []NodeTraffic `json:"nodes" nullable:"false" doc:"Every Node whose torrent client reports, in id order"`
+	Nodes []NodeTraffic `json:"nodes" nullable:"false" doc:"Every Node whose torrent client is sampled, in id order"`
 }
 
 type LinkTraffic struct {
@@ -30,13 +31,14 @@ type NodeTraffic struct {
 	ID       string           `json:"id" format:"uuid"`
 	DownBps  int64            `json:"downBps" doc:"Payload bytes a second its torrents download"`
 	UpBps    int64            `json:"upBps" doc:"Payload bytes a second its torrents upload"`
-	Torrents []TorrentTraffic `json:"torrents" nullable:"false" doc:"Each Grab whose torrent its client keeps"`
+	Torrents []TorrentTraffic `json:"torrents" nullable:"false" doc:"Each Torrent its client sampled moving since an Admin began listening, in id order"`
 }
 
 type TorrentTraffic struct {
-	GrabID string `json:"grabId" format:"uuid"`
-	Done   int64  `json:"done"`
-	Peers  int    `json:"peers"`
+	TorrentID string `json:"torrentId" format:"uuid"`
+	Done      int64  `json:"done"`
+	Wanted    int64  `json:"wanted"`
+	Peers     int    `json:"peers"`
 }
 
 func (t Traffic) moving() bool {
@@ -62,13 +64,31 @@ type TrafficPublisher interface {
 	Listening() bool
 }
 
-// Grabbed is a Grab whose torrent a Node's client keeps, with the
-// torrent's progress as the Node last reported it.
-type Grabbed struct {
-	Grab         storage.UUID
-	InfoHash     bencode.InfoHash
+// Kept is a Torrent a Node's client keeps, titled by its newest Grab's
+// release or else its name, with its progress as the Node last reported
+// it.
+type Kept struct {
+	Torrent      storage.UUID
 	Title        string
 	Done, Wanted int64
+}
+
+// Torrents is each Node's client as its live samples show it, which
+// exist only while an Admin listens.
+type Torrents interface {
+	Live(node ID) (LiveClient, bool)
+}
+
+// LiveClient is a Node's client as last sampled: its payload rates and
+// each Torrent sampled moving since the samples began.
+type LiveClient struct {
+	DownBps, UpBps int64
+	Torrents       map[storage.UUID]LiveTorrent
+}
+
+type LiveTorrent struct {
+	Done, Wanted int64
+	Peers        int
 }
 
 // meter turns the link's byte counters, read at each sample, into rates.
@@ -109,8 +129,9 @@ func (m *meter) linkDown(id ID) {
 
 func perSecond(bytes int64, d time.Duration) int64 { return int64(float64(bytes) / d.Seconds()) }
 
-// sample reads every link's counters and, while an Admin listens,
-// publishes them while bytes move and once more after they stop.
+// sample reads every link's counters and, while an Admin listens, each
+// Node's live client, and publishes them while bytes move and once more
+// after they stop.
 func (s *Service) sample(ctx context.Context) {
 	now := time.Now()
 	t := Traffic{At: now, Links: []LinkTraffic{}, Nodes: []NodeTraffic{}}
@@ -132,6 +153,13 @@ func (s *Service) sample(ctx context.Context) {
 		t.Links = append(t.Links, LinkTraffic{A: s.self.String(), B: v.ID.String(), ABBps: sent, BABps: received, RTTMs: st.RTT.Milliseconds()})
 	}
 	listening := s.cfg.Traffic.Listening()
+	if listening {
+		for _, v := range board.nodes {
+			if c, ok := s.cfg.Torrents.Live(v.ID); ok {
+				t.Nodes = append(t.Nodes, nodeTraffic(v.ID, c))
+			}
+		}
+	}
 	moving := listening && t.moving()
 	s.meter.mu.Lock()
 	publish := moving || listening && s.meter.moving
@@ -140,4 +168,13 @@ func (s *Service) sample(ctx context.Context) {
 	if publish {
 		s.cfg.Traffic.Publish(ctx, t)
 	}
+}
+
+func nodeTraffic(id ID, c LiveClient) NodeTraffic {
+	n := NodeTraffic{ID: id.String(), DownBps: c.DownBps, UpBps: c.UpBps, Torrents: []TorrentTraffic{}}
+	for _, t := range slices.SortedFunc(maps.Keys(c.Torrents), storage.UUID.Compare) {
+		l := c.Torrents[t]
+		n.Torrents = append(n.Torrents, TorrentTraffic{TorrentID: t.String(), Done: l.Done, Wanted: l.Wanted, Peers: l.Peers})
+	}
+	return n
 }

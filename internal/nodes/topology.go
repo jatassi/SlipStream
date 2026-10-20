@@ -56,9 +56,9 @@ type Downloading struct {
 	Torrents []Torrent
 }
 
-// Torrent is one Grab whose torrent a Node's client keeps.
+// Torrent is one Torrent a Node's client keeps.
 type Torrent struct {
-	Grab   storage.UUID
+	ID     storage.UUID
 	Title  string
 	Done   int64
 	Wanted int64
@@ -107,9 +107,10 @@ func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], boar
 	if v.Standing == InStep && board.Who(role.Downloading).Serves(v.ID) {
 		kept, err := s.cfg.Kept(ctx, r, v.ID)
 		if err != nil {
-			return TopologyNode{}, fmt.Errorf("read the Grabs node %s keeps: %w", v.ID, err)
+			return TopologyNode{}, fmt.Errorf("read the Torrents node %s keeps: %w", v.ID, err)
 		}
-		n.Downloading = &Downloading{Torrents: torrentsOf(kept)}
+		live, _ := s.cfg.Torrents.Live(v.ID)
+		n.Downloading = &Downloading{Torrents: torrentsOf(kept, live)}
 	}
 	if board.Who(role.Storage).Serves(v.ID) {
 		f, err := s.cfg.Storage(ctx, r, v.ID)
@@ -121,11 +122,15 @@ func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], boar
 	return n, nil
 }
 
-// torrentsOf is each Grab of kept, in kept's order.
-func torrentsOf(kept []Grabbed) []Torrent {
+// torrentsOf is each Torrent of kept, in kept's order, with its live
+// sample when it has one.
+func torrentsOf(kept []Kept, live LiveClient) []Torrent {
 	out := make([]Torrent, len(kept))
-	for i, g := range kept {
-		out[i] = Torrent{Grab: g.Grab, Title: g.Title, Done: g.Done, Wanted: g.Wanted}
+	for i, k := range kept {
+		out[i] = Torrent{ID: k.Torrent, Title: k.Title, Done: k.Done, Wanted: k.Wanted}
+		if l, ok := live.Torrents[k.Torrent]; ok {
+			out[i].Done, out[i].Wanted, out[i].Peers = l.Done, l.Wanted, l.Peers
+		}
 	}
 	return out
 }

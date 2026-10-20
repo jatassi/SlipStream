@@ -203,6 +203,45 @@ message Parted {
   int64 freed = 2;
 }
 
+// DownloadingService is each downloading Node's client, as the Controller
+// calls it.
+service DownloadingService {
+  option (slipstream.node.v1.served_by) = {role: "downloading"};
+  // Watch answers after the Node's next live sample with the torrents whose
+  // rates, progress or peers moved since sample after, or with every
+  // torrent that moves when after is not the Node's last answer.
+  rpc Watch(WatchRequest) returns (WatchResponse);
+}
+
+message WatchRequest {
+  uint64 after = 1;
+}
+
+message WatchResponse {
+  // sample is one past after when the rows are what moved since after;
+  // any other number starts afresh.
+  uint64 sample = 1;
+  int64 at_unix_ms = 2;
+  // down_bps and up_bps are the Node's payload bytes a second since its
+  // previous sample.
+  int64 down_bps = 3;
+  int64 up_bps = 4;
+  repeated Live rows = 5;
+  // gone are the torrents the Node let go since sample after.
+  repeated bytes gone = 6;
+}
+
+// Live is one torrent as the Node sampled it.
+message Live {
+  bytes id = 1;
+  int64 down_bps = 2;
+  int64 up_bps = 3;
+  int64 done = 4;
+  int64 wanted = 5;
+  int32 peers = 6;
+  int32 seeds = 7;
+}
+
 // DownloadingControlService is the Controller, as a downloading Node calls
 // it.
 service DownloadingControlService {

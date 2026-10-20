@@ -78,14 +78,13 @@ func TestAReaderThatFallsBehindGetsDropped(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for range 64 {
-		<-e.Events()
-	}
-	if _, err := e.Add(add(false)); err != nil {
-		t.Fatal(err)
+	for i := range 63 {
+		if ev := <-e.Events(); ev == (engine.Dropped{}) {
+			t.Fatalf("event %d = Dropped, want the events queued before the drop first", i)
+		}
 	}
 	if ev := <-e.Events(); ev != (engine.Dropped{}) {
-		t.Fatalf("the first event after falling behind = %+v, want Dropped", ev)
+		t.Fatalf("the event after those queued before falling behind = %+v, want Dropped", ev)
 	}
 }
 

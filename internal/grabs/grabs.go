@@ -146,6 +146,8 @@ type Downloads interface {
 	// Moved is closed once a Node's reports that may move a Torrent's
 	// outcome commit.
 	Moved() <-chan struct{}
+	// Sample is a Torrent's live sample, false while it has none.
+	Sample(id downloadclients.ID) (downloadclients.Sample, bool)
 }
 
 // Roots is the library roots as a Grab reaches them: bytes go into a

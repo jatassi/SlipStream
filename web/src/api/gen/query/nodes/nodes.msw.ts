@@ -1100,9 +1100,9 @@ export const getGetTopologyResponseMock = (
                 (_, i) => i + 1,
               ).map(() => ({
                 done: faker.number.int(),
-                grabId: faker.string.uuid(),
                 peers: faker.number.int(),
                 title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                torrentId: faker.string.uuid(),
                 wanted: faker.number.int(),
               })),
             },

@@ -10,9 +10,10 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Kept is every Grab whose Torrent node's client keeps, with the release's
-// title, in its intent's order.
-func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]nodes.Grabbed, error) {
+// Kept is every Torrent node's client keeps, in its intent's order,
+// titled by its newest Grab's release, or by its name once no Grab is
+// left.
+func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]nodes.Kept, error) {
 	held, err := downloadclients.Kept(ctx, r, node)
 	if err != nil {
 		return nil, err
@@ -25,15 +26,17 @@ func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]node
 	if err != nil {
 		return nil, err
 	}
-	of := map[downloadclients.ID][]db.ListGrabsOfTorrentsRow{}
+	newest := map[downloadclients.ID]string{}
 	for _, row := range rows {
-		of[row.TorrentID] = append(of[row.TorrentID], row)
+		newest[row.TorrentID] = row.ReleaseTitle
 	}
-	var out []nodes.Grabbed
-	for _, h := range held {
-		for _, row := range of[h.ID] {
-			out = append(out, nodes.Grabbed{Grab: row.ID.UUID, InfoHash: h.InfoHash, Title: row.ReleaseTitle, Done: h.Done, Wanted: h.Size})
+	out := make([]nodes.Kept, len(held))
+	for i, h := range held {
+		title, ok := newest[h.ID]
+		if !ok {
+			title = h.Name
 		}
+		out[i] = nodes.Kept{Torrent: h.ID.UUID, Title: title, Done: h.Done, Wanted: h.Size}
 	}
 	return out, nil
 }

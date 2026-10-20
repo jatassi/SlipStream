@@ -63,8 +63,10 @@ var wantedOnWire = map[Wanted]dlv1.Wanted{Started: dlv1.Wanted_WANTED_STARTED, P
 type Held struct {
 	ID       ID
 	InfoHash bencode.InfoHash
-	Done     int64
-	Size     int64
+	// Name is the metainfo's name.
+	Name string
+	Done int64
+	Size int64
 }
 
 // Kept is node's live Torrents in added order.
@@ -79,7 +81,7 @@ func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]Held
 		if err != nil {
 			return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
 		}
-		out[i] = Held{ID: row.ID, InfoHash: bencode.InfoHash(row.InfoHash), Done: rep.done(row.Size), Size: row.Size}
+		out[i] = Held{ID: row.ID, InfoHash: bencode.InfoHash(row.InfoHash), Name: row.Name, Done: rep.done(row.Size), Size: row.Size}
 	}
 	return out, nil
 }

@@ -57,7 +57,7 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
         <InspectorSection title="Torrents">
           <ul className="flex flex-col gap-2">
             {node.torrents.map((torrent) => (
-              <li key={torrent.grabId} className="flex justify-between gap-3">
+              <li key={torrent.torrentId} className="flex justify-between gap-3">
                 <span className="min-w-0 truncate">{torrent.title}</span>
                 <span className="shrink-0 text-ink-3 tabular-nums">
                   {shareDone(torrent)} of {bytes(torrent.wanted)}
