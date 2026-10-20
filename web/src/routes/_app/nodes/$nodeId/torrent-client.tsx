@@ -49,7 +49,11 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/torrent-client")({
         <TorrentConnection node={node} online={node.standing === "in-step"} />
         <ClientLimits nodeId={node.id} />
         <p className="mt-6 text-ink-3">
-          <Link to="/activity/torrents" className="text-ink-2 underline hover:text-ink-1">
+          <Link
+            to="/activity/torrents"
+            search={{ node: node.id, tab: "all" }}
+            className="text-ink-2 underline hover:text-ink-1"
+          >
             Torrents
           </Link>{" "}
           shows what {node.name} downloads and seeds.

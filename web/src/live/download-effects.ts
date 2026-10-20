@@ -5,15 +5,19 @@ import {
 } from "../api/gen/query/downloadclients/downloadclients";
 import { getGetTopologyQueryKey } from "../api/gen/query/nodes/nodes";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
+import { spliceTorrents } from "./torrents-splice";
+import { takeTorrents } from "./torrents";
 import type { LiveEffects } from "./types";
 
 export const downloadEffects = {
-  "torrents.changed": (_data, { refresh }) => {
+  "torrents.changed": (data, { queryClient, refresh }) => {
+    void spliceTorrents(queryClient, data.ids);
     refresh({ queryKey: getGetTopologyQueryKey() });
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh({ queryKey: getListDownloadClientsQueryKey() });
   },
   "torrents.live": (data, { queryClient }) => {
+    takeTorrents(data);
     queryClient.setQueryData<ShellCounts>(
       getGetCountsQueryKey(),
       (counts) => counts && { ...counts, downloads: data.downloads },
