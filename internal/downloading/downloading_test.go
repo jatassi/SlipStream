@@ -587,7 +587,7 @@ func TestARestartResumesFromResumeDataAndSpreadsItsStarts(t *testing.T) {
 // TestAStopSavesTheResumeDataTheEngineDropped stops a client
 // seeding more torrents than the engine queues events for, so some of the
 // resume data it saves is dropped on the way. The client asks for it again
-// once the engine says so, and stops without waiting out
+// once the engine says so, and stops at once rather than waiting out
 // Timings.ShutdownSave.
 func TestAStopSavesTheResumeDataTheEngineDropped(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
@@ -606,8 +606,8 @@ func TestAStopSavesTheResumeDataTheEngineDropped(t *testing.T) {
 
 		start := time.Now()
 		c.stop()
-		if took := time.Since(start); took >= timings.ShutdownSave {
-			t.Errorf("the client took %v to stop, want its resume data saved before %v", took, timings.ShutdownSave)
+		if took := time.Since(start); took != 0 {
+			t.Errorf("the client took %v to stop, want no wait", took)
 		}
 	})
 }

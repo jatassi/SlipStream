@@ -29,8 +29,8 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
-// events is how many events wait for a reader before the engine drops
-// them and sends Dropped.
+// events is how many events wait for a reader, the last of them Dropped
+// once the engine drops the rest.
 const events = 64
 
 // firstPort is the first port a listen interface with port 0 tries.
@@ -192,8 +192,7 @@ type Engine struct {
 	// sent and recv are the payload bytes moved since the engine opened.
 	sent, recv int64
 
-	closed  bool
-	dropped bool
+	closed bool
 	// resync is set once events were dropped: the next PostUpdates carries
 	// every torrent.
 	resync   bool
@@ -818,25 +817,21 @@ func (e *Engine) with(h engine.Handle, f func(*torrent) error) error {
 	return f(t)
 }
 
-// emit queues ev without blocking. Once a reader falls behind it drops
-// events, and the next one it can queue is Dropped.
+// emit queues ev without blocking. As libtorrent's alert queue does, it
+// keeps the queue's last place for Dropped, so a reader that fell behind
+// reads Dropped once it has read what was queued before.
 func (e *Engine) emit(ev engine.Event) {
 	if e.closed {
 		return
 	}
-	if e.dropped {
-		select {
-		case e.events <- engine.Dropped{}:
-			e.dropped = false
-		default:
-			e.resync = true
-			return
-		}
-	}
-	select {
-	case e.events <- ev:
+	switch free := cap(e.events) - len(e.events); {
+	case free > 1:
+		e.events <- ev
+	case free == 1:
+		e.events <- engine.Dropped{}
+		e.resync = true
 	default:
-		e.dropped, e.resync = true, true
+		e.resync = true
 	}
 }
 
