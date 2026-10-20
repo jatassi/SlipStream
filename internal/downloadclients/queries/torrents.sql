@@ -70,8 +70,13 @@ WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL
 ORDER BY added_order;
 
 -- name: ListKept :many
-SELECT id, info_hash, size, report FROM downloadclients_torrent
+SELECT id, info_hash, name, size, report FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL
+ORDER BY added_order;
+
+-- name: ListDownloads :many
+SELECT id, size, wanted, report FROM downloadclients_torrent
+WHERE removed_at IS NULL AND completion IS NULL
 ORDER BY added_order;
 
 -- name: CountHeld :one

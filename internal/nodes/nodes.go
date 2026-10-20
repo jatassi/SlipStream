@@ -97,9 +97,11 @@ type Config struct {
 	Served []role.Served
 	// Owners keeps each Role's work: exactly one per Role of the table.
 	Owners []Owner
-	// Kept is the Grabs whose torrents a Node's client keeps.
-	Kept    func(ctx context.Context, r storage.Reader[file], node ID) ([]Grabbed, error)
-	Storage func(ctx context.Context, r storage.Reader[file], node ID) (StorageFigures, error)
+	// Kept is the Torrents a Node's client keeps, and Torrents their live
+	// samples.
+	Kept     func(ctx context.Context, r storage.Reader[file], node ID) ([]Kept, error)
+	Torrents Torrents
+	Storage  func(ctx context.Context, r storage.Reader[file], node ID) (StorageFigures, error)
 	// Facts is called after a holder's Role facts are stored, with the
 	// Role's name, as role.ControlsConfig.Facts is. It must not block.
 	Facts func(node ID, scope string)

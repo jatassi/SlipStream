@@ -4,7 +4,7 @@ export interface NodesNodeTraffic {
   /** Payload bytes a second its torrents download */
   downBps: number;
   id: string;
-  /** Each Grab whose torrent its client keeps */
+  /** Each Torrent its client sampled moving since an Admin began listening, in id order */
   torrents: NodesTorrentTraffic[];
   /** Payload bytes a second its torrents upload */
   upBps: number;

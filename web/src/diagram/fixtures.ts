@@ -106,7 +106,7 @@ const torrentsOf = (index: number): NodesTorrentView[] =>
     { title: "The Long Walk (2025)", wanted: 7.4e9, done: 0.62 },
     { title: "Severance S02E07", wanted: 2.1e9, done: 0.18 },
   ].map(({ title, wanted, done }, at) => ({
-    grabId: `grab-${String(index)}-${String(at)}`,
+    torrentId: `torrent-${String(index)}-${String(at)}`,
     title,
     wanted,
     done: Math.round(wanted * done),
@@ -206,7 +206,8 @@ function sampleOf(nodes: readonly NodesTopologyNode[], at: string, step: number)
         downBps: 6_200_000 + step * 300_000,
         upBps: 900_000,
         torrents: (node.resources.downloading?.torrents ?? []).map((torrent) => ({
-          grabId: torrent.grabId,
+          torrentId: torrent.torrentId,
+          wanted: torrent.wanted,
           peers: torrent.peers,
           done: Math.min(torrent.wanted, torrent.done + step * 6_200_000),
         })),

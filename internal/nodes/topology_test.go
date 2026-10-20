@@ -2,6 +2,7 @@ package nodes_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -174,4 +175,54 @@ func still(s nodes.Traffic) bool {
 		}
 	}
 	return true
+}
+
+// sampled is a torrent client an Admin watches: each Node's moves one
+// Torrent, half done.
+type sampled struct{ torrent storage.UUID }
+
+func (s sampled) Live(nodes.ID) (nodes.LiveClient, bool) {
+	return nodes.LiveClient{
+		DownBps: 4096, UpBps: 1024,
+		Torrents: map[storage.UUID]nodes.LiveTorrent{s.torrent: {Done: 500, Wanted: 1000, Peers: 7}},
+	}, true
+}
+
+// TestTrafficAndTheTopologyReadLiveSamples has home's client keep two
+// Torrents, one of them sampled. nodes.traffic carries home's rates and
+// the sampled Torrent; the topology draws both Torrents, the sampled one
+// as sampled and the other as last reported.
+func TestTrafficAndTheTopologyReadLiveSamples(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		moving, resting := storage.NewUUID(), storage.NewUUID()
+		kept := func(context.Context, storage.Reader[storage.Library], nodes.ID) ([]nodes.Kept, error) {
+			return []nodes.Kept{
+				{Torrent: moving, Title: "Orchard", Done: 100, Wanted: 1000},
+				{Torrent: resting, Title: "Meadow", Done: 2000, Wanted: 2000},
+			}, nil
+		}
+		c := startController(t, func(cfg *nodes.Config) { cfg.Kept, cfg.Torrents = kept, sampled{moving} })
+		holder(t, role.InProcess(c.svc.Controls()))
+		c.apply(t, nodes.Roles{c.svc.Self(): role.Of(role.Downloading)})
+		time.Sleep(time.Minute)
+		synctest.Wait()
+
+		want := []nodes.Torrent{
+			{ID: moving, Title: "Orchard", Done: 500, Wanted: 1000, Peers: 7},
+			{ID: resting, Title: "Meadow", Done: 2000, Wanted: 2000},
+		}
+		if d := c.topology(t).Nodes[0].Downloading; d == nil || !slices.Equal(d.Torrents, want) {
+			t.Fatalf("home's Downloading reads %+v, want %+v", d, want)
+		}
+		home := nodes.NodeTraffic{
+			ID: c.svc.Self().String(), DownBps: 4096, UpBps: 1024,
+			Torrents: []nodes.TorrentTraffic{{TorrentID: moving.String(), Done: 500, Wanted: 1000, Peers: 7}},
+		}
+		samples := c.traffic.all()
+		if len(samples) == 0 || !slices.EqualFunc(samples[len(samples)-1].Nodes, []nodes.NodeTraffic{home}, func(a, b nodes.NodeTraffic) bool {
+			return a.ID == b.ID && a.DownBps == b.DownBps && a.UpBps == b.UpBps && slices.Equal(a.Torrents, b.Torrents)
+		}) {
+			t.Fatalf("nodes.traffic carried %+v, want home's client as %+v", samples, home)
+		}
+	})
 }

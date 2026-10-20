@@ -68,6 +68,9 @@ func (alone) WrittenOff(role.Name, role.NodeID) bool              { return false
 func (alone) Changed() <-chan struct{}                            { return nil }
 func (alone) Touch(...role.NodeID)                                {}
 func (alone) Moved() <-chan struct{}                              { return nil }
+func (alone) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
+	return downloadclients.Sample{}, false
+}
 
 type lapsing struct{ lapsed atomic.Bool }
 
