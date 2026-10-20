@@ -140,6 +140,7 @@ func (n *Node) startController(ctx context.Context) error {
 	for i, t := range holder.Testers {
 		providers[i] = t.Provider()
 	}
+	typeChanged := works.TypeChangedEvent.Bind(n.hub)
 	meta, err := metadata.Open(ctx, metadata.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -152,7 +153,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Timings:     n.cfg.Timings.Metadata,
 		Rand:        n.cacheRand,
 		Types:       n.env.Types.IDs(),
-		TypeChanged: works.TypeChangedEvent.Bind(n.hub),
+		TypeChanged: typeChanged,
 	})
 	if err != nil {
 		return err
@@ -164,7 +165,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
-		TypeChanged:  works.TypeChangedEvent.Bind(n.hub),
+		TypeChanged:  typeChanged,
 		Log:          n.rootLog.With("subsystem", "works"),
 	})
 	if err != nil {
