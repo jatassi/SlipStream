@@ -60,7 +60,7 @@ INSERT INTO downloadclients_torrent (
 );
 
 -- name: ListAttached :many
-SELECT id, info_hash, size, removed_reason, report, completion FROM downloadclients_torrent
+SELECT id, info_hash, size, removed_reason, report, completion, fault, fault_at FROM downloadclients_torrent
 WHERE id IN (sqlc.slice(ids))
 ORDER BY id;
 
@@ -85,6 +85,10 @@ WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND completion IS NULL;
 -- name: SetReport :execrows
 UPDATE downloadclients_torrent SET report = sqlc.arg(report), reported_at = sqlc.arg(reported_at)
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+
+-- name: SetFault :exec
+UPDATE downloadclients_torrent SET fault = sqlc.arg(fault), fault_at = sqlc.arg(fault_at)
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND fault IS NULL;
 
 -- name: SetSaveFolder :exec
 UPDATE downloadclients_torrent SET save_folder = sqlc.arg(save_folder)
