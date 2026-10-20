@@ -266,7 +266,7 @@ type art struct {
 	URL  string `json:"url" doc:"The artwork route for the image, without a size"`
 }
 
-// artOf is each kind's image in kind order.
+// artOf is each kind's image, by kind key.
 func artOf(m artwork.Minter, refs map[string]artwork.Ref) []art {
 	out := []art{}
 	for _, kind := range slices.Sorted(maps.Keys(refs)) {
