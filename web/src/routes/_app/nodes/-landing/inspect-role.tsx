@@ -44,7 +44,11 @@ function DownloadingLinks({ nodeId }: { nodeId: string }) {
       <Link to="/nodes/$nodeId/torrent-client" params={{ nodeId }} className="text-ink-1 underline">
         Torrent client
       </Link>
-      <Link to="/activity/torrents" className="text-ink-1 underline">
+      <Link
+        to="/activity/torrents"
+        search={{ node: nodeId, tab: "all" }}
+        className="text-ink-1 underline"
+      >
         Torrents
       </Link>
     </p>

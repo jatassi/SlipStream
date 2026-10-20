@@ -53,6 +53,9 @@ test("Torrent client leads with the port verdict, then its restart rows and live
   await expect
     .element(page.getByRole("switch", { name: "uTP, incoming and outgoing" }))
     .toBeChecked();
+  await expect
+    .element(page.getByRole("main").getByRole("link", { name: "Torrents" }))
+    .toHaveAttribute("href", `/activity/torrents?node=${homeId}&tab=all`);
 });
 
 test("a limit saves on its own, as the one field it changed", async () => {
