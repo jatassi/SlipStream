@@ -5,7 +5,7 @@
 .torrents [data-torrent-row] {
   display: grid;
   grid-template-columns:
-    auto minmax(0, 2.4fr) minmax(0, 1.6fr) minmax(0, 1.5fr) minmax(0, 0.55fr) minmax(0, 1fr)
+    auto minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1.5fr) minmax(0, 0.75fr) minmax(0, 1fr)
     minmax(0, 1.3fr) minmax(0, 1fr) auto;
   grid-template-areas: "pick work state progress ratio speed tracker node menu";
   align-items: center;

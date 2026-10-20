@@ -17,7 +17,7 @@ export function Numbers({
   live: LiveRow | undefined;
 }) {
   const progress = progressOf(row, live);
-  const eta = etaWords(live);
+  const eta = row.state === "downloading" ? etaWords(live) : "";
   const facts: Facts = [
     ["Progress", <Data key="p">{`${percentOf(progress)}% of ${bytes(progress.wanted)}`}</Data>],
     ...(eta === "" ? [] : ([["Time left", <Data key="t">{eta}</Data>]] as const)),
