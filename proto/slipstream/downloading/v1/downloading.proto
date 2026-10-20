@@ -66,8 +66,17 @@ message Facts {
   string user_agent = 3;
   // listen is the configured address and port.
   string listen = 4;
-  bool bound = 5;
+  reserved 5;
+  // listen_error is why the client has no listener, empty while it has one.
   string listen_error = 6;
+  // incoming_at_unix_ms is when a peer that proves the listen port
+  // reachable first connected in to where the client listens now, 0 while
+  // none has.
+  int64 incoming_at_unix_ms = 7;
+  // bound is the address and port the client listens on, empty while it
+  // has no listener. An unspecified listen address binds the address the
+  // host's default route leaves from, which can move.
+  string bound = 10;
 }
 
 // Report is one outbox entry: the torrents whose report changed, a totals

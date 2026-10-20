@@ -114,6 +114,19 @@ func (w *World) TakePort(ap netip.AddrPort) {
 	w.taken[ap] = true
 }
 
+// Move has the engine listening on from listen on to instead, as one on
+// an unspecified address follows the host's default route: it sends no
+// event, and only ListenAddr tells.
+func (w *World) Move(from, to netip.AddrPort) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, e := range w.engines {
+		if e.listen == from {
+			e.listen = to
+		}
+	}
+}
+
 // Transfer has the swarm move a torrent with hash at these payload rates,
 // down while it downloads a payload the World holds and up while it runs,
 // each held to its engine's limit. 0 stalls it.
@@ -336,16 +349,16 @@ func (e *Engine) Pause(h engine.Handle) error {
 	})
 }
 
-// pause pauses t now, or once no tracker awaits its answer to started.
+// pause pauses t now, or once no tracker awaits an answer.
 func (t *torrent) pause() {
 	t.pausing = true
 	t.settle()
 }
 
 // settle carries out the pause or removal of t that waited for its
-// trackers to answer started, once none awaits it.
+// trackers to answer, once none awaits an answer.
 func (t *torrent) settle() {
-	if t.trackers.awaitsStarted() {
+	if t.trackers.awaitsAnswer() {
 		return
 	}
 	if t.pausing {
@@ -785,6 +798,8 @@ func (t *torrent) deleteData() error {
 }
 
 func (e *Engine) ListenAddr() (netip.AddrPort, error) {
+	e.w.mu.Lock()
+	defer e.w.mu.Unlock()
 	if !e.listen.IsValid() {
 		return netip.AddrPort{}, engine.ErrNotListening
 	}
@@ -793,24 +808,21 @@ func (e *Engine) ListenAddr() (netip.AddrPort, error) {
 
 func (e *Engine) Events() <-chan engine.Event { return e.events }
 
-// Close stops every torrent's announcing, as libtorrent's session abort
-// sends stopped where started was answered.
+// Close pauses every torrent as Pause does, so stopped goes out where
+// started was answered once no announce awaits its answer.
 func (e *Engine) Close() error {
 	e.w.mu.Lock()
 	defer e.w.mu.Unlock()
 	if e.closed {
 		return nil
 	}
-	for _, t := range e.torrents {
-		t.stopTransfer()
-		t.trackers.stop()
-	}
-	for _, t := range e.parting {
-		t.trackers.stop()
-	}
 	e.w.engines = slices.DeleteFunc(e.w.engines, func(o *Engine) bool { return o == e })
 	e.closed = true
 	close(e.events)
+	for _, t := range e.torrents {
+		t.stopTransfer()
+		t.pause()
+	}
 	return nil
 }
 

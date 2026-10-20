@@ -149,7 +149,7 @@ func catalogPlan(t *testing.T, s scenario.Scenario) *fault.Plan {
 	for i, n := range s.Nodes {
 		names[i] = n.Name
 	}
-	plan := fault.NewPlan(planFronts(fakes, names, s.Releases), nil)
+	plan := fault.NewPlan(planFronts(fakes, names, s.Releases, s.Leecher), nil)
 	for _, spec := range fakes {
 		if _, err := spec.New(s, fake.NewEnv(s, spec, slog.New(slog.DiscardHandler), plan, discard{})); err != nil {
 			t.Fatal(err)

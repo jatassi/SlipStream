@@ -75,3 +75,22 @@ func TestBytesReadBackAsWritten(t *testing.T) {
 		t.Fatalf("8.2GiB = %d bytes, %v; want 8804682957", b, err)
 	}
 }
+
+func TestValidateChecksTheLeecher(t *testing.T) {
+	movies := &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}}
+	releases := []Release{
+		{Name: "A.2021.1080p", TMDBID: 1, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeded: true},
+		{Name: "A.2021.720p", TMDBID: 1, Video: Video{Width: 1280, Height: 720, Seconds: 6}},
+	}
+	for leecher, want := range map[Leecher]string{
+		{Node: "home", Release: "A.2021.1080p"}:     "",
+		{Node: "seedbox", Release: "A.2021.1080p"}:  "scenario x: leecher names node seedbox, which nodes does not list",
+		{Node: "home", Release: "A.2021.720p"}:      "scenario x: leecher names release A.2021.720p, which releases does not list as seeded",
+		{Node: "home", Release: "B.2021.1080p.WEB"}: "scenario x: leecher names release B.2021.1080p.WEB, which releases does not list as seeded",
+	} {
+		s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, TMDB: movies, Releases: releases, Leecher: &leecher}
+		if err := s.Validate(); want == "" && err != nil || want != "" && (err == nil || err.Error() != want) {
+			t.Errorf("Validate(leecher %+v) = %v, want %q", leecher, err, want)
+		}
+	}
+}

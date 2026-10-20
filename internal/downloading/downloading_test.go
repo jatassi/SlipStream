@@ -310,7 +310,7 @@ func (n *node) start() *client {
 	eng := &checks{Engine: e}
 	c := downloading.NewClient(downloading.Config{
 		Engine: eng, Dir: n.dir, Listen: listen, Timings: timings, RetryMin: time.Second, RetryMax: time.Minute,
-		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
+		Rand: rand.New(rand.NewPCG(1, 2)), ProvesPort: downloading.PublicPeer(false), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 	h := &holder{intents: make(chan role.Snapshot[*dlv1.Intent])}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -490,7 +490,7 @@ func TestSettingsApplyLiveFromTheIntent(t *testing.T) {
 		limited := live(f.started(id, 1))
 		limited.Intent.Settings = &dlv1.Settings{DownloadLimit: 100, ActiveDownloads: 3, ActiveChecks: 1, Connections: 50, StalledAfterSeconds: 600}
 		c.send(limited)
-		if got, want := c.engine.running(), (engine.Limits{DownloadLimit: 100, Connections: 50}); got != want {
+		if got, want := c.engine.running(), (engine.Limits{DownloadLimit: 100, Connections: 50, WatchIncoming: true}); got != want {
 			t.Fatalf("the engine runs with %+v, want the intent's %+v", got, want)
 		}
 		time.Sleep(time.Minute)
@@ -502,7 +502,7 @@ func TestSettingsApplyLiveFromTheIntent(t *testing.T) {
 		unlimited := live(f.started(id, 1))
 		unlimited.Intent.Settings = &dlv1.Settings{ActiveDownloads: 3, ActiveChecks: 1, Connections: 8000, Utp: true, StalledAfterSeconds: 600}
 		c.send(unlimited)
-		if got, want := c.engine.running(), (engine.Limits{Connections: 8000, UTP: true}); got != want {
+		if got, want := c.engine.running(), (engine.Limits{Connections: 8000, UTP: true, WatchIncoming: true}); got != want {
 			t.Fatalf("the engine runs with %+v once the settings changed, want %+v", got, want)
 		}
 		time.Sleep(40 * time.Second)
@@ -833,7 +833,7 @@ func TestTheFactsNameTheEngineAndWhetherItListens(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := newNode(t, enginetest.TrackerRules{})
 		c := n.start()
-		want := &dlv1.Facts{Libtorrent: "0.0.0", PeerIdPrefix: "-LT0000-", UserAgent: "libtorrent/0.0.0.0", Listen: listen.String(), Bound: true}
+		want := &dlv1.Facts{Libtorrent: "0.0.0", PeerIdPrefix: "-LT0000-", UserAgent: "libtorrent/0.0.0.0", Listen: listen.String(), Bound: listen.String()}
 		if got := c.h.lastFacts(); !proto.Equal(got, want) {
 			t.Fatalf("facts = %v, want %v", got, want)
 		}

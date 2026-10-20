@@ -683,6 +683,22 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "leecher": {
+      "properties": {
+        "node": {
+          "type": "string"
+        },
+        "release": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "node",
+        "release"
+      ]
+    },
     "library": {
       "properties": {
         "roots": {

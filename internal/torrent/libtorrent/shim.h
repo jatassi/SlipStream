@@ -174,7 +174,7 @@ typedef struct {
    regular announces to a tracker. */
 /* A session binds the port it is given or none, and then posts LISTEN_FAILED.
    An empty address listens nowhere. */
-lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, lts_error* err);
+lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err);
 int lts_configure(lts_session* s, const lts_limits* l, lts_error* err);
 /* The peer fingerprint and user agent the session announces with. */
 int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char* user_agent, size_t user_agent_len, lts_error* err);
@@ -184,7 +184,7 @@ int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 /* Adds the torrent paused and not auto-managed, whatever resume data says. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
 int lts_connect_peer(lts_session* s, int64_t torrent, const char* address, uint16_t port, lts_error* err);
-/* Pauses gracefully once no tracker awaits its answer to started. */
+/* Pauses gracefully once no tracker awaits an answer. */
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err);
 int lts_resume(lts_session* s, int64_t torrent, lts_error* err);
 /* Checks a paused torrent's files and pauses it again: CHECKED, then PAUSED. */
@@ -198,7 +198,7 @@ int lts_post_trackers(lts_session* s, int64_t torrent, lts_error* err);
    DROPPED. */
 int lts_post_updates(lts_session* s, lts_error* err);
 int lts_post_stats(lts_session* s, lts_error* err);
-/* Removes once no tracker awaits its answer to started. With delete_files it
+/* Removes once no tracker awaits an answer. With delete_files it
    deletes the torrent's files, then its save path if left empty, and posts
    FILES_DELETED after REMOVED. */
 int lts_remove(lts_session* s, int64_t torrent, int32_t delete_files, lts_error* err);
@@ -212,6 +212,7 @@ void lts_free_files(lts_file* files, int32_t count);
 /* Single consumer. Returns the number of alerts copied into out, or -1. */
 int lts_wait_alerts(lts_session* s, int timeout_ms, lts_alert* out, int max, lts_error* err);
 void lts_free_alert(lts_alert* a);
+/* Pauses every torrent as lts_pause does, waits until each has, and closes. */
 int lts_close(lts_session* s, lts_error* err);
 const char* lts_version(void);
 

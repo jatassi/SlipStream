@@ -472,24 +472,26 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 // which reads its events from now on, claimed or not.
 func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) error {
 	torrent, err := n.env.Engine(engine.Config{
-		ListenInterface: cfg.Torrent.Listen,
-		AnnounceFloor:   cfg.Timings.Downloading.AnnounceFloor,
-		RouteCheck:      cfg.Timings.Downloading.RouteCheck,
-		Rand:            torrentRand,
+		ListenInterface:   cfg.Torrent.Listen,
+		AnnounceFloor:     cfg.Timings.Downloading.AnnounceFloor,
+		RouteCheck:        cfg.Timings.Downloading.RouteCheck,
+		Rand:              torrentRand,
+		PeersShareAddress: cfg.Torrent.LoopbackPeers,
 	})
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}
 	n.torrent = torrent
 	n.downloads = downloading.NewClient(downloading.Config{
-		Engine:   torrent,
-		Dir:      n.env.DataDir.Resolve(cfg.Torrent.Downloads),
-		Listen:   cfg.Torrent.Listen,
-		Timings:  cfg.Timings.Downloading,
-		RetryMin: cfg.Timings.Role.RestartMin,
-		RetryMax: cfg.Timings.Role.RestartMax,
-		Rand:     torrentRand,
-		Log:      n.rootLog.With("subsystem", "downloading"),
+		Engine:     torrent,
+		Dir:        n.env.DataDir.Resolve(cfg.Torrent.Downloads),
+		Listen:     cfg.Torrent.Listen,
+		Timings:    cfg.Timings.Downloading,
+		RetryMin:   cfg.Timings.Role.RestartMin,
+		RetryMax:   cfg.Timings.Role.RestartMax,
+		Rand:       torrentRand,
+		ProvesPort: downloading.PublicPeer(cfg.Torrent.LoopbackPeers),
+		Log:        n.rootLog.With("subsystem", "downloading"),
 	})
 	n.stack.Go("torrent client", n.downloads.Loop)
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })

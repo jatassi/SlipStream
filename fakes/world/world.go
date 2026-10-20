@@ -24,6 +24,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/jatassi/slipstream/fakes/events"
@@ -87,6 +88,7 @@ type Run struct {
 	accounts  []setup.Account
 	control   *control.Server
 	captures  *captures
+	leecher   atomic.Pointer[leeching]
 
 	// manifestMu guards the manifest and whether manifest.json holds it.
 	manifestMu sync.Mutex
@@ -556,6 +558,8 @@ func (r *Run) startNodes(ctx context.Context, undo *unwind) error {
 		return fmt.Errorf("node logs: %w", err)
 	}
 	r.serveLinkFronts()
+	r.armLeecher()
+	undo.push(r.stopLeecher)
 	for _, n := range r.nodes {
 		if err := r.startNode(ctx, undo, n); err != nil {
 			return err

@@ -96,7 +96,10 @@ type Config struct {
 	RetryMin, RetryMax time.Duration
 	// Rand is the torrent stream, after the engine's Open used it.
 	Rand *rand.Rand
-	Log  *slog.Logger
+	// ProvesPort says whether an incoming peer at an address proves the
+	// listen port reachable from the internet: PublicPeer.
+	ProvesPort func(netip.Addr) bool
+	Log        *slog.Logger
 }
 
 // Client is a Node's built-in client, one per Node from the moment its

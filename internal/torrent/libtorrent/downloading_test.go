@@ -143,7 +143,7 @@ func TestDownloadingLetsTorrentsGoAndKeepsTheirFiles(t *testing.T) {
 	e := &added{Engine: open(t), handles: map[bencode.InfoHash]engine.Handle{}, resumed: map[engine.Handle]bool{}}
 	c := downloading.NewClient(downloading.Config{
 		Engine: e, Dir: dir, Timings: downloading.DefaultTimings(), RetryMin: time.Second, RetryMax: time.Second,
-		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
+		Rand: rand.New(rand.NewPCG(1, 2)), ProvesPort: downloading.PublicPeer(false), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 	ids := map[bencode.InfoHash]storage.UUID{first.hash: storage.NewUUID(), second.hash: storage.NewUUID()}
 	ctl := controller{ids[first.hash]: first.meta, ids[second.hash]: second.meta}

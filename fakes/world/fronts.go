@@ -22,13 +22,13 @@ import (
 // bindFronts binds every front before any fake is built, since the
 // release catalog and every address a Node sees name one: each fake as
 // each Node and the world reach it, each seeded release's seeder and each
-// bad peer as each Node reaches it, and each Node's link as every peer
-// reaches it.
+// bad peer as each Node reaches it, each Node's link as every peer
+// reaches it, and the leecher's Node as the leecher reaches it.
 func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
 		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
 	})
-	planned := planFronts(specs, r.nodeNames(), r.scenario.Releases)
+	planned := planFronts(specs, r.nodeNames(), r.scenario.Releases, r.scenario.Leecher)
 	r.faults = fault.NewPlan(planned, r.fired)
 	r.fronts = front.NewSet(r.faults, r.appendRecord, r.log)
 	undo.push(r.fronts.Close)
@@ -48,8 +48,8 @@ func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) e
 }
 
 // planFronts is every front a world of the fakes specs and the Nodes
-// nodes binds for releases.
-func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release) []fault.Front {
+// nodes binds for releases and the leecher.
+func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release, leecher *scenario.Leecher) []fault.Front {
 	var planned []fault.Front
 	for _, spec := range specs {
 		layers := fault.Conn | fault.HTTP
@@ -72,6 +72,9 @@ func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release) 
 	}
 	for _, name := range nodes {
 		planned = append(planned, fault.Front{Target: LinkTarget(name), Layers: fault.Conn})
+	}
+	if leecher != nil {
+		planned = append(planned, fault.Front{Target: LeecherTarget(leecher.Node), Origin: events.World, Layers: fault.Conn})
 	}
 	return planned
 }
