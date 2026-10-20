@@ -12,6 +12,13 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
+          - column: metadata_settings.id
+            go_type:
+              type: Singleton
+          - column: metadata_due.work_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
           - column: "*.*_sealed"
             go_type:
               import: github.com/jatassi/slipstream/internal/secret

@@ -9,10 +9,11 @@ import (
 
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 type MetadataDue struct {
-	WorkID []byte
+	WorkID works.WorkID
 	Reason string
 	Since  int64
 }
@@ -24,7 +25,7 @@ type MetadataKey struct {
 }
 
 type MetadataSetting struct {
-	ID                     int64
+	ID                     Singleton
 	Language               sql.NullString
 	Region                 sql.NullString
 	UnreleasedEverySeconds sql.NullInt64
