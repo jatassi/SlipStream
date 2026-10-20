@@ -53,7 +53,7 @@ func (cached) Search(context.Context, metadata.Ask, string) ([]works.Candidate, 
 
 func (c cached) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
 	c.h.add("fetch "+string(key), ask)
-	if err := c.line.Get(ctx, ask, metadata.Request{URL: c.base.JoinPath("movie", string(key)), Cache: true}, &body{}); err != nil {
+	if err := c.line.Get(ctx, ask, metadata.Request{URL: c.base.JoinPath("record", string(key)), Cache: true}, &body{}); err != nil {
 		return works.Fetched{}, err
 	}
 	return works.Fetched{Label: "The Attic"}, nil
@@ -97,7 +97,7 @@ func openShop(t *testing.T, nodes ...role.NodeID) *shop {
 		Changed:     &changes{},
 		Timings:     timings,
 		Rand:        seeded(),
-		Types:       []works.TypeID{"fixture", "music"},
+		Types:       []works.TypeID{"fixture", "shelf"},
 		TypeChanged: s.changed,
 	})
 	if err != nil {
@@ -136,18 +136,18 @@ func (s *shop) fetch(t *testing.T) metadata.Ask {
 // refreshed, by type.
 func (s *shop) refreshAll(t *testing.T) map[string]int64 {
 	t.Helper()
-	var fixture, music int64
+	var fixture, shelf int64
 	err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		return r.QueryRowContext(ctx, `SELECT
 			coalesce(max(CASE content_type WHEN 'fixture' THEN refresh_all_at END), 0),
-			coalesce(max(CASE content_type WHEN 'music' THEN refresh_all_at END), 0)
-			FROM metadata_type`).Scan(&fixture, &music)
+			coalesce(max(CASE content_type WHEN 'shelf' THEN refresh_all_at END), 0)
+			FROM metadata_type`).Scan(&fixture, &shelf)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := map[string]int64{}
-	for typ, at := range map[string]int64{"fixture": fixture, "music": music} {
+	for typ, at := range map[string]int64{"fixture": fixture, "shelf": shelf} {
 		if at != 0 {
 			out[typ] = at
 		}
@@ -172,7 +172,7 @@ func TestLanguageOrRegionMakesEveryWorkDue(t *testing.T) {
 	before := storage.Now().Time().UnixMicro()
 	s.set(t, map[string]any{"metadata.language": "fr-FR"})
 	due := s.refreshAll(t)
-	if len(due) != 2 || due["fixture"] < before || due["music"] < before {
+	if len(due) != 2 || due["fixture"] < before || due["shelf"] < before {
 		t.Fatalf("after a new language, refresh all = %v, want every Content Type since %d", due, before)
 	}
 	if ask := s.fetch(t); ask.Language != "fr-FR" || ask.Region != "US" {
@@ -185,7 +185,7 @@ func TestLanguageOrRegionMakesEveryWorkDue(t *testing.T) {
 	}
 
 	s.set(t, map[string]any{"metadata.region": "FR"})
-	if after := s.refreshAll(t); after["fixture"] <= due["fixture"] || after["music"] <= due["music"] {
+	if after := s.refreshAll(t); after["fixture"] <= due["fixture"] || after["shelf"] <= due["shelf"] {
 		t.Fatalf("after a new region, refresh all = %v, want later than %v", after, due)
 	}
 	if ask := s.fetch(t); ask.Region != "FR" {
@@ -213,7 +213,7 @@ func TestRegionChangeSendsOneTypeChangedPerType(t *testing.T) {
 	}
 
 	s.set(t, map[string]any{"metadata.region": "GB"})
-	if got := s.changed.take(); !slices.Equal(got, []string{"fixture", "music"}) {
+	if got := s.changed.take(); !slices.Equal(got, []string{"fixture", "shelf"}) {
 		t.Fatalf("a new region announced %v, want one works.type-changed per Content Type", got)
 	}
 	if got := region(); got != "GB" {
@@ -226,7 +226,7 @@ func TestRegionChangeSendsOneTypeChangedPerType(t *testing.T) {
 	}
 
 	s.set(t, map[string]any{"metadata.region": nil})
-	if got := s.changed.take(); !slices.Equal(got, []string{"fixture", "music"}) || region() != "US" {
+	if got := s.changed.take(); !slices.Equal(got, []string{"fixture", "shelf"}) || region() != "US" {
 		t.Fatalf("resetting the region announced %v and reads %s, want every type and US", got, region())
 	}
 }
