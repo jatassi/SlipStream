@@ -926,9 +926,14 @@ void lts_free_alert(lts_alert* a) {
 
 int lts_close(lts_session* s, lts_error* err) {
 	int rc = guard(err, [&] {
+		// Each torrent's next regular announce moves an announce floor away
+		// first, so none starts between settle seeing no tracker awaits an
+		// answer and the pause it posts.
+		int const floor = s->ses.get_settings().get_int(sp::min_announce_interval);
 		{
 			std::lock_guard<std::mutex> l(s->mu);
 			for (lt::torrent_handle const& h : s->ses.get_torrents()) {
+				h.force_reannounce(floor);
 				if (s->parting.count(h) == 0) pause(s, h);
 			}
 		}
