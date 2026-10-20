@@ -30,9 +30,10 @@ Preconditions:
 
 Steps:
 
-- **Preview, then add on that one read.** The preview names no OMDb rating and `events.jsonl` holds no `front.open` from home on `omdb` (doctor's own checks are from `world`). Fail TMDB's `movie` route, then add: 200 with the whole record, and `fault list` shows the rule never fired. Set `W` to the reply's `work.id`.
+- **Preview, then add on that one read.** The preview names no OMDb rating, and home's count of `front.open` records on `omdb` is the same before and after it (doctor's `every fake answers` opens one through each front). Fail TMDB's `movie` route, then add: 200 with the whole record, and `fault list` shows the rule never fired. Set `W` to the reply's `work.id`.
 
   ```sh
+  grep '"front.open","node":"home"' $RUN/events.jsonl | grep -c '"omdb"'
   $FW exec $RUN --proof movies/movies-preview-then-add -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000005'
   grep '"front.open","node":"home"' $RUN/events.jsonl | grep -c '"omdb"'
   $FW fault set $RUN second-fetch tmdb status=500 --route movie
