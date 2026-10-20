@@ -20,22 +20,6 @@ type Source struct {
 	omdb *omdb.Client
 }
 
-// Search answers TMDB's first page, whose 20 results fit works' 25.
-func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {
-	found, err := s.tmdb.SearchMovies(ctx, ask, query, 0, 1)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]works.Candidate, len(found.Results))
-	for i, r := range found.Results {
-		out[i] = works.Candidate{Key: works.Key(strconv.FormatInt(r.ID, 10)), Label: r.Title}
-		if y := year(r.ReleaseDate); y != nil {
-			out[i].Fields = []works.FieldValue{works.NumberField("year", float64(*y))}
-		}
-	}
-	return out, nil
-}
-
 // Fetch reads the movie whose TMDB id is key in one TMDB call, and its
 // OMDb ratings and awards when ask asks for ratings and the movie has an
 // IMDb id. A title OMDb doesn't know is read with none; an OMDb that

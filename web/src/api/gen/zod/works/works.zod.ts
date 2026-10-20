@@ -7,6 +7,7 @@ import {
   WorksContentTypeList,
   WorksEnabled,
   WorksNewWork,
+  WorksPreviewed,
   WorksSettingsChange,
   WorksTree,
   WorksTypeSettings,
@@ -32,6 +33,23 @@ export const SearchCatalogQueryParams = zod.object({
 });
 
 export const SearchCatalogResponse = WorksCandidateList;
+
+/**
+ * @summary Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings
+ */
+export const previewCatalogRecordPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const previewCatalogRecordPathKeyMax = 200;
+
+export const PreviewCatalogRecordParams = zod.object({
+  contentType: zod.string().regex(previewCatalogRecordPathContentTypeRegExp),
+  key: zod
+    .string()
+    .min(1)
+    .max(previewCatalogRecordPathKeyMax)
+    .describe("The Work's key at its metadata source"),
+});
+
+export const PreviewCatalogRecordResponse = WorksPreviewed;
 
 /**
  * @summary Turn a Content Type on or off; off only while it holds no Works
