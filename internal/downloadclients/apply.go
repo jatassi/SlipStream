@@ -35,6 +35,11 @@ type Config struct {
 	// changed.
 	Touch   func(nodes ...role.NodeID)
 	Changed Publisher[Changed]
+	// CardsChanged tells the Admins a Node's client card or settings
+	// moved.
+	CardsChanged Publisher[ClientsChanged]
+	// Facts is a Node's latest client facts, false while it has none.
+	Facts func(role.NodeID) (*dlv1.Facts, bool)
 	// Remote is a Node's client as the Controller calls it.
 	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
 	Roster Roster
@@ -52,6 +57,8 @@ type Roster interface {
 	WrittenOff(r role.Name, node role.NodeID) bool
 	// Changed is closed at the roster's next change.
 	Changed() <-chan struct{}
+	// Serving is every Node r is assigned to or drains, in id order.
+	Serving(r role.Name) []role.NodeID
 }
 
 // Clients applies each Node's reports and tells their readers once they

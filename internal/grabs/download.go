@@ -22,9 +22,14 @@ func (TorrentUses) Of(ctx context.Context, r storage.Reader[file], ids []downloa
 	}
 	out := map[downloadclients.ID][]downloadclients.Use{}
 	for _, row := range slices.Backward(rows) {
-		out[row.TorrentID] = append(out[row.TorrentID], downloadclients.Use{
-			Grab: row.ID.UUID, Work: row.WorkID, Release: row.ReleaseTitle, Stage: useStages[row.Stage],
-		})
+		u := downloadclients.Use{
+			Grab: row.ID.UUID, Work: row.WorkID, Item: row.ItemID, Edition: string(row.Edition), Release: row.ReleaseTitle,
+			Stage: useStages[row.Stage], Created: row.CreatedAt.Time(),
+		}
+		if row.FileIndex != nil {
+			u.File = new(int(*row.FileIndex))
+		}
+		out[row.TorrentID] = append(out[row.TorrentID], u)
 	}
 	return out, nil
 }

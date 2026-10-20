@@ -107,6 +107,22 @@
         ],
         "type": "object"
       },
+      "DownloadclientsClientsChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeIds": {
+            "description": "The Nodes whose built-in client's card or settings changed",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodeIds"
+        ],
+        "type": "object"
+      },
       "DownloadclientsLiveRow": {
         "additionalProperties": false,
         "properties": {
@@ -13161,6 +13177,32 @@
                   "description": "Each oneOf object in the array represents one possible Server Sent Events (SSE) message, serialized as UTF-8 text according to the SSE specification.",
                   "items": {
                     "oneOf": [
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/DownloadclientsClientsChanged"
+                          },
+                          "event": {
+                            "const": "download-clients.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event download-clients.changed",
+                        "type": "object"
+                      },
                       {
                         "properties": {
                           "data": {

@@ -20,12 +20,22 @@ import (
 )
 
 // roster is the Nodes as a test sets them: in step or not, written off or
-// not, with a change closing changed.
+// not, serving Downloading or not, with a change closing changed.
 type roster struct {
 	mu         sync.Mutex
 	away       map[role.NodeID]bool
 	writtenOff map[role.NodeID]bool
+	serving    []role.NodeID
 	changed    chan struct{}
+}
+
+func (r *roster) Serving(name role.Name) []role.NodeID {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if name != role.Downloading {
+		return nil
+	}
+	return slices.Clone(r.serving)
 }
 
 func (r *roster) InStep(node role.NodeID) bool {

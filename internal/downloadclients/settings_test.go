@@ -55,7 +55,8 @@ func TestEveryClientSettingIsDeclaredSoundly(t *testing.T) {
 func TestNodeSettingsReadDefaultsWhenAbsent(t *testing.T) {
 	lib := open(t)
 	node := addNode(t, lib, "seedbox")
-	o, err := dc.New(dc.Config{Library: lib}).NodeSettings(t.Context(), node)
+	c := dc.New(dc.Config{Library: lib})
+	o, err := c.NodeSettings(t.Context(), node)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,7 @@ func TestNodeSettingsReadDefaultsWhenAbsent(t *testing.T) {
 	if got := o.Settings(); got != want {
 		t.Errorf("settings = %+v, want %+v", got, want)
 	}
-	th, err := dc.ThresholdOverridesOf(t.Context(), lib)
+	th, err := c.Thresholds(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,8 +83,8 @@ func parsed[T any](s setting.Stored[T], err error) *setting.Stored[T] {
 func TestNodeSettingsAreEachNodesOwnAndReachItsIntent(t *testing.T) {
 	lib := open(t)
 	seedbox, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
-	r := &readers{}
-	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r})
+	r, cards := &readers{}, &told{}
+	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r, CardsChanged: cards})
 	limit := int64(512 * 1024)
 	off := false
 	set := func(ch dc.NodeChange) dc.NodeSettings {
@@ -112,6 +113,9 @@ func TestNodeSettingsAreEachNodesOwnAndReachItsIntent(t *testing.T) {
 	if !slices.Equal(r.touched, []role.NodeID{seedbox}) {
 		t.Errorf("touched %v, want seedbox's intent alone", r.touched)
 	}
+	if want := [][]string{{seedbox.String()}}; !slices.EqualFunc(cards.nodes, want, slices.Equal) {
+		t.Errorf("download-clients.changed named %v, want seedbox once", cards.nodes)
+	}
 	var in *dlv1.Intent
 	err := lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
 		var err error
@@ -127,17 +131,40 @@ func TestNodeSettingsAreEachNodesOwnAndReachItsIntent(t *testing.T) {
 	}
 }
 
-func TestThresholdsKeepWhatIsLeft(t *testing.T) {
+// told is the download-clients.changed events published.
+type told struct{ nodes [][]string }
+
+func (t *told) Publish(_ context.Context, c dc.ClientsChanged) { t.nodes = append(t.nodes, c.NodeIDs) }
+
+func TestThresholdsKeepWhatIsLeftAndReachEveryDownloadingNode(t *testing.T) {
 	lib := open(t)
+	seedbox, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
+	r, cards := &readers{}, &told{}
+	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r, CardsChanged: cards, Roster: &roster{serving: []role.NodeID{seedbox, home}}})
 	gap := int64(3600)
-	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return dc.SetThresholds(ctx, tx, dc.ThresholdChange{UnregisteredGap: parsed(dc.UnregisteredGap.Parse(&gap))})
-	})
-	o, err := dc.ThresholdOverridesOf(t.Context(), lib)
+	o, err := c.SetThresholds(t.Context(), dc.ThresholdChange{UnregisteredGap: parsed(dc.UnregisteredGap.Parse(&gap))})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := o.Thresholds(); got != (dc.Thresholds{FaultStall: 12 * time.Hour, UnregisteredGap: time.Hour}) {
 		t.Errorf("thresholds = %+v, want 12h and 1h", got)
+	}
+	if read, err := c.Thresholds(t.Context()); err != nil || read.Thresholds() != o.Thresholds() {
+		t.Errorf("read back %+v, %v; want %+v", read, err, o)
+	}
+	if !slices.Equal(r.touched, []role.NodeID{seedbox, home}) {
+		t.Errorf("touched %v, want both downloading Nodes' intents", r.touched)
+	}
+	if want := [][]string{{seedbox.String(), home.String()}}; !slices.EqualFunc(cards.nodes, want, slices.Equal) {
+		t.Errorf("download-clients.changed named %v, want both Nodes once", cards.nodes)
+	}
+	var in *dlv1.Intent
+	err = lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
+		var err error
+		in, err = dc.Intent(ctx, rd, home)
+		return err
+	})
+	if err != nil || in.GetThresholds().GetUnregisteredGapSeconds() != 3600 || in.GetThresholds().GetFaultStallSeconds() != 12*3600 {
+		t.Errorf("home's intent carries %v, %v; want the new gap and the default stall", in.GetThresholds(), err)
 	}
 }

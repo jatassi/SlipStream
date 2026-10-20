@@ -104,9 +104,11 @@ func (n *Node) startController(ctx context.Context) error {
 		cluster   *rpc.Cluster
 	)
 	clients := downloadclients.New(downloadclients.Config{
-		Library: lib.db,
-		Touch:   func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
-		Changed: downloadclients.ChangedEvent.Bind(n.hub),
+		Library:      lib.db,
+		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
+		Changed:      downloadclients.ChangedEvent.Bind(n.hub),
+		CardsChanged: downloadclients.ClientsChangedEvent.Bind(n.hub),
+		Facts:        func(id role.NodeID) (*dlv1.Facts, bool) { return downloads.Facts(id) },
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
@@ -143,7 +145,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
 			return library.Figures(ctx, r, id)
 		},
-		Facts:   arrivals.Note,
+		Facts: func(id role.NodeID, scope string) {
+			arrivals.Note(id, scope)
+			clients.Arrived(id, scope)
+		},
 		Applied: clients.Applied,
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
@@ -318,6 +323,8 @@ func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
 }
 
 func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
+
+func (r openedRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Serving(name) }
 
 // today is the time now in the Controller's zone.
 func (n *Node) today() time.Time {

@@ -208,7 +208,7 @@ func (c *Clients) fold(node role.NodeID, n *watched, after uint64, res *dlv1.Wat
 }
 
 func (c *Clients) publishLive(ctx context.Context) {
-	agg, err := c.aggregate(ctx)
+	agg, err := c.Downloads(ctx)
 	if err != nil {
 		if ctx.Err() == nil {
 			c.cfg.Log.Error("add up the downloads", "err", err.Error())
@@ -233,9 +233,9 @@ func (c *Clients) publishLive(ctx context.Context) {
 	}
 }
 
-// aggregate adds up the downloads, each at its live sample while it has
+// Downloads adds up the downloads, each at its live sample while it has
 // one, else as its Node last reported it.
-func (c *Clients) aggregate(ctx context.Context) (Aggregate, error) {
+func (c *Clients) Downloads(ctx context.Context) (Aggregate, error) {
 	rows, err := db.New(c.cfg.Library).ListDownloads(ctx)
 	if err != nil {
 		return Aggregate{}, err

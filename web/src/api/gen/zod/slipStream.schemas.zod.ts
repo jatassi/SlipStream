@@ -59,6 +59,15 @@ export const DownloadclientsChanged = zod.object({
 export type DownloadclientsChanged = zod.input<typeof DownloadclientsChanged>;
 export type DownloadclientsChangedOutput = zod.output<typeof DownloadclientsChanged>;
 
+export const DownloadclientsClientsChanged = zod.object({
+  nodeIds: zod
+    .array(zod.string())
+    .describe("The Nodes whose built-in client's card or settings changed"),
+});
+
+export type DownloadclientsClientsChanged = zod.input<typeof DownloadclientsClientsChanged>;
+export type DownloadclientsClientsChangedOutput = zod.output<typeof DownloadclientsClientsChanged>;
+
 export const DownloadclientsLiveRow = zod.object({
   done: zod.int().describe("Bytes downloaded"),
   downBps: zod.int().describe("Payload bytes a second it downloads"),
@@ -3917,6 +3926,16 @@ export const WorksWorkList = zod.object({
 export type WorksWorkList = zod.input<typeof WorksWorkList>;
 export type WorksWorkListOutput = zod.output<typeof WorksWorkList>;
 
+export const LiveEventDownloadClientsChanged = zod.object({
+  event: zod.enum(["download-clients.changed"]),
+  data: DownloadclientsClientsChanged,
+});
+
+export type LiveEventDownloadClientsChanged = zod.input<typeof LiveEventDownloadClientsChanged>;
+export type LiveEventDownloadClientsChangedOutput = zod.output<
+  typeof LiveEventDownloadClientsChanged
+>;
+
 export const LiveEventFilesChanged = zod.object({
   event: zod.enum(["files.changed"]),
   data: FilesChanged,
@@ -4110,6 +4129,7 @@ export type LiveEventWorksContentTypesChangedOutput = zod.output<
 >;
 
 export const LiveEvent = zod.discriminatedUnion("event", [
+  LiveEventDownloadClientsChanged,
   LiveEventFilesChanged,
   LiveEventGrabsChanged,
   LiveEventGrabsSearchChanged,

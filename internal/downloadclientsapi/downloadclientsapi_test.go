@@ -34,6 +34,10 @@ func (unlinked) Stats(link.Key) (link.Stats, bool)            { return link.Stat
 
 type changes struct{}
 
+type told struct{}
+
+func (told) Publish(context.Context, downloadclients.ClientsChanged) {}
+
 func (changes) Publish(context.Context, nodes.Changed) {}
 
 type controller struct {
@@ -54,7 +58,7 @@ func serve(t *testing.T) (o *ownertest.Owner, self role.NodeID, touched *[]role.
 		t.Fatal(err)
 	}
 	touched = &[]role.NodeID{}
-	clients := downloadclients.New(downloadclients.Config{Library: lib, Touch: func(n ...role.NodeID) { *touched = append(*touched, n...) }})
+	clients := downloadclients.New(downloadclients.Config{Library: lib, Touch: func(n ...role.NodeID) { *touched = append(*touched, n...) }, CardsChanged: told{}})
 	o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, roster}) })
 	return o, roster.Self(), touched
 }
