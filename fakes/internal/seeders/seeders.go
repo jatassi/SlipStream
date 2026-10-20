@@ -69,6 +69,9 @@ func open(caFile string) (engine.Engine, error) {
 	if restore != nil {
 		return nil, errors.Join(fmt.Errorf("restore SSL_CERT_FILE: %w", restore), ses.Close())
 	}
+	if err := ses.Configure(engine.Limits{}); err != nil {
+		return nil, errors.Join(fmt.Errorf("dial TCP only: %w", err), ses.Close())
+	}
 	return ses, nil
 }
 

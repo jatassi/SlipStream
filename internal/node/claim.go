@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -242,6 +243,14 @@ func (s surfaceNode) Grabs() (*grabs.Grabs, bool) {
 		return nil, false
 	}
 	return h.grabs, true
+}
+
+func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.clients == nil {
+		return nil, false
+	}
+	return h.clients, true
 }
 
 func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {

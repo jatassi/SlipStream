@@ -69,6 +69,29 @@ func Steps(ctx context.Context, c *http.Client, s scenario.Scenario, ready []nod
 	return claims, members(ctx, c, s, controller, claims, set)
 }
 
+// TCPPeers is the database settings TCPOnly sets.
+var TCPPeers = []string{"downloading.utp"}
+
+// TCPOnly turns uTP off on every Node the setup steps set up, before any
+// Grab: fronts carry TCP only, and a uTP attempt at one costs a leecher
+// about 4 s before it falls back.
+func TCPOnly(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims) error {
+	i := slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Setup == scenario.SetupController })
+	if i < 0 {
+		return nil
+	}
+	off := false
+	for _, m := range claims.Members {
+		if m.ID == "" {
+			continue
+		}
+		if err := nodeapi.SetClientSettings(ctx, c, url(ready[i]), claims.APIKey, m.ID, nodeapi.ClientSettings{UTP: &off}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func claimController(ctx context.Context, c *http.Client, s scenario.Scenario, ready node.Ready) (apiKey, id string, err error) {
 	base := url(ready)
 	admin := s.Admin
