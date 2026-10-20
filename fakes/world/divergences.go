@@ -23,7 +23,7 @@ var divergences = []divergence{
 	{
 		id:          "loopback-listen",
 		keyPatterns: []string{"*.listen"},
-		reason:      "Every listener binds its Node's own 127.0.0.N on port 0.",
+		reason:      "Every listener binds its Node's own 127.0.0.N on port 0, the torrent client's on a port the world picked, since port 0 makes it draw from the seed concurrent runs share.",
 		spec:        "#130",
 	},
 	{
