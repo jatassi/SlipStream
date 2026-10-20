@@ -147,10 +147,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Service: func(node role.NodeID) metadatav1connect.MetadataServiceHandler {
 			return metadatav1connect.MetadataService.On(cluster, node)
 		},
-		Providers: providers,
-		Changed:   metadata.ChangedEvent.Bind(n.hub),
-		Timings:   n.cfg.Timings.Metadata,
-		Rand:      n.cacheRand,
+		Providers:  providers,
+		Changed:    metadata.ChangedEvent.Bind(n.hub),
+		Timings:    n.cfg.Timings.Metadata,
+		Rand:       n.cacheRand,
+		Minter:     lib.minter,
+		Local:      local,
+		ArtworkDir: n.env.DataDir.ArtworkDir(),
 	})
 	if err != nil {
 		return err
@@ -159,6 +162,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Library:      lib.db,
 		Catalogs:     contenttype.Project(opened, func(t contenttype.Library) works.Catalog { return t }),
 		Source:       meta,
+		Artwork:      meta,
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
@@ -345,7 +349,7 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		deps.Log = n.rootLog.With("subsystem", "contenttype."+string(t.ID()))
 		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
-	return metadata.HolderConfig{Types: sources, Testers: []metadata.Tester{deps.TMDB, deps.OMDb}}
+	return metadata.HolderConfig{Types: sources, Testers: []metadata.Tester{deps.TMDB, deps.OMDb}, Lines: lines}
 }
 
 // openLibraries opens every Content Type's library half, on the

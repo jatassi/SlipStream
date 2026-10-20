@@ -7836,6 +7836,59 @@
         ],
         "type": "object"
       },
+      "WorksArt": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "An artwork kind of the Content Type",
+            "type": "string"
+          },
+          "url": {
+            "description": "The artwork route for the image, without a size",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "url"
+        ],
+        "type": "object"
+      },
+      "WorksArtworkKind": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "shape": {
+            "enum": [
+              "poster",
+              "backdrop",
+              "logo",
+              "photo",
+              "cover"
+            ],
+            "type": "string"
+          },
+          "tier": {
+            "enum": [
+              "work",
+              "item"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "tier",
+          "shape"
+        ],
+        "type": "object"
+      },
       "WorksAvailability": {
         "additionalProperties": false,
         "properties": {
@@ -7879,6 +7932,13 @@
             "description": "One line; empty when the source has none",
             "type": "string"
           },
+          "posterUrl": {
+            "description": "The artwork route for the result's poster, without a size; null when the source has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "workId": {
             "description": "The Work, once it is in the library",
             "format": "uuid",
@@ -7894,6 +7954,7 @@
           "original",
           "overview",
           "fields",
+          "posterUrl",
           "workId"
         ],
         "type": "object"
@@ -7917,6 +7978,13 @@
       "WorksContentType": {
         "additionalProperties": false,
         "properties": {
+          "artwork": {
+            "description": "The kinds of image its Works and Items carry",
+            "items": {
+              "$ref": "#/components/schemas/WorksArtworkKind"
+            },
+            "type": "array"
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -7968,7 +8036,8 @@
           "work",
           "levels",
           "item",
-          "fields"
+          "fields",
+          "artwork"
         ],
         "type": "object"
       },
@@ -8146,6 +8215,13 @@
       "WorksItem": {
         "additionalProperties": false,
         "properties": {
+          "artwork": {
+            "description": "By kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
+          },
           "availability": {
             "$ref": "#/components/schemas/WorksAvailability",
             "description": "The day the Item counts as released and the rule that chose it; null while no date is known"
@@ -8208,6 +8284,7 @@
           "monitored",
           "fields",
           "ratings",
+          "artwork",
           "availability"
         ],
         "type": "object"
@@ -8305,6 +8382,13 @@
             "format": "date-time",
             "type": "string"
           },
+          "artwork": {
+            "description": "The Work's own images, by kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
+          },
           "contentType": {
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
@@ -8344,6 +8428,7 @@
         },
         "required": [
           "fields",
+          "artwork",
           "id",
           "contentType",
           "key",
@@ -8466,6 +8551,13 @@
           "name": {
             "type": "string"
           },
+          "photoUrl": {
+            "description": "The artwork route for the person's photo, without a size; null when the source has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "role": {
             "description": "The character played or the job done; empty when the source names none",
             "type": "string"
@@ -8474,7 +8566,8 @@
         "required": [
           "name",
           "role",
-          "department"
+          "department",
+          "photoUrl"
         ],
         "type": "object"
       },
@@ -8612,6 +8705,13 @@
             "format": "date-time",
             "type": "string"
           },
+          "artwork": {
+            "description": "The Work's own images, by kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
+          },
           "contentType": {
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
@@ -8672,6 +8772,7 @@
         "required": [
           "fields",
           "ratings",
+          "artwork",
           "levels",
           "items",
           "id",
@@ -11068,6 +11169,235 @@
           "identity"
         ],
         "x-slipstream-access": "reconfirmed"
+      }
+    },
+    "/artwork/{token}": {
+      "get": {
+        "operationId": "getArtwork",
+        "parameters": [
+          {
+            "description": "From an artwork URL the API answered",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "From an artwork URL the API answered",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "enum": [
+                "small",
+                "medium",
+                "large",
+                "original"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/svg+xml": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "artwork_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get an image SlipStream handed out, at a size; the address never changes what it answers",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "account"
       }
     },
     "/content-types": {

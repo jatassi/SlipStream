@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"sync"
 
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadata/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
@@ -61,6 +62,12 @@ type Config struct {
 	Timings Timings
 	// Rand draws the cache generation.
 	Rand *rand.Rand
+	// Minter opens the artwork tokens the API hands out.
+	Minter artwork.Minter
+	// Local indexes the artwork store, whose images are files under
+	// ArtworkDir.
+	Local      *storage.DB[storage.Local]
+	ArtworkDir string
 }
 
 type Publisher interface {
@@ -85,6 +92,8 @@ type Metadata struct {
 	yours    map[ProviderID]string
 	statuses map[ProviderID]*status
 	retests  map[reach]*retest
+
+	gallery *gallery
 }
 
 // New is the Controller's metadata with no Admin key read. Open reads
@@ -92,7 +101,7 @@ type Metadata struct {
 func New(cfg Config) *Metadata {
 	m := &Metadata{
 		cfg: cfg, generation: cfg.Rand.Uint64(), bundled: parseBundled(bundled), wake: make(chan struct{}, 1),
-		yours: map[ProviderID]string{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{},
+		yours: map[ProviderID]string{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{}, gallery: newGallery(),
 	}
 	for _, p := range cfg.Providers {
 		m.statuses[p.ID] = newStatus(p)
@@ -100,11 +109,15 @@ func New(cfg Config) *Metadata {
 	return m
 }
 
-// Open is New with the Admin keys library.db holds. It reaches no
-// provider: status starts unused, and Run retests what calls find
-// unreachable.
+// Open is New with the Admin keys library.db holds and the artwork store.
+// It reaches no provider: status starts unused, and Run retests what calls
+// find unreachable.
 func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 	m := New(cfg)
+	var err error
+	if m.gallery.store, err = openStore(ctx, cfg); err != nil {
+		return nil, err
+	}
 	rows, err := db.New(cfg.Library).ListKeys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read the metadata keys: %w", err)
@@ -176,7 +189,7 @@ func send[R reply](ctx context.Context, m *Metadata, do func(context.Context, me
 // the holder PickOther chooses. While no Node may take metadata, or no
 // holder answered in time, the call is ErrUnavailable saying why. A holder
 // that answered with an error ran into a bug of the type.
-func call[R reply](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, role.NodeID, error) {
+func call[R any](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, role.NodeID, error) {
 	var none R
 	node, ok := m.cfg.Roster.Pick(role.Metadata, m.cfg.Roster.Self())
 	if !ok {

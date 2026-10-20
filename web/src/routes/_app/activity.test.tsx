@@ -22,6 +22,7 @@ const harvest: WorksListedWork = {
   refreshedAt: "2026-10-11T09:00:00Z",
   goneUpstreamAt: null,
   fields: [],
+  artwork: [],
 };
 
 const failed: GrabsGrab = {
@@ -58,6 +59,7 @@ function activityServer() {
           refreshedAt: orchard.refreshedAt,
           goneUpstreamAt: null,
           fields: orchard.fields,
+          artwork: [],
         },
       ],
     }),

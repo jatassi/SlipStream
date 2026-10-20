@@ -34,7 +34,7 @@ type MetadataSetting struct {
 	FollowChanges          sql.NullInt64
 	RatingsEverySeconds    sql.NullInt64
 	CacheForSeconds        sql.NullInt64
-	ArtworkStoreMb         sql.NullInt64
+	ArtworkStoreMb         *int64
 }
 
 type MetadataType struct {
