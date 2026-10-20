@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
@@ -47,6 +48,8 @@ type cached struct {
 	h    *heard
 }
 
+func (cached) Sources() []artwork.Source { return nil }
+
 func (cached) Search(context.Context, metadata.Ask, string) ([]works.Candidate, error) {
 	return nil, nil
 }
@@ -65,6 +68,8 @@ func (c cached) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wor
 type shop struct {
 	m       *metadata.Metadata
 	lib     *storage.DB[storage.Library]
+	local   *storage.DB[storage.Local]
+	artwork string
 	roster  *roster
 	sent    map[role.NodeID]*sent
 	heard   *heard
@@ -74,7 +79,8 @@ type shop struct {
 func openShop(t *testing.T, nodes ...role.NodeID) *shop {
 	t.Helper()
 	s := &shop{
-		lib:    storagetest.Library(t, works.Schema(), metadata.Schema()),
+		lib:   storagetest.Library(t, works.Schema(), metadata.Schema()),
+		local: storagetest.Local(t, artwork.Schema()), artwork: t.TempDir(),
 		roster: &roster{may: nodes}, sent: map[role.NodeID]*sent{}, heard: &heard{}, changed: &typeChanges{},
 	}
 	holders := map[role.NodeID]*metadata.Holder{}
@@ -99,6 +105,8 @@ func openShop(t *testing.T, nodes ...role.NodeID) *shop {
 		Rand:        seeded(),
 		Types:       []works.TypeID{"fixture", "shelf"},
 		TypeChanged: s.changed,
+		Local:       s.local,
+		ArtworkDir:  s.artwork,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -265,3 +265,54 @@ func publishedIDs(h *harness) []string {
 	slices.Sort(ids)
 	return ids
 }
+
+func (p *prefetched) take() []artwork.Want {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	got := p.wants
+	p.wants = nil
+	return got
+}
+
+func TestAddPrefetchesTheKindsThatAskOnce(t *testing.T) {
+	h := newHarness(t)
+	h.fx.Put("w1", rated())
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := h.art.take(), []artwork.Want{{Ref: photo("/attic.jpg"), Size: artwork.SizeMedium}}; !slices.Equal(got, want) {
+		t.Fatalf("adding prefetched %v, want only the photo, the one kind that asks, at medium %v", got, want)
+	}
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{}); err != nil {
+		t.Fatal(err)
+	}
+	h.fx.Put("w2", shelf())
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w2", works.Adding{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.art.take(); len(got) != 0 {
+		t.Fatalf("adding a Work already there, then one with no artwork, prefetched %v, want nothing", got)
+	}
+}
+
+func TestListCarriesEachWorksOwnArtwork(t *testing.T) {
+	h := newHarness(t)
+	h.fx.Put("w1", rated())
+	h.fx.Put("w2", shelf())
+	for _, k := range []works.Key{"w1", "w2"} {
+		if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, k, works.Adding{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	listed, err := h.works.List(t.Context(), admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[works.Key]map[string]artwork.Ref{}
+	for _, l := range listed {
+		got[l.Key] = l.Artwork
+	}
+	if want := map[works.Key]map[string]artwork.Ref{"w1": {"photo": photo("/attic.jpg")}, "w2": {}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("List's artwork = %v, want each Work's own and no Item's: %v", got, want)
+	}
+}

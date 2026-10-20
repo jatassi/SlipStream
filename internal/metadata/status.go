@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -152,8 +153,13 @@ func (m *Metadata) test(p ProviderID) *metadatav1.TestRequest {
 
 // Run retests each provider a holder couldn't reach, on that holder, a
 // RetestMin after the call that failed and then each RetestMax at most,
-// doubling the wait each time, until it answers.
+// doubling the wait each time, until it answers. Beside it, Run fetches
+// the images Prefetch queues.
 func (m *Metadata) Run(ctx context.Context) error {
+	var prefetching sync.WaitGroup
+	prefetching.Go(func() { m.prefetching(ctx) })
+	defer prefetching.Wait()
+	defer m.gallery.close()
 	for {
 		var fire <-chan time.Time
 		if next, ok := m.nextRetest(); ok {

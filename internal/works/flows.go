@@ -232,9 +232,24 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 	}
 	if created {
 		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+		if wants := prefetches(reg.desc, p.Artwork); len(wants) > 0 {
+			w.cfg.Artwork.Prefetch(wants)
+		}
 	}
 	tree, err = w.Get(ctx, by, id)
 	return tree, created, err
+}
+
+// prefetches are the images of as whose kind d prefetches, at its size.
+func prefetches(d Description, as []Art) []artwork.Want {
+	var wants []artwork.Want
+	for _, a := range as {
+		i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == (a.Item != "") })
+		if size := d.Artwork[i].Prefetch; size != "" {
+			wants = append(wants, artwork.Want{Ref: a.Ref, Size: size})
+		}
+	}
+	return wants
 }
 
 var errPreview = errors.New("works: a preview rolls back")
@@ -612,10 +627,12 @@ func writeArtwork(ctx context.Context, q *db.Queries, id WorkID, itemIDs map[Key
 type Listed struct {
 	Summary
 	Fields []FieldValue
+	// Artwork is the Work's own, keyed by the artwork.Kind's key.
+	Artwork map[string]artwork.Ref
 }
 
-// List lists Works by sort label, then id, with their fields, from one
-// snapshot: every Work, or t's.
+// List lists Works by sort label, then id, with their fields and their
+// own artwork, from one snapshot: every Work, or t's.
 func (w *Works) List(ctx context.Context, _ identity.Admin, t *TypeID) ([]Listed, error) {
 	if t != nil {
 		if _, ok := w.types[*t]; !ok {
@@ -637,20 +654,36 @@ func (w *Works) List(ctx context.Context, _ identity.Admin, t *TypeID) ([]Listed
 		}
 		out = make([]Listed, len(rows))
 		for i, row := range rows {
-			reg := w.types[row.ContentType]
-			fs, err := reg.catalog.Fields(ctx, r, row.ID)
-			if err != nil {
-				return fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+			if out[i], err = w.listed(ctx, r, row); err != nil {
+				return err
 			}
-			values, err := ordered(reg.specs(TierWork), fs.Work)
-			if err != nil {
-				return fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
-			}
-			out[i] = Listed{Summary: Summary(row), Fields: values}
 		}
 		return nil
 	})
 	return out, err
+}
+
+func (w *Works) listed(ctx context.Context, r storage.Reader[file], row db.WorksWork) (Listed, error) {
+	reg := w.types[row.ContentType]
+	fs, err := reg.catalog.Fields(ctx, r, row.ID)
+	if err != nil {
+		return Listed{}, fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+	}
+	values, err := ordered(reg.specs(TierWork), fs.Work)
+	if err != nil {
+		return Listed{}, fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+	}
+	art, err := db.New(r).ListArtwork(ctx, row.ID)
+	if err != nil {
+		return Listed{}, err
+	}
+	l := Listed{Summary: Summary(row), Fields: values, Artwork: map[string]artwork.Ref{}}
+	for _, a := range art {
+		if a.ItemID.IsZero() {
+			l.Artwork[a.Kind] = refOf(reg.desc, a)
+		}
+	}
+	return l, nil
 }
 
 // Get reads one Work's tree and its display fields from one snapshot.
@@ -716,22 +749,23 @@ func (t *Tree) attach(d Description, ratings []db.WorksRating, art []db.WorksArt
 		it := &t.Items[at[r.ItemID]]
 		it.Ratings = append(it.Ratings, v)
 	}
-	shapes := map[bool]map[string]artwork.Shape{false: {}, true: {}}
-	for _, k := range d.Artwork {
-		shapes[k.Item][k.Key] = k.Shape
-	}
 	for _, a := range art {
-		item := !a.ItemID.IsZero()
-		ref := artwork.Ref{Source: artwork.SourceID(a.Source), Shape: shapes[item][a.Kind], Path: a.Path}
 		owner := &t.Artwork
-		if item {
+		if !a.ItemID.IsZero() {
 			owner = &t.Items[at[a.ItemID]].Artwork
 		}
 		if *owner == nil {
 			*owner = map[string]artwork.Ref{}
 		}
-		(*owner)[a.Kind] = ref
+		(*owner)[a.Kind] = refOf(d, a)
 	}
+}
+
+// refOf is a stored artwork row as a reference, shaped as its kind is.
+func refOf(d Description, a db.WorksArtwork) artwork.Ref {
+	item := !a.ItemID.IsZero()
+	i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == item })
+	return artwork.Ref{Source: artwork.SourceID(a.Source), Shape: d.Artwork[i].Shape, Path: a.Path}
 }
 
 func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []db.WorksItem, fs FieldSet) (Tree, error) {

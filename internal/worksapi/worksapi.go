@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -19,6 +22,9 @@ import (
 type Shelf interface {
 	// Works is the Work tree, false unless the Node is a Controller.
 	Works() (*works.Works, bool)
+	// Minter signs the artwork URLs the answers carry, false unless the
+	// Node is a Controller.
+	Minter() (artwork.Minter, bool)
 	// Targets answers each Item's availability, false unless the Node is a
 	// Controller.
 	Targets() (*targets.Targets, bool)
@@ -30,6 +36,14 @@ func open(s Shelf) *works.Works {
 		panic("worksapi: an operation ran on a Node that is no Controller")
 	}
 	return w
+}
+
+func minter(s Shelf) artwork.Minter {
+	m, ok := s.Minter()
+	if !ok {
+		panic("worksapi: an operation ran on a Node that is no Controller")
+	}
+	return m
 }
 
 func goals(s Shelf) *targets.Targets {
@@ -105,21 +119,36 @@ type fieldSpec struct {
 	Kind  string `json:"kind" enum:"text,number,date,duration,texts,people,link"`
 }
 
+type artworkKind struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	Tier  string `json:"tier" enum:"work,item"`
+	Shape string `json:"shape" enum:"poster,backdrop,logo,photo,cover"`
+}
+
 type contentType struct {
-	ID      string      `json:"id" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	Name    string      `json:"name"`
-	Icon    string      `json:"icon" enum:"film,tv,note,open-book,headphones,panels,image,shapes"`
-	Enabled bool        `json:"enabled"`
-	Work    noun        `json:"work"`
-	Levels  []noun      `json:"levels" nullable:"false" doc:"Outermost first; empty when Items hang off the Work"`
-	Item    noun        `json:"item"`
-	Fields  []fieldSpec `json:"fields" nullable:"false"`
+	ID      string        `json:"id" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Name    string        `json:"name"`
+	Icon    string        `json:"icon" enum:"film,tv,note,open-book,headphones,panels,image,shapes"`
+	Enabled bool          `json:"enabled"`
+	Work    noun          `json:"work"`
+	Levels  []noun        `json:"levels" nullable:"false" doc:"Outermost first; empty when Items hang off the Work"`
+	Item    noun          `json:"item"`
+	Fields  []fieldSpec   `json:"fields" nullable:"false"`
+	Artwork []artworkKind `json:"artwork" nullable:"false" doc:"The kinds of image its Works and Items carry"`
 }
 
 func contentTypeOf(t works.ContentType) contentType {
 	out := contentType{
 		ID: string(t.ID), Name: t.Name, Icon: t.Icon.String(), Enabled: t.Enabled,
-		Work: noun(t.Work), Item: noun(t.Item), Levels: []noun{}, Fields: []fieldSpec{},
+		Work: noun(t.Work), Item: noun(t.Item), Levels: []noun{}, Fields: []fieldSpec{}, Artwork: []artworkKind{},
+	}
+	for _, k := range t.Artwork {
+		tier := "work"
+		if k.Item {
+			tier = "item"
+		}
+		out.Artwork = append(out.Artwork, artworkKind{Key: k.Key, Label: k.Label, Tier: tier, Shape: string(k.Shape)})
 	}
 	for _, l := range t.Levels {
 		out.Levels = append(out.Levels, noun(l))
@@ -183,9 +212,10 @@ type peopleValue struct {
 }
 
 type person struct {
-	Name       string `json:"name"`
-	Role       string `json:"role" doc:"The character played or the job done; empty when the source names none"`
-	Department string `json:"department" doc:"Empty when the source names none"`
+	Name       string  `json:"name"`
+	Role       string  `json:"role" doc:"The character played or the job done; empty when the source names none"`
+	Department string  `json:"department" doc:"Empty when the source names none"`
+	PhotoURL   *string `json:"photoUrl" doc:"The artwork route for the person's photo, without a size; null when the source has none"`
 }
 
 type linkValue struct {
@@ -195,36 +225,62 @@ type linkValue struct {
 	URL   string `json:"url" format:"uri"`
 }
 
-var valueOf = map[works.FieldKind]func(works.FieldValue) any{
-	works.KindText:   func(v works.FieldValue) any { return textValue{Key: v.Key, Kind: v.Kind.String(), Text: v.Text} },
-	works.KindNumber: func(v works.FieldValue) any { return numberValue{Key: v.Key, Kind: v.Kind.String(), Number: v.Number} },
-	works.KindDate: func(v works.FieldValue) any {
+var valueOf = map[works.FieldKind]func(works.FieldValue, artwork.Minter) any{
+	works.KindText: func(v works.FieldValue, _ artwork.Minter) any {
+		return textValue{Key: v.Key, Kind: v.Kind.String(), Text: v.Text}
+	},
+	works.KindNumber: func(v works.FieldValue, _ artwork.Minter) any {
+		return numberValue{Key: v.Key, Kind: v.Kind.String(), Number: v.Number}
+	},
+	works.KindDate: func(v works.FieldValue, _ artwork.Minter) any {
 		return dateValue{Key: v.Key, Kind: v.Kind.String(), Date: v.Date.String()}
 	},
-	works.KindDuration: func(v works.FieldValue) any {
+	works.KindDuration: func(v works.FieldValue, _ artwork.Minter) any {
 		return durationValue{Key: v.Key, Kind: v.Kind.String(), Ms: v.Duration.Milliseconds()}
 	},
-	works.KindTexts: func(v works.FieldValue) any {
+	works.KindTexts: func(v works.FieldValue, _ artwork.Minter) any {
 		return textsValue{Key: v.Key, Kind: v.Kind.String(), Texts: append([]string{}, v.Texts...)}
 	},
-	works.KindPeople: func(v works.FieldValue) any {
+	works.KindPeople: func(v works.FieldValue, m artwork.Minter) any {
 		people := make([]person, len(v.People))
 		for i, p := range v.People {
-			people[i] = person{Name: p.Name, Role: p.Role, Department: p.Department}
+			people[i] = person{Name: p.Name, Role: p.Role, Department: p.Department, PhotoURL: urlOrNull(m, p.Photo)}
 		}
 		return peopleValue{Key: v.Key, Kind: v.Kind.String(), People: people}
 	},
-	works.KindLink: func(v works.FieldValue) any {
+	works.KindLink: func(v works.FieldValue, _ artwork.Minter) any {
 		return linkValue{Key: v.Key, Kind: v.Kind.String(), Label: v.Link.Label, URL: v.Link.URL}
 	},
 }
 
-func fieldsOf(vs []works.FieldValue) []api.OneOf[fieldValue] {
+func fieldsOf(m artwork.Minter, vs []works.FieldValue) []api.OneOf[fieldValue] {
 	out := make([]api.OneOf[fieldValue], len(vs))
 	for i, v := range vs {
-		out[i] = api.NewOneOf[fieldValue](valueOf[v.Kind](v))
+		out[i] = api.NewOneOf[fieldValue](valueOf[v.Kind](v, m))
 	}
 	return out
+}
+
+type art struct {
+	Kind string `json:"kind" doc:"An artwork kind of the Content Type"`
+	URL  string `json:"url" doc:"The artwork route for the image, without a size"`
+}
+
+// artOf is each kind's image, by kind key.
+func artOf(m artwork.Minter, refs map[string]artwork.Ref) []art {
+	out := []art{}
+	for _, kind := range slices.Sorted(maps.Keys(refs)) {
+		out = append(out, art{Kind: kind, URL: m.URL(refs[kind])})
+	}
+	return out
+}
+
+func urlOrNull(m artwork.Minter, r artwork.Ref) *string {
+	if r.IsZero() {
+		return nil
+	}
+	u := m.URL(r)
+	return &u
 }
 
 // Work is exported so the document carries the fields tree embeds.
@@ -268,6 +324,7 @@ type tree struct {
 	Work
 	Fields  []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
 	Ratings []rating                `json:"ratings" nullable:"false" doc:"The Work's own, by source"`
+	Artwork []art                   `json:"artwork" nullable:"false" doc:"The Work's own images, by kind"`
 	Levels  []level                 `json:"levels" nullable:"false" doc:"By depth, then their parent's order, live before withdrawn, then position"`
 	Items   []item                  `json:"items" nullable:"false" doc:"By their level's order, live before withdrawn, then position"`
 }
@@ -293,6 +350,7 @@ type item struct {
 	Monitored    bool                    `json:"monitored"`
 	Fields       []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
 	Ratings      []rating                `json:"ratings" nullable:"false" doc:"By source"`
+	Artwork      []art                   `json:"artwork" nullable:"false" doc:"By kind"`
 	Availability *availability           `json:"availability" doc:"The day the Item counts as released and the rule that chose it; null while no date is known"`
 }
 
@@ -309,19 +367,19 @@ func availabilityOf(t targets.Timing) *availability {
 	return &availability{Date: d.String(), Basis: t.Basis}
 }
 
-func treeOf(t works.Tree, timings map[works.ItemID]targets.Timing) tree {
-	out := tree{Work: workOf(t.Summary), Fields: fieldsOf(t.Fields), Ratings: ratingsOf(t.Ratings), Levels: []level{}, Items: []item{}}
+func treeOf(m artwork.Minter, t works.Tree, timings map[works.ItemID]targets.Timing) tree {
+	out := tree{Work: workOf(t.Summary), Fields: fieldsOf(m, t.Fields), Ratings: ratingsOf(t.Ratings), Artwork: artOf(m, t.Artwork), Levels: []level{}, Items: []item{}}
 	for _, l := range t.Levels {
 		out.Levels = append(out.Levels, level{
 			ID: l.ID.String(), ParentID: idOrNull(l.ParentID.UUID), Depth: l.Depth, Key: string(l.Key), Label: l.Label,
-			Position: l.Position, WithdrawnAt: timeOrNull(l.WithdrawnAt), Fields: fieldsOf(l.Fields),
+			Position: l.Position, WithdrawnAt: timeOrNull(l.WithdrawnAt), Fields: fieldsOf(m, l.Fields),
 		})
 	}
 	for _, it := range t.Items {
 		out.Items = append(out.Items, item{
 			ID: it.ID.String(), LevelID: idOrNull(it.LevelID.UUID), Key: string(it.Key), Label: it.Label,
-			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Fields: fieldsOf(it.Fields),
-			Ratings: ratingsOf(it.Ratings), Availability: availabilityOf(timings[it.ID]),
+			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Fields: fieldsOf(m, it.Fields),
+			Ratings: ratingsOf(it.Ratings), Artwork: artOf(m, it.Artwork), Availability: availabilityOf(timings[it.ID]),
 		})
 	}
 	return out
@@ -344,12 +402,13 @@ func timeOrNull(t storage.Time) *time.Time {
 }
 
 type candidate struct {
-	Key      string                  `json:"key"`
-	Label    string                  `json:"label"`
-	Original string                  `json:"original" doc:"The label in its original language; empty when it is the label"`
-	Overview string                  `json:"overview" doc:"One line; empty when the source has none"`
-	Fields   []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's fields"`
-	WorkID   *string                 `json:"workId" format:"uuid" doc:"The Work, once it is in the library"`
+	Key       string                  `json:"key"`
+	Label     string                  `json:"label"`
+	Original  string                  `json:"original" doc:"The label in its original language; empty when it is the label"`
+	Overview  string                  `json:"overview" doc:"One line; empty when the source has none"`
+	Fields    []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's fields"`
+	PosterURL *string                 `json:"posterUrl" doc:"The artwork route for the result's poster, without a size; null when the source has none"`
+	WorkID    *string                 `json:"workId" format:"uuid" doc:"The Work, once it is in the library"`
 }
 
 type contentTypeList struct {
@@ -436,7 +495,8 @@ type listInput struct {
 
 type listedWork struct {
 	Work
-	Fields []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's own fields"`
+	Fields  []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's own fields"`
+	Artwork []art                   `json:"artwork" nullable:"false" doc:"The Work's own images, by kind"`
 }
 
 type workList struct {
@@ -580,10 +640,12 @@ func (h handlers) searchCatalog(ctx context.Context, by identity.Admin, in *cata
 	if err != nil {
 		return nil, answer(err)
 	}
+	m := minter(h.shelf)
 	out := candidateList{Candidates: []candidate{}}
 	for _, c := range found {
 		out.Candidates = append(out.Candidates, candidate{
-			Key: string(c.Key), Label: c.Label, Original: c.Original, Overview: c.Overview, Fields: fieldsOf(c.Fields), WorkID: idOrNull(c.WorkID.UUID),
+			Key: string(c.Key), Label: c.Label, Original: c.Original, Overview: c.Overview, Fields: fieldsOf(m, c.Fields),
+			PosterURL: urlOrNull(m, c.Poster), WorkID: idOrNull(c.WorkID.UUID),
 		})
 	}
 	return &candidateListOutput{Body: out}, nil
@@ -603,7 +665,7 @@ func (h handlers) previewCatalogRecord(ctx context.Context, by identity.Admin, i
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &previewedOutput{Body: previewed{InLibrary: stored, Work: treeOf(t, timings)}}, nil
+	return &previewedOutput{Body: previewed{InLibrary: stored, Work: treeOf(minter(h.shelf), t, timings)}}, nil
 }
 
 func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) (*addedOutput, error) {
@@ -656,9 +718,10 @@ func (h handlers) listWorks(ctx context.Context, by identity.Admin, in *listInpu
 	if err != nil {
 		return nil, answer(err)
 	}
+	m := minter(h.shelf)
 	out := workList{Works: []listedWork{}}
 	for _, l := range list {
-		out.Works = append(out.Works, listedWork{Work: workOf(l.Summary), Fields: fieldsOf(l.Fields)})
+		out.Works = append(out.Works, listedWork{Work: workOf(l.Summary), Fields: fieldsOf(m, l.Fields), Artwork: artOf(m, l.Artwork)})
 	}
 	return &workListOutput{Body: out}, nil
 }
@@ -700,7 +763,7 @@ func (h handlers) treeOf(ctx context.Context, by identity.Admin, t works.Tree) (
 	if err != nil {
 		return tree{}, err
 	}
-	return treeOf(t, timings), nil
+	return treeOf(minter(h.shelf), t, timings), nil
 }
 
 func (h handlers) getContentTypeSettings(ctx context.Context, by identity.Admin, in *contentTypeInput) (*typeSettingsOutput, error) {

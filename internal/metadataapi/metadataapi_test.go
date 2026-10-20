@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/imagecdn"
 	fakeomdb "github.com/jatassi/slipstream/fakes/omdb"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	faketmdb "github.com/jatassi/slipstream/fakes/tmdb"
@@ -19,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadataapi"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
@@ -60,40 +63,110 @@ func (c *changes) Publish(_ context.Context, v metadata.Changed) {
 }
 
 type served struct {
-	owner      *ownertest.Owner
-	tmdb, omdb faketest.Served
-	changed    *changes
+	owner           *ownertest.Owner
+	tmdb, omdb, cdn faketest.Served
+	fetched         *fetches
+	changed         *changes
+}
+
+// world is what a test sets before the Controller opens: how long a
+// failed image fetch waits, and the faults fake-image-cdn plays.
+type world struct {
+	retry  time.Duration
+	faults []fault.Rule
 }
 
 // serve serves the operations over fake-tmdb and fake-omdb, reached by a
 // Controller that holds Metadata alone. Each fake has its own authority,
 // so each provider has a client of its own.
-func serve(t *testing.T) *served {
+func serve(t *testing.T) *served { return serveWorld(t, world{retry: time.Hour}) }
+
+func serveWorld(t *testing.T, w world) *served {
 	t.Helper()
 	s := scenario.Scenario{Name: "x", Seed: "metadataapi"}
-	srv := &served{tmdb: faketest.Loopback(t, faketmdb.Fake, s), omdb: faketest.Loopback(t, fakeomdb.Fake, s), changed: &changes{}}
-	lines := func(f faketest.Served) *metadata.Lines {
-		return metadata.NewLines(f.Client, "SlipStream/test", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // a fixed draw the test replays
+	srv := &served{
+		tmdb:    faketest.Loopback(t, faketmdb.Fake, s),
+		omdb:    faketest.Loopback(t, fakeomdb.Fake, s),
+		cdn:     faketest.Loopback(t, imagecdn.Fake, s, faketest.WithFaults(w.faults...)),
+		changed: &changes{},
 	}
-	tm := tmdb.New(lines(srv.tmdb), tmdb.Endpoints{API: endpoint.MustParseURL(srv.tmdb.Address.URL("/3"))}, tmdb.DefaultTimings())
-	om := omdb.New(lines(srv.omdb), omdb.Endpoints{API: endpoint.MustParseURL(srv.omdb.Address.URL(""))}, omdb.DefaultTimings())
-	holder := metadata.NewHolder(metadata.HolderConfig{Types: map[works.TypeID]metadata.Source{}, Testers: []metadata.Tester{tm, om}})
+	srv.fetched = &fetches{next: srv.cdn.Client.Transport}
+	lines := func(c *http.Client) *metadata.Lines {
+		return metadata.NewLines(c, "SlipStream/test", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // a fixed draw the test replays
+	}
+	tm := tmdb.New(lines(srv.tmdb.Client), tmdb.Endpoints{
+		API:    endpoint.MustParseURL(srv.tmdb.Address.URL("/3")),
+		Images: endpoint.MustParseURL(srv.cdn.Address.URL(imagecdn.Root)),
+	}, tmdb.DefaultTimings())
+	om := omdb.New(lines(srv.omdb.Client), omdb.Endpoints{API: endpoint.MustParseURL(srv.omdb.Address.URL(""))}, omdb.DefaultTimings())
+	holder := metadata.NewHolder(metadata.HolderConfig{
+		Types:   map[works.TypeID]metadata.Source{"pictures": pictures{tm.Images()}},
+		Testers: []metadata.Tester{tm, om},
+		Lines:   metadata.NewLines(&http.Client{Transport: srv.fetched}, "SlipStream/test", quick, rand.New(rand.NewPCG(1, 2))), //nolint:gosec // a fixed draw the test replays
+	})
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema(), metadata.Schema())
+	timings := metadata.DefaultTimings()
+	timings.ArtworkRetry = w.retry
 	m, err := metadata.Open(t.Context(), metadata.Config{
-		Library:   lib,
-		Sealer:    secrettest.Sealer(t),
-		Roster:    alone{},
-		Service:   func(role.NodeID) metadatav1connect.MetadataServiceHandler { return holder },
-		Providers: []metadata.Provider{tm.Provider(), om.Provider()},
-		Changed:   srv.changed,
-		Timings:   metadata.DefaultTimings(),
-		Rand:      rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
+		Library:    lib,
+		Local:      storagetest.Local(t, artwork.Schema()),
+		ArtworkDir: t.TempDir(),
+		Minter:     minter,
+		Sealer:     secrettest.Sealer(t),
+		Roster:     alone{},
+		Service:    func(role.NodeID) metadatav1connect.MetadataServiceHandler { return holder },
+		Providers:  []metadata.Provider{tm.Provider(), om.Provider()},
+		Changed:    srv.changed,
+		Timings:    timings,
+		Rand:       rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { metadataapi.Routes(r, registry{m}) })
 	return srv
+}
+
+var minter = artwork.NewMinter([]byte("metadataapi"))
+
+// quick retries an image host at once, so a test sees every try.
+var quick = func() metadata.Timings {
+	t := metadata.DefaultTimings()
+	t.RetryMin, t.RetryMax = time.Millisecond, time.Millisecond
+	return t
+}()
+
+// pictures is a Content Type that only names TMDB's image host.
+type pictures struct{ images artwork.Source }
+
+func (pictures) Search(context.Context, metadata.Ask, string) ([]works.Candidate, error) {
+	return nil, works.ErrNotFound
+}
+
+func (pictures) Fetch(context.Context, metadata.Ask, works.Key) (works.Fetched, error) {
+	return works.Fetched{}, works.ErrNotFound
+}
+
+func (p pictures) Sources() []artwork.Source { return []artwork.Source{p.images} }
+
+// fetches records each path fetched from fake-image-cdn.
+type fetches struct {
+	next  http.RoundTripper
+	mu    sync.Mutex
+	paths []string
+}
+
+func (f *fetches) RoundTrip(r *http.Request) (*http.Response, error) {
+	f.mu.Lock()
+	f.paths = append(f.paths, r.URL.Path)
+	f.mu.Unlock()
+	return f.next.RoundTrip(r) //nolint:wrapcheck // a RoundTripper hands its transport's error on unchanged
+}
+
+func (f *fetches) all() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.paths)
 }
 
 const (

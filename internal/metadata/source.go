@@ -3,6 +3,7 @@ package metadata
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -15,4 +16,7 @@ type Source interface {
 	// works.ErrNotFound, ErrRefused, ErrUnavailable or ErrInvalid, inside a
 	// *works.SourceError when the source said more.
 	Fetch(ctx context.Context, ask Ask, key works.Key) (works.Fetched, error)
+	// Sources are the image hosts the artwork references in its answers
+	// name.
+	Sources() []artwork.Source
 }
