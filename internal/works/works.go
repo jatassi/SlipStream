@@ -114,9 +114,14 @@ func (e *SourceError) Error() string {
 func (e *SourceError) Unwrap() error { return e.Err }
 
 type Config struct {
-	Library      *storage.DB[file]
-	Catalogs     map[TypeID]Catalog
-	Source       Source
+	Library  *storage.DB[file]
+	Catalogs map[TypeID]Catalog
+	Source   Source
+	// Artwork fetches the images a new Work's kinds prefetch, after the add
+	// commits.
+	Artwork interface {
+		Prefetch(wants []artwork.Want)
+	}
 	Timings      Timings
 	Changed      Publisher[WorkChanged]
 	TypesChanged Publisher[ContentTypesChanged]
