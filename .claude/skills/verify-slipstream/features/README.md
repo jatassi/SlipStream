@@ -7,7 +7,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
 - The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
-- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, and `serving` is `home` with Serving on seedbox too.
+- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, `serving` is `home` with Serving on seedbox too, and `movies` is `home` with a full movie record and OMDb's ratings to read.
 
 ## Conventions
 
@@ -57,6 +57,7 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.
 - [Artwork](./artwork.md) covers the artwork URLs the Work API hands out, each size served immutable, the poster and backdrop prefetched at add, a miss answered until its retry, a forged token refused and the route kept to signed-in Accounts.
 - [Movie availability](./movie-availability.md) covers each movie Item's availability date and basis on the Work API, the movie settings with their `works.type-changed` event, and the availability timer's announced day.
+- [Movies](./movies.md) covers a movie's lifecycle end to end on the `movies` Scenario: the whole record with OMDb's ratings, a preview the add reuses, refresh one and all, gone upstream, TMDB unreachable, rate limited or refusing its key, OMDb's daily cap, an image cut off mid-answer, and Metadata on a Worker that keeps no key.
 - [Search and grab](./search-and-grab.md) covers a 429 from the Indexer, Search, a held download, completing it now, the Transfer, import, Activity and Files.
 - [Targets and Profiles](./targets-and-profiles.md) covers the starter Target and default Profile, the Target and Profile editors, the add sheet's Profile, one file filling two Targets, an upgrade, the Work's Profile and Editions sheet, the Impact with Delete and Keep, size refusals, a file refused by its probed video codec, and custom cuts in Settings > Editions.
 - [Library roots](./library-roots.md) covers Settings > Library roots, adding a root on seedbox through its folder browser with a refusal in words, an import on that Worker by hard link, the Storage block, `Check storage every` and the Storage Inspector, a drain and write-off that mark the root `Node written off`, re-homing it onto home, and deleting a root while its folder stays.
