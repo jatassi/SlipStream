@@ -168,7 +168,7 @@ test("torrents.live moves a row's progress and speed", async () => {
     },
   });
   await expect.element(row).toMatchTextContent("Downloading38 peers");
-  await expect.element(row).toMatchTextContent("50%1 min 35 s left · 5.0 MB/s");
+  await expect.element(row).toMatchTextContent("50%2 min left · 5.0 MB/s");
   await expect
     .element(row.getByRole("progressbar", { name: `Downloading ${downloading.name}` }))
     .toHaveAttribute("aria-valuenow", "50");

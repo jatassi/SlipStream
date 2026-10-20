@@ -80,15 +80,21 @@ export function ProgressCell({ row, live }: CellProps) {
   }
   const percent = percentOf(progress);
   const label = `${stateWords[row.state]} ${row.name}`;
-  const facts = [
-    etaWords(live),
-    live !== undefined && live.downBps > 0 ? rateWords(live.downBps) : "",
-  ].filter((fact) => fact !== "");
+  const eta = etaWords(live);
+  const rate = live !== undefined && live.downBps > 0 ? rateWords(live.downBps) : "";
   return (
     <span className="flex min-w-0 flex-col gap-1.5">
       <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
         <Data className="text-ink-1">{percent}%</Data>
-        <Data className="truncate">{facts.join(" · ")}</Data>
+        <Data className="truncate">
+          {eta}
+          {rate !== "" && (
+            <span data-progress-rate="">
+              {eta === "" ? "" : " · "}
+              {rate}
+            </span>
+          )}
+        </Data>
       </span>
       {moving.has(row.state) && row.lastKnown === undefined ? (
         <LiveBar label={label} value={percent} />

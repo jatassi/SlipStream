@@ -40,7 +40,15 @@
   grid-area: menu;
 }
 
+.torrents [data-progress-rate] {
+  display: none;
+}
+
 @container torrents (width < 980px) {
+  .torrents [data-progress-rate] {
+    display: inline;
+  }
+
   .torrents [data-torrent-row] {
     grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.5fr) auto;
     grid-template-areas: "work state progress menu";
@@ -52,6 +60,10 @@
 }
 
 @container torrents (width < 620px) {
+  .torrents [data-progress-rate] {
+    display: none;
+  }
+
   .torrents [data-torrent-head] {
     display: none;
   }

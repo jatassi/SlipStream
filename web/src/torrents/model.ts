@@ -189,7 +189,8 @@ export function etaWords(live: LiveRow | undefined): string {
   if (live === undefined || live.downBps <= 0 || live.done >= live.wanted) {
     return "";
   }
-  return `${lengthWords(((live.wanted - live.done) / live.downBps) * 1000)} left`;
+  const minutes = Math.ceil((live.wanted - live.done) / live.downBps / 60);
+  return `${lengthWords(minutes * 60_000)} left`;
 }
 
 const hour = 3600;
