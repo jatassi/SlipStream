@@ -3,7 +3,7 @@ package downloading
 import "net/netip"
 
 // cgnat is the shared address space carriers put behind their NAT (RFC
-// 6598): a peer there may be a neighbour on the same carrier.
+// 6598): a peer there may sit behind the same carrier NAT.
 var cgnat = netip.MustParsePrefix("100.64.0.0/10")
 
 // PublicPeer is the listen-port check's rule: whether an incoming peer at

@@ -201,6 +201,7 @@ func (l *loop) incoming(from netip.Addr) {
 		return
 	}
 	l.listen.incomingAt = time.Now()
+	l.c.cfg.Log.Info("A peer connected in to the torrent listen port, which proves it reachable", "listen", l.listen.bound.String())
 	l.configure()
 }
 

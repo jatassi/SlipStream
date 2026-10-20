@@ -2,6 +2,8 @@
 description: >-
   Two Nodes. The Controller home holds every Role but Acquire and Relaying.
   The Worker seedbox pairs by Join Code and holds Searching and Downloading.
+  A leecher from outside connects in to the seedbox once it runs the 1080p
+  release, so the seedbox's listen port reads reachable.
   Grace joins as a Member by Signup link, and fakes/smtp is the email setting.
 seed: home
 admin:
@@ -47,6 +49,9 @@ releases:
     advertised_size: 4.4GiB
 tracker:
   interval: 5s
+leecher:
+  node: seedbox
+  release: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
 library:
   roots: [{content_type: movie, folder: movies}]
   indexers: [{name: Fixture Site, site: fixture-site}]

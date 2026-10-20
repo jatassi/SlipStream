@@ -60,16 +60,15 @@ func seeding(t *testing.T) (engine.Engine, bencode.InfoHash) {
 	return e, m.InfoHash
 }
 
-// await reads e's events for up to a minute until match takes one, and
-// returns it.
-func await(t *testing.T, e engine.Engine, what string, match func(engine.Event) bool) engine.Event {
+// await reads e's events for up to a minute until match takes one.
+func await(t *testing.T, e engine.Engine, what string, match func(engine.Event) bool) {
 	t.Helper()
 	deadline := time.After(time.Minute)
 	for {
 		select {
 		case ev := <-e.Events():
 			if match(ev) {
-				return ev
+				return
 			}
 		case <-deadline:
 			t.Fatalf("the session sent no event for %s within a minute", what)
@@ -86,7 +85,12 @@ func TestALoopbackLeecherProvesThePortUnderTheDivergence(t *testing.T) {
 	if err := leecher.Hello(t.Context(), addr, hash); err != nil {
 		t.Fatalf("a session running the torrent turned the leecher away: %v", err)
 	}
-	from := await(t, e, "an incoming peer", func(ev engine.Event) bool { _, ok := ev.(engine.IncomingPeer); return ok }).(engine.IncomingPeer).Addr
+	var from netip.Addr
+	await(t, e, "an incoming peer", func(ev engine.Event) bool {
+		p, ok := ev.(engine.IncomingPeer)
+		from = p.Addr
+		return ok
+	})
 	if !downloading.PublicPeer(true)(from) {
 		t.Errorf("under loopback-peers, the leecher at %s does not prove the port", from)
 	}

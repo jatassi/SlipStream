@@ -128,9 +128,10 @@ func (r *Run) recordFor(ctx context.Context, rec events.Record) {
 	r.appendRecord(rec)
 }
 
-// observe arms the rules waiting on rec. No rule exists before bindFakes
-// makes the Plan.
+// observe arms the rules waiting on rec, and starts the leecher on its
+// cue. No rule exists before bindFakes makes the Plan.
 func (r *Run) observe(rec events.Record) []events.Record {
+	r.leech(rec)
 	if r.faults == nil {
 		return nil
 	}

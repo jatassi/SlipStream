@@ -88,6 +88,7 @@ func (r *Run) stop() {
 	for i := len(r.nodes) - 1; i >= 0; i-- {
 		r.report.Nodes[i] = r.stopNode(r.nodes[i], unasked[i])
 	}
+	r.stopLeecher()
 	problem := func(err error) {
 		if err != nil {
 			r.report.Problems = append(r.report.Problems, err.Error())

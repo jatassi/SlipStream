@@ -29,7 +29,7 @@ func Hello(ctx context.Context, addr netip.AddrPort, hash bencode.InfoHash) erro
 	if err != nil {
 		return fmt.Errorf("leecher: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 	hello := make([]byte, 0, 68)

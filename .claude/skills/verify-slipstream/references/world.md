@@ -71,6 +71,7 @@ $FW announces open $RUN <seq> --proof <f>/<s>
 
 - `announces` is the tracker's capture: one `tracker.announce` record per announce, attributed to the Node by the front it came through. `data.event` is `started`, `completed` or empty for a regular announce, which libtorrent spaces five minutes apart; wait on `started` and `completed` only.
 - `mail` is the `smtp` fake's capture: one `smtp.message` record per accepted message with its envelope (`from`, `to`), `username`, `security` (`none`, `starttls` or `tls`), `subject`, `text` and `html`, attributed to the sending Node. `open` copies `message.eml`, `message.html` and `message.txt`.
+- `leecher.hello` is the Scenario's leecher (`leecher: {node, release}`), attributed to its Node. After that Node's first accepted announce of the release, the leecher dials the Node's listen port through its `leecher/<node>` front and says a BitTorrent hello. `data.answered` says whether the Node answered for the release, and `data.error` says why not. Under the `loopback-peers` divergence the connection proves the listen port, so the Node's client card reads reachable. A Scenario with no leecher reads unproven. `home` has a leecher on seedbox.
 - `wait` takes the first match after `--after`, by default after the previous step's start. When the awaited record can arrive during an earlier step, pass `--after` the seq of a record printed before that step, such as a `fault.set` or `fault.fired`.
 - `open` copies a record's files into the proof dir.
 
