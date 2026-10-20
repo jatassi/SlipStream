@@ -46,16 +46,16 @@ func (c controller) Nodes() (*nodes.Service, bool)                     { return 
 
 // serve is the operations on a Controller whose only Node is itself, and
 // the Nodes whose intents they touched.
-func serve(t *testing.T) (*ownertest.Owner, role.NodeID, *[]role.NodeID) {
+func serve(t *testing.T) (o *ownertest.Owner, self role.NodeID, touched *[]role.NodeID) {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), downloadclients.Schema())
 	roster, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Changed: changes{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	touched := &[]role.NodeID{}
+	touched = &[]role.NodeID{}
 	clients := downloadclients.New(downloadclients.Config{Library: lib, Touch: func(n ...role.NodeID) { *touched = append(*touched, n...) }})
-	o := ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, roster}) })
+	o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, roster}) })
 	return o, roster.Self(), touched
 }
 

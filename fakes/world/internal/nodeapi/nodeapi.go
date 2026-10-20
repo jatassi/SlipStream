@@ -137,6 +137,19 @@ func SetRoles(ctx context.Context, c *http.Client, baseURL, apiKey string, set [
 	return err
 }
 
+// ClientSettings is a change to a Node's built-in client settings, each
+// member nil to leave.
+type ClientSettings struct {
+	UTP *bool `json:"utp,omitempty"`
+}
+
+func SetClientSettings(ctx context.Context, c *http.Client, baseURL, apiKey, nodeID string, s ClientSettings) error {
+	return call(ctx, c, request{
+		what: "set a Node's client settings", method: http.MethodPatch, url: baseURL + "/api/v1/download-clients/" + nodeID + "/settings",
+		header: apiKeyHeader(apiKey), body: s, want: http.StatusOK,
+	}, nil)
+}
+
 func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, nodeID, path string) (string, error) {
 	var root struct {
 		ID string `json:"id"`

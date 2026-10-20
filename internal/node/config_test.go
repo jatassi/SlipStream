@@ -29,7 +29,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		paths = append(paths, leaf.Path)
 	}
 	want := []string{
-		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.outgoing_utp", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
+		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
 		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines",
 		"endpoints.tmdb.api",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",

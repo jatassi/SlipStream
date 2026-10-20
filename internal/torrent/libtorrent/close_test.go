@@ -47,6 +47,11 @@ func partlyDownloaded(t *testing.T, meta, payload []byte) (engine.Engine, engine
 		t.Fatal(err)
 	}
 	seeder, leecher := open(t), open(t)
+	// The home world's Nodes peer over TCP alone (its tcp-peers
+	// divergence); a uTP peer adds about 0.8 s to a close.
+	if err := leecher.Configure(engine.Limits{}); err != nil {
+		t.Fatal(err)
+	}
 	started(t, seeder, engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
 	h := started(t, leecher, engine.AddParams{Metainfo: meta, SavePath: leechDir})
 	seederAddr, err := seeder.ListenAddr()
