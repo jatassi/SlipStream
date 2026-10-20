@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/health"
-	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -39,7 +38,7 @@ func (n *Node) openHealth(ctx context.Context, lib *storage.DB[storage.Library],
 		Storage:    storageParts(h),
 		Categories: healthCategories(h),
 		Names:      liveNames,
-		NameEvents: []live.Event{nodes.ChangedEvent},
+		Roster:     h.nodes,
 		Zone:       n.zone(),
 		Timings:    n.cfg.Timings.Health,
 		Log:        n.rootLog.With("subsystem", "health"),

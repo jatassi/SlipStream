@@ -10,15 +10,14 @@ import (
 
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/live"
-	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 // HealthEvents are the events after which HealthSource may answer
-// differently.
-var HealthEvents = []live.Event{ChangedEvent, nodes.ChangedEvent}
+// differently, besides the Nodes' names and standings Health follows.
+var HealthEvents = []live.Event{ChangedEvent}
 
 // HealthVolumes is the volumes that hold a root last seen ready at its
 // place, as Volumes lists them, so an unmounted root's parent disk is never
@@ -29,7 +28,7 @@ func (r *Roots) HealthVolumes() health.VolumeSource {
 		Sample: func(ctx context.Context, node role.NodeID) error {
 			return unreachable(r.Sample(ctx, node))
 		},
-		Events: []live.Event{VolumesChangedEvent, ChangedEvent, nodes.ChangedEvent},
+		Events: []live.Event{VolumesChangedEvent, ChangedEvent},
 	}
 }
 

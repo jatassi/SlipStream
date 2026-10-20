@@ -40,6 +40,8 @@ func (roster) Standing(role.NodeID) (nodes.Standing, time.Time) { return nodes.I
 
 func (roster) Route(_ role.Name, home role.NodeID) (role.NodeID, error) { return home, nil }
 
+func (roster) Changed() <-chan struct{} { return nil }
+
 func (roster) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
 	return map[role.NodeID]nodes.Named{home: {ID: home, Name: "home"}}, nil
 }
@@ -88,7 +90,7 @@ func open(t *testing.T, lib *storage.DB[storage.Library], catalog ...tasks.Task)
 }
 
 func newHub(t *testing.T) *live.Hub {
-	h := live.NewHub([]live.Event{nodes.ChangedEvent, tasks.ChangedEvent, tasks.ProgressEvent})
+	h := live.NewHub([]live.Event{tasks.ChangedEvent, tasks.ProgressEvent})
 	t.Cleanup(h.Close)
 	return h
 }
@@ -320,6 +322,7 @@ type links struct {
 	link    nodes.LinkState
 	lapsed  bool
 	removed bool
+	board   chan struct{}
 }
 
 var seedbox = role.NodeID{UUID: storage.NewUUID()}
@@ -377,6 +380,25 @@ func (l *links) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
 		return nodes.Node{ID: seedbox, Name: "seedbox", Link: l.link}, nil
 	}
 	return nodes.Node{}, nodes.ErrNotFound
+}
+
+func (l *links) Changed() <-chan struct{} {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.board == nil {
+		l.board = make(chan struct{})
+	}
+	return l.board
+}
+
+// changed closes Changed, as the roster does at its next change.
+func (l *links) changed() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.board != nil {
+		close(l.board)
+	}
+	l.board = make(chan struct{})
 }
 
 func (l *links) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
@@ -453,9 +475,9 @@ func TestANodeReturningRunsItsDueUnitsOnce(t *testing.T) {
 		r.set(nodes.Up)
 		synctest.Wait()
 		if got := rows(t, lib, "SELECT count(*) FROM tasks_run"); !equal(got, []string{"1"}) {
-			t.Fatalf("runs before nodes.changed = %q, want only the Run now", got)
+			t.Fatalf("runs before the roster changed = %q, want only the Run now", got)
 		}
-		nodes.ChangedEvent.Bind(hub).Publish(t.Context(), nodes.Changed{NodeID: seedbox.String()})
+		r.changed()
 		synctest.Wait()
 		want := []string{"run-now|partial|1 of 2 steps, seedbox offline", "returned|succeeded|1 step"}
 		if got := rows(t, lib, "SELECT kind, result, summary FROM tasks_run ORDER BY id"); !equal(got, want) {
