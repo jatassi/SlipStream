@@ -7,6 +7,7 @@ package metadata
 
 import (
 	"maps"
+	"slices"
 	"sync"
 	"time"
 )
@@ -51,6 +52,18 @@ func (t *tally) record(o Outcome) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.outcomes = append(t.outcomes, o)
+}
+
+// tallied attaches a tally to a, as a holder does for each call, and
+// reads back every outcome recorded on it.
+func tallied(a Ask) (ask Ask, read func() []Outcome) {
+	t := &tally{}
+	a.tally = t
+	return a, func() []Outcome {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		return slices.Clone(t.outcomes)
+	}
 }
 
 type AskOptions struct {

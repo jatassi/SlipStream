@@ -116,6 +116,7 @@ func (e *SourceError) Unwrap() error { return e.Err }
 type Config struct {
 	Library      *storage.DB[file]
 	Catalogs     map[TypeID]Catalog
+	Source       Source
 	Timings      Timings
 	Changed      Publisher[WorkChanged]
 	TypesChanged Publisher[ContentTypesChanged]

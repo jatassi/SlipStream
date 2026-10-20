@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/musicbrainz"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
@@ -27,7 +28,12 @@ type file = storage.Library
 //go:embed schema/*.sql
 var schemaFiles embed.FS
 
-var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, New)
+var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, contenttype.Halves[Endpoints]{
+	Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
+		return &Source{mb: musicbrainz.New(d.Lines, e.Metadata)}
+	},
+	Library: func(contenttype.LibraryDeps) contenttype.Library { return &Music{} },
+})
 
 type Endpoints struct {
 	Metadata endpoint.URL `yaml:"metadata"`
@@ -56,18 +62,19 @@ var Description = works.Description{
 	},
 }
 
-type Music struct {
-	source *musicbrainz.Client
+// Source is the provider half: it reads MusicBrainz on any Metadata
+// holder.
+type Source struct {
+	mb *musicbrainz.Client
 }
 
-func New(d contenttype.Deps, e Endpoints) contenttype.Type {
-	return &Music{source: musicbrainz.New(d.HTTP, e.Metadata, d.UserAgent)}
-}
+// Music is the library half.
+type Music struct{}
 
 func (*Music) Describe() works.Description { return Description }
 
-func (m *Music) Search(ctx context.Context, query string) ([]works.Candidate, error) {
-	artists, err := m.source.SearchArtists(ctx, query)
+func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {
+	artists, err := s.mb.SearchArtists(ctx, ask, query)
 	if err != nil {
 		return nil, err
 	}
@@ -99,19 +106,19 @@ type trackDetail struct {
 	LengthMs *int64    `json:"lengthMs"`
 }
 
-func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error) {
-	artist, err := m.source.Artist(ctx, string(key))
+func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+	artist, err := s.mb.Artist(ctx, ask, string(key))
 	if err != nil {
 		return works.Fetched{}, err
 	}
-	albums, err := m.source.Albums(ctx, artist.ID)
+	albums, err := s.mb.Albums(ctx, ask, artist.ID)
 	if err != nil {
 		return works.Fetched{}, err
 	}
 	f := works.Fetched{Label: artist.Name, SortLabel: artist.SortName}
 	d := detail{Country: artist.Country, Disambiguation: artist.Disambiguation}
 	for _, album := range albums {
-		canonical, ok, err := m.source.Canonical(ctx, album.ID)
+		canonical, ok, err := s.mb.Canonical(ctx, ask, album.ID)
 		if err != nil {
 			return works.Fetched{}, err
 		}

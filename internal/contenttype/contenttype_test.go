@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -24,7 +25,10 @@ func assertPanics(t *testing.T, want string, fn func()) {
 	fn()
 }
 
-func open(contenttype.Deps, struct{}) contenttype.Type { return contenttypetest.New() }
+var open = contenttype.Halves[struct{}]{
+	Provider: func(contenttype.ProviderDeps, struct{}) metadata.Source { return nil },
+	Library:  func(contenttype.LibraryDeps) contenttype.Library { return contenttypetest.New() },
+}
 
 func TestDefineRefusesABadID(t *testing.T) {
 	assertPanics(t, `contenttype: id "Fixture" is not ^[a-z][a-z0-9]{1,15}$`, func() {
@@ -74,7 +78,7 @@ func TestSetIsSortedAndRefusesATwiceRegisteredID(t *testing.T) {
 
 func TestProjectHandsEachConsumerItsFacet(t *testing.T) {
 	f := contenttypetest.New()
-	got := contenttype.Project(map[works.TypeID]contenttype.Type{"fixture": f}, func(t contenttype.Type) works.Catalog { return t })
+	got := contenttype.Project(map[works.TypeID]contenttype.Library{"fixture": f}, func(t contenttype.Library) works.Catalog { return t })
 	if len(got) != 1 || got["fixture"] != works.Catalog(f) {
 		t.Fatalf("projected = %v, want the fixture's Catalog under fixture", got)
 	}
@@ -85,7 +89,7 @@ func TestATypeLackingAFacetDoesNotCompile(t *testing.T) {
 	if err == nil {
 		t.Fatal("testdata/gate compiled")
 	}
-	want := "cannot use contenttypetest.New() (value of type *contenttypetest.Fixture) as Type value in variable declaration: *contenttypetest.Fixture does not implement Type (missing method Name)"
+	want := "cannot use contenttypetest.New() (value of type *contenttypetest.Fixture) as Library value in variable declaration: *contenttypetest.Fixture does not implement Library (missing method Name)"
 	if !strings.Contains(string(out), want) {
 		t.Fatalf("build output lacks %q:\n%s", want, out)
 	}

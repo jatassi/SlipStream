@@ -205,6 +205,15 @@ func TestPicksAndHeldWork(t *testing.T) {
 	if got, ok := board.Who(role.Searching).Pick(home); !ok || got != box {
 		t.Errorf("Pick(home) = %s, %v; want seedbox, the first by id that may", got, ok)
 	}
+	if got, ok := board.Who(role.Searching).PickOther(box); !ok || got != crate {
+		t.Errorf("PickOther(seedbox) = %s, %v; want crate, the first other by id that may", got, ok)
+	}
+	if got, ok := board.Who(role.Notifying).PickOther(box); !ok || got != home {
+		t.Errorf("PickOther(seedbox) for Notifying = %s, %v; want home, the Controller", got, ok)
+	}
+	if got, ok := board.Who(role.Notifying).PickOther(home); ok {
+		t.Errorf("PickOther(home) for Notifying = %s, want none: only home may", got)
+	}
 	if who := board.Who(role.Downloading); who.State(box) != Draining || !who.Serves(box) || who.May(box) || who.Holds(box) {
 		t.Errorf("seedbox's Downloading is %d, serves %v, may %v, holds %v; want draining, served, nothing new", who.State(box), who.Serves(box), who.May(box), who.Holds(box))
 	}

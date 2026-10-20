@@ -17,6 +17,8 @@ timings:
     stop_deadline: 5s
   works:
     fetch: 2s
+  metadata:
+    attempts: 1
 music:
   artists:
     - id: a1000000-0000-4000-8000-000000000001

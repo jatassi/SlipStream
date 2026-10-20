@@ -45,6 +45,15 @@ func Errorf(code Code, format string, args ...any) error {
 // CodeOf is err's code, CodeUnknown for an error no call returned.
 func CodeOf(err error) Code { return connect.CodeOf(err) }
 
+// MessageOf is the message a call's error carries without its code, err's
+// text for an error no call returned.
+func MessageOf(err error) string {
+	if ce, ok := errors.AsType[*connect.Error](err); ok {
+		return ce.Message()
+	}
+	return err.Error()
+}
+
 // Why is why a call never ran.
 type Why uint8
 

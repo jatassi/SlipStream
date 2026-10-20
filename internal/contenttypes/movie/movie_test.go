@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
@@ -40,10 +41,8 @@ func catalog(t *testing.T) scenario.Scenario {
 	return s
 }
 
-func open(f faketest.Served) contenttype.Type {
-	return movie.Def.Open(contenttype.Deps{
-		HTTP:      f.Client,
-		UserAgent: "SlipStream/test ( github.com/jatassi/SlipStream )",
+func open(f faketest.Served) metadata.Source {
+	return movie.Def.OpenProvider(contenttype.ProviderDeps{
 		TMDB: tmdb.New(
 			metadata.NewLines(f.Client, "SlipStream/test", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))), //nolint:gosec // a fixed draw the test replays
 			tmdb.Endpoints{API: endpoint.MustParseURL(f.Address.URL("/3"))}, tmdb.DefaultTimings()),
@@ -51,7 +50,11 @@ func open(f faketest.Served) contenttype.Type {
 	}, nil)
 }
 
-func inEachTier(t *testing.T, test func(t *testing.T, m contenttype.Type)) {
+func library() contenttype.Library {
+	return movie.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)})
+}
+
+func inEachTier(t *testing.T, test func(t *testing.T, m metadata.Source)) {
 	t.Run("loopback", func(t *testing.T) { test(t, open(faketest.Loopback(t, faketmdb.Fake, catalog(t)))) })
 	t.Run("in memory", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) { test(t, open(faketest.InMemory(t, faketmdb.Fake, catalog(t)))) })
@@ -59,7 +62,7 @@ func inEachTier(t *testing.T, test func(t *testing.T, m contenttype.Type)) {
 }
 
 func TestSearchAnswersTitleAndYear(t *testing.T) {
-	inEachTier(t, func(t *testing.T, m contenttype.Type) {
+	inEachTier(t, func(t *testing.T, m metadata.Source) {
 		for query, want := range map[string][]works.Candidate{
 			"quiet orchard": {{Key: "9000001", Label: "The Quiet Orchard", Fields: []works.FieldValue{works.NumberField("year", 2021)}}},
 			"orchard": {
@@ -68,7 +71,7 @@ func TestSearchAnswersTitleAndYear(t *testing.T) {
 			},
 			"nobody": {},
 		} {
-			got, err := m.Search(t.Context(), query)
+			got, err := m.Search(t.Context(), metadata.Ask{}, query)
 			if err != nil || !reflect.DeepEqual(got, want) {
 				t.Errorf("Search(%q) = %+v, %v; want %+v", query, got, err, want)
 			}
@@ -77,8 +80,8 @@ func TestSearchAnswersTitleAndYear(t *testing.T) {
 }
 
 func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
-	inEachTier(t, func(t *testing.T, m contenttype.Type) {
-		got, err := m.Fetch(t.Context(), "9000001")
+	inEachTier(t, func(t *testing.T, m metadata.Source) {
+		got, err := m.Fetch(t.Context(), metadata.Ask{}, "9000001")
 		want := works.Fetched{
 			Label:    "The Quiet Orchard",
 			Children: []works.Entry{{Key: "movie", Label: "The Quiet Orchard"}},
@@ -87,7 +90,7 @@ func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(got, want) {
 			t.Fatalf("Fetch = %+v detail %s, %v; want %+v detail %s", got, got.Detail, err, want, want.Detail)
 		}
-		_, err = m.Fetch(t.Context(), "9000003")
+		_, err = m.Fetch(t.Context(), metadata.Ask{}, "9000003")
 		if want := "GET /movie/9000003: TMDB: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
 			t.Fatalf("Fetch(9000003) = %v, want %s", err, want)
 		}
@@ -98,12 +101,13 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
-func added(t *testing.T, key works.Key) (contenttype.Type, *storage.DB[storage.Library], works.Tree) {
+func added(t *testing.T, key works.Key) (contenttype.Library, *storage.DB[storage.Library], works.Tree) {
 	t.Helper()
 	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(movie.Def))...)
-	m := open(faketest.Loopback(t, faketmdb.Fake, catalog(t)))
+	m := library()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{movie.Def.ID(): m}, Timings: works.DefaultTimings(),
+		Source:  metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): open(faketest.Loopback(t, faketmdb.Fake, catalog(t)))}),
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
@@ -219,8 +223,7 @@ func TestAnUndatedMovieHasAnUnknownReleaseDate(t *testing.T) {
 }
 
 func TestAMovieHasNoCutsOfItsOwn(t *testing.T) {
-	m := open(faketest.Loopback(t, faketmdb.Fake, catalog(t)))
-	if cuts := m.Cuts(); len(cuts) != 0 {
+	if cuts := library().Cuts(); len(cuts) != 0 {
 		t.Fatalf("Cuts = %+v, want none", cuts)
 	}
 }

@@ -11,22 +11,16 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Catalog is the facet through which works reaches a Content Type: the
-// shape of its tree, its metadata source, and its own rows.
+// Catalog is the facet through which works reaches a Content Type's
+// library half: the shape of its tree and its own rows. It does no network
+// IO; Source does.
 //
-// Search and Fetch are the only calls that do network IO, outside any
-// Write and bounded by timings.works.fetch. Their errors wrap ErrNotFound
-// or ErrUnavailable; any other error from any method is a bug that answers
-// 500 and logs the type's id.
+// Any error from any method is a bug that answers 500 and logs the type's
+// id.
 type Catalog interface {
 	// Describe is called once at start. Its level count is fixed once a
 	// type is released, like its id.
 	Describe() Description
-	// Search returns at most 25 candidates, best first, each with its
-	// Work-tier fields.
-	Search(ctx context.Context, query string) ([]Candidate, error)
-	// Fetch returns the whole Work as the source has it now.
-	Fetch(ctx context.Context, key Key) (Fetched, error)
 	// Store writes the type's own rows inside the core's Write, after the
 	// core rows exist. It upserts, never deletes, and does no IO. detail is
 	// Fetched.Detail, unread by the core. changed is false when every row
@@ -35,6 +29,36 @@ type Catalog interface {
 	// Fields reads the type's own rows for one Work: values keyed by node,
 	// each of the kind its FieldSpec declares.
 	Fields(ctx context.Context, r storage.Reader[storage.Library], w WorkID) (FieldSet, error)
+}
+
+// Source is the network: a Content Type's metadata source, reached through
+// a Node holding the Metadata Role. Its calls run outside any Write,
+// bounded by timings.works.fetch. Errors wrap ErrNotFound, ErrRefused,
+// ErrUnavailable or ErrInvalid, inside a *SourceError when the source said
+// more.
+type Source interface {
+	// Search returns at most 25 candidates, best first, each with its
+	// Work-tier fields.
+	Search(ctx context.Context, t TypeID, query string) ([]Candidate, error)
+	// Fetch returns the whole Work as the source has it now.
+	Fetch(ctx context.Context, t TypeID, key Key, f Fetching) (Fetched, error)
+}
+
+// Purpose is why a Work is fetched, which decides the cache and the
+// ratings providers.
+type Purpose uint8
+
+const (
+	// ForPreview reads no ratings provider and may answer from the cache.
+	ForPreview Purpose = iota + 1
+	// ForAdd may answer from the cache, so it reuses a preview's answer.
+	ForAdd
+	// ForRefresh bypasses the cache and writes its answer back.
+	ForRefresh
+)
+
+type Fetching struct {
+	Purpose Purpose
 }
 
 type Description struct {

@@ -23,10 +23,12 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/housekeeping/v1/housekeepingv1connect"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
+	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -81,18 +83,8 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	client := n.httpClient()
-	opened := n.openTypes(client)
-	tree, err := works.Open(ctx, works.Config{
-		Library:      lib.db,
-		Catalogs:     contenttype.Project(opened, func(t contenttype.Type) works.Catalog { return t }),
-		Timings:      n.cfg.Timings.Works,
-		Changed:      works.ChangedEvent.Bind(n.hub),
-		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
-		Log:          n.rootLog.With("subsystem", "works"),
-	})
-	if err != nil {
-		return err
-	}
+	sources := n.openSources(client)
+	opened := n.openLibraries()
 	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	arrivals := roots.NewArrivals()
@@ -138,10 +130,29 @@ func (n *Node) startController(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, self, self, holding.Holds)
 	cluster := rpc.NewCluster(dispatch, side)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(sources))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	n.serveSystem(dispatch)
+	tree, err := works.Open(ctx, works.Config{
+		Library:  lib.db,
+		Catalogs: contenttype.Project(opened, func(t contenttype.Library) works.Catalog { return t }),
+		Source: metadata.New(metadata.Config{
+			Roster: side,
+			Service: func(node role.NodeID) metadatav1connect.MetadataServiceHandler {
+				return metadatav1connect.MetadataService.On(cluster, node)
+			},
+			Rand: n.cacheRand,
+		}),
+		Timings:      n.cfg.Timings.Works,
+		Changed:      works.ChangedEvent.Bind(n.hub),
+		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
+		Log:          n.rootLog.With("subsystem", "works"),
+	})
+	if err != nil {
+		return err
+	}
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
 			return systemv1connect.NodeSystemService.On(cluster, id)
@@ -173,7 +184,7 @@ func (n *Node) startController(ctx context.Context) error {
 	goals, err := targets.Open(ctx, targets.Config{
 		Library: lib.db,
 		Works:   tree,
-		Types:   contenttype.Project(opened, func(t contenttype.Type) targets.Facet { return t }),
+		Types:   contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
 		Changed: targets.ChangedEvent.Bind(n.hub),
 	})
 	if err != nil {
@@ -199,7 +210,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	shelf := files.New(files.Config{
 		Library: lib.db, Works: tree, Targets: goals, Grabs: grabs.GrabCells{},
-		Naming:  contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
+		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Today:   n.today,
 		Disk:    library,
 		Timings: n.cfg.Timings.Files,
@@ -213,7 +224,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Targets:   goals,
 		Files:     shelf,
 		Indexers:  registry,
-		Terms:     contenttype.Project(opened, func(t contenttype.Type) indexers.Facet { return t }),
+		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
 		Roster:    side,
 		Downloads: downloads,
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
@@ -302,20 +313,35 @@ func (n *Node) httpClient() *http.Client {
 	return &http.Client{Transport: transport}
 }
 
-func (n *Node) openTypes(client *http.Client) map[works.TypeID]contenttype.Type {
+// openSources opens every Content Type's provider half over the Node's
+// one call layer, each provider's Line registered once.
+func (n *Node) openSources(client *http.Client) map[works.TypeID]metadata.Source {
 	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
 	lines := metadata.NewLines(client, userAgent, n.cfg.Timings.Metadata, n.metadataRand)
-	source := tmdb.New(lines, n.cfg.Endpoints.TMDB, n.cfg.Timings.TMDB)
-	types := map[works.TypeID]contenttype.Type{}
-	for _, t := range n.env.Types.All() {
-		types[t.ID()] = t.Open(contenttype.Deps{
-			HTTP:      client,
-			UserAgent: userAgent,
-			TMDB:      source,
-			Log:       n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
-		}, n.cfg.Endpoints.ContentTypes.section(t.ID()))
+	deps := contenttype.ProviderDeps{
+		TMDB:  tmdb.New(lines, n.cfg.Endpoints.TMDB, n.cfg.Timings.TMDB),
+		OMDb:  omdb.New(lines, n.cfg.Endpoints.OMDb, n.cfg.Timings.OMDb),
+		Lines: lines,
 	}
-	return types
+	sources := map[works.TypeID]metadata.Source{}
+	for _, t := range n.env.Types.All() {
+		deps.Log = n.rootLog.With("subsystem", "contenttype."+string(t.ID()))
+		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
+	}
+	return sources
+}
+
+// openLibraries opens every Content Type's library half, on the
+// Controller.
+func (n *Node) openLibraries() map[works.TypeID]contenttype.Library {
+	libraries := map[works.TypeID]contenttype.Library{}
+	for _, t := range n.env.Types.All() {
+		libraries[t.ID()] = t.OpenLibrary(contenttype.LibraryDeps{
+			Region: metadata.Region,
+			Log:    n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
+		})
+	}
+	return libraries
 }
 
 // startWorker starts the Worker half: the holder half over the link to its
@@ -329,7 +355,9 @@ func (n *Node) startWorker(ctx context.Context) error {
 		return err
 	}
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
-	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
+	client := n.httpClient()
+	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openSources(client)))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
@@ -413,7 +441,7 @@ func owners() []nodes.Owner {
 		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
 		nodes.Unowned(role.Subtitles),
-		nodes.Unowned(role.Metadata),
+		metadata.Owner,
 		nodes.Unowned(role.MediaServerLink),
 		notifying.Owner,
 		nodes.Unowned(role.Relaying),

@@ -1,0 +1,142 @@
+package metadata
+
+import (
+	"context"
+	"errors"
+	"math/rand/v2"
+
+	"github.com/jatassi/slipstream/internal/nodes"
+	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
+)
+
+// DefaultLanguage and DefaultRegion are the metadata language and release
+// region every Ask carries.
+const (
+	DefaultLanguage = "en-US"
+	DefaultRegion   = "US"
+)
+
+// Region is the release region a library half reads availability against.
+func Region(context.Context, storage.Reader[storage.Library]) (string, error) {
+	return DefaultRegion, nil
+}
+
+// Owner is the Metadata Role's owner. A holder keeps no work, so the Role
+// moves freely.
+var Owner = nodes.Owner{Role: role.Metadata, Held: nodes.HoldsNothing}
+
+// Roster is the Nodes and the Roles they hold.
+type Roster interface {
+	Self() role.NodeID
+	// Pick is prefer when it may take new r work, else the Controller when
+	// it may, else the first Node by id that may.
+	Pick(r role.Name, prefer role.NodeID) (role.NodeID, bool)
+	// PickOther is Pick for a call besides couldn't take.
+	PickOther(r role.Name, besides role.NodeID) (role.NodeID, bool)
+	// Why is why no Node may take new r work, in words.
+	Why(r role.Name) string
+}
+
+type Config struct {
+	Roster Roster
+	// Service reaches MetadataService on a Node.
+	Service func(role.NodeID) metadatav1connect.MetadataServiceHandler
+	// Rand draws the cache generation.
+	Rand *rand.Rand
+}
+
+// Metadata is the Controller's half of the Metadata Role: it fills an Ask
+// for each call and sends the call to a holder.
+type Metadata struct {
+	cfg Config
+	// generation is the cache generation every Ask carries. A holder whose
+	// cache holds another drops it, so a new Controller process starts every
+	// holder's cache afresh.
+	generation uint64
+}
+
+func New(cfg Config) *Metadata {
+	return &Metadata{cfg: cfg, generation: cfg.Rand.Uint64()}
+}
+
+var _ works.Source = (*Metadata)(nil)
+
+// Search reads no ratings provider and may answer from the cache, as a
+// preview does.
+func (m *Metadata) Search(ctx context.Context, t works.TypeID, query string) ([]works.Candidate, error) {
+	res, err := call(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.SearchResponse, error) {
+		return s.Search(ctx, &metadatav1.SearchRequest{Ask: m.ask(works.ForPreview), ContentType: string(t), Query: query})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return works.DecodeCandidates(res.GetCandidates())
+}
+
+func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f works.Fetching) (works.Fetched, error) {
+	res, err := call(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.FetchResponse, error) {
+		return s.Fetch(ctx, &metadatav1.FetchRequest{Ask: m.ask(f.Purpose), ContentType: string(t), Key: string(key)})
+	})
+	if err != nil {
+		return works.Fetched{}, err
+	}
+	return works.DecodeFetched(res.GetFetched())
+}
+
+func (m *Metadata) ask(p works.Purpose) *metadatav1.Ask {
+	return askToWire(Ask{
+		Language: DefaultLanguage, Region: DefaultRegion, Ratings: p != works.ForPreview,
+		fresh: p == works.ForRefresh, generation: m.generation,
+	})
+}
+
+// response is a holder's answer, which carries a provider failure or none.
+type response interface {
+	GetFailure() *metadatav1.Failure
+}
+
+// call sends do to the holder Pick chooses. A holder that wasn't reached,
+// or lost the call, is tried once more on the holder PickOther chooses.
+// While no Node may take metadata, or no holder answered in time, the call
+// is ErrUnavailable saying why. A holder that answered with an error ran
+// into a bug of the type.
+func call[R response](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, error) {
+	var none R
+	node, ok := m.cfg.Roster.Pick(role.Metadata, m.cfg.Roster.Self())
+	if !ok {
+		return none, unavailable(m.cfg.Roster.Why(role.Metadata))
+	}
+	res, err := do(ctx, m.cfg.Service(node))
+	if unreached(err) && ctx.Err() == nil {
+		if other, ok := m.cfg.Roster.PickOther(role.Metadata, node); ok {
+			res, err = do(ctx, m.cfg.Service(other))
+		}
+	}
+	switch {
+	case err == nil:
+	case !unreached(err) && rpc.Answered(err) && ctx.Err() == nil:
+		return none, errors.New(rpc.MessageOf(err))
+	case ctx.Err() != nil:
+		return none, unavailable("the Node reading metadata didn't answer in time")
+	default:
+		return none, unavailable("the Node reading metadata didn't answer: " + err.Error())
+	}
+	if f := res.GetFailure(); f != nil {
+		return none, failureOf(f)
+	}
+	return res, nil
+}
+
+func unreached(err error) bool {
+	_, notSent := rpc.NotSent(err)
+	return notSent || rpc.Lost(err)
+}
+
+func unavailable(why string) error {
+	return &works.SourceError{Source: "Metadata", Words: why, Err: works.ErrUnavailable}
+}

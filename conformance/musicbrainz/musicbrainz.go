@@ -20,15 +20,12 @@ import (
 	"github.com/jatassi/slipstream/conformance/internal/shape"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 //go:embed shape.json
 var shapeJSON []byte
-
-// userAgent names the application and a contact, as MusicBrainz asks of
-// every client.
-const userAgent = "SlipStream/conformance ( github.com/jatassi/SlipStream )"
 
 // unknownArtist is an MBID neither MusicBrainz nor any Scenario holds.
 const unknownArtist = "ffffffff-0000-4000-8000-000000000000"
@@ -47,7 +44,10 @@ type Target struct {
 	// Spacing is the least time between two requests. MusicBrainz asks for
 	// a second; the fake needs none.
 	Spacing time.Duration
-	Known   Known
+	// Lines builds a call layer over a client, as a Node does. MusicBrainz
+	// asks every client for a user agent naming a contact.
+	Lines func(*http.Client) *metadata.Lines
+	Known Known
 	// Record, when set, takes every body in place of the check against
 	// shape.json; the online suite's -update sets it to rewrite the file.
 	Record func(key string, body []byte)
@@ -64,9 +64,9 @@ func Run(t *testing.T, tgt Target) {
 	rec := shape.NewRecorder(tgt.Client.Transport, route)
 	client := *tgt.Client
 	client.Transport = &spaced{next: rec, every: tgt.Spacing}
-	typ := music.Def.Open(contenttype.Deps{HTTP: &client, UserAgent: userAgent, Log: slog.New(slog.DiscardHandler)}, &tgt.Endpoints)
+	typ := music.Def.OpenProvider(contenttype.ProviderDeps{Lines: tgt.Lines(&client), Log: slog.New(slog.DiscardHandler)}, &tgt.Endpoints)
 
-	found, err := typ.Search(ctx, tgt.Known.Name)
+	found, err := typ.Search(ctx, metadata.Ask{}, tgt.Known.Name)
 	if err != nil {
 		t.Fatalf("Search(%q): %v", tgt.Known.Name, err)
 	}
@@ -74,7 +74,7 @@ func Run(t *testing.T, tgt Target) {
 		t.Errorf("Search(%q) = %+v, want %s %q among them", tgt.Known.Name, found, tgt.Known.MBID, tgt.Known.Name)
 	}
 
-	f, err := typ.Fetch(ctx, works.Key(tgt.Known.MBID))
+	f, err := typ.Fetch(ctx, metadata.Ask{}, works.Key(tgt.Known.MBID))
 	if err != nil {
 		t.Fatalf("Fetch(%s): %v", tgt.Known.MBID, err)
 	}
@@ -85,8 +85,8 @@ func Run(t *testing.T, tgt Target) {
 		t.Errorf("Fetch(%s) lists no album with tracks: %+v", tgt.Known.MBID, f.Children)
 	}
 
-	_, err = typ.Fetch(ctx, unknownArtist)
-	if want := "GET /artist/" + unknownArtist + ": 404 Not Found: the metadata source has no record with that key"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
+	_, err = typ.Fetch(ctx, metadata.Ask{}, unknownArtist)
+	if want := "GET /artist/" + unknownArtist + ": MusicBrainz: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
 		t.Errorf("Fetch(%s) = %v, want %s", unknownArtist, err, want)
 	}
 
