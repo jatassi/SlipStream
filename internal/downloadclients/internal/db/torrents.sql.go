@@ -15,19 +15,22 @@ import (
 )
 
 const countHeld = `-- name: CountHeld :one
-SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes FROM downloadclients_torrent
-WHERE node_id = ?1 AND removed_at IS NULL
+SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes,
+       CAST(coalesce(sum(removed_at IS NULL), 0) AS INTEGER) AS live
+FROM downloadclients_torrent
+WHERE node_id = ?1 AND parted_at IS NULL
 `
 
 type CountHeldRow struct {
 	Torrents int64
 	Bytes    int64
+	Live     int64
 }
 
 func (q *Queries) CountHeld(ctx context.Context, nodeID role.NodeID) (CountHeldRow, error) {
 	row := q.db.QueryRowContext(ctx, countHeld, nodeID)
 	var i CountHeldRow
-	err := row.Scan(&i.Torrents, &i.Bytes)
+	err := row.Scan(&i.Torrents, &i.Bytes, &i.Live)
 	return i, err
 }
 
@@ -180,6 +183,61 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 		arg.TotalsAt,
 	)
 	return err
+}
+
+const listActed = `-- name: ListActed :many
+SELECT id, node_id, removed_at, wanted, report, completion FROM downloadclients_torrent
+WHERE id IN (/*SLICE:ids*/?)
+ORDER BY id
+`
+
+type ListActedRow struct {
+	ID         TorrentID
+	NodeID     role.NodeID
+	RemovedAt  storage.Time
+	Wanted     string
+	Report     *string
+	Completion *string
+}
+
+func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRow, error) {
+	query := listActed
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActedRow
+	for rows.Next() {
+		var i ListActedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.RemovedAt,
+			&i.Wanted,
+			&i.Report,
+			&i.Completion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAttached = `-- name: ListAttached :many
@@ -432,6 +490,33 @@ func (q *Queries) ListKept(ctx context.Context, nodeID role.NodeID) ([]ListKeptR
 	return items, nil
 }
 
+const listUnparted = `-- name: ListUnparted :many
+SELECT id FROM downloadclients_torrent WHERE node_id = ?1 AND parted_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListUnparted(ctx context.Context, nodeID role.NodeID) ([]TorrentID, error) {
+	rows, err := q.db.QueryContext(ctx, listUnparted, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TorrentID
+	for rows.Next() {
+		var id TorrentID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const mergeTotals = `-- name: MergeTotals :exec
 UPDATE downloadclients_torrent SET
     uploaded = MAX(uploaded, CAST(?1 AS INTEGER)),
@@ -474,6 +559,29 @@ func (q *Queries) NextOrder(ctx context.Context) (int64, error) {
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const remove = `-- name: Remove :exec
+UPDATE downloadclients_torrent SET
+    removed_at = ?1, removed_reason = ?2, delete_files = ?3
+WHERE id = ?4 AND removed_at IS NULL
+`
+
+type RemoveParams struct {
+	RemovedAt     storage.Time
+	RemovedReason *string
+	DeleteFiles   int64
+	ID            TorrentID
+}
+
+func (q *Queries) Remove(ctx context.Context, arg RemoveParams) error {
+	_, err := q.db.ExecContext(ctx, remove,
+		arg.RemovedAt,
+		arg.RemovedReason,
+		arg.DeleteFiles,
+		arg.ID,
+	)
+	return err
 }
 
 const setCompletion = `-- name: SetCompletion :exec
@@ -661,7 +769,22 @@ func (q *Queries) SetThresholds(ctx context.Context, arg SetThresholdsParams) er
 	return err
 }
 
-const writeOff = `-- name: WriteOff :execrows
+const setWanted = `-- name: SetWanted :exec
+UPDATE downloadclients_torrent SET wanted = ?1
+WHERE id = ?2 AND removed_at IS NULL
+`
+
+type SetWantedParams struct {
+	Wanted string
+	ID     TorrentID
+}
+
+func (q *Queries) SetWanted(ctx context.Context, arg SetWantedParams) error {
+	_, err := q.db.ExecContext(ctx, setWanted, arg.Wanted, arg.ID)
+	return err
+}
+
+const writeOff = `-- name: WriteOff :exec
 UPDATE downloadclients_torrent SET
     removed_at = coalesce(removed_at, ?1),
     removed_reason = 'node_written_off',
@@ -674,10 +797,7 @@ type WriteOffParams struct {
 	NodeID role.NodeID
 }
 
-func (q *Queries) WriteOff(ctx context.Context, arg WriteOffParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, writeOff, arg.At, arg.NodeID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+func (q *Queries) WriteOff(ctx context.Context, arg WriteOffParams) error {
+	_, err := q.db.ExecContext(ctx, writeOff, arg.At, arg.NodeID)
+	return err
 }

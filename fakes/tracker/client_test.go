@@ -198,9 +198,10 @@ func timings() downloading.Timings {
 
 // seedbox is a Node's built-in client over libtorrent, across restarts.
 type seedbox struct {
-	t     *testing.T
-	local *storage.DB[storage.Local]
-	ctl   controller
+	t      *testing.T
+	local  *storage.DB[storage.Local]
+	ctl    controller
+	client *downloading.Client
 }
 
 func newSeedbox(t *testing.T, rels []release) *seedbox {
@@ -224,6 +225,7 @@ func (n *seedbox) start() (send func(wanted dlv1.Wanted), stop func()) {
 		Engine: e, Dir: n.t.TempDir(), Timings: tm, RetryMin: time.Second, RetryMax: 10 * time.Second,
 		Rand: rand.New(rand.NewPCG(3, 4)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
+	n.client = c
 	in := intents(make(chan role.Snapshot[*dlv1.Intent]))
 	ctx, cancel := context.WithCancel(context.WithoutCancel(n.t.Context()))
 	var wg sync.WaitGroup
@@ -341,6 +343,63 @@ func TestARestartOf1000TorrentsDrawsNoRejection(t *testing.T) {
 	}
 	if took := time.Since(restart); took < timings().StartSpread/2 {
 		t.Errorf("the restarted Node announced every started within %v, want them spread over %v", took, timings().StartSpread)
+	}
+}
+
+// act has the running client act on rels.
+func (n *seedbox) act(act dlv1.Act, rels ...release) []*dlv1.ActResult {
+	n.t.Helper()
+	req := &dlv1.ActRequest{Act: act}
+	for _, r := range rels {
+		req.Ids = append(req.Ids, r.id.Bytes())
+	}
+	res, err := n.client.Act(n.t.Context(), req)
+	if err != nil {
+		n.t.Fatal(err)
+	}
+	return res.GetResults()
+}
+
+// TestARecheckDrawsNoRejection rechecks a seeding torrent: the client
+// stops it once UNIT3D allows a stopped, checks it without announcing,
+// and starts it again once the tracker's window ends.
+func TestARecheckDrawsNoRejection(t *testing.T) {
+	rels, announces := serveTracker(t, unit3dScenario, 1)
+	box := newSeedbox(t, rels)
+	send, _ := box.start()
+	send(dlv1.Wanted_WANTED_STARTED)
+	until(t, time.Minute, "the torrent starts", announces, func(as []tracker.Announce) bool { return count("started")(as) == 1 })
+	if r := box.act(dlv1.Act_ACT_RECHECK, rels[0]); r[0].GetRefused() != dlv1.Refusal_REFUSAL_UNSPECIFIED {
+		t.Fatalf("recheck = %v, want it done", r[0])
+	}
+	got := until(t, 2*time.Minute, "the checked torrent starts again", announces, func(as []tracker.Announce) bool {
+		return count("stopped")(as) == 1 && count("started")(as) == 2
+	})
+	if r := rejections(got); len(r) != 0 {
+		t.Fatalf("UNIT3D rejected %s", summary(r))
+	}
+}
+
+// TestAnnounceNowDrawsNoRejection asks a seeding torrent to announce at
+// once: the client refuses inside UNIT3D's window, and the announce it
+// makes once the window ends is accepted.
+func TestAnnounceNowDrawsNoRejection(t *testing.T) {
+	rels, announces := serveTracker(t, unit3dScenario, 1)
+	box := newSeedbox(t, rels)
+	send, _ := box.start()
+	send(dlv1.Wanted_WANTED_STARTED)
+	until(t, time.Minute, "the torrent starts", announces, func(as []tracker.Announce) bool { return count("started")(as) == 1 })
+	r := box.act(dlv1.Act_ACT_ANNOUNCE, rels[0])[0]
+	if r.GetRefused() != dlv1.Refusal_REFUSAL_WINDOW {
+		t.Fatalf("announcing right after started = %v, want refused for the window", r)
+	}
+	time.Sleep(time.Until(time.UnixMilli(r.GetAcceptsAtUnixMs() + 1)))
+	if r := box.act(dlv1.Act_ACT_ANNOUNCE, rels[0])[0]; r.GetRefused() != dlv1.Refusal_REFUSAL_UNSPECIFIED {
+		t.Fatalf("announcing once the window ended = %v, want it done", r)
+	}
+	got := until(t, time.Minute, "the torrent announces", announces, func(as []tracker.Announce) bool { return count("")(as) == 1 })
+	if r := rejections(got); len(r) != 0 {
+		t.Fatalf("UNIT3D rejected %s", summary(r))
 	}
 }
 

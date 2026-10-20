@@ -5,7 +5,9 @@
 package announce
 
 import (
+	"maps"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"time"
 
@@ -53,9 +55,23 @@ type line struct {
 	// it, when the answer came.
 	sent [Stopped + 1]time.Time
 	// awaiting is the event of the announce the tracker has yet to answer.
-	awaiting     Event
-	answering    bool
+	awaiting  Event
+	answering bool
+	// answer is when the tracker last answered.
+	answer       time.Time
 	unregistered time.Time
+}
+
+// Line is the policy's view of one tracker of a torrent.
+type Line struct {
+	Index int
+	// Answered is the tracker's last answer, zero before one.
+	Answered time.Time
+	// MinInterval is the tracker's min interval, or the policy's stand-in
+	// until the tracker replied with one.
+	MinInterval time.Duration
+	// AcceptsAt is the earliest the tracker would accept an announce.
+	AcceptsAt time.Time
 }
 
 // New makes a Ledger that draws jitter from r. floor is the min interval of
@@ -139,6 +155,18 @@ func (l *Ledger) AnnounceAt(h bencode.InfoHash, private bool, now time.Time) tim
 	return l.acceptsAt(h, None, private, now)
 }
 
+// Detail is the policy's view of each tracker of h it has heard of, in
+// tracker order.
+func (l *Ledger) Detail(h bencode.InfoHash, private bool, now time.Time) []Line {
+	lines := l.torrents[h]
+	out := make([]Line, 0, len(lines))
+	for _, index := range slices.Sorted(maps.Keys(lines)) {
+		ln := lines[index]
+		out = append(out, Line{Index: index, Answered: ln.answer, MinInterval: l.minInterval(ln), AcceptsAt: l.acceptsLine(ln, None, private, now)})
+	}
+	return out
+}
+
 // Forget drops h once it parts: the next time it is added it has a new peer
 // ID.
 func (l *Ledger) Forget(h bencode.InfoHash) {
@@ -148,10 +176,15 @@ func (l *Ledger) Forget(h bencode.InfoHash) {
 func (l *Ledger) acceptsAt(h bencode.InfoHash, ev Event, windowed bool, now time.Time) time.Time {
 	at := now
 	for _, ln := range l.torrents[h] {
-		at = later(at, ln.sent[ev].Add(unit3d.Duplicate))
-		if minInterval := l.minInterval(ln); windowed && ln.open(now, minInterval) {
-			at = later(at, ln.opened.Add(minInterval))
-		}
+		at = later(at, l.acceptsLine(ln, ev, windowed, now))
+	}
+	return at
+}
+
+func (l *Ledger) acceptsLine(ln *line, ev Event, windowed bool, now time.Time) time.Time {
+	at := later(now, ln.sent[ev].Add(unit3d.Duplicate))
+	if minInterval := l.minInterval(ln); windowed && ln.open(now, minInterval) {
+		at = later(at, ln.opened.Add(minInterval))
 	}
 	return at
 }
@@ -184,6 +217,7 @@ func (l *Ledger) minInterval(ln *line) time.Duration {
 }
 
 func (ln *line) answered(at time.Time) {
+	ln.answer = later(ln.answer, at)
 	if ln.answering {
 		ln.sent[ln.awaiting] = later(ln.sent[ln.awaiting], at)
 		ln.answering = false

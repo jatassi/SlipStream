@@ -399,13 +399,17 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listGrabsOfTorrents = `-- name: ListGrabsOfTorrents :many
-SELECT id, torrent_id, release_title FROM grabs_grab WHERE torrent_id IN (/*SLICE:torrent_ids*/?) ORDER BY id
+SELECT id, torrent_id, work_id, release_title, stage FROM grabs_grab
+WHERE torrent_id IN (/*SLICE:torrent_ids*/?)
+ORDER BY created_at, id
 `
 
 type ListGrabsOfTorrentsRow struct {
 	ID           GrabID
 	TorrentID    downloadclients.ID
+	WorkID       works.WorkID
 	ReleaseTitle string
+	Stage        Stage
 }
 
 func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []downloadclients.ID) ([]ListGrabsOfTorrentsRow, error) {
@@ -427,7 +431,13 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 	var items []ListGrabsOfTorrentsRow
 	for rows.Next() {
 		var i ListGrabsOfTorrentsRow
-		if err := rows.Scan(&i.ID, &i.TorrentID, &i.ReleaseTitle); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.TorrentID,
+			&i.WorkID,
+			&i.ReleaseTitle,
+			&i.Stage,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
