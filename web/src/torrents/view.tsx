@@ -1,12 +1,11 @@
 import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { useNow } from "../tasks/use-now";
 import { StatusSentence } from "../ui/status-sentence";
-import { Browse, type TorrentsSearch } from "./browse";
+import { Browse, type Seams, type TorrentsSearch } from "./browse";
 import { NoTorrents } from "./empty";
 import { useNames } from "./names";
 import { Signals } from "./signals";
 import { signalsOf, torrentsSentence } from "./summary";
-import type { RowSeams } from "./table";
 
 export type { TorrentsSearch } from "./browse";
 
@@ -16,7 +15,7 @@ export function TorrentsView({
   search,
   onSearchChange,
   ...seams
-}: RowSeams & {
+}: Seams & {
   search: TorrentsSearch;
   onSearchChange: (change: Partial<TorrentsSearch>) => void;
 }) {

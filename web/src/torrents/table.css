@@ -5,9 +5,9 @@
 .torrents [data-torrent-row] {
   display: grid;
   grid-template-columns:
-    minmax(0, 2.4fr) minmax(0, 1.6fr) minmax(0, 1.5fr) minmax(0, 0.55fr) minmax(0, 1fr)
+    auto minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1.5fr) minmax(0, 0.75fr) minmax(0, 1fr)
     minmax(0, 1.3fr) minmax(0, 1fr) auto;
-  grid-template-areas: "work state progress ratio speed tracker node menu";
+  grid-template-areas: "pick work state progress ratio speed tracker node menu";
   align-items: center;
 }
 
@@ -15,6 +15,10 @@
   padding-inline: 16px;
 }
 
+.torrents [data-col="pick"] {
+  grid-area: pick;
+  padding-inline: 16px 0;
+}
 .torrents [data-col="work"] {
   grid-area: work;
 }
@@ -50,8 +54,8 @@
   }
 
   .torrents [data-torrent-row] {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.5fr) auto;
-    grid-template-areas: "work state progress menu";
+    grid-template-columns: auto minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.5fr) auto;
+    grid-template-areas: "pick work state progress menu";
   }
 
   .torrents :is([data-col="ratio"], [data-col="speed"], [data-col="tracker"], [data-col="node"]) {
@@ -69,13 +73,13 @@
   }
 
   .torrents [data-torrent-row] {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
     grid-template-areas:
-      "work work menu"
-      "state state state"
-      "progress progress progress"
-      "speed tracker tracker"
-      "ratio node node";
+      "pick work work menu"
+      ". state state state"
+      ". progress progress progress"
+      ". speed tracker tracker"
+      ". ratio node node";
     row-gap: 10px;
     padding-block: 14px;
   }

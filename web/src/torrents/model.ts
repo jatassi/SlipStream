@@ -64,7 +64,7 @@ const ordinalSuffix: Readonly<Record<Intl.LDMLPluralRule, string>> = {
   other: "th",
 };
 const ordinals = new Intl.PluralRules("en", { type: "ordinal" });
-const ordinal = (n: number) => `${n}${ordinalSuffix[ordinals.select(n)]}`;
+export const ordinal = (n: number) => `${n}${ordinalSuffix[ordinals.select(n)]}`;
 
 const peerWords = (live: LiveRow | undefined) =>
   live === undefined ? "" : `${live.peers} ${live.peers === 1 ? "peer" : "peers"}`;
@@ -201,7 +201,7 @@ export function etaWords(live: LiveRow | undefined): string {
 const hour = 3600;
 const day = 24 * hour;
 
-function seedLength(seconds: number): string {
+export function seedLength(seconds: number): string {
   if (seconds < hour) {
     return `${Math.floor(seconds / 60)} min`;
   }
