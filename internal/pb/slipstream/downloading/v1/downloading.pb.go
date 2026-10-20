@@ -621,9 +621,17 @@ type Facts struct {
 	PeerIdPrefix string                 `protobuf:"bytes,2,opt,name=peer_id_prefix,json=peerIdPrefix,proto3" json:"peer_id_prefix,omitempty"`
 	UserAgent    string                 `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
 	// listen is the configured address and port.
-	Listen        string `protobuf:"bytes,4,opt,name=listen,proto3" json:"listen,omitempty"`
-	Bound         bool   `protobuf:"varint,5,opt,name=bound,proto3" json:"bound,omitempty"`
-	ListenError   string `protobuf:"bytes,6,opt,name=listen_error,json=listenError,proto3" json:"listen_error,omitempty"`
+	Listen string `protobuf:"bytes,4,opt,name=listen,proto3" json:"listen,omitempty"`
+	// listen_error is why the client has no listener, empty while it has one.
+	ListenError string `protobuf:"bytes,6,opt,name=listen_error,json=listenError,proto3" json:"listen_error,omitempty"`
+	// incoming_at_unix_ms is when a peer that proves the listen port
+	// reachable first connected in to where the client listens now, 0 while
+	// none has.
+	IncomingAtUnixMs int64 `protobuf:"varint,7,opt,name=incoming_at_unix_ms,json=incomingAtUnixMs,proto3" json:"incoming_at_unix_ms,omitempty"`
+	// bound is the address and port the client listens on, empty while it
+	// has no listener. An unspecified listen address binds the address the
+	// host's default route leaves from, which can move.
+	Bound         string `protobuf:"bytes,10,opt,name=bound,proto3" json:"bound,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -686,16 +694,23 @@ func (x *Facts) GetListen() string {
 	return ""
 }
 
-func (x *Facts) GetBound() bool {
-	if x != nil {
-		return x.Bound
-	}
-	return false
-}
-
 func (x *Facts) GetListenError() string {
 	if x != nil {
 		return x.ListenError
+	}
+	return ""
+}
+
+func (x *Facts) GetIncomingAtUnixMs() int64 {
+	if x != nil {
+		return x.IncomingAtUnixMs
+	}
+	return 0
+}
+
+func (x *Facts) GetBound() string {
+	if x != nil {
+		return x.Bound
 	}
 	return ""
 }
@@ -1507,7 +1522,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\n" +
 	"Thresholds\x12.\n" +
 	"\x13fault_stall_seconds\x18\x01 \x01(\x03R\x11faultStallSeconds\x128\n" +
-	"\x18unregistered_gap_seconds\x18\x02 \x01(\x03R\x16unregisteredGapSeconds\"\xbd\x01\n" +
+	"\x18unregistered_gap_seconds\x18\x02 \x01(\x03R\x16unregisteredGapSeconds\"\xf2\x01\n" +
 	"\x05Facts\x12\x1e\n" +
 	"\n" +
 	"libtorrent\x18\x01 \x01(\tR\n" +
@@ -1515,9 +1530,11 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x0epeer_id_prefix\x18\x02 \x01(\tR\fpeerIdPrefix\x12\x1d\n" +
 	"\n" +
 	"user_agent\x18\x03 \x01(\tR\tuserAgent\x12\x16\n" +
-	"\x06listen\x18\x04 \x01(\tR\x06listen\x12\x14\n" +
-	"\x05bound\x18\x05 \x01(\bR\x05bound\x12!\n" +
-	"\flisten_error\x18\x06 \x01(\tR\vlistenError\"\xcd\x01\n" +
+	"\x06listen\x18\x04 \x01(\tR\x06listen\x12!\n" +
+	"\flisten_error\x18\x06 \x01(\tR\vlistenError\x12-\n" +
+	"\x13incoming_at_unix_ms\x18\a \x01(\x03R\x10incomingAtUnixMs\x12\x14\n" +
+	"\x05bound\x18\n" +
+	" \x01(\tR\x05boundJ\x04\b\x05\x10\x06\"\xcd\x01\n" +
 	"\x06Report\x12A\n" +
 	"\btorrents\x18\x01 \x01(\v2#.slipstream.downloading.v1.TorrentsH\x00R\btorrents\x12;\n" +
 	"\x06totals\x18\x02 \x01(\v2!.slipstream.downloading.v1.TotalsH\x00R\x06totals\x12;\n" +

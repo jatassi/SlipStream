@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"net/netip"
 	"net/url"
 	"path/filepath"
 	"slices"
@@ -52,14 +53,27 @@ type loop struct {
 	saved  chan struct{}
 	// resync is set once the engine dropped events, until the next
 	// Updates carries every torrent.
-	resync bool
-	facts  *dlv1.Facts
+	resync  bool
+	version engine.Version
+	listen  listener
 	// sentFacts is nil until facts go to a run.
 	sentFacts *dlv1.Facts
 	wake      *time.Timer
 	// limits is what the engine was last configured with, nil before the
 	// first intent.
 	limits *engine.Limits
+}
+
+// listener is what the client knows of its listen port.
+type listener struct {
+	// bound is where the engine listens, zero while it doesn't, and err
+	// why it doesn't.
+	bound netip.AddrPort
+	err   string
+	// last is the last address the engine listened on: incomingAt, the
+	// first incoming peer that proved the port reachable, holds for it.
+	last       netip.AddrPort
+	incomingAt time.Time
 }
 
 // torrent is one torrent of the intent or the discards, or one the
@@ -100,8 +114,9 @@ func (c *Client) Loop(ctx context.Context) error {
 	l := &loop{
 		c: c, eng: c.cfg.Engine, ledger: announce.New(c.cfg.Rand, t.AnnounceJitter, t.AnnounceFloor),
 		torrents: map[bencode.InfoHash]*torrent{}, byHandle: map[engine.Handle]*torrent{},
-		wake: time.NewTimer(time.Hour), facts: c.facts(),
+		wake: time.NewTimer(time.Hour), version: c.cfg.Engine.Version(),
 	}
+	l.listened()
 	defer l.wake.Stop()
 	facts, resume, totals := time.NewTicker(t.Facts), time.NewTicker(t.ResumeSave), time.NewTicker(t.TotalsReport)
 	defer facts.Stop()
@@ -142,12 +157,49 @@ func (c *Client) Loop(ctx context.Context) error {
 	}
 }
 
-func (c *Client) facts() *dlv1.Facts {
-	v := c.cfg.Engine.Version()
-	f := &dlv1.Facts{Libtorrent: v.Libtorrent, PeerIdPrefix: v.PeerIDPrefix, UserAgent: v.UserAgent, Listen: c.cfg.Listen.String()}
-	_, err := c.cfg.Engine.ListenAddr()
-	f.Bound = err == nil
+func (l *loop) facts() *dlv1.Facts {
+	f := &dlv1.Facts{
+		Libtorrent: l.version.Libtorrent, PeerIdPrefix: l.version.PeerIDPrefix, UserAgent: l.version.UserAgent,
+		Listen: l.c.cfg.Listen.String(), ListenError: l.listen.err,
+	}
+	if l.listen.bound.IsValid() {
+		f.Bound = l.listen.bound.String()
+	}
+	if !l.listen.incomingAt.IsZero() {
+		f.IncomingAtUnixMs = l.listen.incomingAt.UnixMilli()
+	}
 	return f
+}
+
+// listened reads where the engine listens. A listener that moved, as one
+// on an unspecified address does with the default route, proves nothing
+// until a peer connects in to it.
+func (l *loop) listened() {
+	addr, err := l.eng.ListenAddr()
+	switch {
+	case err == nil:
+		moved := addr != l.listen.last
+		l.listen.bound, l.listen.last, l.listen.err = addr, addr, ""
+		if moved {
+			l.listen.incomingAt = time.Time{}
+			l.configure()
+		}
+	case errors.Is(err, engine.ErrNotListening):
+		l.listen.bound = netip.AddrPort{}
+	case !errors.Is(err, engine.ErrClosed):
+		l.c.cfg.Log.Warn("read where the torrent engine listens", "err", err.Error())
+	}
+}
+
+// incoming notes a peer that connected in. The first that proves the port
+// reachable ends the watch for incoming peers while the engine listens
+// where it does.
+func (l *loop) incoming(from netip.Addr) {
+	if !l.listen.incomingAt.IsZero() || !l.c.cfg.ProvesPort(from) {
+		return
+	}
+	l.listen.incomingAt = time.Now()
+	l.configure()
 }
 
 func (l *loop) attach(run *attached, local *storage.DB[storage.Local]) {
@@ -162,8 +214,8 @@ func (l *loop) attach(run *attached, local *storage.DB[storage.Local]) {
 			l.rows[bencode.InfoHash(r.InfoHash)] = r
 		}
 	}
-	run.h.SetFacts(l.facts)
-	l.sentFacts = l.facts
+	l.sentFacts = l.facts()
+	run.h.SetFacts(l.sentFacts)
 }
 
 func (l *loop) detach(run *attached) {
@@ -177,7 +229,7 @@ func (l *loop) detach(run *attached) {
 // one neither lists is discarded with its files kept.
 func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	l.intent = s
-	l.configure(s.Intent.GetSettings())
+	l.configure()
 	for _, t := range l.torrents {
 		t.listed = false
 	}
@@ -199,11 +251,16 @@ func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	}
 }
 
-// configure applies the intent's settings to the engine when they changed.
-func (l *loop) configure(s *dlv1.Settings) {
+// configure applies the intent's settings to the engine when they changed,
+// and watches incoming peers until one proves the listen port.
+func (l *loop) configure() {
+	if l.intent.Intent == nil {
+		return
+	}
+	s := l.intent.Intent.GetSettings()
 	limits := engine.Limits{
 		DownloadLimit: s.GetDownloadLimit(), UploadLimit: s.GetUploadLimit(),
-		Connections: int(s.GetConnections()), UTP: s.GetUtp(),
+		Connections: int(s.GetConnections()), UTP: s.GetUtp(), WatchIncoming: l.listen.incomingAt.IsZero(),
 	}
 	if l.limits != nil && *l.limits == limits {
 		return
@@ -470,9 +527,10 @@ func (l *loop) tick() {
 	if err := l.eng.PostUpdates(); err != nil && !errors.Is(err, engine.ErrClosed) {
 		l.c.cfg.Log.Warn("read the torrents' status", "err", err.Error())
 	}
-	if l.run != nil && !proto.Equal(l.facts, l.sentFacts) {
-		l.run.h.SetFacts(l.facts)
-		l.sentFacts = l.facts
+	l.listened()
+	if f := l.facts(); l.run != nil && !proto.Equal(f, l.sentFacts) {
+		l.run.h.SetFacts(f)
+		l.sentFacts = f
 	}
 }
 
@@ -502,9 +560,9 @@ func (l *loop) event(ev engine.Event) {
 	switch ev := ev.(type) {
 	case engine.ListenFailed:
 		l.c.cfg.Log.Warn("The torrent engine is not listening", "error", ev.Err)
-		f := proto.CloneOf(l.facts)
-		f.Bound, f.ListenError = false, ev.Err.Text
-		l.facts = f
+		l.listen.err = ev.Err.Text
+	case engine.IncomingPeer:
+		l.incoming(ev.Addr)
 	case engine.Dropped:
 		l.resync = true
 		if err := l.eng.PostUpdates(); err != nil {

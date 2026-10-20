@@ -482,14 +482,15 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) er
 	}
 	n.torrent = torrent
 	n.downloads = downloading.NewClient(downloading.Config{
-		Engine:   torrent,
-		Dir:      n.env.DataDir.Resolve(cfg.Torrent.Downloads),
-		Listen:   cfg.Torrent.Listen,
-		Timings:  cfg.Timings.Downloading,
-		RetryMin: cfg.Timings.Role.RestartMin,
-		RetryMax: cfg.Timings.Role.RestartMax,
-		Rand:     torrentRand,
-		Log:      n.rootLog.With("subsystem", "downloading"),
+		Engine:     torrent,
+		Dir:        n.env.DataDir.Resolve(cfg.Torrent.Downloads),
+		Listen:     cfg.Torrent.Listen,
+		Timings:    cfg.Timings.Downloading,
+		RetryMin:   cfg.Timings.Role.RestartMin,
+		RetryMax:   cfg.Timings.Role.RestartMax,
+		Rand:       torrentRand,
+		ProvesPort: downloading.PublicPeer(cfg.Torrent.LoopbackPeers),
+		Log:        n.rootLog.With("subsystem", "downloading"),
 	})
 	n.stack.Go("torrent client", n.downloads.Loop)
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })

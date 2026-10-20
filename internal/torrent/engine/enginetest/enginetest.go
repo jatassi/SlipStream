@@ -114,6 +114,19 @@ func (w *World) TakePort(ap netip.AddrPort) {
 	w.taken[ap] = true
 }
 
+// Move has the engine listening on from listen on to instead, as one on
+// an unspecified address follows the host's default route: it sends no
+// event, and only ListenAddr tells.
+func (w *World) Move(from, to netip.AddrPort) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, e := range w.engines {
+		if e.listen == from {
+			e.listen = to
+		}
+	}
+}
+
 // Transfer has the swarm move a torrent with hash at these payload rates,
 // down while it downloads a payload the World holds and up while it runs,
 // each held to its engine's limit. 0 stalls it.
@@ -776,6 +789,8 @@ func (t *torrent) deleteData() error {
 }
 
 func (e *Engine) ListenAddr() (netip.AddrPort, error) {
+	e.w.mu.Lock()
+	defer e.w.mu.Unlock()
 	if !e.listen.IsValid() {
 		return netip.AddrPort{}, engine.ErrNotListening
 	}
