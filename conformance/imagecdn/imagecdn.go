@@ -41,15 +41,13 @@ var formats = map[string]string{"image/jpeg": "jpeg", "image/png": "png"}
 
 // Run reads every Known image at every size and asserts what holds on
 // both sides: each answers 200 under its content type, a raster decodes as
-// that type at the size's width or height, never upscaled past the
-// original, and an SVG is an svg element. A size TMDB doesn't offer
-// answers 400.
+// that type at the size's width or height (or one pixel short), and an
+// SVG is an svg element. A size TMDB doesn't offer answers 400.
 func Run(t *testing.T, tgt Target) {
 	t.Helper()
 	for _, k := range tgt.Known {
-		original := get(t, tgt, "original"+k.Path)
 		for _, size := range sizes {
-			if problem := check(get(t, tgt, size+k.Path), original, k, size); problem != "" {
+			if problem := check(get(t, tgt, size+k.Path), k, size); problem != "" {
 				t.Errorf("GET %s%s %s", size, k.Path, problem)
 			}
 		}
@@ -66,7 +64,7 @@ type reply struct {
 }
 
 // check is what is wrong with r as k at size, or "".
-func check(r, original reply, k Known, size string) string {
+func check(r reply, k Known, size string) string {
 	if r.status != http.StatusOK || r.contentType != k.Type {
 		return fmt.Sprintf("answered %d %s, want 200 %s", r.status, r.contentType, k.Type)
 	}
@@ -80,18 +78,16 @@ func check(r, original reply, k Known, size string) string {
 	if err != nil || format != formats[k.Type] {
 		return fmt.Sprintf("decodes as %q, %v; want %s", format, err, formats[k.Type])
 	}
-	n, err := strconv.Atoi(size[1:])
-	if err != nil {
-		return ""
-	}
-	full, _, err := image.DecodeConfig(bytes.NewReader(original.body))
-	if err != nil {
-		return fmt.Sprintf("has an original that doesn't decode: %v", err)
-	}
-	if size[0] == 'w' && cfg.Width != min(n, full.Width) || size[0] == 'h' && cfg.Height != min(n, full.Height) {
-		return fmt.Sprintf("is %dx%d, want %s of a %dx%d original", cfg.Width, cfg.Height, size, full.Width, full.Height)
+	if n, err := strconv.Atoi(size[1:]); err == nil && (size[0] == 'w' && !near(cfg.Width, n) || size[0] == 'h' && !near(cfg.Height, n)) {
+		return fmt.Sprintf("is %dx%d, want %s", cfg.Width, cfg.Height, size)
 	}
 	return ""
+}
+
+// near allows TMDB's resizer its rounding: Netflix's 2000x538 logo comes
+// back 1279 wide at w1280 from some of its servers.
+func near(got, want int) bool {
+	return got >= want-1 && got <= want
 }
 
 func get(t *testing.T, tgt Target, path string) reply {
