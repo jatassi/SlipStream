@@ -246,6 +246,11 @@ func TestCheckRefusesADefaultOutsideItsRange(t *testing.T) {
 
 func TestParseJSONReadsEachKindsWireValue(t *testing.T) {
 	pick := setting.Choice[string]{Key: "k.choice", Default: "a", Options: []setting.Option[string]{{Value: "a", Label: "A"}, {Value: "b", Label: "B"}}}
+	var countries []setting.Option[string]
+	for _, c := range []string{"AT", "BE", "CH", "DE", "ES", "FR", "GB"} {
+		countries = append(countries, setting.Option[string]{Value: c, Label: c})
+	}
+	country := setting.Choice[string]{Key: "k.country", Label: "Country", Default: "GB", Options: countries}
 	runsKept := setting.Count{Key: "k.count", Default: 5, Min: 1, Max: 10}
 	follow := setting.Switch{Key: "k.switch", Default: true}
 	for _, tc := range []struct {
@@ -263,6 +268,7 @@ func TestParseJSONReadsEachKindsWireValue(t *testing.T) {
 		{"a count as a fraction", stored(runsKept.ParseJSON), `7.5`, "", "A whole number."},
 		{"a choice", stored(pick.ParseJSON), `"b"`, "b", ""},
 		{"a choice outside its options", stored(pick.ParseJSON), `"c"`, "", "Choose A or B."},
+		{"a choice outside a long list", stored(country.ParseJSON), `"ZZ"`, "", "ZZ is not one of the 7 choices for Country."},
 		{"a switch", stored(follow.ParseJSON), `false`, "false", ""},
 		{"a switch as a number", stored(follow.ParseJSON), `0`, "", "On or off: true or false."},
 		{"null resets a switch", stored(follow.ParseJSON), ` null `, "reset", ""},

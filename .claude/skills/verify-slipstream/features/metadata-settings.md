@@ -5,7 +5,7 @@ Settings > Metadata says in one sentence which language titles read in and which
 ## Sub-features
 
 - `metadata-settings-read` `GET /api/v1/metadata/settings` lists `Metadata language` (choice, `en-US`, TMDB's languages), `Metadata region` (choice, `US`, ISO 3166-1 countries), `Metadata cache keeps answers for` (duration, 3600 seconds, 0 to 1 day), `OMDb ratings no more often than every` (duration, 7 days) and `Artwork store size` (count, 2048 MB), each at its default. The refresh tiers are not here: they are the Metadata refresh task's Tuning.
-- `metadata-settings-change` `PATCH` with `{"values":{"metadata.region":"GB"}}` answers the region changed, and the live stream carries one `works.type-changed` per Content Type. The same `PATCH` again sends none. A region `ZZ` answers 422 `setting_out_of_range` and changes nothing, `metadata.refresh.others` answers 422 `unknown_setting`, and `null` resets the region with one more `works.type-changed` per Content Type (P-058).
+- `metadata-settings-change` `PATCH` with `{"values":{"metadata.region":"GB"}}` answers the region changed, and the live stream carries one `works.type-changed` per Content Type. The same `PATCH` again sends none. A region `ZZ` answers 422 `setting_out_of_range` with "ZZ is not one of the 249 choices for Metadata region." and changes nothing, `metadata.refresh.others` answers 422 `unknown_setting`, and `null` resets the region with one more `works.type-changed` per Content Type (P-058).
 - `metadata-cache-clear` a preview read again within the cache time is answered from the holder's cache, so a TMDB fault set between the two reads never fires. `DELETE /api/v1/metadata/cache` answers 204, and the next preview reaches TMDB and meets the fault (P-060).
 - `metadata-settings-screen` Settings > Metadata on desktop and phone leads with "Titles and overviews read in English (United States), and release dates and certifications come from United States." and the language and region choices; Details opens the rest and the Clear metadata cache button, whose toast reads "Cleared the metadata cache." (P-060).
 
@@ -44,9 +44,9 @@ Steps:
 - **Clear the cache.** Preview The Quiet Orchard, set a 404 on TMDB's movie route, preview again (200, no `fault.fired`), clear the cache, preview again (404 `not_found`, one `fault.fired`), then clear the fault.
 
   ```sh
-  $FW exec $RUN --proof metadata-settings/metadata-cache-clear -- curl -sS -o /dev/null -w '%{http_code}\n' -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
+  $FW exec $RUN --proof metadata-settings/metadata-cache-clear -- curl -sS -o /dev/null -w '%{{http_code}\n' -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
   $FW fault set $RUN tmdb-gone tmdb status=404 --route movie
-  $FW exec $RUN --proof metadata-settings/metadata-cache-clear -- curl -sS -o /dev/null -w '%{http_code}\n' -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
+  $FW exec $RUN --proof metadata-settings/metadata-cache-clear -- curl -sS -o /dev/null -w '%{{http_code}\n' -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
   $FW exec $RUN --proof metadata-settings/metadata-cache-clear -- curl -sS -i -X DELETE -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/cache'
   $FW exec $RUN --proof metadata-settings/metadata-cache-clear -- curl -sS -i -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
   $FW fault clear $RUN tmdb-gone
@@ -69,4 +69,5 @@ Steps:
 
 - The registered Content Types on `home` decide how many `works.type-changed` one region change sends; read `contentType` on each record rather than counting a fixed number.
 - A new language or region asks for every Work to be refreshed at the next Metadata refresh run; no fetch happens at the change, so nothing on the Work changes until then.
+- exec fills `{...}` tokens, so curl's `-w '%{http_code}'` is written `%{{http_code}` there.
 - The cache is per holder and in memory. Setting `metadata.cacheFor` to 0 turns it off, so every preview reaches TMDB.
