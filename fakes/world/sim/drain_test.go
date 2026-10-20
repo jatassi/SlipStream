@@ -229,7 +229,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 			}
 			return failed.Stage == "failed" && forfeits(t, w) == 0
 		})
-		expectFailed(t, failed, "probing", "node_written_off", "the Admin wrote off what this Grab's Node downloads")
+		expectFailed(t, failed, "probing", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
 
 		w.Node("seedbox").Start()
 		a = w.API()

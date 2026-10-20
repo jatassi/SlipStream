@@ -190,12 +190,27 @@ export function rateWords(bps: number): string {
   return bps < 1024 ? `${(bps / 1024).toFixed(1)} KB/s` : `${bytes(bps)}/s`;
 }
 
-export function etaWords(live: LiveRow | undefined): string {
-  if (live === undefined || live.downBps <= 0 || live.done >= live.wanted) {
+function etaWords(live: LiveRow): string {
+  if (live.downBps <= 0 || live.done >= live.wanted) {
     return "";
   }
   const minutes = Math.ceil((live.wanted - live.done) / live.downBps / 60);
   return `${lengthWords(minutes * 60_000)} left`;
+}
+
+/**
+ * A Torrent's time left and download speed, or none while it doesn't
+ * download: a paused or queued torrent's live rate is the last one winding
+ * down, not a pace.
+ */
+export function paceOf(
+  state: State | undefined,
+  live: LiveRow | undefined,
+): { readonly eta: string; readonly rate: string } {
+  if (state !== "downloading" || live === undefined) {
+    return { eta: "", rate: "" };
+  }
+  return { eta: etaWords(live), rate: live.downBps > 0 ? rateWords(live.downBps) : "" };
 }
 
 const hour = 3600;

@@ -73,7 +73,7 @@ const (
 	NeedsTransfer      Code = "needs_transfer"
 )
 
-const needsTransferWords = "the Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
+const needsTransferWords = "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
 
 const (
 	Grabbed                  Outcome = "grabbed"

@@ -162,7 +162,7 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	case err != nil:
 		return fail{TorrentInvalid, err.Error()}
 	case g.Release.InfoHash != nil && *g.Release.InfoHash != m.InfoHash:
-		return fail{InfohashMismatch, fmt.Sprintf("the .torrent's info hash is %s and the Indexer's is %s", m.InfoHash, g.Release.InfoHash)}
+		return fail{InfohashMismatch, fmt.Sprintf("The .torrent's info hash is %s and the Indexer's is %s", m.InfoHash, g.Release.InfoHash)}
 	}
 	return advance{to: Downloading, torrent: &dotTorrent{metainfo: m, raw: f.Torrent}, fetched: &fetched{by: f.Node, to: to}}
 }
@@ -179,20 +179,20 @@ func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 	panic("grabs: a Grab whose Torrent is Pending is never due")
 }
 
-const writtenOffWords = "the Admin wrote off what this Grab's Node downloads"
+const writtenOffWords = "The Admin wrote off what this Grab's Node downloads"
 
 // failOfGone is how a Grab at downloading fails when its Torrent is
 // removed, by why.
 var failOfGone = map[downloadclients.RemoveReason]fail{
-	downloadclients.ByAdmin:        {Removed, "the Admin removed this Grab's torrent"},
-	downloadclients.ByMarkFailed:   {DownloadFailed, "the Admin marked this Grab's download failed"},
+	downloadclients.ByAdmin:        {Removed, "The Admin removed this Grab's torrent"},
+	downloadclients.ByMarkFailed:   {DownloadFailed, "The Admin marked this Grab's download failed"},
 	downloadclients.NodeWrittenOff: {NodeWrittenOff, writtenOffWords},
 }
 
 func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	video, ok := largestVideo(g.Torrent.Files)
 	if !ok {
-		return fail{NoVideoFile, "the download holds no mkv, mp4, m4v, avi or ts file"}
+		return fail{NoVideoFile, "The download holds no mkv, mp4, m4v, avi or ts file"}
 	}
 	probe, err := gr.cfg.Media.Probe(ctx, g.Node, g.Torrent.InfoHash, video.Index)
 	if err != nil {

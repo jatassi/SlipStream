@@ -5,7 +5,7 @@ import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { InspectorSection } from "../ui/inspector";
 import { type Facts, FactList, lengthOf } from "./inspector-facts";
-import { type Row, etaWords, percentOf, progressOf, rateWords, trackerLine } from "./model";
+import { type Row, paceOf, percentOf, progressOf, rateWords, trackerLine } from "./model";
 
 export function Numbers({
   row,
@@ -17,7 +17,7 @@ export function Numbers({
   live: LiveRow | undefined;
 }) {
   const progress = progressOf(row, live);
-  const eta = row.state === "downloading" ? etaWords(live) : "";
+  const { eta } = paceOf(row.state, live);
   const facts: Facts = [
     ["Progress", <Data key="p">{`${percentOf(progress)}% of ${bytes(progress.wanted)}`}</Data>],
     ...(eta === "" ? [] : ([["Time left", <Data key="t">{eta}</Data>]] as const)),

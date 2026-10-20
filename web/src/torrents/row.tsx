@@ -8,7 +8,7 @@ import { Meter } from "../ui/meter";
 import { SignalChip } from "../ui/signal-chip";
 import {
   type Row,
-  etaWords,
+  paceOf,
   percentOf,
   progressOf,
   rateWords,
@@ -88,9 +88,7 @@ export function ProgressCell({ row, live }: CellProps) {
   }
   const percent = percentOf(progress);
   const label = `${stateWords[row.state]} ${row.name}`;
-  const pacing = row.state === "downloading" && live !== undefined;
-  const eta = pacing ? etaWords(live) : "";
-  const rate = pacing && live.downBps > 0 ? rateWords(live.downBps) : "";
+  const { eta, rate } = paceOf(row.state, live);
   return (
     <span className="flex min-w-0 flex-col gap-1.5">
       <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
