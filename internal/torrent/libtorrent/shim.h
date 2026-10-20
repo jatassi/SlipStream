@@ -184,7 +184,7 @@ int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 /* Adds the torrent paused and not auto-managed, whatever resume data says. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
 int lts_connect_peer(lts_session* s, int64_t torrent, const char* address, uint16_t port, lts_error* err);
-/* Pauses gracefully once no tracker awaits its answer to started. */
+/* Pauses gracefully once no tracker awaits an answer. */
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err);
 int lts_resume(lts_session* s, int64_t torrent, lts_error* err);
 /* Checks a paused torrent's files and pauses it again: CHECKED, then PAUSED. */
@@ -198,7 +198,7 @@ int lts_post_trackers(lts_session* s, int64_t torrent, lts_error* err);
    DROPPED. */
 int lts_post_updates(lts_session* s, lts_error* err);
 int lts_post_stats(lts_session* s, lts_error* err);
-/* Removes once no tracker awaits its answer to started. With delete_files it
+/* Removes once no tracker awaits an answer. With delete_files it
    deletes the torrent's files, then its save path if left empty, and posts
    FILES_DELETED after REMOVED. */
 int lts_remove(lts_session* s, int64_t torrent, int32_t delete_files, lts_error* err);
@@ -212,6 +212,7 @@ void lts_free_files(lts_file* files, int32_t count);
 /* Single consumer. Returns the number of alerts copied into out, or -1. */
 int lts_wait_alerts(lts_session* s, int timeout_ms, lts_alert* out, int max, lts_error* err);
 void lts_free_alert(lts_alert* a);
+/* Pauses every torrent as lts_pause does, waits until each has, and closes. */
 int lts_close(lts_session* s, lts_error* err);
 const char* lts_version(void);
 

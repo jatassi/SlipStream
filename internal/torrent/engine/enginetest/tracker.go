@@ -99,7 +99,8 @@ func (w *World) Answer(url string) {
 // announcing is a torrent's state on the tracker its metainfo announces
 // to, by libtorrent's rules: an answer sets next to now plus the larger of
 // the interval and the floor, and min to now plus the min interval;
-// stopping resets both and sends stopped only where started was answered;
+// stopping resets both and sends stopped only where started was answered
+// and no announce awaits its answer;
 // completed waits for no min.
 type announcing struct {
 	t *torrent
@@ -121,7 +122,7 @@ type announcing struct {
 
 func (a *announcing) tracker() *tracker { return a.t.e.w.trackers[a.t.meta.Announce] }
 
-func (a *announcing) awaitsStarted() bool { return a.updating && !a.startSent }
+func (a *announcing) awaitsAnswer() bool { return a.updating }
 
 func (a *announcing) start() {
 	if a.on || a.t.state == engine.StateCheckingFiles {

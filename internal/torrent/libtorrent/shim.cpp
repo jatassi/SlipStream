@@ -211,13 +211,14 @@ int32_t state(lt::torrent_status::state_t st) {
 	throw std::logic_error("unknown torrent state");
 }
 
-// awaits_started is whether a tracker has yet to answer h's started
-// announce.
-bool awaits_started(lt::torrent_handle const& h) {
+// awaits_answer is whether a tracker has yet to answer an announce of h.
+// libtorrent sends no stopped to a tracker it awaits, and none later, so a
+// torrent pauses, leaves or closes only once none awaits an answer.
+bool awaits_answer(lt::torrent_handle const& h) {
 	for (lt::announce_entry const& ae : h.trackers()) {
 		for (lt::announce_endpoint const& ep : ae.endpoints) {
 			for (lt::announce_infohash const& ih : ep.info_hashes) {
-				if (ih.updating && !ih.start_sent) return true;
+				if (ih.updating) return true;
 			}
 		}
 	}
@@ -234,11 +235,11 @@ void remove_now(lts_session* s, lt::torrent_handle const& h, parting_torrent con
 }
 
 // settle carries out the pause or removal of h that waited for its trackers
-// to answer started, once none awaits it. Called with s->mu held.
+// to answer, once none awaits an answer. Called with s->mu held.
 void settle(lts_session* s, lt::torrent_handle const& h) {
 	auto p = s->parting.find(h);
 	bool const pausing = s->pausing.count(h) != 0;
-	if ((p == s->parting.end() && !pausing) || awaits_started(h)) return;
+	if ((p == s->parting.end() && !pausing) || awaits_answer(h)) return;
 	if (pausing) {
 		s->pausing.erase(h);
 		h.pause(lt::torrent_handle::graceful_pause);
@@ -250,8 +251,8 @@ void settle(lts_session* s, lt::torrent_handle const& h) {
 	}
 }
 
-// pause pauses h now, or once no tracker awaits its answer to started.
-// Called with s->mu held.
+// pause pauses h now, or once no tracker awaits an answer. Called with
+// s->mu held.
 void pause(lts_session* s, lt::torrent_handle const& h) {
 	s->pausing.insert(h);
 	settle(s, h);
@@ -924,7 +925,29 @@ void lts_free_alert(lts_alert* a) {
 }
 
 int lts_close(lts_session* s, lts_error* err) {
-	int rc = guard(err, [&] { lt::session_proxy proxy = s->ses.abort(); });
+	int rc = guard(err, [&] {
+		{
+			std::lock_guard<std::mutex> l(s->mu);
+			for (lt::torrent_handle const& h : s->ses.get_torrents()) {
+				if (s->parting.count(h) == 0) pause(s, h);
+			}
+		}
+		// An announce ends within tracker_completion_timeout, and its answer
+		// wakes the wait sooner.
+		auto const answer = lt::seconds(s->ses.get_settings().get_int(sp::tracker_completion_timeout));
+		for (;;) {
+			{
+				std::lock_guard<std::mutex> l(s->mu);
+				std::vector<lt::torrent_handle> waiting(s->pausing.begin(), s->pausing.end());
+				for (auto const& p : s->parting) waiting.push_back(p.first);
+				for (lt::torrent_handle const& h : waiting) settle(s, h);
+				if (s->pausing.empty() && s->parting.empty()) break;
+			}
+			s->ses.wait_for_alert(answer);
+			s->ses.pop_alerts(&s->popped);
+		}
+		lt::session_proxy proxy = s->ses.abort();
+	});
 	for (lts_alert& a : s->pending) lts_free_alert(&a);
 	delete s;
 	return rc;

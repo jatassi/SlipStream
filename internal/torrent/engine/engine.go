@@ -18,8 +18,8 @@ type Engine interface {
 	// each counter to the larger of the resume data's value and Baseline's.
 	Add(AddParams) (Handle, error)
 	// Pause stops the torrent gracefully. A tracker gets stopped only where it
-	// answered started, so until each started announce is answered the pause
-	// waits, as Remove does.
+	// answered started and awaits no answer, so until each announce is
+	// answered the pause waits, as Remove does.
 	Pause(Handle) error
 	Resume(Handle) error
 	// Reannounce schedules the next announce to tracker, an index into the
@@ -44,8 +44,8 @@ type Engine interface {
 	// Configure applies l live.
 	Configure(l Limits) error
 	ConnectPeer(Handle, netip.AddrPort) error
-	// Remove leaves once no tracker awaits its answer to started, so stopped
-	// goes out wherever started was answered. deleteFiles deletes the
+	// Remove leaves once no tracker awaits an answer, so stopped goes out
+	// wherever started was answered. deleteFiles deletes the
 	// torrent's files and then its save path when that is left empty, and
 	// FilesDeleted follows Removed.
 	Remove(h Handle, deleteFiles bool) error
@@ -64,6 +64,8 @@ type Engine interface {
 	// Events is closed by Close. A reader that falls behind gets Dropped,
 	// and the next PostUpdates carries every torrent.
 	Events() <-chan Event
+	// Close pauses every torrent as Pause does and waits until each has, so
+	// stopped goes out wherever started was answered.
 	Close() error
 }
 
