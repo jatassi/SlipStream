@@ -198,14 +198,15 @@ function etaWords(live: LiveRow): string {
   return `${lengthWords(minutes * 60_000)} left`;
 }
 
-export type Pace = { readonly eta: string; readonly rate: string };
-
 /**
  * A Torrent's time left and download speed, or none while it doesn't
  * download: a paused or queued torrent's live rate is the last one winding
  * down, not a pace.
  */
-export function paceOf(state: State, live: LiveRow | undefined): Pace {
+export function paceOf(
+  state: State | undefined,
+  live: LiveRow | undefined,
+): { readonly eta: string; readonly rate: string } {
   if (state !== "downloading" || live === undefined) {
     return { eta: "", rate: "" };
   }
