@@ -38,6 +38,8 @@ type Attached struct {
 	Outcome Outcome
 	// Progress is nil before the Node's first report.
 	Progress *Progress
+	// Fault is the Torrent's release fault, nil for none.
+	Fault *Fault
 }
 
 // Progress is a Torrent's bytes done, as its Node last reported them, of
@@ -84,6 +86,9 @@ func attachedOf(row db.ListAttachedRow) (Attached, error) {
 	}
 	if row.RemovedReason != nil {
 		a.Outcome = Gone{Reason: RemoveReason(*row.RemovedReason)}
+	}
+	if row.Fault != nil {
+		a.Fault = &Fault{Kind: FaultKind(*row.Fault), At: row.FaultAt.Time()}
 	}
 	return a, nil
 }

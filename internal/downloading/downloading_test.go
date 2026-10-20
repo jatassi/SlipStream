@@ -328,8 +328,11 @@ func (c *client) send(s role.Snapshot[*dlv1.Intent]) {
 
 var settings = &dlv1.Settings{ActiveDownloads: 3, ActiveChecks: 1, StalledAfterSeconds: 600}
 
+// thresholds are the Controller's defaults.
+var thresholds = &dlv1.Thresholds{FaultStallSeconds: 12 * 3600, UnregisteredGapSeconds: 30 * 60}
+
 func live(ts ...*dlv1.Torrent) role.Snapshot[*dlv1.Intent] {
-	return role.Snapshot[*dlv1.Intent]{Intent: &dlv1.Intent{Torrents: ts, Settings: settings}, Standing: role.Live}
+	return role.Snapshot[*dlv1.Intent]{Intent: &dlv1.Intent{Torrents: ts, Settings: settings, Thresholds: thresholds}, Standing: role.Live}
 }
 
 func (f file) started(id storage.UUID, order int64) *dlv1.Torrent {

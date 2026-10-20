@@ -564,6 +564,8 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.IncomingPeer{Addr: netip.MustParseAddr(payloadText(a)).Unmap()}
 	case C.LTS_ALERT_FILE_ERROR:
 		return engine.FileError{Torrent: h, Err: goError(&a.error)}
+	case C.LTS_ALERT_HASH_FAILED:
+		return engine.HashFailed{Torrent: h}
 	case C.LTS_ALERT_STATS:
 		counters := unsafe.Slice((*C.int64_t)(a.payload), 2)
 		return engine.Stats{SentPayload: int64(counters[0]), RecvPayload: int64(counters[1]), At: time.UnixMilli(int64(a.at_ms))}

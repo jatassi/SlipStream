@@ -100,6 +100,9 @@ message TorrentReport {
   repeated TrackerLine trackers = 9;
   // completion is the files as they lie, once complete.
   Completion completion = 10;
+  // fault is the release fault the Node recorded on the torrent, once it
+  // has.
+  Fault fault = 11;
   // save_folder is where the Node keeps the torrent, opaque to the
   // Controller.
   string save_folder = 12;
@@ -156,6 +159,26 @@ message File {
   int32 index = 1;
   string path = 2;
   int64 size = 3;
+}
+
+// Fault is a release fault: the release itself looks bad.
+message Fault {
+  FaultKind kind = 1;
+  // at_unix_ms is when the Node recorded it.
+  int64 at_unix_ms = 2;
+}
+
+enum FaultKind {
+  FAULT_KIND_UNSPECIFIED = 0;
+  // FAULT_KIND_ENGINE_ERROR is an engine error the client blames on the
+  // torrent rather than on the Node.
+  FAULT_KIND_ENGINE_ERROR = 1;
+  // FAULT_KIND_UNREGISTERED is a tracker calling the torrent unregistered
+  // on two answers at least the unregistered gap apart.
+  FAULT_KIND_UNREGISTERED = 2;
+  // FAULT_KIND_NO_PAYLOAD is a download that received no payload in the
+  // fault stall time it ran.
+  FAULT_KIND_NO_PAYLOAD = 3;
 }
 
 message Totals {

@@ -81,6 +81,8 @@ type torrent struct {
 	state   plan.State
 	// failed is the engine's error text, "" while it holds the torrent.
 	failed string
+	// fault is the release fault recorded on the torrent, nil for none.
+	fault *dlv1.Fault
 	// freed is the bytes its removal deletes.
 	freed          int64
 	fetching       bool
@@ -229,7 +231,7 @@ func (l *loop) list(id, hash []byte) *torrent {
 	}
 	t.listed = true
 	if u, err := storage.UUIDFromBytes(id); err == nil && u != t.id {
-		t.id, t.sent, t.sentFolder, t.sentCompletion, t.sentTotals = u, nil, false, false, nil
+		t.id, t.sent, t.sentFolder, t.sentCompletion, t.sentTotals, t.fault = u, nil, false, false, nil, nil
 	}
 	return t
 }
@@ -271,7 +273,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	t.fetches = 0
 	m, err := bencode.DecodeMetainfo(res.GetMetainfo())
 	if err != nil {
-		t.failed = err.Error()
+		t.fail(err, time.Now())
 		return
 	}
 	t.Private, t.folder = m.Info.Private, res.GetSaveFolder()
@@ -294,7 +296,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 		},
 	})
 	if err != nil {
-		t.failed = err.Error()
+		t.fail(err, time.Now())
 		return
 	}
 	t.NeedsCheck = true
@@ -314,6 +316,7 @@ func folderName(name string) string { return unsafeInName.Replace(name) }
 func (l *loop) settle(now time.Time) {
 	if l.intent.Intent != nil {
 		l.decide(now)
+		l.noPayload(now)
 	}
 	l.report(now)
 	l.publish()
@@ -547,13 +550,13 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		l.part(t)
 	case engine.TorrentFailed:
 		if !errors.Is(ev.Err, engine.ErrDiskFull) {
-			t.failed = ev.Err.Text
+			t.fail(ev.Err, time.Now())
 		}
 	case engine.FileError:
 		if errors.Is(ev.Err, engine.ErrDiskFull) {
 			t.DiskFull = true
 		} else {
-			t.failed = ev.Err.Text
+			t.fail(ev.Err, time.Now())
 		}
 	case engine.ResumeSaved:
 		l.resumeSaved(t, ev.Data)
@@ -563,10 +566,13 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 	case engine.TrackerAnnounced:
 		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At)
 	case engine.TrackerReplied:
+		l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
 		t.replied[ev.Tracker] = ev.At
 		l.call(t, "list a torrent's trackers", l.eng.PostTrackers(t.handle))
 	case engine.TrackerFailed:
-		l.ledger.Failed(t.Hash, l.tracker(t, ev.Tracker), ev.Reason, l.unregisteredGap(), ev.At)
+		if l.ledger.Failed(t.Hash, l.tracker(t, ev.Tracker), ev.Reason, l.unregisteredGap(), ev.At) {
+			t.recordFault(dlv1.FaultKind_FAULT_KIND_UNREGISTERED, ev.At)
+		}
 		l.call(t, "list a torrent's trackers", l.eng.PostTrackers(t.handle))
 	case engine.TrackerList:
 		l.trackerList(t, ev.Trackers)
