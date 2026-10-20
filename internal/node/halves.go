@@ -153,6 +153,7 @@ func (n *Node) startController(ctx context.Context) error {
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloads)
 	n.serveSystem(dispatch)
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
@@ -349,6 +350,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloads)
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)

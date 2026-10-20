@@ -57,8 +57,9 @@ type loop struct {
 	sentFacts *dlv1.Facts
 	// warned is each tracker host already logged as announced to from
 	// more than one address.
-	warned map[string]bool
-	wake   *time.Timer
+	warned   map[string]bool
+	wake     *time.Timer
+	watching watching
 }
 
 // torrent is one torrent of the intent or the discards, or one the
@@ -99,9 +100,10 @@ func (c *Client) Loop(ctx context.Context) error {
 	l := &loop{
 		c: c, eng: c.cfg.Engine, ledger: announce.New(c.cfg.Rand, t.AnnounceJitter, t.AnnounceFloor),
 		torrents: map[bencode.InfoHash]*torrent{}, byHandle: map[engine.Handle]*torrent{},
-		warned: map[string]bool{}, wake: time.NewTimer(time.Hour), facts: c.facts(),
+		warned: map[string]bool{}, wake: time.NewTimer(time.Hour), facts: c.facts(), watching: newWatching(),
 	}
 	defer l.wake.Stop()
+	defer l.watching.timer.Stop()
 	facts, resume, totals := time.NewTicker(t.Facts), time.NewTicker(t.ResumeSave), time.NewTicker(t.TotalsReport)
 	defer facts.Stop()
 	defer resume.Stop()
@@ -133,6 +135,8 @@ func (c *Client) Loop(ctx context.Context) error {
 			l.saveResume(func(t *torrent) bool { return t.status.NeedSave })
 		case <-totals.C:
 			l.sendTotals(time.Now())
+		case <-l.watching.timer.C:
+			l.takeSample()
 		case <-l.wake.C:
 		case <-ctx.Done():
 			return nil
@@ -489,8 +493,13 @@ func (l *loop) event(ev engine.Event) {
 		if err := l.eng.PostUpdates(); err != nil {
 			l.c.cfg.Log.Warn("read the torrents' status", "err", err.Error())
 		}
+		if l.watching.sampling {
+			l.postStats()
+		}
 	case engine.Updates:
 		l.updates(ev.Statuses)
+	case engine.Stats:
+		l.stats(ev)
 	default:
 		if t := l.byHandle[handleOf(ev)]; t != nil {
 			l.torrentEvent(t, ev)

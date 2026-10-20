@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	// DownloadingServiceName is the fully-qualified name of the DownloadingService service.
+	DownloadingServiceName = "slipstream.downloading.v1.DownloadingService"
 	// DownloadingControlServiceName is the fully-qualified name of the DownloadingControlService
 	// service.
 	DownloadingControlServiceName = "slipstream.downloading.v1.DownloadingControlService"
@@ -29,10 +31,89 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// DownloadingServiceWatchProcedure is the procedure name of the DownloadingService's Watch RPC.
+	DownloadingServiceWatchProcedure = "/slipstream.downloading.v1.DownloadingService/Watch"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
 )
+
+var (
+	downloadingServiceWatchSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Watch"),
+			Procedure:  DownloadingServiceWatchProcedure,
+		}
+	})
+)
+
+// DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
+// service.
+type DownloadingServiceClient interface {
+	// Watch answers after the Node's next live sample with the torrents whose
+	// rates, progress or peers moved since sample after, or with every
+	// torrent that moves when after is not the Node's last answer.
+	Watch(context.Context, *v1.WatchRequest) (*v1.WatchResponse, error)
+}
+
+// NewDownloadingServiceClient constructs a client for the
+// slipstream.downloading.v1.DownloadingService service. Multiple service clients may share a single
+// connect.Client.
+func NewDownloadingServiceClient(client *connect.Client) DownloadingServiceClient {
+	return &downloadingServiceClient{client: client}
+}
+
+// DownloadingServiceHandler is an implementation of the
+// slipstream.downloading.v1.DownloadingService service.
+type DownloadingServiceHandler interface {
+	// Watch answers after the Node's next live sample with the torrents whose
+	// rates, progress or peers moved since sample after, or with every
+	// torrent that moves when after is not the Node's last answer.
+	Watch(context.Context, *v1.WatchRequest) (*v1.WatchResponse, error)
+}
+
+// RegisterDownloadingServiceHandler registers svc as the
+// slipstream.downloading.v1.DownloadingService implementation on server.
+func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingServiceHandler) {
+	adapter := downloadingServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: downloadingServiceWatchSpec(), Handler: adapter.watch},
+	)
+}
+
+// UnimplementedDownloadingServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedDownloadingServiceHandler struct{}
+
+func (UnimplementedDownloadingServiceHandler) Watch(context.Context, *v1.WatchRequest) (*v1.WatchResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Watch is not implemented")
+}
+
+type downloadingServiceClient struct {
+	client *connect.Client
+}
+
+func (c *downloadingServiceClient) Watch(ctx context.Context, req *v1.WatchRequest) (*v1.WatchResponse, error) {
+	var res v1.WatchResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceWatchSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type downloadingServiceHandler struct{ svc DownloadingServiceHandler }
+
+func (h downloadingServiceHandler) watch(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.WatchRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Watch(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
 
 var (
 	downloadingControlServiceTorrentSpec = sync.OnceValue(func() connect.Spec {
