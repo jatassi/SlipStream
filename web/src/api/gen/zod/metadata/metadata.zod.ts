@@ -4,9 +4,19 @@ import {
   MetadataNewKey,
   MetadataProvider,
   MetadataProviderList,
+  MetadataRefreshStarted,
   MetadataSettings,
   MetadataSettingsChange,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open
+ */
+export const RefreshContentTypeParams = zod.object({
+  contentType: zod.string(),
+});
+
+export const RefreshContentTypeResponse = MetadataRefreshStarted;
 
 /**
  * @summary Have every Node reading metadata drop what it cached, the next time it reads
