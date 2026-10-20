@@ -12,8 +12,44 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const deleteCredits = `-- name: DeleteCredits :exec
+DELETE FROM movie_credit WHERE work_id = ?1
+`
+
+func (q *Queries) DeleteCredits(ctx context.Context, workID works.WorkID) error {
+	_, err := q.db.ExecContext(ctx, deleteCredits, workID)
+	return err
+}
+
+const deleteGenres = `-- name: DeleteGenres :exec
+DELETE FROM movie_genre WHERE work_id = ?1
+`
+
+func (q *Queries) DeleteGenres(ctx context.Context, workID works.WorkID) error {
+	_, err := q.db.ExecContext(ctx, deleteGenres, workID)
+	return err
+}
+
+const deleteReleases = `-- name: DeleteReleases :exec
+DELETE FROM movie_release WHERE work_id = ?1
+`
+
+func (q *Queries) DeleteReleases(ctx context.Context, workID works.WorkID) error {
+	_, err := q.db.ExecContext(ctx, deleteReleases, workID)
+	return err
+}
+
+const deleteTitles = `-- name: DeleteTitles :exec
+DELETE FROM movie_title WHERE work_id = ?1
+`
+
+func (q *Queries) DeleteTitles(ctx context.Context, workID works.WorkID) error {
+	_, err := q.db.ExecContext(ctx, deleteTitles, workID)
+	return err
+}
+
 const getMovie = `-- name: GetMovie :one
-SELECT work_id, tmdb_id, imdb_id, title, year, released, runtime_minutes FROM movie_movie WHERE work_id = ?1
+SELECT work_id, tmdb_id, imdb_id, title, title_english, original_title, original_language, year, primary_release, overview, tagline, runtime_minutes, status, certification, certification_country, studio_id, studio_name, collection_id, collection_name, trailer_site, trailer_key, awards FROM movie_movie WHERE work_id = ?1
 `
 
 func (q *Queries) GetMovie(ctx context.Context, workID works.WorkID) (MovieMovie, error) {
@@ -24,15 +60,189 @@ func (q *Queries) GetMovie(ctx context.Context, workID works.WorkID) (MovieMovie
 		&i.TmdbID,
 		&i.ImdbID,
 		&i.Title,
+		&i.TitleEnglish,
+		&i.OriginalTitle,
+		&i.OriginalLanguage,
 		&i.Year,
-		&i.Released,
+		&i.PrimaryRelease,
+		&i.Overview,
+		&i.Tagline,
 		&i.RuntimeMinutes,
+		&i.Status,
+		&i.Certification,
+		&i.CertificationCountry,
+		&i.StudioID,
+		&i.StudioName,
+		&i.CollectionID,
+		&i.CollectionName,
+		&i.TrailerSite,
+		&i.TrailerKey,
+		&i.Awards,
 	)
 	return i, err
 }
 
+const insertCredit = `-- name: InsertCredit :exec
+INSERT INTO movie_credit (work_id, position, person_id, name, department, role, photo_path)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+`
+
+type InsertCreditParams struct {
+	WorkID     works.WorkID
+	Position   int64
+	PersonID   PersonID
+	Name       string
+	Department string
+	Role       string
+	PhotoPath  *string
+}
+
+func (q *Queries) InsertCredit(ctx context.Context, arg InsertCreditParams) error {
+	_, err := q.db.ExecContext(ctx, insertCredit,
+		arg.WorkID,
+		arg.Position,
+		arg.PersonID,
+		arg.Name,
+		arg.Department,
+		arg.Role,
+		arg.PhotoPath,
+	)
+	return err
+}
+
+const insertGenre = `-- name: InsertGenre :exec
+INSERT INTO movie_genre (work_id, position, name) VALUES (?1, ?2, ?3)
+`
+
+type InsertGenreParams struct {
+	WorkID   works.WorkID
+	Position int64
+	Name     string
+}
+
+func (q *Queries) InsertGenre(ctx context.Context, arg InsertGenreParams) error {
+	_, err := q.db.ExecContext(ctx, insertGenre, arg.WorkID, arg.Position, arg.Name)
+	return err
+}
+
+const insertRelease = `-- name: InsertRelease :exec
+INSERT INTO movie_release (work_id, country, kind, date, certification, note)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+`
+
+type InsertReleaseParams struct {
+	WorkID        works.WorkID
+	Country       string
+	Kind          int64
+	Date          string
+	Certification string
+	Note          string
+}
+
+func (q *Queries) InsertRelease(ctx context.Context, arg InsertReleaseParams) error {
+	_, err := q.db.ExecContext(ctx, insertRelease,
+		arg.WorkID,
+		arg.Country,
+		arg.Kind,
+		arg.Date,
+		arg.Certification,
+		arg.Note,
+	)
+	return err
+}
+
+const insertTitle = `-- name: InsertTitle :exec
+INSERT INTO movie_title (work_id, country, title, kind)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertTitleParams struct {
+	WorkID  works.WorkID
+	Country string
+	Title   string
+	Kind    string
+}
+
+func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) error {
+	_, err := q.db.ExecContext(ctx, insertTitle,
+		arg.WorkID,
+		arg.Country,
+		arg.Title,
+		arg.Kind,
+	)
+	return err
+}
+
+const listCredits = `-- name: ListCredits :many
+SELECT person_id, name, department, role, photo_path FROM movie_credit WHERE work_id = ?1 ORDER BY position
+`
+
+type ListCreditsRow struct {
+	PersonID   PersonID
+	Name       string
+	Department string
+	Role       string
+	PhotoPath  *string
+}
+
+func (q *Queries) ListCredits(ctx context.Context, workID works.WorkID) ([]ListCreditsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCredits, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCreditsRow
+	for rows.Next() {
+		var i ListCreditsRow
+		if err := rows.Scan(
+			&i.PersonID,
+			&i.Name,
+			&i.Department,
+			&i.Role,
+			&i.PhotoPath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGenres = `-- name: ListGenres :many
+SELECT name FROM movie_genre WHERE work_id = ?1 ORDER BY position
+`
+
+func (q *Queries) ListGenres(ctx context.Context, workID works.WorkID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listGenres, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMovies = `-- name: ListMovies :many
-SELECT work_id, tmdb_id, imdb_id, title, year, released, runtime_minutes FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+SELECT work_id, tmdb_id, imdb_id, title, title_english, original_title, original_language, year, primary_release, overview, tagline, runtime_minutes, status, certification, certification_country, studio_id, studio_name, collection_id, collection_name, trailer_site, trailer_key, awards FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 func (q *Queries) ListMovies(ctx context.Context, workIds []works.WorkID) ([]MovieMovie, error) {
@@ -59,9 +269,24 @@ func (q *Queries) ListMovies(ctx context.Context, workIds []works.WorkID) ([]Mov
 			&i.TmdbID,
 			&i.ImdbID,
 			&i.Title,
+			&i.TitleEnglish,
+			&i.OriginalTitle,
+			&i.OriginalLanguage,
 			&i.Year,
-			&i.Released,
+			&i.PrimaryRelease,
+			&i.Overview,
+			&i.Tagline,
 			&i.RuntimeMinutes,
+			&i.Status,
+			&i.Certification,
+			&i.CertificationCountry,
+			&i.StudioID,
+			&i.StudioName,
+			&i.CollectionID,
+			&i.CollectionName,
+			&i.TrailerSite,
+			&i.TrailerKey,
+			&i.Awards,
 		); err != nil {
 			return nil, err
 		}
@@ -76,37 +301,156 @@ func (q *Queries) ListMovies(ctx context.Context, workIds []works.WorkID) ([]Mov
 	return items, nil
 }
 
-const upsertMovie = `-- name: UpsertMovie :execrows
-INSERT INTO movie_movie (work_id, tmdb_id, imdb_id, title, year, released, runtime_minutes)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-ON CONFLICT (work_id) DO UPDATE SET imdb_id = excluded.imdb_id, title = excluded.title, year = excluded.year,
-    released = excluded.released, runtime_minutes = excluded.runtime_minutes
-WHERE imdb_id IS NOT excluded.imdb_id OR title IS NOT excluded.title OR year IS NOT excluded.year
-    OR released IS NOT excluded.released OR runtime_minutes IS NOT excluded.runtime_minutes
+const listReleases = `-- name: ListReleases :many
+SELECT work_id, country, kind, date, certification, note FROM movie_release WHERE work_id IN (/*SLICE:work_ids*/?)
+ORDER BY work_id, country, kind, date, certification, note
+`
+
+func (q *Queries) ListReleases(ctx context.Context, workIds []works.WorkID) ([]MovieRelease, error) {
+	query := listReleases
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MovieRelease
+	for rows.Next() {
+		var i MovieRelease
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.Country,
+			&i.Kind,
+			&i.Date,
+			&i.Certification,
+			&i.Note,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitles = `-- name: ListTitles :many
+SELECT country, title, kind FROM movie_title WHERE work_id = ?1 ORDER BY country, title, kind
+`
+
+type ListTitlesRow struct {
+	Country string
+	Title   string
+	Kind    string
+}
+
+func (q *Queries) ListTitles(ctx context.Context, workID works.WorkID) ([]ListTitlesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitles, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTitlesRow
+	for rows.Next() {
+		var i ListTitlesRow
+		if err := rows.Scan(&i.Country, &i.Title, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const upsertMovie = `-- name: UpsertMovie :exec
+INSERT INTO movie_movie (
+    work_id, tmdb_id, imdb_id, title, title_english, original_title, original_language, year, primary_release,
+    overview, tagline, runtime_minutes, status, certification, certification_country, studio_id, studio_name,
+    collection_id, collection_name, trailer_site, trailer_key, awards
+) VALUES (
+    ?1, ?2, ?3, ?4, ?5,
+    ?6, ?7, ?8, ?9,
+    ?10, ?11, ?12, ?13, ?14,
+    ?15, ?16, ?17, ?18,
+    ?19, ?20, ?21, ?22
+)
+ON CONFLICT (work_id) DO UPDATE SET imdb_id = excluded.imdb_id, title = excluded.title,
+    title_english = excluded.title_english, original_title = excluded.original_title,
+    original_language = excluded.original_language, year = excluded.year, primary_release = excluded.primary_release,
+    overview = excluded.overview, tagline = excluded.tagline, runtime_minutes = excluded.runtime_minutes,
+    status = excluded.status, certification = excluded.certification,
+    certification_country = excluded.certification_country, studio_id = excluded.studio_id,
+    studio_name = excluded.studio_name, collection_id = excluded.collection_id,
+    collection_name = excluded.collection_name, trailer_site = excluded.trailer_site,
+    trailer_key = excluded.trailer_key, awards = excluded.awards
 `
 
 type UpsertMovieParams struct {
-	WorkID         works.WorkID
-	TmdbID         TMDBID
-	ImdbID         *IMDbID
-	Title          string
-	Year           *int64
-	Released       *string
-	RuntimeMinutes *int64
+	WorkID               works.WorkID
+	TmdbID               TMDBID
+	ImdbID               *IMDbID
+	Title                string
+	TitleEnglish         string
+	OriginalTitle        string
+	OriginalLanguage     string
+	Year                 *int64
+	PrimaryRelease       *string
+	Overview             string
+	Tagline              string
+	RuntimeMinutes       *int64
+	Status               string
+	Certification        *string
+	CertificationCountry *string
+	StudioID             *CompanyID
+	StudioName           *string
+	CollectionID         *CollectionID
+	CollectionName       *string
+	TrailerSite          *string
+	TrailerKey           *string
+	Awards               *string
 }
 
-func (q *Queries) UpsertMovie(ctx context.Context, arg UpsertMovieParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, upsertMovie,
+func (q *Queries) UpsertMovie(ctx context.Context, arg UpsertMovieParams) error {
+	_, err := q.db.ExecContext(ctx, upsertMovie,
 		arg.WorkID,
 		arg.TmdbID,
 		arg.ImdbID,
 		arg.Title,
+		arg.TitleEnglish,
+		arg.OriginalTitle,
+		arg.OriginalLanguage,
 		arg.Year,
-		arg.Released,
+		arg.PrimaryRelease,
+		arg.Overview,
+		arg.Tagline,
 		arg.RuntimeMinutes,
+		arg.Status,
+		arg.Certification,
+		arg.CertificationCountry,
+		arg.StudioID,
+		arg.StudioName,
+		arg.CollectionID,
+		arg.CollectionName,
+		arg.TrailerSite,
+		arg.TrailerKey,
+		arg.Awards,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+	return err
 }

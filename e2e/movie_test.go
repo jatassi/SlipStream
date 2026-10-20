@@ -9,8 +9,13 @@ import (
 )
 
 const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},` +
-	`"fields":[{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"released","label":"Released","tier":"work","kind":"date"},` +
-	`{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"}]}`
+	`"fields":[{"key":"english_title","label":"English title","tier":"work","kind":"text"},{"key":"original_title","label":"Original title","tier":"work","kind":"text"},{"key":"original_language","label":"Original language","tier":"work","kind":"text"},` +
+	`{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"release_date","label":"Release date","tier":"work","kind":"date"},{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"},` +
+	`{"key":"status","label":"Status","tier":"work","kind":"text"},{"key":"certification","label":"Certification","tier":"work","kind":"text"},{"key":"certification_country","label":"Certification country","tier":"work","kind":"text"},` +
+	`{"key":"genres","label":"Genres","tier":"work","kind":"texts"},{"key":"tagline","label":"Tagline","tier":"work","kind":"text"},{"key":"overview","label":"Overview","tier":"work","kind":"text"},` +
+	`{"key":"studio","label":"Studio","tier":"work","kind":"text"},{"key":"collection","label":"Collection","tier":"work","kind":"text"},{"key":"credits","label":"Cast and crew","tier":"work","kind":"people"},` +
+	`{"key":"alternative_titles","label":"Alternative titles","tier":"work","kind":"texts"},{"key":"imdb_id","label":"IMDb id","tier":"work","kind":"text"},{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text"},` +
+	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text"},{"key":"awards","label":"Awards","tier":"work","kind":"text"}]}`
 
 func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 	t.Parallel()
@@ -28,7 +33,7 @@ func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)
 	}
 	var ids []string
-	checkOutline(t, "the added movie", tr, &ids, "#1 movie The Quiet Orchard (The Quiet Orchard) 9000001 [year=2021 released=2021-04-16 runtime=6240000ms]")
+	checkOutline(t, "the added movie", tr, &ids, "#1 movie The Quiet Orchard (The Quiet Orchard) 9000001 [english_title=The Quiet Orchard original_title=The Quiet Orchard original_language=en year=2021 release_date=2021-04-16 runtime=6240000ms status=Released imdb_id=tt9000001]")
 	if len(tr.Items) != 1 || tr.Items[0].Key != "movie" || tr.Items[0].Label != "The Quiet Orchard" || !tr.Items[0].Monitored || tr.Items[0].LevelID != nil {
 		t.Fatalf("items = %+v, want one monitored Item movie under the Work", tr.Items)
 	}
