@@ -474,6 +474,7 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) er
 	torrent, err := n.env.Engine(engine.Config{
 		ListenInterface: cfg.Torrent.Listen,
 		AnnounceFloor:   cfg.Timings.Downloading.AnnounceFloor,
+		RouteCheck:      cfg.Timings.Downloading.RouteCheck,
 		Rand:            torrentRand,
 	})
 	if err != nil {

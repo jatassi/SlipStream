@@ -68,8 +68,17 @@ type Engine interface {
 }
 
 type Config struct {
+	// ListenInterface is the one address the engine listens and announces
+	// from. An unspecified address stands for the address the host's
+	// default route in its family leaves from, which the engine follows as
+	// RouteCheck says. Without such a route the engine listens nowhere and
+	// sends ListenFailed with ErrNoRoute.
 	ListenInterface netip.AddrPort
-	Discovery       Discovery
+	// RouteCheck is how often an engine on an unspecified ListenInterface
+	// checks whether the default route moved, and moves its listener with
+	// it. Zero checks once, at Open.
+	RouteCheck time.Duration
+	Discovery  Discovery
 	// AnnounceFloor is the least time between two regular announces to a
 	// tracker, whatever interval it answers: libtorrent's
 	// min_announce_interval. Zero is no floor.
@@ -103,6 +112,9 @@ type Version struct {
 
 // Settings is the torrent section of a Node's configuration.
 type Settings struct {
+	// Listen is the torrent client's listen address. An unspecified address
+	// listens where the host reaches the internet, as
+	// Config.ListenInterface says.
 	Listen netip.AddrPort `yaml:"listen"`
 	// Downloads is the folder torrents download into. Its consumer resolves
 	// a relative path against the data dir.
@@ -209,9 +221,9 @@ var announceEventNames = [...]string{
 
 func (a AnnounceEvent) String() string { return announceEventNames[a] }
 
-// Tracker is one entry of a torrent's tracker list. The torrent announces
-// to it from each of its Endpoints, its local listen addresses, and the
-// announce state is that of the first.
+// Tracker is one entry of a torrent's tracker list. Endpoints is 1 once
+// the torrent announced to it from the engine's one listen address, and 0
+// before then or while the engine listens nowhere.
 type Tracker struct {
 	Index     int
 	URL       string
@@ -373,6 +385,7 @@ const (
 	CodeClosed         = 2
 	CodeNotListening   = 3
 	CodeDiskFull       = 4
+	CodeNoRoute        = 5
 )
 
 var (
@@ -381,6 +394,9 @@ var (
 	ErrNotListening   = &Error{Category: CategoryShim, Code: CodeNotListening, Text: "not listening"}
 	// ErrDiskFull matches an error out of space on any OS.
 	ErrDiskFull = &Error{Category: CategoryShim, Code: CodeDiskFull, Text: "disk full"}
+	// ErrNoRoute is an unspecified listen address on a host with no default
+	// route in its family.
+	ErrNoRoute = &Error{Category: CategoryShim, Code: CodeNoRoute, Text: "no route to the internet"}
 )
 
 // Error compares by Category and Code. Text is for logs.
