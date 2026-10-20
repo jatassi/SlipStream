@@ -1,7 +1,10 @@
+import type { WorksArt } from "./worksArt.ts";
 import type { WorksFieldValue } from "./worksFieldValue.ts";
 import type { WorksRating } from "./worksRating.ts";
 
 export interface WorksItem {
+  /** By kind */
+  artwork: WorksArt[];
   fields: WorksFieldValue[];
   id: string;
   key: string;

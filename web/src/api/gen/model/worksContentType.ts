@@ -1,8 +1,11 @@
+import type { WorksArtworkKind } from "./worksArtworkKind.ts";
 import type { WorksContentTypeIcon } from "./worksContentTypeIcon.ts";
 import type { WorksFieldSpec } from "./worksFieldSpec.ts";
 import type { WorksNoun } from "./worksNoun.ts";
 
 export interface WorksContentType {
+  /** The kinds of image its Works and Items carry */
+  artwork: WorksArtworkKind[];
   enabled: boolean;
   fields: WorksFieldSpec[];
   icon: WorksContentTypeIcon;

@@ -3,6 +3,7 @@ package worksapi_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -37,6 +38,10 @@ func (discard[T]) Publish(context.Context, T) {}
 type shelf struct{ w *works.Works }
 
 func (s shelf) Works() (*works.Works, bool) { return s.w, true }
+
+func (shelf) Minter() (artwork.Minter, bool) { return minter, true }
+
+var minter = artwork.NewMinter([]byte("worksapi"))
 
 // named describes every Content Type by its id.
 type named struct{}
@@ -92,6 +97,7 @@ func serve(t *testing.T) *server {
 		Library:      lib,
 		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
 		Source:       fx.Source(),
+		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      discard[works.WorkChanged]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
@@ -163,9 +169,9 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 	s.fx.Put("w1", record())
 	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":true}`)
 	want := `{"created":true,"work":{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,` +
-		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],` +
+		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],"artwork":[],` +
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
-		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[]}]}}` + "\n"
+		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[]}]}}` + "\n"
 	if code != http.StatusOK || masked(body) != want {
 		t.Fatalf("addWork = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -175,11 +181,11 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		t.Fatalf("addWork again = %d %s", code, masked(again))
 	}
 	code, list := s.call(t, http.MethodGet, "/api/v1/works?contentType=fixture", "")
-	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,"fields":[{"key":"origin","kind":"text","text":"Grandma"}]}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
+	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"artwork":[]}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
 		t.Fatalf("listWorks = %d %s, want %s", code, list, want)
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
-	if want := `{"candidates":[{"key":"w1","label":"The Attic","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
+	if want := `{"candidates":[{"key":"w1","label":"The Attic","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
 		t.Fatalf("searchCatalog = %d %s, want %s", code, search, want)
 	}
 }
@@ -193,7 +199,8 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	want := `{"contentTypes":[{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
 		`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},` +
 		`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},` +
-		`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}]}]}` + "\n"
+		`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}],` +
+		`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}]}]}` + "\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}
@@ -218,7 +225,8 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},`+
 			`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},`+
 			`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},`+
-			`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}]}`)
+			`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}],`+
+			`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}]}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "", 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	if code, _ := s.call(t, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":true}`); code != 200 {
@@ -260,12 +268,14 @@ func TestRefreshByHandAnswersGoneUpstream409(t *testing.T) {
 	}
 }
 
+var ada = artwork.Ref{Source: "fixture", Shape: artwork.ShapePhoto, Path: "/ada.jpg"}
+
 func TestFieldKindsTextsPeopleLinkRoundTripTheAPI(t *testing.T) {
 	s := serve(t)
 	r := record()
 	r.WorkFields = append(r.WorkFields,
 		works.TextsField("tags", []string{"wool", "winter"}),
-		works.PeopleField("makers", []works.Person{{Name: "Ada", Role: "Knitter", Department: "Craft", Photo: artwork.Ref{Source: "fixture", Shape: artwork.ShapePhoto, Path: "/ada.jpg"}}, {Name: "Grace"}}),
+		works.PeopleField("makers", []works.Person{{Name: "Ada", Role: "Knitter", Department: "Craft", Photo: ada}, {Name: "Grace"}}),
 		works.LinkField("page", works.Link{Label: "Shop", URL: "https://example.test/attic"}),
 	)
 	votes := int64(1200)
@@ -277,10 +287,10 @@ func TestFieldKindsTextsPeopleLinkRoundTripTheAPI(t *testing.T) {
 	}
 	code, body = s.call(t, http.MethodGet, "/api/v1/works/"+uuids.FindString(body), "")
 	want := `"fields":[{"key":"origin","kind":"text","text":"Grandma"},{"key":"tags","kind":"texts","texts":["wool","winter"]},` +
-		`{"key":"makers","kind":"people","people":[{"name":"Ada","role":"Knitter","department":"Craft"},{"name":"Grace","role":"","department":""}]},` +
+		`{"key":"makers","kind":"people","people":[{"name":"Ada","role":"Knitter","department":"Craft","photoUrl":"` + minter.URL(ada) + `"},{"name":"Grace","role":"","department":"","photoUrl":null}]},` +
 		`{"key":"page","kind":"link","label":"Shop","url":"https://example.test/attic"}],` +
 		`"ratings":[{"source":"rottentomatoes","label":"Rotten Tomatoes critics","value":91,"scale":100,"votes":null,"fetchedAt":"T"},` +
-		`{"source":"tmdb","label":"TMDB","value":7.5,"scale":10,"votes":1200,"fetchedAt":"T"}],"levels"`
+		`{"source":"tmdb","label":"TMDB","value":7.5,"scale":10,"votes":1200,"fetchedAt":"T"}],"artwork":[],"levels"`
 	if code != 200 || !strings.Contains(masked(body), want) {
 		t.Fatalf("getWork = %d\n%s\nwant it to hold\n%s", code, masked(body), want)
 	}
@@ -339,5 +349,44 @@ func TestAddWorkWantsFromTheProfileItNamesOrTheTypesDefault(t *testing.T) {
 	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`)
 	if g := wants(body); code != 200 || g.Profile.ID != fixture.ID {
 		t.Fatalf("addWork with no Profile = %d, wants from %s; want the default %s", code, g.Profile.Name, fixture.Name)
+	}
+}
+
+func TestArtworkAnswersAsURLsTheRouteOpens(t *testing.T) {
+	s := serve(t)
+	photo := artwork.Ref{Source: "fixture", Shape: artwork.ShapePoster, Path: "/attic.jpg"}
+	snap := artwork.Ref{Source: "fixture", Shape: artwork.ShapeBackdrop, Path: "/scarf.jpg"}
+	r := record()
+	r.Tree.Artwork = []works.Art{{Kind: "photo", Ref: photo}, {Item: "c1", Kind: "snap", Ref: snap}}
+	s.fx.Put("w1", r)
+	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	if code != http.StatusOK {
+		t.Fatalf("addWork = %d %s", code, body)
+	}
+	var tree struct {
+		Work struct {
+			Artwork []struct{ Kind, URL string }
+			Items   []struct {
+				Artwork []struct{ Kind, URL string }
+			}
+		}
+	}
+	if err := json.Unmarshal([]byte(body), &tree); err != nil || len(tree.Work.Artwork) != 1 || len(tree.Work.Items) != 1 || len(tree.Work.Items[0].Artwork) != 1 {
+		t.Fatalf("addWork = %s, %v; want one Work image and one Item image", body, err)
+	}
+	opens := func(what, kind, url string, want artwork.Ref) {
+		t.Helper()
+		token, ok := strings.CutPrefix(url, artwork.Route)
+		got, err := minter.Open(token)
+		if !ok || err != nil || got != want {
+			t.Errorf("%s's %s URL %q opens to %+v, %v; want %+v", what, kind, url, got, err, want)
+		}
+	}
+	opens("the Work", tree.Work.Artwork[0].Kind, tree.Work.Artwork[0].URL, photo)
+	opens("the Item", tree.Work.Items[0].Artwork[0].Kind, tree.Work.Items[0].Artwork[0].URL, snap)
+
+	code, list := s.call(t, http.MethodGet, "/api/v1/works", "")
+	if want := `"artwork":[{"kind":"photo","url":"` + minter.URL(photo) + `"}]`; code != http.StatusOK || !strings.Contains(list, want) || strings.Contains(list, "scarf") {
+		t.Fatalf("listWorks = %d %s, want the Work's own image %s and no Item's", code, list, want)
 	}
 }

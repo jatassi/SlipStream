@@ -13,6 +13,7 @@ export const cinema: WorksContentType = {
     { key: "released", label: "Released", tier: "work", kind: "date" },
     { key: "runtime", label: "Runtime", tier: "work", kind: "duration" },
   ],
+  artwork: [],
 };
 
 export const orchardId = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";
@@ -33,6 +34,7 @@ export const orchard: WorksTree = {
     { key: "runtime", kind: "duration", ms: 6_720_000 },
   ],
   ratings: [],
+  artwork: [],
   levels: [],
   items: [
     {
@@ -45,6 +47,7 @@ export const orchard: WorksTree = {
       monitored: true,
       fields: [],
       ratings: [],
+      artwork: [],
     },
   ],
 };

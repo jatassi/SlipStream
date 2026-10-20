@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -30,6 +31,7 @@ var (
 	providerNotFound    = api.NewCode(http.StatusNotFound, "metadata_provider_not_found", "No metadata provider has that id")
 	keyRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_key_refused", "The metadata provider refused that key, so SlipStream didn't save it")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't answer. Try again later.")
+	artworkUnavailable  = api.NewCode(http.StatusNotFound, "artwork_unavailable", "SlipStream has no such image to show")
 )
 
 func answer(err error) error {
@@ -126,7 +128,7 @@ type keyInput struct {
 }
 
 func Routes(r *api.Router, registry Registry) {
-	o := r.Owner("metadata", api.Admin)
+	o := r.Owner("metadata", api.Account)
 	h := handlers{registry}
 
 	api.Register(o, api.Admin, api.Op{
@@ -163,6 +165,15 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{providerNotFound, metadataUnavailable},
 	}, h.test)
+
+	api.RegisterImage(o, api.Account, api.Op{
+		ID:      "getArtwork",
+		Method:  http.MethodGet,
+		Path:    "/artwork/{token}",
+		Summary: "Get an image SlipStream handed out, at a size; the address never changes what it answers",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{artworkUnavailable},
+	}, h.artwork)
 }
 
 type handlers struct{ registry Registry }
@@ -197,4 +208,20 @@ func (h handlers) test(ctx context.Context, by identity.Admin, in *providerInput
 		return nil, answer(err)
 	}
 	return &providerOutput{Body: providerOf(s)}, nil
+}
+
+type artworkInput struct {
+	Token string `path:"token" doc:"From an artwork URL the API answered"`
+	Size  string `query:"size" required:"true" enum:"small,medium,large,original"`
+}
+
+func (h handlers) artwork(ctx context.Context, _ identity.Account, in *artworkInput) (*api.Image, error) {
+	img, err := open(h.registry).Artwork(ctx, in.Token, artwork.Size(in.Size))
+	if errors.Is(err, artwork.ErrForged) || errors.Is(err, artwork.ErrMissing) {
+		return nil, artworkUnavailable.Because(err.Error())
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &api.Image{Type: img.Type, Body: img.Body}, nil
 }

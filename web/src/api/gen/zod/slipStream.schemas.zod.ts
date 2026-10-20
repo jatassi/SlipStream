@@ -3575,6 +3575,14 @@ export const TasksTaskPatch = zod.object({
 export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
 export type TasksTaskPatchOutput = zod.output<typeof TasksTaskPatch>;
 
+export const WorksArt = zod.object({
+  kind: zod.string().describe("An artwork kind of the Content Type"),
+  url: zod.string().describe("The artwork route for the image, without a size"),
+});
+
+export type WorksArt = zod.input<typeof WorksArt>;
+export type WorksArtOutput = zod.output<typeof WorksArt>;
+
 export const WorksTextValue = zod.object({
   key: zod.string(),
   kind: zod.enum(["text"]),
@@ -3627,6 +3635,12 @@ export type WorksTextsValueOutput = zod.output<typeof WorksTextsValue>;
 export const WorksPerson = zod.object({
   department: zod.string().describe("Empty when the source names none"),
   name: zod.string(),
+  photoUrl: zod
+    .string()
+    .nullable()
+    .describe(
+      "The artwork route for the person's photo, without a size; null when the source has none",
+    ),
   role: zod
     .string()
     .describe("The character played or the job done; empty when the source names none"),
@@ -3686,6 +3700,7 @@ export type WorksRating = zod.input<typeof WorksRating>;
 export type WorksRatingOutput = zod.output<typeof WorksRating>;
 
 export const WorksItem = zod.object({
+  artwork: zod.array(WorksArt).describe("By kind"),
   fields: zod.array(WorksFieldValue),
   id: zod.uuid(),
   key: zod.string(),
@@ -3724,6 +3739,7 @@ export const worksTreeContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksTree = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  artwork: zod.array(WorksArt).describe("The Work's own images, by kind"),
   contentType: zod.string().regex(worksTreeContentTypeRegExp),
   fields: zod.array(WorksFieldValue),
   goneUpstreamAt: zod.iso
@@ -3757,10 +3773,26 @@ export const WorksAdded = zod.object({
 export type WorksAdded = zod.input<typeof WorksAdded>;
 export type WorksAddedOutput = zod.output<typeof WorksAdded>;
 
+export const WorksArtworkKind = zod.object({
+  key: zod.string(),
+  label: zod.string(),
+  shape: zod.enum(["poster", "backdrop", "logo", "photo", "cover"]),
+  tier: zod.enum(["work", "item"]),
+});
+
+export type WorksArtworkKind = zod.input<typeof WorksArtworkKind>;
+export type WorksArtworkKindOutput = zod.output<typeof WorksArtworkKind>;
+
 export const WorksCandidate = zod.object({
   fields: zod.array(WorksFieldValue).describe("The Work's fields"),
   key: zod.string(),
   label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe(
+      "The artwork route for the result's poster, without a size; null when the source has none",
+    ),
   workId: zod.uuid().nullable().describe("The Work, once it is in the library"),
 });
 
@@ -3800,6 +3832,7 @@ export type WorksNounOutput = zod.output<typeof WorksNoun>;
 export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksContentType = zod.object({
+  artwork: zod.array(WorksArtworkKind).describe("The kinds of image its Works and Items carry"),
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
   icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
@@ -3840,6 +3873,7 @@ export const worksListedWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}
 
 export const WorksListedWork = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  artwork: zod.array(WorksArt).describe("The Work's own images, by kind"),
   contentType: zod.string().regex(worksListedWorkContentTypeRegExp),
   fields: zod.array(WorksFieldValue).describe("The Work's own fields"),
   goneUpstreamAt: zod.iso

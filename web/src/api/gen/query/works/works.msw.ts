@@ -24,6 +24,20 @@ export const getListContentTypesResponseMock = (
 ): WorksContentTypeList => ({
   contentTypes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
+      artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          shape: faker.helpers.arrayElement([
+            "poster",
+            "backdrop",
+            "logo",
+            "photo",
+            "cover",
+          ] as const),
+          tier: faker.helpers.arrayElement(["work", "item"] as const),
+        }),
+      ),
       enabled: faker.datatype.boolean(),
       fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -140,6 +154,10 @@ export const getSearchCatalogResponseWorksPeopleValueMock = (
       () => ({
         department: faker.string.alpha({ length: { min: 10, max: 20 } }),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        photoUrl: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         role: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
@@ -178,6 +196,10 @@ export const getSearchCatalogResponseMock = (
       ),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      posterUrl: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
       workId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     }),
   ),
@@ -187,6 +209,14 @@ export const getSearchCatalogResponseMock = (
 export const getSetContentTypeEnabledResponseMock = (
   overrideResponse: Partial<Extract<WorksContentType, object>> = {},
 ): WorksContentType => ({
+  artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      shape: faker.helpers.arrayElement(["poster", "backdrop", "logo", "photo", "cover"] as const),
+      tier: faker.helpers.arrayElement(["work", "item"] as const),
+    }),
+  ),
   enabled: faker.datatype.boolean(),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
@@ -301,6 +331,10 @@ export const getListWorksResponseWorksPeopleValueMock = (
       () => ({
         department: faker.string.alpha({ length: { min: 10, max: 20 } }),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        photoUrl: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         role: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
@@ -325,6 +359,12 @@ export const getListWorksResponseMock = (
 ): WorksWorkList => ({
   works: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
     fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.helpers.arrayElement([
@@ -417,6 +457,10 @@ export const getAddWorkResponseWorksPeopleValueMock = (
       () => ({
         department: faker.string.alpha({ length: { min: 10, max: 20 } }),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        photoUrl: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         role: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
@@ -442,6 +486,12 @@ export const getAddWorkResponseMock = (
   created: faker.datatype.boolean(),
   work: {
     addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
     fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.helpers.arrayElement([
@@ -461,6 +511,12 @@ export const getAddWorkResponseMock = (
     id: faker.string.uuid(),
     items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
+        artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
         fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () =>
             faker.helpers.arrayElement([
@@ -606,6 +662,10 @@ export const getGetWorkResponseWorksPeopleValueMock = (
       () => ({
         department: faker.string.alpha({ length: { min: 10, max: 20 } }),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        photoUrl: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         role: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
@@ -629,6 +689,12 @@ export const getGetWorkResponseMock = (
   overrideResponse: Partial<Extract<WorksTree, object>> = {},
 ): WorksTree => ({
   addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
@@ -647,6 +713,12 @@ export const getGetWorkResponseMock = (
   ]),
   id: faker.string.uuid(),
   items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
     fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.helpers.arrayElement([
         { ...getGetWorkResponseWorksTextValueMock() },
@@ -789,6 +861,10 @@ export const getRefreshWorkResponseWorksPeopleValueMock = (
       () => ({
         department: faker.string.alpha({ length: { min: 10, max: 20 } }),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        photoUrl: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         role: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
@@ -812,6 +888,12 @@ export const getRefreshWorkResponseMock = (
   overrideResponse: Partial<Extract<WorksTree, object>> = {},
 ): WorksTree => ({
   addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
@@ -830,6 +912,12 @@ export const getRefreshWorkResponseMock = (
   ]),
   id: faker.string.uuid(),
   items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
     fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.helpers.arrayElement([
         { ...getRefreshWorkResponseWorksTextValueMock() },
