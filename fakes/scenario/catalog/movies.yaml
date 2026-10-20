@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  home's two Nodes with a metadata catalog to read: The Salt Road carries every
+  part of a movie's record, from its French original title and dates in three
+  countries to cast, crew, artwork, a TMDB rating and OMDb's ratings and
+  awards, and The Quiet Orchard carries only the essentials. A missed image is
+  tried again after five seconds.
+seed: movies
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+timings:
+  node:
+    stop_deadline: 5s
+  metadata:
+    artwork_retry: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: The Salt Road
+      original_title: La Route du Sel
+      original_language: fr
+      runtime: 112m
+      overview: Two sisters walk the salt road.
+      tagline: Every grain counts.
+      genres: [Drama, Adventure]
+      status: Released
+      dates:
+        - {country: FR, kind: cinema, date: 2022-09-14, certification: TP}
+        - {country: US, kind: limited, date: 2023-01-20, certification: PG-13}
+        - {country: US, kind: digital, date: 2023-04-04, certification: R}
+        - {country: GB, kind: digital, date: 2023-03-01}
+      titles:
+        - {country: US, title: Salt Road}
+      translations:
+        - {language: fr-FR, title: La Route du Sel, overview: Deux sœurs marchent.}
+      credits:
+        cast:
+          - {id: 100, name: Mara Quell, character: Ysolde}
+          - {id: 101, name: Tove Lind, character: Anouk}
+        crew:
+          - {id: 10, name: Ines Varga, department: Directing, job: Director}
+          - {id: 11, name: Ola Brandt, department: Writing, job: Screenplay}
+      trailer: sa1tR0adTr
+      collection: {id: 77, name: Salt Trilogy}
+      studio: {id: 88, name: Fennel Films}
+      images:
+        - {shape: poster, language: en, votes: 5}
+        - {shape: backdrop, votes: 4}
+        - {shape: logo, language: en, votes: 9}
+      vote_average: 7.2
+      vote_count: 410
+omdb:
+  titles:
+    - imdb_id: tt9000005
+      imdb_rating: 7.1
+      imdb_votes: 12345
+      rotten_tomatoes: 88
+      metacritic: 74
+      awards: 1 win & 3 nominations
