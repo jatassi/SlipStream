@@ -18,7 +18,7 @@ const pieceLength = 16 << 10
 
 // leech has a libtorrent session download a torrent of five pieces from
 // a bad peer that misbehaves as mode, and nothing else.
-func leech(t *testing.T, mode scenario.BadPeer) (engine.Engine, engine.Handle) {
+func leech(t *testing.T, mode scenario.BadPeer) *leecher {
 	t.Helper()
 	payload := make([]byte, 5*pieceLength-100)
 	_, _ = rand.NewChaCha8([32]byte{'b', 'a', 'd'}).Read(payload)
@@ -56,62 +56,74 @@ func leech(t *testing.T, mode scenario.BadPeer) (engine.Engine, engine.Handle) {
 	if err := e.ConnectPeer(h, peer.Addr()); err != nil {
 		t.Fatal(err)
 	}
-	return e, h
+	return &leecher{e: e, h: h}
 }
 
-// watch reads e's events for d, posting status updates as it goes, and
-// returns whether a piece failed its hash check and the latest status of h.
-func watch(t *testing.T, e engine.Engine, h engine.Handle, d time.Duration, until func(hashFailed bool) bool) (hashFailed bool, last engine.Status) {
+// leecher is what a test has seen of the leecher's torrent.
+type leecher struct {
+	e          engine.Engine
+	h          engine.Handle
+	hashFailed bool
+	status     engine.Status
+}
+
+// watch reads the leecher's events for up to d, posting status updates as
+// it goes, until done holds.
+func (l *leecher) watch(t *testing.T, d time.Duration, done func(*leecher) bool) {
 	t.Helper()
 	tick := time.NewTicker(200 * time.Millisecond)
 	defer tick.Stop()
 	deadline := time.After(d)
-	for {
+	for !done(l) {
 		select {
-		case ev := <-e.Events():
+		case ev := <-l.e.Events():
 			switch ev := ev.(type) {
 			case engine.HashFailed:
-				hashFailed = hashFailed || ev.Torrent == h
+				l.hashFailed = l.hashFailed || ev.Torrent == l.h
 			case engine.Updates:
 				for _, s := range ev.Statuses {
-					if s.Torrent == h {
-						last = s
+					if s.Torrent == l.h {
+						l.status = s
 					}
 				}
 			}
-			if until(hashFailed) {
-				return hashFailed, last
-			}
 		case <-tick.C:
-			if err := e.PostUpdates(); err != nil {
+			if err := l.e.PostUpdates(); err != nil {
 				t.Fatal(err)
 			}
 		case <-deadline:
-			return hashFailed, last
+			return
 		}
 	}
 }
 
+func never(*leecher) bool { return false }
+
 func TestTheBadPeerSendsCorruptPieces(t *testing.T) {
-	e, h := leech(t, scenario.Corrupt)
-	if failed, last := watch(t, e, h, time.Minute, func(failed bool) bool { return failed }); !failed {
-		t.Fatalf("no piece failed its hash check within a minute of downloading from a corrupt peer; last status %+v", last)
+	l := leech(t, scenario.Corrupt)
+	if l.watch(t, time.Minute, func(l *leecher) bool { return l.hashFailed }); !l.hashFailed {
+		t.Fatalf("no piece failed its hash check within a minute of downloading from a corrupt peer; last status %+v", l.status)
 	}
 }
 
 // TestTheBadPeerStalls has a leecher wait on a bad peer that holds every
-// piece and sends none: in each mode it stays connected or keeps dialing,
-// and downloads nothing.
+// piece and sends none: it stays connected, or keeps dialing a peer that
+// hangs up, and downloads nothing.
 func TestTheBadPeerStalls(t *testing.T) {
 	for _, mode := range []scenario.BadPeer{scenario.Stall, scenario.Choke, scenario.Drop} {
 		t.Run(string(mode), func(t *testing.T) {
-			e, h := leech(t, mode)
-			failed, last := watch(t, e, h, 5*time.Second, func(bool) bool { return false })
-			if failed || last.Done != 0 || last.LastPayload != (time.Time{}) {
-				t.Fatalf("a leecher of a peer that plays %s: hash failed %v, status %+v; want nothing downloaded", mode, failed, last)
+			l := leech(t, mode)
+			if mode != scenario.Drop {
+				if l.watch(t, time.Minute, func(l *leecher) bool { return l.status.Peers == 1 }); l.status.Peers != 1 {
+					t.Fatalf("a leecher of a peer that plays %s did not connect within a minute: %+v", mode, l.status)
+				}
 			}
-			if wantPeers := mode != scenario.Drop; (last.Peers == 1) != wantPeers {
-				t.Errorf("a leecher of a peer that plays %s has %d peers, want connected %v", mode, last.Peers, wantPeers)
+			l.watch(t, 5*time.Second, never)
+			if l.hashFailed || l.status.Done != 0 || !l.status.LastPayload.IsZero() {
+				t.Fatalf("a leecher of a peer that plays %s: hash failed %v, status %+v; want nothing downloaded", mode, l.hashFailed, l.status)
+			}
+			if mode != scenario.Drop && l.status.Peers != 1 {
+				t.Errorf("a leecher of a peer that plays %s has %d peers after 5 s, want it still connected", mode, l.status.Peers)
 			}
 		})
 	}
