@@ -301,6 +301,10 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("metadata", meta.Run)
+	n.claimed.Go("availability", metadata.NewAvailability(metadata.AvailabilityConfig{
+		Library: lib.db, Local: local, Targets: goals, Hub: n.hub, Changed: works.ChangedEvent.Bind(n.hub),
+		Now: n.today, Released: metadata.NoBacklog, Log: n.rootLog.With("subsystem", "availability"),
+	}).Run)
 	n.env.Test.started(started)
 	return nil
 }
