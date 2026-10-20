@@ -15,6 +15,7 @@ import {
   getListProfilesQueryKey,
   getListTargetsQueryKey,
 } from "../api/gen/query/targets/targets";
+import { downloadEffects } from "./download-effects";
 import { libraryEffects } from "./library-effects";
 import { everyPath } from "./refresh";
 import { systemEffects } from "./system-effects";
@@ -30,6 +31,7 @@ const everyWorksWants = everyPath(/^\/api\/v1\/works\/[^/]+\/wants$/u);
 export const effects = {
   ...systemEffects,
   ...libraryEffects,
+  ...downloadEffects,
   "identity.sessions-changed": (data, { refresh }) => {
     refresh({ queryKey: getGetSessionQueryKey() });
     refresh({ queryKey: getListSessionsQueryKey() });
@@ -70,8 +72,4 @@ export const effects = {
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });
   },
-  "torrents.changed": (_data, { refresh }) => {
-    refresh({ queryKey: getGetTopologyQueryKey() });
-  },
-  "torrents.live": () => {},
 } satisfies LiveEffects;

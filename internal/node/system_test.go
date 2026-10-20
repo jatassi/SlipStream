@@ -254,7 +254,7 @@ func settingRefused(code, title, key, sentence string) string {
 	return fmt.Sprintf(`{"status":422,"code":%q,"title":%q,"detail":%q,"errors":[{"location":"body.%s","message":%q}]}`, code, title, sentence, key, sentence) + "\n"
 }
 
-func TestTheListenRowTakesAnAddress(t *testing.T) {
+func TestTheTorrentRowsTakeAnAddressAndRefuseAFolderTheyCantUse(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		env := fallbackEnv(t, "1")
 		env.Environ = []string{"SLIPSTREAM_LINK_LISTEN=127.0.0.1:8485"}
@@ -300,6 +300,8 @@ func TestTheListenRowTakesAnAddress(t *testing.T) {
 			expect(t, c.admin(key, http.MethodPatch, path, `{"torrent.listen":"`+c2.value+`"}`), 422,
 				settingRefused(c2.code, c2.title, "torrent.listen", c2.sentence))
 		}
+		expect(t, c.admin(key, http.MethodPatch, path, `{"torrent.downloads":"downloads"}`), 422,
+			settingRefused("folder_unusable", "SlipStream can't use this folder", "torrent.downloads", "Can't use this folder because it isn't a full path."))
 		if got := readConfigYAML(t, env.configFile()); got != saved {
 			t.Fatalf("config.yaml = %q after refused changes, want %q", got, saved)
 		}

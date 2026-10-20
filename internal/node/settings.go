@@ -95,7 +95,7 @@ type settingRow interface {
 	// field is the row's wire form in v.
 	field(v view) setting.Field
 	// text is v as config.yaml spells it, nil for a reset, or a
-	// *setting.RangeError.
+	// *setting.RangeError or *nodesystem.Refusal.
 	text(ctx context.Context, v nodesystem.Value, e edit) (*string, error)
 	// check is the row's range on a loaded Config, which CheckConfig runs
 	// so a hand edit is held to it too.
@@ -424,10 +424,10 @@ func (r folderRow) text(ctx context.Context, v nodesystem.Value, e edit) (*strin
 	}
 	path, ok := textOf(v)
 	if !ok {
-		return nil, wrongForm(r.key(), "A folder's full path.")
+		return nil, unusable(r.key(), "A folder's full path.")
 	}
 	if _, err := r.desc.Parse(&path); err != nil {
-		return nil, err
+		return nil, unusable(r.key(), refused(err).Error())
 	}
 	purpose, err := storing.ParsePurposeWord(string(r.desc.Purpose))
 	if err != nil {
@@ -438,9 +438,13 @@ func (r folderRow) text(ctx context.Context, v nodesystem.Value, e edit) (*strin
 		return nil, err
 	}
 	if judged.Refusal != nil {
-		return nil, wrongForm(r.key(), "Can't use this folder because "+because[judged.Refusal.Reason]+".")
+		return nil, unusable(r.key(), "Can't use this folder because "+because[judged.Refusal.Reason]+".")
 	}
 	return &judged.Path, nil
+}
+
+func unusable(key, sentence string) error {
+	return &nodesystem.Refusal{Key: key, Reason: nodesystem.UnusableFolder, Sentence: sentence}
 }
 
 func (r folderRow) check(*Config) error { return nil }

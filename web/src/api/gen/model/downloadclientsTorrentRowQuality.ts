@@ -1,0 +1,22 @@
+/**
+ * The quality its newest Grab's release title names
+ */
+export type DownloadclientsTorrentRowQuality =
+  | "sdtv"
+  | "dvd"
+  | "webrip-480p"
+  | "hdtv-720p"
+  | "webrip-720p"
+  | "webdl-720p"
+  | "bluray-720p"
+  | "hdtv-1080p"
+  | "webrip-1080p"
+  | "webdl-1080p"
+  | "bluray-1080p"
+  | "remux-1080p"
+  | "hdtv-2160p"
+  | "webrip-2160p"
+  | "webdl-2160p"
+  | "bluray-2160p"
+  | "remux-2160p"
+  | "cam";

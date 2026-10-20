@@ -94,6 +94,7 @@ func (c *Clients) SetNodeSettings(ctx context.Context, node role.NodeID, ch Node
 		return NodeOverrides{}, err
 	}
 	c.cfg.Touch(node)
+	c.cardsChanged(node)
 	return o, nil
 }
 
@@ -139,15 +140,38 @@ func (o ThresholdOverrides) Thresholds() Thresholds {
 	return Thresholds{FaultStall: FaultStall.Value(o.FaultStall), UnregisteredGap: UnregisteredGap.Value(o.UnregisteredGap)}
 }
 
-func ThresholdOverridesOf(ctx context.Context, r storage.Reader[file]) (ThresholdOverrides, error) {
+func thresholdOverridesOf(ctx context.Context, r storage.Reader[file]) (ThresholdOverrides, error) {
 	row, err := db.New(r).GetThresholds(ctx)
 	return ThresholdOverrides{FaultStall: row.FaultStallSeconds, UnregisteredGap: row.UnregisteredGapSeconds}, err
 }
 
-func SetThresholds(ctx context.Context, tx *storage.Tx[file], c ThresholdChange) error {
-	o, err := ThresholdOverridesOf(ctx, tx)
-	if err != nil {
+// Thresholds is the stored thresholds.
+func (c *Clients) Thresholds(ctx context.Context) (ThresholdOverrides, error) {
+	return thresholdOverridesOf(ctx, c.cfg.Library)
+}
+
+// SetThresholds stores ch, which every downloading Node applies from its
+// next intent.
+func (c *Clients) SetThresholds(ctx context.Context, ch ThresholdChange) (ThresholdOverrides, error) {
+	var o ThresholdOverrides
+	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var err error
+		o, err = setThresholds(ctx, tx, ch)
 		return err
+	})
+	if err != nil {
+		return ThresholdOverrides{}, err
+	}
+	downloaders := c.cfg.Roster.Serving(role.Downloading)
+	c.cfg.Touch(downloaders...)
+	c.cardsChanged(downloaders...)
+	return o, nil
+}
+
+func setThresholds(ctx context.Context, tx *storage.Tx[file], c ThresholdChange) (ThresholdOverrides, error) {
+	o, err := thresholdOverridesOf(ctx, tx)
+	if err != nil {
+		return ThresholdOverrides{}, err
 	}
 	if c.FaultStall != nil {
 		o.FaultStall = c.FaultStall.Override()
@@ -155,5 +179,5 @@ func SetThresholds(ctx context.Context, tx *storage.Tx[file], c ThresholdChange)
 	if c.UnregisteredGap != nil {
 		o.UnregisteredGap = c.UnregisteredGap.Override()
 	}
-	return db.New(tx).SetThresholds(ctx, db.SetThresholdsParams{FaultStallSeconds: o.FaultStall, UnregisteredGapSeconds: o.UnregisteredGap})
+	return o, db.New(tx).SetThresholds(ctx, db.SetThresholdsParams{FaultStallSeconds: o.FaultStall, UnregisteredGapSeconds: o.UnregisteredGap})
 }

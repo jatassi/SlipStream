@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -155,10 +156,12 @@ type grab struct {
 	Edition      string    `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
 	TargetIDs    []string  `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
 	ReleaseTitle string    `json:"releaseTitle"`
+	Quality      string    `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
 	ReleaseSize  int64     `json:"releaseSize" minimum:"0"`
 	IndexerID    string    `json:"indexerId" format:"uuid"`
 	NodeID       string    `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
 	FetchNodeID  *string   `json:"fetchNodeId" format:"uuid" doc:"The Searching Node that fetched the .torrent, null until it did"`
+	TorrentID    *string   `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
 	InfoHash     *string   `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
 	Stage        string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
 	Failure      *failure  `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
@@ -180,9 +183,12 @@ func grabOf(v grabs.View) grab {
 	for _, t := range v.Targets {
 		out.TargetIDs = append(out.TargetIDs, t.String())
 	}
+	if q, ok := release.Title(v.Release.Title, nil).Quality.Get(); ok {
+		out.Quality = q.String()
+	}
 	if v.Torrent != nil {
-		h := v.Torrent.InfoHash.String()
-		out.InfoHash = &h
+		out.TorrentID = new(v.Torrent.ID.String())
+		out.InfoHash = new(v.Torrent.InfoHash.String())
 	}
 	if v.Failed != nil {
 		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message}

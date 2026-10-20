@@ -26,7 +26,7 @@ func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 	if err != nil {
 		return nil, err
 	}
-	thresholds, err := ThresholdOverridesOf(ctx, r)
+	thresholds, err := thresholdOverridesOf(ctx, r)
 	if err != nil {
 		return nil, err
 	}

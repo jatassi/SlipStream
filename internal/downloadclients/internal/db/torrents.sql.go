@@ -34,6 +34,30 @@ func (q *Queries) CountHeld(ctx context.Context, nodeID role.NodeID) (CountHeldR
 	return i, err
 }
 
+const getDetails = `-- name: GetDetails :one
+SELECT info_hash, metainfo, save_folder, private FROM downloadclients_torrent
+WHERE id = ?1 AND parted_at IS NULL
+`
+
+type GetDetailsRow struct {
+	InfoHash   []byte
+	Metainfo   []byte
+	SaveFolder *string
+	Private    int64
+}
+
+func (q *Queries) GetDetails(ctx context.Context, id TorrentID) (GetDetailsRow, error) {
+	row := q.db.QueryRowContext(ctx, getDetails, id)
+	var i GetDetailsRow
+	err := row.Scan(
+		&i.InfoHash,
+		&i.Metainfo,
+		&i.SaveFolder,
+		&i.Private,
+	)
+	return i, err
+}
+
 const getFetched = `-- name: GetFetched :one
 SELECT node_id, metainfo, content_type, save_folder, removed_at,
        uploaded, downloaded, active_seconds, seeding_seconds
@@ -113,6 +137,37 @@ func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (Down
 		&i.Connections,
 		&i.Utp,
 		&i.StalledAfterSeconds,
+	)
+	return i, err
+}
+
+const getNodeTotals = `-- name: GetNodeTotals :one
+SELECT count(*) AS torrents,
+       CAST(coalesce(sum(uploaded), 0) AS INTEGER) AS uploaded,
+       CAST(coalesce(sum(downloaded), 0) AS INTEGER) AS downloaded,
+       CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
+       CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
+FROM downloadclients_torrent
+WHERE node_id = ?1 AND removed_at IS NULL
+`
+
+type GetNodeTotalsRow struct {
+	Torrents       int64
+	Uploaded       int64
+	Downloaded     int64
+	ActiveSeconds  int64
+	SeedingSeconds int64
+}
+
+func (q *Queries) GetNodeTotals(ctx context.Context, nodeID role.NodeID) (GetNodeTotalsRow, error) {
+	row := q.db.QueryRowContext(ctx, getNodeTotals, nodeID)
+	var i GetNodeTotalsRow
+	err := row.Scan(
+		&i.Torrents,
+		&i.Uploaded,
+		&i.Downloaded,
+		&i.ActiveSeconds,
+		&i.SeedingSeconds,
 	)
 	return i, err
 }
@@ -326,6 +381,77 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]ListDownloadsRow, error)
 			&i.Size,
 			&i.Wanted,
 			&i.Report,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHeld = `-- name: ListHeld :many
+SELECT id, node_id, name, size, trackers, content_type, wanted, added_order, added_at, removed_at,
+       uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
+FROM downloadclients_torrent
+WHERE parted_at IS NULL
+ORDER BY added_order
+`
+
+type ListHeldRow struct {
+	ID             TorrentID
+	NodeID         role.NodeID
+	Name           string
+	Size           int64
+	Trackers       string
+	ContentType    works.TypeID
+	Wanted         string
+	AddedOrder     int64
+	AddedAt        storage.Time
+	RemovedAt      storage.Time
+	Uploaded       int64
+	Downloaded     int64
+	ActiveSeconds  int64
+	SeedingSeconds int64
+	TotalsAt       storage.Time
+	Report         *string
+	Fault          *string
+	FaultAt        storage.Time
+}
+
+func (q *Queries) ListHeld(ctx context.Context) ([]ListHeldRow, error) {
+	rows, err := q.db.QueryContext(ctx, listHeld)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHeldRow
+	for rows.Next() {
+		var i ListHeldRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.Name,
+			&i.Size,
+			&i.Trackers,
+			&i.ContentType,
+			&i.Wanted,
+			&i.AddedOrder,
+			&i.AddedAt,
+			&i.RemovedAt,
+			&i.Uploaded,
+			&i.Downloaded,
+			&i.ActiveSeconds,
+			&i.SeedingSeconds,
+			&i.TotalsAt,
+			&i.Report,
+			&i.Fault,
+			&i.FaultAt,
 		); err != nil {
 			return nil, err
 		}

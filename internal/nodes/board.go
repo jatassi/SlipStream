@@ -253,6 +253,17 @@ func (h Holders) Pick(prefer ID) (ID, bool) {
 	return ID{}, false
 }
 
+// Serving is every Node that serves the Role, in id order.
+func (h Holders) Serving() []ID {
+	var out []ID
+	for _, n := range h.b.nodes {
+		if h.Serves(n.ID) {
+			out = append(out, n.ID)
+		}
+	}
+	return out
+}
+
 // InStep is every Node in step that serves the Role, in id order.
 func (h Holders) InStep() []ID {
 	var out []ID

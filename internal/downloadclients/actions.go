@@ -26,8 +26,14 @@ type Uses interface {
 type Use struct {
 	Grab    storage.UUID
 	Work    works.WorkID
+	Item    works.ItemID
+	Edition string
 	Release string
 	Stage   UseStage
+	// File is the index of the Torrent's file the Grab took, nil until it
+	// probed one.
+	File    *int
+	Created time.Time
 }
 
 type UseStage string

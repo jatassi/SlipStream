@@ -59,6 +59,7 @@ var Events = []live.Event{
 	grabs.SearchChangedEvent,
 	downloadclients.ChangedEvent,
 	downloadclients.LiveEvent,
+	downloadclients.ClientsChangedEvent,
 	tasks.ChangedEvent,
 	tasks.ProgressEvent,
 }

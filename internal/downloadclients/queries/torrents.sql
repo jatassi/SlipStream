@@ -140,3 +140,23 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 UPDATE downloadclients_torrent SET
     removed_at = sqlc.arg(removed_at), removed_reason = sqlc.arg(removed_reason), delete_files = sqlc.arg(delete_files)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: ListHeld :many
+SELECT id, node_id, name, size, trackers, content_type, wanted, added_order, added_at, removed_at,
+       uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
+FROM downloadclients_torrent
+WHERE parted_at IS NULL
+ORDER BY added_order;
+
+-- name: GetDetails :one
+SELECT info_hash, metainfo, save_folder, private FROM downloadclients_torrent
+WHERE id = sqlc.arg(id) AND parted_at IS NULL;
+
+-- name: GetNodeTotals :one
+SELECT count(*) AS torrents,
+       CAST(coalesce(sum(uploaded), 0) AS INTEGER) AS uploaded,
+       CAST(coalesce(sum(downloaded), 0) AS INTEGER) AS downloaded,
+       CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
+       CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
+FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL;
