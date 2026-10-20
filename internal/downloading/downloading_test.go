@@ -196,13 +196,31 @@ func (c *control) fetched() []storage.UUID {
 	return slices.Clone(c.asked)
 }
 
-// checks is an engine that counts the checks it is asked for and keeps
-// the limits it runs with.
+// checks is an engine that counts the checks it is asked for, keeps the
+// limits it runs with, and calls removing as it is asked to remove a
+// torrent.
 type checks struct {
 	engine.Engine
-	mu     sync.Mutex
-	n      int
-	limits engine.Limits
+	mu       sync.Mutex
+	n        int
+	limits   engine.Limits
+	removing func()
+}
+
+func (c *checks) Remove(h engine.Handle, deleteFiles bool) error {
+	c.mu.Lock()
+	removing := c.removing
+	c.mu.Unlock()
+	if removing != nil {
+		removing()
+	}
+	return c.Engine.Remove(h, deleteFiles)
+}
+
+func (c *checks) onRemove(f func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.removing = f
 }
 
 func (c *checks) Configure(l engine.Limits) error {
@@ -525,6 +543,52 @@ func discards(t *testing.T, deleteFiles bool) {
 	if got := c.h.parted(); len(got) != 2 || !proto.Equal(got[1], again) {
 		t.Errorf("confirmed %v once the discard of a torrent it no longer holds was listed again, want it confirmed again as %v", got, again)
 	}
+}
+
+// TestPathLetsATorrentGoBeforeTheEngineDoes has the engine read Path as
+// the client asks it to remove a torrent, on a discard and on a release:
+// Path must have let the torrent go by then, since the engine forgets its
+// handle at once.
+func TestPathLetsATorrentGoBeforeTheEngineDoes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		discarded, released := newFile(t, "Orchard.mkv"), newFile(t, "Meadow.mkv")
+		n.world.Payload(discarded.hash, discarded.payload)
+		n.world.Payload(released.hash, released.payload)
+		discardedID, releasedID := n.hold(discarded), n.hold(released)
+		c := n.start()
+		c.send(live(discarded.started(discardedID, 1), released.started(releasedID, 2)))
+		for _, f := range []file{discarded, released} {
+			if _, err := c.Path(f.hash, 0); err != nil {
+				t.Fatalf("Path of %s = %v", f.name, err)
+			}
+		}
+
+		var errs []error
+		pathAtRemove := func(f file) func() {
+			return func() {
+				_, err := c.Path(f.hash, 0)
+				errs = append(errs, err)
+			}
+		}
+		c.engine.onRemove(pathAtRemove(discarded))
+		discarding := live(released.started(releasedID, 2))
+		discarding.Intent.Discards = []*dlv1.Discard{{Id: discardedID.Bytes(), InfoHash: discarded.hash[:]}}
+		c.send(discarding)
+		c.engine.onRemove(pathAtRemove(released))
+		if err := c.Release(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(errs) != 2 {
+			t.Fatalf("the engine was asked to remove %d torrents, want the discarded one and the released one", len(errs))
+		}
+		for i, f := range []file{discarded, released} {
+			if !errors.Is(errs[i], downloading.ErrNotPresent) {
+				t.Errorf("Path of %s as the engine removes it = %v, want ErrNotPresent", f.name, errs[i])
+			}
+		}
+	})
 }
 
 // seeded runs a client until it seeds files, then stops it, saving their

@@ -1,5 +1,6 @@
 #include "shim.h"
 
+#include <boost/asio/post.hpp>
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/address.hpp>
 #include <libtorrent/alert_types.hpp>
@@ -762,10 +763,17 @@ int lts_recheck(lts_session* s, int64_t torrent, lts_error* err) {
 		lt::torrent_handle h = find(s, torrent);
 		std::lock_guard<std::mutex> l(s->mu);
 		s->rechecking.insert(h);
-		h.force_recheck();
-		h.set_flags(lt::torrent_flags::stop_when_ready);
-		h.unset_flags(lt::torrent_flags::upload_mode);
-		h.resume();
+		// A check that finds no files ends at once, paused or not. Were it to
+		// end before resume ran, it would spend stop_when_ready on a paused
+		// torrent with no pause to post, and resume would then run it. Run on
+		// the network thread, these calls finish before the check can.
+		boost::asio::post(s->ses.get_context(), [h] {
+			if (!h.is_valid()) return;
+			h.force_recheck();
+			h.set_flags(lt::torrent_flags::stop_when_ready);
+			h.unset_flags(lt::torrent_flags::upload_mode);
+			h.resume();
+		});
 	});
 }
 
