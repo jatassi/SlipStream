@@ -63,8 +63,10 @@ var wantedOnWire = map[Wanted]dlv1.Wanted{Started: dlv1.Wanted_WANTED_STARTED, P
 type Held struct {
 	ID       ID
 	InfoHash bencode.InfoHash
-	Done     int64
-	Size     int64
+	// Name is the metainfo's name.
+	Name string
+	Done int64
+	Size int64
 }
 
 // Kept is node's live Torrents in added order.
@@ -79,7 +81,7 @@ func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]Held
 		if err != nil {
 			return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
 		}
-		out[i] = Held{ID: row.ID, InfoHash: bencode.InfoHash(row.InfoHash), Done: rep.done(row.Size), Size: row.Size}
+		out[i] = Held{ID: row.ID, InfoHash: bencode.InfoHash(row.InfoHash), Name: row.Name, Done: rep.done(row.Size), Size: row.Size}
 	}
 	return out, nil
 }
@@ -106,24 +108,13 @@ func reportOf(stored *string) (*Report, error) {
 	return &rep, nil
 }
 
-// DownloadingOwner counts a Node's live Torrents. They seed until seeding
-// goals exist, so a Node never finishes them on its own.
+// DownloadingOwner counts the Torrents a Node holds until it parts from
+// them: a Removing one too, so a drain lasts until the Node confirms each
+// removal. Live Torrents seed until seeding goals exist, so a Node never
+// finishes them on its own.
 var DownloadingOwner = nodes.Owner{Role: role.Downloading, Held: held}
 
 func held(ctx context.Context, r storage.Reader[file], node role.NodeID) (nodes.Held, error) {
 	row, err := db.New(r).CountHeld(ctx, node)
-	return nodes.Held{Units: row.Torrents, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: row.Bytes, Endless: true}, err
-}
-
-// Holding is every Node with a Torrent not yet parted from it.
-func Holding(ctx context.Context, r storage.Reader[file]) ([]role.NodeID, error) {
-	return db.New(r).ListHoldingNodes(ctx)
-}
-
-// WriteOff parts every Torrent node holds at once, files kept, as the
-// Admin gave up what it holds for Downloading: each leaves its intent, and
-// no removal waits on a Node that won't confirm it. It counts what it
-// parted, so a second call parts nothing.
-func WriteOff(ctx context.Context, tx *storage.Tx[file], node role.NodeID, now storage.Time) (int64, error) {
-	return db.New(tx).WriteOff(ctx, db.WriteOffParams{At: now, NodeID: node})
+	return nodes.Held{Units: row.Torrents, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: row.Bytes, Endless: row.Live > 0}, err
 }

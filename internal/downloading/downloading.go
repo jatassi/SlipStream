@@ -67,6 +67,9 @@ type Timings struct {
 	AnnounceJitter time.Duration `yaml:"announce_jitter"`
 	// TotalsReport is how often the torrents' totals go to the Controller.
 	TotalsReport time.Duration `yaml:"totals_report"`
+	// LiveSample is how often the torrents' rates and progress are sampled
+	// while an Admin watches.
+	LiveSample time.Duration `yaml:"live_sample"`
 	// RouteCheck is how often a client listening on an unspecified address
 	// checks which address the default route leaves from, to follow it.
 	RouteCheck time.Duration `yaml:"route_check"`
@@ -75,7 +78,7 @@ type Timings struct {
 func DefaultTimings() Timings {
 	return Timings{
 		Facts: time.Second, AnnounceFloor: 5 * time.Minute, ResumeSave: 5 * time.Minute, ShutdownSave: 15 * time.Second,
-		StartSpread: 2 * time.Minute, AnnounceJitter: 3 * time.Minute, TotalsReport: 5 * time.Minute, RouteCheck: 30 * time.Second,
+		StartSpread: 2 * time.Minute, AnnounceJitter: 3 * time.Minute, TotalsReport: 5 * time.Minute, LiveSample: time.Second, RouteCheck: 30 * time.Second,
 	}
 }
 
@@ -134,15 +137,18 @@ func (c *Client) send(f func(*loop)) bool {
 	}
 }
 
-// ask runs f on Loop's goroutine and waits for it.
-func (c *Client) ask(f func(*loop)) {
+// ask runs f on Loop's goroutine and waits for it, unless Loop has
+// returned.
+func (c *Client) ask(f func(*loop)) bool {
 	done := make(chan struct{})
-	if c.send(func(l *loop) {
+	if !c.send(func(l *loop) {
 		defer close(done)
 		f(l)
 	}) {
-		<-done
+		return false
 	}
+	<-done
+	return true
 }
 
 // Run is the Role's run function: Loop reports through h and local, and

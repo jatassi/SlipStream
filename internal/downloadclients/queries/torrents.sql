@@ -70,13 +70,20 @@ WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL
 ORDER BY added_order;
 
 -- name: ListKept :many
-SELECT id, info_hash, size, report FROM downloadclients_torrent
+SELECT id, info_hash, name, size, report FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL
 ORDER BY added_order;
 
+-- name: ListDownloads :many
+SELECT id, size, wanted, report FROM downloadclients_torrent
+WHERE removed_at IS NULL AND completion IS NULL
+ORDER BY added_order;
+
 -- name: CountHeld :one
-SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes FROM downloadclients_torrent
-WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL;
+SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes,
+       CAST(coalesce(sum(removed_at IS NULL), 0) AS INTEGER) AS live
+FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL;
 
 -- name: SetCompletion :exec
 UPDATE downloadclients_torrent SET completion = sqlc.arg(completion), completed_at = sqlc.arg(completed_at)
@@ -110,9 +117,26 @@ FROM downloadclients_torrent WHERE id = sqlc.arg(id);
 -- name: ListHoldingNodes :many
 SELECT DISTINCT node_id FROM downloadclients_torrent WHERE parted_at IS NULL ORDER BY node_id;
 
--- name: WriteOff :execrows
+-- name: ListUnparted :many
+SELECT id FROM downloadclients_torrent WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL ORDER BY id;
+
+-- name: WriteOff :exec
 UPDATE downloadclients_torrent SET
     removed_at = coalesce(removed_at, sqlc.arg(at)),
     removed_reason = 'node_written_off',
     parted_at = sqlc.arg(at)
 WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL;
+
+-- name: ListActed :many
+SELECT id, node_id, removed_at, wanted, report, completion FROM downloadclients_torrent
+WHERE id IN (sqlc.slice(ids))
+ORDER BY id;
+
+-- name: SetWanted :exec
+UPDATE downloadclients_torrent SET wanted = sqlc.arg(wanted)
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: Remove :exec
+UPDATE downloadclients_torrent SET
+    removed_at = sqlc.arg(removed_at), removed_reason = sqlc.arg(removed_reason), delete_files = sqlc.arg(delete_files)
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1" //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
 	"errors"
+	"fmt"
 	"iter"
 	"log/slog"
 	"math/rand/v2"
@@ -49,6 +50,18 @@ type file struct {
 
 func newFile(t *testing.T, name string) file {
 	t.Helper()
+	return makeFile(t, name, map[string]any{})
+}
+
+// newPrivateFile is a torrent of a private tracker, which the announce
+// policy holds to the tracker's window.
+func newPrivateFile(t *testing.T, name string) file {
+	t.Helper()
+	return makeFile(t, name, map[string]any{"private": 1})
+}
+
+func makeFile(t *testing.T, name string, info map[string]any) file {
+	t.Helper()
 	payload := make([]byte, size)
 	_, _ = rand.NewChaCha8([32]byte{name[0], name[1]}).Read(payload)
 	var pieces []byte
@@ -56,9 +69,10 @@ func newFile(t *testing.T, name string) file {
 		sum := sha1.Sum(p[:min(pieceLength, len(p))]) //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
 		pieces = append(pieces, sum[:]...)
 	}
+	info["length"], info["name"], info["piece length"], info["pieces"] = size, name, pieceLength, pieces
 	meta, err := bencode.Encode(map[string]any{
 		"announce": trackerURL,
-		"info":     map[string]any{"length": size, "name": name, "piece length": pieceLength, "pieces": pieces},
+		"info":     info,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -646,6 +660,34 @@ func TestARestartResumesFromResumeDataAndSpreadsItsStarts(t *testing.T) {
 		}
 		if starts[0].Equal(starts[1]) {
 			t.Errorf("both torrents announced started at %v, want their starts spread", starts[0])
+		}
+	})
+}
+
+// TestAStopSavesTheResumeDataTheEngineDropped stops a client
+// seeding more torrents than the engine queues events for, so some of the
+// resume data it saves is dropped on the way. The client asks for it again
+// once the engine says so, and stops at once rather than waiting out
+// Timings.ShutdownSave.
+func TestAStopSavesTheResumeDataTheEngineDropped(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		ts := make([]*dlv1.Torrent, 100)
+		for i := range ts {
+			f := newFile(t, fmt.Sprintf("%02d.mkv", i))
+			n.world.Payload(f.hash, f.payload)
+			ts[i] = f.started(n.hold(f), int64(i+1))
+		}
+		c := n.start()
+		c.send(live(ts...))
+		if got := c.Seeding(); got != len(ts) {
+			t.Fatalf("the client seeds %d torrents, want %d", got, len(ts))
+		}
+
+		start := time.Now()
+		c.stop()
+		if took := time.Since(start); took != 0 {
+			t.Errorf("the client took %v to stop, want no wait", took)
 		}
 	})
 }

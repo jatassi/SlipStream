@@ -2,6 +2,7 @@ package announce_test
 
 import (
 	"math/rand/v2"
+	"slices"
 	"testing"
 	"time"
 
@@ -342,5 +343,30 @@ func TestAnUnregisteredTrackerFaultsAfterTheGap(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestDetailShowsEachTrackersAnswerAndWhenItAccepts has trackers on two
+// hosts answer started, only one replying with its min interval: each
+// line reads its last answer, its min interval or the floor while that is
+// unknown, and when its window lets an announce through.
+func TestDetailShowsEachTrackersAnswerAndWhenItAccepts(t *testing.T) {
+	l := ledger()
+	l.Sent(h, beacon, announce.Started, at(0))
+	l.Answered(h, beacon, at(time.Second))
+	replied(h, beacon, time.Second, 30*time.Minute)(l)
+	l.Sent(h, second, announce.Started, at(0))
+	l.Answered(h, second, at(2*time.Second))
+
+	got := l.Detail(h, true, at(time.Minute))
+	want := []announce.Line{
+		{Index: 0, Answered: at(time.Second), MinInterval: 30 * time.Minute, AcceptsAt: at(30 * time.Minute)},
+		{Index: 1, Answered: at(2 * time.Second), MinInterval: floor, AcceptsAt: at(floor)},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Detail = %+v, want %+v", got, want)
+	}
+	if got := l.Detail(other, true, at(time.Minute)); len(got) != 0 {
+		t.Errorf("Detail of a torrent that never announced = %+v, want none", got)
 	}
 }

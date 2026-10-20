@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	// DownloadingServiceName is the fully-qualified name of the DownloadingService service.
+	DownloadingServiceName = "slipstream.downloading.v1.DownloadingService"
 	// DownloadingControlServiceName is the fully-qualified name of the DownloadingControlService
 	// service.
 	DownloadingControlServiceName = "slipstream.downloading.v1.DownloadingControlService"
@@ -29,10 +31,207 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// DownloadingServiceWatchProcedure is the procedure name of the DownloadingService's Watch RPC.
+	DownloadingServiceWatchProcedure = "/slipstream.downloading.v1.DownloadingService/Watch"
+	// DownloadingServiceInspectProcedure is the procedure name of the DownloadingService's Inspect RPC.
+	DownloadingServiceInspectProcedure = "/slipstream.downloading.v1.DownloadingService/Inspect"
+	// DownloadingServiceActProcedure is the procedure name of the DownloadingService's Act RPC.
+	DownloadingServiceActProcedure = "/slipstream.downloading.v1.DownloadingService/Act"
+	// DownloadingServiceFreesProcedure is the procedure name of the DownloadingService's Frees RPC.
+	DownloadingServiceFreesProcedure = "/slipstream.downloading.v1.DownloadingService/Frees"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
 )
+
+var (
+	downloadingServiceWatchSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Watch"),
+			Procedure:  DownloadingServiceWatchProcedure,
+		}
+	})
+	downloadingServiceInspectSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Inspect"),
+			Procedure:  DownloadingServiceInspectProcedure,
+		}
+	})
+	downloadingServiceActSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Act"),
+			Procedure:  DownloadingServiceActProcedure,
+		}
+	})
+	downloadingServiceFreesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Frees"),
+			Procedure:  DownloadingServiceFreesProcedure,
+		}
+	})
+)
+
+// DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
+// service.
+type DownloadingServiceClient interface {
+	// Watch answers after the Node's next live sample with the torrents whose
+	// rates, progress or peers moved since sample after, or with every
+	// torrent that moves when after is not the Node's last answer.
+	Watch(context.Context, *v1.WatchRequest) (*v1.WatchResponse, error)
+	// Inspect is one torrent's files with their progress and its trackers
+	// as the announce policy sees them.
+	Inspect(context.Context, *v1.InspectRequest) (*v1.InspectResponse, error)
+	// Act announces or rechecks torrents, each through the announce policy.
+	Act(context.Context, *v1.ActRequest) (*v1.ActResponse, error)
+	// Frees is the bytes deleting each torrent's download copy would free:
+	// its files that have no other link.
+	Frees(context.Context, *v1.FreesRequest) (*v1.FreesResponse, error)
+}
+
+// NewDownloadingServiceClient constructs a client for the
+// slipstream.downloading.v1.DownloadingService service. Multiple service clients may share a single
+// connect.Client.
+func NewDownloadingServiceClient(client *connect.Client) DownloadingServiceClient {
+	return &downloadingServiceClient{client: client}
+}
+
+// DownloadingServiceHandler is an implementation of the
+// slipstream.downloading.v1.DownloadingService service.
+type DownloadingServiceHandler interface {
+	// Watch answers after the Node's next live sample with the torrents whose
+	// rates, progress or peers moved since sample after, or with every
+	// torrent that moves when after is not the Node's last answer.
+	Watch(context.Context, *v1.WatchRequest) (*v1.WatchResponse, error)
+	// Inspect is one torrent's files with their progress and its trackers
+	// as the announce policy sees them.
+	Inspect(context.Context, *v1.InspectRequest) (*v1.InspectResponse, error)
+	// Act announces or rechecks torrents, each through the announce policy.
+	Act(context.Context, *v1.ActRequest) (*v1.ActResponse, error)
+	// Frees is the bytes deleting each torrent's download copy would free:
+	// its files that have no other link.
+	Frees(context.Context, *v1.FreesRequest) (*v1.FreesResponse, error)
+}
+
+// RegisterDownloadingServiceHandler registers svc as the
+// slipstream.downloading.v1.DownloadingService implementation on server.
+func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingServiceHandler) {
+	adapter := downloadingServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: downloadingServiceWatchSpec(), Handler: adapter.watch},
+		connect.Method{Spec: downloadingServiceInspectSpec(), Handler: adapter.inspect},
+		connect.Method{Spec: downloadingServiceActSpec(), Handler: adapter.act},
+		connect.Method{Spec: downloadingServiceFreesSpec(), Handler: adapter.frees},
+	)
+}
+
+// UnimplementedDownloadingServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedDownloadingServiceHandler struct{}
+
+func (UnimplementedDownloadingServiceHandler) Watch(context.Context, *v1.WatchRequest) (*v1.WatchResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Watch is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) Inspect(context.Context, *v1.InspectRequest) (*v1.InspectResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Inspect is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) Act(context.Context, *v1.ActRequest) (*v1.ActResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Act is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) Frees(context.Context, *v1.FreesRequest) (*v1.FreesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Frees is not implemented")
+}
+
+type downloadingServiceClient struct {
+	client *connect.Client
+}
+
+func (c *downloadingServiceClient) Watch(ctx context.Context, req *v1.WatchRequest) (*v1.WatchResponse, error) {
+	var res v1.WatchResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceWatchSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) Inspect(ctx context.Context, req *v1.InspectRequest) (*v1.InspectResponse, error) {
+	var res v1.InspectResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceInspectSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) Act(ctx context.Context, req *v1.ActRequest) (*v1.ActResponse, error) {
+	var res v1.ActResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceActSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) Frees(ctx context.Context, req *v1.FreesRequest) (*v1.FreesResponse, error) {
+	var res v1.FreesResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceFreesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type downloadingServiceHandler struct{ svc DownloadingServiceHandler }
+
+func (h downloadingServiceHandler) watch(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.WatchRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Watch(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) inspect(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.InspectRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Inspect(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) act(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ActRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Act(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) frees(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.FreesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Frees(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
 
 var (
 	downloadingControlServiceTorrentSpec = sync.OnceValue(func() connect.Spec {

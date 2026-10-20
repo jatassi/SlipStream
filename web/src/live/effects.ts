@@ -73,4 +73,5 @@ export const effects = {
   "torrents.changed": (_data, { refresh }) => {
     refresh({ queryKey: getGetTopologyQueryKey() });
   },
+  "torrents.live": () => {},
 } satisfies LiveEffects;

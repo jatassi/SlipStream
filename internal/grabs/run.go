@@ -771,8 +771,9 @@ type Progress struct {
 	Total int64
 }
 
-// progress is g's download progress as its Torrent's Node last reported
-// it, or its Transfer's verified bytes; nil when neither runs or reported.
+// progress is g's download progress, live while its Torrent is sampled,
+// else as its Node last reported it, or its Transfer's verified bytes;
+// nil when neither runs or reported.
 func (gr *Grabs) progress(g Grab) *Progress {
 	if g.Stage == Downloading {
 		return gr.downloadProgress(g)
@@ -788,6 +789,9 @@ func (gr *Grabs) progress(g Grab) *Progress {
 }
 
 func (gr *Grabs) downloadProgress(g Grab) *Progress {
+	if s, ok := gr.cfg.Downloads.Sample(g.Torrent.ID); ok {
+		return &Progress{Done: s.Done, Total: s.Wanted}
+	}
 	p := g.Torrent.Progress
 	if p == nil {
 		return nil

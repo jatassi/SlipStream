@@ -98,11 +98,26 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var downloads *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
+	var (
+		downloads *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
+		side      *nodes.Service
+		cluster   *rpc.Cluster
+	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library: lib.db,
 		Touch:   func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
 		Changed: downloadclients.ChangedEvent.Bind(n.hub),
+		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
+			return downloadingv1connect.DownloadingService.On(cluster, id)
+		},
+		Roster: openedRoster{&side},
+		Uses:   grabs.TorrentUses{},
+		Live: downloadclients.LiveConfig{
+			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
+			Event:   downloadclients.LiveEvent.Bind(n.hub),
+			Sample:  n.cfg.Timings.Downloading.LiveSample,
+		},
+		Log: n.rootLog.With("subsystem", "downloadclients"),
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
@@ -111,7 +126,7 @@ func (n *Node) startController(ctx context.Context) error {
 		systems *nodesystem.Nodes
 		library *roots.Roots
 	)
-	side, err := nodes.Open(ctx, nodes.Config{
+	side, err = nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
 		Name:    n.cfg.Name,
@@ -124,6 +139,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Served:          append([]role.Served{downloads, stored}, n.env.Test.Served...),
 		Owners:          owners(),
 		Kept:            grabs.Kept,
+		Torrents:        clients,
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
 			return library.Figures(ctx, r, id)
 		},
@@ -144,7 +160,7 @@ func (n *Node) startController(ctx context.Context) error {
 	self := n.key.Public()
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
-	cluster := rpc.NewCluster(dispatch, side)
+	cluster = rpc.NewCluster(dispatch, side)
 	downloadingv1connect.DownloadingControlService.Mount(cluster, downloadclients.TorrentService{Library: lib.db, Nodes: side, Types: tree})
 	holding, local, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil)
 	if err != nil {
@@ -155,6 +171,7 @@ func (n *Node) startController(ctx context.Context) error {
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloads)
 	n.serveSystem(dispatch)
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
@@ -248,7 +265,7 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
 	scheduler, err := tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -283,11 +300,24 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("roots", library.Run)
 	n.claimed.Go("grabs", pipeline.Run)
+	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.env.Test.started(started)
 	return nil
 }
+
+// openedRoster is the nodes service once it opens: the download clients'
+// owner is made before it, since the service reads that owner.
+type openedRoster struct{ side **nodes.Service }
+
+func (r openedRoster) InStep(node role.NodeID) bool { return (*r.side).InStep(node) }
+
+func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
+	return (*r.side).WrittenOff(name, node)
+}
+
+func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
 
 // today is the time now in the Controller's zone.
 func (n *Node) today() time.Time {
@@ -352,6 +382,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloads)
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)

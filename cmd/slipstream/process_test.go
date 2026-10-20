@@ -575,6 +575,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.downloading.start_spread", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_START_SPREAD"},
 			{Key: "timings.downloading.announce_jitter", Value: "3m0s", Default: "3m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_ANNOUNCE_JITTER"},
 			{Key: "timings.downloading.totals_report", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_TOTALS_REPORT"},
+			{Key: "timings.downloading.live_sample", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_LIVE_SAMPLE"},
 			{Key: "timings.downloading.route_check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_ROUTE_CHECK"},
 			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_PROBE"},
 			{Key: "timings.mail.send", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MAIL_SEND"},
