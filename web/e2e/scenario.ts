@@ -5,4 +5,5 @@ export type Scenario =
   | "home"
   | "serving"
   | "targets"
+  | "torrents"
   | "cgnat-home";

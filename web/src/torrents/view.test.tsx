@@ -178,6 +178,38 @@ test("torrents.live moves a row's progress and speed", async () => {
   await expect
     .element(row.getByRole("progressbar", { name: `Downloading ${downloading.name}` }))
     .toHaveAttribute("aria-valuenow", "50");
+
+  live.clients[0]?.send({ event: "live.resync", data: {} });
+  await expect.element(row).toMatchTextContent("Downloading25%");
+  await expect.element(row).toMatchTextContent("↓ —↑ —");
+});
+
+test("a paused row keeps its percent but says no time left while its speed winds down", async () => {
+  const paused = { ...downloading, state: "paused", hold: "wanted" } as const;
+  const { live } = open([paused]);
+  const row = table().getByRole("row", { name: /^The Quiet Orchard/u });
+  await expect.element(row).toMatchTextContent("Paused");
+  live.clients[0]?.send({
+    event: "torrents.live",
+    data: {
+      at: "2026-10-20T12:00:00Z",
+      rows: [
+        {
+          id: paused.id,
+          done: 500_000_000,
+          wanted: 1_000_000_000,
+          downBps: 512 * 1024,
+          upBps: 0,
+          peers: 0,
+          seeds: 0,
+        },
+      ],
+      downloads: { done: 500_000_000, wanted: 1_000_000_000, allPaused: true },
+    },
+  });
+  await expect.element(row).toMatchTextContent("↓ 512 KB/s");
+  await expect.element(row).toMatchTextContent("50%");
+  await expect.element(row).not.toMatchTextContent("left");
 });
 
 test("thousands of torrents draw only the rows near the view", async () => {

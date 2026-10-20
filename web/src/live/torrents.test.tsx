@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
@@ -25,8 +26,10 @@ const sample = (id: string, downBps: number): DownloadclientsLiveRow => ({
   seeds: 0,
 });
 
+const queryClient = new QueryClient();
+
 const tick = (rows: DownloadclientsLiveRow[]) => {
-  takeTorrents({
+  takeTorrents(queryClient, {
     at: "2026-10-20T12:00:00Z",
     rows,
     downloads: { done: 0, wanted: 0, allPaused: false },
@@ -36,10 +39,10 @@ const tick = (rows: DownloadclientsLiveRow[]) => {
 test("a tick re-renders only the rows whose Torrents moved", async () => {
   const [moving, still] = ["live-moving", "live-still"];
   renderKit(
-    <>
+    <QueryClientProvider client={queryClient}>
       <Speed id={moving} />
       <Speed id={still} />
-    </>,
+    </QueryClientProvider>,
   );
   tick([sample(still, 10)]);
   await expect.element(page.getByLabelText(still)).toHaveTextContent("10 B/s");

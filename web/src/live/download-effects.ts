@@ -21,7 +21,7 @@ export const downloadEffects = {
     refresh({ queryKey: getListDownloadClientsQueryKey() });
   },
   "torrents.live": (data, { queryClient }) => {
-    takeTorrents(data);
+    takeTorrents(queryClient, data);
     queryClient.setQueryData<ShellCounts>(
       getGetCountsQueryKey(),
       (counts) => counts && { ...counts, downloads: data.downloads },
