@@ -4,9 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -281,6 +286,49 @@ func isRange(err error) bool {
 func isUnknown(err error) bool {
 	_, ok := errors.AsType[*setting.UnknownKeyError](err)
 	return ok
+}
+
+func TestASmallerArtworkStoreTrimsTheStoreAtOnce(t *testing.T) {
+	s := openShop(t)
+	filler, err := artwork.OpenStore(t.Context(), s.artwork, s.local, func(context.Context) (int64, error) { return 1 << 20, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 3 {
+		svg := `<svg xmlns="http://www.w3.org/2000/svg"><!--` + strings.Repeat(strconv.Itoa(i), 40<<20) + `--></svg>`
+		w := artwork.Want{Ref: artwork.Ref{Source: "tmdb-images", Shape: artwork.ShapePoster, Path: strconv.Itoa(i)}, Size: artwork.SizeMedium}
+		if _, err := filler.Put(t.Context(), w, artwork.Image{Type: "image/svg+xml", Body: []byte(svg)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, size := stored(t, s.artwork); n != 3 {
+		t.Fatalf("before the change the store holds %d files of %d bytes, want all 3", n, size)
+	}
+
+	s.set(t, map[string]any{metadata.ArtworkStore.Key: 100})
+
+	if n, size := stored(t, s.artwork); n != 2 || size > 100<<20 {
+		t.Errorf("saved at 100 MB the store holds %d files of %d bytes, want 2 within 100 MB", n, size)
+	}
+}
+
+func stored(t *testing.T, dir string) (n int, size int64) {
+	t.Helper()
+	err := filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", d.Name(), err)
+		}
+		n, size = n+1, size+info.Size()
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n, size
 }
 
 func TestClearingTheCacheReachesAHolderOfflineAtTheTime(t *testing.T) {

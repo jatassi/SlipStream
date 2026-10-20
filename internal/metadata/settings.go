@@ -97,7 +97,7 @@ func (p panel) Fields(context.Context) ([]setting.Field, error) {
 // Apply stores the patch, all or none. A new language or region makes
 // every Work due at the next refresh; a new region also announces that
 // every Work of every type may read differently, since availability reads
-// the region.
+// the region. A smaller artwork store trims the store at once.
 func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 	m := p.m
 	m.applying.Lock()
@@ -143,6 +143,9 @@ func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 	m.mu.Unlock()
 	if newRegion {
 		m.typesChanged(ctx)
+	}
+	if ArtworkStore.Value(next.ArtworkStoreMb) < ArtworkStore.Value(was.ArtworkStoreMb) {
+		return m.gallery.store.Trim(ctx)
 	}
 	return nil
 }
