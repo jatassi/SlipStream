@@ -226,7 +226,7 @@ test("torrents.changed reads the shown torrent's detail again", async () => {
 
 test("a torrent that leaves closes its Inspector without asking for its detail again", async () => {
   const { app, live, server } = open(`/activity/torrents/${orchard.id}?tab=all`);
-  await expect.element(inspector()).toBeVisible();
+  await expect.element(inspector()).toMatchTextContent("Downloaded238 MB");
   const missed: string[] = [];
   worker.use(
     http.get("*/api/v1/torrents/:id", ({ params }) => {
