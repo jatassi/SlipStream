@@ -3,20 +3,21 @@ package movie
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"slices"
 	"strconv"
-	"time"
 
-	"github.com/jatassi/slipstream/internal/contenttypes/movie/internal/db"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Source is the provider half: it reads TMDB on any Metadata holder.
+// Source is the provider half: it reads TMDB and OMDb on any Metadata
+// holder.
 type Source struct {
 	tmdb *tmdb.Client
+	omdb *omdb.Client
 }
 
 // Search answers TMDB's first page, whose 20 results fit works' 25.
@@ -35,7 +36,10 @@ func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]
 	return out, nil
 }
 
-// Fetch reads the movie whose TMDB id is key.
+// Fetch reads the movie whose TMDB id is key in one TMDB call, and its
+// OMDb ratings and awards when ask asks for ratings and the movie has an
+// IMDb id. A title OMDb doesn't know is read with none; an OMDb that
+// doesn't answer leaves them as stored.
 func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
 	id, err := strconv.ParseInt(string(key), 10, 64)
 	if err != nil {
@@ -45,46 +49,36 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 	if err != nil {
 		return works.Fetched{}, err
 	}
-	d := detail{TMDBID: db.TMDBID(tm.ID), Title: tm.Title, Year: year(tm.ReleaseDate)}
-	if tm.ExternalIDs.IMDbID != "" {
-		id := db.IMDbID(tm.ExternalIDs.IMDbID)
-		d.IMDbID = &id
+	r, err := recordOf(tm, ask)
+	if err != nil {
+		return works.Fetched{}, err
 	}
-	if released := released(tm); released != "" {
-		d.Released = &released
+	f := works.Fetched{
+		Label:    r.Title,
+		Children: []works.Entry{{Key: itemKey, Label: r.Title}},
+		Ratings:  tmdbRating(tm),
+		Artwork:  artworkOf(tm, ask.Language),
 	}
-	if tm.Runtime > 0 {
-		d.RuntimeMinutes = &tm.Runtime
+	if ask.Ratings && r.IMDbID != nil {
+		t, err := s.omdb.Title(ctx, ask, string(*r.IMDbID))
+		switch {
+		case err == nil:
+			f.Ratings, f.RatingsRead, r.Awards = append(f.Ratings, t.Ratings...), true, &t.Awards
+		case errors.Is(err, works.ErrNotFound):
+			f.RatingsRead = true
+		}
 	}
-	f := works.Fetched{Label: tm.Title, Children: []works.Entry{{Key: itemKey, Label: tm.Title}}}
-	if f.Detail, err = json.Marshal(d); err != nil {
+	if f.Detail, err = json.Marshal(r); err != nil {
 		return works.Fetched{}, fmt.Errorf("encode movie %s: %w", key, err)
 	}
 	return f, nil
 }
 
-// released is the earliest cinema or digital date in any country, as
-// YYYY-MM-DD, or empty when TMDB lists none.
-func released(m tmdb.Movie) string {
-	var dates []string
-	for _, c := range m.ReleaseDates.Results {
-		for _, r := range c.Releases {
-			if (r.Type == tmdb.TheatricalLimited || r.Type == tmdb.Theatrical || r.Type == tmdb.Digital) && len(r.Date) >= len(time.DateOnly) {
-				dates = append(dates, r.Date[:len(time.DateOnly)])
-			}
-		}
-	}
-	if len(dates) == 0 {
-		return ""
-	}
-	return slices.Min(dates)
-}
-
 func year(date string) *int64 {
-	t, err := time.Parse(time.DateOnly, date)
-	if err != nil {
+	day, ok := dayOf(date)
+	if !ok {
 		return nil
 	}
-	y := int64(t.Year())
+	y := int64(day.Year())
 	return &y
 }

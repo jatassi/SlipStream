@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
+	"github.com/jatassi/slipstream/fakes/omdb"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/tmdb"
@@ -32,7 +33,7 @@ import (
 const PayloadSize = 4*transfers.ChunkSize + transfers.ChunkSize/2
 
 // WithWalk runs the skeleton's walk on a Scenario with releases and a
-// library: every Node registers the movie type, fake-tmdb and
+// library: every Node registers the movie type, fake-tmdb, fake-omdb and
 // fixture-site serve on the network at 127.0.0.1, each Node's engine
 // finishes a seeded release at once with its Payload, each Node probes a
 // release's file at its video's size, and the library is seeded once the
@@ -114,6 +115,11 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		t.Fatal(err)
 	}
 	tmdb.Fake.Endpoints(endpoints, w.serve(ctx, t, local, movies))
+	ratings, err := omdb.Fake.New(s, fake.NewEnv(s, omdb.Fake, log, faults, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	omdb.Fake.Endpoints(endpoints, w.serve(ctx, t, local, ratings))
 	w.site = w.serve(ctx, t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing, func(string) (string, error) { return announce, nil })))
 	return w
 }

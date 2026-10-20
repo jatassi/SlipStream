@@ -7,7 +7,7 @@ An Admin searches the metadata catalog from the Library's `Add` menu and adds a 
 - `add-search` a title search lists catalog matches from the Fake world's TMDB with year and an `Add` button, from the `home` Scenario's catalog (P-256).
 - `add-no-match` a search with no match reads `Nothing matches “<query>”.`
 - `add-work` `Add The Quiet Orchard` opens the add sheet, whose `Profile` reads `Movies (default)`, and its `Add Movie` creates the Work and opens its Work page.
-- `add-work-page` the Work page shows Year `2021`, Released `2021-04-16`, Runtime `1h 44m` and the table `Any cut cells` with the starter `1080p` Target reading `Missing` (P-259).
+- `add-work-page` the Work page shows the movie's record from fake-tmdb: English title and Original title `The Quiet Orchard`, Original language `en`, Year `2021`, Release date `2021-04-16`, Runtime `1h 44m`, Status `Released` and IMDb id `tt9000001`, and the table `Any cut cells` with the starter `1080p` Target reading `Missing` (P-259). `GET /api/v1/works/{id}` carries the same fields, and no ratings: `home`'s fake-omdb knows no title and its fake-tmdb lists no votes.
 - `add-open-existing` a Work already in the library is a link, `The Quiet Orchard 2021 In the library`, in place of `Add`, and opens its Work page.
 
 ## How to get to it (user POV)
