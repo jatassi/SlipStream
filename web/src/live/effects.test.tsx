@@ -66,7 +66,11 @@ test("a lapse's burst of nodes.changed refetches the counts once and once more a
     asked += 1;
     const answer = asked;
     await delay(200);
-    return HttpResponse.json({ activity: answer, alerts: { nodes: "fail" } });
+    return HttpResponse.json({
+      activity: answer,
+      downloads: { done: 0, wanted: 0, allPaused: false },
+      alerts: { nodes: "fail" },
+    });
   });
   const app = renderApp({ path: "/", handlers: [...server.handlers, counts] });
   const fetchStatus = () => app.queryClient.getQueryState(getGetCountsQueryKey())?.fetchStatus;
@@ -84,6 +88,7 @@ test("a lapse's burst of nodes.changed refetches the counts once and once more a
   expect(asked - before).toBe(2);
   expect(app.queryClient.getQueryData(getGetCountsQueryKey())).toEqual({
     activity: asked,
+    downloads: { done: 0, wanted: 0, allPaused: false },
     alerts: { nodes: "fail" },
   });
 });
