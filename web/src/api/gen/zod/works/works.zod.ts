@@ -7,7 +7,9 @@ import {
   WorksContentTypeList,
   WorksEnabled,
   WorksNewWork,
+  WorksSettingsChange,
   WorksTree,
+  WorksTypeSettings,
   WorksWorkList,
 } from "../slipStream.schemas.zod.ts";
 
@@ -43,6 +45,30 @@ export const SetContentTypeEnabledParams = zod.object({
 export const SetContentTypeEnabledBody = WorksEnabled;
 
 export const SetContentTypeEnabledResponse = WorksContentType;
+
+/**
+ * @summary Get a Content Type's own settings
+ */
+export const getContentTypeSettingsPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const GetContentTypeSettingsParams = zod.object({
+  contentType: zod.string().regex(getContentTypeSettingsPathContentTypeRegExp),
+});
+
+export const GetContentTypeSettingsResponse = WorksTypeSettings;
+
+/**
+ * @summary Change a Content Type's own settings by key, all or none; every Work of the type may then read differently
+ */
+export const updateContentTypeSettingsPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const UpdateContentTypeSettingsParams = zod.object({
+  contentType: zod.string().regex(updateContentTypeSettingsPathContentTypeRegExp),
+});
+
+export const UpdateContentTypeSettingsBody = WorksSettingsChange;
+
+export const UpdateContentTypeSettingsResponse = WorksTypeSettings;
 
 /**
  * @summary List the Works, or one Content Type's

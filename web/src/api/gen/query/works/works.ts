@@ -23,6 +23,12 @@ import type {
   AddWork422,
   AddWork500,
   AddWork502,
+  GetContentTypeSettings401,
+  GetContentTypeSettings403,
+  GetContentTypeSettings404,
+  GetContentTypeSettings409,
+  GetContentTypeSettings422,
+  GetContentTypeSettings500,
   GetWork401,
   GetWork403,
   GetWork404,
@@ -61,13 +67,21 @@ import type {
   SetContentTypeEnabled409,
   SetContentTypeEnabled422,
   SetContentTypeEnabled500,
+  UpdateContentTypeSettings401,
+  UpdateContentTypeSettings403,
+  UpdateContentTypeSettings404,
+  UpdateContentTypeSettings409,
+  UpdateContentTypeSettings422,
+  UpdateContentTypeSettings500,
   WorksAdded,
   WorksCandidateList,
   WorksContentType,
   WorksContentTypeList,
   WorksEnabled,
   WorksNewWork,
+  WorksSettingsChange,
   WorksTree,
+  WorksTypeSettings,
   WorksWorkList,
 } from "../../model";
 
@@ -534,6 +548,305 @@ export const useSetContentTypeEnabled = <
   TContext
 > => {
   return useMutation(getSetContentTypeEnabledMutationOptions(options), queryClient);
+};
+export const getGetContentTypeSettingsUrl = (contentType: string) => {
+  return `/api/v1/content-types/${contentType}/settings`;
+};
+
+/**
+ * @summary Get a Content Type's own settings
+ */
+export const getContentTypeSettings = async (
+  contentType: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksTypeSettings> => {
+  return apiFetch<WorksTypeSettings>(getGetContentTypeSettingsUrl(contentType), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetContentTypeSettingsQueryKey = (contentType: string) => {
+  return [`/api/v1/content-types/${contentType}/settings`] as const;
+};
+
+export const getGetContentTypeSettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getContentTypeSettings>>,
+  TError = ErrorType<
+    | GetContentTypeSettings401
+    | GetContentTypeSettings403
+    | GetContentTypeSettings404
+    | GetContentTypeSettings409
+    | GetContentTypeSettings422
+    | GetContentTypeSettings500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetContentTypeSettingsQueryKey(contentType);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getContentTypeSettings>>> = ({ signal }) =>
+    getContentTypeSettings(contentType, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<
+    Awaited<ReturnType<typeof getContentTypeSettings>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetContentTypeSettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getContentTypeSettings>>
+>;
+export type GetContentTypeSettingsSuspenseQueryError = ErrorType<
+  | GetContentTypeSettings401
+  | GetContentTypeSettings403
+  | GetContentTypeSettings404
+  | GetContentTypeSettings409
+  | GetContentTypeSettings422
+  | GetContentTypeSettings500
+>;
+
+export function useGetContentTypeSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeSettings>>,
+  TError = ErrorType<
+    | GetContentTypeSettings401
+    | GetContentTypeSettings403
+    | GetContentTypeSettings404
+    | GetContentTypeSettings409
+    | GetContentTypeSettings422
+    | GetContentTypeSettings500
+  >,
+>(
+  contentType: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContentTypeSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeSettings>>,
+  TError = ErrorType<
+    | GetContentTypeSettings401
+    | GetContentTypeSettings403
+    | GetContentTypeSettings404
+    | GetContentTypeSettings409
+    | GetContentTypeSettings422
+    | GetContentTypeSettings500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContentTypeSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeSettings>>,
+  TError = ErrorType<
+    | GetContentTypeSettings401
+    | GetContentTypeSettings403
+    | GetContentTypeSettings404
+    | GetContentTypeSettings409
+    | GetContentTypeSettings422
+    | GetContentTypeSettings500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get a Content Type's own settings
+ */
+
+export function useGetContentTypeSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeSettings>>,
+  TError = ErrorType<
+    | GetContentTypeSettings401
+    | GetContentTypeSettings403
+    | GetContentTypeSettings404
+    | GetContentTypeSettings409
+    | GetContentTypeSettings422
+    | GetContentTypeSettings500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetContentTypeSettingsSuspenseQueryOptions(contentType, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateContentTypeSettingsUrl = (contentType: string) => {
+  return `/api/v1/content-types/${contentType}/settings`;
+};
+
+/**
+ * @summary Change a Content Type's own settings by key, all or none; every Work of the type may then read differently
+ */
+export const updateContentTypeSettings = async (
+  contentType: string,
+  worksSettingsChange: WorksSettingsChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksTypeSettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksTypeSettings>(getUpdateContentTypeSettingsUrl(contentType), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksSettingsChange),
+  });
+};
+
+export const getUpdateContentTypeSettingsMutationKey = () => ["updateContentTypeSettings"] as const;
+
+export const getUpdateContentTypeSettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateContentTypeSettings401
+    | UpdateContentTypeSettings403
+    | UpdateContentTypeSettings404
+    | UpdateContentTypeSettings409
+    | UpdateContentTypeSettings422
+    | UpdateContentTypeSettings500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateContentTypeSettings>>,
+    TError,
+    UpdateContentTypeSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateContentTypeSettings>>,
+  TError,
+  UpdateContentTypeSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateContentTypeSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateContentTypeSettings>>,
+    UpdateContentTypeSettingsMutationVariables
+  > = (props) => {
+    const { contentType, data } = props ?? {};
+
+    return updateContentTypeSettings(contentType, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateContentTypeSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateContentTypeSettings>>
+>;
+export type UpdateContentTypeSettingsMutationBody = WorksSettingsChange;
+export type UpdateContentTypeSettingsMutationError = ErrorType<
+  | UpdateContentTypeSettings401
+  | UpdateContentTypeSettings403
+  | UpdateContentTypeSettings404
+  | UpdateContentTypeSettings409
+  | UpdateContentTypeSettings422
+  | UpdateContentTypeSettings500
+>;
+export type UpdateContentTypeSettingsMutationVariables = {
+  contentType: string;
+  data: WorksSettingsChange;
+};
+
+/**
+ * @summary Change a Content Type's own settings by key, all or none; every Work of the type may then read differently
+ */
+export const useUpdateContentTypeSettings = <
+  TError = ErrorType<
+    | UpdateContentTypeSettings401
+    | UpdateContentTypeSettings403
+    | UpdateContentTypeSettings404
+    | UpdateContentTypeSettings409
+    | UpdateContentTypeSettings422
+    | UpdateContentTypeSettings500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateContentTypeSettings>>,
+      TError,
+      UpdateContentTypeSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateContentTypeSettings>>,
+  TError,
+  UpdateContentTypeSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateContentTypeSettingsMutationOptions(options), queryClient);
 };
 export const getListWorksUrl = (params?: ListWorksParams) => {
   const normalizedParams = new URLSearchParams();

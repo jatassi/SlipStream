@@ -2,6 +2,7 @@ package worksapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -17,6 +19,9 @@ import (
 type Shelf interface {
 	// Works is the Work tree, false unless the Node is a Controller.
 	Works() (*works.Works, bool)
+	// Targets answers each Item's availability, false unless the Node is a
+	// Controller.
+	Targets() (*targets.Targets, bool)
 }
 
 func open(s Shelf) *works.Works {
@@ -25,6 +30,14 @@ func open(s Shelf) *works.Works {
 		panic("worksapi: an operation ran on a Node that is no Controller")
 	}
 	return w
+}
+
+func goals(s Shelf) *targets.Targets {
+	t, ok := s.Targets()
+	if !ok {
+		panic("worksapi: an operation ran on a Node that is no Controller")
+	}
+	return t
 }
 
 var (
@@ -271,18 +284,32 @@ type level struct {
 }
 
 type item struct {
-	ID          string                  `json:"id" format:"uuid"`
-	LevelID     *string                 `json:"levelId" format:"uuid" doc:"Null when the Content Type declares no levels"`
-	Key         string                  `json:"key"`
-	Label       string                  `json:"label"`
-	Position    int                     `json:"position" minimum:"1"`
-	WithdrawnAt *time.Time              `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
-	Monitored   bool                    `json:"monitored"`
-	Fields      []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
-	Ratings     []rating                `json:"ratings" nullable:"false" doc:"By source"`
+	ID           string                  `json:"id" format:"uuid"`
+	LevelID      *string                 `json:"levelId" format:"uuid" doc:"Null when the Content Type declares no levels"`
+	Key          string                  `json:"key"`
+	Label        string                  `json:"label"`
+	Position     int                     `json:"position" minimum:"1"`
+	WithdrawnAt  *time.Time              `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
+	Monitored    bool                    `json:"monitored"`
+	Fields       []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
+	Ratings      []rating                `json:"ratings" nullable:"false" doc:"By source"`
+	Availability *availability           `json:"availability" doc:"The day the Item counts as released and the rule that chose it; null while no date is known"`
 }
 
-func treeOf(t works.Tree) tree {
+type availability struct {
+	Date  string `json:"date" pattern:"^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$" doc:"YYYY, YYYY-MM or YYYY-MM-DD"`
+	Basis string `json:"basis" doc:"The rule that chose the date, in words, such as Digital release in United States; empty when the Content Type names none"`
+}
+
+func availabilityOf(t targets.Timing) *availability {
+	d, known := t.Released.Get()
+	if !known {
+		return nil
+	}
+	return &availability{Date: d.String(), Basis: t.Basis}
+}
+
+func treeOf(t works.Tree, timings map[works.ItemID]targets.Timing) tree {
 	out := tree{Work: workOf(t.Summary), Fields: fieldsOf(t.Fields), Ratings: ratingsOf(t.Ratings), Levels: []level{}, Items: []item{}}
 	for _, l := range t.Levels {
 		out.Levels = append(out.Levels, level{
@@ -294,7 +321,7 @@ func treeOf(t works.Tree) tree {
 		out.Items = append(out.Items, item{
 			ID: it.ID.String(), LevelID: idOrNull(it.LevelID.UUID), Key: string(it.Key), Label: it.Label,
 			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Fields: fieldsOf(it.Fields),
-			Ratings: ratingsOf(it.Ratings),
+			Ratings: ratingsOf(it.Ratings), Availability: availabilityOf(timings[it.ID]),
 		})
 	}
 	return out
@@ -343,6 +370,25 @@ type enabled struct {
 type catalogInput struct {
 	ContentType string `path:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Query       string `query:"query" required:"true" minLength:"1"`
+}
+
+type contentTypeInput struct {
+	ContentType string `path:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+}
+
+type typeSettings struct {
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"In the Content Type's order; empty when it has none"`
+}
+
+type typeSettingsOutput struct{ Body typeSettings }
+
+type settingsInput struct {
+	ContentType string `path:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Body        settingsChange
+}
+
+type settingsChange struct {
+	Values map[string]json.RawMessage `json:"values" doc:"Each setting's new value by key, all or none; null resets one to its default"`
 }
 
 type candidateList struct {
@@ -419,6 +465,24 @@ func Routes(r *api.Router, shelf Shelf) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, contentTypeInUse},
 	}, h.setContentTypeEnabled)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getContentTypeSettings",
+		Method:  http.MethodGet,
+		Path:    "/content-types/{contentType}/settings",
+		Summary: "Get a Content Type's own settings",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{contentTypeNotFound},
+	}, h.getContentTypeSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateContentTypeSettings",
+		Method:  http.MethodPatch,
+		Path:    "/content-types/{contentType}/settings",
+		Summary: "Change a Content Type's own settings by key, all or none; every Work of the type may then read differently",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{contentTypeNotFound, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateContentTypeSettings)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "searchCatalog",
@@ -533,7 +597,11 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &addedOutput{Body: added{Created: created, Work: treeOf(t)}}, nil
+	out, err := h.treeOf(ctx, by, t)
+	if err != nil {
+		return nil, err
+	}
+	return &addedOutput{Body: added{Created: created, Work: out}}, nil
 }
 
 func (h handlers) listWorks(ctx context.Context, by identity.Admin, in *listInput) (*workListOutput, error) {
@@ -562,7 +630,11 @@ func (h handlers) getWork(ctx context.Context, by identity.Admin, in *workInput)
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &treeOutput{Body: treeOf(t)}, nil
+	out, err := h.treeOf(ctx, by, t)
+	if err != nil {
+		return nil, err
+	}
+	return &treeOutput{Body: out}, nil
 }
 
 func (h handlers) refreshWork(ctx context.Context, by identity.Admin, in *workInput) (*treeOutput, error) {
@@ -574,5 +646,33 @@ func (h handlers) refreshWork(ctx context.Context, by identity.Admin, in *workIn
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &treeOutput{Body: treeOf(t)}, nil
+	out, err := h.treeOf(ctx, by, t)
+	if err != nil {
+		return nil, err
+	}
+	return &treeOutput{Body: out}, nil
+}
+
+func (h handlers) treeOf(ctx context.Context, by identity.Admin, t works.Tree) (tree, error) {
+	timings, err := goals(h.shelf).Timings(ctx, by, t.ContentType, t.ID)
+	if err != nil {
+		return tree{}, err
+	}
+	return treeOf(t, timings), nil
+}
+
+func (h handlers) getContentTypeSettings(ctx context.Context, by identity.Admin, in *contentTypeInput) (*typeSettingsOutput, error) {
+	fields, err := open(h.shelf).Settings(ctx, by, works.TypeID(in.ContentType))
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &typeSettingsOutput{Body: typeSettings{Settings: settingapi.FieldsOf(fields)}}, nil
+}
+
+func (h handlers) updateContentTypeSettings(ctx context.Context, by identity.Admin, in *settingsInput) (*typeSettingsOutput, error) {
+	fields, err := open(h.shelf).SetSettings(ctx, by, works.TypeID(in.ContentType), in.Body.Values)
+	if err != nil {
+		return nil, settingapi.Refused(answer(err))
+	}
+	return &typeSettingsOutput{Body: typeSettings{Settings: settingapi.FieldsOf(fields)}}, nil
 }

@@ -128,6 +128,17 @@ func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ wor
 	return facet.Timings(ctx, r, ws)
 }
 
+// Timings answers each Item of work, a Work of Content Type typ.
+func (t *Targets) Timings(ctx context.Context, _ identity.Admin, typ works.TypeID, work works.WorkID) (map[works.ItemID]Timing, error) {
+	var out map[works.ItemID]Timing
+	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		out, err = t.TimingsIn(ctx, r, typ, []works.WorkID{work})
+		return err
+	})
+	return out, err
+}
+
 // NameOfFirst is the name of the first of ids a Target still has in r,
 // empty when none does.
 func NameOfFirst(ctx context.Context, r storage.Reader[file], ids []TargetID) (string, error) {
