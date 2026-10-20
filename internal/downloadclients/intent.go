@@ -22,7 +22,7 @@ func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 	if err != nil {
 		return nil, err
 	}
-	overrides, err := NodeOverridesOf(ctx, r, node)
+	overrides, err := nodeOverridesOf(ctx, r, node)
 	if err != nil {
 		return nil, err
 	}

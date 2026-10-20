@@ -68,6 +68,7 @@ type half struct {
 	roots    *roots.Roots
 	files    *files.Files
 	grabs    *grabs.Grabs
+	clients  *downloadclients.Clients
 	tasks    *tasks.Scheduler
 	// transfers receives files on the Controller, and source serves them
 	// on a Worker.
@@ -103,6 +104,7 @@ func (n *Node) startController(ctx context.Context) error {
 		cluster   *rpc.Cluster
 	)
 	clients := downloadclients.New(downloadclients.Config{
+		Library: lib.db,
 		Touch:   func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
 		Changed: downloadclients.ChangedEvent.Bind(n.hub),
 		Live: downloadclients.LiveConfig{
@@ -290,6 +292,7 @@ func (n *Node) startController(ctx context.Context) error {
 		roots:     library,
 		files:     shelf,
 		grabs:     pipeline,
+		clients:   clients,
 		tasks:     scheduler,
 		transfers: receiver,
 	})

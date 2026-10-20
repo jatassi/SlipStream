@@ -49,7 +49,7 @@ func TestAppliedReportsReachTheirReadersOnceCommitted(t *testing.T) {
 	m, raw := dotTorrent(t, "Orchard")
 	id, _ := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	r := &readers{}
-	c := dc.New(dc.Config{Touch: r.touch, Changed: r})
+	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r})
 
 	moved := c.Moved()
 	applyReport(t, lib, c, a, &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: []*dlv1.TorrentReport{

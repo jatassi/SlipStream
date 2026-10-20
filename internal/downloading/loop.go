@@ -60,6 +60,9 @@ type loop struct {
 	warned   map[string]bool
 	wake     *time.Timer
 	watching watching
+	// limits is what the engine was last configured with, nil before the
+	// first intent.
+	limits *engine.Limits
 }
 
 // torrent is one torrent of the intent or the discards, or one the
@@ -180,6 +183,7 @@ func (l *loop) detach(run *attached) {
 // one neither lists is discarded with its files kept.
 func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	l.intent = s
+	l.configure(s.Intent.GetSettings())
 	for _, t := range l.torrents {
 		t.listed = false
 	}
@@ -199,6 +203,22 @@ func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 			t.Discard = plan.KeepFiles
 		}
 	}
+}
+
+// configure applies the intent's settings to the engine when they changed.
+func (l *loop) configure(s *dlv1.Settings) {
+	limits := engine.Limits{
+		DownloadLimit: s.GetDownloadLimit(), UploadLimit: s.GetUploadLimit(),
+		Connections: int(s.GetConnections()), UTP: s.GetUtp(),
+	}
+	if l.limits != nil && *l.limits == limits {
+		return
+	}
+	if err := l.eng.Configure(limits); err != nil {
+		l.c.cfg.Log.Warn("apply the client's settings", "err", err.Error())
+		return
+	}
+	l.limits = &limits
 }
 
 func (l *loop) list(id, hash []byte) *torrent {
