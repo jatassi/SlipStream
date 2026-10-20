@@ -19,6 +19,7 @@ import type {
   WorksLinkValue,
   WorksNumberValue,
   WorksPeopleValue,
+  WorksPreviewed,
   WorksTextValue,
   WorksTextsValue,
   WorksTree,
@@ -185,9 +186,204 @@ export const getSearchCatalogResponseMock = (
       ),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      original: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      overview: faker.string.alpha({ length: { min: 10, max: 20 } }),
       workId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     }),
   ),
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseWorksTextValueMock = (
+  overrideResponse: Partial<WorksTextValue> = {},
+): WorksTextValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["text"] as const),
+    text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseWorksNumberValueMock = (
+  overrideResponse: Partial<WorksNumberValue> = {},
+): WorksNumberValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["number"] as const),
+    number: faker.number.float({ fractionDigits: 2 }),
+  },
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseWorksDateValueMock = (
+  overrideResponse: Partial<WorksDateValue> = {},
+): WorksDateValue => ({
+  ...{
+    date: faker.helpers.fromRegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["date"] as const),
+  },
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseWorksDurationValueMock = (
+  overrideResponse: Partial<WorksDurationValue> = {},
+): WorksDurationValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    ms: faker.number.int({ min: 0 }),
+  },
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseWorksTextsValueMock = (
+  overrideResponse: Partial<WorksTextsValue> = {},
+): WorksTextsValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["texts"] as const),
+    texts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseWorksPeopleValueMock = (
+  overrideResponse: Partial<WorksPeopleValue> = {},
+): WorksPeopleValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["people"] as const),
+    people: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        department: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        role: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseWorksLinkValueMock = (
+  overrideResponse: Partial<WorksLinkValue> = {},
+): WorksLinkValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["link"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    url: faker.internet.url(),
+  },
+  ...overrideResponse,
+});
+
+export const getPreviewCatalogRecordResponseMock = (
+  overrideResponse: Partial<Extract<WorksPreviewed, object>> = {},
+): WorksPreviewed => ({
+  inLibrary: faker.datatype.boolean(),
+  work: {
+    addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+    fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.helpers.arrayElement([
+        { ...getPreviewCatalogRecordResponseWorksTextValueMock() },
+        { ...getPreviewCatalogRecordResponseWorksNumberValueMock() },
+        { ...getPreviewCatalogRecordResponseWorksDateValueMock() },
+        { ...getPreviewCatalogRecordResponseWorksDurationValueMock() },
+        { ...getPreviewCatalogRecordResponseWorksTextsValueMock() },
+        { ...getPreviewCatalogRecordResponseWorksPeopleValueMock() },
+        { ...getPreviewCatalogRecordResponseWorksLinkValueMock() },
+      ]),
+    ),
+    goneUpstreamAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    id: faker.string.uuid(),
+    items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        availability: {
+          basis: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          date: faker.helpers.fromRegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"),
+        },
+        fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () =>
+            faker.helpers.arrayElement([
+              { ...getPreviewCatalogRecordResponseWorksTextValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksNumberValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksDateValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksDurationValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksTextsValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksPeopleValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksLinkValueMock() },
+            ]),
+        ),
+        id: faker.string.uuid(),
+        key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        levelId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+        monitored: faker.datatype.boolean(),
+        position: faker.number.int({ min: 1 }),
+        ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+            label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            scale: faker.number.float({ min: 0, fractionDigits: 2 }),
+            source: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            value: faker.number.float({ min: 0, fractionDigits: 2 }),
+            votes: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+          }),
+        ),
+        withdrawnAt: faker.helpers.arrayElement([
+          faker.date.past().toISOString().slice(0, 19) + "Z",
+          null,
+        ]),
+      }),
+    ),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        depth: faker.number.int({ min: 1 }),
+        fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () =>
+            faker.helpers.arrayElement([
+              { ...getPreviewCatalogRecordResponseWorksTextValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksNumberValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksDateValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksDurationValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksTextsValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksPeopleValueMock() },
+              { ...getPreviewCatalogRecordResponseWorksLinkValueMock() },
+            ]),
+        ),
+        id: faker.string.uuid(),
+        key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        parentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+        position: faker.number.int({ min: 1 }),
+        withdrawnAt: faker.helpers.arrayElement([
+          faker.date.past().toISOString().slice(0, 19) + "Z",
+          null,
+        ]),
+      }),
+    ),
+    ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        scale: faker.number.float({ min: 0, fractionDigits: 2 }),
+        source: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.number.float({ min: 0, fractionDigits: 2 }),
+        votes: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+      }),
+    ),
+    refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
   ...overrideResponse,
 });
 
@@ -1432,6 +1628,30 @@ export const getSearchCatalogMockHandler = (
   );
 };
 
+export const getPreviewCatalogRecordMockHandler = (
+  overrideResponse?:
+    | WorksPreviewed
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<WorksPreviewed> | WorksPreviewed),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/content-types/:contentType/catalog/:key",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getPreviewCatalogRecordResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getSetContentTypeEnabledMockHandler = (
   overrideResponse?:
     | WorksContentType
@@ -1596,6 +1816,7 @@ export const getRefreshWorkMockHandler = (
 export const getWorksMock = () => [
   getListContentTypesMockHandler(),
   getSearchCatalogMockHandler(),
+  getPreviewCatalogRecordMockHandler(),
   getSetContentTypeEnabledMockHandler(),
   getGetContentTypeSettingsMockHandler(),
   getUpdateContentTypeSettingsMockHandler(),

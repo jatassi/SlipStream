@@ -187,8 +187,33 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		t.Fatalf("listWorks = %d %s, want %s", code, list, want)
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
-	if want := `{"candidates":[{"key":"w1","label":"The Attic","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
+	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
 		t.Fatalf("searchCatalog = %d %s, want %s", code, search, want)
+	}
+}
+
+func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
+	s := serve(t)
+	s.fx.Put("w1", record())
+	tree := `{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,` +
+		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],` +
+		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
+		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"availability":{"date":"2000-01-01","basis":""}}]}`
+	code, body := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
+	if want := `{"inLibrary":false,"work":` + tree + "}\n"; code != http.StatusOK || masked(body) != want {
+		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
+	}
+	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog/w2", "", 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
+
+	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	if code != http.StatusOK {
+		t.Fatalf("addWork = %d %s", code, body)
+	}
+	id := uuids.FindString(body)
+	code, body = s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
+	if code != http.StatusOK || !strings.HasPrefix(body, `{"inLibrary":true,"work":{"id":"`+id+`"`) || masked(body) != `{"inLibrary":true,"work":`+tree+"}\n" {
+		t.Fatalf("previewCatalogRecord once added = %d %s, want the Work %s", code, body, id)
 	}
 }
 

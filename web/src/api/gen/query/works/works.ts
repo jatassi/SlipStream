@@ -46,6 +46,13 @@ import type {
   ListWorks422,
   ListWorks500,
   ListWorksParams,
+  PreviewCatalogRecord401,
+  PreviewCatalogRecord403,
+  PreviewCatalogRecord404,
+  PreviewCatalogRecord409,
+  PreviewCatalogRecord422,
+  PreviewCatalogRecord500,
+  PreviewCatalogRecord502,
   RefreshWork401,
   RefreshWork403,
   RefreshWork404,
@@ -79,6 +86,7 @@ import type {
   WorksContentTypeList,
   WorksEnabled,
   WorksNewWork,
+  WorksPreviewed,
   WorksSettingsChange,
   WorksTree,
   WorksTypeSettings,
@@ -410,6 +418,182 @@ export function useSearchCatalogSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getSearchCatalogSuspenseQueryOptions(contentType, params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getPreviewCatalogRecordUrl = (contentType: string, key: string) => {
+  return `/api/v1/content-types/${contentType}/catalog/${key}`;
+};
+
+/**
+ * @summary Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings
+ */
+export const previewCatalogRecord = async (
+  contentType: string,
+  key: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksPreviewed> => {
+  return apiFetch<WorksPreviewed>(getPreviewCatalogRecordUrl(contentType, key), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getPreviewCatalogRecordQueryKey = (contentType: string, key: string) => {
+  return [`/api/v1/content-types/${contentType}/catalog/${key}`] as const;
+};
+
+export const getPreviewCatalogRecordSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof previewCatalogRecord>>,
+  TError = ErrorType<
+    | PreviewCatalogRecord401
+    | PreviewCatalogRecord403
+    | PreviewCatalogRecord404
+    | PreviewCatalogRecord409
+    | PreviewCatalogRecord422
+    | PreviewCatalogRecord500
+    | PreviewCatalogRecord502
+  >,
+>(
+  contentType: string,
+  key: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewCatalogRecord>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getPreviewCatalogRecordQueryKey(contentType, key);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof previewCatalogRecord>>> = ({ signal }) =>
+    previewCatalogRecord(contentType, key, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewCatalogRecord>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type PreviewCatalogRecordSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewCatalogRecord>>
+>;
+export type PreviewCatalogRecordSuspenseQueryError = ErrorType<
+  | PreviewCatalogRecord401
+  | PreviewCatalogRecord403
+  | PreviewCatalogRecord404
+  | PreviewCatalogRecord409
+  | PreviewCatalogRecord422
+  | PreviewCatalogRecord500
+  | PreviewCatalogRecord502
+>;
+
+export function usePreviewCatalogRecordSuspense<
+  TData = Awaited<ReturnType<typeof previewCatalogRecord>>,
+  TError = ErrorType<
+    | PreviewCatalogRecord401
+    | PreviewCatalogRecord403
+    | PreviewCatalogRecord404
+    | PreviewCatalogRecord409
+    | PreviewCatalogRecord422
+    | PreviewCatalogRecord500
+    | PreviewCatalogRecord502
+  >,
+>(
+  contentType: string,
+  key: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewCatalogRecord>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function usePreviewCatalogRecordSuspense<
+  TData = Awaited<ReturnType<typeof previewCatalogRecord>>,
+  TError = ErrorType<
+    | PreviewCatalogRecord401
+    | PreviewCatalogRecord403
+    | PreviewCatalogRecord404
+    | PreviewCatalogRecord409
+    | PreviewCatalogRecord422
+    | PreviewCatalogRecord500
+    | PreviewCatalogRecord502
+  >,
+>(
+  contentType: string,
+  key: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewCatalogRecord>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function usePreviewCatalogRecordSuspense<
+  TData = Awaited<ReturnType<typeof previewCatalogRecord>>,
+  TError = ErrorType<
+    | PreviewCatalogRecord401
+    | PreviewCatalogRecord403
+    | PreviewCatalogRecord404
+    | PreviewCatalogRecord409
+    | PreviewCatalogRecord422
+    | PreviewCatalogRecord500
+    | PreviewCatalogRecord502
+  >,
+>(
+  contentType: string,
+  key: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewCatalogRecord>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings
+ */
+
+export function usePreviewCatalogRecordSuspense<
+  TData = Awaited<ReturnType<typeof previewCatalogRecord>>,
+  TError = ErrorType<
+    | PreviewCatalogRecord401
+    | PreviewCatalogRecord403
+    | PreviewCatalogRecord404
+    | PreviewCatalogRecord409
+    | PreviewCatalogRecord422
+    | PreviewCatalogRecord500
+    | PreviewCatalogRecord502
+  >,
+>(
+  contentType: string,
+  key: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewCatalogRecord>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getPreviewCatalogRecordSuspenseQueryOptions(contentType, key, options);
 
   const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
     TData,

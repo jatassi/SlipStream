@@ -29,12 +29,16 @@ function catalogServer() {
           {
             key: "9000001",
             label: "The Quiet Orchard",
+            original: "",
+            overview: "",
             fields: [{ key: "year", kind: "number", number: 2021 }],
             workId: null,
           },
           {
             key: "9000002",
             label: "Orchard Harvest",
+            original: "",
+            overview: "",
             fields: [{ key: "year", kind: "number", number: 2019 }],
             workId: harvestId,
           },
