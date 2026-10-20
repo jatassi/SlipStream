@@ -72,7 +72,7 @@ func failureToWire(err error) (*metadatav1.Failure, bool) {
 		w := &metadatav1.Failure{Kind: f.kind}
 		if se, ok := errors.AsType[*works.SourceError](err); ok {
 			w.Source, w.UntilUnixMicro, w.Words = se.Source, unixMicro(se.Until), se.Words
-		} else if f.err == ErrNoChanges {
+		} else if f.kind == metadatav1.FailureKind_FAILURE_KIND_NO_CHANGES {
 			w.Words = err.Error()
 		}
 		return w, true

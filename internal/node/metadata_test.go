@@ -180,13 +180,13 @@ func TestAProviderTestLeavesFromTheWorker(t *testing.T) {
 }
 
 type refreshRun struct {
-	Result  *string `json:"result"`
-	Summary string  `json:"summary"`
+	Result  string `json:"result"`
+	Summary string `json:"summary"`
 	Units   []struct {
-		Label   string  `json:"label"`
-		Node    string  `json:"node"`
-		Outcome string  `json:"outcome"`
-		Cause   *string `json:"cause"`
+		Label   string `json:"label"`
+		Node    string `json:"node"`
+		Outcome string `json:"outcome"`
+		Cause   string `json:"cause"`
 	} `json:"units"`
 }
 
@@ -210,11 +210,6 @@ func (c *metadataCluster) add(t *testing.T, key string) {
 	}
 }
 
-func (r refreshRun) String() string {
-	b, _ := json.Marshal(r)
-	return string(b)
-}
-
 func TestARefreshAllRunsOnTheWorkerHoldingMetadata(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startMetadataCluster(t)
@@ -226,7 +221,7 @@ func TestARefreshAllRunsOnTheWorkerHoldingMetadata(t *testing.T) {
 		synctest.Wait()
 		runs := c.refreshRuns(t)
 		if started.RunID == 0 || len(runs) != 1 || runs[0].Summary != "1 Work" || len(runs[0].Units) != 1 || runs[0].Units[0].Node != "box" || runs[0].Units[0].Outcome != "succeeded" {
-			t.Fatalf("Metadata refresh ran %v after refreshContentType, want one Work refreshed on box", runs)
+			t.Fatalf("Metadata refresh ran %+v after refreshContentType, want one Work refreshed on box", runs)
 		}
 		if got := c.lastServedBy(t); got != c.boxOpen {
 			t.Fatalf("the refresh was answered by provider half %d, want box's %d", got, c.boxOpen)
@@ -248,9 +243,9 @@ func TestAUnitWhoseHolderIsAwayIsSkippedNotFailed(t *testing.T) {
 		decode[struct{}](t, c.refreshAll(t), http.StatusAccepted)
 		synctest.Wait()
 		runs := c.refreshRuns(t)
-		if len(runs) != 1 || runs[0].Result == nil || *runs[0].Result != "skipped" || len(runs[0].Units) != 1 ||
-			runs[0].Units[0].Outcome != "skipped" || runs[0].Units[0].Cause == nil || *runs[0].Units[0].Cause != "home no longer holds Metadata" {
-			t.Fatalf("Metadata refresh ran %v while box was away, want the Work skipped because home no longer holds Metadata", runs)
+		if len(runs) != 1 || runs[0].Result != "skipped" || len(runs[0].Units) != 1 ||
+			runs[0].Units[0].Outcome != "skipped" || runs[0].Units[0].Cause != "home no longer holds Metadata" {
+			t.Fatalf("Metadata refresh ran %+v while box was away, want the Work skipped because home no longer holds Metadata", runs)
 		}
 		if len(c.fx.Calls()) != calls {
 			t.Fatal("a provider half answered while box, the only Node holding Metadata, was away")
@@ -280,13 +275,13 @@ func TestRefreshAllDuringARunKeepsTheRequestAndAnswersTaskRunning(t *testing.T) 
 		letGo()
 		synctest.Wait()
 		if runs := c.refreshRuns(t); len(runs) != 2 || runs[0].Summary != "1 Work" || runs[0].Units[0].Label != "The Cellar" {
-			t.Fatalf("the run open during the request ran %v, want only The Cellar, which failed before", runs)
+			t.Fatalf("the run open during the request ran %+v, want only The Cellar, which failed before", runs)
 		}
 
 		decode[struct{}](t, c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/tasks/metadata-refresh/runs", ""), http.StatusAccepted)
 		synctest.Wait()
 		if runs := c.refreshRuns(t); len(runs) != 3 || runs[0].Summary != "1 Work" || runs[0].Units[0].Label != "The Attic" {
-			t.Fatalf("the next run ran %v, want The Attic, refreshed before the kept request", runs)
+			t.Fatalf("the next run ran %+v, want The Attic, refreshed before the kept request", runs)
 		}
 	})
 }
