@@ -52,7 +52,9 @@ SELECT * FROM grabs_fill ORDER BY grab_id, position;
 SELECT * FROM grabs_stage ORDER BY grab_id, entered_at, rowid;
 
 -- name: ListGrabsOfTorrents :many
-SELECT id, torrent_id, release_title FROM grabs_grab WHERE torrent_id IN (sqlc.slice(torrent_ids)) ORDER BY id;
+SELECT id, torrent_id, work_id, release_title, stage FROM grabs_grab
+WHERE torrent_id IN (sqlc.slice(torrent_ids))
+ORDER BY created_at, id;
 
 -- name: InsertSearch :exec
 INSERT INTO grabs_search (id, work_id, item_id, indexer_id, started_at)

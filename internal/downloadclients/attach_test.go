@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -349,61 +350,51 @@ func TestOutcomesFollowTheTorrentsState(t *testing.T) {
 	}
 }
 
+// TestAWriteOffPartsEveryTorrentOfTheNodeAndKeepsFiles writes seedbox's
+// Downloading off while Clients runs: every Torrent it holds, a Removing
+// one too, parts at once with its files kept and leaves the intent, and
+// home's Torrent stays.
 func TestAWriteOffPartsEveryTorrentOfTheNodeAndKeepsFiles(t *testing.T) {
-	lib := open(t)
-	box, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
-	attachNamed := func(node role.NodeID, name string) dc.ID {
-		m, raw := dotTorrent(t, name)
-		id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
-		return id
-	}
-	live, removing, kept := attachNamed(box, "Orchard"), attachNamed(box, "Attic"), attachNamed(home, "Harbor")
-	exec(t, lib, "UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = 'admin', delete_files = 1 WHERE id = ?", storage.Now(), removing)
+	synctest.Test(t, func(t *testing.T) {
+		lib := open(t)
+		box, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
+		attachNamed := func(node role.NodeID, name string) dc.ID {
+			m, raw := dotTorrent(t, name)
+			id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+			return id
+		}
+		live, removing, kept := attachNamed(box, "Orchard"), attachNamed(box, "Attic"), attachNamed(home, "Harbor")
+		exec(t, lib, "UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = 'admin', delete_files = 1 WHERE id = ?", storage.Now(), removing)
+		r := &roster{}
+		h := runClients(t, lib, r, nil, nil)
 
-	writeOff := func() int64 {
-		var n int64
-		write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			var err error
-			n, err = dc.WriteOff(ctx, tx, box, storage.Now())
-			return err
-		})
-		return n
-	}
-	if n := writeOff(); n != 2 {
-		t.Fatalf("WriteOff parted %d Torrents, want seedbox's 2", n)
-	}
-	for _, id := range []dc.ID{live, removing} {
-		if got := outcomeOf(t, lib, id).Outcome; got != (dc.Gone{Reason: dc.NodeWrittenOff}) {
-			t.Errorf("a written-off Torrent reads %#v, want Gone for node_written_off", got)
+		r.writeOff(box)
+		synctest.Wait()
+		for _, id := range []dc.ID{live, removing} {
+			if got := outcomeOf(t, lib, id).Outcome; got != (dc.Gone{Reason: dc.NodeWrittenOff}) {
+				t.Errorf("a written-off Torrent reads %#v, want Gone for node_written_off", got)
+			}
+			var parted int64
+			if err := lib.QueryRowContext(t.Context(), "SELECT count(*) FROM downloadclients_torrent WHERE id = ? AND parted_at IS NOT NULL", id).Scan(&parted); err != nil || parted != 1 {
+				t.Errorf("a written-off Torrent waits on its Node (%v), want it parted at once", err)
+			}
 		}
-		var parted int64
-		if err := lib.QueryRowContext(t.Context(), "SELECT count(*) FROM downloadclients_torrent WHERE id = ? AND parted_at IS NOT NULL", id).Scan(&parted); err != nil || parted != 1 {
-			t.Errorf("a written-off Torrent waits on its Node (%v), want it parted at once", err)
+		if got := intentOf(t, lib, box); len(got) != 0 {
+			t.Errorf("seedbox's intent lists %v after its write-off, want nothing", got)
 		}
-	}
-	if got := intentOf(t, lib, box); len(got) != 0 {
-		t.Errorf("seedbox's intent lists %v after its write-off, want nothing", got)
-	}
-	if got := intentOf(t, lib, home); !slices.Equal(got, []dc.ID{kept}) {
-		t.Errorf("home's intent lists %v, want its own Torrent %s kept", got, kept)
-	}
-	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		held, err := dc.DownloadingOwner.Held(ctx, r, box)
-		if err == nil && held.Units != 0 {
+		if got := intentOf(t, lib, home); !slices.Equal(got, []dc.ID{kept}) {
+			t.Errorf("home's intent lists %v, want its own Torrent %s kept", got, kept)
+		}
+		if held := heldOn(t, lib, box); held.Units != 0 {
 			t.Errorf("seedbox holds %d torrents after its write-off, want none", held.Units)
 		}
-		holding, err2 := dc.Holding(ctx, r)
-		if err2 == nil && !slices.Equal(holding, []role.NodeID{home}) {
-			t.Errorf("the Nodes holding Torrents are %v, want only home", holding)
+		if touched := h.touchedNodes(); !slices.Equal(touched, []role.NodeID{box}) {
+			t.Errorf("the write-off touched %v, want seedbox's intent", touched)
 		}
-		return errors.Join(err, err2)
+		if changed := h.changedIDs(); len(changed) != 2 {
+			t.Errorf("the write-off published %v, want seedbox's 2 Torrents changed", changed)
+		}
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n := writeOff(); n != 0 {
-		t.Errorf("a second WriteOff parted %d Torrents, want none", n)
-	}
 }
 
 // TestTheFirstReleaseFaultStays applies reports that carry a fault, then

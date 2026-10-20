@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
@@ -55,6 +56,8 @@ type Half struct {
 	Library  *storage.DB[storage.Library]
 	Controls *role.Controls
 	Cluster  *rpc.Cluster
+	// Clients is the Controller's record of every Node's built-in client.
+	Clients *downloadclients.Clients
 }
 
 func (t Test) held(local *storage.DB[storage.Local]) []role.Held {

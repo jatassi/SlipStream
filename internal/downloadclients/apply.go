@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -33,7 +35,23 @@ type Config struct {
 	// changed.
 	Touch   func(nodes ...role.NodeID)
 	Changed Publisher[Changed]
-	Live    LiveConfig
+	// Remote is a Node's client as the Controller calls it.
+	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
+	Roster Roster
+	Uses   Uses
+	Live   LiveConfig
+	Log    *slog.Logger
+}
+
+// Roster is the Nodes and the Roles they hold.
+type Roster interface {
+	// InStep reports whether node's Sync session is attached.
+	InStep(node role.NodeID) bool
+	// WrittenOff reports whether the Admin wrote off what node holds for
+	// r.
+	WrittenOff(r role.Name, node role.NodeID) bool
+	// Changed is closed at the roster's next change.
+	Changed() <-chan struct{}
 }
 
 // Clients applies each Node's reports and tells their readers once they
@@ -64,7 +82,8 @@ func New(cfg Config) *Clients {
 // Touch tells the Downloading Control nodes' intents may have changed.
 func (c *Clients) Touch(nodes ...role.NodeID) { c.cfg.Touch(nodes...) }
 
-// Moved is closed once reports that may move a Torrent's outcome commit.
+// Moved is closed once a change that may move a Torrent's outcome
+// commits: a Node's reports, an Admin's action or a write-off.
 func (c *Clients) Moved() <-chan struct{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -122,25 +141,41 @@ func (c *Clients) Applied(node role.NodeID, scope string) {
 	c.mu.Lock()
 	p := c.pending[node]
 	delete(c.pending, node)
-	close(c.moved)
-	c.moved = make(chan struct{})
 	c.mu.Unlock()
 	if p == nil {
+		c.wake()
 		return
 	}
+	var touched []role.NodeID
 	if p.parted {
-		c.cfg.Touch(node)
+		touched = []role.NodeID{node}
 	}
-	if len(p.ids) == 0 {
-		return
+	c.committed(touched, p.ids)
+}
+
+// committed tells the readers once a change to ids commits: the intents
+// of nodes, the Admins, and whatever reads the Torrents' outcomes.
+func (c *Clients) committed(nodes []role.NodeID, ids []ID) {
+	if len(nodes) > 0 {
+		c.cfg.Touch(nodes...)
 	}
-	slices.SortFunc(p.ids, func(a, b ID) int { return a.Compare(b.UUID) })
-	p.ids = slices.Compact(p.ids)
-	ch := Changed{IDs: make([]string, len(p.ids))}
-	for i, id := range p.ids {
-		ch.IDs[i] = id.String()
+	if len(ids) > 0 {
+		ids = slices.SortedFunc(slices.Values(ids), func(a, b ID) int { return a.Compare(b.UUID) })
+		ids = slices.Compact(ids)
+		ch := Changed{IDs: make([]string, len(ids))}
+		for i, id := range ids {
+			ch.IDs[i] = id.String()
+		}
+		c.cfg.Changed.Publish(context.Background(), ch)
 	}
-	c.cfg.Changed.Publish(context.Background(), ch)
+	c.wake()
+}
+
+func (c *Clients) wake() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	close(c.moved)
+	c.moved = make(chan struct{})
 }
 
 func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports []*dlv1.TorrentReport) ([]ID, error) {

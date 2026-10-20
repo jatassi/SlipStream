@@ -2,7 +2,6 @@ package downloadclients
 
 import (
 	"context"
-	"log/slog"
 	"maps"
 	"slices"
 	"sync"
@@ -12,7 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -53,14 +51,11 @@ type LivePublisher interface {
 // LiveConfig is how Clients watches the Nodes' clients while an Admin
 // listens.
 type LiveConfig struct {
-	Library *storage.DB[file]
 	// Watched is the Nodes to watch: in step and serving Downloading.
 	Watched func() []role.NodeID
-	Remote  func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
 	Event   LivePublisher
 	// Sample is how often the Nodes sample and torrents.live goes out.
 	Sample time.Duration
-	Log    *slog.Logger
 }
 
 // Sample is one Torrent as its Node last sampled it.
@@ -88,19 +83,27 @@ type watched struct {
 	sampled  bool
 }
 
-// Run watches every Node the config names while an Admin listens, and
-// publishes torrents.live once each sample with the rows that moved.
-// Nothing is watched, and no Node samples, while no Admin listens.
+// Run parts the Torrents of each Node the Admin wrote Downloading off,
+// at its start and at each change of the roster. It watches every Node
+// the config names while an Admin listens, and publishes torrents.live
+// once each sample with the rows that moved. Nothing is watched, and no
+// Node samples, while no Admin listens.
 func (c *Clients) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	defer c.unwatch()
 	tick := time.NewTicker(c.cfg.Live.Sample)
 	defer tick.Stop()
+	roster := c.cfg.Roster.Changed()
+	c.settleWriteOffs(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-roster:
+			roster = c.cfg.Roster.Changed()
+			c.settleWriteOffs(ctx)
+			continue
 		case <-tick.C:
 		}
 		if !c.cfg.Live.Event.Listening() {
@@ -150,7 +153,7 @@ func (c *Clients) unwatch() {
 // watch calls node's Watch back to back until ctx ends, waiting a sample
 // after a failed call.
 func (c *Clients) watch(ctx context.Context, node role.NodeID, n *watched) {
-	remote := c.cfg.Live.Remote(node)
+	remote := c.cfg.Remote(node)
 	var after uint64
 	for {
 		res, err := remote.Watch(ctx, &dlv1.WatchRequest{After: after})
@@ -158,7 +161,7 @@ func (c *Clients) watch(ctx context.Context, node role.NodeID, n *watched) {
 			return
 		}
 		if err != nil {
-			c.cfg.Live.Log.Debug("watch a Node's torrent client", "node", node.String(), "err", err.Error())
+			c.cfg.Log.Debug("watch a Node's torrent client", "node", node.String(), "err", err.Error())
 			select {
 			case <-ctx.Done():
 				return
@@ -208,7 +211,7 @@ func (c *Clients) publishLive(ctx context.Context) {
 	agg, err := c.aggregate(ctx)
 	if err != nil {
 		if ctx.Err() == nil {
-			c.cfg.Live.Log.Error("add up the downloads", "err", err.Error())
+			c.cfg.Log.Error("add up the downloads", "err", err.Error())
 		}
 		return
 	}
@@ -233,7 +236,7 @@ func (c *Clients) publishLive(ctx context.Context) {
 // aggregate adds up the downloads, each at its live sample while it has
 // one, else as its Node last reported it.
 func (c *Clients) aggregate(ctx context.Context) (Aggregate, error) {
-	rows, err := db.New(c.cfg.Live.Library).ListDownloads(ctx)
+	rows, err := db.New(c.cfg.Library).ListDownloads(ctx)
 	if err != nil {
 		return Aggregate{}, err
 	}
