@@ -135,6 +135,23 @@ const (
 	Gazelle TrackerMode = "gazelle"
 )
 
+// Leecher is a peer that dials Node's listen port through its leecher
+// front, and says hello for Release's torrent, after Node's first announce
+// of it that fake-tracker accepted.
+type Leecher struct {
+	Node    string `jsonschema:"required" yaml:"node"`
+	Release string `jsonschema:"required" yaml:"release"`
+}
+
+func (l Leecher) check(add func(format string, args ...any), s Scenario) {
+	if !slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Name == l.Node }) {
+		add("leecher names node %s, which nodes does not list", l.Node)
+	}
+	if !slices.ContainsFunc(s.Releases, func(r Release) bool { return r.Name == l.Release && r.Seeded }) {
+		add("leecher names release %s, which releases does not list as seeded", l.Release)
+	}
+}
+
 var releaseName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 func checkReleases(add func(format string, args ...any), releases []Release, movies *TMDB) {
