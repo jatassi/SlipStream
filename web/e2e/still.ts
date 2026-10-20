@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 // Base UI can hold a popup in data-starting-style for several frames before
 // its transition starts, so wait for two frames in a row with nothing
@@ -28,4 +28,13 @@ export async function untilStill(page: Page): Promise<void> {
         requestAnimationFrame(frame);
       }),
   );
+}
+
+// WebKit can hold an entering sheet at its start for frames, which passes the
+// click's stability check; the tap then lands while the sheet slides and its
+// press and release fall on different rows.
+export async function clickWhenStill(row: Locator): Promise<void> {
+  await row.waitFor();
+  await untilStill(row.page());
+  await row.click();
 }

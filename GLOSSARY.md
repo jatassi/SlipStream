@@ -56,6 +56,10 @@ _Avoid_: Dry run, conflict check, impact check
 One Edition at one Target of one Item. Under any cut, an Item has one cell per Target. A cell's state is unreleased, held, missing, downloading, converting, failed, upgradable or met, and a missing cell is either Not found or waiting on its source Target.
 _Avoid_: Slot, square
 
+**Availability date**:
+The day an Item counts as released, chosen by its Content Type's rule from the release dates its metadata source lists. A movie counts as released on its first home release in the metadata region, then in any country, then a settable delay after its cinema release; an Admin can let the first cinema release count instead. An Item with no date stays unreleased.
+_Avoid_: Release date (for the deciding day), available date, out date
+
 **Item status**:
 An Item's state, rolled up from its cells in this order: unreleased, held, missing, downloading, converting, failed, upgradable, met. Cells of a listed cut not yet seen for the Item stay out of it.
 _Avoid_: Available (for an Item or cell), complete
@@ -205,6 +209,10 @@ _Avoid_: Job, cron job, background task, timer
 **Maintenance window**:
 The daily stretch of the Controller's local time when updates install and the nightly Scheduled tasks, such as Backup and Library scan, start.
 _Avoid_: Update window, quiet hours
+
+**Metadata refresh**:
+The Scheduled task that keeps every Work's record current from its metadata source. Each run refreshes the Works the source reports changed, then every Work its tier makes due: Works with an unreleased Item, Works that can still gain Items, and every other Work, each on its own cadence. Refreshing a Work never searches for it again.
+_Avoid_: Metadata sync, rescan, update metadata
 
 ## Acquisition
 

@@ -5,6 +5,7 @@ import { node } from "../harness/manifest.ts";
 import { orchardCells } from "./cells.ts";
 import { type World, expect, test } from "./fixtures.ts";
 import { isPhone } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 import {
   browser,
   drillInto,
@@ -80,7 +81,7 @@ const toasts = (page: Page) => page.getByRole("region", { name: "Notifications" 
 
 async function act(page: Page, path: string, item: string): Promise<void> {
   await page.getByRole("button", { name: `Actions for ${path}` }).click();
-  await menuItem(page, path, item).click();
+  await clickWhenStill(menuItem(page, path, item));
 }
 
 type Movies = Awaited<ReturnType<typeof moviesRoot>>;
