@@ -12,11 +12,11 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - `torrents-inspector` a row opens the Inspector at `/activity/torrents/<id>` with `Downloading from 1 peer, <n> min left at 16 KB/s.`, `Pause`, `Remove` and `More actions for <Work>`, then Numbers, Trackers with the passkey hidden as `/announce/•••`, Files, Grabs and Details, whose save folder is `<downloads>/Movies/<info hash>` (P-146); ArrowDown steps to the next row with the Inspector following; on a phone it is a pushed page with the back link `Torrents`.
 - `torrents-pause-resume` `Pause` reads `Paused` and the tracker gets `stopped`; `Resume` inside the tracker's window reads `Resumes at <HH:MM>`, then starts, and the UNIT3D tracker accepts every announce of it (P-166).
 - `torrents-unregistered` a release the tracker calls unregistered reads `Tracker error` over `Unregistered by 127.0.0.1` and is a failure in `Needs you`; once the tracker says so twice the unregistered gap apart, the Inspector adds `The release looks bad: its tracker says the torrent is no longer registered.`
-- `torrents-bulk` picking two rows shows the toolbar `Picked torrents` with `2 picked`, and its `Pause` and `Resume` act on both.
+- `torrents-bulk` picking two rows shows the toolbar `Picked torrents` with `2 torrents picked`, and its `Pause` and `Resume` act on both and keep them picked; a paused torrent with a tracker error still reads `Tracker error`.
 - `torrents-mark-failed` a download fed only corrupt pieces by a bad peer reads `Stalled` with `No data is arriving` after `Stalled after`; `Mark failed` asks `Mark Salt Meadow failed?`, removes it with its download copy and fails its Grab `download_failed`.
 - `torrents-jobs` Jobs shows each Grab's quality and Target chips and its live percent; its menu offers `Open its torrent`, which opens the Inspector (P-164).
 - `torrents-restart` restarting home stops each torrent with `stopped`, and the seeding torrent comes back `Seeding` with a `started` that reports nothing left and the same totals.
-- `torrents-remove` `Remove` asks `Remove The Quiet Orchard?`, says `Files in your library stay.` and lists the Work that stops seeding; with `Also delete the download copy` its save folder goes, the library file still matches the release, the tracker gets `stopped`, and the row leaves once home confirms (P-166).
+- `torrents-remove` `Remove` asks `Remove The Quiet Orchard?`, says `Files in your library stay.` and lists the Work that stops seeding; with `Also delete the download copy` the download copy goes, the library file still matches the release, the tracker gets `stopped`, and the row leaves once home confirms (P-166).
 
 ## How to get to it (user POV)
 
@@ -42,15 +42,17 @@ Preconditions:
 
 Steps:
 
-- **Slow home down and queue the downloads.** On home's Torrent client, save `Download limit` 16 (KB/s), `Downloads at once` 1 and `Stalled after` 1 (min), then grab the three Works through the API. The Quiet Orchard downloads, and the others read `Queued` with `1st in line` and `2nd in line`.
+- **Slow home down and queue the downloads.** On home's Torrent client, save `Download limit` 16 with `KB/s` picked, then `Downloads at once` 1 and `Stalled after` 1 (min), each with Enter, then grab the three Works through the API. The Quiet Orchard downloads, and the others read `Queued` with `1st in line` and `2nd in line`.
 
   ```sh
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/nodes/{nodes.home.nodeId}/torrent-client'
   $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Download limit" })' 16
+  $FW exec $RUN -- $PW cli $D click 'getByRole("radiogroup", { name: "Download limit unit" }).getByRole("radio", { name: "KB/s" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("region", { name: "Speed" }).getByRole("button", { name: "Save" })'
-  $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Downloads at once" })' 1
-  $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Stalled after" })' 1
-  $FW exec $RUN -- $PW cli $D click 'getByRole("region", { name: "Queue" }).getByRole("button", { name: "Save" })'
+  for field in 'Downloads at once:1' 'Stalled after:1'; do
+    $FW exec $RUN -- $PW cli $D fill "getByRole(\"textbox\", { name: \"${field%:*}\" })" "${field##*:}"
+    $FW exec $RUN -- $PW cli $D press Enter
+  done
   $FW exec $RUN --proof torrents/torrents-queue -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/download-clients/{nodes.home.nodeId}/settings'
   for key in 9000001 9000002 9000003; do $FW exec $RUN --proof torrents/torrents-queue -- sh -c "id=\$(curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{\"contentType\":\"movie\",\"key\":\"$key\",\"monitor\":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id); curl -sS -X POST -H 'X-Api-Key: {apiKey}' \"{nodes.home.url}/api/v1/works/\$id/search\""; sleep 2; done
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity/torrents'
@@ -64,7 +66,7 @@ Steps:
   ```sh
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/nodes/{nodes.home.nodeId}/torrent-client'
   $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Downloads at once" })' 3
-  $FW exec $RUN -- $PW cli $D click 'getByRole("region", { name: "Queue" }).getByRole("button", { name: "Save" })'
+  $FW exec $RUN -- $PW cli $D press Enter
   $FW announces wait $RUN --node home --where rule=unregistered --timeout 60s
   ```
 
@@ -112,17 +114,18 @@ Steps:
   $FW exec $RUN --proof torrents/torrents-filters -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-filters/search.png
   ```
 
-- **Inspect a torrent.** On `All`, choose The Quiet Orchard's row. The Inspector leads with `Downloading from 1 peer, …`, lists the tracker as `127.0.0.1:<port>` with its URL under `Details` ending `/announce/•••`, and Details' `Save folder` ends `downloads/Movies/<info hash>`. ArrowDown moves the selection and the URL to the next row. On the phone the row opens a pushed page with the back link `Torrents`.
+- **Inspect a torrent.** On `All`, choose The Quiet Orchard's row. The Inspector leads with `Downloading from 1 peer, …`, lists the tracker as `127.0.0.1:<port>` with its URL under `Details` ending `/announce/•••`, and ArrowDown on the chosen row moves the selection and the URL to the next row, and ArrowUp back. Details' `Save folder` ends `downloads/Movies/<info hash>`. On the phone the row opens a pushed page with the back link `Torrents`.
 
   ```sh
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity/torrents?tab=all'
   $FW exec $RUN -- $PW cli $D click 'getByRole("table", { name: "Torrents" }).getByRole("button", { name: /^The Quiet Orchard(?! actions)/ })'
+  $FW exec $RUN -- $PW cli $D press ArrowDown
+  $FW exec $RUN --proof torrents/torrents-inspector -- $PW cli $D run-code 'async page => [page.url(), await page.getByRole("complementary").getByRole("heading", { level: 2 }).first().textContent()]'
+  $FW exec $RUN -- $PW cli $D press ArrowUp
   $FW exec $RUN -- $PW cli $D click 'getByRole("complementary", { name: "The Quiet Orchard" }).getByRole("listitem").filter({ hasText: "127.0.0.1" }).getByRole("button", { name: "Details" })'
   $FW exec $RUN --proof torrents/torrents-inspector -- $PW cli $D snapshot 'getByRole("complementary", { name: "The Quiet Orchard" })' --filename={runDir}/proof/torrents/torrents-inspector/desktop.aria.yml
   $FW exec $RUN --proof torrents/torrents-inspector -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-inspector/desktop.png
   $FW exec $RUN --proof torrents/torrents-inspector -- curl -sS -H "$KEY" "$API/torrents/$(idOf The.Quiet)"
-  $FW exec $RUN -- $PW cli $D press ArrowDown
-  $FW exec $RUN --proof torrents/torrents-inspector -- $PW cli $D run-code 'async page => [page.url(), await page.getByRole("complementary").getByRole("heading", { level: 2 }).first().textContent()]'
   $FW exec $RUN -- $PW cli $P goto '{nodes.home.browserUrl}/activity/torrents?tab=all'
   $FW exec $RUN -- $PW cli $P click 'getByRole("button", { name: /^The Quiet Orchard(?! actions)/ })'
   $FW exec $RUN --proof torrents/torrents-inspector -- $PW cli $P snapshot 'getByRole("banner")' --filename={runDir}/proof/torrents/torrents-inspector/phone-banner.aria.yml
@@ -133,20 +136,21 @@ Steps:
 
   ```sh
   pick() { $FW exec $RUN -- $PW cli $D click 'getByRole("button", { name: "The Quiet Orchard actions" })'; $FW exec $RUN -- $PW cli $D click "getByRole(\"menuitem\", { name: \"$1\" })"; }
+  IH=$(curl -sS -H "$KEY" "$API/torrents/$(idOf The.Quiet)" | jq -r .infoHash)
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity/torrents?tab=all'
   pick Pause
+  $FW announces wait $RUN --node home --where infoHash=$IH --where event=stopped --timeout 30s
   $FW exec $RUN --proof torrents/torrents-pause-resume -- $PW cli $D run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "The Quiet Orchard" }).getByRole("cell", { name: /^Paused/ }).waitFor({ timeout: 15000 }); }'
-  STOPPED=$($FW announces wait $RUN --node home --where event=stopped --timeout 30s | jq .seq)
   pick Resume
-  STARTED=$($FW announces wait $RUN --node home --where event=started --after $STOPPED --timeout 30s | jq .seq)
+  $FW announces wait $RUN --node home --where infoHash=$IH --where event=started --timeout 30s
   sleep 30
   pick Pause
-  $FW announces wait $RUN --node home --where event=stopped --after $STARTED --timeout 30s
+  $FW announces wait $RUN --node home --where infoHash=$IH --where event=stopped --timeout 30s
   pick Resume
   $FW exec $RUN --proof torrents/torrents-pause-resume -- $PW cli $D run-code 'async page => { const line = page.getByRole("table", { name: "Torrents" }).getByText(/^Resumes at/); await line.waitFor({ timeout: 15000 }); return line.textContent(); }'
   $FW exec $RUN --proof torrents/torrents-pause-resume -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-pause-resume/window.png
-  $FW announces wait $RUN --node home --where event=started --after $STARTED --timeout 180s
-  $FW exec $RUN --proof torrents/torrents-pause-resume -- sh -c "$FW announces list {runDir} --node home | jq -c 'select(.data.infoHash == \"'$(curl -sS -H "$KEY" "$API/torrents/$(idOf The.Quiet)" | jq -r .infoHash)'\") | {at, event: .data.event, accepted: .data.accepted}'"
+  $FW announces wait $RUN --node home --where infoHash=$IH --where event=started --timeout 180s
+  $FW exec $RUN --proof torrents/torrents-pause-resume -- sh -c "$FW announces list {runDir} --node home --where infoHash=$IH | jq -c '{at, event: .data.event, accepted: .data.accepted}'"
   ```
 
 - **Read the unregistered release.** Shorten `Unregistered twice, this far apart` to 1 min on Settings > Download Clients. Harbor Lights' row reads `Tracker error` over `Unregistered by 127.0.0.1`; after the tracker's next refusal, 3 minutes after the first, its Inspector adds the release fault.
@@ -163,7 +167,7 @@ Steps:
   $FW exec $RUN --proof torrents/torrents-unregistered -- curl -sS -H "$KEY" "$API/torrents/$(idOf Harbor)"
   ```
 
-- **Pause two at once.** Pick Harbor Lights and Salt Meadow: the toolbar `Picked torrents` reads `2 picked`. Its `Pause` pauses both, and its `Resume` resumes both.
+- **Pause two at once.** Pick Harbor Lights and Salt Meadow: the toolbar `Picked torrents` reads `2 torrents picked`. Its `Pause` pauses both and keeps them picked: Salt Meadow reads `Paused`, while Harbor Lights still reads `Tracker error`, which outranks `Paused`, and the API's `hold` reads `wanted` for both. The toolbar's `Resume` then resumes both: `hold` clears, or reads `window` with `Resumes at` on a torrent whose last `started` is inside its tracker's window.
 
   ```sh
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity/torrents?tab=all'
@@ -171,24 +175,26 @@ Steps:
   $FW exec $RUN -- $PW cli $D click 'getByRole("checkbox", { name: "Pick Salt Meadow" })'
   $FW exec $RUN --proof torrents/torrents-bulk -- $PW cli $D snapshot 'getByRole("toolbar", { name: "Picked torrents" })' --filename={runDir}/proof/torrents/torrents-bulk/picked.aria.yml
   $FW exec $RUN -- $PW cli $D click 'getByRole("toolbar", { name: "Picked torrents" }).getByRole("button", { name: "Pause" })'
-  $FW exec $RUN --proof torrents/torrents-bulk -- $PW cli $D run-code 'async page => { const rows = page.getByRole("table", { name: "Torrents" }).getByRole("row"); for (const work of ["Harbor Lights", "Salt Meadow"]) await rows.filter({ hasText: work }).getByRole("cell", { name: /^Paused/ }).waitFor({ timeout: 15000 }); }'
+  $FW exec $RUN --proof torrents/torrents-bulk -- $PW cli $D run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "Salt Meadow" }).getByRole("cell", { name: /^Paused/ }).waitFor({ timeout: 15000 }); }'
+  $FW exec $RUN --proof torrents/torrents-bulk -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -c '.rows[] | {name, state, hold}'"
   $FW exec $RUN --proof torrents/torrents-bulk -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-bulk/paused.png
-  $FW exec $RUN -- $PW cli $D click 'getByRole("checkbox", { name: "Pick Harbor Lights" })'
-  $FW exec $RUN -- $PW cli $D click 'getByRole("checkbox", { name: "Pick Salt Meadow" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("toolbar", { name: "Picked torrents" }).getByRole("button", { name: "Resume" })'
-  $FW exec $RUN --proof torrents/torrents-bulk -- $PW cli $D run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "Salt Meadow" }).getByRole("cell", { name: /^(Downloading|Stalled|Paused Resumes)/ }).waitFor({ timeout: 15000 }); }'
+  $FW exec $RUN --proof torrents/torrents-bulk -- $PW cli $D run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "Salt Meadow" }).getByRole("cell", { name: /^(Downloading|Stalled|Queued|Paused Resumes at)/ }).waitFor({ timeout: 15000 }); }'
+  $FW exec $RUN --proof torrents/torrents-bulk -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -c '.rows[] | {name, state, hold}'"
+  $FW exec $RUN -- $PW cli $D click 'getByRole("toolbar", { name: "Picked torrents" }).getByRole("button", { name: "Clear" })'
   ```
 
-- **Mark the bad release failed.** Once Salt Meadow reads `Stalled` again, on the phone open its card's menu and `Mark failed`; the dialog `Mark Salt Meadow failed?` lists its Grab. Confirm: the row leaves, the tracker gets `stopped`, and its Grab fails `download_failed`.
+- **Mark the bad release failed.** Once Salt Meadow reads `Stalled` again, a minute after it starts (which can wait out its tracker's window first), on the phone open its card's menu and `Mark failed`; the dialog `Mark Salt Meadow failed?` lists its Grab. Confirm: the row leaves, the tracker gets `stopped`, and its Grab fails `download_failed`.
 
   ```sh
   $FW exec $RUN -- $PW cli $P goto '{nodes.home.browserUrl}/activity/torrents?tab=all'
-  $FW exec $RUN -- $PW cli $P run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "Salt Meadow" }).getByText("No data is arriving").waitFor({ timeout: 150000 }); }'
+  $FW exec $RUN -- $PW cli $P run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "Salt Meadow" }).getByText("No data is arriving").waitFor({ timeout: 240000 }); }'
   $FW exec $RUN -- $PW cli $P click 'getByRole("button", { name: "Salt Meadow actions" })'
   $FW exec $RUN -- $PW cli $P click 'getByRole("dialog", { name: "Salt Meadow actions" }).getByRole("button", { name: "Mark failed" })'
   $FW exec $RUN --proof torrents/torrents-mark-failed -- $PW cli $P snapshot 'getByRole("dialog", { name: "Mark Salt Meadow failed?" })' --filename={runDir}/proof/torrents/torrents-mark-failed/dialog.aria.yml
   $FW exec $RUN --proof torrents/torrents-mark-failed -- $PW cli $P screenshot --filename={runDir}/proof/torrents/torrents-mark-failed/dialog-phone.png
   $FW exec $RUN -- $PW cli $P click 'getByRole("dialog", { name: "Mark Salt Meadow failed?" }).getByRole("button", { name: "Mark failed" })'
+  $FW announces wait $RUN --node home --where event=stopped --timeout 30s
   $FW exec $RUN --proof torrents/torrents-mark-failed -- $PW cli $P run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "Salt Meadow" }).waitFor({ state: "detached", timeout: 30000 }); }'
   $FW exec $RUN --proof torrents/torrents-mark-failed -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
@@ -198,7 +204,7 @@ Steps:
   ```sh
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/nodes/{nodes.home.nodeId}/torrent-client'
   $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Download limit" })' 0
-  $FW exec $RUN -- $PW cli $D click 'getByRole("region", { name: "Speed" }).getByRole("button", { name: "Save" })'
+  $FW exec $RUN -- $PW cli $D press Enter
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity'
   $FW exec $RUN --proof torrents/torrents-jobs -- $PW cli $D run-code 'async page => { await page.getByRole("table", { name: "Grabs" }).getByRole("row").filter({ hasText: "The Quiet Orchard" }).getByText("Imported").waitFor({ timeout: 120000 }); }'
   $FW exec $RUN --proof torrents/torrents-jobs -- $PW cli $D snapshot 'getByRole("table", { name: "Grabs" })' --filename={runDir}/proof/torrents/torrents-jobs/jobs.aria.yml
@@ -217,11 +223,11 @@ Steps:
   $FW exec $RUN --proof torrents/torrents-restart -- curl -sS -H "$KEY" "$API/torrents/$(idOf The.Quiet)"
   ```
 
-- **Remove The Quiet Orchard with its download copy.** From its Inspector choose `Remove`. The dialog says `Files in your library stay.`, that The Quiet Orchard stops seeding, and offers `Also delete the download copy (frees <size>)`. Tick it and `Remove`: the tracker gets `stopped`, the row leaves, the save folder is gone and the library file still matches the release.
+- **Remove The Quiet Orchard with its download copy.** From its Inspector choose `Remove`. The dialog says `Files in your library stay.`, that The Quiet Orchard stops seeding, and offers `Also delete the download copy (frees <size>)`. The download copy and the library file are one file under two links, so it frees 0 bytes and says the library shares the files. Tick it and `Remove`: the tracker gets `stopped`, the row leaves, the download copy is gone, and the library file still matches the release, now with one link.
 
   ```sh
-  SAVE=$(curl -sS -H "$KEY" "$API/torrents/$(idOf The.Quiet)" | jq -r .saveFolder)
-  $FW fs stat $RUN "$SAVE"
+  COPY="$(curl -sS -H "$KEY" "$API/torrents/$(idOf The.Quiet)" | jq -r .saveFolder)/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv"
+  $FW fs stat $RUN "$COPY"
   $FW exec $RUN -- $PW cli $D goto "{nodes.home.browserUrl}/activity/torrents/$(idOf The.Quiet)"
   $FW exec $RUN -- $PW cli $D click 'getByRole("complementary", { name: "The Quiet Orchard" }).getByRole("button", { name: "Remove", exact: true })'
   $FW exec $RUN --proof torrents/torrents-remove -- $PW cli $D snapshot 'getByRole("dialog", { name: "Remove The Quiet Orchard?" })' --filename={runDir}/proof/torrents/torrents-remove/dialog.aria.yml
@@ -230,15 +236,17 @@ Steps:
   $FW exec $RUN -- $PW cli $D click 'getByRole("dialog", { name: "Remove The Quiet Orchard?" }).getByRole("button", { name: "Remove", exact: true })'
   $FW announces wait $RUN --node home --where event=stopped --timeout 30s
   $FW exec $RUN --proof torrents/torrents-remove -- $PW cli $D run-code 'async page => { await page.goto(page.url().replace(/\/activity\/torrents.*/, "/activity/torrents?tab=all")); await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "The Quiet Orchard" }).waitFor({ state: "detached", timeout: 30000 }); }'
-  $FW fs stat $RUN "$SAVE"
+  $FW fs stat $RUN "$COPY"
   $FW exec $RUN --proof torrents/torrents-remove -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   ```
 
 ## Gotchas
 
+- Each setting on the Torrent client page saves on its own, with the Save that appears beside it once changed or with Enter in its field. `Download limit` shows its unit only once it holds a number, and starts at MB/s; pick `KB/s` before saving.
+- `announces wait` matches only announces after the last step's start, so wait right after the click that causes one, before any other step, and name the torrent's `infoHash`: the tracker refuses Harbor Lights again every few minutes.
 - UNIT3D rejects any `started` inside a window of 85 to 95% of the tracker's min interval, so a resume within 2 minutes of the last `started` waits. That is the behaviour to prove, not a hang. A `started` within 30 s of the last one waits too, on every tracker.
 - The rate limit, not a fault rule, holds The Quiet Orchard at 16 KB/s here, so the live numbers are home's own. Save the limit back to 0 before waiting on an import, or it takes about 4 minutes.
 - `Stalled after` and `Unregistered twice, this far apart` stay at the values this recipe saves for the rest of the run.
 - The torrents Scenario has one Node, so the Node select never shows; the Node filter is in [download clients](./download-clients.md) on `home`. Only Movies exist in a release build, so `Content Type` narrows nothing it shows.
 - `Pick <name>` checkboxes sit in each row's pick column; on a phone the card has no pick-all.
-- `fs stat` of the removed save folder exits non-zero with `no such file`. That is the proof.
+- `fs stat` reads only regular files. Before the remove the download copy shows `links` 2; after it, `fs stat` exits non-zero with `no such file`, which is the proof.

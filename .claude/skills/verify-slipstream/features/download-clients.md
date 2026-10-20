@@ -6,7 +6,7 @@ Settings > Download Clients lists a card for the built-in client of each Node th
 
 - `download-clients-cards` `/settings/download-clients` lists `Built-in client on seedbox` reading `Listening on <address>:<port>. No peer from the internet has connected in yet, so port <port> is unproven.` with the router hint, `0 torrents, 0 bytes uploaded and 0 bytes downloaded.`, `Goes away when this Node stops downloading.` and no Remove; its Details list the limits, the peer ID prefix `-LT20F0-` and the user agent `libtorrent/2.0.15.0`.
 - `download-clients-reachable` once the Scenario's leecher connects in after seedbox's first announce, the card reads `Peers from the internet have reached port <port>.` and the API's `reach` reads `reachable`.
-- `download-clients-thresholds` `When a release counts as bad` saves `A download with no data at all is bad after` and `Unregistered twice, this far apart` one at a time with the toast `Download Clients settings saved`, and refuses a value outside its bounds on the field and over the API (422 `setting_out_of_range`).
+- `download-clients-thresholds` `When a release counts as bad` saves `A download with no data at all is bad after` and `Unregistered twice, this far apart` one at a time with the toast `Download Clients settings saved`, and the API refuses a value outside its bounds (422 `setting_out_of_range`).
 - `download-clients-limits` the card's `Torrent client settings on seedbox` opens seedbox's Torrent client; a `Download limit` of 16 saved there applies live, holding a running download near 16 KB/s, and the section's `Torrents` link opens Torrents on `All` filtered to seedbox with the `Node` select reading `seedbox`.
 
 ## How to get to it (user POV)
@@ -50,11 +50,12 @@ Steps:
   $FW exec $RUN --proof download-clients/download-clients-thresholds -- curl -sS -i -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"faultStall":60}' '{nodes.home.url}/api/v1/download-clients/thresholds'
   ```
 
-- **Limit seedbox's download speed.** From the card, open `Torrent client settings on seedbox`, save `Download limit` 16, then search The Quiet Orchard through the API. On Torrents its row's speed stays near `16 KB/s`.
+- **Limit seedbox's download speed.** From the card, open `Torrent client settings on seedbox`, save `Download limit` 16 with `KB/s` picked, then search The Quiet Orchard through the API. On Torrents its row's speed stays near `16 KB/s`.
 
   ```sh
   $FW exec $RUN -- $PW cli $D click 'getByRole("link", { name: "Torrent client settings on seedbox" })'
   $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Download limit" })' 16
+  $FW exec $RUN -- $PW cli $D click 'getByRole("radiogroup", { name: "Download limit unit" }).getByRole("radio", { name: "KB/s" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("region", { name: "Speed" }).getByRole("button", { name: "Save" })'
   $FW exec $RUN --proof download-clients/download-clients-limits -- $PW cli $D run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Torrent client settings saved").waitFor({ timeout: 10000 }); return page.url(); }'
   $FW exec $RUN --proof download-clients/download-clients-limits -- sh -c "id=\$(curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{\"contentType\":\"movie\",\"key\":\"9000001\",\"monitor\":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id); curl -sS -X POST -H 'X-Api-Key: {apiKey}' \"{nodes.home.url}/api/v1/works/\$id/search\""
@@ -82,6 +83,7 @@ Steps:
 ## Gotchas
 
 - The card reads unproven until the leecher connects, which happens only after seedbox's first accepted announce of the 1080p release. Read the card before any search to see unproven.
-- `Download limit` is in KB/s; 0 means no limit. The limit holds every peer, the fake seeders on loopback included.
+- `Download limit` shows its unit only once it holds a number, and starts at MB/s, so pick `KB/s` before saving; 0 means no limit. Each setting saves on its own, with the Save beside it or Enter in its field. The limit holds every peer, the fake seeders on loopback included.
 - A threshold's unit follows the value the field holds (min, h or days); type the number in the unit it shows.
+- A Node sends its torrents' totals to the Controller every 5 minutes, so a card's bytes and a torrent's `downloaded` lag the live speed and percent.
 - The Torrent client page's per-Node limits are Controller settings carried to the Node live; its listen address and downloads folder are Node settings that apply after restart ([nodes.md](./nodes.md)).
