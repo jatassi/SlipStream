@@ -638,7 +638,7 @@ std::string listen_interface(char const* address, uint16_t port) {
 
 extern "C" {
 
-lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, lts_error* err) {
+lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err) {
 	lts_session* s = nullptr;
 	guard(err, [&] {
 		sp p = lt::high_performance_seed();
@@ -649,6 +649,7 @@ lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, in
 		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
 		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
 		p.set_int(sp::min_announce_interval, announce_floor_s);
+		p.set_bool(sp::allow_multiple_connections_per_ip, peers_share_address != 0);
 		p.set_str(sp::listen_interfaces, listen_interface(address, port));
 		p.set_int(sp::max_retry_port_bind, 0);
 		p.set_bool(sp::listen_system_port_fallback, false);

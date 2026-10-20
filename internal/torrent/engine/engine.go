@@ -85,6 +85,9 @@ type Config struct {
 	AnnounceFloor time.Duration
 	// Rand draws the ports an engine tries when ListenInterface's port is 0.
 	Rand *rand.Rand
+	// PeersShareAddress keeps a connection to each peer at an address
+	// rather than one, for a world whose every peer is on loopback.
+	PeersShareAddress bool
 }
 
 // Limits is the engine's live configuration, which Configure applies.
@@ -120,7 +123,8 @@ type Settings struct {
 	// a relative path against the data dir.
 	Downloads string `yaml:"downloads"`
 	// LoopbackPeers has a peer on loopback count as one on the internet,
-	// for a world whose every peer is on loopback.
+	// and two peers on one address as two hosts, for a world whose every
+	// peer is on loopback.
 	LoopbackPeers bool `yaml:"loopback_peers"`
 }
 

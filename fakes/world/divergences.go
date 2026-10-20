@@ -29,7 +29,7 @@ var divergences = []divergence{
 	{
 		id:          "loopback-peers",
 		keyPatterns: []string{"torrent.loopback_peers"},
-		reason:      "Every peer in the world is on loopback, so a loopback peer that connects in proves a Node's listen port.",
+		reason:      "Every peer in the world is on loopback, so a loopback peer that connects in proves a Node's listen port, and a Node keeps a connection to each peer on 127.0.0.1.",
 		spec:        "#153",
 	},
 	{

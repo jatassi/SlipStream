@@ -472,10 +472,11 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 // which reads its events from now on, claimed or not.
 func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) error {
 	torrent, err := n.env.Engine(engine.Config{
-		ListenInterface: cfg.Torrent.Listen,
-		AnnounceFloor:   cfg.Timings.Downloading.AnnounceFloor,
-		RouteCheck:      cfg.Timings.Downloading.RouteCheck,
-		Rand:            torrentRand,
+		ListenInterface:   cfg.Torrent.Listen,
+		AnnounceFloor:     cfg.Timings.Downloading.AnnounceFloor,
+		RouteCheck:        cfg.Timings.Downloading.RouteCheck,
+		Rand:              torrentRand,
+		PeersShareAddress: cfg.Torrent.LoopbackPeers,
 	})
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
