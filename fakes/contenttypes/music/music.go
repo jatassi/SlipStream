@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
@@ -30,7 +31,7 @@ var schemaFiles embed.FS
 
 var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, contenttype.Halves[Endpoints]{
 	Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
-		return &Source{mb: musicbrainz.New(d.Lines, e.Metadata)}
+		return &Source{mb: musicbrainz.New(d.Lines, e.Metadata), covers: covers{host: e.CoverArt}}
 	},
 	Library: func(contenttype.LibraryDeps) contenttype.Library { return &Music{} },
 })
@@ -60,13 +61,17 @@ var Description = works.Description{
 		{Key: "disc", Label: "Disc", Tier: works.TierItem, Kind: works.KindNumber},
 		{Key: "length", Label: "Length", Tier: works.TierItem, Kind: works.KindDuration},
 	},
+	Artwork: []artwork.Kind{coverKind},
 }
 
 // Source is the provider half: it reads MusicBrainz on any Metadata
 // holder.
 type Source struct {
-	mb *musicbrainz.Client
+	mb     *musicbrainz.Client
+	covers covers
 }
+
+func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.covers} }
 
 // Music is the library half.
 type Music struct{}
@@ -142,6 +147,9 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 		}
 		f.Children = append(f.Children, level)
 		d.Albums = append(d.Albums, ad)
+	}
+	if len(f.Children) > 0 {
+		f.Artwork = []works.Art{{Kind: coverKind.Key, Ref: artwork.Ref{Source: CoverArtID, Shape: artwork.ShapeCover, Path: string(f.Children[0].Key)}}}
 	}
 	if f.Detail, err = json.Marshal(d); err != nil {
 		return works.Fetched{}, fmt.Errorf("encode artist %s: %w", key, err)

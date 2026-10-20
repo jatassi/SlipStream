@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/works"
@@ -19,6 +20,10 @@ type Source struct {
 	tmdb *tmdb.Client
 	omdb *omdb.Client
 }
+
+// Sources is TMDB's image host, which every artwork reference of a movie
+// names.
+func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.tmdb.Images()} }
 
 // Search answers TMDB's first page, whose 20 results fit works' 25.
 func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
@@ -70,6 +71,8 @@ func (probe) Search(context.Context, metadata.Ask, string) ([]works.Candidate, e
 	return nil, nil
 }
 
+func (probe) Sources() []artwork.Source { return nil }
+
 func (p probe) Fetch(ctx context.Context, ask metadata.Ask, _ works.Key) (works.Fetched, error) {
 	if err := p.line.Get(ctx, ask, metadata.Request{URL: p.base.JoinPath("fetch")}, &body{}); err != nil {
 		return works.Fetched{}, err
@@ -123,14 +126,16 @@ func open(t *testing.T, r roster, nodes ...role.NodeID) *fleet {
 		holders[n] = metadata.NewHolder(metadata.HolderConfig{Types: map[works.TypeID]metadata.Source{"fixture": p}, Testers: []metadata.Tester{p}})
 	}
 	f.cfg = metadata.Config{
-		Library:   storagetest.Library(t, works.Schema(), metadata.Schema()),
-		Sealer:    secrettest.Sealer(t),
-		Roster:    f.roster,
-		Service:   func(n role.NodeID) metadatav1connect.MetadataServiceHandler { return holders[n] },
-		Providers: []metadata.Provider{tmdb},
-		Changed:   f.changed,
-		Timings:   retesting,
-		Rand:      seeded(),
+		Library:    storagetest.Library(t, works.Schema(), metadata.Schema()),
+		Sealer:     secrettest.Sealer(t),
+		Roster:     f.roster,
+		Service:    func(n role.NodeID) metadatav1connect.MetadataServiceHandler { return holders[n] },
+		Providers:  []metadata.Provider{tmdb},
+		Changed:    f.changed,
+		Timings:    retesting,
+		Rand:       seeded(),
+		Local:      storagetest.Local(t, artwork.Schema()),
+		ArtworkDir: t.TempDir(),
 	}
 	f.restart(t)
 	return f

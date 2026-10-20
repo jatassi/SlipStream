@@ -216,6 +216,10 @@ func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
 
 type discard[T any] struct{}
 
+type noPrefetch struct{}
+
+func (noPrefetch) Prefetch([]artwork.Want) {}
+
 func (discard[T]) Publish(context.Context, T) {}
 
 type published struct{ n atomic.Int64 }
@@ -235,7 +239,7 @@ func open(t *testing.T, src works.Source) shelf {
 	var err error
 	sh.works, err = works.Open(t.Context(), works.Config{
 		Library: sh.lib, Catalogs: map[works.TypeID]works.Catalog{movie.Def.ID(): sh.m}, Timings: works.DefaultTimings(),
-		Source: src, Changed: sh.sent, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+		Source: src, Artwork: noPrefetch{}, Changed: sh.sent, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)
