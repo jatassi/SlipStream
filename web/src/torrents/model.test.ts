@@ -116,6 +116,7 @@ test.each([
 test("rates, time left and seed words", () => {
   expect(rateWords(0)).toBe("—");
   expect(rateWords(4.1 * 1024 * 1024)).toBe("4.1 MB/s");
+  expect(rateWords(597)).toBe("0.6 KB/s");
   expect(etaWords({ ...live, done: 0, wanted: 600 * 1024 * 1024, downBps: 1024 * 1024 })).toBe(
     "10 min left",
   );

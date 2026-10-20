@@ -117,6 +117,12 @@ test("the Node filter survives a switch to Jobs and back", async () => {
   await expect.element(page.getByRole("combobox", { name: "Node" })).toHaveTextContent("seedbox");
 });
 
+test("a Node filter from a link shows even when one Node holds every torrent", async () => {
+  open([downloading], `/activity/torrents?tab=all&node=${seedboxId}`);
+  await expect.element(page.getByRole("combobox", { name: "Node" })).toHaveTextContent("seedbox");
+  await expect.element(page.getByText("No torrents match these filters.")).toBeVisible();
+});
+
 test("torrents.changed splices the named rows in without refetching the list", async () => {
   const { live, server } = open([downloading, seeding]);
   await expect.element(table().getByRole("row", { name: /^The Quiet Orchard/u })).toBeVisible();

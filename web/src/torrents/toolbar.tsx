@@ -60,7 +60,9 @@ function useChoices({ rows, node, type }: ToolbarProps) {
   };
 }
 
-// A filter shows only when it can narrow: two Nodes or Content Types at least.
+const shows = (choices: readonly Choice[], picked: string | undefined): boolean =>
+  choices.length > 1 || picked !== undefined;
+
 function Filters({
   nodes,
   types,
@@ -70,7 +72,7 @@ function Filters({
 }: ToolbarProps & ReturnType<typeof useChoices>) {
   return (
     <>
-      {nodes.length > 1 && (
+      {shows(nodes, node) && (
         <Select
           label="Node"
           options={optionsOf(nodes, "Every Node")}
@@ -80,7 +82,7 @@ function Filters({
           }}
         />
       )}
-      {types.length > 1 && (
+      {shows(types, type) && (
         <Select
           label="Content Type"
           options={optionsOf(types, "Every Content Type")}
@@ -124,7 +126,7 @@ export function Toolbar(props: ToolbarProps) {
     />
   );
   if (shell === "phone") {
-    const filtering = choices.nodes.length > 1 || choices.types.length > 1;
+    const filtering = shows(choices.nodes, props.node) || shows(choices.types, props.type);
     return (
       <div className="mb-4 flex flex-col gap-3">
         {tabs}

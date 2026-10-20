@@ -183,7 +183,12 @@ export function progressOf(row: Row, live: LiveRow | undefined): { done: number;
 export const percentOf = ({ done, wanted }: { done: number; wanted: number }): number =>
   wanted === 0 ? 100 : Math.floor((done / wanted) * 100);
 
-export const rateWords = (bps: number): string => (bps <= 0 ? "—" : `${bytes(bps)}/s`);
+export function rateWords(bps: number): string {
+  if (bps <= 0) {
+    return "—";
+  }
+  return bps < 1024 ? `${(bps / 1024).toFixed(1)} KB/s` : `${bytes(bps)}/s`;
+}
 
 export function etaWords(live: LiveRow | undefined): string {
   if (live === undefined || live.downBps <= 0 || live.done >= live.wanted) {
