@@ -476,6 +476,7 @@ func TestMetadataOnAWorkerCallsFromItsFrontAndLeavesNoKeyOnItsDisk(t *testing.T)
 		t.Fatalf("searchCatalog with seedbox's TMDB front failing = %d %s, want 502 metadata_unavailable", got.Status, got.Body)
 	}
 
+	act(t, run, "seedbox", world.StopNode)
 	if err := filepath.WalkDir(seedbox.DataDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || !d.Type().IsRegular() {
 			return err
