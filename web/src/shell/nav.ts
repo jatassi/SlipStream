@@ -16,7 +16,7 @@ import type { RegisteredRouter } from "@tanstack/react-router";
 
 import type { WorksContentType } from "../api/gen/model";
 import { getListContentTypesQueryKey, listContentTypes } from "../api/gen/query/works/works";
-import type { AlertKey, CountKey } from "./counts";
+import type { AlertKey, CountKey, FillKey } from "./counts";
 import { contentTypeIcons } from "./icons";
 
 export type RoutePath = RegisteredRouter["routeTree"]["types"]["fileRouteTypes"]["to"];
@@ -44,6 +44,8 @@ export type NavRow = {
   place: "main" | "system";
   tab?: { order: number };
   count?: CountKey;
+  /** The progress in the shell's counts drawn behind the row. */
+  fill?: FillKey;
   /** The alert in the shell's counts whose dot the row carries, with no number. */
   alert?: AlertKey;
   children?: "content-types";
@@ -85,6 +87,7 @@ export const adminNav: NavTable = [
     place: "main",
     tab: { order: 2 },
     count: "activity",
+    fill: "downloads",
     within: true,
   },
   {
