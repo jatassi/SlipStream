@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -174,6 +176,18 @@ func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, 
 		}
 	}
 	return rows > 0, nil
+}
+
+// SettingFields answers none: music keeps no settings.
+func (*Music) SettingFields(context.Context, storage.Reader[file]) ([]setting.Field, error) {
+	return nil, nil
+}
+
+func (*Music) ApplySettings(_ context.Context, _ *storage.Tx[file], p setting.Patch) (bool, error) {
+	if len(p) > 0 {
+		return false, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
+	}
+	return false, nil
 }
 
 func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID) (works.FieldSet, error) {
