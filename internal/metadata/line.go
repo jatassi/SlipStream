@@ -56,12 +56,15 @@ type Timings struct {
 	// tests a provider again on a holder that couldn't reach it.
 	RetestMin time.Duration `yaml:"retest_min"`
 	RetestMax time.Duration `yaml:"retest_max"`
+	// ArtworkRetry is how long the Controller answers an image it failed
+	// to fetch as missing before it tries again.
+	ArtworkRetry time.Duration `yaml:"artwork_retry"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
 		Attempts: 3, Try: 30 * time.Second, RetryMin: time.Second, RetryMax: 8 * time.Second, Wait: 10 * time.Second, CacheEntries: 4096,
-		RetestMin: time.Minute, RetestMax: time.Hour,
+		RetestMin: time.Minute, RetestMax: time.Hour, ArtworkRetry: 5 * time.Minute,
 	}
 }
 

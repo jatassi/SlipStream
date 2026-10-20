@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -45,6 +46,7 @@ func localSchemas() []storage.Schema[storage.Local] {
 		role.LocalSchema(),
 		transfers.Schema(),
 		metadata.LocalSchema(),
+		artwork.Schema(),
 	}
 }
 

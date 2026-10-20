@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -18,6 +19,7 @@ type Holder struct {
 	metadatav1connect.UnimplementedMetadataServiceHandler
 	types   map[works.TypeID]Source
 	testers map[ProviderID]Tester
+	images  map[artwork.SourceID]imageHost
 }
 
 // Tester is a provider client's cheap call that says whether the provider
@@ -30,12 +32,22 @@ type Tester interface {
 type HolderConfig struct {
 	Types   map[works.TypeID]Source
 	Testers []Tester
+	// Lines carry the image hosts the types' Sources name, each on a Line
+	// of its own.
+	Lines *Lines
 }
 
 func NewHolder(cfg HolderConfig) *Holder {
-	h := &Holder{types: cfg.Types, testers: map[ProviderID]Tester{}}
+	h := &Holder{types: cfg.Types, testers: map[ProviderID]Tester{}, images: map[artwork.SourceID]imageHost{}}
 	for _, t := range cfg.Testers {
 		h.testers[t.Provider().ID] = t
+	}
+	var lists [][]artwork.Source
+	for _, s := range cfg.Types {
+		lists = append(lists, s.Sources())
+	}
+	for id, src := range artwork.NewSources(lists...) {
+		h.images[id] = imageHost{src: src, line: cfg.Lines.Line(imageProvider(src))}
 	}
 	return h
 }

@@ -32,6 +32,7 @@ function catalogServer() {
             original: "",
             overview: "",
             fields: [{ key: "year", kind: "number", number: 2021 }],
+            posterUrl: null,
             workId: null,
           },
           {
@@ -40,6 +41,7 @@ function catalogServer() {
             original: "",
             overview: "",
             fields: [{ key: "year", kind: "number", number: 2019 }],
+            posterUrl: null,
             workId: harvestId,
           },
         ],

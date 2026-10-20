@@ -24,10 +24,11 @@ const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,` +
 	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date"},` +
 	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text"},` +
 	`{"key":"disc","label":"Disc","tier":"item","kind":"number"},` +
-	`{"key":"length","label":"Length","tier":"item","kind":"duration"}]}`
+	`{"key":"length","label":"Length","tier":"item","kind":"duration"}],` +
+	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}]}`
 
 func searchLanterns(workID string) worldtest.Reply {
-	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"workId":` + workID + `}]}` + "\n"}
+	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `}]}` + "\n"}
 }
 
 func problem(status int, code, title string) worldtest.Reply {
