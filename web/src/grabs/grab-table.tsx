@@ -1,17 +1,14 @@
 import { Link } from "@tanstack/react-router";
 
 import type { GrabsGrab } from "../api/gen/model";
-import { bytes } from "../format";
 import { Data } from "../ui/data";
-import { LiveBar } from "../ui/live-bar";
 import { StageTrack } from "../ui/stage-track";
 import { type Column, Table } from "../ui/table";
-import { movesBytes, progressOf, skippedStages, stageWord } from "./stages";
+import { ForCell, JobMenu } from "./job-cells";
+import { ProgressCell } from "./progress-cell";
+import { progressOf, skippedStages, stageWord } from "./stages";
 
 export type GrabRow = { readonly grab: GrabsGrab; readonly work: string };
-
-const percent = ({ done, total }: { done: number; total: number }) =>
-  total === 0 ? 0 : Math.floor((done / total) * 100);
 
 function WorkCell({ grab, work }: GrabRow) {
   return (
@@ -39,25 +36,6 @@ function StageCell({ grab, work }: GrabRow) {
   );
 }
 
-function ProgressCell({ grab }: GrabRow) {
-  if (!movesBytes(grab)) {
-    return null;
-  }
-  const progress = grab.progress ?? { done: 0, total: grab.releaseSize };
-  const shown = percent(progress);
-  return (
-    <span className="flex max-w-[240px] flex-col gap-1.5">
-      <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
-        <Data className="text-ink-1">{shown}%</Data>
-        <span>
-          <Data>{bytes(progress.done)}</Data> of <Data>{bytes(progress.total)}</Data>
-        </span>
-      </span>
-      <LiveBar label={`${stageWord[grab.stage]} ${grab.releaseTitle}`} value={shown} />
-    </span>
-  );
-}
-
 const stage: Column<GrabRow> = {
   id: "stage",
   header: "Stage",
@@ -71,7 +49,13 @@ const progress: Column<GrabRow> = {
 };
 
 const layouts = {
-  activity: [{ id: "work", header: "Work", cell: (row) => <WorkCell {...row} /> }, stage, progress],
+  activity: [
+    { id: "work", header: "Work", cell: (row) => <WorkCell {...row} /> },
+    { id: "for", header: "For", cell: (row) => <ForCell {...row} /> },
+    stage,
+    progress,
+    { id: "menu", header: "", cell: (row) => <JobMenu {...row} />, align: "end" },
+  ],
   work: [
     {
       id: "release",

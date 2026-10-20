@@ -1,37 +1,43 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 
+import { getListTorrentsSuspenseQueryOptions } from "../../../api/gen/query/downloadclients/downloadclients";
+import { getListGrabsSuspenseQueryOptions } from "../../../api/gen/query/grabs/grabs";
 import {
-  getListGrabsSuspenseQueryOptions,
-  useListGrabsSuspense,
-} from "../../../api/gen/query/grabs/grabs";
+  getListQualitiesSuspenseQueryOptions,
+  getListTargetsSuspenseQueryOptions,
+} from "../../../api/gen/query/targets/targets";
 import {
+  getListContentTypesSuspenseQueryOptions,
   getListWorksSuspenseQueryOptions,
-  useListWorksSuspense,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
-import { ActivityBody } from "../../../grabs/activity";
-import { RunningList } from "../../../tasks/running";
-import { useShell } from "../../../ui/shell-context";
+import { Jobs } from "../../../grabs/jobs";
 import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/activity/")({
   staticData: { title: "Activity" },
-  loader: ({ context }) =>
+  loader: ({ context: { queryClient } }) =>
     Promise.all([
-      ensureQuery(context.queryClient, getListGrabsSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getListWorksSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListGrabsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListWorksSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListTorrentsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
     ]),
   pendingComponent: () => <Skeleton label="Loading Jobs" />,
-  component: Jobs,
+  component: JobsPage,
 });
 
-function Jobs() {
-  const { grabs } = useListGrabsSuspense().data;
-  const labels = new Map(useListWorksSuspense().data.works.map((work) => [work.id, work.label]));
+function JobsPage() {
+  const navigate = useNavigate();
+  const { type } = useSearch({ from: "/_app/activity" });
   return (
-    <>
-      {useShell() === "phone" && <RunningList />}
-      <ActivityBody grabs={grabs} labels={labels} />
-    </>
+    <Jobs
+      type={type}
+      onTypeChange={(next) => {
+        void navigate({ to: ".", search: (prev) => ({ ...prev, type: next }), replace: true });
+      }}
+    />
   );
 }

@@ -1,4 +1,4 @@
-import { HttpResponse, http, sse } from "msw";
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -6,15 +6,18 @@ import type { GrabsGrab, GrabsGrabList, WorksListedWork } from "../../../api/gen
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
 import { getListWorksMockHandler } from "../../../api/gen/query/works/works.msw";
 import { downloading, imported } from "../../../test/grabs";
-import type { LiveMap } from "../../../test/handlers";
 import { orchard, orchardId } from "../../../test/library";
+import { liveServer } from "../../../test/live-server";
 import { renderApp } from "../../../test/render-app";
+// oxlint-disable-next-line import/max-dependencies -- Jobs read Grabs, Works, Targets, Torrents and the live stream
+import { starter, targetHandlers } from "../../../test/targets";
+import { actionsServer, torrent, torrentsServer } from "../../../test/torrents";
 
 const harvestId = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
 const harvest: WorksListedWork = {
   id: harvestId,
-  contentType: "cinema",
+  contentType: "zines",
   key: "9000002",
   label: "Orchard Harvest",
   sortLabel: "Orchard Harvest",
@@ -40,10 +43,19 @@ const failed: GrabsGrab = {
   },
 };
 
+const orchardTorrent = torrent({
+  id: downloading.torrentId ?? "",
+  state: "downloading",
+  tabs: ["downloading", "all"],
+  workId: orchardId,
+  name: downloading.releaseTitle,
+});
+
 function activityServer() {
   let list: GrabsGrabList = { grabs: [downloading, failed] };
-  const clients: Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"][] = [];
+  const { clients, handlers: liveHandlers } = liveServer();
   const handlers = [
+    ...targetHandlers([{ ...starter, id: downloading.targetIds[0] ?? "" }]),
     getListWorksMockHandler({
       works: [
         harvest,
@@ -60,13 +72,29 @@ function activityServer() {
       ],
     }),
     getListGrabsMockHandler(() => list),
-    sse<LiveMap>("*/api/v1/events", ({ client }) => {
-      clients.push(client);
-      client.send({ event: "live.resync", data: {} });
-    }),
+    ...liveHandlers,
+    ...torrentsServer([orchardTorrent]).handlers,
   ];
   return {
     handlers,
+    live(row: {
+      id: string;
+      done: number;
+      wanted: number;
+      downBps: number;
+      upBps: number;
+      peers: number;
+      seeds: number;
+    }) {
+      clients[0]?.send({
+        event: "torrents.live",
+        data: {
+          at: "2026-10-20T12:00:00Z",
+          rows: [row],
+          downloads: { done: row.done, wanted: row.wanted, allPaused: false },
+        },
+      });
+    },
     grabMoves(next: GrabsGrab) {
       list = { grabs: [next, failed] };
       clients[0]?.send({ event: "grabs.changed", data: { grabId: next.id, workId: next.workId } });
@@ -109,7 +137,7 @@ test("Activity leads with what moves and what failed, then the failure, then eac
   await expect
     .element(quietOrchard())
     .toMatchTextContent(
-      "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLDownloading25%175 MB of 700 MB",
+      "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLWEBDL-1080p1080pDownloading25%175 MB of 700 MB",
     );
   await expect
     .element(page.getByRole("link", { name: "The Quiet Orchard" }))
@@ -130,13 +158,17 @@ test("grabs.changed moves a Grab to Imported without a reload", async () => {
   renderApp({ path: "/activity", handlers: server.handlers });
   await expect
     .element(quietOrchard())
-    .toMatchTextContent("The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLDownloading");
+    .toMatchTextContent(
+      "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLWEBDL-1080p1080pDownloading",
+    );
 
   server.grabMoves(imported);
 
   await expect
     .element(quietOrchard())
-    .toHaveTextContent("The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLImported");
+    .toHaveTextContent(
+      "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLWEBDL-1080p1080pImported",
+    );
   await expect.element(sentence()).toHaveTextContent("Nothing moving · 1 failure · 1 imported");
   expect(page.getByRole("progressbar").all()).toHaveLength(0);
 });
@@ -189,4 +221,72 @@ test("a failure that a later Grab for its Item replaced no longer needs you", as
   });
   await expect.element(sentence()).toHaveTextContent("1 job moving");
   await expect.element(page.getByRole("article")).not.toBeInTheDocument();
+});
+
+test("a downloading Job reads its speed and time left from its torrent's live samples", async () => {
+  const server = activityServer();
+  renderApp({ path: "/activity", handlers: server.handlers });
+  await expect.element(quietOrchard()).toMatchTextContent("25%175 MB of 700 MB");
+  server.live({
+    id: orchardTorrent.id,
+    done: 367_001_600,
+    wanted: 734_003_200,
+    downBps: 3 * 1024 * 1024,
+    upBps: 0,
+    peers: 12,
+    seeds: 3,
+  });
+  await expect.element(quietOrchard()).toMatchTextContent("50%2 min left · 3.0 MB/s");
+});
+
+test("a downloading Job's menu pauses its torrent and removes it through the same dialog", async () => {
+  const actions = actionsServer({
+    preview: {
+      cancels: [{ grabId: downloading.id, workId: orchardId, release: downloading.releaseTitle }],
+      stopSeeding: [],
+      frees: 734_003_200,
+      linked: false,
+    },
+  });
+  renderApp({ path: "/activity", handlers: [actions.handler, ...activityServer().handlers] });
+  const menu = quietOrchard().getByRole("button", { name: "The Quiet Orchard actions" });
+  await userEvent.click(menu);
+  await userEvent.click(page.getByRole("menuitem", { name: "Pause" }));
+  await expect
+    .element(
+      page.getByRole("region", { name: "Notifications" }).getByText("Pausing The Quiet Orchard."),
+    )
+    .toBeVisible();
+  expect(actions.bodies).toEqual([{ action: "pause", ids: [orchardTorrent.id] }]);
+
+  await userEvent.click(menu);
+  await userEvent.click(page.getByRole("menuitem", { name: "Remove" }));
+  const dialog = page.getByRole("dialog", { name: "Remove The Quiet Orchard?" });
+  await expect.element(dialog).toMatchTextContent("Files in your library stay.");
+  await expect
+    .element(dialog.getByRole("checkbox", { name: "Also delete the download copy (frees 700 MB)" }))
+    .toBeVisible();
+});
+
+test("an imported Job opens its torrent and offers no pause", async () => {
+  const server = activityServer();
+  const { router } = renderApp({ path: "/activity", handlers: server.handlers });
+  server.grabMoves(imported);
+  await expect.element(quietOrchard()).toMatchTextContent("Imported");
+  await userEvent.click(quietOrchard().getByRole("button", { name: "The Quiet Orchard actions" }));
+  await expect.element(page.getByRole("menuitem", { name: "Pause" })).not.toBeInTheDocument();
+  await userEvent.click(page.getByRole("menuitem", { name: "Open its torrent" }));
+  await expect
+    .poll(() => router.state.location.pathname)
+    .toBe(`/activity/torrents/${orchardTorrent.id}`);
+});
+
+test("the Content Type filter narrows Jobs and its failures", async () => {
+  const { router } = renderApp({ path: "/activity", handlers: activityServer().handlers });
+  await expect.element(sentence()).toHaveTextContent("1 job moving · 1 failure");
+  await userEvent.click(page.getByRole("combobox", { name: "Content Type" }));
+  await userEvent.click(page.getByRole("option", { name: "Zines" }));
+  await expect.element(sentence()).toHaveTextContent("Nothing moving · 1 failure");
+  await expect.element(quietOrchard()).not.toBeInTheDocument();
+  expect(router.state.location.search).toEqual({ type: "zines" });
 });
