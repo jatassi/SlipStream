@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+import { getListTorrentsSuspenseQueryOptions } from "../api/gen/query/downloadclients/downloadclients";
 import {
   getListGrabsSuspenseQueryOptions,
   getListSearchesSuspenseQueryOptions,
@@ -21,6 +22,7 @@ export async function loadWorkGrabs(queryClient: QueryClient, workId: string): P
   await Promise.all([
     ensureQuery(queryClient, getListSearchesSuspenseQueryOptions(workId)),
     ensureQuery(queryClient, getListGrabsSuspenseQueryOptions()),
+    ensureQuery(queryClient, getListTorrentsSuspenseQueryOptions()),
     ensureQuery(queryClient, getListIndexersSuspenseQueryOptions()),
     ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
   ]);

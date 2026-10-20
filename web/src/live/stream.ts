@@ -6,6 +6,7 @@ import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { effects } from "./effects";
 import { refresh } from "./refresh";
 import { type Source, openSource } from "./source";
+import { forgetTorrents } from "./torrents";
 import type {
   LiveEffect,
   LiveEffects,
@@ -193,6 +194,7 @@ class Stream {
   };
 
   private resync() {
+    forgetTorrents(this.options.queryClient);
     this.refreshQueries();
   }
 

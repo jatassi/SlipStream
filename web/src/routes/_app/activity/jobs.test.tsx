@@ -51,29 +51,31 @@ const orchardTorrent = torrent({
   name: downloading.releaseTitle,
 });
 
+const works = getListWorksMockHandler({
+  works: [
+    harvest,
+    {
+      id: orchardId,
+      contentType: orchard.contentType,
+      key: orchard.key,
+      label: orchard.label,
+      sortLabel: orchard.sortLabel,
+      addedAt: orchard.addedAt,
+      refreshedAt: orchard.refreshedAt,
+      fields: orchard.fields,
+    },
+  ],
+});
 function activityServer() {
   let list: GrabsGrabList = { grabs: [downloading, failed] };
   const { clients, handlers: liveHandlers } = liveServer();
+  const torrents = torrentsServer([orchardTorrent]);
   const handlers = [
     ...targetHandlers([{ ...starter, id: downloading.targetIds[0] ?? "" }]),
-    getListWorksMockHandler({
-      works: [
-        harvest,
-        {
-          id: orchardId,
-          contentType: orchard.contentType,
-          key: orchard.key,
-          label: orchard.label,
-          sortLabel: orchard.sortLabel,
-          addedAt: orchard.addedAt,
-          refreshedAt: orchard.refreshedAt,
-          fields: orchard.fields,
-        },
-      ],
-    }),
+    works,
     getListGrabsMockHandler(() => list),
     ...liveHandlers,
-    ...torrentsServer([orchardTorrent]).handlers,
+    ...torrents.handlers,
   ];
   return {
     handlers,
@@ -94,6 +96,10 @@ function activityServer() {
           downloads: { done: row.done, wanted: row.wanted, allPaused: false },
         },
       });
+    },
+    torrentPauses() {
+      torrents.become([{ ...orchardTorrent, state: "paused", hold: "wanted" }]);
+      clients[0]?.send({ event: "torrents.changed", data: { ids: [orchardTorrent.id] } });
     },
     grabMoves(next: GrabsGrab) {
       list = { grabs: [next, failed] };
@@ -223,7 +229,7 @@ test("a failure that a later Grab for its Item replaced no longer needs you", as
   await expect.element(page.getByRole("article")).not.toBeInTheDocument();
 });
 
-test("a downloading Job reads its speed and time left from its torrent's live samples", async () => {
+test("a downloading Job reads its speed and time left from its torrent's live samples while it downloads", async () => {
   const server = activityServer();
   renderApp({ path: "/activity", handlers: server.handlers });
   await expect.element(quietOrchard()).toMatchTextContent("25%175 MB of 700 MB");
@@ -237,6 +243,8 @@ test("a downloading Job reads its speed and time left from its torrent's live sa
     seeds: 3,
   });
   await expect.element(quietOrchard()).toMatchTextContent("50%2 min left · 3.0 MB/s");
+  server.torrentPauses();
+  await expect.element(quietOrchard()).toMatchTextContent("50%350 MB of 700 MB");
 });
 
 test("a downloading Job's menu pauses its torrent and removes it through the same dialog", async () => {

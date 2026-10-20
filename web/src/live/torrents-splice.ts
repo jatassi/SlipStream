@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type { DownloadclientsTorrentList } from "../api/gen/model";
 import {
+  getGetTorrentQueryKey,
   getListTorrentsQueryKey,
   listTorrents,
 } from "../api/gen/query/downloadclients/downloadclients";
@@ -40,19 +41,26 @@ async function spliceOnce(queryClient: QueryClient, ids: readonly string[]) {
   }
   if (state.fetchStatus === "fetching") {
     await refresh(queryClient, { queryKey, exact: true });
-    return;
+  } else {
+    const fresh = await listTorrents({ ids: [...ids] });
+    queryClient.setQueryData<DownloadclientsTorrentList>(
+      queryKey,
+      (list) => list && splice(list, fresh, ids),
+    );
   }
-  const fresh = await listTorrents({ ids: [...ids] });
-  queryClient.setQueryData<DownloadclientsTorrentList>(
-    queryKey,
-    (list) => list && splice(list, fresh, ids),
+  const listed = new Set(
+    queryClient.getQueryData<DownloadclientsTorrentList>(queryKey)?.rows.map(({ id }) => id),
   );
+  for (const id of ids.filter((named) => listed.has(named))) {
+    void refresh(queryClient, { queryKey: getGetTorrentQueryKey(id), exact: true });
+  }
 }
 
 /**
- * Splices the named Torrents into the cached list. Splices run one at a
- * time, so an older answer never lands over a newer one, and ids named
- * while one runs are fetched together in the next.
+ * Splices the named Torrents into the cached list, then reads again the
+ * detail of each one still listed; a removed one's detail is gone. Splices
+ * run one at a time, so an older answer never lands over a newer one, and
+ * ids named while one runs are fetched together in the next.
  */
 export async function spliceTorrents(
   queryClient: QueryClient,

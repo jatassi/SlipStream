@@ -3,9 +3,8 @@ import type { LiveRow } from "../live/torrents";
 import {
   type Place,
   type Row,
-  etaWords,
   ordinal,
-  rateWords,
+  paceOf,
   seedLength,
   stateWords,
   trackerLine,
@@ -88,8 +87,8 @@ function movingSentence(row: Row, live: LiveRow | undefined): string {
   if (live === undefined) {
     return "Downloading.";
   }
-  const eta = etaWords(live);
-  const pace = eta === "" ? "" : `, ${eta} at ${rateWords(live.downBps)}`;
+  const { eta, rate } = paceOf(row.state, live);
+  const pace = eta === "" ? "" : `, ${eta} at ${rate}`;
   return `Downloading from ${peers(live.peers)}${pace}.`;
 }
 
