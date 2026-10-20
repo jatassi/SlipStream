@@ -222,6 +222,7 @@ func TestSkeletonHome(t *testing.T) {
 	}
 	checkAnnounces(t, w, seedbox)
 	checkLeecher(t, w, seedbox)
+	checkReach(t, w, seedbox, "reachable")
 	checkUpgradable(t, w)
 }
 
@@ -239,7 +240,32 @@ func TestSkeletonSingleMachine(t *testing.T) {
 		t.Fatalf("the root has a staging folder (%v), want none: no Transfer ran", err)
 	}
 	checkAnnounces(t, w, w.m.Nodes[0])
+	checkReach(t, w, w.m.Nodes[0], "unproven")
 	checkUpgradable(t, w)
+}
+
+// checkReach reads the downloader's card until its client's listen-port
+// verdict is want. The leecher that connects in is the only peer that
+// proves the port.
+func checkReach(t *testing.T, w walked, downloader world.Node, want string) {
+	t.Helper()
+	worldtest.Until(t, "the "+downloader.Name+" card's client reads "+want, func() (bool, error) {
+		var list struct {
+			Cards []struct {
+				NodeID string `json:"nodeId"`
+				Client *struct {
+					Reach string `json:"reach"`
+				} `json:"client"`
+			} `json:"cards"`
+		}
+		decode(t, "listDownloadClients", w.a.Admin("home", http.MethodGet, "/api/v1/download-clients", ""), &list)
+		for _, c := range list.Cards {
+			if c.NodeID == downloader.NodeID && c.Client != nil {
+				return c.Client.Reach == want, nil
+			}
+		}
+		return false, nil
+	})
 }
 
 // checkLeecher checks the Scenario's leecher connected in to the
