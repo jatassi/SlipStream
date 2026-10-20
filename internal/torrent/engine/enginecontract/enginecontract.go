@@ -51,8 +51,8 @@ type Tracker struct {
 	URL string
 	// Announces lists the announces the tracker received, oldest first.
 	Announces func() []enginetest.Announce
-	// Answer answers the started announces the tracker holds, and every
-	// later one at once.
+	// Answer answers the announces the tracker holds, and every later one
+	// at once.
 	Answer func()
 }
 
@@ -83,6 +83,7 @@ func Run(t *testing.T, h Harness) {
 		{"AnIncomingPeerIsReportedWhileWatched", anIncomingPeerIsReportedWhileWatched},
 		{"TheAnnouncedPeerIDAndUserAgentAreTheVersions", theAnnouncedPeerIDAndUserAgentAreTheVersions},
 		{"CloseSendsStopped", closeSendsStopped},
+		{"CloseSendsStoppedOnceAnOutstandingAnnounceIsAnswered", closeSendsStoppedOnceAnOutstandingAnnounceIsAnswered},
 	} {
 		t.Run(tc.name, func(t *testing.T) { h.Within(t, func(t *testing.T) { tc.test(t, h) }) })
 	}
@@ -614,6 +615,29 @@ func closeSendsStopped(t *testing.T, h Harness) {
 	}
 }
 
+func closeSendsStoppedOnceAnOutstandingAnnounceIsAnswered(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldRegular: true})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Outstanding", tr.URL)
+	await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	if err := e.Reannounce(th, 0, 0, true); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears the reannounce", func() bool { return len(tr.Announces()) == 2 })
+	closed := make(chan error, 1)
+	go func() { closed <- e.Close() }()
+	h.Until(t, "the engine closes its events", func() bool { r.poll(); return r.closed })
+	tr.Answer()
+	if err := <-closed; err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears stopped", func() bool { return slices.Contains(events(tr.Announces()), "stopped") })
+	if got := events(tr.Announces()); !slices.Equal(got, []string{"started", "", "stopped"}) {
+		t.Fatalf("a torrent whose regular announce awaited its answer when its engine closed announced %q, want started, the regular announce, then stopped", got)
+	}
+}
+
 // errTrackerFailure is libtorrent's tracker_failure, a reply with a
 // failure reason.
 var errTrackerFailure = &engine.Error{Category: engine.CategoryLibtorrent, Code: 173}
@@ -750,7 +774,8 @@ type recorder struct {
 	events <-chan engine.Event
 	seen   []engine.Event
 	// next is where the next await looks from.
-	next int
+	next   int
+	closed bool
 }
 
 func record(e engine.Engine) *recorder { return &recorder{events: e.Events()} }
@@ -760,6 +785,7 @@ func (r *recorder) poll() {
 		select {
 		case ev, ok := <-r.events:
 			if !ok {
+				r.closed = true
 				return
 			}
 			r.seen = append(r.seen, ev)

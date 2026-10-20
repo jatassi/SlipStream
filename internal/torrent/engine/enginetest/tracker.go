@@ -17,9 +17,9 @@ type TrackerRules struct {
 	// Warning, when set, is a warning message every successful answer
 	// carries.
 	Warning string
-	// HoldStarted holds each answer to started until the tracker is told to
-	// answer.
-	HoldStarted bool
+	// HoldStarted holds each answer to started, and HoldRegular each answer
+	// to a regular announce, until the tracker is told to answer.
+	HoldStarted, HoldRegular bool
 }
 
 // Announce is one announce a tracker received. Event is its event as on
@@ -56,7 +56,12 @@ type tracker struct {
 	// answering is set once the tracker was told to answer: it holds no
 	// more answers.
 	answering bool
-	held      []*announcing
+	held      []heldAnnounce
+}
+
+type heldAnnounce struct {
+	a     *announcing
+	event string
 }
 
 // Tracker runs a tracker at url that answers by rules. Torrents announce
@@ -77,8 +82,8 @@ func (w *World) Announces(url string) []Announce {
 	return nil
 }
 
-// Answer has the tracker at url answer the started announces it holds,
-// and every later one at once.
+// Answer has the tracker at url answer the announces it holds, and every
+// later one at once.
 func (w *World) Answer(url string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -86,8 +91,8 @@ func (w *World) Answer(url string) {
 	tr.answering = true
 	held := tr.held
 	tr.held = nil
-	for _, a := range held {
-		a.answer(tr, "started")
+	for _, h := range held {
+		h.a.answer(tr, h.event)
 	}
 }
 
@@ -175,11 +180,15 @@ func (a *announcing) send(event string) {
 	if a.t.e.holds(a.t) {
 		a.t.e.emit(engine.TrackerAnnounced{Torrent: a.t.handle, Event: announceEvents[event], At: now})
 	}
-	if event == "started" && tr.rules.HoldStarted && !tr.answering {
-		tr.held = append(tr.held, a)
+	if tr.holds(event) {
+		tr.held = append(tr.held, heldAnnounce{a, event})
 		return
 	}
 	a.answer(tr, event)
+}
+
+func (tr *tracker) holds(event string) bool {
+	return !tr.answering && (event == "started" && tr.rules.HoldStarted || event == "" && tr.rules.HoldRegular)
 }
 
 func (a *announcing) answer(tr *tracker, event string) {
