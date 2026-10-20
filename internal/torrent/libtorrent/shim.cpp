@@ -533,6 +533,10 @@ void convert(lts_session* s, lt::alert* a) {
 		if (o.torrent != 0 && o.error.category == LTS_CATEGORY_SHIM && o.error.code == LTS_SHIM_DISK_FULL) pause(s, fe->handle);
 		break;
 	}
+	case lt::hash_failed_alert::alert_type:
+		o.kind = LTS_ALERT_HASH_FAILED;
+		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
+		break;
 	case lt::incoming_connection_alert::alert_type:
 		o.kind = LTS_ALERT_INCOMING_PEER;
 		set_text(&o, static_cast<lt::incoming_connection_alert*>(a)->endpoint.address().to_string().c_str());

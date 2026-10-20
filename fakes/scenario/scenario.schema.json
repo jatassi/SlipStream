@@ -623,6 +623,15 @@
           },
           "unregistered": {
             "type": "boolean"
+          },
+          "bad_peer": {
+            "type": "string",
+            "enum": [
+              "corrupt",
+              "stall",
+              "choke",
+              "drop"
+            ]
           }
         },
         "additionalProperties": false,

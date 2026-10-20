@@ -318,6 +318,9 @@ type (
 		Torrent Handle
 		Err     *Error
 	}
+	// HashFailed is a piece whose data failed its hash check: a peer sent
+	// data that is not the torrent's.
+	HashFailed struct{ Torrent Handle }
 	// Stats is the payload the engine sent and received since it opened.
 	Stats struct {
 		SentPayload, RecvPayload int64
@@ -346,6 +349,7 @@ func (Updates) event()          {}
 func (Checked) event()          {}
 func (IncomingPeer) event()     {}
 func (FileError) event()        {}
+func (HashFailed) event()       {}
 func (Stats) event()            {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any

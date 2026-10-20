@@ -29,7 +29,26 @@ type Release struct {
 	// Unregistered makes fake-tracker answer its announces with UNIT3D's
 	// "Unregistered torrent", as for a torrent the tracker deleted.
 	Unregistered bool `yaml:"unregistered,omitempty"`
+	// BadPeer adds a peer that misbehaves this way, which fake-tracker
+	// lists beside the seeders.
+	BadPeer BadPeer `jsonschema:"enum=corrupt,enum=stall,enum=choke,enum=drop" yaml:"bad_peer,omitempty"`
 }
+
+// BadPeer is how a release's bad peer misbehaves once a leecher asks it
+// for pieces. It always claims to hold every piece.
+type BadPeer string
+
+const (
+	// Corrupt sends blocks that are not the torrent's, so their pieces fail
+	// their hash check.
+	Corrupt BadPeer = "corrupt"
+	// Stall unchokes the leecher and never sends a block it asks for.
+	Stall BadPeer = "stall"
+	// Choke never unchokes the leecher.
+	Choke BadPeer = "choke"
+	// Drop hangs up once it has said which pieces it holds.
+	Drop BadPeer = "drop"
+)
 
 // Bytes is a size in bytes, written as a number and a unit, like 8.2GiB.
 type Bytes int64
@@ -143,6 +162,11 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		}
 		if r.AdvertisedSize < 0 {
 			add("release %s advertises %d bytes", r.Name, r.AdvertisedSize)
+		}
+		switch r.BadPeer {
+		case "", Corrupt, Stall, Choke, Drop:
+		default:
+			add("release %s bad_peer %q is not corrupt, stall, choke or drop", r.Name, r.BadPeer)
 		}
 	}
 }
