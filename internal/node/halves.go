@@ -107,16 +107,17 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db,
 		Touch:   func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
 		Changed: downloadclients.ChangedEvent.Bind(n.hub),
-		Live: downloadclients.LiveConfig{
-			Library: lib.db,
-			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
-			Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
-				return downloadingv1connect.DownloadingService.On(cluster, id)
-			},
-			Event:  downloadclients.LiveEvent.Bind(n.hub),
-			Sample: n.cfg.Timings.Downloading.LiveSample,
-			Log:    n.rootLog.With("subsystem", "downloadclients"),
+		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
+			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
+		Roster: openedRoster{&side},
+		Uses:   grabs.TorrentUses{},
+		Live: downloadclients.LiveConfig{
+			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
+			Event:   downloadclients.LiveEvent.Bind(n.hub),
+			Sample:  n.cfg.Timings.Downloading.LiveSample,
+		},
+		Log: n.rootLog.With("subsystem", "downloadclients"),
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
@@ -264,7 +265,7 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
 	scheduler, err := tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -305,6 +306,18 @@ func (n *Node) startController(ctx context.Context) error {
 	n.env.Test.started(started)
 	return nil
 }
+
+// openedRoster is the nodes service once it opens: the download clients'
+// owner is made before it, since the service reads that owner.
+type openedRoster struct{ side **nodes.Service }
+
+func (r openedRoster) InStep(node role.NodeID) bool { return (*r.side).InStep(node) }
+
+func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
+	return (*r.side).WrittenOff(name, node)
+}
+
+func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
 
 // today is the time now in the Controller's zone.
 func (n *Node) today() time.Time {

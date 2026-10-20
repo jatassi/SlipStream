@@ -140,15 +140,18 @@ func (c *Client) send(f func(*loop)) bool {
 	}
 }
 
-// ask runs f on Loop's goroutine and waits for it.
-func (c *Client) ask(f func(*loop)) {
+// ask runs f on Loop's goroutine and waits for it, unless Loop has
+// returned.
+func (c *Client) ask(f func(*loop)) bool {
 	done := make(chan struct{})
-	if c.send(func(l *loop) {
+	if !c.send(func(l *loop) {
 		defer close(done)
 		f(l)
 	}) {
-		<-done
+		return false
 	}
+	<-done
+	return true
 }
 
 // Run is the Role's run function: Loop reports through h and local, and

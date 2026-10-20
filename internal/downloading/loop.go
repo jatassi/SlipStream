@@ -433,7 +433,7 @@ func (l *loop) do(cmd plan.Command, now time.Time) time.Time {
 		t := l.torrents[cmd.Hash]
 		t.Phase = plan.Parting
 		if cmd.DeleteFiles {
-			t.freed = t.status.Done
+			t.freed = l.copyOf(t, t.id.Bytes()).frees().GetBytes()
 		}
 		l.publish()
 		l.call(t, "remove a torrent", l.eng.Remove(t.handle, cmd.DeleteFiles))
@@ -594,8 +594,7 @@ func (l *loop) event(ev engine.Event) {
 func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 	switch ev := ev.(type) {
 	case engine.StateChanged:
-		t.status.State = ev.State
-		t.Complete = t.Complete || complete(ev.State)
+		t.observe(ev.State)
 	case engine.Finished:
 		t.Complete = true
 	case engine.Checked:
@@ -644,14 +643,16 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 func (l *loop) trackerList(t *torrent, trackers []engine.Tracker) {
 	t.trackers = trackers
 	now := time.Now()
-	for _, tr := range trackers {
+	for i, tr := range trackers {
 		at, ok := t.replied[tr.Index]
 		if !ok {
 			continue
 		}
 		delete(t.replied, tr.Index)
 		delay := l.ledger.Replied(t.Hash, l.tracker(t, tr.Index), announce.Reply{At: at, NextAnnounce: tr.NextAnnounce, MinAnnounce: tr.MinAnnounce})
-		l.call(t, "schedule a tracker's next announce", l.eng.Reannounce(t.handle, tr.Index, max(at.Add(delay).Sub(now), 0), false))
+		wait := max(at.Add(delay).Sub(now), 0)
+		l.call(t, "schedule a tracker's next announce", l.eng.Reannounce(t.handle, tr.Index, wait, false))
+		t.trackers[i].NextAnnounce = now.Add(wait)
 	}
 }
 
@@ -705,7 +706,7 @@ func (l *loop) updates(statuses []engine.Status) {
 		}
 		seen[s.Torrent] = true
 		t.status, t.statusAt = s, now
-		t.Complete = t.Complete || complete(s.State)
+		t.observe(s.State)
 		if s.LastPayload.After(t.LastPayload) {
 			t.LastPayload = s.LastPayload
 		}
@@ -720,6 +721,19 @@ func (l *loop) updates(statuses []engine.Status) {
 			}
 		}
 		l.resync = false
+	}
+}
+
+// observe takes in the engine's state of t. Its files are in question
+// while a check runs, so it is complete again only once a check ends with
+// every piece.
+func (t *torrent) observe(s engine.State) {
+	t.status.State = s
+	switch {
+	case complete(s):
+		t.Complete = true
+	case checking(s):
+		t.Complete = false
 	}
 }
 

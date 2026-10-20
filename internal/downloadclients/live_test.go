@@ -23,6 +23,7 @@ const liveSample = time.Second
 // second: each Watch answers a sample later with it 1000 bytes further.
 // Restarted, it answers afresh with nothing moving.
 type downloader struct {
+	downloadingv1connect.UnimplementedDownloadingServiceHandler
 	id        dc.ID
 	restarted atomic.Bool
 
@@ -110,12 +111,12 @@ func TestLiveSamplesFlowOnlyWhileAnAdminListens(t *testing.T) {
 		apply(t, lib, a, paused, &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING, Hold: dlv1.Hold_HOLD_WANTED, Done: 200})
 		exec(t, lib, "UPDATE downloadclients_torrent SET wanted = 'paused' WHERE id = ?", paused)
 		node, listener := &downloader{id: down}, &admin{}
-		c := dc.New(dc.Config{Touch: func(...role.NodeID) {}, Changed: published{}, Live: dc.LiveConfig{
-			Library: lib,
-			Watched: func() []role.NodeID { return []role.NodeID{a} },
-			Remote:  func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node },
-			Event:   listener, Sample: liveSample, Log: slog.New(slog.DiscardHandler),
-		}})
+		c := dc.New(dc.Config{
+			Library: lib, Touch: func(...role.NodeID) {}, Changed: published{},
+			Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node },
+			Roster: &roster{}, Log: slog.New(slog.DiscardHandler),
+			Live: dc.LiveConfig{Watched: func() []role.NodeID { return []role.NodeID{a} }, Event: listener, Sample: liveSample},
+		})
 		ctx, stop := context.WithCancel(t.Context())
 		done := make(chan struct{})
 		go func() {

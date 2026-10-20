@@ -25,9 +25,15 @@ import (
 // engines follows the torrents in a Node's engine, the last one it
 // opened, and how many its engines added.
 type engines struct {
-	mu    sync.Mutex
-	held  map[engine.Handle]bool
-	added int
+	mu      sync.Mutex
+	held    map[engine.Handle]bool
+	added   int
+	removed []removal
+}
+
+type removal struct {
+	at          time.Time
+	deleteFiles bool
 }
 
 func (e *engines) wrap(open func(engine.Config) (engine.Engine, error)) func(engine.Config) (engine.Engine, error) {
@@ -73,9 +79,16 @@ func (f followed) Remove(h engine.Handle, deleteFiles bool) error {
 	if err == nil {
 		f.e.mu.Lock()
 		delete(f.e.held, h)
+		f.e.removed = append(f.e.removed, removal{at: time.Now(), deleteFiles: deleteFiles})
 		f.e.mu.Unlock()
 	}
 	return err
+}
+
+func (e *engines) removals() []removal {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.removed)
 }
 
 func stateOf(r worldtest.Row, role string) string {

@@ -220,6 +220,14 @@ service DownloadingService {
   // rates, progress or peers moved since sample after, or with every
   // torrent that moves when after is not the Node's last answer.
   rpc Watch(WatchRequest) returns (WatchResponse);
+  // Inspect is one torrent's files with their progress and its trackers
+  // as the announce policy sees them.
+  rpc Inspect(InspectRequest) returns (InspectResponse);
+  // Act announces or rechecks torrents, each through the announce policy.
+  rpc Act(ActRequest) returns (ActResponse);
+  // Frees is the bytes deleting each torrent's download copy would free:
+  // its files that have no other link.
+  rpc Frees(FreesRequest) returns (FreesResponse);
 }
 
 message WatchRequest {
@@ -249,6 +257,103 @@ message Live {
   int64 wanted = 5;
   int32 peers = 6;
   int32 seeds = 7;
+}
+
+message InspectRequest {
+  bytes id = 1;
+}
+
+message InspectResponse {
+  // files are the torrent's files in its file order, empty until the
+  // Node holds it in its engine.
+  repeated FileProgress files = 1;
+  repeated TrackerDetail trackers = 2;
+  // announce_at_unix_ms is the earliest every tracker would accept an
+  // announce.
+  int64 announce_at_unix_ms = 3;
+}
+
+message FileProgress {
+  int32 index = 1;
+  int64 done = 2;
+}
+
+message TrackerDetail {
+  int32 index = 1;
+  TrackerStatus status = 2;
+  // message is the tracker's failure reason or warning, verbatim.
+  string message = 3;
+  // answered_at_unix_ms is the tracker's last answer, 0 before one.
+  int64 answered_at_unix_ms = 4;
+  // next_announce_unix_ms is when the next announce to it is due, 0 while
+  // none is.
+  int64 next_announce_unix_ms = 5;
+  // min_interval_seconds is the tracker's min interval as the announce
+  // policy holds to it.
+  int64 min_interval_seconds = 6;
+  // accepts_at_unix_ms is the earliest the tracker would accept an
+  // announce.
+  int64 accepts_at_unix_ms = 7;
+}
+
+message ActRequest {
+  Act act = 1;
+  repeated bytes ids = 2;
+}
+
+enum Act {
+  ACT_UNSPECIFIED = 0;
+  // ACT_ANNOUNCE announces a running torrent to every tracker now.
+  ACT_ANNOUNCE = 1;
+  // ACT_RECHECK checks a torrent's files, pausing it first and starting it
+  // again through the announce policy once checked.
+  ACT_RECHECK = 2;
+}
+
+message ActResponse {
+  // results are one for each id asked, in the order asked.
+  repeated ActResult results = 1;
+}
+
+message ActResult {
+  bytes id = 1;
+  Refusal refused = 2;
+  // accepts_at_unix_ms is when an announce would be accepted, set when
+  // refused for a window.
+  int64 accepts_at_unix_ms = 3;
+}
+
+// Refusal is why the Node didn't act on a torrent.
+enum Refusal {
+  // REFUSAL_UNSPECIFIED is no refusal: the Node acted.
+  REFUSAL_UNSPECIFIED = 0;
+  // REFUSAL_NOT_HELD is a torrent the Node doesn't hold, or is letting go.
+  REFUSAL_NOT_HELD = 1;
+  // REFUSAL_NOT_RUNNING is an announce of a torrent that isn't running.
+  REFUSAL_NOT_RUNNING = 2;
+  // REFUSAL_WINDOW is an announce some tracker would reject until
+  // accepts_at_unix_ms.
+  REFUSAL_WINDOW = 3;
+  // REFUSAL_FAILED is a recheck of a torrent the engine failed.
+  REFUSAL_FAILED = 4;
+}
+
+message FreesRequest {
+  repeated bytes ids = 1;
+}
+
+message FreesResponse {
+  // freed are one for each id asked, in the order asked.
+  repeated Freed freed = 1;
+}
+
+message Freed {
+  bytes id = 1;
+  // bytes are the bytes downloaded into its files that have no other link.
+  int64 bytes = 2;
+  // linked is some file also having another link, such as a library file
+  // imported by hard link.
+  bool linked = 3;
 }
 
 // DownloadingControlService is the Controller, as a downloading Node calls
