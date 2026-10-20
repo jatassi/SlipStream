@@ -10,6 +10,7 @@ export type ConfirmDialogProps = {
   title: string;
   confirmLabel: string;
   look?: "primary" | "fail";
+  confirmDisabled?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => Promise<unknown> | undefined;
@@ -46,6 +47,7 @@ export function ConfirmDialog({
   title,
   confirmLabel,
   look = "primary",
+  confirmDisabled = false,
   open,
   children,
   ...handlers
@@ -72,7 +74,7 @@ export function ConfirmDialog({
         >
           Cancel
         </Button>
-        <Button look={look} busy={busy} onClick={() => void confirm()}>
+        <Button look={look} busy={busy} disabled={confirmDisabled} onClick={() => void confirm()}>
           {confirmLabel}
         </Button>
       </div>
