@@ -157,8 +157,13 @@ func TestTheReleaseBinaryListsTheMovieType(t *testing.T) {
 	r := call(t, ready, http.MethodGet, "/api/v1/content-types", "", map[string]string{"Cookie": "slipstream_session=" + session})
 	expectReply(t, r, http.StatusOK, `{"contentTypes":[`+
 		`{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},`+
-		`"fields":[{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"released","label":"Released","tier":"work","kind":"date"},`+
-		`{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"}]}]}`+"\n")
+		`"fields":[{"key":"english_title","label":"English title","tier":"work","kind":"text"},{"key":"original_title","label":"Original title","tier":"work","kind":"text"},{"key":"original_language","label":"Original language","tier":"work","kind":"text"},`+
+		`{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"release_date","label":"Release date","tier":"work","kind":"date"},{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"},`+
+		`{"key":"status","label":"Status","tier":"work","kind":"text"},{"key":"certification","label":"Certification","tier":"work","kind":"text"},{"key":"certification_country","label":"Certification country","tier":"work","kind":"text"},`+
+		`{"key":"genres","label":"Genres","tier":"work","kind":"texts"},{"key":"tagline","label":"Tagline","tier":"work","kind":"text"},{"key":"overview","label":"Overview","tier":"work","kind":"text"},`+
+		`{"key":"studio","label":"Studio","tier":"work","kind":"text"},{"key":"collection","label":"Collection","tier":"work","kind":"text"},{"key":"credits","label":"Cast and crew","tier":"work","kind":"people"},`+
+		`{"key":"alternative_titles","label":"Alternative titles","tier":"work","kind":"texts"},{"key":"imdb_id","label":"IMDb id","tier":"work","kind":"text"},{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text"},`+
+		`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text"},{"key":"awards","label":"Awards","tier":"work","kind":"text"}]}]}`+"\n")
 }
 
 func binaryIsStamped(t *testing.T) bool {

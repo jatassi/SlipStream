@@ -22,9 +22,9 @@ type Catalog interface {
 	// type is released, like its id.
 	Describe() Description
 	// Store writes the type's own rows inside the core's Write, after the
-	// core rows exist. It upserts, never deletes, and does no IO. detail is
-	// Fetched.Detail, unread by the core. changed is false when every row
-	// already held what detail says.
+	// core rows exist, and does no IO. detail is Fetched.Detail, unread by
+	// the core. changed is false when every row already held what detail
+	// says.
 	Store(ctx context.Context, tx *storage.Tx[storage.Library], at Placed, detail []byte) (changed bool, err error)
 	// Fields reads the type's own rows for one Work: values keyed by node,
 	// each of the kind its FieldSpec declares.
