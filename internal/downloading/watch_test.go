@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
 
@@ -19,6 +20,23 @@ func (c *client) watch(t *testing.T, after uint64) *dlv1.WatchResponse {
 		t.Fatal(err)
 	}
 	return res
+}
+
+// firstWatch is the first Watch's answer, a live sample later: download
+// alone at 1000 bytes a second, and the Node downloading at that rate.
+func (c *client) firstWatch(t *testing.T, download storage.UUID) *dlv1.WatchResponse {
+	t.Helper()
+	start := time.Now()
+	first := c.watch(t, 0)
+	if waited := time.Since(start); waited != timings.LiveSample {
+		t.Errorf("the first Watch answered after %v, want one live sample, %v", waited, timings.LiveSample)
+	}
+	rows := first.GetRows()
+	if len(rows) != 1 || !proto.Equal(rows[0], &dlv1.Live{Id: download.Bytes(), DownBps: 1000, Done: rows[0].GetDone(), Wanted: size}) ||
+		rows[0].GetDone() == 0 || first.GetDownBps() != 1000 || first.GetUpBps() != 0 {
+		t.Fatalf("the first Watch answered %v, want the download alone at 1000 bytes a second, and the Node downloading at that rate", first)
+	}
+	return first
 }
 
 // TestWatchAnswersEachSampleWithWhatMoved downloads one torrent at 1000
@@ -40,15 +58,7 @@ func TestWatchAnswersEachSampleWithWhatMoved(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		synctest.Wait()
 
-		start := time.Now()
-		first := c.watch(t, 0)
-		if waited := time.Since(start); waited != timings.LiveSample {
-			t.Errorf("the first Watch answered after %v, want one live sample, %v", waited, timings.LiveSample)
-		}
-		if len(first.GetRows()) != 1 || !proto.Equal(first.GetRows()[0], &dlv1.Live{Id: downID.Bytes(), DownBps: 1000, Done: first.GetRows()[0].GetDone(), Wanted: size}) ||
-			first.GetRows()[0].GetDone() == 0 || first.GetDownBps() != 1000 || first.GetUpBps() != 0 {
-			t.Fatalf("the first Watch answered %v, want the download alone at 1000 bytes a second, and the Node downloading at that rate", first)
-		}
+		first := c.firstWatch(t, downID)
 
 		second := c.watch(t, first.GetSample())
 		if second.GetSample() != first.GetSample()+1 || len(second.GetRows()) != 1 || second.GetRows()[0].GetDone() != first.GetRows()[0].GetDone()+1000 {

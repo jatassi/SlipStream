@@ -3,6 +3,7 @@ package downloading
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"time"
@@ -28,7 +29,7 @@ func (c *Client) Watch(ctx context.Context, req *dlv1.WatchRequest) (*dlv1.Watch
 	case res := <-reply:
 		return res, nil
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("wait for the next live sample: %w", ctx.Err())
 	}
 }
 
@@ -62,7 +63,7 @@ type told struct {
 func newWatching() watching {
 	timer := time.NewTimer(time.Hour)
 	timer.Stop()
-	return watching{timer: timer, sample: uint64(time.Now().UnixMilli()), told: map[bencode.InfoHash]told{}} //nolint:gosec // a clock after 1970 fits
+	return watching{timer: timer, sample: uint64(time.Now().UnixMilli()), told: map[bencode.InfoHash]told{}}
 }
 
 func (l *loop) watch(w watcher) {

@@ -195,7 +195,7 @@ func (s sampled) Live(nodes.ID) (nodes.LiveClient, bool) {
 func TestTrafficAndTheTopologyReadLiveSamples(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		moving, resting := storage.NewUUID(), storage.NewUUID()
-		kept := func(context.Context, storage.Reader[storage.Library], nodes.ID) ([]nodes.Kept, error) {
+		kept := func(context.Context, storage.Reader[storage.Library], nodes.ID) ([]nodes.Kept, error) { //nolint:unparam // Config.Kept reads the Library
 			return []nodes.Kept{
 				{Torrent: moving, Title: "Orchard", Done: 100, Wanted: 1000},
 				{Torrent: resting, Title: "Meadow", Done: 2000, Wanted: 2000},

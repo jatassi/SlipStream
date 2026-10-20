@@ -60,6 +60,7 @@ func TestWatchSendsNothingWhileNoAdminListens(t *testing.T) {
 
 		home := entryOf(t, w, "home")
 		stream := home.send(http.MethodGet, "/api/v1/events", "", home.signIn().session, "")
+		defer func() { _ = stream.Body.Close() }()
 		go func() { _, _ = io.Copy(io.Discard, stream.Body) }()
 		time.Sleep(10 * time.Second)
 		synctest.Wait()
@@ -106,47 +107,13 @@ func TestAnIdleSeedboxOf3000TorrentsSendsUnder1KBps(t *testing.T) {
 		}
 		boxID := role.NodeID{UUID: id}
 		controller := w.Node("home").Half()
-		err = controller.Library.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			for i := range idleTorrents {
-				payload := []byte(fmt.Sprintf("idle seedbox payload %d", i))
-				raw, hash, err := releases.Metainfo(fmt.Sprintf("Idle.%d.mkv", i), payload, idleTracker)
-				if err != nil {
-					return err
-				}
-				swarm.Payload(hash, payload)
-				m, err := bencode.DecodeMetainfo(raw)
-				if err != nil {
-					return err
-				}
-				want := downloadclients.Want{Node: boxID, Metainfo: m, Raw: raw, ContentType: works.TypeID("movie"), WrittenOff: func(role.NodeID) bool { return false }}
-				if _, _, err := downloadclients.Attach(ctx, tx, want, storage.Now()); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		attachIdle(t, controller, swarm, boxID)
 		controller.Controls.Touch(boxID)
 		eventually(t, "every torrent seeds", func() bool { return seeding(t, controller) == idleTorrents })
 		time.Sleep(35 * time.Minute)
 		synctest.Wait()
 
-		boxKey, err := link.OpenKey(w.Node("seedbox").DataDir().Path())
-		if err != nil {
-			t.Fatal(err)
-		}
-		key := boxKey.Public()
-		before, ok := controller.Link.Stats(key)
-		const window = 10 * time.Minute
-		time.Sleep(window)
-		synctest.Wait()
-		after, still := controller.Link.Stats(key)
-		if !ok || !still || after.Received < before.Received {
-			t.Fatalf("the link to seedbox read %+v, then %+v; want one session throughout", before, after)
-		}
-		rate := float64(after.Received-before.Received) / window.Seconds()
+		rate := received(t, controller, w.Node("seedbox"), 10*time.Minute)
 		bound := rate * idleBudgeted / idleTorrents
 		t.Logf("an idle seedbox of %d torrents sends %.0f B/s, %.3f B/s a torrent; %d send at most %.0f B/s",
 			idleTorrents, rate, rate/idleTorrents, idleBudgeted, bound)
@@ -154,6 +121,53 @@ func TestAnIdleSeedboxOf3000TorrentsSendsUnder1KBps(t *testing.T) {
 			t.Errorf("an idle seedbox of %d torrents sends %.0f B/s, so %d may send %.0f B/s, want under 1 KB/s", idleTorrents, rate, idleBudgeted, bound)
 		}
 	})
+}
+
+// attachIdle has the Controller hand Node box idleTorrents torrents whose
+// payloads swarm holds.
+func attachIdle(t *testing.T, controller node.Half, swarm *enginetest.World, box role.NodeID) {
+	t.Helper()
+	err := controller.Library.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for i := range idleTorrents {
+			payload := []byte(fmt.Sprintf("idle seedbox payload %d", i))
+			raw, hash, err := releases.Metainfo(fmt.Sprintf("Idle.%d.mkv", i), payload, idleTracker)
+			if err != nil {
+				return err
+			}
+			swarm.Payload(hash, payload)
+			m, err := bencode.DecodeMetainfo(raw)
+			if err != nil {
+				return err
+			}
+			want := downloadclients.Want{Node: box, Metainfo: m, Raw: raw, ContentType: works.TypeID("movie"), WrittenOff: func(role.NodeID) bool { return false }}
+			if _, _, err := downloadclients.Attach(ctx, tx, want, storage.Now()); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// received is the bytes a second the Controller's link reads from the Node
+// from over window, as one session.
+func received(t *testing.T, controller node.Half, from *sim.Node, window time.Duration) float64 {
+	t.Helper()
+	private, err := link.OpenKey(from.DataDir().Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := private.Public()
+	before, ok := controller.Link.Stats(key)
+	time.Sleep(window)
+	synctest.Wait()
+	after, still := controller.Link.Stats(key)
+	if !ok || !still || after.Received < before.Received {
+		t.Fatalf("the link read %+v, then %+v; want one session throughout", before, after)
+	}
+	return float64(after.Received-before.Received) / window.Seconds()
 }
 
 // seeding counts the Torrents whose Node reported them complete.

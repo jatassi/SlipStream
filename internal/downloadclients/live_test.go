@@ -2,6 +2,7 @@ package downloadclients_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -36,7 +37,7 @@ func (d *downloader) Watch(ctx context.Context, req *dlv1.WatchRequest) (*dlv1.W
 	select {
 	case <-time.After(liveSample):
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("watch: %w", ctx.Err())
 	}
 	if d.restarted.Load() {
 		return &dlv1.WatchResponse{Sample: 1000}, nil
@@ -73,6 +74,20 @@ func (a *admin) heard() []dc.LiveTick {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return append([]dc.LiveTick(nil), a.ticks...)
+}
+
+// expectLast checks the last torrents.live: download at done, and the
+// downloads adding up to it beside the paused one as reported.
+func (a *admin) expectLast(t *testing.T, download dc.ID, done int64) {
+	t.Helper()
+	ticks := a.heard()
+	last := ticks[len(ticks)-1]
+	if len(last.Rows) != 1 || last.Rows[0].ID != download.String() || last.Rows[0].Done != done {
+		t.Fatalf("the last torrents.live carried %+v, want the download at %d", last.Rows, done)
+	}
+	if want := (dc.Aggregate{Done: done + 200, Wanted: 2 * 1024}); last.Downloads != want {
+		t.Errorf("the downloads add up to %+v, want %+v: the download live, the paused one as reported", last.Downloads, want)
+	}
 }
 
 // TestLiveSamplesFlowOnlyWhileAnAdminListens has a Node download one
@@ -126,14 +141,7 @@ func TestLiveSamplesFlowOnlyWhileAnAdminListens(t *testing.T) {
 		if l, ok := c.Live(a); !ok || l.DownBps != 1000 || l.Torrents[down.UUID].Done != s.Done {
 			t.Fatalf("Live(seedbox) = %+v, %v; want its rate and the download's sample", l, ok)
 		}
-		ticks := listener.heard()
-		last := ticks[len(ticks)-1]
-		if len(last.Rows) != 1 || last.Rows[0].ID != down.String() || last.Rows[0].Done != s.Done {
-			t.Fatalf("the last torrents.live carried %+v, want the download at %d", last.Rows, s.Done)
-		}
-		if want := (dc.Aggregate{Done: s.Done + 200, Wanted: 2 * 1024}); last.Downloads != want {
-			t.Errorf("the downloads add up to %+v, want %+v: the download live, the paused one as reported", last.Downloads, want)
-		}
+		listener.expectLast(t, down, s.Done)
 
 		node.restarted.Store(true)
 		time.Sleep(3 * liveSample)
