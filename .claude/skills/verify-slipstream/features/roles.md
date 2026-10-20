@@ -159,7 +159,7 @@ Steps:
   $FW exec $RUN --proof roles/roles-write-off -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"roles":["downloading"]}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/write-offs'
   $FW announces wait $RUN --node seedbox --where event=stopped --timeout 60s
   $FW exec $RUN --proof roles/roles-write-off -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
-  $FW exec $RUN --proof roles/roles-write-off -- $FW fs match {runDir} "{nodes.seedbox.dataDir}/downloads/$HASH/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv" --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+  $FW exec $RUN --proof roles/roles-write-off -- $FW fs match {runDir} "{nodes.seedbox.dataDir}/downloads/Movies/$HASH/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv" --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   ```
 
 ### Write off an offline Node
