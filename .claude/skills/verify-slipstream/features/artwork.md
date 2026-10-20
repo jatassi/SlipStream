@@ -10,6 +10,7 @@ A movie's poster, backdrop, title treatment and studio logo, and a person's phot
 - `artwork-prefetch` with every image-cdn request failing after the add, the backdrop at `large` still answers 200 from the store, and at `small` answers 404 `artwork_unavailable` with `Cache-Control: no-store`.
 - `artwork-missing` once image-cdn answers again, the backdrop at `small` still answers 404 until `timings.metadata.artwork_retry` (5 minutes) passes, and a size never asked for answers 200.
 - `artwork-forged` a token SlipStream didn't issue answers 404 `artwork_unavailable` with `detail` `SlipStream didn't issue that artwork token` and `Cache-Control: no-store`.
+- `artwork-worker` with Metadata moved to seedbox alone and home's image-cdn front reset, an image never asked for answers 200, and `events.jsonl` holds a `front.open` on seedbox's `image-cdn` front: the Controller fetches through the Metadata holder.
 - `artwork-account` the API key alone gets 403 `needs_account`: the route serves signed-in Accounts.
 
 ## How to get to it (user POV)
@@ -82,6 +83,17 @@ Steps:
   $FW exec $RUN --proof artwork/artwork-forged -- $PW cli -s={runId}-admin-desktop run-code "$(one "/api/v1/artwork/AXRtZGItaW1hZ2VzAHBvc3RlcgAvYWJjZGVmLmpwZw.${P##*.}?size=medium")"
   ```
 
+- **Fetched through a Worker.** Move Metadata to seedbox alone, reset home's image-cdn front, and ask for the backdrop at `original`, which no step asked for yet: it answers 200. The last `front.open` on `image-cdn` names seedbox.
+
+  ```sh
+  BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
+  SET='[{"nodeId":"{nodes.home.nodeId}","roles":["storage","converting","subtitles","media-server-link","notifying","serving"]},{"nodeId":"{nodes.seedbox.nodeId}","roles":["searching","downloading","metadata"]}]'
+  $FW exec $RUN --proof artwork/artwork-worker -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":$SET}" '{nodes.home.url}/api/v1/nodes/roles'
+  $FW fault set $RUN cdn-home image-cdn@home reset
+  $FW exec $RUN --proof artwork/artwork-worker -- $PW cli -s={runId}-admin-desktop run-code "$(one "$B?size=original")"
+  jq -c 'select(.kind == "front.open" and .data.target == "image-cdn")' $RUN/events.jsonl | tail -1
+  ```
+
 - **The API key alone.**
 
   ```sh
@@ -94,4 +106,5 @@ Steps:
 - An artwork URL carries no size; the route requires `?size=`.
 - The add prefetches the poster at `medium` and the backdrop at `large` in the background. Set the image-cdn fault a few seconds after the add, or the prefetch itself fails and is marked missing.
 - A miss stays a miss for `timings.metadata.artwork_retry`; a recipe that wants the image afterwards asks for another size or waits it out.
+- After the Worker step, doctor fails "the cluster matches the Scenario": Metadata sits on seedbox and the `cdn-home` fault stays set. Drive that step last, or on a run used for nothing else.
 - The flipped-character forgery only proves something when the flip stays within the alphabet and touches only the unused bits, as the recipe's index arithmetic does; a token spelled any other way than issued is refused.
