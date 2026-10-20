@@ -163,11 +163,15 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		if r.AdvertisedSize < 0 {
 			add("release %s advertises %d bytes", r.Name, r.AdvertisedSize)
 		}
-		switch r.BadPeer {
-		case "", Corrupt, Stall, Choke, Drop:
-		default:
-			add("release %s bad_peer %q is not corrupt, stall, choke or drop", r.Name, r.BadPeer)
-		}
+		r.BadPeer.check(add, r.Name)
+	}
+}
+
+func (b BadPeer) check(add func(format string, args ...any), release string) {
+	switch b {
+	case "", Corrupt, Stall, Choke, Drop:
+	default:
+		add("release %s bad_peer %q is not corrupt, stall, choke or drop", release, b)
 	}
 }
 

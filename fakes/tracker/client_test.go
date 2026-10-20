@@ -81,7 +81,7 @@ func seededReleases(t *testing.T, n int, announce string) []release {
 // from a run CA, which libtorrent trusts through SSL_CERT_FILE, for n
 // seeded releases. It returns the releases and a reader of the tracker's
 // announces.
-func serveTracker(t *testing.T, s scenario.Scenario, n int) ([]release, func() []tracker.Announce) {
+func serveTracker(t *testing.T, s scenario.Scenario, n int) (rels []release, announces func() []tracker.Announce) {
 	t.Helper()
 	authority, err := ca.New("client")
 	if err != nil {
@@ -107,7 +107,7 @@ func serveTracker(t *testing.T, s scenario.Scenario, n int) ([]release, func() [
 		t.Fatal(err)
 	}
 	passkey := releases.Passkey(s)
-	rels := seededReleases(t, n, fake.Address{AddrPort: tf.Addr(), TLS: true}.URL("/announce/"+passkey))
+	rels = seededReleases(t, n, fake.Address{AddrPort: tf.Addr(), TLS: true}.URL("/announce/"+passkey))
 	catalog := &releases.Catalog{Passkey: passkey}
 	for i, r := range rels {
 		catalog.Releases = append(catalog.Releases, releases.Release{Release: scenario.Release{Name: fmt.Sprintf("release-%d", i)}, InfoHash: r.hash})
@@ -278,12 +278,12 @@ func count(event string) func([]tracker.Announce) int {
 func summary(as []tracker.Announce) string {
 	var b strings.Builder
 	for _, a := range as {
-		fmt.Fprintf(&b, "\n  %s %s peer %s accepted %v %s", a.InfoHash[:8], cmpEvent(a.Event), a.PeerID[:16], a.Accepted, a.Failure)
+		fmt.Fprintf(&b, "\n  %s %s peer %s accepted %v %s", a.InfoHash[:8], eventName(a.Event), a.PeerID[:16], a.Accepted, a.Failure)
 	}
 	return b.String()
 }
 
-func cmpEvent(e string) string {
+func eventName(e string) string {
 	if e == "" {
 		return "regular"
 	}

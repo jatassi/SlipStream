@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -75,7 +74,10 @@ func (p *Peer) Close() error {
 	p.cancel()
 	err := p.l.Close()
 	p.wg.Wait()
-	return err
+	if err != nil {
+		return fmt.Errorf("bad peer: %w", err)
+	}
+	return nil
 }
 
 func (p *Peer) accept() {
@@ -88,21 +90,21 @@ func (p *Peer) accept() {
 			stop := context.AfterFunc(p.ctx, func() { _ = c.Close() })
 			defer stop()
 			defer func() { _ = c.Close() }()
-			_ = p.serve(c)
+			p.serve(c)
 		})
 	}
 }
 
 // serve answers a leecher's handshake for the peer's torrent and its
-// bitfield, then misbehaves. An encrypted handshake gets a hang up, so the
-// leecher dials again in the clear.
-func (p *Peer) serve(c net.Conn) error {
+// bitfield, then misbehaves until the leecher hangs up. An encrypted
+// handshake gets a hang up, so the leecher dials again in the clear.
+func (p *Peer) serve(c net.Conn) {
 	var theirs [68]byte
 	if _, err := io.ReadFull(c, theirs[:]); err != nil {
-		return err
+		return
 	}
 	if string(theirs[:len(protocol)]) != protocol || !bytes.Equal(theirs[28:48], p.hash[:]) {
-		return errors.New("not a handshake for this torrent")
+		return
 	}
 	hello := append(append(append([]byte(protocol), make([]byte, 8)...), p.hash[:]...), peerID...)
 	hello = append(hello, message(msgBitfield, p.bitfield)...)
@@ -110,23 +112,25 @@ func (p *Peer) serve(c net.Conn) error {
 		hello = append(hello, message(msgUnchoke, nil)...)
 	}
 	if _, err := c.Write(hello); err != nil || p.mode == scenario.Drop {
-		return err
+		return
 	}
 	for {
-		id, payload, err := read(c)
-		if err != nil {
-			return err
+		id, payload, ok := read(c)
+		if !ok {
+			return
 		}
 		if id != msgRequest || p.mode != scenario.Corrupt || len(payload) != 12 {
 			continue
 		}
 		length := binary.BigEndian.Uint32(payload[8:])
 		if length > maxMessage {
-			return fmt.Errorf("a request for %d bytes", length)
+			return
 		}
-		block := append(payload[:8:8], bytes.Repeat([]byte{junk}, int(length))...)
+		block := make([]byte, 8, 8+length)
+		copy(block, payload[:8])
+		block = append(block, bytes.Repeat([]byte{junk}, int(length))...)
 		if _, err := c.Write(message(msgPiece, block)); err != nil {
-			return err
+			return
 		}
 	}
 }
@@ -136,24 +140,25 @@ func message(id byte, payload []byte) []byte {
 	return append(append(m, id), payload...)
 }
 
-// read is the next message but a keep-alive.
-func read(r io.Reader) (byte, []byte, error) {
+// read is the next message but a keep-alive, not ok once the leecher hangs
+// up or sends a message too long for any it may send.
+func read(r io.Reader) (id byte, payload []byte, ok bool) {
 	for {
 		var size [4]byte
 		if _, err := io.ReadFull(r, size[:]); err != nil {
-			return 0, nil, err
+			return 0, nil, false
 		}
 		n := binary.BigEndian.Uint32(size[:])
 		if n == 0 {
 			continue
 		}
 		if n > maxMessage {
-			return 0, nil, fmt.Errorf("a message of %d bytes", n)
+			return 0, nil, false
 		}
 		m := make([]byte, n)
 		if _, err := io.ReadFull(r, m); err != nil {
-			return 0, nil, err
+			return 0, nil, false
 		}
-		return m[0], m[1:], nil
+		return m[0], m[1:], true
 	}
 }

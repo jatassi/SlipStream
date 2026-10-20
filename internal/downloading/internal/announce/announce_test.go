@@ -151,14 +151,14 @@ func TestTheSameEventWithin30sWaits(t *testing.T) {
 			want:  at(time.Second),
 		},
 		{
-			name:  "counted from the tracker's answer",
+			name: "counted from the tracker's answer",
 			steps: []step{
 				sent(h, beacon, announce.Started, 0),
 				func(l *announce.Ledger) { l.Answered(h, beacon, at(2*time.Second)) },
 				sent(h, beacon, announce.Stopped, 10*time.Second),
 			},
-			ask:   startAt(false, 20*time.Second),
-			want:  at(32 * time.Second),
+			ask:  startAt(false, 20*time.Second),
+			want: at(32 * time.Second),
 		},
 		{
 			name: "counted from a failure's answer",

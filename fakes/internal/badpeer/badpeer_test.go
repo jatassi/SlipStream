@@ -101,7 +101,8 @@ func never(*leecher) bool { return false }
 
 func TestTheBadPeerSendsCorruptPieces(t *testing.T) {
 	l := leech(t, scenario.Corrupt)
-	if l.watch(t, time.Minute, func(l *leecher) bool { return l.hashFailed }); !l.hashFailed {
+	l.watch(t, time.Minute, func(l *leecher) bool { return l.hashFailed })
+	if !l.hashFailed {
 		t.Fatalf("no piece failed its hash check within a minute of downloading from a corrupt peer; last status %+v", l.status)
 	}
 }
@@ -114,7 +115,8 @@ func TestTheBadPeerStalls(t *testing.T) {
 		t.Run(string(mode), func(t *testing.T) {
 			l := leech(t, mode)
 			if mode != scenario.Drop {
-				if l.watch(t, time.Minute, func(l *leecher) bool { return l.status.Peers == 1 }); l.status.Peers != 1 {
+				l.watch(t, time.Minute, func(l *leecher) bool { return l.status.Peers == 1 })
+				if l.status.Peers != 1 {
 					t.Fatalf("a leecher of a peer that plays %s did not connect within a minute: %+v", mode, l.status)
 				}
 			}
