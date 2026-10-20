@@ -458,6 +458,13 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
+		torrent, err := torrentPort(ctx, n.addr)
+		if err != nil {
+			return fmt.Errorf("node %s: %w", name, err)
+		}
+		if config, err = setup.Pin(config, map[string]string{"torrent": torrent.String()}); err != nil {
+			return fmt.Errorf("node %s: %w", name, err)
+		}
 		if err := os.WriteFile(filepath.Join(n.dataDir.Path(), "config.yaml"), config, 0o600); err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
