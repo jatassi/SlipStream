@@ -101,11 +101,17 @@ func (s *Store) Verify(ctx context.Context, req *storagev1.VerifyRequest) (*stor
 	}
 	files := make([]Recorded, 0, len(req.GetFiles()))
 	for _, f := range req.GetFiles() {
-		rel, err := ParseRel(f.GetPath())
+		sits, err := ParseRel(f.GetPath())
 		if err != nil {
 			return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
 		}
-		files = append(files, Recorded{Path: rel, Size: f.GetSize()})
+		var next Rel
+		if f.GetNext() != "" {
+			if next, err = ParseRel(f.GetNext()); err != nil {
+				return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
+			}
+		}
+		files = append(files, Recorded{Sits: sits, Next: next, Size: f.GetSize()})
 	}
 	missing, err := s.verify(ctx, req.GetPath(), files)
 	if err != nil {
@@ -476,21 +482,35 @@ func (s *Store) verify(ctx context.Context, path string, files []Recorded) ([]Mi
 	}
 	var missing []MissingFile
 	for i, f := range files {
-		info, err := timed(ctx, s, dir, func(ctx context.Context) (Info, error) {
-			return s.cfg.Disk.Stat(ctx, s.host.Style.Under(dir, f.Path))
-		})
-		switch {
-		case errors.Is(err, fs.ErrNotExist):
-			missing = append(missing, MissingFile{Index: i, Reason: FileMissing})
-		case err != nil:
-			return nil, s.folderError(err)
-		case info.Dir():
-			missing = append(missing, MissingFile{Index: i, Reason: FileMissing})
-		case info.Size() != f.Size:
-			missing = append(missing, MissingFile{Index: i, Reason: SizeDiffers})
+		reason, err := s.sized(ctx, dir, f.Sits, f.Size)
+		if err == nil && reason == FileMissing && f.Next != (Rel{}) {
+			reason, err = s.sized(ctx, dir, f.Next, f.Size)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if reason != 0 {
+			missing = append(missing, MissingFile{Index: i, Reason: reason})
 		}
 	}
 	return missing, nil
+}
+
+func (s *Store) sized(ctx context.Context, dir string, rel Rel, size int64) (MissingReason, error) {
+	info, err := timed(ctx, s, dir, func(ctx context.Context) (Info, error) {
+		return s.cfg.Disk.Stat(ctx, s.host.Style.Under(dir, rel))
+	})
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return FileMissing, nil
+	case err != nil:
+		return 0, s.folderError(err)
+	case info.Dir():
+		return FileMissing, nil
+	case info.Size() != size:
+		return SizeDiffers, nil
+	}
+	return 0, nil
 }
 
 func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel) (size int64, linked bool, err error) {
