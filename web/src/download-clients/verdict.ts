@@ -1,4 +1,5 @@
 import type { DownloadclientsClientCard as Card } from "../api/gen/model";
+import { bytes } from "../format";
 import { portOf } from "../routes/_app/nodes/-node";
 import type { Signal } from "../ui/signal-chip";
 
@@ -70,6 +71,19 @@ export function verdictWords(verdict: Verdict, node: string): VerdictWords {
     default:
       return verdict satisfies never;
   }
+}
+
+/** What the disk guard says while it holds a Node's new downloads. */
+export function guardWords(card: Card): VerdictWords | undefined {
+  const guard = card.diskGuard;
+  return (
+    guard && {
+      signal: "warn",
+      chip: "Waiting for disk",
+      sentence: `New downloads on ${card.nodeName} wait for disk space.`,
+      hint: `${guard.volume} has ${bytes(guard.free)} left, below its error level of ${bytes(guard.errorBelow)}. Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on.`,
+    }
+  );
 }
 
 /** True for an address such as 0.0.0.0:6881 or [::]:6881, which binds where the computer reaches the internet from. */
