@@ -161,6 +161,23 @@ export const DownloadclientsClientFacts = zod.object({
 export type DownloadclientsClientFacts = zod.input<typeof DownloadclientsClientFacts>;
 export type DownloadclientsClientFactsOutput = zod.output<typeof DownloadclientsClientFacts>;
 
+export const downloadclientsDiskGuardErrorBelowMin = 0;
+
+export const downloadclientsDiskGuardFreeMin = 0;
+
+export const DownloadclientsDiskGuard = zod.object({
+  errorBelow: zod
+    .int()
+    .min(downloadclientsDiskGuardErrorBelowMin)
+    .describe("The volume's error level, in bytes"),
+  free: zod.int().min(downloadclientsDiskGuardFreeMin).describe("Bytes"),
+  sampledAt: zod.iso.datetime({ offset: true }),
+  volume: zod.string().describe("The downloads folder's volume, as the Node names it"),
+});
+
+export type DownloadclientsDiskGuard = zod.input<typeof DownloadclientsDiskGuard>;
+export type DownloadclientsDiskGuardOutput = zod.output<typeof DownloadclientsDiskGuard>;
+
 export const downloadclientsLimitsActiveDownloadsMin = 0;
 
 export const downloadclientsLimitsDownloadLimitMin = 0;
@@ -212,6 +229,9 @@ export const downloadclientsClientCardTorrentsMin = 0;
 export const DownloadclientsClientCard = zod.object({
   client: DownloadclientsClientFacts.exactOptional().describe(
     "The built-in client as it reports itself, absent until it does and while the Node is out of step",
+  ),
+  diskGuard: DownloadclientsDiskGuard.exactOptional().describe(
+    "Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level",
   ),
   inStep: zod.boolean().describe("The Node is in step; while it isn't the card has no client"),
   limits: DownloadclientsLimits,
@@ -1320,7 +1340,12 @@ export const HealthAction = zod.object({
 export type HealthAction = zod.input<typeof HealthAction>;
 export type HealthActionOutput = zod.output<typeof HealthAction>;
 
-export const HealthCategoryID = zod.enum(["storage", "nodes", "scheduled-tasks"]);
+export const HealthCategoryID = zod.enum([
+  "storage",
+  "nodes",
+  "download-clients",
+  "scheduled-tasks",
+]);
 
 export type HealthCategoryID = zod.input<typeof HealthCategoryID>;
 export type HealthCategoryIDOutput = zod.output<typeof HealthCategoryID>;

@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloadclientsapi"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -20,6 +21,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -108,7 +110,7 @@ type world struct {
 
 func serveWorld(t *testing.T) *world {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), downloadclients.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), health.Schema(), roots.Schema(), downloadclients.Schema())
 	side, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Changed: changes{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)

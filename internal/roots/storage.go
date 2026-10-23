@@ -25,11 +25,11 @@ func StorageIntent(c Contents) func(context.Context, storage.Reader[file], role.
 		if err != nil {
 			return nil, err
 		}
-		every, err := q.GetSampleEvery(ctx)
+		every, err := SampleEveryIn(ctx, rd)
 		if err != nil {
 			return nil, err
 		}
-		in := &storagev1.Intent{SampleEverySeconds: int64(SampleEvery.Value(every) / time.Second)}
+		in := &storagev1.Intent{SampleEverySeconds: int64(every / time.Second)}
 		for _, row := range rows {
 			root := &storagev1.Root{Id: row.ID.Bytes(), Path: row.Path, Place: row.Place}
 			if root.Adopt = !row.SeenPlace.Valid || row.SeenPlace.Int64 != row.Place; root.Adopt {

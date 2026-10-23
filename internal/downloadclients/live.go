@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
@@ -95,6 +96,7 @@ func (c *Clients) Run(ctx context.Context) error {
 	tick := time.NewTicker(c.cfg.Live.Sample)
 	defer tick.Stop()
 	roster := c.cfg.Roster.Changed()
+	levels := c.cfg.Hub.Watch(ctx, health.ChangedEvent)
 	c.settleWriteOffs(ctx)
 	for {
 		select {
@@ -103,6 +105,9 @@ func (c *Clients) Run(ctx context.Context) error {
 		case <-roster:
 			roster = c.cfg.Roster.Changed()
 			c.settleWriteOffs(ctx)
+			continue
+		case <-levels:
+			c.levelsChanged(ctx)
 			continue
 		case <-tick.C:
 		}

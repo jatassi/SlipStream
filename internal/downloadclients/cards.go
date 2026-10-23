@@ -31,6 +31,8 @@ type Card struct {
 	// Totals add up the Node's live Torrents', and Torrents counts them.
 	Totals   Totals
 	Torrents int
+	// Guard is set while the disk guard holds the Node's new downloads.
+	Guard *Guard
 }
 
 // ClientFacts is a Node's client as it reports itself.
@@ -76,6 +78,10 @@ func (c *Clients) Cards(ctx context.Context) ([]Card, error) {
 	downloaders := c.cfg.Roster.Serving(role.Downloading)
 	cards := make([]Card, len(downloaders))
 	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		guards, err := guardsIn(ctx, r)
+		if err != nil {
+			return err
+		}
 		for i, node := range downloaders {
 			o, err := nodeOverridesOf(ctx, r, node)
 			if err != nil {
@@ -95,6 +101,9 @@ func (c *Clients) Cards(ctx context.Context) ([]Card, error) {
 			if f, ok := c.cfg.Facts(node); ok {
 				cards[i].Facts = factsFrom(f)
 			}
+			if g, on := guards[node]; on {
+				cards[i].Guard = &g
+			}
 		}
 		return nil
 	})
@@ -102,11 +111,22 @@ func (c *Clients) Cards(ctx context.Context) ([]Card, error) {
 }
 
 // Arrived is nodes.Config.Facts: a Node's Downloading facts change its
-// card.
+// card, and their downloads volume sample may move the disk guard.
 func (c *Clients) Arrived(node role.NodeID, scope string) {
-	if scope == string(role.Downloading) {
-		c.cardsChanged(node)
+	if scope != string(role.Downloading) {
+		return
 	}
+	ctx := context.Background()
+	if f, ok := c.cfg.Facts(node); ok && f.GetDownloads() != nil {
+		err := c.record(ctx, node, f)
+		if err == nil {
+			_, err = c.guard(ctx, []role.NodeID{node})
+		}
+		if err != nil {
+			c.cfg.Log.Error("judge a Node's downloads volume", "node", node.String(), "err", err.Error())
+		}
+	}
+	c.cardsChanged(node)
 }
 
 func (c *Clients) cardsChanged(nodes ...role.NodeID) {

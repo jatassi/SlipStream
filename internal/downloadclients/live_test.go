@@ -116,6 +116,7 @@ func TestLiveSamplesFlowOnlyWhileAnAdminListens(t *testing.T) {
 			Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node },
 			Roster: &roster{}, Log: slog.New(slog.DiscardHandler),
 			Live: dc.LiveConfig{Watched: func() []role.NodeID { return []role.NodeID{a} }, Event: listener, Sample: liveSample},
+			Hub:  levels{},
 		})
 		ctx, stop := context.WithCancel(t.Context())
 		done := make(chan struct{})

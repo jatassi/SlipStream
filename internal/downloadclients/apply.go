@@ -45,7 +45,13 @@ type Config struct {
 	Roster Roster
 	Uses   Uses
 	Live   LiveConfig
-	Log    *slog.Logger
+	// Hub wakes Run when the storage levels the disk guard follows change.
+	Hub Hub
+	Log *slog.Logger
+}
+
+type Hub interface {
+	Watch(ctx context.Context, events ...live.Event) <-chan struct{}
 }
 
 // Roster is the Nodes and the Roles they hold.
@@ -72,6 +78,7 @@ type Clients struct {
 	moved   chan struct{}
 
 	watching watching
+	disk     disk
 }
 
 type pending struct {
@@ -83,6 +90,7 @@ func New(cfg Config) *Clients {
 	return &Clients{
 		cfg: cfg, pending: map[role.NodeID]*pending{}, moved: make(chan struct{}),
 		watching: watching{nodes: map[role.NodeID]*watched{}, moved: map[ID]Sample{}},
+		disk:     disk{guarded: map[role.NodeID]bool{}, recorded: make(chan struct{})},
 	}
 }
 
