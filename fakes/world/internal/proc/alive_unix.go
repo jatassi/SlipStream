@@ -24,6 +24,10 @@ func Watch(pid int) (*Watched, error) { return &Watched{pid}, nil }
 // still exists until its parent reaps it.
 func (w *Watched) Gone() bool { return !Alive(w.pid) }
 
+// Wait returns once the watched process has exited, which may be before
+// its parent reaps it.
+func (w *Watched) Wait() error { return waitExit(w.pid) }
+
 func (w *Watched) Close() {}
 
 // terminated is false: Kill fails on a process that has exited only once

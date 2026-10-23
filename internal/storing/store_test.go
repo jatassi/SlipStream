@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -336,4 +337,90 @@ func mustRel(t *testing.T, s string) Rel {
 		t.Fatal(err)
 	}
 	return r
+}
+
+func TestSampleAnswersAfterAPass(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		id := storage.NewUUID()
+		s := newStore(newTestDisk(t))
+		h := running(t, s, intentOf(rootAt(id, marked(t, id), false)))
+		before := h.next(t)
+
+		res, err := s.Sample(t.Context(), &storagev1.SampleRequest{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		f := h.next(t)
+		checkStates(t, f, map[storage.UUID]RootState{id: Ready})
+		if res.GetPassedAtUnixMs() != f.GetPassedAtUnixMs() || f.GetPassedAtUnixMs() <= before.GetPassedAtUnixMs() {
+			t.Errorf("Sample answered %d, its facts carry %d after %d; want the facts' stamp, later than the last pass's", res.GetPassedAtUnixMs(), f.GetPassedAtUnixMs(), before.GetPassedAtUnixMs())
+		}
+	})
+}
+
+func TestSamplesAskedDuringAPassShareTheNext(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		d := newTestDisk(t)
+		id := storage.NewUUID()
+		folder := marked(t, id)
+		s := newStore(d)
+		h := running(t, s, intentOf(rootAt(id, folder, false)))
+		h.next(t)
+		sample := func() <-chan int64 {
+			answer := make(chan int64, 1)
+			go func() {
+				res, err := s.Sample(t.Context(), &storagev1.SampleRequest{})
+				if err != nil {
+					t.Error(err)
+				}
+				answer <- res.GetPassedAtUnixMs()
+			}()
+			return answer
+		}
+
+		release := d.hang(folder)
+		first := sample()
+		synctest.Wait()
+		a, b := sample(), sample()
+		synctest.Wait()
+		release()
+		was, fa, fb := <-first, <-a, <-b
+		if fa != fb || fa <= was {
+			t.Errorf("two Samples asked during a pass answered %d and %d after %d; want one later pass", fa, fb, was)
+		}
+		if f := h.next(t); f.GetPassedAtUnixMs() != was {
+			t.Errorf("the pass under way carries %d, want %d", f.GetPassedAtUnixMs(), was)
+		}
+		if f := h.next(t); f.GetPassedAtUnixMs() != fa {
+			t.Errorf("the next pass carries %d, want %d", f.GetPassedAtUnixMs(), fa)
+		}
+		synctest.Wait()
+		if len(h.facts) != 0 {
+			t.Error("the queued Samples took a pass each")
+		}
+	})
+}
+
+func TestSampleWithoutStorage(t *testing.T) {
+	refused := func(t *testing.T, s *Store) {
+		t.Helper()
+		_, err := s.Sample(t.Context(), &storagev1.SampleRequest{})
+		if why, ok := rpc.NotSent(err); !ok || why != rpc.NotHolder || rpc.Unheld(err) != role.Storage {
+			t.Errorf("Sample = %v, want a refusal as a Node that doesn't hold Storage", err)
+		}
+	}
+	s := newStore(newTestDisk(t))
+	refused(t, s)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	h := &holder{snaps: make(chan role.Snapshot[*storagev1.Intent], 1), facts: make(chan *storagev1.Facts, 16)}
+	done := make(chan error, 1)
+	go func() { done <- s.Run(ctx, h) }()
+	h.send(role.Snapshot[*storagev1.Intent]{Intent: intentOf(), Standing: role.Live})
+	h.next(t)
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	refused(t, s)
 }

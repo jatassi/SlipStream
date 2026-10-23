@@ -36,7 +36,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	s.mu.Lock()
 	s.started = started
 	s.mu.Unlock()
-	s.follow(ctx, everyTask, nodes.ChangedEvent)
+	s.followRoster(ctx)
 	for _, t := range s.cfg.Catalog {
 		if len(t.Follows) > 0 {
 			s.follow(ctx, t.ID, t.Follows...)
@@ -64,6 +64,25 @@ func (s *Scheduler) follow(ctx context.Context, task TaskID, events ...live.Even
 				return
 			case <-woken:
 				s.changed(ctx, task)
+				s.Wake()
+			}
+		}
+	})
+}
+
+// followRoster tells Admins every task changed and plans again at each
+// change of the roster, since what a view or a plan reads of the Nodes
+// changes only with it.
+func (s *Scheduler) followRoster(ctx context.Context) {
+	changed := s.cfg.Roster.Changed()
+	s.runs.Go(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-changed:
+				changed = s.cfg.Roster.Changed()
+				s.changed(ctx, everyTask)
 				s.Wake()
 			}
 		}

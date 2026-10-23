@@ -54,6 +54,8 @@ func (roster) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
 	return nodes.Node{}, nodes.ErrNotFound
 }
 
+func (roster) Changed() <-chan struct{} { return nil }
+
 func (roster) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
 	return map[role.NodeID]nodes.Named{
 		home:    {ID: home, Name: "home"},
@@ -96,7 +98,7 @@ func onController(key tasks.UnitKey) tasks.Unit {
 func serve(t *testing.T, catalog ...tasks.Task) *ownertest.Owner {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), tasks.Schema())
-	hub := live.NewHub([]live.Event{nodes.ChangedEvent})
+	hub := live.NewHub(nil)
 	t.Cleanup(hub.Close)
 	s, err := tasks.Open(t.Context(), tasks.Config{
 		Library: lib, Catalog: catalog, Roster: roster{}, Zone: time.UTC, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay

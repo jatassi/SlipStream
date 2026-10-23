@@ -1,3 +1,8 @@
+import {
+  getGetHealthSettingsQueryKey,
+  getGetSystemHealthQueryKey,
+  getListHealthVolumesQueryKey,
+} from "../api/gen/query/health/health";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import {
   getGetNodeQueryKey,
@@ -42,6 +47,14 @@ export const systemEffects = {
   "tasks.changed": (_data, { refresh }) => {
     refresh(everyTasksQuery);
   },
+  "health.changed": (data, { refresh }) => {
+    refresh({ queryKey: getGetSystemHealthQueryKey() });
+    refresh({ queryKey: getGetCountsQueryKey() });
+    refresh({ queryKey: getListHealthVolumesQueryKey() });
+    if (data.categories.includes("storage")) {
+      refresh({ queryKey: getGetHealthSettingsQueryKey() });
+    }
+  },
   "tasks.progress": (data, { queryClient }) => {
     queryClient.setQueryData<Awaited<ReturnType<typeof listOpenTaskRuns>>>(
       getListOpenTaskRunsQueryKey(),
@@ -56,5 +69,10 @@ export const systemEffects = {
   },
 } satisfies Pick<
   LiveEffects,
-  "nodes.changed" | "nodes.traffic" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
+  | "nodes.changed"
+  | "nodes.traffic"
+  | "node.settings-changed"
+  | "tasks.changed"
+  | "health.changed"
+  | "tasks.progress"
 >;

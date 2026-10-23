@@ -589,3 +589,39 @@ func TestAOneOfDecodesTheVariantItsDiscriminatorNames(t *testing.T) {
 		t.Errorf("drawShape with a circle's field on a square = %d %s, want 422", w.Code, w.Body)
 	}
 }
+
+type color struct{}
+
+func (color) Values() []string { return []string{"red", "green"} }
+
+type painted struct {
+	Body struct {
+		Color Enum[color] `json:"color"`
+	}
+}
+
+func TestAnEnumIsANamedSchemaOfItsValues(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	Register(r.Owner("paint", Public), Public, Op{ID: "getPaint", Method: http.MethodGet, Path: "/paint", Status: http.StatusOK},
+		func(context.Context, identity.Anyone, *struct{}) (*painted, error) {
+			out := &painted{}
+			out.Body.Color = NewEnum[color]("green")
+			return out, nil
+		})
+	if w := get(t, r.Handler(), "/api/v1/paint"); w.Body.String() != `{"color":"green"}`+"\n" {
+		t.Fatalf("getPaint = %d %s", w.Code, w.Body)
+	}
+	want := `"Color": {
+        "enum": [
+          "red",
+          "green"
+        ],
+        "type": "string"
+      }`
+	if doc := string(r.Document()); !strings.Contains(doc, want) || !strings.Contains(doc, `"$ref": "#/components/schemas/Color"`) {
+		t.Fatalf("document lacks the Color enum:\n%s", doc)
+	}
+	if got := panicOf(func() { NewEnum[color]("blue") }); got != `api: "blue" is not a api.color` {
+		t.Fatalf("panic = %q", got)
+	}
+}

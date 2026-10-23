@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-export type Destination = "Library" | "Activity" | "Nodes" | "Settings" | "Tasks";
+export type Destination = "Library" | "Activity" | "Nodes" | "Health" | "Settings" | "Tasks";
 
 export const isPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 0) < 768;
 

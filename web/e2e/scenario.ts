@@ -3,6 +3,7 @@ export type Scenario =
   | "single-machine"
   | "first-run"
   | "home"
+  | "low-space"
   | "serving"
   | "targets"
   | "cgnat-home";

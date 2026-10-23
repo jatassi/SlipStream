@@ -37,8 +37,9 @@ func quietOrchardReleases() []Release {
 
 func movieLibrary() *Library {
 	return &Library{
-		Roots:    []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
-		Indexers: []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
+		StorageLevels: &LibraryLevels{},
+		Roots:         []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
+		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
 	}
 }
 
@@ -85,7 +86,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (cgnat-home, first-run, home, music, serving, single-machine, sizes, targets)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (cgnat-home, first-run, home, low-space, music, serving, single-machine, sizes, targets)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
@@ -332,6 +333,9 @@ releases:
 tracker:
   interval: 5s
 library:
+  storage_levels:
+    warn_below: 0B
+    error_below: 0B
   roots:
     - content_type: movie
       folder: movies

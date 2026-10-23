@@ -75,8 +75,9 @@ func reap(t *testing.T, cmd *exec.Cmd) {
 	}
 }
 
-// parkUntilReused starts suspended processes until one gets pid. They stay
-// until t ends, so none frees a PID that Windows would reuse before pid.
+// parkUntilReused starts suspended processes until one gets pid. Each is
+// killed at once, freeing its memory, but its handle stays open until t
+// ends, so none frees a PID that Windows would reuse before pid.
 func parkUntilReused(t *testing.T, pid int) {
 	t.Helper()
 	const spawns = 1000
@@ -86,10 +87,8 @@ func parkUntilReused(t *testing.T, pid int) {
 		if err := cmd.Start(); err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() {
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-		})
+		_ = cmd.Process.Kill()
+		t.Cleanup(func() { _ = cmd.Wait() })
 		if cmd.Process.Pid == pid {
 			return
 		}
