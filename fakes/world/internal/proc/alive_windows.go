@@ -45,6 +45,17 @@ func Watch(pid int) (*Watched, error) {
 // Gone reports whether the watched process has exited, as Alive does.
 func (w *Watched) Gone() bool { return w.h == 0 || !running(w.h) }
 
+// Wait returns once the watched process has exited, as Gone reports it.
+func (w *Watched) Wait() error {
+	if w.h == 0 {
+		return nil
+	}
+	if _, err := windows.WaitForSingleObject(w.h, windows.INFINITE); err != nil {
+		return fmt.Errorf("wait for a watched process: %w", err)
+	}
+	return nil
+}
+
 func (w *Watched) Close() {
 	if w.h != 0 {
 		_ = windows.CloseHandle(w.h)

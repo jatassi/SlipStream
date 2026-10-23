@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 
@@ -25,6 +26,10 @@ var (
 	// successor restarts as Windows does, with a new process that holds
 	// this one's stderr, instead of in place.
 	successor string
+	// linger closes stderr on stop and exits a while later, as a Windows
+	// process closes its handles before it counts as exited. Its last act
+	// writes its PID to exited in the data dir.
+	linger string
 )
 
 func main() {
@@ -128,6 +133,11 @@ func run(dir string) {
 	fmt.Fprintln(os.Stderr, `{"msg":"stopped"}`)
 	_ = conn.Close()
 	_ = control.Close()
+	if linger != "" {
+		fail(os.Stderr.Close())
+		time.Sleep(500 * time.Millisecond)
+		fail(os.WriteFile(filepath.Join(dir, "exited"), []byte(strconv.Itoa(os.Getpid())), 0o600))
+	}
 }
 
 // restart runs this executable again on the same arguments: in place, or
