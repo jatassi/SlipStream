@@ -19,6 +19,9 @@ message Intent {
   // hold_downloads is the disk guard holding new downloads.
   bool hold_downloads = 4;
   Thresholds thresholds = 5;
+  // sample_every_seconds is how often the Node samples its downloads
+  // volume: Storage's cadence.
+  int64 sample_every_seconds = 6;
 }
 
 message Torrent {
@@ -77,6 +80,19 @@ message Facts {
   // has no listener. An unspecified listen address binds the address the
   // host's default route leaves from, which can move.
   string bound = 10;
+  // downloads is the downloads folder's volume as last sampled, absent
+  // until the first sample.
+  Volume downloads = 8;
+}
+
+message Volume {
+  // mount is as the Node names it, as Storage names the same volume.
+  string mount = 1;
+  string name = 2;
+  int64 total = 3;
+  // free is what SlipStream may write.
+  int64 free = 4;
+  int64 sampled_at_unix_ms = 5;
 }
 
 // Report is one outbox entry: the torrents whose report changed, a totals
@@ -228,6 +244,15 @@ service DownloadingService {
   // Frees is the bytes deleting each torrent's download copy would free:
   // its files that have no other link.
   rpc Frees(FreesRequest) returns (FreesResponse);
+  // Sample samples the downloads volume now and answers once the Node has
+  // set its facts with the sample.
+  rpc Sample(SampleRequest) returns (SampleResponse);
+}
+
+message SampleRequest {}
+
+message SampleResponse {
+  int64 sampled_at_unix_ms = 1;
 }
 
 message WatchRequest {

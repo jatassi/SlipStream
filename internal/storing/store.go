@@ -525,6 +525,11 @@ func (s *Store) resample(root storage.UUID) {
 	}
 }
 
+// Volume reads the volume that holds path under the stat deadline.
+func (s *Store) Volume(ctx context.Context, path string) (Volume, error) {
+	return timed(ctx, s, path, func(ctx context.Context) (Volume, error) { return s.cfg.Disk.Volume(ctx, path) })
+}
+
 // errUnresponsive is a Disk call that missed the stat deadline. The call
 // goes on in its goroutine until the kernel answers.
 var errUnresponsive = errors.New("the disk did not answer in time")

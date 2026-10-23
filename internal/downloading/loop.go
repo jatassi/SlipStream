@@ -21,6 +21,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
@@ -63,6 +64,29 @@ type loop struct {
 	// limits is what the engine was last configured with, nil before the
 	// first intent.
 	limits *engine.Limits
+	disk   disk
+}
+
+// disk is what the client knows of its downloads folder's volume.
+type disk struct {
+	// volume is the latest sample, nil before the first.
+	volume *storing.Volume
+	// every is the intent's cadence, and tick its ticker's channel.
+	every    time.Duration
+	ticker   *time.Ticker
+	tick     <-chan time.Time
+	sampling bool
+	// full is the latest out-of-space file error, nil before one.
+	full *outOfSpace
+}
+
+// outOfSpace is a download's file error out of space. The downloads it
+// paused may resume once a sample shows more free than the first sample
+// after it.
+type outOfSpace struct {
+	at      time.Time
+	free    int64
+	sampled bool
 }
 
 // listener is what the client knows of its listen port.
@@ -122,6 +146,7 @@ func (c *Client) Loop(ctx context.Context) error {
 	l.listened()
 	defer l.wake.Stop()
 	defer l.watching.timer.Stop()
+	defer l.stopSampling()
 	facts, resume, totals := time.NewTicker(t.Facts), time.NewTicker(t.ResumeSave), time.NewTicker(t.TotalsReport)
 	defer facts.Stop()
 	defer resume.Stop()
@@ -155,6 +180,8 @@ func (c *Client) Loop(ctx context.Context) error {
 			l.sendTotals(time.Now())
 		case <-l.watching.timer.C:
 			l.takeSample()
+		case <-l.disk.tick:
+			l.sampleVolume()
 		case <-l.wake.C:
 		case <-ctx.Done():
 			return nil
@@ -174,7 +201,73 @@ func (l *loop) facts() *dlv1.Facts {
 	if !l.listen.incomingAt.IsZero() {
 		f.IncomingAtUnixMs = l.listen.incomingAt.UnixMilli()
 	}
+	if v := l.disk.volume; v != nil {
+		f.Downloads = &dlv1.Volume{Mount: v.Mount, Name: v.Name, Total: v.Total, Free: v.Free, SampledAtUnixMs: v.SampledAt.UnixMilli()}
+	}
 	return f
+}
+
+func (l *loop) sendFacts() {
+	if f := l.facts(); l.run != nil && !proto.Equal(f, l.sentFacts) {
+		l.run.h.SetFacts(f)
+		l.sentFacts = f
+	}
+}
+
+// cadence samples the downloads volume at once and then every d.
+func (l *loop) cadence(d time.Duration) {
+	if d == l.disk.every {
+		return
+	}
+	l.stopSampling()
+	l.disk.every, l.disk.ticker = d, time.NewTicker(d)
+	l.disk.tick = l.disk.ticker.C
+	l.sampleVolume()
+}
+
+func (l *loop) stopSampling() {
+	if l.disk.ticker != nil {
+		l.disk.ticker.Stop()
+	}
+	l.disk.every, l.disk.ticker, l.disk.tick = 0, nil, nil
+}
+
+// sampleVolume reads the downloads folder's volume off Loop, one read at
+// a time.
+func (l *loop) sampleVolume() {
+	if l.disk.sampling {
+		return
+	}
+	l.disk.sampling = true
+	c := l.c
+	go func() {
+		v, err := c.cfg.Volume(context.Background(), c.cfg.Dir)
+		c.send(func(l *loop) {
+			l.disk.sampling = false
+			if err != nil {
+				c.cfg.Log.Warn("sample the downloads folder's volume", "err", err.Error())
+				return
+			}
+			l.sampled(v)
+		})
+	}()
+}
+
+// sampled keeps v unless an earlier read is late, and sends the facts.
+func (l *loop) sampled(v storing.Volume) {
+	if l.disk.volume != nil && v.SampledAt.Before(l.disk.volume.SampledAt) {
+		return
+	}
+	l.disk.volume = &v
+	if f := l.disk.full; f != nil && !f.sampled && !v.SampledAt.Before(f.at) {
+		f.free, f.sampled = v.Free, true
+	}
+	l.sendFacts()
+}
+
+func (l *loop) diskRecovered() bool {
+	f := l.disk.full
+	return f != nil && f.sampled && l.disk.volume.Free > f.free
 }
 
 // listened reads where the engine listens. A listener that moved, as one
@@ -237,6 +330,7 @@ func (l *loop) detach(run *attached) {
 func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	l.intent = s
 	l.configure()
+	l.cadence(time.Duration(s.Intent.GetSampleEverySeconds()) * time.Second)
 	for _, t := range l.torrents {
 		t.listed = false
 	}
@@ -389,6 +483,7 @@ func (l *loop) decide(now time.Time) {
 		Live:            l.intent.Standing == role.Live,
 		Draining:        l.intent.Draining,
 		HoldDownloads:   l.intent.Intent.GetHoldDownloads(),
+		DiskRecovered:   l.diskRecovered(),
 	}
 	ts := make([]plan.Torrent, 0, len(l.torrents))
 	for _, t := range l.torrents {
@@ -487,6 +582,7 @@ func (l *loop) release() error {
 	clear(l.byHandle)
 	clear(l.rows)
 	l.parted, l.intent = nil, role.Snapshot[*dlv1.Intent]{}
+	l.stopSampling()
 	l.publish()
 	for _, t := range held {
 		if t.handle != 0 && t.Phase != plan.Parting {
@@ -536,10 +632,7 @@ func (l *loop) tick() {
 		l.c.cfg.Log.Warn("read the torrents' status", "err", err.Error())
 	}
 	l.listened()
-	if f := l.facts(); l.run != nil && !proto.Equal(f, l.sentFacts) {
-		l.run.h.SetFacts(f)
-		l.sentFacts = f
-	}
+	l.sendFacts()
 }
 
 // publish stores the finished torrents and the save folders for Path,
@@ -613,6 +706,8 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 	case engine.FileError:
 		if errors.Is(ev.Err, engine.ErrDiskFull) {
 			t.DiskFull = true
+			l.disk.full = &outOfSpace{at: time.Now()}
+			l.sampleVolume()
 		} else {
 			t.fail(ev.Err, time.Now())
 		}
