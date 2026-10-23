@@ -56,6 +56,8 @@ func (alone) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
 	return map[role.NodeID]nodes.Named{home: {ID: home, Name: "home"}}, nil
 }
 
+func (alone) Changed() <-chan struct{} { return nil }
+
 type quiet[T any] struct{}
 
 func (quiet[T]) Publish(context.Context, T) {}

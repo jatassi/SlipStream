@@ -186,6 +186,14 @@ _Avoid_: Root folder, library folder
 The filesystem a library root sits on, as its Node sees it, such as a drive, a partition, a network share or a dataset. Two roots on one volume share its free space.
 _Avoid_: Disk, drive, mount (when the volume is meant)
 
+**Warning level**:
+The free space below which a volume shows a Warning on Health, set as an amount or a percentage of the volume, once globally and optionally per volume.
+_Avoid_: Threshold, low-space limit
+
+**Error level**:
+The free space below which a volume shows an Error on Health, set like the Warning level. A volume below both shows only the Error.
+_Avoid_: Critical threshold, hard limit
+
 **Move**:
 An admin-started job that relocates one Work's files to another library root, or one torrent to another Download Client, then deletes the source. Files that cross Nodes go as Transfers, and the whole Work or torrent switches over at once before the source is deleted.
 _Avoid_: Migration, relocation, sync, transfer (for the whole job), Handover
@@ -213,6 +221,18 @@ _Avoid_: Update window, quiet hours
 **Metadata refresh**:
 The Scheduled task that keeps every Work's record current from its metadata source. Each run refreshes the Works the source reports changed, then every Work its tier makes due: Works with an unreleased Item, Works that can still gain Items, and every other Work, each on its own cadence. Refreshing a Work never searches for it again.
 _Avoid_: Metadata sync, rescan, update metadata
+
+**Health**:
+The list of what is wrong with SlipStream's own machinery right now, by Health category, each Health item at Warning or Error with what to do. Decisions about Works stay in Needs you.
+_Avoid_: Alerts, problems, issues, system status
+
+**Health category**:
+One feature's group of Health items, such as Storage, Nodes or Scheduled tasks, which that feature derives from its own state each time Health asks. A settings section names the categories whose dot it carries.
+_Avoid_: Health check, section
+
+**Health item**:
+One thing wrong in a Health category, keyed by its subject's own id, at Warning when something will go wrong if nobody acts or Error when something is wrong now, with what to do first and since when.
+_Avoid_: Alert, issue, warning (for an item at either level)
 
 ## Acquisition
 

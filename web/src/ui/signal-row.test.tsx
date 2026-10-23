@@ -35,3 +35,24 @@ describe.each(shells)("in the %s shell", (shell) => {
     await expect.element(page.getByText("Attempt 1 on forge")).not.toBeInTheDocument();
   });
 });
+
+test("a word before the time reads with it and stays out of the time's mono", async () => {
+  renderKit(
+    <SignalRow
+      signal="warn"
+      chip="Warning"
+      subject="D:"
+      verdict="Free up space."
+      timeLead="since"
+      time="14:05"
+    >
+      <p>Free 18 GB</p>
+    </SignalRow>,
+  );
+  await expect
+    .element(page.getByRole("button", { name: "Warning D: Free up space. since 14:05" }))
+    .toBeVisible();
+  expect(getComputedStyle(page.getByText("14:05", { exact: true }).element()).fontFamily).toMatch(
+    /Geist Mono/u,
+  );
+});

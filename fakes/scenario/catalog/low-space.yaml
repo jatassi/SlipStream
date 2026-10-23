@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller with a Movies root whose volume is below
+  both Storage levels, so Health holds a Storage error on any host.
+seed: low-space
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 5s
+library:
+  storage_levels: {warn_below: 1024TiB, error_below: 1024TiB}
+  roots: [{content_type: movie, folder: movies}]

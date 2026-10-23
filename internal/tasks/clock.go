@@ -36,7 +36,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	s.mu.Lock()
 	s.started = started
 	s.mu.Unlock()
-	s.follow(ctx, everyTask, nodes.ChangedEvent)
+	s.followRoster(ctx)
 	for _, t := range s.cfg.Catalog {
 		if len(t.Follows) > 0 {
 			s.follow(ctx, t.ID, t.Follows...)
@@ -64,6 +64,25 @@ func (s *Scheduler) follow(ctx context.Context, task TaskID, events ...live.Even
 				return
 			case <-woken:
 				s.changed(ctx, task)
+				s.Wake()
+			}
+		}
+	})
+}
+
+// followRoster tells Admins every task changed and plans again at each
+// change of the roster, since what a view or a plan reads of the Nodes
+// changes only with it.
+func (s *Scheduler) followRoster(ctx context.Context) {
+	changed := s.cfg.Roster.Changed()
+	s.runs.Go(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-changed:
+				changed = s.cfg.Roster.Changed()
+				s.changed(ctx, everyTask)
 				s.Wake()
 			}
 		}
@@ -103,7 +122,13 @@ func (s *Scheduler) tick(ctx context.Context, started time.Time, atStart map[Tas
 	}
 	wake := p.Wake
 	for _, o := range p.Open {
-		if _, err := s.open(ctx, s.byID[o.Task], o.Trigger, storage.UUID{}); err != nil && !errors.Is(err, errNoUnits) {
+		_, err := s.open(ctx, s.byID[o.Task], o.Trigger, storage.UUID{})
+		if errors.Is(err, errNoUnits) && o.Trigger != ByReturn {
+			// A hidden task's passed slot leaves the window free for the
+			// tasks it held back, so the clock plans again now.
+			wake = now
+		}
+		if err != nil && !errors.Is(err, errNoUnits) {
 			s.cfg.Log.Error("open a run", "task", o.Task, "trigger", o.Trigger, "err", err)
 			if wake.IsZero() || now.Add(retry).Before(wake) {
 				wake = now.Add(retry)

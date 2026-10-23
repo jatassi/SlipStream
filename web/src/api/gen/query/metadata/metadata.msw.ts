@@ -12,6 +12,7 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingPortField,
+  SettingSpaceField,
   SettingSwitchField,
   SettingWindowField,
 } from "../../model";
@@ -394,6 +395,46 @@ export const getGetMetadataSettingsResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetMetadataSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getGetMetadataSettingsResponseMock = (
   overrideResponse: Partial<Extract<MetadataSettings, object>> = {},
 ): MetadataSettings => ({
@@ -405,6 +446,7 @@ export const getGetMetadataSettingsResponseMock = (
       { ...getGetMetadataSettingsResponseSettingWindowFieldMock() },
       { ...getGetMetadataSettingsResponseSettingPortFieldMock() },
       { ...getGetMetadataSettingsResponseSettingSwitchFieldMock() },
+      { ...getGetMetadataSettingsResponseSettingSpaceFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -624,6 +666,46 @@ export const getUpdateMetadataSettingsResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateMetadataSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateMetadataSettingsResponseMock = (
   overrideResponse: Partial<Extract<MetadataSettings, object>> = {},
 ): MetadataSettings => ({
@@ -635,6 +717,7 @@ export const getUpdateMetadataSettingsResponseMock = (
       { ...getUpdateMetadataSettingsResponseSettingWindowFieldMock() },
       { ...getUpdateMetadataSettingsResponseSettingPortFieldMock() },
       { ...getUpdateMetadataSettingsResponseSettingSwitchFieldMock() },
+      { ...getUpdateMetadataSettingsResponseSettingSpaceFieldMock() },
     ]),
   ),
   ...overrideResponse,

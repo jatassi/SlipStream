@@ -34,6 +34,9 @@ type Roster interface {
 	Get(ctx context.Context, id role.NodeID) (nodes.Node, error)
 	// Names is every Node's name, removed Nodes included.
 	Names(ctx context.Context) (map[role.NodeID]nodes.Named, error)
+	// Changed is closed at the roster's next change: a Node's standing,
+	// name, Roles or removal.
+	Changed() <-chan struct{}
 }
 
 // Changed tells Admins that a task, its runs or the schedule changed. An

@@ -41,6 +41,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.storing.stat",
 		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max", "timings.metadata.artwork_retry", "timings.metadata.changes_pages",
 		"timings.tmdb.interval", "timings.tmdb.burst", "timings.omdb.interval", "timings.omdb.burst",
+		"timings.health.retry", "timings.health.check",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)

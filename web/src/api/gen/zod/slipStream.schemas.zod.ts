@@ -436,6 +436,252 @@ export const GrabsSearchStarted = zod.object({
 export type GrabsSearchStarted = zod.input<typeof GrabsSearchStarted>;
 export type GrabsSearchStartedOutput = zod.output<typeof GrabsSearchStarted>;
 
+export const HealthAction = zod.object({
+  href: zod.string().exactOptional(),
+  kind: zod
+    .enum(["check", "run", "link"])
+    .describe("check: Check now on the item; run: Run now on taskId; link: a page in the web"),
+  label: zod.string().exactOptional().describe("The link's words"),
+  taskId: zod.string().exactOptional(),
+});
+
+export type HealthAction = zod.input<typeof HealthAction>;
+export type HealthActionOutput = zod.output<typeof HealthAction>;
+
+export const HealthCategoryID = zod.enum(["storage", "nodes", "scheduled-tasks"]);
+
+export type HealthCategoryID = zod.input<typeof HealthCategoryID>;
+export type HealthCategoryIDOutput = zod.output<typeof HealthCategoryID>;
+
+export const HealthFact = zod.object({
+  at: zod.iso.datetime({ offset: true }).exactOptional(),
+  bytes: zod.int().exactOptional(),
+  label: zod.string(),
+  text: zod.string().exactOptional().describe("Exactly one of text, bytes and at is present"),
+});
+
+export type HealthFact = zod.input<typeof HealthFact>;
+export type HealthFactOutput = zod.output<typeof HealthFact>;
+
+export const HealthItem = zod.object({
+  action: zod.union([HealthAction, zod.null()]).describe("Its one action, null when it has none"),
+  changedAt: zod.iso.datetime({ offset: true }).describe("When its level last changed"),
+  detail: zod.array(HealthFact),
+  key: zod.string().describe("Stable within its category and safe as one path segment"),
+  level: zod.enum(["warn", "fail"]),
+  since: zod.iso.datetime({ offset: true }).describe("When it first appeared at any level"),
+  subject: zod.string(),
+  text: zod.string().describe("What to do first"),
+  unsure: zod.boolean().describe("Its owner can't judge it now, so it reads as it last did"),
+});
+
+export type HealthItem = zod.input<typeof HealthItem>;
+export type HealthItemOutput = zod.output<typeof HealthItem>;
+
+export const HealthCategory = zod.object({
+  canCheck: zod.boolean().describe("It has a Check now"),
+  id: HealthCategoryID,
+  items: zod.array(HealthItem).describe("Errors first, then the oldest"),
+  label: zod.string(),
+  level: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe("Its worst item's level, null while it has none"),
+  phrase: zod.string().describe("The label inside a sentence, such as storage"),
+  unread: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "Why its last answer failed; its items then read as they last did. Absent while it answers",
+    ),
+});
+
+export type HealthCategory = zod.input<typeof HealthCategory>;
+export type HealthCategoryOutput = zod.output<typeof HealthCategory>;
+
+export const HealthChanged = zod.object({
+  categories: zod.array(zod.string()),
+});
+
+export type HealthChanged = zod.input<typeof HealthChanged>;
+export type HealthChangedOutput = zod.output<typeof HealthChanged>;
+
+export const HealthPointer = zod.object({
+  category: HealthCategoryID,
+  key: zod.string(),
+  text: zod.string(),
+});
+
+export type HealthPointer = zod.input<typeof HealthPointer>;
+export type HealthPointerOutput = zod.output<typeof HealthPointer>;
+
+export const HealthReport = zod.object({
+  categories: zod.array(HealthCategory).describe("In page order"),
+  first: zod
+    .union([HealthPointer, zod.null()])
+    .describe(
+      "The item the status sentence leads with: the worst, then the oldest, then in page order; null while nothing is wrong",
+    ),
+  level: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe("The worst level over every category, null while nothing is wrong"),
+});
+
+export type HealthReport = zod.input<typeof HealthReport>;
+export type HealthReportOutput = zod.output<typeof HealthReport>;
+
+export const HealthUnreached = zod.object({
+  key: zod.string().exactOptional().describe("The item it was for; absent for a whole category"),
+  words: zod.string().describe("What couldn't be reached, as a sentence"),
+});
+
+export type HealthUnreached = zod.input<typeof HealthUnreached>;
+export type HealthUnreachedOutput = zod.output<typeof HealthUnreached>;
+
+export const HealthChecked = zod.object({
+  report: HealthReport.describe("What is wrong right after the check"),
+  unreached: zod
+    .array(HealthUnreached)
+    .describe("What the check couldn't reach; those items stay as they were"),
+});
+
+export type HealthChecked = zod.input<typeof HealthChecked>;
+export type HealthCheckedOutput = zod.output<typeof HealthChecked>;
+
+export const settingAmountAmountMin = 0;
+
+export const SettingAmount = zod.object({
+  amount: zod.int().min(settingAmountAmountMin),
+  unit: zod.enum(["bytes", "percent"]),
+});
+
+export type SettingAmount = zod.input<typeof SettingAmount>;
+export type SettingAmountOutput = zod.output<typeof SettingAmount>;
+
+export const HealthNotReporting = zod.object({
+  errorBelow: zod
+    .union([SettingAmount, zod.null()])
+    .describe("Its own error level, null while it follows the global one"),
+  mount: zod.string(),
+  nodeId: zod.uuid(),
+  nodeName: zod.string(),
+  warnBelow: zod
+    .union([SettingAmount, zod.null()])
+    .describe("Its own warning level, null while it follows the global one"),
+});
+
+export type HealthNotReporting = zod.input<typeof HealthNotReporting>;
+export type HealthNotReportingOutput = zod.output<typeof HealthNotReporting>;
+
+export const SettingSpaceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingAmount,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["space"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  maxBytes: zod.int().describe("The largest amount in bytes: 1 PB"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingAmount,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingAmount,
+});
+
+export type SettingSpaceField = zod.input<typeof SettingSpaceField>;
+export type SettingSpaceFieldOutput = zod.output<typeof SettingSpaceField>;
+
+export const HealthSettings = zod.object({
+  errorBelow: SettingSpaceField,
+  warnBelow: SettingSpaceField,
+});
+
+export type HealthSettings = zod.input<typeof HealthSettings>;
+export type HealthSettingsOutput = zod.output<typeof HealthSettings>;
+
+export const HealthSettingsInputBody = zod.object({
+  errorBelow: zod
+    .union([SettingAmount, zod.null()])
+    .exactOptional()
+    .describe("null resets it to its default"),
+  warnBelow: zod
+    .union([SettingAmount, zod.null()])
+    .exactOptional()
+    .describe("null resets it to its default"),
+});
+
+export type HealthSettingsInputBody = zod.input<typeof HealthSettingsInputBody>;
+export type HealthSettingsInputBodyOutput = zod.output<typeof HealthSettingsInputBody>;
+
+export const HealthVolume = zod.object({
+  errorBelow: SettingSpaceField.describe(
+    "Its own error level, the default while it follows the global one",
+  ),
+  errorBytes: zod.int().describe("The error level it follows, in bytes"),
+  free: zod.int().describe("The bytes SlipStream may write"),
+  level: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe("Its Storage item's level, null while it has none"),
+  live: zod
+    .boolean()
+    .describe("Its Node is in step, so its figures are current; else they read as of sampledAt"),
+  mount: zod.string().describe("As its Node names it, such as D:\\ or /mnt/media"),
+  name: zod.string().describe("Such as D: (Media)"),
+  nodeId: zod.uuid(),
+  nodeName: zod.string(),
+  sampledAt: zod.iso.datetime({ offset: true }),
+  skipsWarning: zod
+    .boolean()
+    .describe("Its error level is at or above its warning level, so it goes straight to error"),
+  total: zod.int(),
+  warnBelow: SettingSpaceField.describe(
+    "Its own warning level, the default while it follows the global one",
+  ),
+  warnBytes: zod.int().describe("The warning level it follows, in bytes"),
+});
+
+export type HealthVolume = zod.input<typeof HealthVolume>;
+export type HealthVolumeOutput = zod.output<typeof HealthVolume>;
+
+export const HealthVolumeInputBody = zod.object({
+  errorBelow: zod
+    .union([SettingAmount, zod.null()])
+    .exactOptional()
+    .describe("null makes it follow the global level"),
+  mount: zod.string().min(1),
+  nodeId: zod.uuid(),
+  warnBelow: zod
+    .union([SettingAmount, zod.null()])
+    .exactOptional()
+    .describe("null makes it follow the global level"),
+});
+
+export type HealthVolumeInputBody = zod.input<typeof HealthVolumeInputBody>;
+export type HealthVolumeInputBodyOutput = zod.output<typeof HealthVolumeInputBody>;
+
+export const HealthVolumeList = zod.object({
+  notReporting: zod
+    .array(HealthNotReporting)
+    .describe("Volumes with levels of their own that no Node reports now, by Node then mount"),
+  volumes: zod.array(HealthVolume).describe("Every volume a Node reports, by Node then mount"),
+});
+
+export type HealthVolumeList = zod.input<typeof HealthVolumeList>;
+export type HealthVolumeListOutput = zod.output<typeof HealthVolumeList>;
+
 export const identityAccountDisplayNameMax = 100;
 
 export const identityAccountEmailMax = 254;
@@ -1312,6 +1558,7 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingWindowField,
   SettingPortField,
   SettingSwitchField,
+  SettingSpaceField,
 ]);
 
 export type SettingField = zod.input<typeof SettingField>;
@@ -2647,11 +2894,21 @@ export type SetWorkRootInputBody = zod.input<typeof SetWorkRootInputBody>;
 export type SetWorkRootInputBodyOutput = zod.output<typeof SetWorkRootInputBody>;
 
 export const ShellAlerts = zod.object({
+  health: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe("The worst level across every Health category, null while nothing is wrong"),
   nodes: zod
     .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
     .nullable()
     .describe(
       "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+    ),
+  tasks: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "The worst level in the Scheduled tasks Health category, null while nothing is wrong",
     ),
 });
 
@@ -4042,6 +4299,14 @@ export const LiveEventGrabsSearchChanged = zod.object({
 export type LiveEventGrabsSearchChanged = zod.input<typeof LiveEventGrabsSearchChanged>;
 export type LiveEventGrabsSearchChangedOutput = zod.output<typeof LiveEventGrabsSearchChanged>;
 
+export const LiveEventHealthChanged = zod.object({
+  event: zod.enum(["health.changed"]),
+  data: HealthChanged,
+});
+
+export type LiveEventHealthChanged = zod.input<typeof LiveEventHealthChanged>;
+export type LiveEventHealthChangedOutput = zod.output<typeof LiveEventHealthChanged>;
+
 export const LiveEventIdentityAccountsChanged = zod.object({
   event: zod.enum(["identity.accounts-changed"]),
   data: IdentityAccountsChanged,
@@ -4214,6 +4479,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFilesChanged,
   LiveEventGrabsChanged,
   LiveEventGrabsSearchChanged,
+  LiveEventHealthChanged,
   LiveEventIdentityAccountsChanged,
   LiveEventIdentityLinksChanged,
   LiveEventIdentityPasskeysChanged,

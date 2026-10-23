@@ -38,6 +38,7 @@ function Fallback({ nodeId, system }: { nodeId: string; system: SystemReport }) 
   return (
     <div className="mb-3">
       <WarningLine
+        signal="warn"
         chip="Port taken"
         subject={`Port ${configured} was taken, so SlipStream is on ${bound}.`}
         detail={`Another program holds ${configured}. Free it, or choose another port and restart.`}

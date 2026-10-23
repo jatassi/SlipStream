@@ -49,6 +49,8 @@ const (
 	NodeSystemServiceReadLogArchiveProcedure = "/slipstream.system.v1.NodeSystemService/ReadLogArchive"
 	// NodeSystemServiceReachProcedure is the procedure name of the NodeSystemService's Reach RPC.
 	NodeSystemServiceReachProcedure = "/slipstream.system.v1.NodeSystemService/Reach"
+	// NodeSystemServiceProbeProcedure is the procedure name of the NodeSystemService's Probe RPC.
+	NodeSystemServiceProbeProcedure = "/slipstream.system.v1.NodeSystemService/Probe"
 )
 
 var (
@@ -108,6 +110,13 @@ var (
 			Procedure:  NodeSystemServiceReachProcedure,
 		}
 	})
+	nodeSystemServiceProbeSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_system_v1_system_proto.Services().ByName("NodeSystemService").Methods().ByName("Probe"),
+			Procedure:  NodeSystemServiceProbeProcedure,
+		}
+	})
 )
 
 // NodeSystemServiceClient is a client for the slipstream.system.v1.NodeSystemService service.
@@ -131,6 +140,9 @@ type NodeSystemServiceClient interface {
 	// Reach dials host and port from the Node, and with tls finishes a TLS
 	// handshake there. A failed dial is an answer, not an error.
 	Reach(context.Context, *v1.ReachRequest) (*v1.ReachResponse, error)
+	// Probe runs every probe now, reports the verdicts in the Node's facts
+	// and answers them.
+	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 
 // NewNodeSystemServiceClient constructs a client for the slipstream.system.v1.NodeSystemService
@@ -161,6 +173,9 @@ type NodeSystemServiceHandler interface {
 	// Reach dials host and port from the Node, and with tls finishes a TLS
 	// handshake there. A failed dial is an answer, not an error.
 	Reach(context.Context, *v1.ReachRequest) (*v1.ReachResponse, error)
+	// Probe runs every probe now, reports the verdicts in the Node's facts
+	// and answers them.
+	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 
 // RegisterNodeSystemServiceHandler registers svc as the slipstream.system.v1.NodeSystemService
@@ -176,6 +191,7 @@ func RegisterNodeSystemServiceHandler(server *connect.Server, svc NodeSystemServ
 		connect.Method{Spec: nodeSystemServiceOpenLogArchiveSpec(), Handler: adapter.openLogArchive},
 		connect.Method{Spec: nodeSystemServiceReadLogArchiveSpec(), Handler: adapter.readLogArchive},
 		connect.Method{Spec: nodeSystemServiceReachSpec(), Handler: adapter.reach},
+		connect.Method{Spec: nodeSystemServiceProbeSpec(), Handler: adapter.probe},
 	)
 }
 
@@ -212,6 +228,10 @@ func (UnimplementedNodeSystemServiceHandler) ReadLogArchive(context.Context, *v1
 
 func (UnimplementedNodeSystemServiceHandler) Reach(context.Context, *v1.ReachRequest) (*v1.ReachResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.system.v1.NodeSystemService.Reach is not implemented")
+}
+
+func (UnimplementedNodeSystemServiceHandler) Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.system.v1.NodeSystemService.Probe is not implemented")
 }
 
 type nodeSystemServiceClient struct {
@@ -277,6 +297,14 @@ func (c *nodeSystemServiceClient) ReadLogArchive(ctx context.Context, req *v1.Re
 func (c *nodeSystemServiceClient) Reach(ctx context.Context, req *v1.ReachRequest) (*v1.ReachResponse, error) {
 	var res v1.ReachResponse
 	if err := c.client.CallUnary(ctx, nodeSystemServiceReachSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *nodeSystemServiceClient) Probe(ctx context.Context, req *v1.ProbeRequest) (*v1.ProbeResponse, error) {
+	var res v1.ProbeResponse
+	if err := c.client.CallUnary(ctx, nodeSystemServiceProbeSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -374,6 +402,18 @@ func (h nodeSystemServiceHandler) reach(ctx context.Context, _ connect.Spec, str
 		return err
 	}
 	res, err := h.svc.Reach(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h nodeSystemServiceHandler) probe(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ProbeRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Probe(ctx, &req)
 	if err != nil {
 		return err
 	}

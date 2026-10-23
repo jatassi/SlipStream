@@ -8,6 +8,7 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingPortField,
+  SettingSpaceField,
   SettingSwitchField,
   SettingWindowField,
   TasksDetail,
@@ -1266,6 +1267,46 @@ export const getGetTaskResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetTaskResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getGetTaskResponseMock = (
   overrideResponse: Partial<Extract<TasksDetail, object>> = {},
 ): TasksDetail => ({
@@ -1469,6 +1510,7 @@ export const getGetTaskResponseMock = (
       { ...getGetTaskResponseSettingWindowFieldMock() },
       { ...getGetTaskResponseSettingPortFieldMock() },
       { ...getGetTaskResponseSettingSwitchFieldMock() },
+      { ...getGetTaskResponseSettingSpaceFieldMock() },
     ]),
   ),
   units: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({

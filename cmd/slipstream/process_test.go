@@ -589,6 +589,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.tmdb.burst", Value: "20", Default: "20", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_BURST"},
 			{Key: "timings.omdb.interval", Value: "500ms", Default: "500ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_OMDB_INTERVAL"},
 			{Key: "timings.omdb.burst", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_OMDB_BURST"},
+			{Key: "timings.health.retry", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_RETRY"},
+			{Key: "timings.health.check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_CHECK"},
 		},
 		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api"},
 		ContentTypes: []string{"movie"},

@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
@@ -146,6 +147,7 @@ type TimingsBlock struct {
 	Metadata    metadata.Timings    `yaml:"metadata"`
 	TMDB        tmdb.Timings        `yaml:"tmdb"`
 	OMDb        omdb.Timings        `yaml:"omdb"`
+	Health      health.Timings      `yaml:"health"`
 }
 
 type Timings struct {
@@ -212,6 +214,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Metadata:    metadata.DefaultTimings(),
 			TMDB:        tmdb.DefaultTimings(),
 			OMDb:        omdb.DefaultTimings(),
+			Health:      health.DefaultTimings(),
 		},
 	}
 }

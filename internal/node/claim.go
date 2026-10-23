@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
@@ -269,6 +270,14 @@ func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {
 		return nil, false
 	}
 	return h.tasks, true
+}
+
+func (s surfaceNode) Health() (*health.Health, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.health == nil {
+		return nil, false
+	}
+	return h.health, true
 }
 
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {

@@ -14,10 +14,14 @@ import (
 // Library is what the world creates on the Controller once it is set up,
 // through the API as an Admin would.
 type Library struct {
-	Roots    []LibraryRoot    `yaml:"roots,omitempty"`
-	Targets  []LibraryTarget  `yaml:"targets,omitempty"`
-	Profiles []LibraryProfile `yaml:"profiles,omitempty"`
-	Indexers []LibraryIndexer `yaml:"indexers,omitempty"`
+	// StorageLevels are the Health levels the world sets before it makes
+	// the roots. A process world's Nodes report the host's own disk, so a
+	// Scenario whose Storage verdict must not depend on the host sets them.
+	StorageLevels *LibraryLevels   `yaml:"storage_levels,omitempty"`
+	Roots         []LibraryRoot    `yaml:"roots,omitempty"`
+	Targets       []LibraryTarget  `yaml:"targets,omitempty"`
+	Profiles      []LibraryProfile `yaml:"profiles,omitempty"`
+	Indexers      []LibraryIndexer `yaml:"indexers,omitempty"`
 }
 
 // LibraryRoot is a root of a Content Type, the folder named Folder under
@@ -35,6 +39,13 @@ type LibraryRoot struct {
 type LibraryVolume struct {
 	TotalGiB float64 `jsonschema:"required,exclusiveMinimum=0" yaml:"total_gib"`
 	FreeGiB  float64 `jsonschema:"required,minimum=0"          yaml:"free_gib"`
+}
+
+// LibraryLevels are the Storage levels in bytes: 0B never fires, and a
+// level above any disk, such as 1024TiB, always does.
+type LibraryLevels struct {
+	WarnBelow  Bytes `jsonschema:"required" yaml:"warn_below"`
+	ErrorBelow Bytes `jsonschema:"required" yaml:"error_below"`
 }
 
 // LibraryTarget is a Target as an Admin creates it: tiers of quality keys,

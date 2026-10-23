@@ -47,6 +47,8 @@ const (
 	StorageServiceRemoveProcedure = "/slipstream.storage.v1.StorageService/Remove"
 	// StorageServiceListProcedure is the procedure name of the StorageService's List RPC.
 	StorageServiceListProcedure = "/slipstream.storage.v1.StorageService/List"
+	// StorageServiceSampleProcedure is the procedure name of the StorageService's Sample RPC.
+	StorageServiceSampleProcedure = "/slipstream.storage.v1.StorageService/Sample"
 )
 
 var (
@@ -113,6 +115,13 @@ var (
 			Procedure:  StorageServiceListProcedure,
 		}
 	})
+	storageServiceSampleSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Sample"),
+			Procedure:  StorageServiceSampleProcedure,
+		}
+	})
 )
 
 // StorageServiceClient is a client for the slipstream.storage.v1.StorageService service.
@@ -136,6 +145,9 @@ type StorageServiceClient interface {
 	Remove(context.Context, *v1.RemoveRequest) (*v1.RemoveResponse, error)
 	// List names the files in a root's holding or staging folder.
 	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)
+	// Sample judges every root and samples its volume now, sets the facts,
+	// and answers their pass time.
+	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
 }
 
 // NewStorageServiceClient constructs a client for the slipstream.storage.v1.StorageService service.
@@ -165,6 +177,9 @@ type StorageServiceHandler interface {
 	Remove(context.Context, *v1.RemoveRequest) (*v1.RemoveResponse, error)
 	// List names the files in a root's holding or staging folder.
 	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)
+	// Sample judges every root and samples its volume now, sets the facts,
+	// and answers their pass time.
+	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
 }
 
 // RegisterStorageServiceHandler registers svc as the slipstream.storage.v1.StorageService
@@ -181,6 +196,7 @@ func RegisterStorageServiceHandler(server *connect.Server, svc StorageServiceHan
 		connect.Method{Spec: storageServiceMoveSpec(), Handler: adapter.move},
 		connect.Method{Spec: storageServiceRemoveSpec(), Handler: adapter.remove},
 		connect.Method{Spec: storageServiceListSpec(), Handler: adapter.list},
+		connect.Method{Spec: storageServiceSampleSpec(), Handler: adapter.sample},
 	)
 }
 
@@ -221,6 +237,10 @@ func (UnimplementedStorageServiceHandler) Remove(context.Context, *v1.RemoveRequ
 
 func (UnimplementedStorageServiceHandler) List(context.Context, *v1.ListRequest) (*v1.ListResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.List is not implemented")
+}
+
+func (UnimplementedStorageServiceHandler) Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Sample is not implemented")
 }
 
 type storageServiceClient struct {
@@ -294,6 +314,14 @@ func (c *storageServiceClient) Remove(ctx context.Context, req *v1.RemoveRequest
 func (c *storageServiceClient) List(ctx context.Context, req *v1.ListRequest) (*v1.ListResponse, error) {
 	var res v1.ListResponse
 	if err := c.client.CallUnary(ctx, storageServiceListSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *storageServiceClient) Sample(ctx context.Context, req *v1.SampleRequest) (*v1.SampleResponse, error) {
+	var res v1.SampleResponse
+	if err := c.client.CallUnary(ctx, storageServiceSampleSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -403,6 +431,18 @@ func (h storageServiceHandler) list(ctx context.Context, _ connect.Spec, stream 
 		return err
 	}
 	res, err := h.svc.List(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h storageServiceHandler) sample(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SampleRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Sample(ctx, &req)
 	if err != nil {
 		return err
 	}

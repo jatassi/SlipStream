@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
@@ -62,6 +63,8 @@ func (worker) Files() (*files.Files, bool) { return nil, false }
 func (worker) Grabs() (*grabs.Grabs, bool) { return nil, false }
 
 func (worker) Tasks() (*tasks.Scheduler, bool) { return nil, false }
+
+func (worker) Health() (*health.Health, bool) { return nil, false }
 
 func (worker) Worker() (servingapi.Facts, bool) {
 	return servingapi.Facts{Name: "seedbox", Fingerprint: "AAAA-BBBB-CCCC-DDDD", Controller: "home"}, true

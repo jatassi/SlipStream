@@ -176,6 +176,10 @@ func TestFieldReportsIsDefault(t *testing.T) {
 			`{"key":"log.compress","label":"Compress rotated files","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true}`,
 		},
 		{
+			"a space following another setting, overridden", warnBelow.Field(&setting.Amount{N: 10, Unit: setting.PercentUnit}),
+			`{"key":"health.storageWarnBelow","label":"Warn when free space is below","defaultFrom":"Storage levels","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"space","value":{"amount":10,"unit":"percent"},"running":{"amount":10,"unit":"percent"},"default":{"amount":107374182400,"unit":"bytes"},"maxBytes":1125899906842624}`,
+		},
+		{
 			"a window", window.Field(&setting.Span{Start: 60, End: 180}, "Europe/London"),
 			`{"key":"tasks.window","label":"Maintenance window","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"window","value":{"start":"01:00","end":"03:00"},"running":{"start":"01:00","end":"03:00"},"default":{"start":"04:00","end":"06:00"},"zone":"Europe/London"}`,
 		},
@@ -232,12 +236,16 @@ func TestCheckRefusesADefaultOutsideItsRange(t *testing.T) {
 		{"count", setting.Count{Key: "c", Default: 0, Min: 1, Max: 3}.Check(), "setting c: default 0 is outside 1 to 3"},
 		{"choice", setting.Choice[overdue]{Key: "o", Default: "later", Options: rule.Options}.Check(), `setting o: default "later" is not an option`},
 		{"window", setting.Window{Key: "w", Default: setting.Span{Start: 60, End: 60}}.Check(), "setting w: default {Start:60 End:60} is not a non-empty daily span"},
+		{"space", setting.Space{Key: "s", Default: setting.Amount{N: 101, Unit: setting.PercentUnit}}.Check(), "setting s: default {N:101 Unit:percent} is not a space: s: Between 0 and 100%."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.err == nil || tc.err.Error() != tc.want {
 				t.Fatalf("Check = %v, want %s", tc.err, tc.want)
 			}
 		})
+	}
+	if err := warnBelow.Check(); err != nil {
+		t.Fatalf("a sound space: %v", err)
 	}
 	if err := lifetime.Check(); err != nil {
 		t.Fatalf("a sound declaration: %v", err)
@@ -283,6 +291,84 @@ func TestParseJSONReadsEachKindsWireValue(t *testing.T) {
 			}
 			if err != nil || got != tc.want {
 				t.Fatalf("ParseJSON(%s) = %q, %v, want %q", tc.raw, got, err, tc.want)
+			}
+		})
+	}
+}
+
+var warnBelow = setting.Space{
+	Key: "health.storageWarnBelow", Label: "Warn when free space is below",
+	Default: setting.Amount{N: 100 * setting.GB, Unit: setting.BytesUnit}, DefaultFrom: "Storage levels",
+}
+
+func TestSpaceParse(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		amount  *setting.Amount
+		refusal string
+	}{
+		{"null resets", nil, ""},
+		{"no bytes", &setting.Amount{N: 0, Unit: setting.BytesUnit}, ""},
+		{"1 PB", &setting.Amount{N: 1024 * setting.TB, Unit: setting.BytesUnit}, ""},
+		{"a byte over 1 PB", &setting.Amount{N: 1024*setting.TB + 1, Unit: setting.BytesUnit}, "Between 0 GB and 1024 TB."},
+		{"negative bytes", &setting.Amount{N: -1, Unit: setting.BytesUnit}, "Between 0 GB and 1024 TB."},
+		{"no percent", &setting.Amount{N: 0, Unit: setting.PercentUnit}, ""},
+		{"all of it", &setting.Amount{N: 100, Unit: setting.PercentUnit}, ""},
+		{"over 100%", &setting.Amount{N: 101, Unit: setting.PercentUnit}, "Between 0 and 100%."},
+		{"negative percent", &setting.Amount{N: -1, Unit: setting.PercentUnit}, "Between 0 and 100%."},
+		{"no unit", &setting.Amount{N: 5}, "Choose bytes or percent."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := warnBelow.Parse(tc.amount)
+			if tc.refusal != "" {
+				if s := sentence(err); s != tc.refusal {
+					t.Fatalf("refusal = %q, want %q", s, tc.refusal)
+				}
+				return
+			}
+			if o := got.Override(); err != nil || (o == nil) != (tc.amount == nil) || (o != nil && *o != *tc.amount) {
+				t.Fatalf("Parse = %v, %v; want %v", o, err, tc.amount)
+			}
+		})
+	}
+	if got := warnBelow.Value(nil); got != warnBelow.Default {
+		t.Fatalf("Value(nil) = %+v, want the default", got)
+	}
+}
+
+func TestAmountWords(t *testing.T) {
+	for _, tc := range []struct {
+		amount setting.Amount
+		want   string
+	}{
+		{setting.Amount{N: 0, Unit: setting.BytesUnit}, "0 GB"},
+		{setting.Amount{N: 100 * setting.GB, Unit: setting.BytesUnit}, "100 GB"},
+		{setting.Amount{N: setting.GB / 2, Unit: setting.BytesUnit}, "0.5 GB"},
+		{setting.Amount{N: 1023 * setting.GB, Unit: setting.BytesUnit}, "1023 GB"},
+		{setting.Amount{N: 1536 * setting.GB, Unit: setting.BytesUnit}, "1.5 TB"},
+		{setting.Amount{N: 2 * setting.TB, Unit: setting.BytesUnit}, "2 TB"},
+		{setting.Amount{N: 10, Unit: setting.PercentUnit}, "10%"},
+	} {
+		if got := tc.amount.Words(); got != tc.want {
+			t.Errorf("Words(%+v) = %q, want %q", tc.amount, got, tc.want)
+		}
+	}
+}
+
+func TestAmountBytes(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		amount setting.Amount
+		total  int64
+		want   int64
+	}{
+		{"bytes ignore the total", setting.Amount{N: 20 * setting.GB, Unit: setting.BytesUnit}, setting.TB, 20 * setting.GB},
+		{"a percent of the volume", setting.Amount{N: 10, Unit: setting.PercentUnit}, 1000 * setting.GB, 100 * setting.GB},
+		{"a percent of no total", setting.Amount{N: 10, Unit: setting.PercentUnit}, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.amount.Bytes(tc.total); got != tc.want {
+				t.Fatalf("Bytes(%d) = %d, want %d", tc.total, got, tc.want)
 			}
 		})
 	}

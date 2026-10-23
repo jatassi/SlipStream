@@ -1,6 +1,7 @@
 import type { LiveEventFilesChanged } from "./liveEventFilesChanged.ts";
 import type { LiveEventGrabsChanged } from "./liveEventGrabsChanged.ts";
 import type { LiveEventGrabsSearchChanged } from "./liveEventGrabsSearchChanged.ts";
+import type { LiveEventHealthChanged } from "./liveEventHealthChanged.ts";
 import type { LiveEventIdentityAccountsChanged } from "./liveEventIdentityAccountsChanged.ts";
 import type { LiveEventIdentityLinksChanged } from "./liveEventIdentityLinksChanged.ts";
 import type { LiveEventIdentityPasskeysChanged } from "./liveEventIdentityPasskeysChanged.ts";
@@ -26,6 +27,7 @@ export type LiveEvent =
   | LiveEventFilesChanged
   | LiveEventGrabsChanged
   | LiveEventGrabsSearchChanged
+  | LiveEventHealthChanged
   | LiveEventIdentityAccountsChanged
   | LiveEventIdentityLinksChanged
   | LiveEventIdentityPasskeysChanged

@@ -431,6 +431,33 @@ func TestASweepWaitsForTheRootsNode(t *testing.T) {
 	}
 }
 
+func TestASweepRetriesAFileItCouldNotRemove(t *testing.T) {
+	l := open(t)
+	orphan := files.HoldingOf(storage.NewUUID(), ".mkv")
+	l.put(t, orphan, "a failed Grab's download")
+	disk := &unremoving{Disk: l.held, refusals: 2}
+	l.runUntil(t, l.on(files.NoGrabs{}, disk), "the orphan is swept", func() bool { return len(l.onDisk(t)) == 0 })
+}
+
+// unremoving refuses its first removals as a file another program holds
+// open on Windows.
+type unremoving struct {
+	files.Disk
+	mu       sync.Mutex
+	refusals int
+}
+
+func (d *unremoving) Remove(ctx context.Context, root roots.ID, rel storing.Rel) error {
+	d.mu.Lock()
+	refuse := d.refusals > 0
+	d.refusals--
+	d.mu.Unlock()
+	if refuse {
+		return fs.ErrPermission
+	}
+	return d.Disk.Remove(ctx, root, rel)
+}
+
 // unanswering refuses its first lists as a Node that doesn't hold the
 // root yet.
 type unanswering struct {

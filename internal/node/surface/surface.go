@@ -11,6 +11,8 @@ import (
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabsapi"
+	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/healthapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -61,6 +63,7 @@ var Events = []live.Event{
 	grabs.SearchChangedEvent,
 	tasks.ChangedEvent,
 	tasks.ProgressEvent,
+	health.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -84,6 +87,7 @@ type Node interface {
 	Removal() (pairing.Removal, bool)
 	tasksapi.Clock
 	servingapi.Worker
+	healthapi.Watch
 }
 
 // Services are what the operations run against. Document passes none.
@@ -112,6 +116,7 @@ func Mount(r *api.Router, s Services) {
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)
 	servingapi.Routes(r, s.Node)
+	healthapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

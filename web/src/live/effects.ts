@@ -64,10 +64,6 @@ export const effects = {
     refresh({ queryKey: getListVolumesQueryKey() });
     refresh({ queryKey: getGetTopologyQueryKey() });
   },
-  "volumes.changed": (_data, { refresh }) => {
-    refresh({ queryKey: getListVolumesQueryKey() });
-    refresh({ queryKey: getGetTopologyQueryKey() });
-  },
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });
   },

@@ -122,12 +122,14 @@ test("deleting a type's last root leaves its Works waiting without a root", asyn
   expect(sent.deleted).toEqual([{ rootId: filmsRoot.id, worksTo: null }]);
 });
 
-test("Check storage every sits under Details and saves seconds", async () => {
+test("Check storage every sits under Details beside the levels and saves seconds", async () => {
   const { sent } = serveRoots();
   openRoots();
   await expect
     .element(
-      page.getByText("Storage Nodes check each volume every 5 min, and again after each import."),
+      page.getByText(
+        "A volume shows a warning below 100 GB free and an error below 20 GB. Storage Nodes check each volume every 5 min, and again after each import.",
+      ),
     )
     .toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Details" }));
@@ -137,7 +139,9 @@ test("Check storage every sits under Details and saves seconds", async () => {
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect
     .element(
-      page.getByText("Storage Nodes check each volume every 15 min, and again after each import."),
+      page.getByText(
+        "A volume shows a warning below 100 GB free and an error below 20 GB. Storage Nodes check each volume every 15 min, and again after each import.",
+      ),
     )
     .toBeVisible();
   expect(sent.sampleEvery).toEqual([900]);

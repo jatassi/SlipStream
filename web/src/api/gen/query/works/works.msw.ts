@@ -8,6 +8,7 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingPortField,
+  SettingSpaceField,
   SettingSwitchField,
   SettingWindowField,
   WorksAdded,
@@ -697,6 +698,46 @@ export const getGetContentTypeSettingsResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetContentTypeSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getGetContentTypeSettingsResponseMock = (
   overrideResponse: Partial<Extract<WorksTypeSettings, object>> = {},
 ): WorksTypeSettings => ({
@@ -708,6 +749,7 @@ export const getGetContentTypeSettingsResponseMock = (
       { ...getGetContentTypeSettingsResponseSettingWindowFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingPortFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingSwitchFieldMock() },
+      { ...getGetContentTypeSettingsResponseSettingSpaceFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -927,6 +969,46 @@ export const getUpdateContentTypeSettingsResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateContentTypeSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateContentTypeSettingsResponseMock = (
   overrideResponse: Partial<Extract<WorksTypeSettings, object>> = {},
 ): WorksTypeSettings => ({
@@ -938,6 +1020,7 @@ export const getUpdateContentTypeSettingsResponseMock = (
       { ...getUpdateContentTypeSettingsResponseSettingWindowFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingPortFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingSwitchFieldMock() },
+      { ...getUpdateContentTypeSettingsResponseSettingSpaceFieldMock() },
     ]),
   ),
   ...overrideResponse,

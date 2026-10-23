@@ -32,3 +32,21 @@ describe.each(shells)("in the $shell shell", ({ shell, gap, title }) => {
     expect(getComputedStyle(moving.getByRole("heading").element()).fontSize).toBe(title);
   });
 });
+
+test("a section's heading can carry a chip, with an action beside the heading", async () => {
+  renderKit(
+    <Section
+      title="Storage"
+      chip={<span>Error</span>}
+      count={2}
+      action={<button>Check now</button>}
+    >
+      <p>Two volumes</p>
+    </Section>,
+  );
+  const storage = page.getByRole("region", { name: "Storage" });
+  await expect
+    .element(storage.getByRole("heading", { level: 2 }))
+    .toHaveTextContent("StorageError2");
+  await expect.element(storage.getByRole("button", { name: "Check now" })).toBeVisible();
+});
