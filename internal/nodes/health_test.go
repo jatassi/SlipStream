@@ -76,6 +76,10 @@ func TestTheNodesItemsFollowTheBoardAndTheProbes(t *testing.T) {
 			items: map[health.Key]health.Level{key(box.String(), "engine-starts"): health.Fail},
 		},
 		{
+			name:  "an engine that can't listen, which Download Clients reports",
+			board: cluster().at(start), probes: with(everyFit(), box, role.ProbeResult{Probe: role.EngineStarts, Fit: role.Fails, Reason: role.EngineNotListening, At: start}),
+		},
+		{
 			name:  "a weak probe for a Role the Node holds",
 			board: cluster().at(start), probes: with(everyFit(), box, weak),
 			items: map[health.Key]health.Level{key(box.String(), "engine-starts"): health.Warn},
