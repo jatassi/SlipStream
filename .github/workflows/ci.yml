@@ -190,8 +190,8 @@ jobs:
           go build -o dist/ ./cmd/fakeworld ./cmd/release
         env:
           TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-          SLIPSTREAM_TMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.SLIPSTREAM_TMDB_KEY || '' }}
-          SLIPSTREAM_OMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.SLIPSTREAM_OMDB_KEY || '' }}
+          SLIPSTREAM_TMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TMDB_API_KEY || '' }}
+          SLIPSTREAM_OMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.OMDB_API_KEY || '' }}
       # The build test checks that the binary embeds web/dist/index.html.
       - name: Upload dist/ for the test jobs
         uses: actions/upload-artifact@v7
