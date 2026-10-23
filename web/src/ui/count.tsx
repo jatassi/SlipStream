@@ -28,11 +28,12 @@ export function Count({ value, dot }: { value: number; dot?: CountDot }) {
   );
 }
 
-export function AlertDot({ tone }: { tone: AlertTone }) {
+/** A warning or error dot; `words` replaces its spoken word, such as "1 error". */
+export function AlertDot({ tone, words }: { tone: AlertTone; words?: string }) {
   return (
     <span className="inline-flex items-center">
       {dots[tone].dot}
-      <span className="sr-only"> {dots[tone].word}</span>
+      <span className="sr-only"> {words ?? dots[tone].word}</span>
     </span>
   );
 }

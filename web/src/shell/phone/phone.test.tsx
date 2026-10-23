@@ -36,6 +36,7 @@ const listed = (count: number): WorksListedWork[] =>
 const moreButtons = [
   "Films",
   "Nodes",
+  "Health",
   "Accounts",
   "Settings",
   "Tasks",

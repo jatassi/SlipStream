@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -65,7 +66,7 @@ func rawErr(t *testing.T, path, request string) (string, error) {
 	if _, err := io.WriteString(conn, request); err != nil {
 		return "", fmt.Errorf("write request: %w", err)
 	}
-	if err := conn.CloseWrite(); err != nil {
+	if err := conn.CloseWrite(); err != nil && !errors.Is(err, syscall.ENOTCONN) {
 		return "", fmt.Errorf("close the write side: %w", err)
 	}
 	out, err := io.ReadAll(conn)

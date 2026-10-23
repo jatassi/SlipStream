@@ -78,6 +78,7 @@ test("the keys open, go up onto the folder left, use the folder and close", asyn
 
 test("Esc clears the field first, then closes the browser", async () => {
   await browse({ startPath: "/srv/media" });
+  await expect.element(field()).toHaveFocus();
   await userEvent.keyboard("an");
   await expect.element(field()).toHaveValue("an");
   await userEvent.keyboard("{Escape}");
@@ -100,6 +101,7 @@ test("End and Home carry the active row through 5,000 folders", async () => {
 
 test("a name filters the folder, names starting with it first", async () => {
   await browse({ startPath: "/srv/media" });
+  await expect.element(field()).toHaveFocus();
   await userEvent.keyboard("m");
   await expect
     .poll(() =>
@@ -115,6 +117,7 @@ test("a name filters the folder, names starting with it first", async () => {
 
 test("a typed Unix path lists the Node's suggestions without touching the text, and Tab opens one", async () => {
   await browse({ startPath: "/srv" });
+  await expect.element(field()).toHaveFocus();
   await userEvent.keyboard("/srv/me");
   await expect.element(option("/srv/media")).toBeVisible();
   await expect.element(field()).toHaveValue("/srv/me");
@@ -132,6 +135,7 @@ test("a typed Windows path keeps its separators, and Enter goes to the folder th
       ),
     )
     .toBeVisible();
+  await expect.element(field()).toHaveFocus();
   await userEvent.keyboard("D:\\Me");
   await expect.element(option("D:\\Media")).toBeVisible();
   await userEvent.clear(field());

@@ -91,11 +91,41 @@ func stateOf(writtenOff, inStep bool, reported storing.RootState) State {
 type report struct {
 	state  storing.RootState
 	volume string
+	// detail is the OS error text behind state.
+	detail string
 }
 
 type placed struct {
 	report
 	place int64
+}
+
+// judged is a root's State and the OS error text its Node gave for it.
+type judged struct {
+	state  State
+	detail string
+}
+
+// judge is each of roots' State, reading each Node's facts once.
+func (r *Roots) judge(roots []Root, lost map[ID]bool) ([]judged, error) {
+	facts := map[role.NodeID]map[ID]placed{}
+	out := make([]judged, len(roots))
+	for i, root := range roots {
+		of, ok := facts[root.Node]
+		if !ok {
+			var err error
+			if of, err = r.reportedOn(root.Node); err != nil {
+				return nil, err
+			}
+			facts[root.Node] = of
+		}
+		var rep report
+		if p, ok := of[root.ID]; ok && p.place == root.Place {
+			rep = p.report
+		}
+		out[i] = judged{stateOf(lost[root.ID], r.cfg.Roster.InStep(root.Node), rep.state), rep.detail}
+	}
+	return out, nil
 }
 
 func (r *Roots) reportedOn(node role.NodeID) (map[ID]placed, error) {
@@ -117,7 +147,7 @@ func reportsOf(node role.NodeID, f *storagev1.Facts) (map[ID]placed, error) {
 		if err != nil {
 			return nil, fmt.Errorf("node %s's Storage facts: root %s: %w", node, id, err)
 		}
-		out[ID{UUID: id}] = placed{report{state, rf.GetVolumeId()}, rf.GetPlace()}
+		out[ID{UUID: id}] = placed{report{state, rf.GetVolumeId(), rf.GetDetail()}, rf.GetPlace()}
 	}
 	return out, nil
 }
@@ -208,6 +238,7 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 	if err != nil {
 		return err
 	}
+	r.recorded(node, time.UnixMilli(f.GetPassedAtUnixMs()))
 	if adopted {
 		r.cfg.Storage.Touch(node)
 	}
@@ -257,4 +288,41 @@ func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]p
 		adopted = adopted || fresh
 	}
 	return adopted, nil
+}
+
+func (r *Roots) recorded(node role.NodeID, passed time.Time) {
+	r.passed.Lock()
+	defer r.passed.Unlock()
+	if !passed.After(r.passed.at[node]) {
+		return
+	}
+	r.passed.at[node] = passed
+	close(r.passed.ch)
+	r.passed.ch = make(chan struct{})
+}
+
+// Sample has node's Storage judge every root and sample its volumes now,
+// and returns once the recorder has written that pass's facts or a later
+// one's. A Node out of step is ErrNodeAway.
+func (r *Roots) Sample(ctx context.Context, node role.NodeID) error {
+	if !r.cfg.Roster.InStep(node) {
+		return ErrNodeAway
+	}
+	at, err := r.cfg.Remote.Sample(ctx, node)
+	if err := reached(err); err != nil {
+		return err
+	}
+	for {
+		r.passed.Lock()
+		passed, ch := r.passed.at[node], r.passed.ch
+		r.passed.Unlock()
+		if !passed.Before(at) {
+			return nil
+		}
+		select {
+		case <-ch:
+		case <-ctx.Done():
+			return fmt.Errorf("await node %s's sample: %w", node, ctx.Err())
+		}
+	}
 }

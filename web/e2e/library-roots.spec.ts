@@ -113,10 +113,16 @@ async function browseToFilms(page: Page, movies: Movies): Promise<void> {
 }
 
 async function expectOneVolume(page: Page, world: World, paths: readonly string[]): Promise<void> {
-  const [volume] = Volumes.parse((await world.api("GET", "/api/v1/volumes")).body).nodes.flatMap(
-    (group) => group.volumes,
-  );
-  expect(volume?.rootIds, "both roots sit on one volume, counted once").toHaveLength(paths.length);
+  const firstVolume = async () =>
+    Volumes.parse((await world.api("GET", "/api/v1/volumes")).body).nodes.flatMap(
+      (group) => group.volumes,
+    )[0];
+  await expect
+    .poll(async () => (await firstVolume())?.rootIds, {
+      message: "both roots sit on one volume, counted once",
+    })
+    .toHaveLength(paths.length);
+  const volume = await firstVolume();
   const onHome = page.getByRole("list", { name: "Volumes on home" }).getByRole("listitem");
   await expect(onHome).toHaveCount(1);
   await expect(onHome).toContainText(/free of/u);

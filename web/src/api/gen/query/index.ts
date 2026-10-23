@@ -1,6 +1,7 @@
 export * from "./downloadclients/downloadclients.ts";
 export * from "./files/files.ts";
 export * from "./grabs/grabs.ts";
+export * from "./health/health.ts";
 export * from "./identity/identity.ts";
 export * from "./indexers/indexers.ts";
 export * from "./mail/mail.ts";

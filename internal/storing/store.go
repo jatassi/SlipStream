@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -44,8 +46,13 @@ type Store struct {
 	cfg  Config
 	host Host
 	poke chan struct{}
+	// asks is each Sample's reply channel, which Run answers with the
+	// stamp of a pass it began after the ask.
+	asks chan chan<- int64
 
 	mu sync.Mutex
+	// stopped is closed while Run isn't running.
+	stopped chan struct{}
 	// roots are the latest intent's, in its order.
 	roots    []intentRoot
 	draining bool
@@ -67,10 +74,14 @@ type intentRoot struct {
 }
 
 func NewStore(cfg Config) *Store {
+	stopped := make(chan struct{})
+	close(stopped)
 	return &Store{
 		cfg:       cfg,
 		host:      cfg.Disk.Host(),
 		poke:      make(chan struct{}, 1),
+		asks:      make(chan chan<- int64),
+		stopped:   stopped,
 		sampled:   map[storage.UUID]Volume{},
 		stuck:     map[string]int{},
 		resampled: map[string]time.Time{},
@@ -78,14 +89,21 @@ func NewStore(cfg Config) *Store {
 }
 
 // Run is the Role's run function. On each snapshot, each tick of the
-// intent's interval and each poke it judges every root and samples its
-// volume, then sets the facts.
+// intent's interval, each poke and each Sample it judges every root and
+// samples its volume, then sets the facts. The Samples that queue during
+// a pass share the next one.
 func (s *Store) Run(ctx context.Context, h Holder) error {
+	stopped := make(chan struct{})
+	s.mu.Lock()
+	s.stopped = stopped
+	s.mu.Unlock()
+	defer close(stopped)
 	snapshots := latest(h.Intent(ctx))
 	var (
 		every  time.Duration
 		ticker *time.Ticker
 		tick   <-chan time.Time
+		passed int64
 	)
 	defer func() {
 		if ticker != nil {
@@ -93,6 +111,7 @@ func (s *Store) Run(ctx context.Context, h Holder) error {
 		}
 	}()
 	for {
+		var asks []chan<- int64
 		select {
 		case snap := <-snapshots:
 			if err := s.keep(snap); err != nil {
@@ -111,10 +130,60 @@ func (s *Store) Run(ctx context.Context, h Holder) error {
 			}
 		case <-s.poke:
 		case <-tick:
+		case ask := <-s.asks:
+			asks = append(s.queued(), ask)
 		case <-ctx.Done():
 			return nil
 		}
-		h.SetFacts(s.pass(ctx))
+		passed = s.passAfter(ctx, h, passed, asks)
+	}
+}
+
+// passAfter passes under a stamp above last, sets the facts and answers
+// asks with the stamp. Stamps rise strictly, so a Sample's answer names
+// one pass even when two begin in one millisecond.
+func (s *Store) passAfter(ctx context.Context, h Holder, last int64, asks []chan<- int64) int64 {
+	passed := max(time.Now().UnixMilli(), last+1)
+	facts := s.pass(ctx)
+	facts.PassedAtUnixMs = passed
+	h.SetFacts(facts)
+	for _, ask := range asks {
+		ask <- passed
+	}
+	return passed
+}
+
+func (s *Store) queued() []chan<- int64 {
+	var asks []chan<- int64
+	for {
+		select {
+		case ask := <-s.asks:
+			asks = append(asks, ask)
+		default:
+			return asks
+		}
+	}
+}
+
+// Sample has Run pass now and answers the pass's stamp. While Run isn't
+// running it refuses as a Node that doesn't hold Storage.
+func (s *Store) Sample(ctx context.Context, _ *storagev1.SampleRequest) (*storagev1.SampleResponse, error) {
+	s.mu.Lock()
+	stopped := s.stopped
+	s.mu.Unlock()
+	reply := make(chan int64, 1)
+	select {
+	case s.asks <- reply:
+	case <-stopped:
+		return nil, rpc.ErrorWith(rpc.CodeFailedPrecondition, &nodev1.NotHolder{Role: string(role.Storage)}, "this Node does not hold the storage Role")
+	case <-ctx.Done():
+		return nil, fmt.Errorf("ask for a sample: %w", ctx.Err())
+	}
+	select {
+	case passed := <-reply:
+		return &storagev1.SampleResponse{PassedAtUnixMs: passed}, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("await a sample: %w", ctx.Err())
 	}
 }
 

@@ -2,6 +2,7 @@ package roots_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sync"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
@@ -68,6 +70,16 @@ type volumeChanges chan roots.VolumesChanged
 
 func (c volumeChanges) Publish(_ context.Context, ev roots.VolumesChanged) { c <- ev }
 
+// sampling answers every Sample with passed.
+type sampling struct {
+	storagev1connect.StorageServiceHandler
+	passed time.Time
+}
+
+func (s sampling) Sample(context.Context, *storagev1.SampleRequest) (*storagev1.SampleResponse, error) {
+	return &storagev1.SampleResponse{PassedAtUnixMs: s.passed.UnixMilli()}, nil
+}
+
 type storageRig struct {
 	lib          *storage.DB[storage.Library]
 	svc          *roots.Roots
@@ -77,18 +89,27 @@ type storageRig struct {
 	arrived      *roots.Arrivals
 	node         role.NodeID
 	root         roots.Root
+	passed       time.Time
 }
 
 func rig(t *testing.T, offline bool) *storageRig {
 	t.Helper()
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
-	r := &storageRig{lib: lib, storage: &control{facts: map[role.NodeID]*storagev1.Facts{}}, changed: make(changes, 8), volumeEvents: make(volumeChanges, 8), node: role.NodeID{UUID: storage.NewUUID()}}
+	r := &storageRig{lib: lib, storage: &control{facts: map[role.NodeID]*storagev1.Facts{}}, changed: make(changes, 8), volumeEvents: make(volumeChanges, 8), node: role.NodeID{UUID: storage.NewUUID()}, passed: time.Now()}
 	cfg := rootstest.Config(t, lib, alpha)
+	reach := cfg.Remote
+	cfg.Remote = func(node role.NodeID) storagev1connect.StorageServiceHandler { return sampling{reach(node), r.passed} }
 	var away role.NodeID
 	if offline {
 		away = r.node
 	}
 	cfg.Roster = roster{away: away}
+	cfg.Names = func(context.Context) (map[role.NodeID]nodes.Named, error) {
+		return map[role.NodeID]nodes.Named{r.node: {ID: r.node, Name: "Media server"}}, nil
+	}
+	cfg.Describe = func(works.TypeID) (works.Description, bool) {
+		return works.Description{Work: works.Noun{One: "Alpha", Many: "Alphas"}}, true
+	}
 	cfg.Storage = r.storage
 	cfg.Changed = r.changed
 	cfg.Volumes = r.volumeEvents
@@ -229,5 +250,37 @@ func TestStorageOwnsANodesRootsForever(t *testing.T) {
 	}
 	if owner.Role != role.Storage || held.Units != 1 || held.Noun.One != "root" || !held.Endless {
 		t.Fatalf("Storage's owner = %v holding %+v, want Storage holding 1 root endlessly", owner.Role, held)
+	}
+}
+
+func TestSampleWaitsForTheRecording(t *testing.T) {
+	r := rig(t, false)
+	r.run(t)
+	stale := r.report(storagev1.RootState_ROOT_STATE_READY, r.root.Place)
+	stale.PassedAtUnixMs = r.passed.UnixMilli() - 1
+	r.arrive(t, stale)
+
+	done := make(chan error, 1)
+	go func() { done <- r.svc.Sample(t.Context(), r.node) }()
+	select {
+	case err := <-done:
+		t.Fatalf("Sample = %v before the recorder wrote the pass it asked for", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	fresh := r.report(storagev1.RootState_ROOT_STATE_UNWRITABLE, r.root.Place)
+	fresh.PassedAtUnixMs = r.passed.UnixMilli()
+	r.arrive(t, fresh)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if v := r.view(t); v.State != roots.Unwritable {
+		t.Errorf("after Sample the root reads %q, want the sampled unwritable", v.State)
+	}
+}
+
+func TestSampleOnAnOfflineNode(t *testing.T) {
+	r := rig(t, true)
+	if err := r.svc.Sample(t.Context(), r.node); !errors.Is(err, roots.ErrNodeAway) {
+		t.Fatalf("Sample on an offline Node = %v, want ErrNodeAway", err)
 	}
 }

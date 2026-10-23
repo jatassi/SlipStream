@@ -7,7 +7,10 @@ package setting
 import (
 	"fmt"
 	"net/netip"
+
+	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -544,4 +547,103 @@ func (f Folder) Field(override *string, node string) FolderField {
 		NodeID:  node,
 		Purpose: string(f.Purpose),
 	}
+}
+
+// Unit is what an Amount counts.
+type Unit string
+
+const (
+	BytesUnit   Unit = "bytes"
+	PercentUnit Unit = "percent"
+)
+
+// GB and TB are the 1024-based units the web's byte words use, so a level
+// and the Storage bar read the same.
+const (
+	GB int64 = 1 << 30
+	TB int64 = 1 << 40
+)
+
+const maxSpace = 1024 * TB
+
+// Amount is free space as bytes, or as a whole percent of a volume.
+type Amount struct {
+	N    int64 `json:"amount" minimum:"0"`
+	Unit Unit  `json:"unit" enum:"bytes,percent"`
+}
+
+// Bytes is the amount on a volume of total bytes. A percent of a volume
+// with no total is 0, so it never judges a broken figure.
+func (a Amount) Bytes(total int64) int64 {
+	if a.Unit == PercentUnit {
+		return total * a.N / 100
+	}
+	return a.N
+}
+
+// Words writes a in its largest unit: "100 GB", "1.5 TB", "10%".
+func (a Amount) Words() string {
+	if a.Unit == PercentUnit {
+		return fmt.Sprintf("%d%%", a.N)
+	}
+	return byteWords(a.N)
+}
+
+func byteWords(n int64) string {
+	unit, name := GB, "GB"
+	if n >= TB {
+		unit, name = TB, "TB"
+	}
+	return strconv.FormatFloat(math.Round(float64(n)/float64(unit)*10)/10, 'f', -1, 64) + " " + name
+}
+
+// Space is free space set as an amount or a percentage. DefaultFrom names
+// where the default comes from when it is another setting's value.
+type Space struct {
+	Key, Label  string
+	Default     Amount
+	DefaultFrom string
+}
+
+func (s Space) Value(override *Amount) Amount {
+	if override == nil {
+		return s.Default
+	}
+	return *override
+}
+
+// Parse accepts bytes 0 to 1 PB or a whole percent 0 to 100; nil resets.
+func (s Space) Parse(v *Amount) (Stored[Amount], error) {
+	if v == nil {
+		return Stored[Amount]{}, nil
+	}
+	switch {
+	case v.Unit != BytesUnit && v.Unit != PercentUnit:
+		return Stored[Amount]{}, refuse(s.Key, "Choose bytes or percent.")
+	case v.Unit == BytesUnit && (v.N < 0 || v.N > maxSpace):
+		return Stored[Amount]{}, refuse(s.Key, "Between 0 GB and %s.", byteWords(maxSpace))
+	case v.Unit == PercentUnit && (v.N < 0 || v.N > 100):
+		return Stored[Amount]{}, refuse(s.Key, "Between 0 and 100%%.")
+	}
+	return override(*v), nil
+}
+
+func (s Space) Field(override *Amount) SpaceField {
+	f := SpaceField{
+		About:    about(s.Key, s.Label, override == nil),
+		Kind:     "space",
+		Value:    s.Value(override),
+		Running:  s.Value(override),
+		Default:  s.Default,
+		MaxBytes: maxSpace,
+	}
+	f.DefaultFrom = s.DefaultFrom
+	return f
+}
+
+func (s Space) Check() error {
+	if _, err := s.Parse(&s.Default); err != nil {
+		return fmt.Errorf("setting %s: default %+v is not a space: %w", s.Key, s.Default, err)
+	}
+	return nil
 }

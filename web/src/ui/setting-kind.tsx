@@ -4,12 +4,14 @@ import type { ReactNode } from "react";
 
 import type {
   SettingAddressField,
+  SettingAmount,
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
   SettingPortField,
   SettingRateField,
+  SettingSpaceField,
   SettingSwitchField,
   SettingTimes,
   SettingWindowField,
@@ -26,6 +28,7 @@ export type Fields = {
   rate: SettingRateField;
   address: SettingAddressField;
   folder: SettingFolderField;
+  space: SettingSpaceField;
 };
 
 export type Values = {
@@ -38,6 +41,7 @@ export type Values = {
   rate: number;
   address: string;
   folder: string;
+  space: SettingAmount;
 };
 
 export type SettingKind = keyof Fields;

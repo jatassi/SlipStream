@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
@@ -70,6 +71,7 @@ type half struct {
 	grabs    *grabs.Grabs
 	clients  *downloadclients.Clients
 	tasks    *tasks.Scheduler
+	health   *health.Health
 	// transfers receives files on the Controller, and source serves them
 	// on a Worker.
 	transfers *transfers.Receiver
@@ -153,6 +155,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
+		Probe:   func(ctx context.Context, id role.NodeID) ([]role.ProbeResult, error) { return systems.Probe(ctx, id) },
 		Always:  n.env.Test.Always,
 		Timings: n.cfg.Timings.Nodes,
 		Stall:   n.cfg.Timings.Role.Stall,
@@ -231,6 +234,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Inflight: grabs.RootGrabs{},
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
+		Names:    side.Names,
+		Describe: tree.Describe,
 		Log:      n.rootLog.With("subsystem", "roots"),
 	})
 	if err != nil {
@@ -292,7 +297,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	n.setHalf(&half{
+	h := &half{
 		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
 		targets:   goals,
 		roots:     library,
@@ -301,13 +306,18 @@ func (n *Node) startController(ctx context.Context) error {
 		clients:   clients,
 		tasks:     scheduler,
 		transfers: receiver,
-	})
+	}
+	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
+		return err
+	}
+	n.setHalf(h)
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("roots", library.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
+	n.claimed.Go("health", h.health.Run)
 	n.env.Test.started(started)
 	return nil
 }

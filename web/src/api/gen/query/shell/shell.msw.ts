@@ -10,7 +10,15 @@ export const getGetCountsResponseMock = (
 ): ShellCounts => ({
   activity: faker.number.int({ min: 0 }),
   alerts: {
+    health: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["warn", "fail"] as const),
+      null,
+    ]),
     nodes: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["warn", "fail"] as const),
+      null,
+    ]),
+    tasks: faker.helpers.arrayElement([
       faker.helpers.arrayElement(["warn", "fail"] as const),
       null,
     ]),

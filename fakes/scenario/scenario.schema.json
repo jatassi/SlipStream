@@ -406,6 +406,20 @@
           },
           "additionalProperties": false,
           "type": "object"
+        },
+        "health": {
+          "properties": {
+            "retry": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "check": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -701,6 +715,24 @@
     },
     "library": {
       "properties": {
+        "storage_levels": {
+          "properties": {
+            "warn_below": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+            },
+            "error_below": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "warn_below",
+            "error_below"
+          ]
+        },
         "roots": {
           "items": {
             "properties": {

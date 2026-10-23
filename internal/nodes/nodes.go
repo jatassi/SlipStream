@@ -110,6 +110,9 @@ type Config struct {
 	Applied func(node ID, scope string)
 	// Reach runs a reach test from node to t.
 	Reach func(ctx context.Context, node ID, t nodesystem.Target) (nodesystem.Reached, error)
+	// Probe has node run every probe now, answering the verdicts it
+	// reported in its facts.
+	Probe func(ctx context.Context, node ID) ([]role.ProbeResult, error)
 	// Always is Roles every Node holds beyond its nodes_role rows: only a
 	// test's, as the simulation tier runs roletest's Probe.
 	Always  []role.Name
@@ -529,7 +532,7 @@ func (s *Service) changed(node ID) {
 	revision := facts.GetSettingsRevision()
 	s.mu.Lock()
 	if ok {
-		s.probes[node] = role.ProbesOf(facts)
+		s.probes[node] = role.ProbesOf(facts.GetProbes())
 	}
 	ch := s.wake[node]
 	delete(s.wake, node)
@@ -553,6 +556,38 @@ func (s *Service) probesOf(node ID) []role.ProbeResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.probes[node]
+}
+
+// Probe has node run every probe now, and returns once the verdicts it
+// reported are kept.
+func (s *Service) Probe(ctx context.Context, node ID) error {
+	answer, err := s.cfg.Probe(ctx, node)
+	if err != nil {
+		return err
+	}
+	for {
+		woken := s.awaitChange(node)
+		if probedSince(s.probesOf(node), answer) {
+			return nil
+		}
+		select {
+		case <-woken:
+		case <-ctx.Done():
+			return fmt.Errorf("await the probes of node %s: %w", node, ctx.Err())
+		}
+	}
+}
+
+// probedSince reports whether kept holds a verdict of each probe in
+// answer, from its run or a later one.
+func probedSince(kept, answer []role.ProbeResult) bool {
+	for _, a := range answer {
+		i := slices.IndexFunc(kept, func(k role.ProbeResult) bool { return k.Probe == a.Probe })
+		if i < 0 || kept[i].At.Before(a.At) {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) recordAddresses(ctx context.Context, node ID, addrs []netip.AddrPort) error {

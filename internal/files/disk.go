@@ -254,7 +254,8 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 // between two steps, leaves. It lists the folders, on each root's Node,
 // before reading the library, so a file placed meanwhile belongs to a
 // Grab or file the read sees. It answers the roots left to sweep: those
-// whose Node didn't answer, and the lost ones, which it doesn't ask.
+// whose Node didn't answer or didn't remove a file, and the lost ones,
+// which it doesn't ask.
 func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []roots.ID) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -276,6 +277,7 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []r
 		return asked, lost
 	}
 	for root, paths := range found {
+		removed := true
 		for _, p := range paths {
 			stem, _, _ := strings.Cut(path.Base(p), ".")
 			id, err := storage.ParseUUID(stem)
@@ -284,7 +286,11 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []r
 			}
 			if err := f.removeAt(ctx, root, p); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				f.logSweep(ctx, err)
+				removed = false
 			}
+		}
+		if !removed {
+			unanswered = append(unanswered, root)
 		}
 	}
 	return unanswered, lost

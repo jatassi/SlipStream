@@ -7,7 +7,7 @@ import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
 import { type Acting, ActingDialogs } from "./acting-dialogs";
 import { RootsGroup, groupsOf } from "./roots-group";
-import { SampleEvery } from "./sample-every";
+import { StorageSettings } from "../health/storage-settings";
 import { StorageBlock } from "./storage-block";
 
 export function LibraryRootsSection() {
@@ -44,7 +44,7 @@ export function LibraryRootsSection() {
         />
       ))}
       <StorageBlock volumes={volumes} roots={roots} nodes={nodes} />
-      <SampleEvery />
+      <StorageSettings toLibraryRoots={false} />
       <ActingDialogs
         acting={acting}
         roots={roots}

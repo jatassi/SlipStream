@@ -2,7 +2,7 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import type { ShellAlertsNodes } from "../api/gen/model";
+import type { ShellAlerts, ShellAlertsNodes } from "../api/gen/model";
 import { liveServer } from "../test/live-server";
 import { seedboxId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
@@ -60,4 +60,40 @@ test("on the rail the Nodes icon carries the alert's dot and its name says it", 
   const nodes = mainNav().getByRole("link", { name: "Nodes, failed" });
   await expect.element(nodes).toBeVisible();
   expect(dotColor(nodes.element())).not.toBe("rgba(0, 0, 0, 0)");
+});
+
+test("the Health row sits between Nodes and Accounts, and its dot and the Tasks row's follow health.changed", async () => {
+  const server = liveServer();
+  let alerts: ShellAlerts = { nodes: null, health: null, tasks: null };
+  renderApp({
+    path: "/library",
+    handlers: [
+      ...server.handlers,
+      http.get("*/api/v1/counts", () =>
+        HttpResponse.json({
+          activity: 0,
+          downloads: { done: 0, wanted: 0, allPaused: false },
+          alerts,
+        }),
+      ),
+    ],
+  });
+  const health = mainNav().getByRole("link", { name: /^Health/u });
+  const tasks = mainNav().getByRole("link", { name: /^Tasks/u });
+  await expect.element(health).toHaveAccessibleName("Health");
+  const system = mainNav()
+    .getByRole("link")
+    .all()
+    .map((link) => link.element().textContent);
+  expect(system.slice(system.indexOf("Nodes"), system.indexOf("Accounts") + 1)).toEqual([
+    "Nodes",
+    "Health",
+    "Accounts",
+  ]);
+
+  alerts = { nodes: null, health: "fail", tasks: "warn" };
+  server.clients[0]?.send({ event: "health.changed", data: { categories: ["scheduled-tasks"] } });
+  await expect.element(health).toHaveTextContent("Health failed");
+  await expect.element(tasks).toHaveTextContent("Tasks needs attention");
+  expect(dotColor(health.element())).not.toBe(dotColor(tasks.element()));
 });

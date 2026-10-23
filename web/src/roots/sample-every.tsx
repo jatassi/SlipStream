@@ -1,26 +1,15 @@
-import { useRouter } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { updateRootSettings, useGetRootSettingsSuspense } from "../api/gen/query/roots/roots";
-import { durationWords } from "../format";
-import { Details } from "../ui/details";
-import { SettingField, SettingGroup } from "../ui/setting-field";
+import { adoptRootSettings } from "../live/adopt";
+import { SettingField } from "../ui/setting-field";
 
+/** "Check storage every": one stored value that Library roots and Health both edit. */
 export function SampleEvery() {
   const { sampleEvery } = useGetRootSettingsSuspense().data;
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const save = async (value: number | null) => {
-    await updateRootSettings({ sampleEvery: value });
-    await router.invalidate();
+    adoptRootSettings(queryClient, await updateRootSettings({ sampleEvery: value }));
   };
-  return (
-    <Details
-      summary={`Storage Nodes check each volume every ${durationWords(sampleEvery.value)}, and again after each import.`}
-    >
-      <div className="mt-2 w-full max-w-[560px]">
-        <SettingGroup>
-          <SettingField field={sampleEvery} onSave={save} />
-        </SettingGroup>
-      </div>
-    </Details>
-  );
+  return <SettingField field={sampleEvery} onSave={save} />;
 }

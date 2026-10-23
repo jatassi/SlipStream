@@ -44,6 +44,8 @@ type host struct {
 	archiveDir string
 	reached    nodesystem.Reached
 	reaches    []nodesystem.Target
+	probes     []role.ProbeResult
+	probed     int
 }
 
 type readAnswer struct {
@@ -106,6 +108,13 @@ func (h *host) Reach(_ context.Context, t nodesystem.Target) nodesystem.Reached 
 	defer h.mu.Unlock()
 	h.reaches = append(h.reaches, t)
 	return h.reached
+}
+
+func (h *host) Probe() ([]role.ProbeResult, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.probed++
+	return h.probes, nil
 }
 
 // pair is a Controller reaching a Worker that serves h over linktest.
@@ -397,6 +406,39 @@ func TestTheControllerRunsAReachTestFromAWorker(t *testing.T) {
 		}
 		if _, err := p.nodes.Reach(t.Context(), role.NodeID{UUID: storage.NewUUID()}, target); !errors.Is(err, nodesystem.ErrNotFound) {
 			t.Fatalf("Reach on a Node the roster lacks = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestTheControllerReprobesAWorker(t *testing.T) {
+	at := time.UnixMilli(1_800_000_000_123)
+	h := &host{probes: []role.ProbeResult{
+		{Probe: role.EngineStarts, Fit: role.Weak, Reason: role.DownloadsOnNetworkShare, At: at},
+		{Probe: role.DataWritable, Fit: role.Fits, At: at},
+	}}
+	synctest.Test(t, func(t *testing.T) {
+		p := newPair(t, h, "")
+		p.Connect(t)
+
+		got, err := p.nodes.Probe(t.Context(), p.worker)
+		if err != nil || !reflect.DeepEqual(got, h.probes) {
+			t.Fatalf("Probe = %+v, %v; want %+v", got, err, h.probes)
+		}
+		if h.probed != 1 {
+			t.Fatalf("the Worker ran its probes %d times, want once", h.probed)
+		}
+	})
+}
+
+func TestAnOfflineWorkerIsNotReprobed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := &host{}
+		p := newPair(t, h, "")
+		if _, err := p.nodes.Probe(t.Context(), p.worker); !errors.Is(err, nodesystem.ErrOffline) {
+			t.Fatalf("Probe with no session = %v, want %v", err, nodesystem.ErrOffline)
+		}
+		if h.probed != 0 {
+			t.Fatalf("the Worker ran its probes %d times, want never", h.probed)
 		}
 	})
 }

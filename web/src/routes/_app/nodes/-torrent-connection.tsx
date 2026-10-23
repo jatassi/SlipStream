@@ -16,6 +16,7 @@ function PendingRestart({ node }: { node: NodesNode }) {
   }
   return (
     <WarningLine
+      signal="warn"
       chip="Restart needed"
       subject={`Restart ${node.name} to use the new ${pending.map((field) => field.label.toLowerCase()).join(" and ")}`}
       detail={pending

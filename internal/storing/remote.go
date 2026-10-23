@@ -182,6 +182,16 @@ func (r Remote) List(ctx context.Context, at At, folder HeldFolder) ([]string, e
 	return res.GetNames(), nil
 }
 
+// Sample has node judge every root and sample its volume now, and answers
+// when that pass began on node's clock, as its facts name it.
+func (r Remote) Sample(ctx context.Context, node role.NodeID) (time.Time, error) {
+	res, err := r(node).Sample(ctx, &storagev1.SampleRequest{})
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.UnixMilli(res.GetPassedAtUnixMs()), nil
+}
+
 // answer is a call's error as the domain reads it: the *FolderError or
 // *NotReady its detail carries, else the call's own.
 func answer(err error) error {

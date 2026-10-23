@@ -12,7 +12,7 @@
 package systemv1
 
 import (
-	_ "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
+	v1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1436,11 +1436,91 @@ func (x *ReachResponse) GetError() string {
 	return ""
 }
 
+type ProbeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeRequest) Reset() {
+	*x = ProbeRequest{}
+	mi := &file_slipstream_system_v1_system_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeRequest) ProtoMessage() {}
+
+func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_system_v1_system_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeRequest.ProtoReflect.Descriptor instead.
+func (*ProbeRequest) Descriptor() ([]byte, []int) {
+	return file_slipstream_system_v1_system_proto_rawDescGZIP(), []int{23}
+}
+
+type ProbeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Probes        []*v1.ProbeFact        `protobuf:"bytes,1,rep,name=probes,proto3" json:"probes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeResponse) Reset() {
+	*x = ProbeResponse{}
+	mi := &file_slipstream_system_v1_system_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeResponse) ProtoMessage() {}
+
+func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_system_v1_system_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeResponse.ProtoReflect.Descriptor instead.
+func (*ProbeResponse) Descriptor() ([]byte, []int) {
+	return file_slipstream_system_v1_system_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ProbeResponse) GetProbes() []*v1.ProbeFact {
+	if x != nil {
+		return x.Probes
+	}
+	return nil
+}
+
 var File_slipstream_system_v1_system_proto protoreflect.FileDescriptor
 
 const file_slipstream_system_v1_system_proto_rawDesc = "" +
 	"\n" +
-	"!slipstream/system/v1/system.proto\x12\x14slipstream.system.v1\x1a slipstream/node/v1/options.proto\"\x11\n" +
+	"!slipstream/system/v1/system.proto\x12\x14slipstream.system.v1\x1a slipstream/node/v1/options.proto\x1a\x1eslipstream/node/v1/scope.proto\"\x11\n" +
 	"\x0fGetFactsRequest\"\xd7\x02\n" +
 	"\x10GetFactsResponse\x121\n" +
 	"\x05build\x18\x01 \x01(\v2\x1b.slipstream.system.v1.BuildR\x05build\x12\x19\n" +
@@ -1531,7 +1611,10 @@ const file_slipstream_system_v1_system_proto_rawDesc = "" +
 	"\rReachResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x16\n" +
 	"\x06millis\x18\x02 \x01(\x03R\x06millis\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error2\x91\x06\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\x0e\n" +
+	"\fProbeRequest\"F\n" +
+	"\rProbeResponse\x125\n" +
+	"\x06probes\x18\x01 \x03(\v2\x1d.slipstream.node.v1.ProbeFactR\x06probes2\xe3\x06\n" +
 	"\x11NodeSystemService\x12Y\n" +
 	"\bGetFacts\x12%.slipstream.system.v1.GetFactsRequest\x1a&.slipstream.system.v1.GetFactsResponse\x12\\\n" +
 	"\tGetConfig\x12&.slipstream.system.v1.GetConfigRequest\x1a'.slipstream.system.v1.GetConfigResponse\x12\\\n" +
@@ -1540,7 +1623,8 @@ const file_slipstream_system_v1_system_proto_rawDesc = "" +
 	"\bReadLogs\x12%.slipstream.system.v1.ReadLogsRequest\x1a&.slipstream.system.v1.ReadLogsResponse\x12k\n" +
 	"\x0eOpenLogArchive\x12+.slipstream.system.v1.OpenLogArchiveRequest\x1a,.slipstream.system.v1.OpenLogArchiveResponse\x12k\n" +
 	"\x0eReadLogArchive\x12+.slipstream.system.v1.ReadLogArchiveRequest\x1a,.slipstream.system.v1.ReadLogArchiveResponse\x12P\n" +
-	"\x05Reach\x12\".slipstream.system.v1.ReachRequest\x1a#.slipstream.system.v1.ReachResponse\x1a\x06\xc2\xf3\x18\x02\x10\x01B\xe2\x01\n" +
+	"\x05Reach\x12\".slipstream.system.v1.ReachRequest\x1a#.slipstream.system.v1.ReachResponse\x12P\n" +
+	"\x05Probe\x12\".slipstream.system.v1.ProbeRequest\x1a#.slipstream.system.v1.ProbeResponse\x1a\x06\xc2\xf3\x18\x02\x10\x01B\xe2\x01\n" +
 	"\x18com.slipstream.system.v1B\vSystemProtoP\x01ZGgithub.com/jatassi/slipstream/internal/pb/slipstream/system/v1;systemv1\xa2\x02\x03SSX\xaa\x02\x14Slipstream.System.V1\xca\x02\x14Slipstream\\System\\V1\xe2\x02 Slipstream\\System\\V1\\GPBMetadata\xea\x02\x16Slipstream::System::V1b\x06proto3"
 
 var (
@@ -1555,7 +1639,7 @@ func file_slipstream_system_v1_system_proto_rawDescGZIP() []byte {
 	return file_slipstream_system_v1_system_proto_rawDescData
 }
 
-var file_slipstream_system_v1_system_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_slipstream_system_v1_system_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_slipstream_system_v1_system_proto_goTypes = []any{
 	(*GetFactsRequest)(nil),        // 0: slipstream.system.v1.GetFactsRequest
 	(*GetFactsResponse)(nil),       // 1: slipstream.system.v1.GetFactsResponse
@@ -1580,6 +1664,9 @@ var file_slipstream_system_v1_system_proto_goTypes = []any{
 	(*ReadLogArchiveResponse)(nil), // 20: slipstream.system.v1.ReadLogArchiveResponse
 	(*ReachRequest)(nil),           // 21: slipstream.system.v1.ReachRequest
 	(*ReachResponse)(nil),          // 22: slipstream.system.v1.ReachResponse
+	(*ProbeRequest)(nil),           // 23: slipstream.system.v1.ProbeRequest
+	(*ProbeResponse)(nil),          // 24: slipstream.system.v1.ProbeResponse
+	(*v1.ProbeFact)(nil),           // 25: slipstream.node.v1.ProbeFact
 }
 var file_slipstream_system_v1_system_proto_depIdxs = []int32{
 	2,  // 0: slipstream.system.v1.GetFactsResponse.build:type_name -> slipstream.system.v1.Build
@@ -1590,27 +1677,30 @@ var file_slipstream_system_v1_system_proto_depIdxs = []int32{
 	10, // 5: slipstream.system.v1.SetConfigResponse.refused:type_name -> slipstream.system.v1.Refusal
 	15, // 6: slipstream.system.v1.ReadLogsResponse.reset:type_name -> slipstream.system.v1.LogReset
 	16, // 7: slipstream.system.v1.ReadLogsResponse.records:type_name -> slipstream.system.v1.LogRecord
-	0,  // 8: slipstream.system.v1.NodeSystemService.GetFacts:input_type -> slipstream.system.v1.GetFactsRequest
-	3,  // 9: slipstream.system.v1.NodeSystemService.GetConfig:input_type -> slipstream.system.v1.GetConfigRequest
-	7,  // 10: slipstream.system.v1.NodeSystemService.SetConfig:input_type -> slipstream.system.v1.SetConfigRequest
-	11, // 11: slipstream.system.v1.NodeSystemService.Restart:input_type -> slipstream.system.v1.RestartRequest
-	13, // 12: slipstream.system.v1.NodeSystemService.ReadLogs:input_type -> slipstream.system.v1.ReadLogsRequest
-	17, // 13: slipstream.system.v1.NodeSystemService.OpenLogArchive:input_type -> slipstream.system.v1.OpenLogArchiveRequest
-	19, // 14: slipstream.system.v1.NodeSystemService.ReadLogArchive:input_type -> slipstream.system.v1.ReadLogArchiveRequest
-	21, // 15: slipstream.system.v1.NodeSystemService.Reach:input_type -> slipstream.system.v1.ReachRequest
-	1,  // 16: slipstream.system.v1.NodeSystemService.GetFacts:output_type -> slipstream.system.v1.GetFactsResponse
-	4,  // 17: slipstream.system.v1.NodeSystemService.GetConfig:output_type -> slipstream.system.v1.GetConfigResponse
-	9,  // 18: slipstream.system.v1.NodeSystemService.SetConfig:output_type -> slipstream.system.v1.SetConfigResponse
-	12, // 19: slipstream.system.v1.NodeSystemService.Restart:output_type -> slipstream.system.v1.RestartResponse
-	14, // 20: slipstream.system.v1.NodeSystemService.ReadLogs:output_type -> slipstream.system.v1.ReadLogsResponse
-	18, // 21: slipstream.system.v1.NodeSystemService.OpenLogArchive:output_type -> slipstream.system.v1.OpenLogArchiveResponse
-	20, // 22: slipstream.system.v1.NodeSystemService.ReadLogArchive:output_type -> slipstream.system.v1.ReadLogArchiveResponse
-	22, // 23: slipstream.system.v1.NodeSystemService.Reach:output_type -> slipstream.system.v1.ReachResponse
-	16, // [16:24] is the sub-list for method output_type
-	8,  // [8:16] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	25, // 8: slipstream.system.v1.ProbeResponse.probes:type_name -> slipstream.node.v1.ProbeFact
+	0,  // 9: slipstream.system.v1.NodeSystemService.GetFacts:input_type -> slipstream.system.v1.GetFactsRequest
+	3,  // 10: slipstream.system.v1.NodeSystemService.GetConfig:input_type -> slipstream.system.v1.GetConfigRequest
+	7,  // 11: slipstream.system.v1.NodeSystemService.SetConfig:input_type -> slipstream.system.v1.SetConfigRequest
+	11, // 12: slipstream.system.v1.NodeSystemService.Restart:input_type -> slipstream.system.v1.RestartRequest
+	13, // 13: slipstream.system.v1.NodeSystemService.ReadLogs:input_type -> slipstream.system.v1.ReadLogsRequest
+	17, // 14: slipstream.system.v1.NodeSystemService.OpenLogArchive:input_type -> slipstream.system.v1.OpenLogArchiveRequest
+	19, // 15: slipstream.system.v1.NodeSystemService.ReadLogArchive:input_type -> slipstream.system.v1.ReadLogArchiveRequest
+	21, // 16: slipstream.system.v1.NodeSystemService.Reach:input_type -> slipstream.system.v1.ReachRequest
+	23, // 17: slipstream.system.v1.NodeSystemService.Probe:input_type -> slipstream.system.v1.ProbeRequest
+	1,  // 18: slipstream.system.v1.NodeSystemService.GetFacts:output_type -> slipstream.system.v1.GetFactsResponse
+	4,  // 19: slipstream.system.v1.NodeSystemService.GetConfig:output_type -> slipstream.system.v1.GetConfigResponse
+	9,  // 20: slipstream.system.v1.NodeSystemService.SetConfig:output_type -> slipstream.system.v1.SetConfigResponse
+	12, // 21: slipstream.system.v1.NodeSystemService.Restart:output_type -> slipstream.system.v1.RestartResponse
+	14, // 22: slipstream.system.v1.NodeSystemService.ReadLogs:output_type -> slipstream.system.v1.ReadLogsResponse
+	18, // 23: slipstream.system.v1.NodeSystemService.OpenLogArchive:output_type -> slipstream.system.v1.OpenLogArchiveResponse
+	20, // 24: slipstream.system.v1.NodeSystemService.ReadLogArchive:output_type -> slipstream.system.v1.ReadLogArchiveResponse
+	22, // 25: slipstream.system.v1.NodeSystemService.Reach:output_type -> slipstream.system.v1.ReachResponse
+	24, // 26: slipstream.system.v1.NodeSystemService.Probe:output_type -> slipstream.system.v1.ProbeResponse
+	18, // [18:27] is the sub-list for method output_type
+	9,  // [9:18] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_system_v1_system_proto_init() }
@@ -1635,7 +1725,7 @@ func file_slipstream_system_v1_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_system_v1_system_proto_rawDesc), len(file_slipstream_system_v1_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   23,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -24,6 +24,7 @@ import { Route as AppSplatRouteImport } from "./routes/_app/$";
 import { Route as AppAccountRouteImport } from "./routes/_app/account";
 import { Route as AppActivityRouteRouteImport } from "./routes/_app/activity/route";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
+import { Route as AppHealthRouteImport } from "./routes/_app/health";
 import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
 import { Route as AppNodesRouteRouteImport } from "./routes/_app/nodes/route";
 import { Route as AppSystemRouteImport } from "./routes/_app/system";
@@ -131,6 +132,11 @@ const AppActivityRouteRoute = AppActivityRouteRouteImport.update({
 const AppAddRoute = AppAddRouteImport.update({
   id: "/add",
   path: "/add",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHealthRoute = AppHealthRouteImport.update({
+  id: "/health",
+  path: "/health",
   getParentRoute: () => AppRoute,
 } as any);
 const AppLibraryRouteRoute = AppLibraryRouteRouteImport.update({
@@ -327,6 +333,7 @@ export interface FileRoutesByFullPath {
   "/$": typeof AppSplatRoute;
   "/account": typeof AppAccountRoute;
   "/add": typeof AppAddRoute;
+  "/health": typeof AppHealthRoute;
   "/system": typeof AppSystemRoute;
   "/portal/$": typeof PortalSplatRoute;
   "/portal/account": typeof PortalAccountRoute;
@@ -371,6 +378,7 @@ export interface FileRoutesByTo {
   "/$": typeof AppSplatRoute;
   "/account": typeof AppAccountRoute;
   "/add": typeof AppAddRoute;
+  "/health": typeof AppHealthRoute;
   "/system": typeof AppSystemRoute;
   "/portal/$": typeof PortalSplatRoute;
   "/portal/account": typeof PortalAccountRoute;
@@ -422,6 +430,7 @@ export interface FileRoutesById {
   "/_app/$": typeof AppSplatRoute;
   "/_app/account": typeof AppAccountRoute;
   "/_app/add": typeof AppAddRoute;
+  "/_app/health": typeof AppHealthRoute;
   "/_app/system": typeof AppSystemRoute;
   "/portal/$": typeof PortalSplatRoute;
   "/portal/account": typeof PortalAccountRoute;
@@ -475,6 +484,7 @@ export interface FileRouteTypes {
     | "/$"
     | "/account"
     | "/add"
+    | "/health"
     | "/system"
     | "/portal/$"
     | "/portal/account"
@@ -519,6 +529,7 @@ export interface FileRouteTypes {
     | "/$"
     | "/account"
     | "/add"
+    | "/health"
     | "/system"
     | "/portal/$"
     | "/portal/account"
@@ -569,6 +580,7 @@ export interface FileRouteTypes {
     | "/_app/$"
     | "/_app/account"
     | "/_app/add"
+    | "/_app/health"
     | "/_app/system"
     | "/portal/$"
     | "/portal/account"
@@ -722,6 +734,13 @@ declare module "@tanstack/react-router" {
       path: "/add";
       fullPath: "/add";
       preLoaderRoute: typeof AppAddRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/health": {
+      id: "/_app/health";
+      path: "/health";
+      fullPath: "/health";
+      preLoaderRoute: typeof AppHealthRouteImport;
       parentRoute: typeof AppRoute;
     };
     "/_app/library": {
@@ -1060,6 +1079,7 @@ interface AppRouteChildren {
   AppSplatRoute: typeof AppSplatRoute;
   AppAccountRoute: typeof AppAccountRoute;
   AppAddRoute: typeof AppAddRoute;
+  AppHealthRoute: typeof AppHealthRoute;
   AppSystemRoute: typeof AppSystemRoute;
   AppIndexRoute: typeof AppIndexRoute;
   AppAccountsAccountIdRoute: typeof AppAccountsAccountIdRoute;
@@ -1081,6 +1101,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSplatRoute: AppSplatRoute,
   AppAccountRoute: AppAccountRoute,
   AppAddRoute: AppAddRoute,
+  AppHealthRoute: AppHealthRoute,
   AppSystemRoute: AppSystemRoute,
   AppIndexRoute: AppIndexRoute,
   AppAccountsAccountIdRoute: AppAccountsAccountIdRoute,

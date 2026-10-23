@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -29,6 +30,9 @@ type Host interface {
 	Archive() (Archive, error)
 	// Reach dials t from the Node until ctx ends.
 	Reach(ctx context.Context, t Target) Reached
+	// Probe runs every probe now, reports the verdicts in the Node's facts
+	// and answers them.
+	Probe() ([]role.ProbeResult, error)
 }
 
 // Target is a host and port a Role reaches from its Node, over TLS when

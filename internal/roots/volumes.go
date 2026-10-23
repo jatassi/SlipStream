@@ -45,6 +45,10 @@ type VolumeView struct {
 }
 
 func (r *Roots) Volumes(ctx context.Context, _ identity.Admin) ([]NodeVolumes, error) {
+	return r.volumes(ctx)
+}
+
+func (r *Roots) volumes(ctx context.Context) ([]NodeVolumes, error) {
 	var out []NodeVolumes
 	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
 		rows, err := db.New(rd).ListVolumes(ctx)

@@ -7,7 +7,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
 - The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
-- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, and `serving` is `home` with Serving on seedbox too.
+- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, `serving` is `home` with Serving on seedbox too, and `low-space` is one Controller whose volume is below both Storage levels.
 
 ## Conventions
 
@@ -60,4 +60,5 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Torrents](./torrents.md) covers Activity's Torrents view on `torrents`: the download queue, the sentence and signal rows, tabs, filters and search, the columns at 1280, 980 and 620 px, live rows, the Inspector, pause and a resume held by UNIT3D's window, an unregistered release, picking two, Mark failed on a bad peer's download, Jobs' chips and `Open its torrent`, a restart, and removing with the download copy.
 - [Download Clients](./download-clients.md) covers Settings > Download Clients: seedbox's card with its listen-port check unproven and then reachable, the thresholds that make a release bad, and a per-Node download limit that applies live, with Torrents filtered to the Node.
 - [Tasks](./tasks.md) covers the Tasks page, a task's detail page, Run now and Cancel, the header capsule and the phone's running list, cadence and Schedule settings, and Housekeeping going Partial and back when seedbox stops and starts.
+- [Health](./health.md) covers the Health page with nothing wrong and with a Worker offline past the grace, the Health nav dot, Check all and Check now with what it couldn't reach, the Storage levels on the page and per volume from Library roots, the Library roots row's dot and `Open Health` on `low-space`, and the API under `GET /api/v1/system/health` with the counts' alerts and `health.changed`.
 - [Live updates](./live-updates.md) covers the reconnecting line, reconnecting after `fakeworld node kill` and `start`, and the captured stream.

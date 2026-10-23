@@ -51,5 +51,6 @@ leecher:
   node: seedbox
   release: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
 library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
   roots: [{content_type: movie, folder: movies}]
   indexers: [{name: Fixture Site, site: fixture-site}]

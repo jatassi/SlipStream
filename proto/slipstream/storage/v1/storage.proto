@@ -33,6 +33,9 @@ message Facts {
   repeated RootFacts roots = 1;
   // volumes are by id.
   repeated Volume volumes = 2;
+  // passed_at_unix_ms is when the pass that judged these began, on the
+  // Node's clock. It rises with every pass, and Sample's answer names it.
+  int64 passed_at_unix_ms = 3;
 }
 
 message RootFacts {
@@ -93,6 +96,9 @@ service StorageService {
   rpc Remove(RemoveRequest) returns (RemoveResponse);
   // List names the files in a root's holding or staging folder.
   rpc List(ListRequest) returns (ListResponse);
+  // Sample judges every root and samples its volume now, sets the facts,
+  // and answers their pass time.
+  rpc Sample(SampleRequest) returns (SampleResponse);
 }
 
 // FolderService is the folder ops every Node serves, Storage or not, so an
@@ -290,6 +296,12 @@ enum HeldFolder {
 
 message ListResponse {
   repeated string names = 1;
+}
+
+message SampleRequest {}
+
+message SampleResponse {
+  int64 passed_at_unix_ms = 1;
 }
 
 // FolderError details a folder op's error.

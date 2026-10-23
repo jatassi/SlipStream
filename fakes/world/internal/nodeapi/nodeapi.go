@@ -381,6 +381,22 @@ func SetMail(ctx context.Context, c *http.Client, baseURL, apiKey string, m Mail
 	return err
 }
 
+// SetStorageLevels saves the Health Storage levels in bytes.
+func SetStorageLevels(ctx context.Context, c *http.Client, baseURL, apiKey string, l scenario.LibraryLevels) error {
+	type amount struct {
+		Amount int64  `json:"amount"`
+		Unit   string `json:"unit"`
+	}
+	var settings struct{}
+	return call(ctx, c, request{
+		what: "save the Storage levels", method: http.MethodPatch, url: baseURL + "/api/v1/system/health/settings",
+		header: apiKeyHeader(apiKey), body: struct {
+			WarnBelow  amount `json:"warnBelow"`
+			ErrorBelow amount `json:"errorBelow"`
+		}{amount{int64(l.WarnBelow), "bytes"}, amount{int64(l.ErrorBelow), "bytes"}}, want: http.StatusOK,
+	}, &settings)
+}
+
 func apiKeyHeader(key string) http.Header { return http.Header{"X-Api-Key": {key}} }
 
 type request struct {

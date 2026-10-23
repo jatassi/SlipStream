@@ -7,6 +7,7 @@ syntax = "proto3";
 package slipstream.system.v1;
 
 import "slipstream/node/v1/options.proto";
+import "slipstream/node/v1/scope.proto";
 
 service NodeSystemService {
   option (slipstream.node.v1.served_by) = {every_node: true};
@@ -29,6 +30,9 @@ service NodeSystemService {
   // Reach dials host and port from the Node, and with tls finishes a TLS
   // handshake there. A failed dial is an answer, not an error.
   rpc Reach(ReachRequest) returns (ReachResponse);
+  // Probe runs every probe now, reports the verdicts in the Node's facts
+  // and answers them.
+  rpc Probe(ProbeRequest) returns (ProbeResponse);
 }
 
 message GetFactsRequest {}
@@ -168,4 +172,10 @@ message ReachResponse {
   bool ok = 1;
   int64 millis = 2;
   string error = 3;
+}
+
+message ProbeRequest {}
+
+message ProbeResponse {
+  repeated slipstream.node.v1.ProbeFact probes = 1;
 }

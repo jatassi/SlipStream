@@ -76,6 +76,8 @@ func (h *host) Archive() (nodesystem.Archive, error) { panic("unused") }
 
 func (h *host) Reach(context.Context, nodesystem.Target) nodesystem.Reached { panic("unused") }
 
+func (h *host) Probe() ([]role.ProbeResult, error) { panic("unused") }
+
 // self is a roster in which every id is this Node, called in process.
 type self struct{ key link.Key }
 

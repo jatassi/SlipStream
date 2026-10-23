@@ -10,6 +10,7 @@ import (
 
 	systemv1 "github.com/jatassi/slipstream/internal/pb/slipstream/system/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 )
 
@@ -141,6 +142,14 @@ func (s *server) Reach(ctx context.Context, req *systemv1.ReachRequest) (*system
 	t := Target{Host: req.GetHost(), Port: uint16(req.GetPort()), TLS: req.GetTls()} //nolint:gosec // a port the Controller sent from a uint16
 	r := s.host.Reach(ctx, t)
 	return &systemv1.ReachResponse{Ok: r.OK, Millis: r.Took.Milliseconds(), Error: r.Err}, nil
+}
+
+func (s *server) Probe(context.Context, *systemv1.ProbeRequest) (*systemv1.ProbeResponse, error) {
+	probes, err := s.host.Probe()
+	if err != nil {
+		return nil, wire(err)
+	}
+	return &systemv1.ProbeResponse{Probes: role.ProbeFacts(probes)}, nil
 }
 
 func (s *server) drop(id string) {
