@@ -263,11 +263,19 @@ func TestAnEngineWithNoRouteListensOnceOneAppears(t *testing.T) {
 // TestTheListenerFollowsTheDefaultRoute moves the default route, as a VPN
 // that comes up does: the engine moves its listener to the route's new
 // address on the same port, and its next announce is a started from there,
-// the tracker never having heard from that address.
+// the tracker never having heard from that address. The routes and the
+// tracker are all on loopback because libtorrent binds a tracker
+// connection to the listen address, and Windows sends nothing from
+// 127.0.0.1 to the host's other addresses.
 func TestTheListenerFollowsTheDefaultRoute(t *testing.T) {
-	host := routeAddr(t)
+	first, moved := netip.MustParseAddr("127.0.0.1"), netip.MustParseAddr("127.0.0.2")
+	l, err := new(net.ListenConfig).Listen(t.Context(), "tcp", netip.AddrPortFrom(moved, 0).String())
+	if err != nil {
+		t.Fatalf(`%s is not usable on this machine; on macOS run "sudo fakeworld setup-loopback" once: %v`, moved, err)
+	}
+	_ = l.Close()
 	var mu sync.Mutex
-	at := netip.MustParseAddr("127.0.0.1")
+	at := first
 	route := func() (netip.Addr, error) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -275,21 +283,21 @@ func TestTheListenerFollowsTheDefaultRoute(t *testing.T) {
 	}
 	e := openRouted(t, route)
 	before, err := e.ListenAddr()
-	if err != nil || before.Addr() != at {
-		t.Fatalf("on a route from %s the engine listens on %s, %v", at, before, err)
+	if err != nil || before.Addr() != first {
+		t.Fatalf("on a route from %s the engine listens on %s, %v", first, before, err)
 	}
 	tracker := wildcardTracker(t)
-	h := seedTo(t, e, "Moving.mkv", "http://"+netip.AddrPortFrom(host, tracker.port).String()+"/announce")
+	h := seedTo(t, e, "Moving.mkv", "http://"+netip.AddrPortFrom(first, tracker.port).String()+"/announce")
 	tracker.heard(t, 1, 0)
 	mu.Lock()
-	at = host
+	at = moved
 	mu.Unlock()
-	listensOn(t, e, func(ap netip.AddrPort) bool { return ap == netip.AddrPortFrom(host, before.Port()) })
+	listensOn(t, e, func(ap netip.AddrPort) bool { return ap == netip.AddrPortFrom(moved, before.Port()) })
 	if err := e.Reannounce(h, 0, 0, true); err != nil {
 		t.Fatal(err)
 	}
 	for hash, from := range tracker.heard(t, 1, 2*time.Second) {
-		if want := []netip.Addr{before.Addr(), host}; !slices.Equal(from, want) {
+		if want := []netip.Addr{first, moved}; !slices.Equal(from, want) {
 			t.Fatalf("the tracker heard started for torrent %s from %v, want from %v", hash, from, want)
 		}
 	}
