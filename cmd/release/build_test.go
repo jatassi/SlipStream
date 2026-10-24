@@ -95,3 +95,38 @@ func checkTools(t *testing.T, dist string) {
 		}
 	}
 }
+
+func TestBuildWithoutBundleKeysNeverReadsTheEnv(t *testing.T) {
+	flag, err := bundledKeys(false, func(name string) string {
+		t.Errorf("a build without -bundle-keys read %s", name)
+		return "k"
+	})
+	if err != nil || flag != "" {
+		t.Fatalf("bundledKeys(false) = %q, %v; want no flag", flag, err)
+	}
+}
+
+func TestBundleKeysRefusesAnEmptySecret(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{"no OMDb key", map[string]string{"SLIPSTREAM_TMDB_KEY": "t1"}, "-bundle-keys: SLIPSTREAM_OMDB_KEY is empty"},
+		{"no TMDB key", map[string]string{"SLIPSTREAM_OMDB_KEY": "o1"}, "-bundle-keys: SLIPSTREAM_TMDB_KEY is empty"},
+		{"a key with a space", map[string]string{"SLIPSTREAM_TMDB_KEY": "t 1", "SLIPSTREAM_OMDB_KEY": "o1"}, "-bundle-keys: SLIPSTREAM_TMDB_KEY holds a character no API key has"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			flag, err := bundledKeys(true, func(name string) string { return tc.env[name] })
+			if err == nil || err.Error() != tc.want || flag != "" {
+				t.Fatalf("bundledKeys = %q, %v; want %q", flag, err, tc.want)
+			}
+		})
+	}
+	flag, err := bundledKeys(true, func(name string) string {
+		return map[string]string{"SLIPSTREAM_TMDB_KEY": "t1", "SLIPSTREAM_OMDB_KEY": "o1"}[name]
+	})
+	if want := "-X=github.com/jatassi/slipstream/internal/metadata.bundled=tmdb:t1,omdb:o1"; err != nil || flag != want {
+		t.Fatalf("bundledKeys = %q, %v; want %q", flag, err, want)
+	}
+}

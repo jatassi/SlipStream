@@ -792,7 +792,7 @@ export const getUpdateTaskUrl = (taskId: string) => {
 };
 
 /**
- * @summary Change a task's cadence or overdue rule
+ * @summary Change a task's cadence, overdue rule or tuning
  */
 export const updateTask = async (
   taskId: string,
@@ -874,7 +874,7 @@ export type UpdateTaskMutationError = ErrorType<
 export type UpdateTaskMutationVariables = { taskId: string; data: TasksTaskPatch };
 
 /**
- * @summary Change a task's cadence or overdue rule
+ * @summary Change a task's cadence, overdue rule or tuning
  */
 export const useUpdateTask = <
   TError = ErrorType<

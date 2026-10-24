@@ -16,6 +16,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/works"
@@ -49,14 +50,28 @@ type harness struct {
 	changed *recorder[works.WorkChanged]
 	types   *recorder[works.ContentTypesChanged]
 	log     *bytes.Buffer
+	art     *prefetched
 }
 
-func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog) (*works.Works, *harness) {
+type prefetched struct {
+	mu    sync.Mutex
+	wants []artwork.Want
+}
+
+func (p *prefetched) Prefetch(wants []artwork.Want) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.wants = append(p.wants, wants...)
+}
+
+func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog, source works.Source) (*works.Works, *harness) {
 	t.Helper()
-	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}}
+	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}}
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     catalogs,
+		Source:       source,
+		Artwork:      h.art,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      h.changed,
 		TypesChanged: h.types,
@@ -79,7 +94,7 @@ func dropTime(_ []string, a slog.Attr) slog.Attr {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	fx := contenttypetest.New()
-	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx})
+	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, fx.Source())
 	h.fx = fx
 	return h
 }
@@ -138,6 +153,12 @@ func fields(vs []works.FieldValue) string {
 			fmt.Fprintf(&b, " %s=%s", v.Key, v.Date)
 		case works.KindDuration:
 			fmt.Fprintf(&b, " %s=%s", v.Key, v.Duration)
+		case works.KindTexts:
+			fmt.Fprintf(&b, " %s=%q", v.Key, v.Texts)
+		case works.KindPeople:
+			fmt.Fprintf(&b, " %s=%+v", v.Key, v.People)
+		case works.KindLink:
+			fmt.Fprintf(&b, " %s=%+v", v.Key, v.Link)
 		}
 	}
 	return b.String()
@@ -329,7 +350,7 @@ func encode(t *testing.T, v any) string {
 	return string(b)
 }
 
-func TestRefreshOfAWorkTheSourceLostChangesNothing(t *testing.T) {
+func TestGoneUpstreamMarksAndChangesNothingElse(t *testing.T) {
 	h := newHarness(t)
 	h.fx.Put("w1", shelf())
 	tree, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{})
@@ -337,27 +358,60 @@ func TestRefreshOfAWorkTheSourceLostChangesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.changed.take()
-	for _, c := range []struct {
-		err  error
-		want error
-	}{
-		{fmt.Errorf("lookup w1: %w", works.ErrNotFound), works.ErrGoneUpstream},
-		{fmt.Errorf("lookup w1: %w", works.ErrUnavailable), works.ErrUnavailable},
-	} {
-		h.fx.Fail("w1", c.err)
-		if _, err := h.works.Refresh(t.Context(), admin, tree.ID); !errors.Is(err, c.want) {
-			t.Errorf("refresh with the source answering %v = %v, want %v", c.err, err, c.want)
-		}
+	h.fx.Fail("w1", fmt.Errorf("lookup w1: %w", works.ErrNotFound))
+	if _, err := h.works.Refresh(t.Context(), admin, tree.ID); !errors.Is(err, works.ErrGoneUpstream) {
+		t.Fatalf("refresh of a Work the source lost = %v, want ErrGoneUpstream", err)
 	}
-	got, err := h.works.Get(t.Context(), admin, tree.ID)
-	if err != nil || encode(t, got) != encode(t, tree) {
-		t.Fatalf("tree after failed refreshes = %s, %v; want it unchanged", encode(t, got), err)
+	gone, err := h.works.Get(t.Context(), admin, tree.ID)
+	if err != nil || gone.GoneUpstreamAt.IsZero() {
+		t.Fatalf("after the source lost it: gone upstream at %v, %v; want it marked", gone.GoneUpstreamAt, err)
+	}
+	unmarked := gone
+	unmarked.GoneUpstreamAt = storage.Time{}
+	if encode(t, unmarked) != encode(t, tree) {
+		t.Fatalf("marking it gone changed more than the mark:\n%s\n%s", encode(t, unmarked), encode(t, tree))
+	}
+	if got := h.changed.take(); len(got) != 1 || got[0].WorkID != tree.ID.String() {
+		t.Fatalf("marking it gone published %v, want one works.changed for %s", got, tree.ID)
+	}
+	if _, err := h.works.Refresh(t.Context(), admin, tree.ID); !errors.Is(err, works.ErrGoneUpstream) {
+		t.Fatalf("a second refresh = %v, want ErrGoneUpstream", err)
 	}
 	if got := h.changed.take(); len(got) != 0 {
-		t.Fatalf("failed refreshes published %v", got)
+		t.Fatalf("a Work already marked gone published %v", got)
+	}
+	h.fx.Fail("w1", fmt.Errorf("lookup w1: %w", works.ErrUnavailable))
+	if _, err := h.works.Refresh(t.Context(), admin, tree.ID); !errors.Is(err, works.ErrUnavailable) {
+		t.Fatalf("refresh with the source down = %v, want ErrUnavailable", err)
+	}
+	still, err := h.works.Get(t.Context(), admin, tree.ID)
+	if err != nil || still.GoneUpstreamAt.IsZero() || len(h.changed.take()) != 0 {
+		t.Fatalf("an unanswered refresh moved the mark or published: %v, %v", still.GoneUpstreamAt, err)
 	}
 	if _, err := h.works.Refresh(t.Context(), admin, works.WorkID{UUID: storage.NewUUID()}); !errors.Is(err, works.ErrNoWork) {
 		t.Fatalf("refresh of an unknown id = %v, want ErrNoWork", err)
+	}
+}
+
+func TestAGoodFetchClearsGoneUpstream(t *testing.T) {
+	h := newHarness(t)
+	h.fx.Put("w1", shelf())
+	tree, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.fx.Fail("w1", works.ErrNotFound)
+	if _, err := h.works.Refresh(t.Context(), admin, tree.ID); !errors.Is(err, works.ErrGoneUpstream) {
+		t.Fatal(err)
+	}
+	h.changed.take()
+	h.fx.Fail("w1", nil)
+	back, err := h.works.Refresh(t.Context(), admin, tree.ID)
+	if err != nil || !back.GoneUpstreamAt.IsZero() {
+		t.Fatalf("a good fetch: gone upstream at %v, %v; want it cleared", back.GoneUpstreamAt, err)
+	}
+	if got := h.changed.take(); len(got) != 1 {
+		t.Fatalf("clearing the mark published %v, want one works.changed", got)
 	}
 }
 
@@ -513,7 +567,7 @@ func TestARestartReadsTheSameTree(t *testing.T) {
 	fx := contenttypetest.New()
 	fx.Put("w1", shelf())
 	lib := openAt(t, path)
-	w, _ := open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx})
+	w, _ := open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, fx.Source())
 	tree, _, err := w.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{})
 	if err != nil {
 		t.Fatal(err)
@@ -523,7 +577,7 @@ func TestARestartReadsTheSameTree(t *testing.T) {
 	}
 	lib = openAt(t, path)
 	t.Cleanup(func() { _ = lib.Close() })
-	w, _ = open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx})
+	w, _ = open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, fx.Source())
 	again, err := w.Get(t.Context(), admin, tree.ID)
 	if err != nil || encode(t, again) != encode(t, tree) {
 		t.Fatalf("after a restart = %s, %v; want %s", encode(t, again), err, encode(t, tree))
@@ -534,7 +588,7 @@ func TestOpenRefusesWorksOfAnUnregisteredType(t *testing.T) {
 	lib := storagetest.Library(t, works.Schema())
 	fx := contenttypetest.New()
 	fx.Put("w1", shelf())
-	ghost, _ := open(t, lib, map[works.TypeID]works.Catalog{"ghost": fx})
+	ghost, _ := open(t, lib, map[works.TypeID]works.Catalog{"ghost": fx}, fx.SourceAs("ghost"))
 	if _, _, err := ghost.Add(t.Context(), admin, "ghost", "w1", works.Adding{}); err != nil {
 		t.Fatal(err)
 	}

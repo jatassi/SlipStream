@@ -206,6 +206,9 @@ type Option[T ~string] struct {
 	Label string
 }
 
+// listedChoices is the most options a refusal still names one by one.
+const listedChoices = 6
+
 // Choice is one of a closed set of Options. DefaultFrom names where the
 // default comes from when it is another setting's value.
 type Choice[T ~string] struct {
@@ -228,6 +231,9 @@ func (c Choice[T]) Parse(v *string) (Stored[T], error) {
 		return Stored[T]{}, nil
 	}
 	i := slices.IndexFunc(c.Options, func(o Option[T]) bool { return string(o.Value) == *v })
+	if i < 0 && len(c.Options) > listedChoices {
+		return Stored[T]{}, refuse(c.Key, "%s is not one of the %d choices for %s.", *v, len(c.Options), c.Label)
+	}
 	if i < 0 {
 		labels := make([]string, len(c.Options))
 		for i, o := range c.Options {

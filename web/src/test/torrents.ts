@@ -15,7 +15,7 @@ import {
   getListContentTypesMockHandler,
   getListWorksMockHandler,
 } from "../api/gen/query/works/works.msw";
-import { cinema, orchard, orchardId } from "./library";
+import { cinema, orchardId, orchardListed } from "./library";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "./nodes";
 import { targetHandlers } from "./targets";
 
@@ -44,7 +44,9 @@ const harvest: WorksListedWork = {
   sortLabel: "Orchard Harvest",
   addedAt: "2026-10-11T09:00:00Z",
   refreshedAt: "2026-10-11T09:00:00Z",
+  goneUpstreamAt: null,
   fields: [],
+  artwork: [],
 };
 
 const zines = { ...cinema, id: "zines", name: "Zines" };
@@ -178,19 +180,7 @@ export function torrentsServer(
         return { ...listOf(rows), rows: rows.filter((row) => named.includes(row.id)) };
       }),
       getListWorksMockHandler({
-        works: [
-          harvest,
-          {
-            id: orchardId,
-            contentType: orchard.contentType,
-            key: orchard.key,
-            label: orchard.label,
-            sortLabel: orchard.sortLabel,
-            addedAt: orchard.addedAt,
-            refreshedAt: orchard.refreshedAt,
-            fields: orchard.fields,
-          },
-        ],
+        works: [harvest, orchardListed],
       }),
       nodesAre(home, seedbox),
       getListContentTypesMockHandler({ contentTypes: [cinema, zines] }),

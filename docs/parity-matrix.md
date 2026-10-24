@@ -71,14 +71,14 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-028 | Storage usage per volume holding root folders | `internal/filesystem/storage_service.go`, `/filesystem/storage` | working | kept | [Library roots](https://github.com/jatassi/SlipStream/issues/141) | shipped |
 | P-029 | MediaInfo probe fills codec, HDR and channels when the mediainfo binary exists, with status shown | `internal/mediainfo/`, `media-info-status.tsx` | working | kept | [Library scan and file probe](https://github.com/jatassi/SlipStream/issues/147) | planned |
 | P-030 | Six-state item status (unreleased, missing, downloading, failed, upgradable, available) with message | `internal/library/status/status.go` | working | kept, as one status vocabulary rolled up as unreleased, held, missing (Not found or waiting on source), downloading, converting, failed, upgradable, met | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
-| P-031 | Unreleased items turn missing hourly from release and air dates | `internal/availability/service.go` | working | kept with a timer at the release or air date instead of hourly, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-031 | Unreleased items turn missing hourly from release and air dates | `internal/availability/service.go` | working | kept with a timer at the release or air date instead of hourly, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 | P-032 | Added By shows the portal user who requested an item | `internal/library/movies/movie.go` | working | kept | [Requests and approval](https://github.com/jatassi/SlipStream/issues/165) | planned |
 | P-033 | Library list grid or table view with poster sizes and a column chooser | `web/src/components/media/library-options.tsx` | working | kept | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
 | P-034 | Library sort options with list sections grouped by the sort field | `web/src/routes/movies/use-movie-list.ts`, `web/src/lib/grouping.ts` | working | kept | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
 | P-035 | Library status filters, plus Continuing and Ended for series | `web/src/routes/movies/movie-list-utils.ts`, `series-list-utils.ts` | working | kept | [TV](https://github.com/jatassi/SlipStream/issues/146) | planned |
 | P-036 | Content Type switch at the top of the library when two or more are enabled | `web/src/components/media/library-screen.tsx` | working | kept | [TV](https://github.com/jatassi/SlipStream/issues/146) | planned |
 | P-037 | Per-row Search and Delete in table view | `web/src/lib/movie-columns.tsx`, `series-columns.tsx` | working | kept | [Automatic search, Backlog search and RSS sync](https://github.com/jatassi/SlipStream/issues/159) | planned |
-| P-038 | Refresh metadata for one item or the whole Content Type, including season and episode sync | `librarymanager/metadata_refresh.go`, `POST /movies/refresh`, `POST /series/refresh` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-038 | Refresh metadata for one item or the whole Content Type, including season and episode sync | `librarymanager/metadata_refresh.go`, `POST /movies/refresh`, `POST /series/refresh` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 | P-039 | Bulk edit mode to monitor, unmonitor, set quality profile or delete with files | `web/src/components/media/library-edit-bar.tsx`, `PUT /movies/monitor` | working | kept | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
 | P-040 | Poster status pill and dot | `web/src/components/media/status-pill.tsx` | working | kept | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
 | P-041 | Add movie with root folder, profile, monitored and search on add, filling dates, rating and artwork | `internal/library/librarymanager/add.go`, `web/src/routes/movies/add.tsx` | working | kept | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
@@ -99,16 +99,16 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-054 | TMDB provider for movie and series search, details, credits, ratings, logos and artwork | `internal/metadata/tmdb` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-054 | TMDB provider for movie and series search, details, credits, ratings, logos and artwork | `internal/metadata/tmdb` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 | P-055 | TVDB provider for series lookup and search fallback | `internal/metadata/tvdb` | working | kept | [TV](https://github.com/jatassi/SlipStream/issues/146) | planned |
-| P-056 | OMDb provider for IMDb, Rotten Tomatoes and Metacritic ratings and awards | `internal/metadata/omdb` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-056 | OMDb provider for IMDb, Rotten Tomatoes and Metacritic ratings and awards | `internal/metadata/omdb` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 | P-057 | Extended detail with cast, crew, trailer, external ratings and per-episode IMDb ratings | `/metadata/movie/:id/extended`, `/metadata/series/:id/extended` | working | kept | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
-| P-058 | Digital, physical and theatrical release dates, content rating, studio and network logos | `internal/metadata/service.go`, `network_logo_store.go` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
-| P-059 | Artwork download and serving for poster, backdrop, logo and studio logo | `internal/metadata/artwork.go`, `/metadata/artwork/:type/:id/:artworkType` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
-| P-060 | Metadata response cache with clear on demand | `internal/metadata/cache.go`, `DELETE /metadata/cache` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
-| P-061 | Metadata provider status and connection tests | `GET /metadata/status` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-058 | Digital, physical and theatrical release dates, content rating, studio and network logos | `internal/metadata/service.go`, `network_logo_store.go` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
+| P-059 | Artwork download and serving for poster, backdrop, logo and studio logo | `internal/metadata/artwork.go`, `/metadata/artwork/:type/:id/:artworkType` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
+| P-060 | Metadata response cache with clear on demand | `internal/metadata/cache.go`, `DELETE /metadata/cache` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
+| P-061 | Metadata provider status and connection tests | `GET /metadata/status` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 | P-062 | TMDB search ordering toggle, API only | `POST /metadata/tmdb/search-ordering` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | - |
-| P-063 | Metadata API keys bundled at build with config override | `internal/config`, `Makefile` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-063 | Metadata API keys bundled at build with config override | `internal/config`, `Makefile` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 
 ## Quality
 
@@ -336,7 +336,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-228 | Scheduled tasks page with last run, next run, running state and Run Now | `internal/scheduler/scheduler.go`, `web/src/routes/system/tasks.tsx` | working | kept with last result, run history and Nodes, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks](https://github.com/jatassi/SlipStream/issues/138) | shipped |
 | P-229 | Task schedules fixed apart from auto search and RSS intervals | `internal/scheduler/tasks/` | working | superseded by every cadence being settable, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks](https://github.com/jatassi/SlipStream/issues/138) | shipped |
 | P-230 | Daily library scan of all root folders | `internal/scheduler/tasks/ (library-scan)` | working | kept | [Library scan and file probe](https://github.com/jatassi/SlipStream/issues/147) | planned |
-| P-231 | Daily refresh of unreleased metadata | `internal/scheduler/tasks/ (unreleased-refresh)` | working | kept and widened to every Work on a tiered schedule, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-231 | Daily refresh of unreleased metadata | `internal/scheduler/tasks/ (unreleased-refresh)` | working | kept and widened to every Work on a tiered schedule, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 
 ## Auth and API
 
@@ -373,7 +373,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-250 | Download the current log file | `GET /system/logs/download` | working | kept | [System settings and logs](https://github.com/jatassi/SlipStream/issues/139) | shipped |
 | P-251 | Status endpoint with version, counts and feature flags | `GET /status` | working | kept | [API, sign-in and live updates](https://github.com/jatassi/SlipStream/issues/129) | planned |
 | P-252 | Enable or disable a Content Type, API only | `GET/PUT /settings/modules` | working | kept | [Content Type contract and the music test type](https://github.com/jatassi/SlipStream/issues/133) | planned |
-| P-253 | Network services retry with backoff when offline at boot | `internal/startup/retry.go` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-253 | Network services retry with backoff when offline at boot | `internal/startup/retry.go` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 | P-254 | Config from environment, .env and config.yaml with defaults | `internal/config/config.go`, `configs/config.example.yaml` | working | kept | [Node runtime and configuration](https://github.com/jatassi/SlipStream/issues/127) | planned |
 
 ## Developer mode
@@ -426,7 +426,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
 | P-285 | Media kinds as self-contained modules behind one registry | `internal/module/interfaces.go`, `internal/module/registry` | half-built | superseded by the Content Type contract | [Content Type contract and the music test type](https://github.com/jatassi/SlipStream/issues/133) | planned |
-| P-286 | Movies as a Content Type | `internal/modules/movie` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | planned |
+| P-286 | Movies as a Content Type | `internal/modules/movie` | working | kept | [Movies](https://github.com/jatassi/SlipStream/issues/144) | shipped |
 | P-287 | TV as a Content Type with series, seasons and episodes | `internal/modules/tv` | working | kept | [TV](https://github.com/jatassi/SlipStream/issues/146) | planned |
 | P-288 | Content Type declared events, naming contexts, calendar items, presets and portal provisioning | `internal/modules/movie/module.go`, `internal/modules/tv/module.go` | working | superseded by the Content Type contract | [Content Type contract and the music test type](https://github.com/jatassi/SlipStream/issues/133) | planned |
 | P-289 | New module scaffolder | `scripts/new-module`, `make new-module` | working | superseded by the Content Type contract | [Content Type contract and the music test type](https://github.com/jatassi/SlipStream/issues/133) | planned |

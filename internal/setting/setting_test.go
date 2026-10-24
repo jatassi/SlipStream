@@ -3,6 +3,7 @@ package setting_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/netip"
 	"testing"
 	"time"
@@ -266,6 +267,50 @@ func TestCheckRefusesADefaultOutsideItsRange(t *testing.T) {
 	}
 }
 
+func TestParseJSONReadsEachKindsWireValue(t *testing.T) {
+	pick := setting.Choice[string]{Key: "k.choice", Default: "a", Options: []setting.Option[string]{{Value: "a", Label: "A"}, {Value: "b", Label: "B"}}}
+	var countries []setting.Option[string]
+	for _, c := range []string{"AT", "BE", "CH", "DE", "ES", "FR", "GB"} {
+		countries = append(countries, setting.Option[string]{Value: c, Label: c})
+	}
+	country := setting.Choice[string]{Key: "k.country", Label: "Country", Default: "GB", Options: countries}
+	runsKept := setting.Count{Key: "k.count", Default: 5, Min: 1, Max: 10}
+	follow := setting.Switch{Key: "k.switch", Default: true}
+	for _, tc := range []struct {
+		name    string
+		parse   func(json.RawMessage) (string, error)
+		raw     string
+		want    string
+		refusal string
+	}{
+		{"a duration in seconds", stored(rss.ParseJSON), `1800`, "1800", ""},
+		{"a duration out of range", stored(rss.ParseJSON), `60`, "", "No faster than 10 min. Private trackers ban for hammering."},
+		{"a duration as a word", stored(rss.ParseJSON), `"soon"`, "", "Seconds, as a whole number."},
+		{"null resets a duration", stored(rss.ParseJSON), `null`, "reset", ""},
+		{"a count", stored(runsKept.ParseJSON), `7`, "7", ""},
+		{"a count as a fraction", stored(runsKept.ParseJSON), `7.5`, "", "A whole number."},
+		{"a choice", stored(pick.ParseJSON), `"b"`, "b", ""},
+		{"a choice outside its options", stored(pick.ParseJSON), `"c"`, "", "Choose A or B."},
+		{"a choice outside a long list", stored(country.ParseJSON), `"ZZ"`, "", "ZZ is not one of the 7 choices for Country."},
+		{"a switch", stored(follow.ParseJSON), `false`, "false", ""},
+		{"a switch as a number", stored(follow.ParseJSON), `0`, "", "On or off: true or false."},
+		{"null resets a switch", stored(follow.ParseJSON), ` null `, "reset", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := tc.parse(json.RawMessage(tc.raw))
+			if tc.refusal != "" {
+				if s := sentence(err); s != tc.refusal {
+					t.Fatalf("refusal = %q, want %q", s, tc.refusal)
+				}
+				return
+			}
+			if err != nil || got != tc.want {
+				t.Fatalf("ParseJSON(%s) = %q, %v, want %q", tc.raw, got, err, tc.want)
+			}
+		})
+	}
+}
+
 var downloadLimit = setting.Rate{Key: "downloading.downloadLimit", Label: "Download limit", Max: 10 << 30, Zero: "No limit"}
 
 func TestRateParse(t *testing.T) {
@@ -427,5 +472,15 @@ func TestAmountBytes(t *testing.T) {
 				t.Fatalf("Bytes(%d) = %d, want %d", tc.total, got, tc.want)
 			}
 		})
+	}
+}
+
+func stored[T any](parse func(json.RawMessage) (setting.Stored[T], error)) func(json.RawMessage) (string, error) {
+	return func(raw json.RawMessage) (string, error) {
+		s, err := parse(raw)
+		if o := s.Override(); o != nil {
+			return fmt.Sprint(*o), err
+		}
+		return "reset", err
 	}
 }

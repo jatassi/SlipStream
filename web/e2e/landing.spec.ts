@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { type World, expect, test } from "./fixtures.ts";
 import { isPhone } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 
 test.use({ scenario: "home" });
 test.describe.configure({ timeout: 300_000 });
@@ -19,10 +20,9 @@ const rowLink = (page: Page, name: string) =>
 async function choose(page: Page, node: string, item: string): Promise<void> {
   await page.getByRole("button", { name: `${node} actions` }).click();
   if (isPhone(page)) {
-    await page
-      .getByRole("dialog", { name: `${node} actions` })
-      .getByRole("button", { name: item })
-      .click();
+    await clickWhenStill(
+      page.getByRole("dialog", { name: `${node} actions` }).getByRole("button", { name: item }),
+    );
     return;
   }
   await page.getByRole("menuitem", { name: item }).click();

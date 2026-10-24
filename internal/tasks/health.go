@@ -26,7 +26,7 @@ var HealthAbout = health.About{
 // Run now is the task's own retry.
 func (s *Scheduler) HealthSource(category health.ID) health.Source {
 	return health.Source{Answer: func(ctx context.Context) (health.Answer, error) {
-		l, err := s.look(ctx)
+		l, err := s.look(ctx, everyTask)
 		if err != nil {
 			return health.Answer{}, err
 		}

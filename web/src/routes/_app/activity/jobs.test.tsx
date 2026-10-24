@@ -6,7 +6,7 @@ import type { GrabsGrab, GrabsGrabList, WorksListedWork } from "../../../api/gen
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
 import { getListWorksMockHandler } from "../../../api/gen/query/works/works.msw";
 import { downloading, imported } from "../../../test/grabs";
-import { orchard, orchardId } from "../../../test/library";
+import { orchardId, orchardListed } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
 import { renderApp } from "../../../test/render-app";
 // oxlint-disable-next-line import/max-dependencies -- Jobs read Grabs, Works, Targets, Torrents and the live stream
@@ -23,7 +23,9 @@ const harvest: WorksListedWork = {
   sortLabel: "Orchard Harvest",
   addedAt: "2026-10-11T09:00:00Z",
   refreshedAt: "2026-10-11T09:00:00Z",
+  goneUpstreamAt: null,
   fields: [],
+  artwork: [],
 };
 
 const failed: GrabsGrab = {
@@ -52,19 +54,7 @@ const orchardTorrent = torrent({
 });
 
 const works = getListWorksMockHandler({
-  works: [
-    harvest,
-    {
-      id: orchardId,
-      contentType: orchard.contentType,
-      key: orchard.key,
-      label: orchard.label,
-      sortLabel: orchard.sortLabel,
-      addedAt: orchard.addedAt,
-      refreshedAt: orchard.refreshedAt,
-      fields: orchard.fields,
-    },
-  ],
+  works: [harvest, orchardListed],
 });
 function activityServer() {
   let list: GrabsGrabList = { grabs: [downloading, failed] };

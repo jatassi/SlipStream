@@ -16,6 +16,7 @@ An Admin changes which Node holds which Role through one plan, from each Node's 
 - `roles-probes` `GET /api/v1/nodes` lists each Node's `probes`, `engine-starts`, `data-writable` and `listener-up`, each `fits` with its time. The board's Nodes carry the same `probes` and `suggested`, `searching` and `downloading` while engine-starts fits.
 - `roles-reach` a plan with `"test": true` moving Notifying to seedbox checks `seedbox reached 127.0.0.1:<port> in 0 ms.`, the `smtp` front, and a plan without it checks nothing. With the front refused the set answers 409 `roles_blocked`, whose `reach_failed` check reads `seedbox can't reach 127.0.0.1:<port> (connect: connection refused).`
 - `roles-notifying` with Notifying on seedbox alone, `POST /api/v1/mail/test` answers `{"outcome":"sent"}` and the `mail` capture holds it. With seedbox stopped it answers `failed` with `seedbox is reconnecting, and no other Node sends mail`, and nothing reaches the capture.
+- `roles-metadata` with Metadata on home, a catalog search answers through home's `tmdb` front, and with that front reset it answers 502 `metadata_unavailable` naming TMDB in its `detail`. With Metadata on seedbox alone the search and `POST /api/v1/works` answer through seedbox's `tmdb` front while home's is still reset. With seedbox stopped the search answers 502 `metadata_unavailable` with `Metadata: seedbox is reconnecting, and no other Node reads metadata`, and once seedbox is back it answers again.
 - `roles-roster` `GET /api/v1/nodes` lists each Node's `roles` as `{role, state}`, `holding` while it is in step.
 - `roles-drain` unticking Downloading on seedbox while it seeds an imported Grab answers a `drains` effect, `seedbox takes no new Downloading work. It keeps its 1 torrent (3.5 MB) until you move or write it off.`, and the roster lists seedbox `draining` in Downloading with `held`, its facts running `downloading` with only `searching` assigned.
 - `roles-write-off` `POST /api/v1/nodes/{id}/write-offs` answers the Outcome with a `writes-off` effect, `The 1 torrent (3.5 MB) seedbox holds for Downloading is written off. No files are deleted.` seedbox announces `stopped`, the roster lists no Downloading on it, and the downloaded file in seedbox's data dir still matches the release.
@@ -120,6 +121,43 @@ Steps:
   $FW node start $RUN seedbox
   $FW exec $RUN -- bash -c 'for i in $(seq 30); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/nodes" | jq -e ".nodes[] | select(.name == \"seedbox\") | .link.state == \"up\"" >/dev/null && exit 0; sleep 1; done; exit 1'
   $FW exec $RUN --proof roles/roles-notifying -- curl -sS -b {runDir}/admin.jar -X POST -H 'Origin: {nodes.home.url}' '{nodes.home.url}/api/v1/mail/test'
+  ```
+
+### Metadata on a Worker
+
+Preconditions:
+
+- A fresh `home` run with doctor passing, used for nothing else: it moves Metadata to seedbox.
+
+Steps:
+
+- **Search with home holding Metadata, then with home's TMDB front reset.** The first answers `The Quiet Orchard`; the second, on a query home hasn't cached, answers 502 `metadata_unavailable` whose `detail` starts `TMDB: didn't answer`.
+
+  ```sh
+  $FW exec $RUN --proof roles/roles-metadata -- curl -sS -i -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=quiet+orchard'
+  $FW fault set $RUN tmdb-home tmdb@home reset
+  $FW exec $RUN --proof roles/roles-metadata -- curl -sS -i -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=orchard'
+  ```
+
+- **Move Metadata to seedbox alone, then search and add.** The set's effects read `home stops Metadata.` and `seedbox starts Metadata.`. The search answers `The Quiet Orchard` and the add creates the Work while home's front is still reset, and `events.jsonl` holds a `front.open` on seedbox's `tmdb` front.
+
+  ```sh
+  BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
+  SET='[{"nodeId":"{nodes.home.nodeId}","roles":["storage","converting","subtitles","media-server-link","notifying","serving"]},{"nodeId":"{nodes.seedbox.nodeId}","roles":["searching","downloading","metadata"]}]'
+  $FW exec $RUN --proof roles/roles-metadata -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":$SET}" '{nodes.home.url}/api/v1/nodes/roles'
+  $FW exec $RUN --proof roles/roles-metadata -- curl -sS -i -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=quiet'
+  $FW exec $RUN --proof roles/roles-metadata -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","key":"9000001"}' '{nodes.home.url}/api/v1/works'
+  ```
+
+- **Stop seedbox and search.** 502 `metadata_unavailable` with `Metadata: seedbox is reconnecting, and no other Node reads metadata`. Start seedbox and wait for its link: the search answers again.
+
+  ```sh
+  $FW fault clear $RUN tmdb-home
+  $FW node stop $RUN seedbox
+  $FW exec $RUN --proof roles/roles-metadata -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=garden'
+  $FW node start $RUN seedbox
+  $FW exec $RUN -- bash -c 'for i in $(seq 30); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/nodes" | jq -e ".nodes[] | select(.name == \"seedbox\") | .link.state == \"up\"" >/dev/null && exit 0; sleep 1; done; exit 1'
+  $FW exec $RUN --proof roles/roles-metadata -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=orchard'
   ```
 
 ### Drain and write off
@@ -273,5 +311,6 @@ Steps:
 - After a write-off doctor's check 3 reports seedbox's Roles, since the Scenario gives it Downloading.
 - A Worker started while home is down runs none of its Roles until home had `timings.link.redial_max` plus `timings.link.handshake` (70 s by default) to answer; after that it works from its cached intent, out of step.
 - The `mail` capture attributes a message to the Node whose front it came through, and every Node dials the one `smtp` front the email setting names, home's. A message seedbox sent reads `node: home`; the stopped-seedbox step is what shows the route. The simulation tier's `TestMailGoesThroughTheNodeThatSendsIt` proves the sending address.
+- A Metadata holder keeps its TMDB connection open and caches what it read, so `refuse` on its `tmdb` front leaves a repeated search answering; the recipe resets the front and searches a query not asked before.
 - A cookie-session `POST` needs an `Origin` header naming the Node's own URL, or it answers 403 `cross_origin`.
 - A probe that fails, such as a downloads folder that can't be written, needs a Node started with other config, which no `fakeworld node` verb does; `TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere` covers it on the simulation tier.

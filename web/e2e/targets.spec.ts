@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 
 async function openTargets(page: Page) {
   await navigate(page, "Settings");
@@ -10,6 +11,14 @@ async function openTargets(page: Page) {
     : page.getByRole("navigation", { name: "Settings" });
   await sections.getByRole("link", { name: "Targets" }).click();
   await expect(page).toHaveURL(/\/settings\/targets$/u);
+}
+
+async function choose(page: Page, popup: string, item: string) {
+  await clickWhenStill(
+    page
+      .getByRole(isPhone(page) ? "dialog" : "menu", { name: popup })
+      .getByRole(isPhone(page) ? "button" : "menuitem", { name: item }),
+  );
 }
 
 async function untick(page: Page, qualities: readonly string[]) {
@@ -52,7 +61,7 @@ async function tickAcross(page: Page) {
 async function moveCutoffDown(page: Page) {
   if (isPhone(page)) {
     await page.getByRole("button", { name: "Actions for Cutoff" }).click();
-    await page.getByRole("button", { name: "Move down" }).click();
+    await choose(page, "Actions for Cutoff", "Move down");
   } else {
     await page.getByRole("button", { name: "Move Cutoff", exact: true }).focus();
     await page.keyboard.press("ArrowDown");
@@ -68,9 +77,7 @@ test("a Target built from a preset says what its order means as the cutoff moves
 
   await page.getByRole("textbox", { name: "Name" }).fill("HD only");
   await page.getByRole("button", { name: "Fill from a preset" }).click();
-  await page
-    .getByRole(isPhone(page) ? "button" : "menuitem", { name: "Upgrade for disc or resolution" })
-    .click();
+  await choose(page, "Presets", "Upgrade for disc or resolution");
   await untick(page, ["Remux-2160p", "Bluray-2160p", "WEBDL-2160p", "WEBRip-2160p", "HDTV-2160p"]);
   await untick(page, ["WEBRip-480p", "DVD", "SDTV"]);
   const sentence = page.getByText(/^Grabs /u);

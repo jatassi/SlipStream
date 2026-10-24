@@ -407,6 +407,75 @@
           "additionalProperties": false,
           "type": "object"
         },
+        "metadata": {
+          "properties": {
+            "attempts": {
+              "type": "integer"
+            },
+            "try": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retry_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retry_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "wait": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "cache_entries": {
+              "type": "integer"
+            },
+            "retest_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retest_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "artwork_retry": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "changes_pages": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "tmdb": {
+          "properties": {
+            "interval": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "burst": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "omdb": {
+          "properties": {
+            "interval": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "burst": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
         "health": {
           "properties": {
             "retry": {
@@ -568,6 +637,258 @@
               "runtime": {
                 "type": "string",
                 "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+              },
+              "dates": {
+                "items": {
+                  "properties": {
+                    "country": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "premiere",
+                        "limited",
+                        "cinema",
+                        "digital",
+                        "physical",
+                        "tv"
+                      ]
+                    },
+                    "date": {
+                      "type": "string",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                    },
+                    "certification": {
+                      "type": "string"
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "country",
+                    "kind",
+                    "date"
+                  ]
+                },
+                "type": "array"
+              },
+              "original_title": {
+                "type": "string"
+              },
+              "original_language": {
+                "type": "string",
+                "pattern": "^[a-z]{2}$"
+              },
+              "overview": {
+                "type": "string"
+              },
+              "tagline": {
+                "type": "string"
+              },
+              "genres": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "Rumored",
+                  "Planned",
+                  "In Production",
+                  "Post Production",
+                  "Released",
+                  "Canceled"
+                ]
+              },
+              "titles": {
+                "items": {
+                  "properties": {
+                    "country": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "country",
+                    "title"
+                  ]
+                },
+                "type": "array"
+              },
+              "translations": {
+                "items": {
+                  "properties": {
+                    "language": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2}-[A-Z]{2}$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "overview": {
+                      "type": "string"
+                    },
+                    "tagline": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "language"
+                  ]
+                },
+                "type": "array"
+              },
+              "credits": {
+                "properties": {
+                  "cast": {
+                    "items": {
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "character": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name"
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "crew": {
+                    "items": {
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "department": {
+                          "type": "string"
+                        },
+                        "job": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "department",
+                        "job"
+                      ]
+                    },
+                    "type": "array"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object"
+              },
+              "trailer": {
+                "type": "string"
+              },
+              "collection": {
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "name"
+                ]
+              },
+              "studio": {
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "name"
+                ]
+              },
+              "images": {
+                "items": {
+                  "properties": {
+                    "shape": {
+                      "type": "string",
+                      "enum": [
+                        "poster",
+                        "backdrop",
+                        "logo"
+                      ]
+                    },
+                    "language": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2}$"
+                    },
+                    "votes": {
+                      "type": "number",
+                      "maximum": 10,
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "shape"
+                  ]
+                },
+                "type": "array"
+              },
+              "vote_average": {
+                "type": "number",
+                "maximum": 10,
+                "minimum": 0
+              },
+              "vote_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deleted": {
+                "type": "boolean"
               }
             },
             "additionalProperties": false,
@@ -576,7 +897,6 @@
               "id",
               "imdb_id",
               "title",
-              "released",
               "runtime"
             ]
           },
@@ -589,6 +909,54 @@
       "required": [
         "movies"
       ]
+    },
+    "omdb": {
+      "properties": {
+        "daily_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "titles": {
+          "items": {
+            "properties": {
+              "imdb_id": {
+                "type": "string",
+                "pattern": "^tt[0-9]{7,}$"
+              },
+              "imdb_rating": {
+                "type": "number",
+                "maximum": 10,
+                "minimum": 0
+              },
+              "imdb_votes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rotten_tomatoes": {
+                "type": "integer",
+                "maximum": 100,
+                "minimum": 0
+              },
+              "metacritic": {
+                "type": "integer",
+                "maximum": 100,
+                "minimum": 0
+              },
+              "awards": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "imdb_id"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "releases": {
       "items": {

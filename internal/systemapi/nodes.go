@@ -40,7 +40,6 @@ var (
 	alreadyRestarting = api.NewCode(http.StatusConflict, "already_restarting", "The Node is already restarting")
 	setByEnvironment  = api.NewCode(http.StatusConflict, "set_by_environment", "An environment variable sets this setting")
 	portUsedByNode    = api.NewCode(http.StatusUnprocessableEntity, "port_used_by_node", "The Node uses this port already")
-	unknownSetting    = api.NewCode(http.StatusUnprocessableEntity, "unknown_setting", "No setting has this key")
 	folderUnusable    = api.NewCode(http.StatusUnprocessableEntity, "folder_unusable", "SlipStream can't use this folder")
 	configNotWritable = api.NewCode(http.StatusConflict, "config_not_writable", "SlipStream can't rewrite config.yaml")
 )
@@ -78,7 +77,7 @@ func refused(r *nodesystem.Refusal) error {
 	case nodesystem.PortUsedByNode:
 		return portUsedByNode.On(r.Key, r.Sentence)
 	case nodesystem.UnknownSetting:
-		return unknownSetting.On(r.Key, r.Sentence)
+		return settingapi.ErrUnknown.On(r.Key, r.Sentence)
 	case nodesystem.NotWritable:
 		return configNotWritable.Because(r.Sentence)
 	case nodesystem.UnusableFolder:

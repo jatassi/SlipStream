@@ -62,7 +62,7 @@ func serve(t *testing.T) *served {
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
+		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {

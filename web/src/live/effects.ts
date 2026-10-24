@@ -8,6 +8,7 @@ import {
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
+import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
 import {
   getListCutsQueryKey,
   getListProfilesQueryKey,
@@ -60,5 +61,8 @@ export const effects = {
   },
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });
+  },
+  "metadata.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListMetadataProvidersQueryKey() });
   },
 } satisfies LiveEffects;

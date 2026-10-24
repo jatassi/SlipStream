@@ -209,6 +209,10 @@ type Node struct {
 	grabsRand *rand.Rand
 	filesRand *rand.Rand
 	tasksRand *rand.Rand
+	// metadataRand draws the metadata call layer's retry jitter.
+	metadataRand *rand.Rand
+	// cacheRand draws the Controller's metadata cache generation.
+	cacheRand *rand.Rand
 	// systemRand draws the Controller's waits on an offline Node's log.
 	systemRand *rand.Rand
 	// host is what NodeSystemService serves for this Node, and hostMu
@@ -406,6 +410,8 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.systemRand = streams.Stream("system")
 	n.host = &nodeHost{n: n}
 	n.tasksRand = streams.Stream("tasks")
+	n.metadataRand = streams.Stream("metadata")
+	n.cacheRand = streams.Stream("metadata-cache")
 	if err := n.startTorrent(cfg, l, streams.Stream("torrent")); err != nil {
 		return 0, "", err
 	}

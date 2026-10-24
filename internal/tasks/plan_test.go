@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 func at(s string) time.Time {
@@ -252,4 +254,83 @@ func inUTC(p Plan) Plan {
 		p.Wake = p.Wake.UTC()
 	}
 	return p
+}
+
+func install(s string) role.NodeID {
+	id, err := storage.ParseUUID(s)
+	if err != nil {
+		panic(err)
+	}
+	return role.NodeID{UUID: id}
+}
+
+var (
+	here  = install("019a0000-0000-7000-8000-000000000001")
+	there = install("019a0000-0000-7000-8000-000000000002")
+
+	spread = Task{ID: "refresh", Name: "Refresh", Cadence: InWindow{Days: daily, Spread: 30 * time.Minute}, Overdue: Wait}
+)
+
+// startOf is when a spread task last run at slot starts next, as a clock
+// started at started on install sees it at now.
+func startOf(t *testing.T, id role.NodeID, started, now, slot string) time.Time {
+	t.Helper()
+	k := baseKnobs(started)
+	k.install = id
+	p := plan(at(now), k, []state{{task: spread, firstSeen: at("2026-10-01T00:00:00Z"), slot: at(slot)}})
+	next, ok := p.Next[spread.ID]
+	if !ok {
+		t.Fatalf("plan = %+v, want refresh waiting", p)
+	}
+	return next.UTC()
+}
+
+func TestTheSpreadIsFixedPerOpeningAndInstall(t *testing.T) {
+	first := startOf(t, here, "2026-10-15T00:00:00Z", "2026-10-16T01:00:00Z", "2026-10-15T04:00:00Z")
+	opening := at("2026-10-16T04:00:00Z")
+	if first.Before(opening) || !first.Before(opening.Add(30*time.Minute)) {
+		t.Fatalf("the start is %s, want it in the window's first 30 minutes", first)
+	}
+	if restarted := startOf(t, here, "2026-10-16T00:30:00Z", "2026-10-16T01:00:00Z", "2026-10-15T04:00:00Z"); !restarted.Equal(first) {
+		t.Fatalf("after a restart the start is %s, want %s", restarted, first)
+	}
+	if later := startOf(t, here, "2026-10-15T00:00:00Z", "2026-10-16T03:59:00Z", "2026-10-15T04:00:00Z"); !later.Equal(first) {
+		t.Fatalf("planned again later the start is %s, want %s", later, first)
+	}
+	if elsewhere := startOf(t, there, "2026-10-15T00:00:00Z", "2026-10-16T01:00:00Z", "2026-10-15T04:00:00Z"); elsewhere.Equal(first) {
+		t.Fatalf("another install starts at %s too, want its own offset", first)
+	}
+	next := startOf(t, here, "2026-10-15T00:00:00Z", "2026-10-17T01:00:00Z", "2026-10-16T04:00:00Z")
+	if next.Sub(first) == day {
+		t.Fatalf("the next opening starts at %s, the same offset as %s, want its own", next, first)
+	}
+}
+
+func TestTheSpreadKeepsCatalogOrderInTheWindow(t *testing.T) {
+	k := baseKnobs("2026-10-15T00:00:00Z")
+	k.install = here
+	ranToday := func(task Task) state {
+		return state{task: task, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T04:00:00Z"), lastEnded: at("2026-10-16T04:01:00Z")}
+	}
+	dueToday := func(task Task) state {
+		return state{task: task, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-15T04:00:00Z")}
+	}
+	waiting := plan(at("2026-10-16T04:01:00Z"), k, []state{ranToday(backup), dueToday(spread), dueToday(housekeeping)})
+	start := waiting.Next["refresh"]
+	if len(waiting.Open) != 0 || !start.After(at("2026-10-16T04:01:00Z")) || !waiting.Wake.Equal(start) {
+		t.Fatalf("at 04:01 plan = %+v, want refresh and housekeeping waiting for refresh's start", waiting)
+	}
+	if got := plan(start, k, []state{ranToday(backup), dueToday(spread), dueToday(housekeeping)}).Open; !reflect.DeepEqual(got, []Opening{{"refresh", BySchedule}}) {
+		t.Fatalf("at refresh's start plan opens %v, want refresh alone", got)
+	}
+	open := dueToday(spread)
+	open.open = true
+	if got := plan(start, k, []state{ranToday(backup), open, dueToday(housekeeping)}).Open; len(got) != 0 {
+		t.Fatalf("while refresh runs plan opens %v, want housekeeping waiting", got)
+	}
+	done := ranToday(spread)
+	done.slot = start
+	if got := plan(start.Add(time.Minute), k, []state{ranToday(backup), done, dueToday(housekeeping)}).Open; !reflect.DeepEqual(got, []Opening{{"housekeeping", BySchedule}}) {
+		t.Fatalf("after refresh plan opens %v, want housekeeping", got)
+	}
 }

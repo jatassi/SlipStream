@@ -49,9 +49,9 @@ func seedS09(t *testing.T) (*storage.DB[storage.Library], s09) {
 		}{
 			{`INSERT INTO roots_root VALUES (?, 'alpha', ?, '/media/alpha')`, []any{at.alpha, node}},
 			{`INSERT INTO roots_root VALUES (?, 'beta', ?, '/media/beta')`, []any{at.beta, node}},
-			{`INSERT INTO works_work VALUES (?, 'alpha', 'a1', 'Orchard', 'Orchard', 0, 0)`, []any{at.one}},
-			{`INSERT INTO works_work VALUES (?, 'beta', 'b1', 'Lanterns', 'Lanterns', 0, 0)`, []any{at.two}},
-			{`INSERT INTO works_work VALUES (?, 'gamma', 'g1', 'Tide', 'Tide', 0, 0)`, []any{at.three}},
+			{`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'alpha', 'a1', 'Orchard', 'Orchard', 0, 0)`, []any{at.one}},
+			{`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'beta', 'b1', 'Lanterns', 'Lanterns', 0, 0)`, []any{at.two}},
+			{`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'gamma', 'g1', 'Tide', 'Tide', 0, 0)`, []any{at.three}},
 		} {
 			if _, err := tx.ExecContext(ctx, stmt.sql, stmt.args...); err != nil {
 				return err

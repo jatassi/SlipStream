@@ -96,6 +96,11 @@ func (s *Service) Holds(r role.Name, node ID) bool { return s.Who(r).Holds(node)
 
 func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick(prefer) }
 
+func (s *Service) PickOther(r role.Name, besides ID) (ID, bool) { return s.Who(r).PickOther(besides) }
+
+// Why is why no Node may take new r work, in words, or "" when one may.
+func (s *Service) Why(r role.Name) string { return s.Who(r).Why() }
+
 func (s *Service) WrittenOff(r role.Name, node ID) bool { return s.Who(r).WrittenOff(node) }
 
 // WrittenOffIn is every Node in r whose work for Role name the Admin wrote off,

@@ -1,5 +1,7 @@
 import type { Page } from "@playwright/test";
 
+import { clickWhenStill } from "./still.ts";
+
 export type Destination = "Library" | "Activity" | "Nodes" | "Health" | "Settings" | "Tasks";
 
 export const isPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 0) < 768;
@@ -28,10 +30,9 @@ export async function navigate(page: Page, to: Destination): Promise<void> {
     .getByRole("navigation", { name: "Tabs" })
     .getByRole("button", { name: "More" })
     .click();
-  await page
-    .getByRole("dialog", { name: "More" })
-    .getByRole("button", { name: named(to) })
-    .click();
+  await clickWhenStill(
+    page.getByRole("dialog", { name: "More" }).getByRole("button", { name: named(to) }),
+  );
 }
 
 export async function openNode(page: Page, name: string): Promise<void> {
@@ -61,10 +62,9 @@ export async function signOut(page: Page): Promise<void> {
       .getByRole("navigation", { name: "Tabs" })
       .getByRole("button", { name: "More" })
       .click();
-    await page
-      .getByRole("dialog", { name: "More" })
-      .getByRole("button", { name: "Sign out" })
-      .click();
+    await clickWhenStill(
+      page.getByRole("dialog", { name: "More" }).getByRole("button", { name: "Sign out" }),
+    );
   } else {
     await page.getByRole("button", { name: "Account" }).click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();

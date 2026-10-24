@@ -3,6 +3,7 @@
 package musicbrainz_test
 
 import (
+	"math/rand/v2"
 	"net/http"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/conformance/internal/shape"
 	conformance "github.com/jatassi/slipstream/conformance/musicbrainz"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
@@ -23,6 +25,7 @@ func TestMusicBrainzConforms(t *testing.T) {
 		Endpoints: music.Endpoints{Metadata: endpoint.MustParseURL("https://musicbrainz.org/ws/2")},
 		Client:    &http.Client{Timeout: 5 * time.Minute, Transport: conformance.RetryRateLimited(http.DefaultTransport)},
 		Spacing:   time.Second,
+		Lines:     lines,
 		Known:     boardsOfCanada,
 	}
 	if *shape.Update {
@@ -34,4 +37,8 @@ func TestMusicBrainzConforms(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func lines(c *http.Client) *metadata.Lines {
+	return metadata.NewLines(c, "SlipStream/conformance ( github.com/jatassi/SlipStream )", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // jitter needs no secrecy
 }

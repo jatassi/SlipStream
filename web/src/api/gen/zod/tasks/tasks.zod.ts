@@ -52,7 +52,7 @@ export const GetTaskParams = zod.object({
 export const GetTaskResponse = TasksDetail;
 
 /**
- * @summary Change a task's cadence or overdue rule
+ * @summary Change a task's cadence, overdue rule or tuning
  */
 export const UpdateTaskParams = zod.object({
   taskId: zod.string(),

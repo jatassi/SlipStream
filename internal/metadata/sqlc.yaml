@@ -1,0 +1,56 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: metadata_settings.id
+            go_type:
+              type: Singleton
+          - column: metadata_settings.language
+            go_type:
+              type: string
+              pointer: true
+          - column: metadata_settings.region
+            go_type:
+              type: string
+              pointer: true
+          - column: metadata_settings.follow_changes
+            go_type:
+              type: bool
+              pointer: true
+          - column: "metadata_settings.*_seconds"
+            go_type:
+              type: int64
+              pointer: true
+          - column: metadata_settings.artwork_store_mb
+            go_type:
+              type: int64
+              pointer: true
+          - column: metadata_type.changes_through
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: metadata_due.since
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: metadata_due.reason
+            go_type:
+              type: Reason
+          - column: metadata_due.work_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: "*.*_sealed"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed

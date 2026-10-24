@@ -12,6 +12,8 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -31,6 +33,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		nodes.Schema(),
 		role.LibrarySchema(),
 		works.Schema(),
+		metadata.Schema(),
 		targets.Schema(),
 		roots.Schema(),
 		indexers.Schema(),
@@ -48,6 +51,8 @@ func localSchemas() []storage.Schema[storage.Local] {
 		role.LocalSchema(),
 		transfers.Schema(),
 		downloading.Schema(),
+		metadata.LocalSchema(),
+		artwork.Schema(),
 	}
 }
 

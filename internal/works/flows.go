@@ -8,6 +8,8 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works/internal/db"
 )
@@ -26,6 +28,19 @@ type Summary struct {
 	SortLabel   string
 	AddedAt     storage.Time
 	RefreshedAt storage.Time
+	// GoneUpstreamAt is when the source last answered that it has no such
+	// record, zero once it has it again.
+	GoneUpstreamAt storage.Time
+	// RatingsReadAt is when the ratings providers last answered.
+	RatingsReadAt storage.Time
+}
+
+// StoredRating is a Rating as the library holds it.
+type StoredRating struct {
+	Source    RatingSource
+	Value     float64
+	Votes     *int64
+	FetchedAt storage.Time
 }
 
 // Tree is a Work with its levels, by depth, then their parent's order,
@@ -34,9 +49,12 @@ type Summary struct {
 // node keeps the position it last had, which a live sibling may now hold.
 type Tree struct {
 	Summary
-	Fields []FieldValue
-	Levels []Level
-	Items  []Item
+	Fields  []FieldValue
+	Ratings []StoredRating
+	// Artwork is keyed by the artwork.Kind's key.
+	Artwork map[string]artwork.Ref
+	Levels  []Level
+	Items   []Item
 }
 
 type Level struct {
@@ -61,6 +79,8 @@ type Item struct {
 	WithdrawnAt storage.Time
 	Monitored   bool
 	Fields      []FieldValue
+	Ratings     []StoredRating
+	Artwork     map[string]artwork.Ref
 }
 
 // Types lists every registered Content Type in id order, off ones
@@ -126,7 +146,7 @@ func (w *Works) Search(ctx context.Context, _ identity.Admin, t TypeID, query st
 		return nil, err
 	}
 	fetchCtx, cancel := context.WithTimeout(ctx, w.cfg.Timings.Fetch)
-	found, err := reg.catalog.Search(fetchCtx, query)
+	found, err := w.cfg.Source.Search(fetchCtx, t, query)
 	cancel()
 	if err != nil {
 		return nil, sourced(t, "search", err)
@@ -183,7 +203,7 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 	if !errors.Is(err, storage.ErrNoRows) {
 		return Tree{}, false, err
 	}
-	p, err := w.fetch(ctx, t, reg, key)
+	p, err := w.fetch(ctx, t, reg, key, Fetching{Purpose: ForAdd})
 	if err != nil {
 		return Tree{}, false, err
 	}
@@ -213,9 +233,81 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 	}
 	if created {
 		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+		if wants := prefetches(reg.desc, p.Artwork); len(wants) > 0 {
+			w.cfg.Artwork.Prefetch(wants)
+		}
 	}
 	tree, err = w.Get(ctx, by, id)
 	return tree, created, err
+}
+
+// prefetches are the images of as whose kind d prefetches, at its size.
+func prefetches(d Description, as []Art) []artwork.Want {
+	var wants []artwork.Want
+	for _, a := range as {
+		i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == (a.Item != "") })
+		if size := d.Artwork[i].Prefetch; size != "" {
+			wants = append(wants, artwork.Want{Ref: a.Ref, Size: size})
+		}
+	}
+	return wants
+}
+
+var errPreview = errors.New("works: a preview rolls back")
+
+// Preview is the Work Add would make of the record t's source knows by
+// key, without its ratings providers: Add's Write, rolled back, so the
+// tree has an added Work's shape and nothing commits. Its ids name
+// nothing. A key already in the library answers the stored Work, with
+// stored true.
+func (w *Works) Preview(ctx context.Context, _ identity.Admin, t TypeID, key Key, within func(context.Context, storage.Reader[file], Tree) error) (tree Tree, stored bool, err error) {
+	reg, err := w.open(ctx, t)
+	if err != nil {
+		return Tree{}, false, err
+	}
+	row, err := db.New(w.cfg.Library).GetWorkByKey(ctx, db.GetWorkByKeyParams{ContentType: t, Key: key})
+	if err == nil {
+		err = w.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+			if tree, err = w.read(ctx, r, row.ID); err != nil {
+				return err
+			}
+			return within(ctx, r, tree)
+		})
+		return tree, true, err
+	}
+	if !errors.Is(err, storage.ErrNoRows) {
+		return Tree{}, false, err
+	}
+	p, err := w.fetch(ctx, t, reg, key, Fetching{Purpose: ForPreview})
+	if err != nil {
+		return Tree{}, false, err
+	}
+	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		id := WorkID{UUID: storage.NewUUID()}
+		row, err := db.New(tx).GetWorkByKey(ctx, db.GetWorkByKeyParams{ContentType: t, Key: key})
+		switch {
+		case err == nil:
+			id, stored = row.ID, true
+		case !errors.Is(err, storage.ErrNoRows):
+			return err
+		default:
+			err = insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel}, p, Adding{})
+			if err != nil {
+				return err
+			}
+		}
+		if tree, err = w.read(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := within(ctx, tx, tree); err != nil {
+			return err
+		}
+		return errPreview
+	})
+	if !errors.Is(err, errPreview) {
+		return Tree{}, false, err
+	}
+	return tree, stored, nil
 }
 
 // insert writes Work w, as p has it, now.
@@ -227,7 +319,7 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 	if err := q.InsertWork(ctx, work); err != nil {
 		return err
 	}
-	if err := converge(ctx, tx, reg.catalog, w.ID, p, w.AddedAt); err != nil {
+	if _, err := converge(ctx, tx, reg.catalog, w.ID, p, w.AddedAt); err != nil {
 		return err
 	}
 	if a.Monitor {
@@ -241,33 +333,98 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 	return a.Also(ctx, tx, w)
 }
 
-// Refresh converges a Work on what its source has now, keeping every id.
-// A source that no longer has the Work is ErrGoneUpstream and changes
-// nothing.
+// Refresh converges a Work on what its source has now, keeping every id,
+// and publishes works.changed only when something but the refresh time
+// moved. A source that no longer has the Work marks it gone upstream,
+// changes nothing else, and is ErrGoneUpstream.
 func (w *Works) Refresh(ctx context.Context, by identity.Admin, id WorkID) (Tree, error) {
+	if err := w.refresh(ctx, id, role.NodeID{}); err != nil {
+		return Tree{}, err
+	}
+	return w.Get(ctx, by, id)
+}
+
+// RefreshDue is Refresh for the Metadata refresh task, which needs no
+// Admin: the call leaves from via, the Node the task's runner placed the
+// Work on. A call via couldn't take fails with the rpc error, so the
+// runner can tell a Node that no longer holds Metadata from a source that
+// failed.
+func (w *Works) RefreshDue(ctx context.Context, id WorkID, via role.NodeID) error {
+	return w.refresh(ctx, id, via)
+}
+
+func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) error {
 	row, err := db.New(w.cfg.Library).GetWork(ctx, id)
 	if errors.Is(err, storage.ErrNoRows) {
-		return Tree{}, ErrNoWork
+		return ErrNoWork
 	}
 	if err != nil {
-		return Tree{}, err
+		return err
 	}
 	reg := w.types[row.ContentType]
-	p, err := w.fetch(ctx, row.ContentType, reg, row.Key)
+	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, Fetching{Purpose: ForRefresh, RatingsReadAt: row.RatingsReadAt, Via: via})
 	if errors.Is(err, ErrNotFound) {
-		return Tree{}, ErrGoneUpstream
+		return w.goneUpstream(ctx, id)
 	}
 	if err != nil {
-		return Tree{}, err
+		return err
 	}
+	var changed bool
 	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return converge(ctx, tx, reg.catalog, id, p, storage.Now())
+		changed, err = converge(ctx, tx, reg.catalog, id, p, storage.Now())
+		return err
 	})
 	if err != nil {
-		return Tree{}, err
+		return err
 	}
-	w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
-	return w.Get(ctx, by, id)
+	if changed {
+		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+	}
+	return nil
+}
+
+func (w *Works) goneUpstream(ctx context.Context, id WorkID) error {
+	var marked bool
+	err := w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		row, err := q.GetWork(ctx, id)
+		if errors.Is(err, storage.ErrNoRows) {
+			return ErrNoWork
+		}
+		if err != nil {
+			return err
+		}
+		marked = row.GoneUpstreamAt.IsZero()
+		return q.MarkGoneUpstream(ctx, db.MarkGoneUpstreamParams{GoneUpstreamAt: storage.Now(), ID: id})
+	})
+	if err != nil {
+		return err
+	}
+	if marked {
+		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+	}
+	return ErrGoneUpstream
+}
+
+// SetMonitored monitors or unmonitors items, publishing works.changed for
+// each Work whose Items it changed. An id no Item has changes nothing.
+func (w *Works) SetMonitored(ctx context.Context, _ identity.Admin, items []ItemID, on bool) error {
+	var touched []WorkID
+	err := w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		var err error
+		if touched, err = q.WorksToMonitor(ctx, db.WorksToMonitorParams{ItemIds: items, Monitored: on}); err != nil {
+			return err
+		}
+		return q.SetMonitored(ctx, db.SetMonitoredParams{Monitored: on, ItemIds: items})
+	})
+	if err != nil {
+		return err
+	}
+	for _, id := range touched {
+		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+	}
+	return nil
 }
 
 func (w *Works) open(ctx context.Context, t TypeID) (registered, error) {
@@ -285,14 +442,14 @@ func (w *Works) open(ctx context.Context, t TypeID) (registered, error) {
 	return reg, nil
 }
 
-func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key) (parsed, error) {
+func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key, f Fetching) (parsed, error) {
 	ctx, cancel := context.WithTimeout(ctx, w.cfg.Timings.Fetch)
 	defer cancel()
-	f, err := reg.catalog.Fetch(ctx, key)
+	fetched, err := w.cfg.Source.Fetch(ctx, t, key, f)
 	if err != nil {
 		return parsed{}, sourced(t, "fetch "+string(key), err)
 	}
-	p, err := parseFetched(reg.desc, key, f)
+	p, err := parseFetched(reg.desc, key, fetched)
 	if err != nil {
 		w.cfg.Log.Warn("metadata invalid", "contentType", string(t), "key", string(key), "err", err.Error())
 	}
@@ -300,39 +457,58 @@ func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key) (p
 }
 
 func sourced(t TypeID, op string, err error) error {
-	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrUnavailable) {
+	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrUnavailable) || errors.Is(err, ErrRefused) {
 		return err
 	}
 	return fmt.Errorf("content type %s: %s: %w", t, op, err)
 }
 
-func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p parsed, now storage.Time) error {
+// converge writes p over Work id and reports whether anything but the
+// refresh times moved: the labels, a level or Item, a rating's value or
+// votes, an artwork reference, the gone-upstream mark, or the type's own
+// rows. A rating source or artwork kind p lacks keeps its stored row.
+func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p parsed, now storage.Time) (bool, error) {
 	q := db.New(tx)
-	levels, err := q.ListLevels(ctx, id)
+	row, err := q.GetWork(ctx, id)
 	if err != nil {
-		return err
+		return false, err
 	}
-	items, err := q.ListItems(ctx, id)
+	at, moved, err := writeNodes(ctx, q, id, p, now)
 	if err != nil {
-		return err
+		return false, err
 	}
-	levelIDs := map[Key]LevelID{}
-	levelKeys := map[LevelID]Key{}
-	var stored nodes
-	for _, l := range levels {
-		levelIDs[l.Key], levelKeys[l.ID] = l.ID, l.Key
+	if p.RatingsRead {
+		if err := q.SetRatingsRead(ctx, db.SetRatingsReadParams{RatingsReadAt: now, ID: id}); err != nil {
+			return false, err
+		}
 	}
-	for _, l := range levels {
-		stored.Levels = append(stored.Levels, level{node: node{Key: l.Key, Parent: levelKeys[l.ParentID], Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt}, Depth: int(l.Depth)})
+	rated, err := writeRatings(ctx, q, id, at.Items, p.Ratings, now)
+	if err != nil {
+		return false, err
 	}
-	itemIDs := map[Key]ItemID{}
-	for _, it := range items {
-		itemIDs[it.Key] = it.ID
-		stored.Items = append(stored.Items, node{Key: it.Key, Parent: levelKeys[it.LevelID], Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt})
+	drawn, err := writeArtwork(ctx, q, id, at.Items, p.Artwork)
+	if err != nil {
+		return false, err
+	}
+	own, err := c.Store(ctx, tx, at, p.Detail)
+	if err != nil {
+		return false, err
+	}
+	relabeled := p.Label != row.Label || p.SortLabel != row.SortLabel
+	return relabeled || !row.GoneUpstreamAt.IsZero() || moved || rated || drawn || own, nil
+}
+
+// writeNodes merges p's levels and Items over Work id's, clears its
+// gone-upstream mark, and reports where each node sits and whether any
+// level or Item moved.
+func writeNodes(ctx context.Context, q *db.Queries, id WorkID, p parsed, now storage.Time) (Placed, bool, error) {
+	stored, levelIDs, itemIDs, err := storedNodes(ctx, q, id)
+	if err != nil {
+		return Placed{}, false, err
 	}
 	pl := planMerge(stored, p, now)
 	if err := q.UpdateWork(ctx, db.UpdateWorkParams{Label: pl.Label, SortLabel: pl.SortLabel, RefreshedAt: pl.RefreshedAt, ID: id}); err != nil {
-		return err
+		return Placed{}, false, err
 	}
 	for _, c := range pl.Levels {
 		l := c.Node
@@ -343,7 +519,7 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 			err = q.UpdateLevel(ctx, db.UpdateLevelParams{ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, ID: levelIDs[l.Key]})
 		}
 		if err != nil {
-			return err
+			return Placed{}, false, err
 		}
 	}
 	for _, c := range pl.Items {
@@ -355,7 +531,7 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 			err = q.UpdateItem(ctx, db.UpdateItemParams{LevelID: levelIDs[it.Parent], Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt, ID: itemIDs[it.Key]})
 		}
 		if err != nil {
-			return err
+			return Placed{}, false, err
 		}
 	}
 	at := Placed{Work: id, Levels: map[Key]LevelID{}, Items: map[Key]ItemID{}}
@@ -365,17 +541,108 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 	for _, n := range p.Items {
 		at.Items[n.Key] = itemIDs[n.Key]
 	}
-	return c.Store(ctx, tx, at, p.Detail)
+	return at, len(pl.Levels) > 0 || len(pl.Items) > 0, nil
+}
+
+func storedNodes(ctx context.Context, q *db.Queries, id WorkID) (stored nodes, levelIDs map[Key]LevelID, itemIDs map[Key]ItemID, err error) {
+	levels, err := q.ListLevels(ctx, id)
+	if err != nil {
+		return nodes{}, nil, nil, err
+	}
+	items, err := q.ListItems(ctx, id)
+	if err != nil {
+		return nodes{}, nil, nil, err
+	}
+	levelIDs = map[Key]LevelID{}
+	levelKeys := map[LevelID]Key{}
+	for _, l := range levels {
+		levelIDs[l.Key], levelKeys[l.ID] = l.ID, l.Key
+	}
+	for _, l := range levels {
+		stored.Levels = append(stored.Levels, level{node: node{Key: l.Key, Parent: levelKeys[l.ParentID], Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt}, Depth: int(l.Depth)})
+	}
+	itemIDs = map[Key]ItemID{}
+	for _, it := range items {
+		itemIDs[it.Key] = it.ID
+		stored.Items = append(stored.Items, node{Key: it.Key, Parent: levelKeys[it.LevelID], Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt})
+	}
+	return stored, levelIDs, itemIDs, nil
+}
+
+func writeRatings(ctx context.Context, q *db.Queries, id WorkID, itemIDs map[Key]ItemID, rs []Rating, now storage.Time) (changed bool, err error) {
+	type slot struct {
+		item   ItemID
+		source string
+	}
+	rows, err := q.ListRatings(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	held := map[slot]db.WorksRating{}
+	for _, r := range rows {
+		held[slot{r.ItemID, r.Source}] = r
+	}
+	for _, r := range rs {
+		item, scale := itemIDs[r.Item], RatingSources[r.Source].Scale
+		old, ok := held[slot{item, string(r.Source)}]
+		if !ok {
+			changed = true
+			err = q.InsertRating(ctx, db.InsertRatingParams{WorkID: id, ItemID: item, Source: string(r.Source), Value: r.Value, Scale: scale, Votes: r.Votes, FetchedAt: now})
+		} else {
+			changed = changed || old.Value != r.Value || old.Scale != scale || !samePtr(old.Votes, r.Votes)
+			err = q.UpdateRating(ctx, db.UpdateRatingParams{Value: r.Value, Scale: scale, Votes: r.Votes, FetchedAt: now, WorkID: id, ItemID: item, Source: string(r.Source)})
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+	return changed, nil
+}
+
+func samePtr[T comparable](a, b *T) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
+
+func writeArtwork(ctx context.Context, q *db.Queries, id WorkID, itemIDs map[Key]ItemID, as []Art) (changed bool, err error) {
+	type slot struct {
+		item ItemID
+		kind string
+	}
+	rows, err := q.ListArtwork(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	held := map[slot]db.WorksArtwork{}
+	for _, r := range rows {
+		held[slot{r.ItemID, r.Kind}] = r
+	}
+	for _, a := range as {
+		item := itemIDs[a.Item]
+		old, ok := held[slot{item, a.Kind}]
+		switch {
+		case !ok:
+			err = q.InsertArtwork(ctx, db.InsertArtworkParams{WorkID: id, ItemID: item, Kind: a.Kind, Source: string(a.Ref.Source), Path: a.Ref.Path})
+		case old.Source != string(a.Ref.Source) || old.Path != a.Ref.Path:
+			err = q.UpdateArtwork(ctx, db.UpdateArtworkParams{Source: string(a.Ref.Source), Path: a.Ref.Path, WorkID: id, ItemID: item, Kind: a.Kind})
+		default:
+			continue
+		}
+		if err != nil {
+			return false, err
+		}
+		changed = true
+	}
+	return changed, nil
 }
 
 // Listed is a Work with its own fields, without its levels and Items.
 type Listed struct {
 	Summary
 	Fields []FieldValue
+	// Artwork is the Work's own, keyed by the artwork.Kind's key.
+	Artwork map[string]artwork.Ref
 }
 
-// List lists Works by sort label, then id, with their fields, from one
-// snapshot: every Work, or t's.
+// List lists Works by sort label, then id, with their fields and their
+// own artwork, from one snapshot: every Work, or t's.
 func (w *Works) List(ctx context.Context, _ identity.Admin, t *TypeID) ([]Listed, error) {
 	if t != nil {
 		if _, ok := w.types[*t]; !ok {
@@ -397,20 +664,36 @@ func (w *Works) List(ctx context.Context, _ identity.Admin, t *TypeID) ([]Listed
 		}
 		out = make([]Listed, len(rows))
 		for i, row := range rows {
-			reg := w.types[row.ContentType]
-			fs, err := reg.catalog.Fields(ctx, r, row.ID)
-			if err != nil {
-				return fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+			if out[i], err = w.listed(ctx, r, row); err != nil {
+				return err
 			}
-			values, err := ordered(reg.specs(TierWork), fs.Work)
-			if err != nil {
-				return fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
-			}
-			out[i] = Listed{Summary: Summary(row), Fields: values}
 		}
 		return nil
 	})
 	return out, err
+}
+
+func (w *Works) listed(ctx context.Context, r storage.Reader[file], row db.WorksWork) (Listed, error) {
+	reg := w.types[row.ContentType]
+	fs, err := reg.catalog.Fields(ctx, r, row.ID)
+	if err != nil {
+		return Listed{}, fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+	}
+	values, err := ordered(reg.specs(TierWork), fs.Work)
+	if err != nil {
+		return Listed{}, fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+	}
+	art, err := db.New(r).ListArtwork(ctx, row.ID)
+	if err != nil {
+		return Listed{}, err
+	}
+	l := Listed{Summary: Summary(row), Fields: values, Artwork: map[string]artwork.Ref{}}
+	for _, a := range art {
+		if a.ItemID.IsZero() {
+			l.Artwork[a.Kind] = refOf(reg.desc, a)
+		}
+	}
+	return l, nil
 }
 
 // Get reads one Work's tree and its display fields from one snapshot.
@@ -441,6 +724,14 @@ func (w *Works) read(ctx context.Context, r storage.Reader[file], id WorkID) (Tr
 	if err != nil {
 		return Tree{}, err
 	}
+	ratings, err := q.ListRatings(ctx, id)
+	if err != nil {
+		return Tree{}, err
+	}
+	art, err := q.ListArtwork(ctx, id)
+	if err != nil {
+		return Tree{}, err
+	}
 	reg := w.types[row.ContentType]
 	fields, err := reg.catalog.Fields(ctx, r, id)
 	if err != nil {
@@ -450,7 +741,41 @@ func (w *Works) read(ctx context.Context, r storage.Reader[file], id WorkID) (Tr
 	if err != nil {
 		return Tree{}, fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, id, err)
 	}
+	t.attach(reg.desc, ratings, art)
 	return t, nil
+}
+
+func (t *Tree) attach(d Description, ratings []db.WorksRating, art []db.WorksArtwork) {
+	at := map[ItemID]int{}
+	for i, it := range t.Items {
+		at[it.ID] = i
+	}
+	for _, r := range ratings {
+		v := StoredRating{Source: RatingSource(r.Source), Value: r.Value, Votes: r.Votes, FetchedAt: r.FetchedAt}
+		if r.ItemID.IsZero() {
+			t.Ratings = append(t.Ratings, v)
+			continue
+		}
+		it := &t.Items[at[r.ItemID]]
+		it.Ratings = append(it.Ratings, v)
+	}
+	for _, a := range art {
+		owner := &t.Artwork
+		if !a.ItemID.IsZero() {
+			owner = &t.Items[at[a.ItemID]].Artwork
+		}
+		if *owner == nil {
+			*owner = map[string]artwork.Ref{}
+		}
+		(*owner)[a.Kind] = refOf(d, a)
+	}
+}
+
+// refOf is a stored artwork row as a reference, shaped as its kind is.
+func refOf(d Description, a db.WorksArtwork) artwork.Ref {
+	item := !a.ItemID.IsZero()
+	i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == item })
+	return artwork.Ref{Source: artwork.SourceID(a.Source), Shape: d.Artwork[i].Shape, Path: a.Path}
 }
 
 func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []db.WorksItem, fs FieldSet) (Tree, error) {

@@ -23,6 +23,7 @@ import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
 import { EmailSection } from "./email";
+import { metadataSection } from "./metadata";
 import { nodesSection } from "./nodes";
 import type { SettingsSection } from "./section";
 import { SignInSection } from "./sign-in";
@@ -63,6 +64,7 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
     component: ApiKeySection,
   },
   libraryRootsSection,
+  metadataSection,
   {
     id: "targets",
     label: "Targets",
