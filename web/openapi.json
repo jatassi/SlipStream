@@ -386,8 +386,16 @@
             "minimum": 0,
             "type": "integer"
           },
+          "hint": {
+            "description": "What explains the sentence: the volume, its free space, its error level and what to do",
+            "type": "string"
+          },
           "sampledAt": {
             "format": "date-time",
+            "type": "string"
+          },
+          "sentence": {
+            "description": "What the guard says, as Health says it",
             "type": "string"
           },
           "volume": {
@@ -396,6 +404,8 @@
           }
         },
         "required": [
+          "sentence",
+          "hint",
           "volume",
           "free",
           "errorBelow",

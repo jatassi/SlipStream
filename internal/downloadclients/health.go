@@ -8,7 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -108,16 +107,15 @@ func (c *Clients) healthAnswer(ctx context.Context) (health.Answer, error) {
 
 func guardItem(node role.NodeID, name string, g Guard) health.Item {
 	v := g.Volume
-	left := setting.Amount{N: v.Free, Unit: setting.BytesUnit}.Words()
+	sentence, hint := g.Words(name)
 	return health.Item{Key: health.KeyOf(node.String(), "disk-guard"), Level: health.Warn, Says: health.Says{
 		Subject: "New downloads on " + name,
-		Text: fmt.Sprintf("New downloads on %s wait for disk space. %s has %s left, below its error level of %s. Free up space there, or move %s's downloads folder to a volume with more room. Downloads already running carry on.",
-			name, v.Name, left, g.ErrorBelow.Amount.Words(), name),
+		Text:    sentence + " " + hint,
 		Detail: []health.Fact{
 			{Label: "Volume", Text: v.Name},
 			{Label: "Free", Bytes: &v.Free},
 			{Label: "Total", Bytes: &v.Total},
-			{Label: "Error level", Text: g.ErrorBelow.Amount.Words()},
+			{Label: "Error level", Bytes: &g.ErrorBelow.Bytes},
 			{Label: "Sampled", At: v.SampledAt},
 		},
 		Action: clientLink(node),

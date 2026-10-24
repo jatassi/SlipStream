@@ -41,7 +41,9 @@ export const getListDownloadClientsResponseMock = (
           diskGuard: {
             errorBelow: faker.number.int({ min: 0 }),
             free: faker.number.int({ min: 0 }),
+            hint: faker.string.alpha({ length: { min: 10, max: 20 } }),
             sampledAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+            sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
             volume: faker.string.alpha({ length: { min: 10, max: 20 } }),
           },
         }

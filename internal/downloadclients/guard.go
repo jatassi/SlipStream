@@ -11,6 +11,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -33,6 +34,16 @@ type Guard struct {
 	Volume     Volume
 	ErrorBelow health.Resolved
 }
+
+// Words is what the guard on node says, as Health and the client's card
+// both say it: a sentence, then the hint that explains it.
+func (g Guard) Words(node string) (sentence, hint string) {
+	return "New downloads on " + node + " wait for disk space.",
+		fmt.Sprintf("%s has %s left, below its error level of %s. Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on.",
+			g.Volume.Name, bytesWords(g.Volume.Free), bytesWords(g.ErrorBelow.Bytes))
+}
+
+func bytesWords(n int64) string { return setting.Amount{N: n, Unit: setting.BytesUnit}.Words() }
 
 // guardOn is the disk guard on v's Node at l, false once v is not below
 // its error level: the guard lifts on the first sample above it, as Health
