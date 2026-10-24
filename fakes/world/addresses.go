@@ -31,26 +31,27 @@ func CheckAddresses(ctx context.Context, n int) ([]netip.Addr, error) {
 	return addrs, nil
 }
 
-// torrentPort is a port the kernel picked that is free on addr for TCP and
-// UDP, both of which libtorrent binds. Given port 0 a Node draws its torrent
+// torrentPort is a port the kernel picked that is free on addr for UDP and
+// TCP, both of which libtorrent binds. Given port 0 a Node draws its torrent
 // port from its seed, and concurrent runs share seeds and loopback
 // addresses, so a pinned Node started again could find another run's Node
-// on its port.
+// on its port. UDP picks first: Windows reserves UDP port ranges its TCP
+// ephemeral ports run through, and refuses them with an access error.
 func torrentPort(ctx context.Context, addr netip.Addr) (netip.AddrPort, error) {
 	const tries = 8
 	var lc net.ListenConfig
 	var err error
 	for range tries {
-		var l net.Listener
-		if l, err = lc.Listen(ctx, "tcp", netip.AddrPortFrom(addr, 0).String()); err != nil {
+		var p net.PacketConn
+		if p, err = lc.ListenPacket(ctx, "udp", netip.AddrPortFrom(addr, 0).String()); err != nil {
 			return netip.AddrPort{}, fmt.Errorf("torrent port on %s: %w", addr, err)
 		}
-		ap := netip.MustParseAddrPort(l.Addr().String())
-		var p net.PacketConn
-		p, err = lc.ListenPacket(ctx, "udp", ap.String())
-		_ = l.Close()
+		ap := netip.MustParseAddrPort(p.LocalAddr().String())
+		var l net.Listener
+		l, err = lc.Listen(ctx, "tcp", ap.String())
+		_ = p.Close()
 		if err == nil {
-			_ = p.Close()
+			_ = l.Close()
 			return ap, nil
 		}
 	}
