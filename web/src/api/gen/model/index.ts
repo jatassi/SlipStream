@@ -370,6 +370,7 @@ export * from "./downloadclientsClientFactsReach.ts";
 export * from "./downloadclientsClientsChanged.ts";
 export * from "./downloadclientsClientsList.ts";
 export * from "./downloadclientsCounts.ts";
+export * from "./downloadclientsDiskGuard.ts";
 export * from "./downloadclientsFault.ts";
 export * from "./downloadclientsFaultKind.ts";
 export * from "./downloadclientsFileDetail.ts";

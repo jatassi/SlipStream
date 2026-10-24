@@ -181,6 +181,7 @@ func newClients(lib library, r *roster, u uses, node *client) (*dc.Clients, *hea
 		Library: lib, Touch: h.touch, Changed: h, Roster: r, Uses: u, Log: slog.New(slog.DiscardHandler),
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node },
 		Live:   dc.LiveConfig{Watched: func() []role.NodeID { return nil }, Event: &admin{}, Sample: liveSample},
+		Hub:    levels{},
 	}), h
 }
 

@@ -215,6 +215,9 @@ type Config struct {
 	Inflight Inflight
 	Changed  Publisher
 	Volumes  VolumesPublisher
+	// Cadence tells the torrent clients, which sample their downloads
+	// volume at Storage's cadence, that it changed.
+	Cadence func()
 	// Names is every Node's name, a removed one's too, and Describe each
 	// Content Type's nouns: the words of Health's items.
 	Names    func(ctx context.Context) (map[role.NodeID]nodes.Named, error)

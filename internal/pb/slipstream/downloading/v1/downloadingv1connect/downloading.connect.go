@@ -39,6 +39,8 @@ const (
 	DownloadingServiceActProcedure = "/slipstream.downloading.v1.DownloadingService/Act"
 	// DownloadingServiceFreesProcedure is the procedure name of the DownloadingService's Frees RPC.
 	DownloadingServiceFreesProcedure = "/slipstream.downloading.v1.DownloadingService/Frees"
+	// DownloadingServiceSampleProcedure is the procedure name of the DownloadingService's Sample RPC.
+	DownloadingServiceSampleProcedure = "/slipstream.downloading.v1.DownloadingService/Sample"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
@@ -73,6 +75,13 @@ var (
 			Procedure:  DownloadingServiceFreesProcedure,
 		}
 	})
+	downloadingServiceSampleSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Sample"),
+			Procedure:  DownloadingServiceSampleProcedure,
+		}
+	})
 )
 
 // DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
@@ -90,6 +99,9 @@ type DownloadingServiceClient interface {
 	// Frees is the bytes deleting each torrent's download copy would free:
 	// its files that have no other link.
 	Frees(context.Context, *v1.FreesRequest) (*v1.FreesResponse, error)
+	// Sample samples the downloads volume now and answers once the Node has
+	// set its facts with the sample.
+	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
 }
 
 // NewDownloadingServiceClient constructs a client for the
@@ -114,6 +126,9 @@ type DownloadingServiceHandler interface {
 	// Frees is the bytes deleting each torrent's download copy would free:
 	// its files that have no other link.
 	Frees(context.Context, *v1.FreesRequest) (*v1.FreesResponse, error)
+	// Sample samples the downloads volume now and answers once the Node has
+	// set its facts with the sample.
+	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
 }
 
 // RegisterDownloadingServiceHandler registers svc as the
@@ -125,6 +140,7 @@ func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingSe
 		connect.Method{Spec: downloadingServiceInspectSpec(), Handler: adapter.inspect},
 		connect.Method{Spec: downloadingServiceActSpec(), Handler: adapter.act},
 		connect.Method{Spec: downloadingServiceFreesSpec(), Handler: adapter.frees},
+		connect.Method{Spec: downloadingServiceSampleSpec(), Handler: adapter.sample},
 	)
 }
 
@@ -145,6 +161,10 @@ func (UnimplementedDownloadingServiceHandler) Act(context.Context, *v1.ActReques
 
 func (UnimplementedDownloadingServiceHandler) Frees(context.Context, *v1.FreesRequest) (*v1.FreesResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Frees is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Sample is not implemented")
 }
 
 type downloadingServiceClient struct {
@@ -178,6 +198,14 @@ func (c *downloadingServiceClient) Act(ctx context.Context, req *v1.ActRequest) 
 func (c *downloadingServiceClient) Frees(ctx context.Context, req *v1.FreesRequest) (*v1.FreesResponse, error) {
 	var res v1.FreesResponse
 	if err := c.client.CallUnary(ctx, downloadingServiceFreesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) Sample(ctx context.Context, req *v1.SampleRequest) (*v1.SampleResponse, error) {
+	var res v1.SampleResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceSampleSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -227,6 +255,18 @@ func (h downloadingServiceHandler) frees(ctx context.Context, _ connect.Spec, st
 		return err
 	}
 	res, err := h.svc.Frees(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) sample(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SampleRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Sample(ctx, &req)
 	if err != nil {
 		return err
 	}

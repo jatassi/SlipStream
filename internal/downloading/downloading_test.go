@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
@@ -271,6 +273,8 @@ type node struct {
 	local *storage.DB[storage.Local]
 	dir   string
 	ctl   *control
+	// free is what the downloads folder's volume has left.
+	free atomic.Int64
 }
 
 func newNode(t *testing.T, rules enginetest.TrackerRules) *node {
@@ -284,6 +288,12 @@ func newNode(t *testing.T, rules enginetest.TrackerRules) *node {
 }
 
 var listen = netip.MustParseAddrPort("0.0.0.0:6881")
+
+const volumeTotal = 1 << 40
+
+func (n *node) volume(context.Context, string) (storing.Volume, error) {
+	return storing.Volume{Mount: "/data", Name: "/data", Total: volumeTotal, Free: n.free.Load(), SampledAt: time.Now()}, nil
+}
 
 // hold has the Controller answer for f as a new Movies torrent.
 func (n *node) hold(f file) storage.UUID {
@@ -311,6 +321,7 @@ func (n *node) start() *client {
 	c := downloading.NewClient(downloading.Config{
 		Engine: eng, Dir: n.dir, Listen: listen, Timings: timings, RetryMin: time.Second, RetryMax: time.Minute,
 		Rand: rand.New(rand.NewPCG(1, 2)), ProvesPort: downloading.PublicPeer(false), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
+		Volume: n.volume,
 	})
 	h := &holder{intents: make(chan role.Snapshot[*dlv1.Intent])}
 	ctx, cancel := context.WithCancel(context.Background())

@@ -11,12 +11,14 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 // Intent is node's Downloading intent: its live Torrents and its
 // discards, the Removing ones, each in added order, its settings with
-// defaults, and the thresholds. The same library gives the same bytes.
+// defaults, the thresholds, the disk guard's hold and how often to sample
+// the downloads volume. The same library gives the same bytes.
 func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv1.Intent, error) {
 	rows, err := db.New(r).ListIntent(ctx, node)
 	if err != nil {
@@ -30,8 +32,19 @@ func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 	if err != nil {
 		return nil, err
 	}
+	guards, err := guardsIn(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	every, err := roots.SampleEveryIn(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	_, guarded := guards[node]
 	s, th := overrides.Settings(), thresholds.Thresholds()
 	intent := &dlv1.Intent{
+		HoldDownloads:      guarded,
+		SampleEverySeconds: int64(every / time.Second),
 		Settings: &dlv1.Settings{
 			DownloadLimit:       s.DownloadLimit,
 			UploadLimit:         s.UploadLimit,

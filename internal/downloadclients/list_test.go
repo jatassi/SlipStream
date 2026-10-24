@@ -10,11 +10,13 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -50,7 +52,7 @@ type listed struct {
 
 func newListed(t *testing.T) *listed {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), dc.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), dc.Schema())
 	l := &listed{lib: lib, u: uses{}, held: map[string]dc.ID{}, work: works.WorkID{UUID: storage.NewUUID()}, node: inspector{held: map[dc.ID]*dlv1.InspectResponse{}}}
 	l.seedbox, l.attic = addNode(t, lib, "seedbox"), addNode(t, lib, "attic")
 	l.r = &roster{serving: []role.NodeID{l.seedbox, l.attic}, away: map[role.NodeID]bool{l.attic: true}}

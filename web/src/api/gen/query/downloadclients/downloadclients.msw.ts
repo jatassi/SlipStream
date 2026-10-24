@@ -36,6 +36,16 @@ export const getListDownloadClientsResponseMock = (
           },
         }
       : {}),
+    ...(faker.datatype.boolean()
+      ? {
+          diskGuard: {
+            errorBelow: faker.number.int({ min: 0 }),
+            free: faker.number.int({ min: 0 }),
+            sampledAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+            volume: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+        }
+      : {}),
     inStep: faker.datatype.boolean(),
     limits: {
       activeChecks: faker.number.int({ min: 1 }),

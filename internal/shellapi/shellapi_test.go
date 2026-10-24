@@ -119,6 +119,11 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"downloads":{"done":0,"wanted":4096,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null}}`)
 }
 
+var quietClients = health.Category{
+	About:  health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"},
+	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
+}
+
 var failedTask = health.Category{
 	About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"},
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) {
@@ -134,7 +139,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 		Library:    lib,
 		Hub:        hub,
 		Changed:    discard[health.Changed]{},
-		Categories: []health.Category{{About: nodes.HealthAbout, Source: roster.HealthSource()}, failedTask},
+		Categories: []health.Category{{About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, failedTask},
 		Timings:    health.DefaultTimings(),
 		Log:        slog.New(slog.DiscardHandler),
 	})

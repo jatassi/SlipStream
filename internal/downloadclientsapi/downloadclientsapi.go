@@ -164,13 +164,21 @@ type clientsList struct {
 }
 
 type clientCard struct {
-	NodeID   string       `json:"nodeId" format:"uuid"`
-	NodeName string       `json:"nodeName"`
-	InStep   bool         `json:"inStep" doc:"The Node is in step; while it isn't the card has no client"`
-	Client   *clientFacts `json:"client,omitempty" doc:"The built-in client as it reports itself, absent until it does and while the Node is out of step"`
-	Limits   limits       `json:"limits"`
-	Totals   totals       `json:"totals" doc:"Added up over the Node's live Torrents"`
-	Torrents int          `json:"torrents" minimum:"0" doc:"The Node's live Torrents"`
+	NodeID    string       `json:"nodeId" format:"uuid"`
+	NodeName  string       `json:"nodeName"`
+	InStep    bool         `json:"inStep" doc:"The Node is in step; while it isn't the card has no client"`
+	Client    *clientFacts `json:"client,omitempty" doc:"The built-in client as it reports itself, absent until it does and while the Node is out of step"`
+	Limits    limits       `json:"limits"`
+	Totals    totals       `json:"totals" doc:"Added up over the Node's live Torrents"`
+	Torrents  int          `json:"torrents" minimum:"0" doc:"The Node's live Torrents"`
+	DiskGuard *diskGuard   `json:"diskGuard,omitempty" doc:"Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level"`
+}
+
+type diskGuard struct {
+	Volume     string    `json:"volume" doc:"The downloads folder's volume, as the Node names it"`
+	Free       int64     `json:"free" minimum:"0" doc:"Bytes"`
+	ErrorBelow int64     `json:"errorBelow" minimum:"0" doc:"The volume's error level, in bytes"`
+	SampledAt  time.Time `json:"sampledAt"`
 }
 
 type clientFacts struct {
@@ -233,6 +241,9 @@ func cardOf(c downloadclients.Card, name string) clientCard {
 			Uploaded: c.Totals.Uploaded, Downloaded: c.Totals.Downloaded,
 			Seeding: int64(c.Totals.Seeding / time.Second), Active: int64(c.Totals.Active / time.Second),
 		},
+	}
+	if g := c.Guard; g != nil {
+		out.DiskGuard = &diskGuard{Volume: g.Volume.Name, Free: g.Volume.Free, ErrorBelow: g.ErrorBelow.Bytes, SampledAt: g.Volume.SampledAt}
 	}
 	if f := c.Facts; f != nil {
 		out.Client = &clientFacts{

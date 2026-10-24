@@ -73,6 +73,7 @@ func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.Type
 		Inflight: grabs.RootGrabs{},
 		Changed:  discard{},
 		Volumes:  discardVolumes{},
+		Cadence:  func() {},
 		Log:      slog.New(slog.DiscardHandler),
 	}
 	Everywhere(&cfg, Store(tb, tb.TempDir(), tb.TempDir()))

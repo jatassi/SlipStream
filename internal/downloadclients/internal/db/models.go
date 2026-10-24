@@ -58,3 +58,12 @@ type DownloadclientsTorrent struct {
 	Fault          *string
 	FaultAt        storage.Time
 }
+
+type DownloadclientsVolume struct {
+	NodeID    role.NodeID
+	Mount     string
+	Name      string
+	Total     int64
+	Free      int64
+	SampledAt storage.Time
+}

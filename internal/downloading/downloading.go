@@ -23,15 +23,20 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
 )
 
 // Def is the Downloading Role. Its facts are the client itself, so any
-// change is notable.
-var Def = role.Def[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]{Name: role.Downloading, Notable: factsDiffer}
+// change but a new volume sample is notable.
+var Def = role.Def[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]{Name: role.Downloading, Notable: clientDiffers}
 
-func factsDiffer(last, next *dlv1.Facts) bool { return !proto.Equal(last, next) }
+func clientDiffers(last, next *dlv1.Facts) bool {
+	l, n := proto.CloneOf(last), proto.CloneOf(next)
+	l.Downloads, n.Downloads = nil, nil
+	return !proto.Equal(l, n)
+}
 
 type Holder = role.Holder[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
 
@@ -99,7 +104,10 @@ type Config struct {
 	// ProvesPort says whether an incoming peer at an address proves the
 	// listen port reachable from the internet: PublicPeer.
 	ProvesPort func(netip.Addr) bool
-	Log        *slog.Logger
+	// Volume reads the volume that holds a folder. It may block on a hung
+	// disk, so Loop never calls it.
+	Volume func(ctx context.Context, path string) (storing.Volume, error)
+	Log    *slog.Logger
 }
 
 // Client is a Node's built-in client, one per Node from the moment its

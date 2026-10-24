@@ -70,6 +70,32 @@ test("a reachable port says peers from the internet reached it", async () => {
     .toBeVisible();
 });
 
+test("a card whose disk guard holds leads with new downloads waiting for disk space", async () => {
+  const gb = 1024 ** 3;
+  const guarded = {
+    ...seedboxCard,
+    diskGuard: {
+      volume: "/data",
+      free: 12 * gb,
+      errorBelow: 20 * gb,
+      sampledAt: "2026-10-23T09:05:00Z",
+    },
+  };
+  renderApp({ path, handlers: downloadClients({ cards: [guarded], thresholds }).handlers });
+  await expect.element(card("seedbox").getByText("Waiting for disk")).toBeVisible();
+  await expect
+    .element(card("seedbox").getByText("New downloads on seedbox wait for disk space."))
+    .toBeVisible();
+  await expect
+    .element(
+      card("seedbox").getByText(
+        "/data has 12 GB left, below its error level of 20 GB. Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on.",
+      ),
+    )
+    .toBeVisible();
+  await expect.element(card("seedbox").getByText("Reachable")).toBeVisible();
+});
+
 test("when a release counts as bad saves each threshold on its own, in seconds", async () => {
   const clients = downloadClients();
   renderApp({ path, handlers: clients.handlers });

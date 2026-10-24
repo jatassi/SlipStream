@@ -121,6 +121,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
 			Sample:  n.cfg.Timings.Downloading.LiveSample,
 		},
+		Hub: n.hub,
 		Log: n.rootLog.With("subsystem", "downloadclients"),
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
@@ -234,6 +235,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Inflight: grabs.RootGrabs{},
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
+		Cadence:  clients.CadenceChanged,
 		Names:    side.Names,
 		Describe: tree.Describe,
 		Log:      n.rootLog.With("subsystem", "roots"),

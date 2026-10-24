@@ -44,4 +44,5 @@ export const downloadClientsSection: SettingsSection = {
     await freshQuery(queryClient, getListDownloadClientsSuspenseQueryOptions());
   },
   component: DownloadClientsSection,
+  health: ["download-clients"],
 };

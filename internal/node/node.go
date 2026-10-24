@@ -491,6 +491,7 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) er
 		RetryMax:   cfg.Timings.Role.RestartMax,
 		Rand:       torrentRand,
 		ProvesPort: downloading.PublicPeer(cfg.Torrent.LoopbackPeers),
+		Volume:     func(ctx context.Context, path string) (storing.Volume, error) { return n.store.Volume(ctx, path) },
 		Log:        n.rootLog.With("subsystem", "downloading"),
 	})
 	n.stack.Go("torrent client", n.downloads.Loop)

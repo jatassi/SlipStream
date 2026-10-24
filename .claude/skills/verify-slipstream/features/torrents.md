@@ -15,6 +15,7 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - `torrents-bulk` picking two rows shows the toolbar `Picked torrents` with `2 torrents picked`, and its `Pause` and `Resume` act on both and keep them picked; a paused torrent with a tracker error still reads `Tracker error`.
 - `torrents-mark-failed` a download fed only corrupt pieces by a bad peer reads `Stalled` with `No data is arriving` after `Stalled after`; `Mark failed` asks `Mark Salt Meadow failed?`, removes it with its download copy and fails its Grab `download_failed`.
 - `torrents-jobs` Jobs shows each Grab's quality and Target chips and its live percent, with time left and speed only while its torrent downloads (a paused one reads `<done> of <size>` as its speed winds down, as on the Work page's Grabs); its menu offers `Open its torrent`, which opens the Inspector (P-164).
+- `torrents-disk-guard` on a `home` run while the disk guard holds seedbox (see [download-clients.md](./download-clients.md)), a new grab reads `Queued` over `Waiting for disk space on seedbox` with `hold` `disk_guard`, `Needs you` holds `Waiting for disk` with `New downloads on seedbox wait for disk space.`, and the sentence counts it as a warning; once the guard lifts the torrent downloads and the signal row goes. A download already running keeps running.
 - `torrents-restart` restarting home stops each torrent with `stopped`, and the seeding torrent comes back `Seeding` with a `started` that reports nothing left and the same totals.
 - `torrents-remove` `Remove` asks `Remove The Quiet Orchard?`, says `Files in your library stay.` and lists the Work that stops seeding; with `Also delete the download copy` the download copy goes, the library file still matches the release, the tracker gets `stopped`, and the row leaves once home confirms (P-166).
 
@@ -212,6 +213,16 @@ Steps:
   $FW exec $RUN -- $PW cli $D click 'getByRole("button", { name: "The Quiet Orchard actions" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("menuitem", { name: "Open its torrent" })'
   $FW exec $RUN --proof torrents/torrents-jobs -- $PW cli $D run-code 'async page => { await page.getByRole("complementary", { name: "The Quiet Orchard" }).getByText(/^Seeding/).waitFor({ timeout: 15000 }); return page.url(); }'
+  ```
+
+- **Watch the disk guard hold a grab.** This runs on a `home` run, in the steps of [download-clients.md](./download-clients.md)'s **Hold new downloads on low disk**: between the grab and removing the levels, read Torrents.
+
+  ```sh
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity/torrents'
+  $FW exec $RUN --proof torrents/torrents-disk-guard -- $PW cli $D run-code 'async page => { const s = page.getByText("New downloads on seedbox wait for disk space.").first(); await s.waitFor({ timeout: 30000 }); return s.textContent(); }'
+  $FW exec $RUN --proof torrents/torrents-disk-guard -- $PW cli $D snapshot 'getByRole("main")' --filename={runDir}/proof/torrents/torrents-disk-guard/held.aria.yml
+  $FW exec $RUN --proof torrents/torrents-disk-guard -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-disk-guard/held.png
+  $FW exec $RUN --proof torrents/torrents-disk-guard -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents?tab=all' | jq -c '.rows[] | {name, state, hold}'"
   ```
 
 - **Restart home.** Note The Quiet Orchard's totals, then restart home. Its torrents announce `stopped` as it stops. Within the 2 minute start spread The Quiet Orchard announces `started` again with `left` 0, which UNIT3D accepts from the new peer, and it reads `Seeding` with the same `downloaded`.

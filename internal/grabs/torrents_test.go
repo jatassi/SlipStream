@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -31,7 +32,7 @@ type library = *storage.DB[storage.Library]
 func openAt(t *testing.T, path string, g storage.Schema[storage.Library]) library {
 	t.Helper()
 	schemas := []storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), downloadclients.Schema(), g, files.Schema()}
+		health.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), g, files.Schema()}
 	lib, err := storage.OpenLibrary(t.Context(), path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
