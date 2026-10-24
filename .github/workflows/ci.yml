@@ -177,11 +177,21 @@ jobs:
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       # The e2e and browser jobs run fakeworld and the release tool from
       # dist/, so no job after this one builds anything.
+      # Only a tag build carries SlipStream's metadata keys, and only into
+      # cmd/slipstream; its e2e jobs still reach nothing but fakes. Until the
+      # repository has the secrets, a release is keyless and status says so;
+      # with one of the two, the build refuses.
       - name: Build the release binaries, fakeworld and the release tool
         run: |
-          go run ./cmd/release build
+          args=()
+          if [ "$TAG" = true ] && [ -n "$SLIPSTREAM_TMDB_KEY$SLIPSTREAM_OMDB_KEY" ]; then args+=(-bundle-keys); fi
+          go run ./cmd/release build "${args[@]}"
           eval "$(go run ./cmd/release deps env)"
           go build -o dist/ ./cmd/fakeworld ./cmd/release
+        env:
+          TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          SLIPSTREAM_TMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TMDB_API_KEY || '' }}
+          SLIPSTREAM_OMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.OMDB_API_KEY || '' }}
       # The build test checks that the binary embeds web/dist/index.html.
       - name: Upload dist/ for the test jobs
         uses: actions/upload-artifact@v7
@@ -722,11 +732,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
-  # The conformance suites against the real TMDB and MusicBrainz (spec #135,
-  # Online runs): nightly, by hand, on a release tag, and on pull
-  # requests whose scope touches a fake, client or suite the job checks. It
-  # is not a required check. A fork's pull request gets no secrets, so it
-  # never runs the job, and a run without the key fails rather than skips.
+  # The conformance suites against the real TMDB, OMDb, TMDB's image host
+  # and MusicBrainz (spec #135, Online runs): nightly, by hand, on a release
+  # tag, and on pull requests whose scope touches a fake, client or suite
+  # the job checks. It is not a required check. A fork's pull request gets
+  # no secrets, so it never runs the job. A run without the TMDB key fails
+  # rather than skips; the OMDb suite skips until the OMDB_API_KEY secret
+  # exists.
   online:
     name: Online conformance suites
     needs: plan
@@ -748,6 +760,7 @@ jobs:
         run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
         env:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
+          TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}
       - name: Upload the updated shape.json files
         if: inputs.update-shapes
         uses: actions/upload-artifact@v7

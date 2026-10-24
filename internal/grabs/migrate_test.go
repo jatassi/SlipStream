@@ -42,7 +42,7 @@ func TestTheFetchNodeIsTheHomeNodeOfEachFetchedGrab(t *testing.T) {
 	old := open(grabs.Schema().Through(3))
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
-		Library: old, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
+		Library: old, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {

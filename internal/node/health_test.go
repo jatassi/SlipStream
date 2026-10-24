@@ -6,6 +6,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/housekeeping"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/surface"
 )
 
@@ -30,7 +31,7 @@ func TestTheHealthRegistryMatchesItsIDsEventsAndTasks(t *testing.T) {
 			t.Errorf("a Health category follows %s, which surface.Events doesn't declare", e.Name())
 		}
 	}
-	for _, task := range catalog(housekeeping.Config{}) {
+	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}) {
 		if task.Health != "" && !slices.Contains(health.IDs(), health.ID(task.Health)) {
 			t.Errorf("task %s warns in Health category %q, which nobody registers", task.ID, task.Health)
 		}

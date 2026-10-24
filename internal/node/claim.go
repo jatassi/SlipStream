@@ -14,6 +14,8 @@ import (
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -31,6 +33,7 @@ import (
 type library struct {
 	db     *storage.DB[storage.Library]
 	sealer *secret.Sealer
+	minter artwork.Minter
 	mail   *mail.Mail
 	outbox *mail.Outbox
 	ids    *identity.Service
@@ -61,7 +64,7 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
 	}
 	sealer := keys.Sealer()
 	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: f.timings.Mail})
-	lib := &library{db: db, sealer: sealer, mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
+	lib := &library{db: db, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
 	lib.ids, err = identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: f.hub, Mail: smtp, Outbox: lib.outbox})
 	if err != nil {
 		return nil, errors.Join(err, lib.close(ctx))
@@ -203,6 +206,22 @@ func (s surfaceNode) Works() (*works.Works, bool) {
 		return nil, false
 	}
 	return h.works, true
+}
+
+func (s surfaceNode) Minter() (artwork.Minter, bool) {
+	h, lib := s.n.half.Load(), s.n.lib.Load()
+	if h == nil || h.works == nil || lib == nil {
+		return artwork.Minter{}, false
+	}
+	return lib.minter, true
+}
+
+func (s surfaceNode) Metadata() (*metadata.Metadata, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.metadata == nil {
+		return nil, false
+	}
+	return h.metadata, true
 }
 
 func (s surfaceNode) Indexers() (*indexers.Indexers, bool) {

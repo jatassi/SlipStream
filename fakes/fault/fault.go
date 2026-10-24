@@ -89,6 +89,9 @@ type (
 	Truncate struct{}
 	// SlowBody sends the headers at once and the body at Rate.
 	SlowBody Rate
+	// ContentType answers the real status and body under this Content-Type
+	// in place of the real one.
+	ContentType string
 )
 
 type TLSFailure uint8
@@ -103,31 +106,33 @@ var tlsFailures = map[TLSFailure]string{Untrusted: "untrusted", Expired: "expire
 
 func (f TLSFailure) String() string { return tlsFailures[f] }
 
-func (Refuse) Layer() Layer    { return Conn }
-func (Reset) Layer() Layer     { return Conn }
-func (Stall) Layer() Layer     { return Conn }
-func (Latency) Layer() Layer   { return Conn }
-func (Throttle) Layer() Layer  { return Conn }
-func (Cut) Layer() Layer       { return Conn }
-func (BadTLS) Layer() Layer    { return TLS }
-func (Status) Layer() Layer    { return HTTP }
-func (Hang) Layer() Layer      { return HTTP }
-func (Malformed) Layer() Layer { return HTTP }
-func (Truncate) Layer() Layer  { return HTTP }
-func (SlowBody) Layer() Layer  { return HTTP }
+func (Refuse) Layer() Layer      { return Conn }
+func (Reset) Layer() Layer       { return Conn }
+func (Stall) Layer() Layer       { return Conn }
+func (Latency) Layer() Layer     { return Conn }
+func (Throttle) Layer() Layer    { return Conn }
+func (Cut) Layer() Layer         { return Conn }
+func (BadTLS) Layer() Layer      { return TLS }
+func (Status) Layer() Layer      { return HTTP }
+func (Hang) Layer() Layer        { return HTTP }
+func (Malformed) Layer() Layer   { return HTTP }
+func (Truncate) Layer() Layer    { return HTTP }
+func (SlowBody) Layer() Layer    { return HTTP }
+func (ContentType) Layer() Layer { return HTTP }
 
-func (Refuse) String() string     { return "refuse" }
-func (Reset) String() string      { return "reset" }
-func (Stall) String() string      { return "stall" }
-func (f Latency) String() string  { return "latency=" + time.Duration(f).String() }
-func (f Throttle) String() string { return "throttle=" + Rate(f).String() }
-func (f Cut) String() string      { return "cut=" + size(int64(f)) }
-func (f BadTLS) String() string   { return "tls=" + TLSFailure(f).String() }
-func (Hang) String() string       { return "hang" }
-func (Malformed) String() string  { return "malformed" }
-func (Truncate) String() string   { return "truncate" }
-func (f SlowBody) String() string { return "slow-body=" + Rate(f).String() }
-func (r Rate) String() string     { return size(int64(r)) + "/s" }
+func (Refuse) String() string        { return "refuse" }
+func (Reset) String() string         { return "reset" }
+func (Stall) String() string         { return "stall" }
+func (f Latency) String() string     { return "latency=" + time.Duration(f).String() }
+func (f Throttle) String() string    { return "throttle=" + Rate(f).String() }
+func (f Cut) String() string         { return "cut=" + size(int64(f)) }
+func (f BadTLS) String() string      { return "tls=" + TLSFailure(f).String() }
+func (Hang) String() string          { return "hang" }
+func (Malformed) String() string     { return "malformed" }
+func (Truncate) String() string      { return "truncate" }
+func (f SlowBody) String() string    { return "slow-body=" + Rate(f).String() }
+func (f ContentType) String() string { return "content-type=" + string(f) }
+func (r Rate) String() string        { return size(int64(r)) + "/s" }
 
 func (f Status) String() string {
 	s := "status=" + strconv.Itoa(f.Code)

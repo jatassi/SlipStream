@@ -5,62 +5,87 @@
 //
 // Copy fakes/contenttypes/music, the test-only music type, into
 // internal/contenttypes/<id> and rename it. A Content Type is one package
-// with one Define call:
+// with one Define call naming its two halves:
 //
-//	var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, New)
+//	var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, contenttype.Halves[Endpoints]{
+//		Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
+//			return &Source{mb: musicbrainz.New(d.Lines, e.Metadata)}
+//		},
+//		Library: func(contenttype.LibraryDeps) contenttype.Library { return &Music{} },
+//	})
 //
-// and one value implementing Type, built by New from Deps and the loaded
-// Endpoints section. Its own tables live in its own migration set, named
-// by its id, with foreign keys onto works' ids; its metadata never sits in
-// a core row. Register it by adding Def to both mains:
+// The provider half reads the type's metadata source on every Node holding
+// the Metadata Role, with only ProviderDeps and the loaded Endpoints
+// section. The library half reads and writes library.db on the Controller.
+// Its own tables live in its own migration set, named by its id, with
+// foreign keys onto works' ids; its metadata never sits in a core row.
+// Register it by adding Def to both mains:
 //
 //	os.Exit(node.Main(os.Args, music.Def))
 //
 // # Adding a capability
 //
 // A later spec defines its facet interface in the core package that calls
-// it and embeds it in Type. Every registered type, music and
-// contenttypetest.Fixture included, then fails to compile until it
-// implements the facet. There are no optional interfaces: a type lacking a
-// capability implements the facet with the owner's documented empty
-// answer.
+// it and embeds it in Library, or in metadata.Source for the provider half.
+// Every registered type, music and contenttypetest.Fixture included, then
+// fails to compile until it implements the facet. There are no optional
+// interfaces: a type lacking a capability implements the facet with the
+// owner's documented empty answer.
 package contenttype
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"net/http"
 	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Type is a Content Type: the union of every facet the core asks of one,
-// each defined by the package that consumes it.
-type Type interface {
+// Library is a Content Type's library half: the union of every facet the
+// core asks of one that reads or writes library.db, each defined by the
+// package that consumes it. Only the Controller opens it.
+type Library interface {
 	works.Catalog
 	naming.Facet
 	indexers.Facet
 	targets.Facet
+	metadata.Refreshing
 }
 
-type Deps struct {
-	// HTTP dials through the Node's network, trusting the OS roots.
-	HTTP *http.Client
-	// UserAgent is sent on every request to a metadata source.
-	UserAgent string
-	// TMDB is the one TMDB client the Node builds from endpoints.tmdb; a
-	// type that doesn't read TMDB ignores it.
+// ProviderDeps is what a provider half gets on any Node: clients over the
+// Node's call layer and nothing that reaches library.db or a key.
+type ProviderDeps struct {
 	TMDB *tmdb.Client
-	Log  *slog.Logger
+	OMDb *omdb.Client
+	// Lines is the Node's call layer, for a type that reaches a host of its
+	// own.
+	Lines *metadata.Lines
+	Log   *slog.Logger
+}
+
+type LibraryDeps struct {
+	// Region is the release region in effect, read inside the caller's
+	// snapshot.
+	Region func(ctx context.Context, r storage.Reader[storage.Library]) (string, error)
+	Log    *slog.Logger
+}
+
+// Halves opens a type: Provider on every Node, Library on the Controller.
+// Neither does IO.
+type Halves[E any] struct {
+	Provider func(ProviderDeps, E) metadata.Source
+	Library  func(LibraryDeps) Library
 }
 
 type Registration interface {
@@ -70,16 +95,17 @@ type Registration interface {
 	// Endpoints is a fresh pointer to the type's section holding its
 	// defaults, nil when it reaches no host.
 	Endpoints() any
-	// Open builds the Type from deps and the section Endpoints returned,
-	// once loaded. It does no IO.
-	Open(deps Deps, endpoints any) Type
+	// OpenProvider builds the provider half from deps and the section
+	// Endpoints returned, once loaded.
+	OpenProvider(deps ProviderDeps, endpoints any) metadata.Source
+	OpenLibrary(deps LibraryDeps) Library
 }
 
 type Def[E any] struct {
 	id               works.TypeID
 	schema           *storage.Schema[storage.Library]
 	defaultEndpoints func() E
-	open             func(Deps, E) Type
+	halves           Halves[E]
 }
 
 var idShape = regexp.MustCompile(`^[a-z][a-z0-9]{1,15}$`)
@@ -89,14 +115,14 @@ var idShape = regexp.MustCompile(`^[a-z][a-z0-9]{1,15}$`)
 // holds schema/NNNNN_slug.sql, nil when the type keeps no tables;
 // defaultEndpoints is nil when it reaches no host. Define panics on a bad
 // id.
-func Define[E any](id string, migrations fs.FS, defaultEndpoints func() E, open func(Deps, E) Type) Def[E] {
+func Define[E any](id string, migrations fs.FS, defaultEndpoints func() E, h Halves[E]) Def[E] {
 	if !idShape.MatchString(id) {
 		panic(fmt.Sprintf("contenttype: id %q is not %s", id, idShape))
 	}
 	if id == "goose" || id == "sqlite" {
 		panic(fmt.Sprintf("contenttype: id %s names a set storage reserves", id))
 	}
-	d := Def[E]{id: works.TypeID(id), defaultEndpoints: defaultEndpoints, open: open}
+	d := Def[E]{id: works.TypeID(id), defaultEndpoints: defaultEndpoints, halves: h}
 	if migrations != nil {
 		s := storage.NewSchema[storage.Library](id, migrations)
 		d.schema = &s
@@ -121,7 +147,7 @@ func (d Def[E]) Endpoints() any {
 	return &e
 }
 
-func (d Def[E]) Open(deps Deps, endpoints any) Type {
+func (d Def[E]) OpenProvider(deps ProviderDeps, endpoints any) metadata.Source {
 	var e E
 	if endpoints != nil {
 		loaded, ok := endpoints.(*E)
@@ -130,8 +156,10 @@ func (d Def[E]) Open(deps Deps, endpoints any) Type {
 		}
 		e = *loaded
 	}
-	return d.open(deps, e)
+	return d.halves.Provider(deps, e)
 }
+
+func (d Def[E]) OpenLibrary(deps LibraryDeps) Library { return d.halves.Library(deps) }
 
 // Set is the Content Types a main registers, in id order.
 type Set struct {
@@ -169,7 +197,7 @@ func (s Set) Schemas() []storage.Schema[storage.Library] {
 	return out
 }
 
-func Project[F any](types map[works.TypeID]Type, pick func(Type) F) map[works.TypeID]F {
+func Project[F any](types map[works.TypeID]Library, pick func(Library) F) map[works.TypeID]F {
 	out := make(map[works.TypeID]F, len(types))
 	for id, t := range types {
 		out[id] = pick(t)

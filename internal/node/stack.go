@@ -163,16 +163,23 @@ func (s *Stack) unwindUnder(ctx context.Context, limit time.Duration) error {
 	s.unwinding, s.limit = true, limit
 	s.mu.Unlock()
 
+	// Each stop's time starts where the last one's ended, and the first's
+	// where the unwind began, so the record accounts for the whole limit.
+	start := time.Now()
+	if d, ok := ctx.Deadline(); ok {
+		start = d.Add(-limit)
+	}
 	var errs []error
 	took := make([]string, 0, len(entries))
 	for i := len(entries) - 1; i >= 0; i-- {
 		e := entries[i]
-		start := time.Now()
 		res := make(chan error, 1)
 		go func() { res <- e.stop(ctx) }()
 		select {
 		case err := <-res:
-			took = append(took, e.name+" "+time.Since(start).String())
+			now := time.Now()
+			took = append(took, e.name+" "+now.Sub(start).String())
+			start = now
 			if err != nil {
 				s.log.Error("stop failed", "stop", e.name, "err", err.Error())
 				errs = append(errs, fmt.Errorf("stop %s: %w", e.name, err))

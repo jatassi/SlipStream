@@ -7,15 +7,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -34,6 +40,13 @@ var Description = works.Description{
 		{Key: "packed", Label: "Packed", Tier: works.TierLevel(1), Kind: works.KindDate},
 		{Key: "count", Label: "Count", Tier: works.TierItem, Kind: works.KindNumber},
 		{Key: "runtime", Label: "Runtime", Tier: works.TierItem, Kind: works.KindDuration},
+		{Key: "tags", Label: "Tags", Tier: works.TierWork, Kind: works.KindTexts},
+		{Key: "makers", Label: "Makers", Tier: works.TierWork, Kind: works.KindPeople},
+		{Key: "page", Label: "Page", Tier: works.TierWork, Kind: works.KindLink},
+	},
+	Artwork: []artwork.Kind{
+		{Key: "photo", Label: "Photo", Shape: artwork.ShapePoster, Prefetch: artwork.SizeMedium},
+		{Key: "snap", Label: "Snap", Item: true, Shape: artwork.ShapeBackdrop},
 	},
 }
 
@@ -48,26 +61,48 @@ type Record struct {
 	ItemFields  map[works.Key][]works.FieldValue
 }
 
+// Fixture is the library half, and each provider half it opens reads its
+// records.
 type Fixture struct {
 	mu        sync.Mutex
 	records   map[works.Key]Record
 	fails     map[works.Key]error
 	searchErr error
 	fetches   map[works.Key]int
+	calls     []Call
 	stored    map[works.WorkID]works.FieldSet
 	hold      *hold
 	opened    []Opened
+	libraries []contenttype.LibraryDeps
 	timings   map[works.ItemID]targets.Timing
 	cuts      []release.Cut
+	prefetch  []artwork.Want
+	depth     *int64
+	changed   []works.Key
+	changeErr error
+	growing   map[works.WorkID]bool
 }
 
 // Released is the date every Item is released on until SetTiming says
 // otherwise.
 var Released = works.Date{Year: 2000, Month: 1, Day: 1}
 
+// Opened is one provider half a Node opened.
 type Opened struct {
-	Deps      contenttype.Deps
+	Deps      contenttype.ProviderDeps
 	Endpoints Endpoints
+}
+
+// Call is one Search, Fetch or page of Changes a provider half answered.
+type Call struct {
+	// Open is the provider half's index in Opens, -1 for Source's.
+	Open  int
+	Ask   metadata.Ask
+	Query string
+	Key   works.Key
+	// Since and Page are a Changes call's.
+	Since time.Time
+	Page  int
 }
 
 type hold struct {
@@ -82,24 +117,75 @@ func New() *Fixture {
 		fetches: map[works.Key]int{},
 		stored:  map[works.WorkID]works.FieldSet{},
 		timings: map[works.ItemID]targets.Timing{},
+		growing: map[works.WorkID]bool{},
 	}
 }
 
 func (f *Fixture) Def() contenttype.Def[Endpoints] {
 	return contenttype.Define(string(ID), nil, func() Endpoints {
 		return Endpoints{API: endpoint.MustParseURL("https://fixture.invalid/v1")}
-	}, func(d contenttype.Deps, e Endpoints) contenttype.Type {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		f.opened = append(f.opened, Opened{Deps: d, Endpoints: e})
-		return f
+	}, contenttype.Halves[Endpoints]{
+		Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			f.opened = append(f.opened, Opened{Deps: d, Endpoints: e})
+			return &source{f: f, open: len(f.opened) - 1}
+		},
+		Library: func(d contenttype.LibraryDeps) contenttype.Library {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			f.libraries = append(f.libraries, d)
+			return f
+		},
 	})
 }
 
+// Opens is every provider half opened, in order.
 func (f *Fixture) Opens() []Opened {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.opened)
+}
+
+// Libraries is every library half opened, in order.
+func (f *Fixture) Libraries() []contenttype.LibraryDeps {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.libraries)
+}
+
+// Source is the Controller's metadata with a provider half of its own,
+// for a test that opens the library half without a Node.
+func (f *Fixture) Source() works.Source { return f.SourceAs(ID) }
+
+// SourceAs is Source serving the Fixture's records as each of ids.
+func (f *Fixture) SourceAs(ids ...works.TypeID) works.Source {
+	sources := map[works.TypeID]metadata.Source{}
+	for _, id := range ids {
+		sources[id] = &source{f: f, open: -1}
+	}
+	return metadatatest.Serve(sources)
+}
+
+// Prefetch records wants, as works.Config's Artwork.
+func (f *Fixture) Prefetch(wants []artwork.Want) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.prefetch = append(f.prefetch, wants...)
+}
+
+// Prefetched is every image works asked to prefetch, in order.
+func (f *Fixture) Prefetched() []artwork.Want {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.prefetch)
+}
+
+// Calls is every Search and Fetch the provider halves answered, in order.
+func (f *Fixture) Calls() []Call {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.calls)
 }
 
 func (f *Fixture) Put(key works.Key, r Record) {
@@ -147,11 +233,20 @@ func (f *Fixture) Hold(n int) (letGo func()) {
 
 func (f *Fixture) Describe() works.Description { return Description }
 
+type source struct {
+	f    *Fixture
+	open int
+}
+
+func (*source) Sources() []artwork.Source { return nil }
+
 // Search matches a case-folded substring of each Work's label, in key
 // order.
-func (f *Fixture) Search(_ context.Context, query string) ([]works.Candidate, error) {
+func (s *source) Search(_ context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {
+	f := s.f
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Query: query})
 	if f.searchErr != nil {
 		return nil, f.searchErr
 	}
@@ -165,9 +260,11 @@ func (f *Fixture) Search(_ context.Context, query string) ([]works.Candidate, er
 	return out, nil
 }
 
-func (f *Fixture) Fetch(ctx context.Context, key works.Key) (works.Fetched, error) {
+func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+	f := s.f
 	f.mu.Lock()
 	f.fetches[key]++
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Key: key})
 	h := f.hold
 	f.mu.Unlock()
 	if h != nil {
@@ -196,28 +293,90 @@ func (f *Fixture) Fetch(ctx context.Context, key works.Key) (works.Fetched, erro
 	return fetched, nil
 }
 
+// ChangesWindow is how far back the Fixture's changes list reaches, as
+// TMDB's does.
+const ChangesWindow = 14 * 24 * time.Hour
+
+// ChangesPerPage is how many keys a page of the changes list holds.
+const ChangesPerPage = 2
+
+// Changes answers the keys Change set, ChangesPerPage a page, whatever
+// since is within ChangesWindow of until.
+func (s *source) Changes(_ context.Context, ask metadata.Ask, since, until time.Time, page int) (metadata.ChangesPage, error) {
+	f := s.f
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Since: since, Page: page})
+	switch {
+	case f.changeErr != nil:
+		return metadata.ChangesPage{}, f.changeErr
+	case until.Sub(since) > ChangesWindow:
+		return metadata.ChangesPage{}, metadata.ErrNoChanges
+	}
+	pages := max(1, (len(f.changed)+ChangesPerPage-1)/ChangesPerPage)
+	from := min((page-1)*ChangesPerPage, len(f.changed))
+	return metadata.ChangesPage{Keys: slices.Clone(f.changed[from:min(from+ChangesPerPage, len(f.changed))]), Pages: pages}, nil
+}
+
+// Change sets the keys every changes list answers.
+func (f *Fixture) Change(keys ...works.Key) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.changed = keys
+}
+
+// FailChanges makes every changes list answer err, until
+// FailChanges(nil).
+func (f *Fixture) FailChanges(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.changeErr = err
+}
+
+// SetGrowing says whether Work w can still gain Items.
+func (f *Fixture) SetGrowing(w works.WorkID, on bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.growing[w] = on
+}
+
+func (f *Fixture) Growing(_ context.Context, _ storage.Reader[storage.Library], ws []works.WorkID) (map[works.WorkID]bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := map[works.WorkID]bool{}
+	for _, w := range ws {
+		if f.growing[w] {
+			out[w] = true
+		}
+	}
+	return out, nil
+}
+
 // Store keeps the fields of every placed node in memory, beside the
-// fields of nodes stored earlier.
-func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at works.Placed, detail []byte) error {
+// fields of nodes stored earlier, and reports whether any differed.
+func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at works.Placed, detail []byte) (bool, error) {
 	var r Record
 	if err := json.Unmarshal(detail, &r); err != nil {
-		return fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
+		return false, fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	fs := f.stored[at.Work]
-	if fs.Levels == nil {
+	fs, ok := f.stored[at.Work]
+	if !ok {
 		fs = works.FieldSet{Levels: map[works.LevelID][]works.FieldValue{}, Items: map[works.ItemID][]works.FieldValue{}}
 	}
+	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields)
 	fs.Work = r.WorkFields
 	for key, id := range at.Levels {
+		changed = changed || !reflect.DeepEqual(fs.Levels[id], r.LevelFields[key])
 		fs.Levels[id] = r.LevelFields[key]
 	}
 	for key, id := range at.Items {
+		changed = changed || !reflect.DeepEqual(fs.Items[id], r.ItemFields[key])
 		fs.Items[id] = r.ItemFields[key]
 	}
 	f.stored[at.Work] = fs
-	return nil
+	return changed, nil
 }
 
 func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) (works.FieldSet, error) {
@@ -225,6 +384,37 @@ func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w
 	defer f.mu.Unlock()
 	fs := f.stored[w]
 	return works.FieldSet{Work: fs.Work, Levels: maps.Clone(fs.Levels), Items: maps.Clone(fs.Items)}, nil
+}
+
+// Depth is the Fixture's one setting. It is held in memory, so a Write
+// that fails after ApplySettings still keeps it.
+var Depth = setting.Count{Key: "fixture.depth", Label: "Boxes deep", Default: 3, Min: 1, Max: 9, Unit: setting.Noun{One: "box", Many: "boxes"}}
+
+func (f *Fixture) SettingFields(context.Context, storage.Reader[storage.Library]) ([]setting.Field, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return []setting.Field{Depth.Field(f.depth)}, nil
+}
+
+func (f *Fixture) ApplySettings(_ context.Context, _ *storage.Tx[storage.Library], p setting.Patch) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	next := f.depth
+	for key, raw := range p {
+		if key != Depth.Key {
+			return false, &setting.UnknownKeyError{Key: key}
+		}
+		s, err := Depth.ParseJSON(raw)
+		if err != nil {
+			return false, err
+		}
+		next = s.Override()
+	}
+	if reflect.DeepEqual(next, f.depth) {
+		return false, nil
+	}
+	f.depth = next
+	return true, nil
 }
 
 // NamingTokens names an Item's files after its Work's label, as Shelf,

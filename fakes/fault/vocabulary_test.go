@@ -91,6 +91,8 @@ func TestEveryFaultRoundTrips(t *testing.T) {
 		{fault.Malformed{}, "malformed"},
 		{fault.Truncate{}, "truncate"},
 		{fault.SlowBody(1 << 30), "slow-body=1GiB/s"},
+		{fault.ContentType("text/html"), "content-type=text/html"},
+		{fault.ContentType("text/html; charset=utf-8"), "content-type=text/html; charset=utf-8"},
 	} {
 		if got := c.f.String(); got != c.text {
 			t.Errorf("%#v.String() = %q, want %q", c.f, got, c.text)
@@ -117,6 +119,7 @@ func TestParseRefuses(t *testing.T) {
 		"status=429,reset-header=X-R": "fault status=429,reset-header=X-R: reset-header needs retry-after",
 		"status=429,retry-after=1s,retry-after=2s": "fault status=429,retry-after=1s,retry-after=2s: retry-after given twice",
 		"status=429,body=x":                        `fault status=429,body=x: unknown status parameter "body=x"`,
+		"content-type=html":                        `fault content-type=html: "html" is not a media type such as text/html`,
 	} {
 		if _, err := fault.Parse(text); err == nil || err.Error() != want {
 			t.Errorf("Parse(%q) = %v, want %q", text, err, want)

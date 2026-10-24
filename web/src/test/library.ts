@@ -13,6 +13,7 @@ export const cinema: WorksContentType = {
     { key: "released", label: "Released", tier: "work", kind: "date" },
     { key: "runtime", label: "Runtime", tier: "work", kind: "duration" },
   ],
+  artwork: [],
 };
 
 export const orchardId = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";
@@ -26,11 +27,14 @@ export const orchard: WorksTree = {
   sortLabel: "Quiet Orchard",
   addedAt: "2026-10-12T09:00:00Z",
   refreshedAt: "2026-10-12T09:00:00Z",
+  goneUpstreamAt: null,
   fields: [
     { key: "year", kind: "number", number: 2021 },
     { key: "released", kind: "date", date: "2021-04-09" },
     { key: "runtime", kind: "duration", ms: 6_720_000 },
   ],
+  ratings: [],
+  artwork: [],
   levels: [],
   items: [
     {
@@ -42,6 +46,9 @@ export const orchard: WorksTree = {
       withdrawnAt: null,
       monitored: true,
       fields: [],
+      ratings: [],
+      artwork: [],
+      availability: { date: "2021-04-09", basis: "Digital release in United States" },
     },
   ],
 };

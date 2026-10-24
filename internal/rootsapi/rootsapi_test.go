@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
@@ -53,10 +54,15 @@ func (discard[T]) Publish(context.Context, T) {}
 type node struct {
 	r *roots.Roots
 	w *works.Works
+	t *targets.Targets
 }
 
-func (n node) Roots() (*roots.Roots, bool) { return n.r, true }
-func (n node) Works() (*works.Works, bool) { return n.w, true }
+func (n node) Roots() (*roots.Roots, bool)       { return n.r, true }
+func (n node) Works() (*works.Works, bool)       { return n.w, true }
+func (n node) Targets() (*targets.Targets, bool) { return n.t, true }
+func (node) Minter() (artwork.Minter, bool) {
+	return artwork.NewMinter([]byte("rootsapi")), true
+}
 
 type named struct{}
 
@@ -121,6 +127,8 @@ func serve(t *testing.T) *server {
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx},
+		Source:       fx.SourceAs(contenttypetest.ID, "other"),
+		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      discard[works.WorkChanged]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
@@ -129,7 +137,7 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = targets.Open(t.Context(), targets.Config{
+	goals, err := targets.Open(t.Context(), targets.Config{
 		Library: lib, Works: named{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx, "other": fx}, Changed: discard[targets.Changed]{},
 	})
 	if err != nil {
@@ -152,7 +160,7 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := node{svc, w}
+	n := node{svc, w, goals}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) {
 		rootsapi.Routes(r, n)
 		worksapi.Routes(r, n)

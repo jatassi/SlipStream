@@ -7,6 +7,7 @@ sql:
       go:
         package: db
         out: internal/db
+        emit_pointers_for_null_types: true
         overrides:
           - column: "*.*_at"
             go_type:
@@ -47,6 +48,18 @@ sql:
               type: Key
           - column: works_item.monitored
             go_type: bool
+          - column: works_rating.work_id
+            go_type:
+              type: WorkID
+          - column: works_rating.item_id
+            go_type:
+              type: ItemID
+          - column: works_artwork.work_id
+            go_type:
+              type: WorkID
+          - column: works_artwork.item_id
+            go_type:
+              type: ItemID
           - column: works_disabled_type.content_type
             go_type:
               type: TypeID

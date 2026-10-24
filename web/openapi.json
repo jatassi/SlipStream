@@ -2658,6 +2658,227 @@
         ],
         "type": "object"
       },
+      "MetadataChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "description": "The provider whose status changed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "type": "object"
+      },
+      "MetadataDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "lastError": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetadataLastError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastSuccess": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nodes": {
+            "description": "Each holder that called the provider since the Controller started or the key changed, by id",
+            "items": {
+              "$ref": "#/components/schemas/MetadataReach"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "lastSuccess",
+          "lastError",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "MetadataLastError": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "words": {
+            "description": "In plain words, the provider named",
+            "type": "string"
+          }
+        },
+        "required": [
+          "words",
+          "at"
+        ],
+        "type": "object"
+      },
+      "MetadataNewKey": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "type": "object"
+      },
+      "MetadataProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "details": {
+            "$ref": "#/components/schemas/MetadataDetails"
+          },
+          "id": {
+            "description": "The provider, such as tmdb",
+            "type": "string"
+          },
+          "key": {
+            "description": "Whose key calls carry: none in this build, SlipStream's, or the Admin's",
+            "enum": [
+              "none",
+              "bundled",
+              "yours"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "state": {
+            "description": "From the latest outcome of a call or test, unused until one",
+            "enum": [
+              "unused",
+              "working",
+              "key_refused",
+              "rate_limited",
+              "out_of_allowance",
+              "unreachable"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "description": "How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details",
+            "type": "string"
+          },
+          "until": {
+            "description": "When a rate limited provider, or one out of its daily allowance, takes calls again",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "summary",
+          "key",
+          "state",
+          "until",
+          "details"
+        ],
+        "type": "object"
+      },
+      "MetadataProviderList": {
+        "additionalProperties": false,
+        "properties": {
+          "providers": {
+            "description": "In display order",
+            "items": {
+              "$ref": "#/components/schemas/MetadataProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "type": "object"
+      },
+      "MetadataReach": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reached": {
+            "description": "Whether the Node reached the provider on its latest call",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nodeId",
+          "reached",
+          "at"
+        ],
+        "type": "object"
+      },
+      "MetadataRefreshStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "description": "The Metadata refresh run that refreshes every Work of the type",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "type": "object"
+      },
+      "MetadataSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "description": "Language and region first, then the cache, OMDb's ratings and the artwork store",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "type": "object"
+      },
+      "MetadataSettingsChange": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "additionalProperties": {},
+            "description": "Each setting's new value by key, all or none; null resets one to its default. A new language or region makes every Work due at the next Metadata refresh.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "type": "object"
+      },
       "NewPINInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -7458,6 +7679,13 @@
           "task": {
             "$ref": "#/components/schemas/TasksTask"
           },
+          "tuning": {
+            "description": "Settings its owner stores that tune what it does; PATCH sets them under tuning by key",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          },
           "units": {
             "description": "Each unit it lists now, in run order",
             "items": {
@@ -7469,7 +7697,8 @@
         "required": [
           "task",
           "units",
-          "runs"
+          "runs",
+          "tuning"
         ],
         "type": "object"
       },
@@ -8145,6 +8374,11 @@
               "string",
               "null"
             ]
+          },
+          "tuning": {
+            "additionalProperties": {},
+            "description": "Each tuning setting's new value by key, all or none; null resets one to its default",
+            "type": "object"
           }
         },
         "type": "object"
@@ -8303,6 +8537,78 @@
         ],
         "type": "object"
       },
+      "WorksArt": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "An artwork kind of the Content Type",
+            "type": "string"
+          },
+          "url": {
+            "description": "The artwork route for the image, without a size",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "url"
+        ],
+        "type": "object"
+      },
+      "WorksArtworkKind": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "shape": {
+            "enum": [
+              "poster",
+              "backdrop",
+              "logo",
+              "photo",
+              "cover"
+            ],
+            "type": "string"
+          },
+          "tier": {
+            "enum": [
+              "work",
+              "item"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "tier",
+          "shape"
+        ],
+        "type": "object"
+      },
+      "WorksAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "description": "The rule that chose the date, in words, such as Digital release in United States; empty when the Content Type names none",
+            "type": "string"
+          },
+          "date": {
+            "description": "YYYY, YYYY-MM or YYYY-MM-DD",
+            "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "basis"
+        ],
+        "type": "object"
+      },
       "WorksCandidate": {
         "additionalProperties": false,
         "properties": {
@@ -8319,6 +8625,21 @@
           "label": {
             "type": "string"
           },
+          "original": {
+            "description": "The label in its original language; empty when it is the label",
+            "type": "string"
+          },
+          "overview": {
+            "description": "One line; empty when the source has none",
+            "type": "string"
+          },
+          "posterUrl": {
+            "description": "The artwork route for the result's poster, without a size; null when the source has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "workId": {
             "description": "The Work, once it is in the library",
             "format": "uuid",
@@ -8331,7 +8652,10 @@
         "required": [
           "key",
           "label",
+          "original",
+          "overview",
           "fields",
+          "posterUrl",
           "workId"
         ],
         "type": "object"
@@ -8355,6 +8679,13 @@
       "WorksContentType": {
         "additionalProperties": false,
         "properties": {
+          "artwork": {
+            "description": "The kinds of image its Works and Items carry",
+            "items": {
+              "$ref": "#/components/schemas/WorksArtworkKind"
+            },
+            "type": "array"
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -8406,7 +8737,8 @@
           "work",
           "levels",
           "item",
-          "fields"
+          "fields",
+          "artwork"
         ],
         "type": "object"
       },
@@ -8517,7 +8849,10 @@
               "text",
               "number",
               "date",
-              "duration"
+              "duration",
+              "texts",
+              "people",
+              "link"
             ],
             "type": "string"
           },
@@ -8546,8 +8881,11 @@
           "mapping": {
             "date": "#/components/schemas/WorksDateValue",
             "duration": "#/components/schemas/WorksDurationValue",
+            "link": "#/components/schemas/WorksLinkValue",
             "number": "#/components/schemas/WorksNumberValue",
-            "text": "#/components/schemas/WorksTextValue"
+            "people": "#/components/schemas/WorksPeopleValue",
+            "text": "#/components/schemas/WorksTextValue",
+            "texts": "#/components/schemas/WorksTextsValue"
           },
           "propertyName": "kind"
         },
@@ -8563,12 +8901,32 @@
           },
           {
             "$ref": "#/components/schemas/WorksDurationValue"
+          },
+          {
+            "$ref": "#/components/schemas/WorksTextsValue"
+          },
+          {
+            "$ref": "#/components/schemas/WorksPeopleValue"
+          },
+          {
+            "$ref": "#/components/schemas/WorksLinkValue"
           }
         ]
       },
       "WorksItem": {
         "additionalProperties": false,
         "properties": {
+          "artwork": {
+            "description": "By kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
+          },
+          "availability": {
+            "$ref": "#/components/schemas/WorksAvailability",
+            "description": "The day the Item counts as released and the rule that chose it; null while no date is known"
+          },
           "fields": {
             "items": {
               "$ref": "#/components/schemas/WorksFieldValue"
@@ -8601,6 +8959,13 @@
             "minimum": 1,
             "type": "integer"
           },
+          "ratings": {
+            "description": "By source",
+            "items": {
+              "$ref": "#/components/schemas/WorksRating"
+            },
+            "type": "array"
+          },
           "withdrawnAt": {
             "description": "When the source stopped listing it; null while it lists it",
             "format": "date-time",
@@ -8618,7 +8983,10 @@
           "position",
           "withdrawnAt",
           "monitored",
-          "fields"
+          "fields",
+          "ratings",
+          "artwork",
+          "availability"
         ],
         "type": "object"
       },
@@ -8680,12 +9048,47 @@
         ],
         "type": "object"
       },
+      "WorksLinkValue": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "link"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "label",
+          "url"
+        ],
+        "type": "object"
+      },
       "WorksListedWork": {
         "additionalProperties": false,
         "properties": {
           "addedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "artwork": {
+            "description": "The Work's own images, by kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
           },
           "contentType": {
             "pattern": "^[a-z][a-z0-9]{1,15}$",
@@ -8697,6 +9100,14 @@
               "$ref": "#/components/schemas/WorksFieldValue"
             },
             "type": "array"
+          },
+          "goneUpstreamAt": {
+            "description": "When the metadata source last answered that it no longer has this Work; null while it has it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "format": "uuid",
@@ -8718,13 +9129,15 @@
         },
         "required": [
           "fields",
+          "artwork",
           "id",
           "contentType",
           "key",
           "label",
           "sortLabel",
           "addedAt",
-          "refreshedAt"
+          "refreshedAt",
+          "goneUpstreamAt"
         ],
         "type": "object"
       },
@@ -8802,6 +9215,140 @@
         ],
         "type": "object"
       },
+      "WorksPeopleValue": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "people"
+            ],
+            "type": "string"
+          },
+          "people": {
+            "description": "In the source's order",
+            "items": {
+              "$ref": "#/components/schemas/WorksPerson"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "people"
+        ],
+        "type": "object"
+      },
+      "WorksPerson": {
+        "additionalProperties": false,
+        "properties": {
+          "department": {
+            "description": "Empty when the source names none",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "description": "The artwork route for the person's photo, without a size; null when the source has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "description": "The character played or the job done; empty when the source names none",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "role",
+          "department",
+          "photoUrl"
+        ],
+        "type": "object"
+      },
+      "WorksPreviewed": {
+        "additionalProperties": false,
+        "properties": {
+          "inLibrary": {
+            "description": "Whether the Work is in the library; while it isn't, the ids in work name nothing",
+            "type": "boolean"
+          },
+          "work": {
+            "$ref": "#/components/schemas/WorksTree"
+          }
+        },
+        "required": [
+          "inLibrary",
+          "work"
+        ],
+        "type": "object"
+      },
+      "WorksRating": {
+        "additionalProperties": false,
+        "properties": {
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "label": {
+            "description": "The source's name as a person reads it",
+            "type": "string"
+          },
+          "scale": {
+            "description": "The value's maximum",
+            "exclusiveMinimum": 0,
+            "format": "double",
+            "type": "number"
+          },
+          "source": {
+            "description": "The ratings source, such as imdb",
+            "type": "string"
+          },
+          "value": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "votes": {
+            "description": "Null when the source counts none",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "label",
+          "value",
+          "scale",
+          "votes",
+          "fetchedAt"
+        ],
+        "type": "object"
+      },
+      "WorksSettingsChange": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "additionalProperties": {},
+            "description": "Each setting's new value by key, all or none; null resets one to its default",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "type": "object"
+      },
       "WorksTextValue": {
         "additionalProperties": false,
         "properties": {
@@ -8825,12 +9372,46 @@
         ],
         "type": "object"
       },
+      "WorksTextsValue": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "texts"
+            ],
+            "type": "string"
+          },
+          "texts": {
+            "description": "In the source's order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "texts"
+        ],
+        "type": "object"
+      },
       "WorksTree": {
         "additionalProperties": false,
         "properties": {
           "addedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "artwork": {
+            "description": "The Work's own images, by kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
           },
           "contentType": {
             "pattern": "^[a-z][a-z0-9]{1,15}$",
@@ -8841,6 +9422,14 @@
               "$ref": "#/components/schemas/WorksFieldValue"
             },
             "type": "array"
+          },
+          "goneUpstreamAt": {
+            "description": "When the metadata source last answered that it no longer has this Work; null while it has it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "format": "uuid",
@@ -8866,6 +9455,13 @@
             },
             "type": "array"
           },
+          "ratings": {
+            "description": "The Work's own, by source",
+            "items": {
+              "$ref": "#/components/schemas/WorksRating"
+            },
+            "type": "array"
+          },
           "refreshedAt": {
             "format": "date-time",
             "type": "string"
@@ -8876,6 +9472,8 @@
         },
         "required": [
           "fields",
+          "ratings",
+          "artwork",
           "levels",
           "items",
           "id",
@@ -8884,7 +9482,37 @@
           "label",
           "sortLabel",
           "addedAt",
-          "refreshedAt"
+          "refreshedAt",
+          "goneUpstreamAt"
+        ],
+        "type": "object"
+      },
+      "WorksTypeChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contentType"
+        ],
+        "type": "object"
+      },
+      "WorksTypeSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "description": "In the Content Type's order; empty when it has none",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
         ],
         "type": "object"
       },
@@ -11244,6 +11872,235 @@
         "x-slipstream-access": "reconfirmed"
       }
     },
+    "/artwork/{token}": {
+      "get": {
+        "operationId": "getArtwork",
+        "parameters": [
+          {
+            "description": "From an artwork URL the API answered",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "From an artwork URL the API answered",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "enum": [
+                "small",
+                "medium",
+                "large",
+                "original"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/svg+xml": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "artwork_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get an image SlipStream handed out, at a size; the address never changes what it answers",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
     "/content-types": {
       "get": {
         "operationId": "listContentTypes",
@@ -11573,6 +12430,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "metadata_refused",
                             "metadata_unavailable"
                           ],
                           "type": "string"
@@ -11598,6 +12456,242 @@
           }
         ],
         "summary": "Search a Content Type's metadata source",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/content-types/{contentType}/catalog/{key}": {
+      "get": {
+        "operationId": "previewCatalogRecord",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentType",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9]{1,15}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The Work's key at its metadata source",
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "description": "The Work's key at its metadata source",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksPreviewed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found",
+                            "metadata_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_disabled",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "metadata_invalid",
+                            "metadata_refused",
+                            "metadata_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings",
         "tags": [
           "works"
         ],
@@ -11804,6 +12898,602 @@
           }
         ],
         "summary": "Turn a Content Type on or off; off only while it holds no Works",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/content-types/{contentType}/refresh": {
+      "post": {
+        "operationId": "refreshContentType",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentType",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataRefreshStarted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found",
+                            "task_unknown"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "task_running",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/content-types/{contentType}/settings": {
+      "get": {
+        "operationId": "getContentTypeSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentType",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9]{1,15}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksTypeSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Content Type's own settings",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateContentTypeSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentType",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9]{1,15}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksSettingsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksTypeSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change a Content Type's own settings by key, all or none; every Work of the type may then read differently",
         "tags": [
           "works"
         ],
@@ -13252,6 +14942,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/MetadataChanged"
+                          },
+                          "event": {
+                            "const": "metadata.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event metadata.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/NodesSettingsChanged"
                           },
                           "event": {
@@ -13507,6 +15223,32 @@
                           "event"
                         ],
                         "title": "Event works.content-types-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/WorksTypeChanged"
+                          },
+                          "event": {
+                            "const": "works.type-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event works.type-changed",
                         "type": "object"
                       }
                     ]
@@ -16509,6 +18251,1211 @@
         "summary": "Send a test email to your own address and answer the mail server's reply",
         "tags": [
           "mail"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/metadata/cache": {
+      "delete": {
+        "operationId": "clearMetadataCache",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Have every Node reading metadata drop what it cached, the next time it reads",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/metadata/providers": {
+      "get": {
+        "operationId": "listMetadataProviders",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataProviderList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List each metadata provider's status and whose key it is called with",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/metadata/providers/{provider}/key": {
+      "delete": {
+        "operationId": "clearMetadataKey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataProvider"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "metadata_provider_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove your key for a provider and go back to SlipStream's",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "setMetadataKey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataNewKey"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataProvider"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "metadata_provider_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "metadata_key_refused"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "metadata_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Use your own key for a provider, once the provider takes it on a test call",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/metadata/providers/{provider}/test": {
+      "post": {
+        "operationId": "testMetadataProvider",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataProvider"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "metadata_provider_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "metadata_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Make one cheap call to a provider with the key in use, and answer its status after it",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/metadata/settings": {
+      "get": {
+        "operationId": "getMetadataSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the metadata settings, with the language and region options",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateMetadataSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataSettingsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change metadata settings by key, all or none",
+        "tags": [
+          "metadata"
         ],
         "x-slipstream-access": "admin"
       }
@@ -31867,7 +34814,8 @@
                         "code": {
                           "enum": [
                             "invalid",
-                            "setting_out_of_range"
+                            "setting_out_of_range",
+                            "unknown_setting"
                           ],
                           "type": "string"
                         }
@@ -31916,7 +34864,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change a task's cadence or overdue rule",
+        "summary": "Change a task's cadence, overdue rule or tuning",
         "tags": [
           "tasks"
         ],
@@ -32641,6 +35589,7 @@
                         "code": {
                           "enum": [
                             "metadata_invalid",
+                            "metadata_refused",
                             "metadata_unavailable"
                           ],
                           "type": "string"
@@ -33459,6 +36408,7 @@
                         "code": {
                           "enum": [
                             "metadata_invalid",
+                            "metadata_refused",
                             "metadata_unavailable"
                           ],
                           "type": "string"

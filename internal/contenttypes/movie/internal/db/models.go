@@ -8,12 +8,65 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+type MovieCredit struct {
+	WorkID     works.WorkID
+	Position   int64
+	PersonID   PersonID
+	Name       string
+	Department string
+	Role       string
+	PhotoPath  *string
+}
+
+type MovieGenre struct {
+	WorkID   works.WorkID
+	Position int64
+	Name     string
+}
+
 type MovieMovie struct {
-	WorkID         works.WorkID
-	TmdbID         TMDBID
-	ImdbID         *IMDbID
-	Title          string
-	Year           *int64
-	Released       *string
-	RuntimeMinutes *int64
+	WorkID               works.WorkID
+	TmdbID               TMDBID
+	ImdbID               *IMDbID
+	Title                string
+	TitleEnglish         string
+	OriginalTitle        string
+	OriginalLanguage     string
+	Year                 *int64
+	PrimaryRelease       *string
+	Overview             string
+	Tagline              string
+	RuntimeMinutes       *int64
+	Status               string
+	Certification        *string
+	CertificationCountry *string
+	StudioID             *CompanyID
+	StudioName           *string
+	CollectionID         *CollectionID
+	CollectionName       *string
+	TrailerSite          *string
+	TrailerKey           *string
+	Awards               *string
+}
+
+type MovieRelease struct {
+	WorkID        works.WorkID
+	Country       string
+	Kind          int64
+	Date          string
+	Certification string
+	Note          string
+}
+
+type MovieSetting struct {
+	ID                 Singleton
+	CountsAs           *CountsAs
+	CinemaDelaySeconds *int64
+}
+
+type MovieTitle struct {
+	WorkID  works.WorkID
+	Country string
+	Title   string
+	Kind    string
 }

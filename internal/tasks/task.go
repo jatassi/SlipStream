@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/role"
@@ -52,7 +53,8 @@ const (
 )
 
 // Task is one Scheduled task as its owner declares it beside the code that
-// does the work. A task is shown exactly while Units lists one or more.
+// does the work. A task is shown while Units lists one or more, or while
+// Shown says so when it declares Shown.
 type Task struct {
 	ID      TaskID
 	Name    string
@@ -72,6 +74,19 @@ type Task struct {
 	Follows []live.Event
 	// Health is the warning category; "" is scheduled-tasks.
 	Health string
+	// Shown decides whether the task is listed, apart from its units. A
+	// shown task with no units still opens a run, which succeeds with
+	// "0 <Noun.Many>".
+	Shown func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error)
+	// Prepare runs in the run's goroutine once the run is open and before
+	// Units lists its units, outside any Read, so it may reach the network
+	// and record what it learns in its owner's rows for Units to read. It
+	// can't fail the run. A task with Prepare declares Shown, since its
+	// units aren't known before it opens.
+	Prepare func(ctx context.Context, trigger Trigger)
+	// Tuning is settings the task's owner stores, shown on the task's page
+	// and changed through PATCH /tasks/{id}.
+	Tuning setting.Panel
 }
 
 type Group struct{ roles role.Group }
@@ -98,9 +113,14 @@ type Every struct {
 	AtStart  bool
 }
 
-// InWindow starts a task in the Maintenance window every Days.
+// InWindow starts a task in the Maintenance window every Days. Spread
+// delays each scheduled start by an offset under Spread, or under the
+// window's length when that is shorter, fixed per window opening by its
+// date and the Controller's id. Run now and catch-up ignore it. Window
+// tasks after it in the catalog wait while it waits for its offset.
 type InWindow struct {
-	Days setting.Duration
+	Days   setting.Duration
+	Spread time.Duration
 }
 
 func (Every) cadence()    {}

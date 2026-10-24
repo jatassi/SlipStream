@@ -24,14 +24,19 @@ const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,` +
 	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date"},` +
 	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text"},` +
 	`{"key":"disc","label":"Disc","tier":"item","kind":"number"},` +
-	`{"key":"length","label":"Length","tier":"item","kind":"duration"}]}`
+	`{"key":"length","label":"Length","tier":"item","kind":"duration"}],` +
+	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}]}`
 
 func searchLanterns(workID string) worldtest.Reply {
-	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","fields":[{"key":"country","kind":"text","text":"GB"}],"workId":` + workID + `}]}` + "\n"}
+	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `}]}` + "\n"}
 }
 
 func problem(status int, code, title string) worldtest.Reply {
 	return worldtest.Reply{Status: status, Body: fmt.Sprintf(`{"status":%d,"code":%q,"title":%q}`, status, code, title) + "\n"}
+}
+
+func problemBecause(status int, code, title, detail string) worldtest.Reply {
+	return worldtest.Reply{Status: status, Body: fmt.Sprintf(`{"status":%d,"code":%q,"title":%q,"detail":%q}`, status, code, title, detail) + "\n"}
 }
 
 type field struct {
@@ -189,7 +194,7 @@ func TestMusic(t *testing.T) {
 	}
 
 	addBay := `{"contentType":"music","key":"` + marrowBay + `"}`
-	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problem(502, "metadata_unavailable", "The metadata source didn't answer. Try again later."))
+	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't answer. Try again later.", "MusicBrainz: answered 503 Service Unavailable"))
 	bay := decode(t, "addWork for Marrow Bay again", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), &added{})
 	var bayTree tree
 	if err := json.Unmarshal(bay.Work, &bayTree); err != nil || !bay.Created {

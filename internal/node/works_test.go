@@ -21,8 +21,8 @@ func TestAControllerBuildsItsContentTypesOnce(t *testing.T) {
 	listeners := env.Environ
 	env.Environ = slices.Concat(listeners, []string{"SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API=https://127.0.0.1:9/v1"})
 	n := startTest(t, env)
-	if opens := fx.Opens(); len(opens) != 0 {
-		t.Fatalf("an Unclaimed Node built the fixture %d times", len(opens))
+	if opens, libraries := fx.Opens(), fx.Libraries(); len(opens) != 0 || len(libraries) != 0 {
+		t.Fatalf("an Unclaimed Node built the fixture's halves %d and %d times", len(opens), len(libraries))
 	}
 	c := client{t: t, c: &http.Client{}, base: "http://" + n.Ready().Listeners.HTTP.String()}
 	claimed := c.claim(n.Ready().SetupCode, "1234")
@@ -33,11 +33,11 @@ func TestAControllerBuildsItsContentTypesOnce(t *testing.T) {
 		t.Fatalf("claimController = %d %s", claimed.status, claimed.body)
 	}
 	opens := fx.Opens()
-	if len(opens) != 1 {
-		t.Fatalf("the Controller built the fixture %d times, want once", len(opens))
+	if len(opens) != 1 || len(fx.Libraries()) != 1 {
+		t.Fatalf("the Controller built the fixture's provider half %d times and library half %d times, want each once", len(opens), len(fx.Libraries()))
 	}
-	if o := opens[0]; o.Endpoints.API.String() != "https://127.0.0.1:9/v1" || o.Deps.UserAgent != "SlipStream/test ( github.com/jatassi/SlipStream )" || o.Deps.HTTP == nil {
-		t.Fatalf("opened with %+v, want the loaded api, the User-Agent and a client", o)
+	if o := opens[0]; o.Endpoints.API.String() != "https://127.0.0.1:9/v1" || o.Deps.Lines == nil || o.Deps.TMDB == nil || o.Deps.OMDb == nil {
+		t.Fatalf("opened with %+v, want the loaded api, the call layer and the TMDB and OMDb clients", o)
 	}
 	r := c.do(call{method: http.MethodGet, path: "/api/v1/content-types", session: sessionOf(t, claimed)})
 	var list struct {

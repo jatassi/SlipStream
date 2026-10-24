@@ -6,6 +6,7 @@ import { page, userEvent } from "vitest/browser";
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import {
   getGetWorkQueryKey,
+  getListContentTypesQueryKey,
   getListWorksQueryKey,
   getSearchCatalogQueryKey,
 } from "../api/gen/query/works/works";
@@ -74,6 +75,30 @@ test("works.changed invalidates the Works, that Work, its cells and every catalo
     cells: true,
     otherCells: false,
     search: true,
+  });
+});
+
+test("works.type-changed invalidates the Works, every Work, their cells and every catalog search", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    list: getListWorksQueryKey(),
+    orchard: getGetWorkQueryKey(orchard),
+    harvest: getGetWorkQueryKey(harvest),
+    cells: getGetWorkCellsQueryKey(harvest),
+    search: getSearchCatalogQueryKey("cinema", { query: "orchard" }),
+    types: getListContentTypesQueryKey(),
+  });
+
+  server.clients[0]?.send({ event: "works.type-changed", data: { contentType: "cinema" } });
+  await expect.poll(invalidated).toEqual({
+    list: true,
+    orchard: true,
+    harvest: true,
+    cells: true,
+    search: true,
+    types: false,
   });
 });
 

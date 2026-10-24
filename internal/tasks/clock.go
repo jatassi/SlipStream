@@ -122,7 +122,13 @@ func (s *Scheduler) tick(ctx context.Context, started time.Time, atStart map[Tas
 	}
 	wake := p.Wake
 	for _, o := range p.Open {
-		if _, err := s.open(ctx, s.byID[o.Task], o.Trigger, storage.UUID{}); err != nil && !errors.Is(err, errNoUnits) {
+		_, err := s.open(ctx, s.byID[o.Task], o.Trigger, storage.UUID{})
+		if errors.Is(err, errNoUnits) && o.Trigger != ByReturn {
+			// A hidden task's passed slot leaves the window free for the
+			// tasks it held back, so the clock plans again now.
+			wake = now
+		}
+		if err != nil && !errors.Is(err, errNoUnits) {
 			s.cfg.Log.Error("open a run", "task", o.Task, "trigger", o.Trigger, "err", err)
 			if wake.IsZero() || now.Add(retry).Before(wake) {
 				wake = now.Add(retry)
@@ -254,6 +260,7 @@ func (s *Scheduler) knobs(row db.TasksSetting, started time.Time) knobs {
 		jitterCap:     JitterCap.Value(row.JitterCapSeconds),
 		overdue:       OverdueRule.Value(row.Overdue),
 		started:       started,
+		install:       s.self,
 	}
 }
 
@@ -289,8 +296,10 @@ func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storag
 		} else if !errors.Is(err, storage.ErrNoRows) {
 			return err
 		}
-		if err := syncUnits(ctx, q, t.ID, all); err != nil {
-			return err
+		if t.Prepare == nil {
+			if err := syncUnits(ctx, q, t.ID, all); err != nil {
+				return err
+			}
 		}
 		started := storage.Now()
 		id, err := q.InsertRun(ctx, db.InsertRunParams{TaskID: t.ID, Kind: trigger, RequestedBy: by, StartedAt: started})
@@ -305,17 +314,27 @@ func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storag
 	return r.id, nil
 }
 
+// units is every unit t lists and those this run acts on, or, for a task
+// with Prepare, none yet: its run lists them once Prepare has run.
 func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, run []Unit, err error) {
+	var shown bool
 	err = s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		all, err = t.Units(ctx, r)
+		if t.Prepare == nil {
+			if all, err = t.Units(ctx, r); err != nil {
+				return err
+			}
+		}
+		shown, err = shownIn(ctx, r, t, all)
 		return err
 	})
 	switch {
 	case err != nil:
 		return nil, nil, err
-	case len(all) == 0:
+	case !shown:
 		return nil, nil, s.passHiddenSlot(ctx, t, trigger)
+	case t.Prepare != nil:
+		return nil, nil, nil
 	case trigger == ByReturn:
 		run, err = s.returning(ctx, t.ID, all)
 		if err == nil && len(run) == 0 {
@@ -326,6 +345,14 @@ func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, ru
 		return all, all, s.runnable(ctx, t.ID, all)
 	}
 	return all, all, nil
+}
+
+// shownIn reports whether t is shown, given the units it lists.
+func shownIn(ctx context.Context, r storage.Reader[file], t Task, units []Unit) (bool, error) {
+	if t.Shown == nil {
+		return len(units) > 0, nil
+	}
+	return t.Shown(ctx, r)
 }
 
 func (s *Scheduler) passHiddenSlot(ctx context.Context, t Task, trigger Trigger) error {
@@ -428,7 +455,7 @@ func (s *Scheduler) runnable(ctx context.Context, task TaskID, units []Unit) err
 		}
 		return err
 	})
-	if err != nil {
+	if err != nil || len(units) == 0 {
 		return err
 	}
 	for _, u := range units {

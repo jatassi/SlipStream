@@ -156,29 +156,21 @@ test("+, - and 0 zoom while the figure has focus, and the arrow keys still walk 
   expect(zoom()).toBeCloseTo(1);
 });
 
-function viewBoxesWhile(act: () => Promise<void>): Promise<Set<string>> {
-  const seen = new Set<string>();
-  const watching = new MutationObserver(() => {
-    seen.add(svg().getAttribute("viewBox") ?? "");
-  });
-  watching.observe(svg(), { attributeFilter: ["viewBox"] });
-  return act().then(async () => {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 400);
-    });
-    watching.disconnect();
-    return seen;
-  });
-}
-
 test("a press of Zoom in eases over several frames, and under reduced motion it jumps", async () => {
   await render();
-  const eased = await viewBoxesWhile(() => userEvent.click(zoomButton("Zoom in")));
-  expect(eased.size).toBeGreaterThan(2);
-  expect(zoom()).toBeCloseTo(1.5);
+  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  await userEvent.click(zoomButton("Zoom in"));
+  vi.advanceTimersToNextFrame();
+  vi.advanceTimersToNextFrame();
+  await expect.poll(zoom).toBeGreaterThan(1);
+  expect(zoom()).toBeLessThan(1.5);
+  vi.advanceTimersByTime(1000);
+  await expect.poll(zoom).toBeCloseTo(1.5);
   await reducedMotion();
-  const jumped = await viewBoxesWhile(() => userEvent.click(zoomButton("Zoom in")));
-  expect(jumped.size).toBe(1);
+  await userEvent.click(zoomButton("Zoom in"));
   expect(zoom()).toBeCloseTo(2.25);
 });
 

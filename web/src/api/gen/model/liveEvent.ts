@@ -10,6 +10,7 @@ import type { LiveEventIndexersChanged } from "./liveEventIndexersChanged.ts";
 import type { LiveEventLiveAccessChanged } from "./liveEventLiveAccessChanged.ts";
 import type { LiveEventLiveResync } from "./liveEventLiveResync.ts";
 import type { LiveEventLiveSessionEnded } from "./liveEventLiveSessionEnded.ts";
+import type { LiveEventMetadataChanged } from "./liveEventMetadataChanged.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
 import type { LiveEventNodeSettingsChanged } from "./liveEventNodeSettingsChanged.ts";
 import type { LiveEventNodesTraffic } from "./liveEventNodesTraffic.ts";
@@ -20,6 +21,7 @@ import type { LiveEventTasksProgress } from "./liveEventTasksProgress.ts";
 import type { LiveEventVolumesChanged } from "./liveEventVolumesChanged.ts";
 import type { LiveEventWorksChanged } from "./liveEventWorksChanged.ts";
 import type { LiveEventWorksContentTypesChanged } from "./liveEventWorksContentTypesChanged.ts";
+import type { LiveEventWorksTypeChanged } from "./liveEventWorksTypeChanged.ts";
 
 export type LiveEvent =
   | LiveEventFilesChanged
@@ -34,6 +36,7 @@ export type LiveEvent =
   | LiveEventLiveAccessChanged
   | LiveEventLiveResync
   | LiveEventLiveSessionEnded
+  | LiveEventMetadataChanged
   | LiveEventNodeSettingsChanged
   | LiveEventNodesChanged
   | LiveEventNodesTraffic
@@ -43,4 +46,5 @@ export type LiveEvent =
   | LiveEventTasksProgress
   | LiveEventVolumesChanged
   | LiveEventWorksChanged
-  | LiveEventWorksContentTypesChanged;
+  | LiveEventWorksContentTypesChanged
+  | LiveEventWorksTypeChanged;
