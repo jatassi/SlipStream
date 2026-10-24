@@ -294,7 +294,7 @@ const volumeTotal = 1 << 40
 // volume reads path itself, as statfs does, so a missing folder has none.
 func (n *node) volume(_ context.Context, path string) (storing.Volume, error) {
 	if _, err := os.Stat(path); err != nil {
-		return storing.Volume{}, err
+		return storing.Volume{}, fmt.Errorf("statfs: %w", err)
 	}
 	return storing.Volume{Mount: "/data", Name: "/data", Total: volumeTotal, Free: n.free.Load(), SampledAt: time.Now()}, nil
 }

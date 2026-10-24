@@ -75,7 +75,14 @@ export function verdictWords(verdict: Verdict, node: string): VerdictWords {
 /** What the disk guard says while it holds a Node's new downloads, in the words Health uses. */
 export function guardWords(card: Card): VerdictWords | undefined {
   const guard = card.diskGuard;
-  return guard && { signal: "warn", chip: "Waiting for disk", sentence: guard.sentence, hint: guard.hint };
+  return (
+    guard && {
+      signal: "warn",
+      chip: "Waiting for disk",
+      sentence: guard.sentence,
+      hint: guard.hint,
+    }
+  );
 }
 
 /** True for an address such as 0.0.0.0:6881 or [::]:6881, which binds where the computer reaches the internet from. */
