@@ -201,7 +201,7 @@ func (d downloadCopy) frees() *dlv1.Freed {
 // Sample samples the downloads folder's volume now and answers once the
 // facts carry it.
 func (c *Client) Sample(ctx context.Context, _ *dlv1.SampleRequest) (*dlv1.SampleResponse, error) {
-	v, err := c.cfg.Volume(ctx, c.cfg.Dir)
+	v, err := c.volume(ctx)
 	if err != nil {
 		return nil, rpc.Errorf(rpc.CodeUnavailable, "sample the downloads folder's volume: %v", err)
 	}

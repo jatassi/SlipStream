@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync/atomic"
@@ -228,6 +229,15 @@ func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 
 // Dir is the downloads folder.
 func (c *Client) Dir() string { return c.cfg.Dir }
+
+// volume reads the downloads folder's volume, making the folder first so
+// the guard knows the volume before the first torrent makes it.
+func (c *Client) volume(ctx context.Context) (storing.Volume, error) {
+	if err := os.MkdirAll(c.cfg.Dir, 0o755); err != nil { //nolint:gosec // media servers read the downloads
+		return storing.Volume{}, fmt.Errorf("make the downloads folder: %w", err)
+	}
+	return c.cfg.Volume(ctx, c.cfg.Dir)
+}
 
 // Folders is the downloads folder and every save folder outside it, which
 // no root may overlap.

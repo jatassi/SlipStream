@@ -241,7 +241,7 @@ func (l *loop) sampleVolume() {
 	l.disk.sampling = true
 	c := l.c
 	go func() {
-		v, err := c.cfg.Volume(context.Background(), c.cfg.Dir)
+		v, err := c.volume(context.Background())
 		c.send(func(l *loop) {
 			l.disk.sampling = false
 			if err != nil {
