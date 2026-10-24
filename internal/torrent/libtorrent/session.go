@@ -502,6 +502,14 @@ func (s *Session) send(ev engine.Event) bool {
 	}
 }
 
+// alertTime is the alert posted at Unix milliseconds ms, read on the
+// monotonic clock: the announce policy measures a tracker's intervals from
+// it, and the wall clock may be slewed or stepped meanwhile.
+func alertTime(ms C.int64_t) time.Time {
+	now := time.Now()
+	return now.Add(time.UnixMilli(int64(ms)).Sub(now))
+}
+
 func goEvent(a *C.lts_alert) engine.Event {
 	h := engine.Handle(a.torrent)
 	switch a.kind {
@@ -516,15 +524,15 @@ func goEvent(a *C.lts_alert) engine.Event {
 	case C.LTS_ALERT_TORRENT_FAILED:
 		return engine.TorrentFailed{Torrent: h, Err: goError(&a.error)}
 	case C.LTS_ALERT_TRACKER_ANNOUNCED:
-		return engine.TrackerAnnounced{Torrent: h, Tracker: int(a.tracker), Event: announceEvents[a.event], At: time.UnixMilli(int64(a.at_ms))}
+		return engine.TrackerAnnounced{Torrent: h, Tracker: int(a.tracker), Event: announceEvents[a.event], At: alertTime(a.at_ms)}
 	case C.LTS_ALERT_TRACKER_REPLIED:
-		return engine.TrackerReplied{Torrent: h, Tracker: int(a.tracker), At: time.UnixMilli(int64(a.at_ms))}
+		return engine.TrackerReplied{Torrent: h, Tracker: int(a.tracker), At: alertTime(a.at_ms)}
 	case C.LTS_ALERT_TRACKER_WARNED:
 		return engine.TrackerWarned{Torrent: h, Tracker: int(a.tracker), Message: payloadText(a)}
 	case C.LTS_ALERT_TRACKER_FAILED:
 		return engine.TrackerFailed{
 			Torrent: h, Tracker: int(a.tracker), Times: int(a.times), Reason: payloadText(a), Err: goError(&a.error),
-			At: time.UnixMilli(int64(a.at_ms)),
+			At: alertTime(a.at_ms),
 		}
 	case C.LTS_ALERT_TRACKER_LIST:
 		trs := unsafe.Slice((*C.lts_tracker)(a.payload), int(a.payload_len))
@@ -568,7 +576,7 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.HashFailed{Torrent: h}
 	case C.LTS_ALERT_STATS:
 		counters := unsafe.Slice((*C.int64_t)(a.payload), 2)
-		return engine.Stats{SentPayload: int64(counters[0]), RecvPayload: int64(counters[1]), At: time.UnixMilli(int64(a.at_ms))}
+		return engine.Stats{SentPayload: int64(counters[0]), RecvPayload: int64(counters[1]), At: alertTime(a.at_ms)}
 	}
 	panic("libtorrent: shim sent unknown alert kind")
 }
