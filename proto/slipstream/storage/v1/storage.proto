@@ -233,9 +233,12 @@ message VerifyRequest {
   repeated Recorded files = 2;
 }
 
+// Recorded is a file's bytes at path, or, while the disk queue moves them,
+// at next: the queue renames them before it records the rename.
 message Recorded {
   string path = 1;
   int64 size = 2;
+  string next = 3;
 }
 
 message VerifyResponse {

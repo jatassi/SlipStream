@@ -175,8 +175,9 @@ type Contents interface {
 	// Proof is up to three root-relative paths where root's files record
 	// their bytes, none while it has no files.
 	Proof(ctx context.Context, r storage.Reader[file], root ID) ([]string, error)
-	// Recorded is where each file of root records its bytes, and their
-	// size: its move's place while a move is pending, else its path.
+	// Recorded is each file of root by its path, with where its bytes are
+	// and their size: its path, or while a move is pending its move's
+	// place or the disk queue's next one.
 	Recorded(ctx context.Context, r storage.Reader[file], root ID) ([]storing.Recorded, error)
 	// Forget deletes root's files recorded at paths, so their cells read
 	// missing and wanted. It does no IO.

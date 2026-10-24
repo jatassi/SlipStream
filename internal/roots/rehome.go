@@ -44,9 +44,9 @@ var errStale = errors.New("the root recorded a file the re-home hasn't checked")
 
 // Rehome moves root id to a new place: a folder its Node judges usable
 // apart from every other root, holding every file the root records at the
-// same path and size. Files that aren't there are a *MissingError unless
-// h.Forget is their count, and then they're forgotten in the Write that
-// moves the root. The root's place bumps, so its Node adopts it there.
+// same size, where Recorded places its bytes. Files that aren't there are
+// a *MissingError unless h.Forget is their count, and then they're
+// forgotten in the Write that moves the root. The root's place bumps, so its Node adopts it there.
 func (r *Roots) Rehome(ctx context.Context, _ identity.Admin, id ID, h Rehome) (View, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

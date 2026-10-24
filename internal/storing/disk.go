@@ -145,9 +145,14 @@ type Payload struct {
 	FileIndex int
 }
 
-// Recorded is a file the library records in a root, for Verify.
+// Recorded is a file the library records in a root, for Verify. Its bytes
+// are at Sits, or at Next while the disk queue moves them: the queue
+// renames them before the Write that records it.
 type Recorded struct {
 	Path Rel
+	Sits Rel
+	// Next is zero for a file not moving.
+	Next Rel
 	Size int64
 }
 

@@ -120,7 +120,7 @@ func (r Remote) Verify(ctx context.Context, node role.NodeID, path string, files
 		batch := files[at:min(at+verifyBatch, len(files))]
 		req := &storagev1.VerifyRequest{Path: path}
 		for _, f := range batch {
-			req.Files = append(req.Files, &storagev1.Recorded{Path: f.Path.String(), Size: f.Size})
+			req.Files = append(req.Files, &storagev1.Recorded{Path: f.Sits.String(), Size: f.Size, Next: f.Next.String()})
 		}
 		res, err := r(node).Verify(ctx, req)
 		if err != nil {
