@@ -150,3 +150,15 @@ func TestTheDiskGuardIsAHealthItem(t *testing.T) {
 		t.Errorf("a Node that stopped downloading still reports %+v, want none", vols)
 	}
 }
+
+func TestTheDiskGuardItemNamesAPercentLevelInBytes(t *testing.T) {
+	g := newGuarded(t)
+	exec(t, g.lib, "INSERT INTO health_volume (node_id, mount, error_amount, error_unit) VALUES (?, '/data', 50, 'percent')", g.node)
+	g.sample(12*setting.GB, time.Now())
+	it, ok := itemFor(answer(t, g.c), g.node)
+	want := "New downloads on seedbox wait for disk space. /data has 12 GB left, below its error level of 500 GB. " +
+		"Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on."
+	if !ok || it.Text != want {
+		t.Fatalf("seedbox's item says %q (found %v), want %q", it.Text, ok, want)
+	}
+}
