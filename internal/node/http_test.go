@@ -23,7 +23,6 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/node/surface"
-	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
@@ -166,7 +165,6 @@ func problem(status int, code, title string) string {
 }
 
 var (
-	sessionCookie  = regexp.MustCompile(`^slipstream_session=[A-Za-z0-9_-]{43}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax$`)
 	clearingCookie = "slipstream_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
 	signedOut      = problem(401, "signed_out", "Sign in to continue")
 	pinWrong       = problem(401, "pin_wrong", "The email or PIN is wrong")
@@ -181,9 +179,16 @@ func expect(t *testing.T, r reply, status int, body string) {
 
 func sessionOf(t *testing.T, r reply) string {
 	t.Helper()
+	return sessionLasting(t, r, 30*24*time.Hour)
+}
+
+// sessionLasting is the session r's cookie sets, which must last lifetime.
+func sessionLasting(t *testing.T, r reply, lifetime time.Duration) string {
+	t.Helper()
 	cookie := r.header.Get("Set-Cookie")
-	if !sessionCookie.MatchString(cookie) {
-		t.Fatalf("Set-Cookie = %q, want a session cookie", cookie)
+	want := fmt.Sprintf(`^slipstream_session=[A-Za-z0-9_-]{43}; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax$`, int64(lifetime/time.Second))
+	if !regexp.MustCompile(want).MatchString(cookie) {
+		t.Fatalf("Set-Cookie = %q, want a session cookie lasting %v", cookie, lifetime)
 	}
 	return strings.TrimPrefix(strings.Split(cookie, ";")[0], identity.CookieName+"=")
 }
@@ -216,7 +221,6 @@ func TestTheEventStreamThroughAStartedNode(t *testing.T) {
 		cn := claimThroughTheGate(t, c, n.Ready().SetupCode)
 		a := signInAsTheAdmin(t, cn)
 		streamAndSignOut(t, cn, a)
-		checkStorageDaily(t, cn)
 		expireAndSlide(t, cn)
 		refuseCrossSiteAndOversized(t, cn)
 	})
@@ -327,25 +331,17 @@ func resync(head int64) string {
 	return fmt.Sprintf("id: %d\nretry: 3000\nevent: live.resync\ndata: {}\n", head)
 }
 
-// checkStorageDaily has the Admin check storage as seldom as Storage
-// allows. Each volume sample sets off Download Clients and Health work on
-// the Controller, so at the default cadence step 10's 58 days would run it
-// some 16,000 times.
-func checkStorageDaily(t *testing.T, cn claimedNode) {
-	t.Helper()
-	body := fmt.Sprintf(`{"sampleEvery":%d}`, int64(roots.SampleEvery.Max/time.Second))
-	r := cn.c.do(call{method: http.MethodPatch, path: "/api/v1/roots/settings", body: strings.NewReader(body), headers: map[string]string{"X-Api-Key": cn.apiKey}})
-	if r.status != http.StatusOK {
-		t.Fatalf("updateRootSettings = %d %s, want 200", r.status, r.body)
-	}
-}
-
-// expireAndSlide is step 10: a session expires after 30 idle days, slides
-// past lifetime/720 of use, and re-sends its cookie only when it slides.
+// expireAndSlide is step 10. With the session lifetime at Settings' floor
+// of an hour, a session expires after an hour idle, slides past
+// lifetime/720 (5s) of use, and re-sends its cookie only when it slides.
 func expireAndSlide(t *testing.T, cn claimedNode) {
 	c := cn.c
-	b := sessionOf(t, c.signIn("admin@example.com", "1234"))
-	idle := sessionOf(t, c.signIn("admin@example.com", "1234"))
+	r := c.do(call{method: http.MethodPatch, path: "/api/v1/identity/settings", body: strings.NewReader(`{"sessionLifetime":3600}`), headers: map[string]string{"X-Api-Key": cn.apiKey}})
+	if r.status != http.StatusOK {
+		t.Fatalf("updateIdentitySettings = %d %s, want 200", r.status, r.body)
+	}
+	b := sessionLasting(t, c.signIn("admin@example.com", "1234"), time.Hour)
+	idle := sessionLasting(t, c.signIn("admin@example.com", "1234"), time.Hour)
 	used := func(at string, wantCookie bool) {
 		t.Helper()
 		r := c.getSession(b)
@@ -353,16 +349,16 @@ func expireAndSlide(t *testing.T, cn claimedNode) {
 			t.Fatalf("%s: getSession = %d with Set-Cookie %q, want 200 and a cookie: %v", at, r.status, r.header.Get("Set-Cookie"), wantCookie)
 		}
 	}
-	time.Sleep(time.Hour)
+	time.Sleep(5 * time.Second)
 	used("at the slide step", false)
 	time.Sleep(time.Second)
 	used("past the slide step", true)
-	time.Sleep(29*24*time.Hour - time.Hour - time.Second)
-	used("on day 29", true)
-	time.Sleep(24*time.Hour + time.Second)
+	time.Sleep(58*time.Minute - 5*time.Second - time.Second)
+	used("at minute 58", true)
+	time.Sleep(2*time.Minute + time.Second)
 	expect(t, c.getSession(idle), 401, signedOut)
-	time.Sleep(28*24*time.Hour - time.Second)
-	used("on day 58", true)
+	time.Sleep(56*time.Minute - time.Second)
+	used("at minute 116", true)
 }
 
 // refuseCrossSiteAndOversized is step 11.
