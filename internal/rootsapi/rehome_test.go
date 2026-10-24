@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -97,8 +98,8 @@ func (s *server) intent(t *testing.T, root string) string {
 	return out
 }
 
-func rehome(path, extra string) string {
-	return `{"path":` + strconv.Quote(path) + extra + `}`
+func rehome(folder, extra string) string {
+	return `{"path":` + strconv.Quote(folder) + extra + `}`
 }
 
 func TestRehomeFindsEveryFile(t *testing.T) {
@@ -220,6 +221,49 @@ func TestAFileRecordedWhileARehomeChecksIsCheckedToo(t *testing.T) {
 	if calls != 2 {
 		t.Fatalf("the re-home checked in %d calls, want the late file checked in a second", calls)
 	}
+}
+
+// moving records a move of the file at rel whose bytes the disk queue
+// last recorded at sits, and answers the file's holding path.
+func (s *server) moving(t *testing.T, rel, sits string) string {
+	t.Helper()
+	var holding string
+	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var id storage.UUID
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM files_file WHERE path = ?`, rel).Scan(&id); err != nil {
+			return fmt.Errorf("file at %s: %w", rel, err)
+		}
+		holding = files.HoldingOf(id, path.Ext(rel))
+		if sits == "" {
+			sits = holding
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO files_move (file_id, sits) VALUES (?, ?)`, id, sits)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return holding
+}
+
+func TestRehomeFindsFilesTheDiskQueueIsMoving(t *testing.T) {
+	s := serve(t)
+	from, to := t.TempDir(), t.TempDir()
+	id := s.create(t, body("fixture", from))
+	work := s.add(t, "held", "")
+	s.file(t, work, id, to, "held/named.mkv", 10)
+	s.moving(t, "held/named.mkv", "")
+	s.file(t, work, id, "", "held/renamed.mkv", 20)
+	holding := s.moving(t, "held/renamed.mkv", "held/old.mkv")
+	if err := os.MkdirAll(filepath.Join(to, filepath.Dir(filepath.FromSlash(holding))), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(to, filepath.FromSlash(holding)), make([]byte, 20), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, rehome(to, ""), http.StatusOK,
+		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":30}`)
 }
 
 func TestRehomeRefusals(t *testing.T) {

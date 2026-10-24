@@ -1560,10 +1560,13 @@ func (x *VerifyRequest) GetFiles() []*Recorded {
 	return nil
 }
 
+// Recorded is a file's bytes at path, or, while the disk queue moves them,
+// at next: the queue renames them before it records the rename.
 type Recorded struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	Next          string                 `protobuf:"bytes,3,opt,name=next,proto3" json:"next,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1610,6 +1613,13 @@ func (x *Recorded) GetSize() int64 {
 		return x.Size
 	}
 	return 0
+}
+
+func (x *Recorded) GetNext() string {
+	if x != nil {
+		return x.Next
+	}
+	return ""
 }
 
 type VerifyResponse struct {
@@ -2406,10 +2416,11 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x06marker\x18\x05 \x01(\fR\x06marker\"Z\n" +
 	"\rVerifyRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x125\n" +
-	"\x05files\x18\x02 \x03(\v2\x1f.slipstream.storage.v1.RecordedR\x05files\"2\n" +
+	"\x05files\x18\x02 \x03(\v2\x1f.slipstream.storage.v1.RecordedR\x05files\"F\n" +
 	"\bRecorded\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x03R\x04size\"J\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\x12\x12\n" +
+	"\x04next\x18\x03 \x01(\tR\x04next\"J\n" +
 	"\x0eVerifyResponse\x128\n" +
 	"\amissing\x18\x01 \x03(\v2\x1e.slipstream.storage.v1.MissingR\amissing\"]\n" +
 	"\aMissing\x12\x14\n" +

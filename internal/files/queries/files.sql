@@ -87,6 +87,6 @@ FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.root_id = sqlc.arg(root_id) ORDER BY f.id LIMIT 3;
 
 -- name: RecordedOfRoot :many
-SELECT f.id, CAST(coalesce(m.sits, f.path) AS TEXT) AS path, f.size
+SELECT f.id, f.path, m.sits, f.size
 FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.root_id = sqlc.arg(root_id) ORDER BY f.id;

@@ -50,13 +50,33 @@ func (RootContents) Recorded(ctx context.Context, r storage.Reader[file], root r
 	}
 	out := make([]storing.Recorded, len(rows))
 	for i, row := range rows {
-		rel, err := storing.ParseRel(row.Path)
-		if err != nil {
+		if out[i], err = recordedOf(row); err != nil {
 			return nil, fmt.Errorf("file %s of root %s: %w", row.ID, root, err)
 		}
-		out[i] = storing.Recorded{Path: rel, Size: row.Size}
 	}
 	return out, nil
+}
+
+func recordedOf(row db.RecordedOfRootRow) (storing.Recorded, error) {
+	path, err := storing.ParseRel(row.Path)
+	if err != nil {
+		return storing.Recorded{}, err
+	}
+	f := storing.Recorded{Path: path, Sits: path, Size: row.Size}
+	if row.Sits == nil {
+		return f, nil
+	}
+	next := row.Path
+	if hold := holdingOf(row.ID, row.Path); *row.Sits != hold {
+		next = hold
+	}
+	if f.Sits, err = storing.ParseRel(*row.Sits); err != nil {
+		return storing.Recorded{}, err
+	}
+	if f.Next, err = storing.ParseRel(next); err != nil {
+		return storing.Recorded{}, err
+	}
+	return f, nil
 }
 
 func (RootContents) Forget(ctx context.Context, tx *storage.Tx[file], root roots.ID, paths []storing.Rel) error {

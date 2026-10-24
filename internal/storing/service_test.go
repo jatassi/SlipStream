@@ -324,7 +324,7 @@ func TestVerifyFindsMissingFilesInBatches(t *testing.T) {
 	files := make([]Recorded, 0, 1201)
 	for i := range 1201 {
 		rel := fmt.Sprintf("Show/S01E%04d.mkv", i)
-		files = append(files, Recorded{Path: mustRel(t, rel), Size: 4})
+		files = append(files, Recorded{Sits: mustRel(t, rel), Size: 4})
 		if i != 7 && i != 1100 {
 			write(t, filepath.Join(folder, filepath.FromSlash(rel)), "film")
 		}
@@ -349,6 +349,26 @@ func TestVerifyFindsMissingFilesInBatches(t *testing.T) {
 	}
 	if _, err := s.Verify(t.Context(), req); rpc.CodeOf(err) != rpc.CodeInvalidArgument {
 		t.Errorf("a batch of 501 = %v, want invalid argument", err)
+	}
+}
+
+func TestVerifyFindsMovingFilesAtEitherPlace(t *testing.T) {
+	folder := t.TempDir()
+	write(t, filepath.Join(folder, "moved", "next.mkv"), "film")
+	write(t, filepath.Join(folder, "short", "next.mkv"), "fil")
+	write(t, filepath.Join(folder, "stayed", "sits.mkv"), "fil")
+	write(t, filepath.Join(folder, "stayed", "next.mkv"), "film")
+	var files []Recorded
+	for _, dir := range []string{"moved", "short", "stayed", "gone"} {
+		files = append(files, Recorded{Sits: mustRel(t, dir+"/sits.mkv"), Next: mustRel(t, dir+"/next.mkv"), Size: 4})
+	}
+	missing, err := remoteOf(newStore(newTestDisk(t))).Verify(t.Context(), node, folder, files, func(int) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []MissingFile{{1, SizeDiffers}, {2, SizeDiffers}, {3, FileMissing}}
+	if !slices.Equal(missing, want) {
+		t.Errorf("missing = %v, want %v", missing, want)
 	}
 }
 
