@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
@@ -215,6 +216,7 @@ func TestTheEventStreamThroughAStartedNode(t *testing.T) {
 		cn := claimThroughTheGate(t, c, n.Ready().SetupCode)
 		a := signInAsTheAdmin(t, cn)
 		streamAndSignOut(t, cn, a)
+		checkStorageDaily(t, cn)
 		expireAndSlide(t, cn)
 		refuseCrossSiteAndOversized(t, cn)
 	})
@@ -323,6 +325,19 @@ func streamAndSignOut(t *testing.T, cn claimedNode, a string) {
 
 func resync(head int64) string {
 	return fmt.Sprintf("id: %d\nretry: 3000\nevent: live.resync\ndata: {}\n", head)
+}
+
+// checkStorageDaily has the Admin check storage as seldom as Storage
+// allows. Each volume sample sets off Download Clients and Health work on
+// the Controller, so at the default cadence step 10's 58 days would run it
+// some 16,000 times.
+func checkStorageDaily(t *testing.T, cn claimedNode) {
+	t.Helper()
+	body := fmt.Sprintf(`{"sampleEvery":%d}`, int64(roots.SampleEvery.Max/time.Second))
+	r := cn.c.do(call{method: http.MethodPatch, path: "/api/v1/roots/settings", body: strings.NewReader(body), headers: map[string]string{"X-Api-Key": cn.apiKey}})
+	if r.status != http.StatusOK {
+		t.Fatalf("updateRootSettings = %d %s, want 200", r.status, r.body)
+	}
 }
 
 // expireAndSlide is step 10: a session expires after 30 idle days, slides
