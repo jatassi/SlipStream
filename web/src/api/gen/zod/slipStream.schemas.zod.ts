@@ -171,7 +171,13 @@ export const DownloadclientsDiskGuard = zod.object({
     .min(downloadclientsDiskGuardErrorBelowMin)
     .describe("The volume's error level, in bytes"),
   free: zod.int().min(downloadclientsDiskGuardFreeMin).describe("Bytes"),
+  hint: zod
+    .string()
+    .describe(
+      "What explains the sentence: the volume, its free space, its error level and what to do",
+    ),
   sampledAt: zod.iso.datetime({ offset: true }),
+  sentence: zod.string().describe("What the guard says, as Health says it"),
   volume: zod.string().describe("The downloads folder's volume, as the Node names it"),
 });
 

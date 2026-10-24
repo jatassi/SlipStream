@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,9 @@ type VolumeSource struct {
 	// are recorded; an error wrapping ErrUnreachable is a Node away.
 	Sample func(ctx context.Context, node role.NodeID) error
 	Events []live.Event
+	// Remedy is what else frees a full volume of this holder's, finishing
+	// "Free up space on it, or ...".
+	Remedy string
 }
 
 // Volume is one volume as a holder last recorded it.
@@ -77,10 +81,12 @@ type sampled struct {
 	byKey map[Key]Volume
 	// from is the holders reporting a volume on each Node.
 	from map[role.NodeID][]VolumeSource
+	// remedies is each volume's holders' remedies, in holder order.
+	remedies map[Key][]string
 }
 
 func (h *Health) volumes(ctx context.Context) (sampled, error) {
-	s := sampled{byKey: map[Key]Volume{}, from: map[role.NodeID][]VolumeSource{}}
+	s := sampled{byKey: map[Key]Volume{}, from: map[role.NodeID][]VolumeSource{}, remedies: map[Key][]string{}}
 	for _, src := range h.cfg.Storage.Volumes {
 		vols, err := src.Volumes(ctx)
 		if err != nil {
@@ -91,6 +97,9 @@ func (h *Health) volumes(ctx context.Context) (sampled, error) {
 			k := volumeKey(v.Node, v.Mount)
 			if was, ok := s.byKey[k]; !ok || v.SampledAt.After(was.SampledAt) {
 				s.byKey[k] = v
+			}
+			if src.Remedy != "" && !slices.Contains(s.remedies[k], src.Remedy) {
+				s.remedies[k] = append(s.remedies[k], src.Remedy)
 			}
 			if !on[v.Node] {
 				on[v.Node] = true
@@ -120,7 +129,7 @@ func (h *Health) storageAnswer(ctx context.Context) (Answer, error) {
 		}
 		lv := l.For(v.Node, v.Mount, v.Total)
 		if level := lv.Judge(v.Free); level != None {
-			a.Items = append(a.Items, Item{Key: volumeKey(v.Node, v.Mount), Level: level, Says: h.volumeSays(v, lv)})
+			a.Items = append(a.Items, Item{Key: volumeKey(v.Node, v.Mount), Level: level, Says: h.volumeSays(v, lv, vs.remedies[volumeKey(v.Node, v.Mount)])})
 		}
 	}
 	if h.cfg.Storage.Roots.Answer != nil {
@@ -135,7 +144,7 @@ func (h *Health) storageAnswer(ctx context.Context) (Answer, error) {
 	return a, nil
 }
 
-func (h *Health) volumeSays(v Volume, lv VolumeLevels) Says {
+func (h *Health) volumeSays(v Volume, lv VolumeLevels, remedies []string) Says {
 	left := setting.Amount{N: v.Free, Unit: setting.BytesUnit}.Words()
 	tail := "It has " + left + " left."
 	if !v.Live {
@@ -152,7 +161,7 @@ func (h *Health) volumeSays(v Volume, lv VolumeLevels) Says {
 	}
 	return Says{
 		Subject: v.Name + " on " + v.NodeName,
-		Text:    fmt.Sprintf("Free up space on %s on %s, or add a library root on another volume. %s", v.Name, v.NodeName, tail),
+		Text:    strings.Join(append([]string{"Free up space on " + v.Name + " on " + v.NodeName}, remedies...), ", or ") + ". " + tail,
 		Detail:  detail,
 		Action:  CheckAction(),
 	}

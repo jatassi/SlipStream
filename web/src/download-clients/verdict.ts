@@ -1,5 +1,4 @@
 import type { DownloadclientsClientCard as Card } from "../api/gen/model";
-import { bytes } from "../format";
 import { portOf } from "../routes/_app/nodes/-node";
 import type { Signal } from "../ui/signal-chip";
 
@@ -73,15 +72,15 @@ export function verdictWords(verdict: Verdict, node: string): VerdictWords {
   }
 }
 
-/** What the disk guard says while it holds a Node's new downloads. */
+/** What the disk guard says while it holds a Node's new downloads, in the words Health uses. */
 export function guardWords(card: Card): VerdictWords | undefined {
   const guard = card.diskGuard;
   return (
     guard && {
       signal: "warn",
       chip: "Waiting for disk",
-      sentence: `New downloads on ${card.nodeName} wait for disk space.`,
-      hint: `${guard.volume} has ${bytes(guard.free)} left, below its error level of ${bytes(guard.errorBelow)}. Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on.`,
+      sentence: guard.sentence,
+      hint: guard.hint,
     }
   );
 }

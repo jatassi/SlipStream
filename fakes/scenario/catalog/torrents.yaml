@@ -59,5 +59,6 @@ tracker:
   min_interval: 2m
   mode: unit3d
 library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
   roots: [{content_type: movie, folder: movies}]
   indexers: [{name: Fixture Site, site: fixture-site}]

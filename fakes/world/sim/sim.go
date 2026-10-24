@@ -143,6 +143,8 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	}
 	if w.walk != nil {
 		w.walk.seed(w, ready)
+	} else if err := setup.StorageLevels(t.Context(), w.client, s, ready, w.claims); err != nil {
+		t.Fatal(err)
 	}
 	return w
 }

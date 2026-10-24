@@ -175,6 +175,8 @@ type clientCard struct {
 }
 
 type diskGuard struct {
+	Sentence   string    `json:"sentence" doc:"What the guard says, as Health says it"`
+	Hint       string    `json:"hint" doc:"What explains the sentence: the volume, its free space, its error level and what to do"`
 	Volume     string    `json:"volume" doc:"The downloads folder's volume, as the Node names it"`
 	Free       int64     `json:"free" minimum:"0" doc:"Bytes"`
 	ErrorBelow int64     `json:"errorBelow" minimum:"0" doc:"The volume's error level, in bytes"`
@@ -243,7 +245,8 @@ func cardOf(c downloadclients.Card, name string) clientCard {
 		},
 	}
 	if g := c.Guard; g != nil {
-		out.DiskGuard = &diskGuard{Volume: g.Volume.Name, Free: g.Volume.Free, ErrorBelow: g.ErrorBelow.Bytes, SampledAt: g.Volume.SampledAt}
+		sentence, hint := g.Words(name)
+		out.DiskGuard = &diskGuard{Sentence: sentence, Hint: hint, Volume: g.Volume.Name, Free: g.Volume.Free, ErrorBelow: g.ErrorBelow.Bytes, SampledAt: g.Volume.SampledAt}
 	}
 	if f := c.Facts; f != nil {
 		out.Client = &clientFacts{
