@@ -22,7 +22,7 @@ var HealthAbout = health.About{
 // last sampled it, which Storage judges like a root's. An offline Node's
 // volume keeps its last figures.
 func (c *Clients) HealthVolumes() health.VolumeSource {
-	return health.VolumeSource{Volumes: c.healthVolumes, Sample: c.sampleVolume, Events: []live.Event{ClientsChangedEvent}}
+	return health.VolumeSource{Volumes: c.healthVolumes, Sample: c.sampleVolume, Events: []live.Event{ClientsChangedEvent}, Remedy: "move the downloads folder to another volume"}
 }
 
 func (c *Clients) healthVolumes(ctx context.Context) ([]health.Volume, error) {

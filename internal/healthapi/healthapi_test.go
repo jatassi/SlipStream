@@ -47,6 +47,7 @@ func serve(t *testing.T) *ownertest.Owner {
 		Storage: health.StorageParts{Volumes: []health.VolumeSource{{
 			Volumes: func(context.Context) ([]health.Volume, error) { return []health.Volume{disk}, nil },
 			Sample:  func(context.Context, role.NodeID) error { return health.ErrUnreachable },
+			Remedy:  "add a library root on another volume",
 		}}},
 		Categories: []health.Category{
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: answer(health.Answer{})}},
