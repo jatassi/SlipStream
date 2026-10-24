@@ -8,7 +8,7 @@ import (
 
 // links is how many names the file at path has.
 func links(path string) (uint64, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: a file the client itself downloaded
 	if err != nil {
 		return 0, err //nolint:wrapcheck // the path is in the error
 	}
