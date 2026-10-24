@@ -47,9 +47,11 @@ func serve(t *testing.T) *ownertest.Owner {
 		Storage: health.StorageParts{Volumes: []health.VolumeSource{{
 			Volumes: func(context.Context) ([]health.Volume, error) { return []health.Volume{disk}, nil },
 			Sample:  func(context.Context, role.NodeID) error { return health.ErrUnreachable },
+			Remedy:  "add a library root on another volume",
 		}}},
 		Categories: []health.Category{
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: answer(health.Answer{})}},
+			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"}, Source: health.Source{Answer: answer(health.Answer{
 				Items: []health.Item{{Key: "housekeeping", Level: health.Warn, Says: health.Says{Subject: "Housekeeping", Text: "Housekeeping failed.", Action: health.RunAction("housekeeping")}}},
 			})}},
@@ -86,6 +88,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`"text":"Free up space on D: (Media) on Media server, or add a library root on another volume. It has 10 GB left.","detail":[{"label":"Free","bytes":10737418240},{"label":"Total","bytes":1099511627776},`+
 			`{"label":"Warning level","text":"100 GB (global)"},{"label":"Error level","text":"20 GB (global)"},{"label":"Sampled","at":"T"}],"action":{"kind":"check"},"since":"T","changedAt":"T","unsure":false}]},`+
 			`{"id":"nodes","label":"Nodes","phrase":"Nodes","level":null,"canCheck":false,"items":[]},`+
+			`{"id":"download-clients","label":"Download Clients","phrase":"download clients","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"scheduled-tasks","label":"Scheduled tasks","phrase":"scheduled tasks","level":"warn","canCheck":false,"items":[{"key":"housekeeping","level":"warn","subject":"Housekeeping",`+
 			`"text":"Housekeeping failed.","detail":[],"action":{"kind":"run","taskId":"housekeeping"},"since":"T","changedAt":"T","unsure":false}]}]}`)
 

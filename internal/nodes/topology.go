@@ -7,9 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/link"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -58,9 +56,9 @@ type Downloading struct {
 	Torrents []Torrent
 }
 
-// Torrent is one Grab whose torrent a Node's client keeps.
+// Torrent is one Torrent a Node's client keeps.
 type Torrent struct {
-	Grab   storage.UUID
+	ID     storage.UUID
 	Title  string
 	Done   int64
 	Wanted int64
@@ -109,10 +107,10 @@ func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], boar
 	if v.Standing == InStep && board.Who(role.Downloading).Serves(v.ID) {
 		kept, err := s.cfg.Kept(ctx, r, v.ID)
 		if err != nil {
-			return TopologyNode{}, fmt.Errorf("read the Grabs node %s keeps: %w", v.ID, err)
+			return TopologyNode{}, fmt.Errorf("read the Torrents node %s keeps: %w", v.ID, err)
 		}
-		f, _ := s.cfg.Downloads.Facts(v.ID)
-		n.Downloading = &Downloading{Torrents: torrentsOf(f, kept)}
+		live, _ := s.cfg.Torrents.Live(v.ID)
+		n.Downloading = &Downloading{Torrents: torrentsOf(kept, live)}
 	}
 	if board.Who(role.Storage).Serves(v.ID) {
 		f, err := s.cfg.Storage(ctx, r, v.ID)
@@ -124,15 +122,14 @@ func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], boar
 	return n, nil
 }
 
-// torrentsOf is each Grab of kept whose torrent f reports, in f's order.
-func torrentsOf(f *dlv1.Facts, kept []Grabbed) []Torrent {
-	out := []Torrent{}
-	for _, t := range f.GetTorrents() {
-		h := bencode.InfoHash(t.GetInfoHash())
-		for _, g := range kept {
-			if g.InfoHash == h {
-				out = append(out, Torrent{Grab: g.Grab, Title: g.Title, Done: t.GetDone(), Wanted: t.GetWanted(), Peers: int(t.GetPeers())})
-			}
+// torrentsOf is each Torrent of kept, in kept's order, with its live
+// sample when it has one.
+func torrentsOf(kept []Kept, live LiveClient) []Torrent {
+	out := make([]Torrent, len(kept))
+	for i, k := range kept {
+		out[i] = Torrent{ID: k.Torrent, Title: k.Title, Done: k.Done, Wanted: k.Wanted}
+		if l, ok := live.Torrents[k.Torrent]; ok {
+			out[i].Done, out[i].Wanted, out[i].Peers = l.Done, l.Wanted, l.Peers
 		}
 	}
 	return out

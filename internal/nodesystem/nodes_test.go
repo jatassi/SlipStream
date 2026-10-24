@@ -57,7 +57,7 @@ func (h *host) Facts() (system.Facts, error) { return h.facts, h.factsErr }
 
 func (h *host) Config() (nodesystem.Config, error) { return h.config, nil }
 
-func (h *host) SetConfig(changes []nodesystem.Change) (nodesystem.Config, error) {
+func (h *host) SetConfig(_ context.Context, changes []nodesystem.Change) (nodesystem.Config, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.set = append(h.set, changes)

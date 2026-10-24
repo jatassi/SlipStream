@@ -24,7 +24,7 @@ func TestConfigWritesOnlyWhatTheWorldSets(t *testing.T) {
 name: work
 torrent:
   listen: 127.0.0.3:0
-  outgoing_utp: false
+  loopback_peers: true
 http:
   listen: 127.0.0.3:0
 link:

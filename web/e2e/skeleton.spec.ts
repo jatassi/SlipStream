@@ -29,7 +29,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
     .getByRole("table", { name: "Grabs" })
     .getByRole("row", { name: /Quiet Orchard/u });
   await expect(job).toHaveText(
-    "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKWImported",
+    "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKWWEBDL-1080p1080pImported",
     { timeout: 60_000 },
   );
   await expect(page.getByText("Nothing moving · 1 imported")).toBeVisible();

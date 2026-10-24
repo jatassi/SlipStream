@@ -37,7 +37,11 @@ function counting(first: number) {
   let activity = first;
   return {
     handler: http.get("*/api/v1/counts", () =>
-      HttpResponse.json({ activity, alerts: { nodes: null } }),
+      HttpResponse.json({
+        activity,
+        downloads: { done: 0, wanted: 0, allPaused: false },
+        alerts: { nodes: null },
+      }),
     ),
     set(next: number) {
       activity = next;

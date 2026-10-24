@@ -1,5 +1,7 @@
 // Package seeders seeds a world's seeded releases: one libtorrent session
-// apiece on 127.0.0.1, which a Node reaches through its seeder front.
+// apiece on 127.0.0.1, which a Node reaches through its seeder front. It
+// also runs the bad peer of each release that has one, which a Node
+// reaches through its bad peer front.
 package seeders
 
 import (
@@ -10,15 +12,19 @@ import (
 	"net/netip"
 	"os"
 	"sync"
+	"time"
 
+	"github.com/jatassi/slipstream/fakes/internal/badpeer"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
-// Seeders is the running sessions, by release name.
+// Seeders is the running sessions and bad peers, by release name.
 type Seeders struct {
 	sessions map[string]engine.Engine
+	bad      map[string]*badpeer.Peer
 }
 
 // certFile guards SSL_CERT_FILE around a session's start: libtorrent reads
@@ -27,9 +33,18 @@ type Seeders struct {
 var certFile sync.Mutex
 
 // Start seeds each seeded release of c and returns once each seeder's
-// started announce reached the tracker, which trusts caFile.
+// started announce reached the tracker, which trusts caFile. It starts
+// each release's bad peer first.
 func Start(ctx context.Context, c *releases.Catalog, caFile string) (*Seeders, error) {
-	s := &Seeders{sessions: map[string]engine.Engine{}}
+	s := &Seeders{sessions: map[string]engine.Engine{}, bad: map[string]*badpeer.Peer{}}
+	for _, r := range c.Releases {
+		if r.BadPeer == "" {
+			continue
+		}
+		if err := s.startBadPeer(ctx, r); err != nil {
+			return nil, errors.Join(fmt.Errorf("bad peer %s: %w", r.Name, err), s.Close())
+		}
+	}
 	for _, r := range c.Releases {
 		if !r.Seeded {
 			continue
@@ -46,6 +61,19 @@ func Start(ctx context.Context, c *releases.Catalog, caFile string) (*Seeders, e
 	return s, nil
 }
 
+func (s *Seeders) startBadPeer(ctx context.Context, r releases.Release) error {
+	m, err := bencode.DecodeMetainfo(r.Metainfo)
+	if err != nil {
+		return err
+	}
+	p, err := badpeer.Listen(ctx, m, r.BadPeer)
+	if err != nil {
+		return err
+	}
+	s.bad[r.Name] = p
+	return nil
+}
+
 func open(caFile string) (engine.Engine, error) {
 	certFile.Lock()
 	defer certFile.Unlock()
@@ -53,7 +81,11 @@ func open(caFile string) (engine.Engine, error) {
 	if err := os.Setenv("SSL_CERT_FILE", caFile); err != nil {
 		return nil, fmt.Errorf("trust the run CA: %w", err)
 	}
-	ses, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), Rand: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}) //nolint:gosec // picks listen ports
+	ses, err := libtorrent.Open(engine.Config{
+		ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"),
+		AnnounceFloor:   5 * time.Minute,
+		Rand:            rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), //nolint:gosec // picks listen ports
+	})
 	restore := os.Unsetenv("SSL_CERT_FILE")
 	if set {
 		restore = os.Setenv("SSL_CERT_FILE", was)
@@ -64,6 +96,9 @@ func open(caFile string) (engine.Engine, error) {
 	if restore != nil {
 		return nil, errors.Join(fmt.Errorf("restore SSL_CERT_FILE: %w", restore), ses.Close())
 	}
+	if err := ses.Configure(engine.Limits{}); err != nil {
+		return nil, errors.Join(fmt.Errorf("dial TCP only: %w", err), ses.Close())
+	}
 	return ses, nil
 }
 
@@ -73,6 +108,9 @@ func seed(ctx context.Context, ses engine.Engine, r releases.Release) error {
 	h, err := ses.Add(engine.AddParams{Metainfo: r.Metainfo, SavePath: r.Dir, SeedMode: true})
 	if err != nil {
 		return fmt.Errorf("add the torrent: %w", err)
+	}
+	if err := ses.Resume(h); err != nil {
+		return fmt.Errorf("start the torrent: %w", err)
 	}
 	for {
 		select {
@@ -116,11 +154,23 @@ func (s *Seeders) Addr(release string) (netip.AddrPort, error) {
 	return addr, nil
 }
 
-// Close stops every session.
+// BadPeerAddr is where the bad peer of release listens.
+func (s *Seeders) BadPeerAddr(release string) (netip.AddrPort, error) {
+	p, ok := s.bad[release]
+	if !ok {
+		return netip.AddrPort{}, fmt.Errorf("no bad peer plays %s", release)
+	}
+	return p.Addr(), nil
+}
+
+// Close stops every session and bad peer.
 func (s *Seeders) Close() error {
 	var errs []error
 	for _, ses := range s.sessions {
 		errs = append(errs, ses.Close())
+	}
+	for _, p := range s.bad {
+		errs = append(errs, p.Close())
 	}
 	return errors.Join(errs...)
 }

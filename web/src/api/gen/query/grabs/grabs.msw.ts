@@ -22,6 +22,7 @@ export const getListGrabsResponseMock = (
               "torrent_v2_only",
               "no_download_client",
               "download_failed",
+              "removed",
               "no_video_file",
               "probe_failed",
               "fills_nothing",
@@ -68,6 +69,30 @@ export const getListGrabsResponseMock = (
     ...(faker.datatype.boolean()
       ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
       : {}),
+    ...(faker.datatype.boolean()
+      ? {
+          quality: faker.helpers.arrayElement([
+            "sdtv",
+            "dvd",
+            "webrip-480p",
+            "hdtv-720p",
+            "webrip-720p",
+            "webdl-720p",
+            "bluray-720p",
+            "hdtv-1080p",
+            "webrip-1080p",
+            "webdl-1080p",
+            "bluray-1080p",
+            "remux-1080p",
+            "hdtv-2160p",
+            "webrip-2160p",
+            "webdl-2160p",
+            "bluray-2160p",
+            "remux-2160p",
+            "cam",
+          ] as const),
+        }
+      : {}),
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     stage: faker.helpers.arrayElement([
@@ -82,6 +107,7 @@ export const getListGrabsResponseMock = (
     targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
+    torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     workId: faker.string.uuid(),
   })),
   ...overrideResponse,
@@ -103,6 +129,7 @@ export const getGetGrabResponseMock = (
             "torrent_v2_only",
             "no_download_client",
             "download_failed",
+            "removed",
             "no_video_file",
             "probe_failed",
             "fills_nothing",
@@ -149,6 +176,30 @@ export const getGetGrabResponseMock = (
   ...(faker.datatype.boolean()
     ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
     : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        quality: faker.helpers.arrayElement([
+          "sdtv",
+          "dvd",
+          "webrip-480p",
+          "hdtv-720p",
+          "webrip-720p",
+          "webdl-720p",
+          "bluray-720p",
+          "hdtv-1080p",
+          "webrip-1080p",
+          "webdl-1080p",
+          "bluray-1080p",
+          "remux-1080p",
+          "hdtv-2160p",
+          "webrip-2160p",
+          "webdl-2160p",
+          "bluray-2160p",
+          "remux-2160p",
+          "cam",
+        ] as const),
+      }
+    : {}),
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
   stage: faker.helpers.arrayElement([
@@ -163,6 +214,7 @@ export const getGetGrabResponseMock = (
   targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   workId: faker.string.uuid(),
   ...overrideResponse,
 });

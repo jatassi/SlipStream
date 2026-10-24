@@ -253,6 +253,28 @@ func (h Holders) Pick(prefer ID) (ID, bool) {
 	return ID{}, false
 }
 
+// Serving is every Node that serves the Role, in id order.
+func (h Holders) Serving() []ID {
+	var out []ID
+	for _, n := range h.b.nodes {
+		if h.Serves(n.ID) {
+			out = append(out, n.ID)
+		}
+	}
+	return out
+}
+
+// InStep is every Node in step that serves the Role, in id order.
+func (h Holders) InStep() []ID {
+	var out []ID
+	for _, n := range h.b.nodes {
+		if n.Standing == InStep && h.Serves(n.ID) {
+			out = append(out, n.ID)
+		}
+	}
+	return out
+}
+
 // PickOther is Pick for a call besides couldn't take: the Controller when
 // it may and isn't besides, else the first other Node by id that may.
 func (h Holders) PickOther(besides ID) (ID, bool) {

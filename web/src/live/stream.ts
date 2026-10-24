@@ -6,6 +6,7 @@ import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { effects } from "./effects";
 import { refresh } from "./refresh";
 import { type Source, openSource } from "./source";
+import { forgetTorrents } from "./torrents";
 import type {
   LiveEffect,
   LiveEffects,
@@ -24,7 +25,7 @@ const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.opti
 
 // A sample that fails to parse is dropped: the next replaces it within a
 // second, where a resync would refetch every query at the samples' rate.
-const samples: ReadonlySet<string> = new Set<ProductEventName>(["nodes.traffic"]);
+const samples: ReadonlySet<string> = new Set<ProductEventName>(["nodes.traffic", "torrents.live"]);
 
 type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
 type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;
@@ -193,6 +194,7 @@ class Stream {
   };
 
   private resync() {
+    forgetTorrents(this.options.queryClient);
     this.refreshQueries();
   }
 

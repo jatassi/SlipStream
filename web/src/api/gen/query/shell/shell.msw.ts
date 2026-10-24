@@ -23,6 +23,11 @@ export const getGetCountsResponseMock = (
       null,
     ]),
   },
+  downloads: {
+    allPaused: faker.datatype.boolean(),
+    done: faker.number.int(),
+    wanted: faker.number.int(),
+  },
   ...overrideResponse,
 });
 

@@ -209,8 +209,13 @@ func TestAVolumesLevelsAreSetGloballyAndPerVolume(t *testing.T) {
 		if got := level(); got != "fail" {
 			t.Fatalf("with 200 GB free under its own 250 GB error the volume reads %q, want fail", got)
 		}
-		if v := listHealthVolumes(t, m.a).Volumes; len(v) != 1 || !v[0].SkipsWarning || v[0].WarnBytes != 150<<30 || v[0].ErrorBytes != 250<<30 {
-			t.Fatalf("listHealthVolumes = %+v, want the movies volume skipping its 150 GB warning for its 250 GB error", v)
+		volumes := listHealthVolumes(t, m.a).Volumes
+		movies := false
+		for _, v := range volumes {
+			movies = movies || v.Mount == m.folder && v.SkipsWarning && v.WarnBytes == 150<<30 && v.ErrorBytes == 250<<30
+		}
+		if !movies {
+			t.Fatalf("listHealthVolumes = %+v, want the movies volume skipping its 150 GB warning for its 250 GB error", volumes)
 		}
 		patch(t, m.a, "/api/v1/system/health/volumes", volume+`"warnBelow":null,"errorBelow":null}`)
 		if got := level(); got != "warn" {

@@ -89,7 +89,7 @@ func (k Kind) Wire() storagev1.VolumeKind            { return kinds.of(k).wire }
 func ParseKind(w storagev1.VolumeKind) (Kind, error) { return kinds.parse(w) }
 func ParseKindWord(word string) (Kind, error)        { return kinds.parseWord(word) }
 
-// Reason is why Check refused a folder as a root. A folder equal to
+// Reason is why Check refused a folder for its purpose. A folder equal to
 // another root or folder is inside it.
 type Reason uint8
 
@@ -105,6 +105,7 @@ const (
 	ReasonInsideDownloads
 	ReasonContainsDownloads
 	ReasonUnresponsive
+	ReasonNetworkShare
 )
 
 var reasons = enum[Reason, storagev1.Reason]{
@@ -119,10 +120,28 @@ var reasons = enum[Reason, storagev1.Reason]{
 	{ReasonInsideDownloads, storagev1.Reason_REASON_INSIDE_DOWNLOADS, "inside_downloads"},
 	{ReasonContainsDownloads, storagev1.Reason_REASON_CONTAINS_DOWNLOADS, "contains_downloads"},
 	{ReasonUnresponsive, storagev1.Reason_REASON_UNRESPONSIVE, "unresponsive"},
+	{ReasonNetworkShare, storagev1.Reason_REASON_NETWORK_SHARE, "network_share"},
 }
 
 func (r Reason) String() string         { return reasons.of(r).word }
 func (r Reason) Wire() storagev1.Reason { return reasons.of(r).wire }
+
+// Purpose is what Check judges a folder for.
+type Purpose uint8
+
+const (
+	PurposeRoot Purpose = iota + 1
+	PurposeDownloads
+)
+
+var purposes = enum[Purpose, storagev1.Purpose]{
+	{PurposeRoot, storagev1.Purpose_PURPOSE_ROOT, "root"},
+	{PurposeDownloads, storagev1.Purpose_PURPOSE_DOWNLOADS, "downloads"},
+}
+
+func (p Purpose) String() string                    { return purposes.of(p).word }
+func (p Purpose) Wire() storagev1.Purpose           { return purposes.of(p).wire }
+func ParsePurposeWord(word string) (Purpose, error) { return purposes.parseWord(word) }
 
 // FolderErrorKind is why a folder op failed. None is folded into another.
 type FolderErrorKind uint8

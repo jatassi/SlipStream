@@ -308,12 +308,19 @@ func (s *server) grab(t *testing.T, work, stage, root, rel string) {
 		if stage == "imported" {
 			rootID, path = must(storage.ParseUUID(root)), rel
 		}
+		torrent := storage.NewUUID()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
+			content_type, wanted, added_order, added_at)
+			VALUES (?, ?, randomblob(20), x'00', 'The.Held.1080p.WEB', 4096, 1, '[]', 'fixture', 'started', (SELECT count(*) + 1 FROM downloadclients_torrent), 0)`,
+			torrent, home); err != nil {
+			return err
+		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id,
-			release_title, release_size, release_link, stage, info_hash, metainfo, file_index, probe, root_id, path, created_at, updated_at)
+			release_title, release_size, release_link, stage, torrent_id, file_index, probe, root_id, path, created_at, updated_at)
 			SELECT ?, work_id, id, 'any', 'search', ?, ?, 'The.Held.1080p.WEB', 4096, 'https://site.test/dl/1', ?,
-				randomblob(20), x'00', 0, '{}', ?, ?, 0, 0
+				?, 0, '{}', ?, ?, 0, 0
 			FROM works_item WHERE work_id = ? LIMIT 1`,
-			storage.NewUUID(), indexer, home, stage, rootID, path, must(storage.ParseUUID(work)))
+			storage.NewUUID(), indexer, home, stage, torrent, rootID, path, must(storage.ParseUUID(work)))
 		return err
 	})
 	if err != nil {

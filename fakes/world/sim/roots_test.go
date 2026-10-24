@@ -3,9 +3,13 @@ package sim_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -175,4 +179,100 @@ func TestAWorkOnAnOfflineNodesRootDoesntSearch(t *testing.T) {
 				`"detail":"seedbox is offline, so the library root there takes no new files."}` + "\n",
 		})
 	})
+}
+
+// TestASeedboxWithoutStorageBrowsesItsFolders browses seedbox, which holds
+// no Storage, and has it judge a downloads folder but refuse to judge a
+// root.
+func TestASeedboxWithoutStorageBrowsesItsFolders(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := sim.Launch(t, home(t))
+		synctest.Wait()
+		a := w.API()
+		seedbox := a.Node("seedbox").NodeID
+		data := w.Node("seedbox").DataDir().Path()
+		reply := a.Admin("home", http.MethodGet, "/api/v1/nodes/"+seedbox+"/folders?path="+url.QueryEscape(data), "")
+		var listing struct{ Path string }
+		if err := json.Unmarshal([]byte(reply.Body), &listing); reply.Status != http.StatusOK || err != nil || listing.Path != data {
+			t.Fatalf("browse seedbox's data folder = %d %s, %v", reply.Status, reply.Body, err)
+		}
+		check := "/api/v1/nodes/" + seedbox + "/folders/check"
+		reply = a.Admin("home", http.MethodPost, check, `{"purpose":"downloads","path":`+strconv.Quote(data)+`}`)
+		if reply.Status != http.StatusOK || !strings.HasPrefix(reply.Body, `{"usable":true,`) {
+			t.Fatalf("check seedbox's data folder for downloads = %d %s, want usable", reply.Status, reply.Body)
+		}
+		reply = a.Admin("home", http.MethodPost, check, `{"purpose":"root","path":`+strconv.Quote(data)+`}`)
+		if reply.Status != http.StatusConflict || !strings.Contains(reply.Body, `"code":"node_not_storage"`) {
+			t.Fatalf("check seedbox's data folder as a root = %d %s, want node_not_storage", reply.Status, reply.Body)
+		}
+	})
+}
+
+// TestTheDownloadsRowRefusesARootOverlap sets home's downloads folder:
+// home's Storage refuses a folder inside or around its movies root in the
+// words checkFolder's judge gives, and saves a folder apart from it for
+// the next restart.
+func TestTheDownloadsRowRefusesARootOverlap(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := sim.Launch(t, home(t), sim.WithWalk())
+		synctest.Wait()
+		a := w.API()
+		self := a.Node("home").NodeID
+		config := "/api/v1/nodes/" + self + "/config"
+		check := "/api/v1/nodes/" + self + "/folders/check"
+		media := w.Manifest().MediaDir
+		incoming := filepath.Join(media, "movies", "incoming")
+		apart := filepath.Join(t.TempDir(), "torrents")
+		for _, d := range []string{incoming, apart} {
+			if err := os.MkdirAll(d, 0o750); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, c := range []struct{ path, reason, sentence string }{
+			{incoming, "inside_root", "Can't use this folder because it's inside a library root."},
+			{media, "contains_root", "Can't use this folder because it contains a library root."},
+			{"downloads", "not_absolute", "Can't use this folder because it isn't a full path."},
+		} {
+			reply := a.Admin("home", http.MethodPatch, config, `{"torrent.downloads":`+strconv.Quote(c.path)+`}`)
+			if reply.Status != http.StatusUnprocessableEntity || !strings.Contains(reply.Body, `"detail":`+strconv.Quote(c.sentence)) {
+				t.Errorf("set torrent.downloads to %s = %d %s, want 422 %q", c.path, reply.Status, reply.Body, c.sentence)
+			}
+			reply = a.Admin("home", http.MethodPost, check, `{"purpose":"downloads","path":`+strconv.Quote(c.path)+`}`)
+			if !strings.Contains(reply.Body, `"reason":"`+c.reason+`"`) {
+				t.Errorf("checkFolder downloads %s = %d %s, want %s", c.path, reply.Status, reply.Body, c.reason)
+			}
+		}
+
+		reply := a.Admin("home", http.MethodPatch, config, `{"torrent.downloads":`+strconv.Quote(apart)+`}`)
+		section, f := settingIn(t, reply, "torrent.downloads")
+		running := filepath.Join(w.Node("home").DataDir().Path(), "downloads")
+		got := fmt.Sprint(section, " ", f["value"], " ", f["running"], " ", f["pendingRestart"], " ", f["nodeId"])
+		if want := fmt.Sprint("torrent ", apart, " ", running, " true ", self); got != want {
+			t.Fatalf("torrent.downloads = %s, want %s: saved, running until a restart, on home", got, want)
+		}
+	})
+}
+
+// settingIn is key's field in a getNodeConfig or updateNodeConfig reply,
+// and the section it shows in.
+func settingIn(t *testing.T, reply worldtest.Reply, key string) (section string, field map[string]any) {
+	t.Helper()
+	var config struct {
+		Sections []struct {
+			ID     string
+			Fields []map[string]any
+		}
+	}
+	if err := json.Unmarshal([]byte(reply.Body), &config); reply.Status != http.StatusOK || err != nil {
+		t.Fatalf("node config = %d %s, %v", reply.Status, reply.Body, err)
+	}
+	for _, s := range config.Sections {
+		for _, f := range s.Fields {
+			if f["key"] == key {
+				return s.ID, f
+			}
+		}
+	}
+	t.Fatalf("no setting %s in %s", key, reply.Body)
+	return "", nil
 }

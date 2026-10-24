@@ -26,7 +26,29 @@ type Release struct {
 	// Unlisted keeps it out of fixture-site's feeds until the
 	// fixture-site-list cue lists it, as a release posted later.
 	Unlisted bool `yaml:"unlisted,omitempty"`
+	// Unregistered makes fake-tracker answer its announces with UNIT3D's
+	// "Unregistered torrent", as for a torrent the tracker deleted.
+	Unregistered bool `yaml:"unregistered,omitempty"`
+	// BadPeer adds a peer that misbehaves this way, which fake-tracker
+	// lists beside the seeders.
+	BadPeer BadPeer `jsonschema:"enum=corrupt,enum=stall,enum=choke,enum=drop" yaml:"bad_peer,omitempty"`
 }
+
+// BadPeer is how a release's bad peer misbehaves once a leecher asks it
+// for pieces. It always claims to hold every piece.
+type BadPeer string
+
+const (
+	// Corrupt sends blocks that are not the torrent's, so their pieces fail
+	// their hash check.
+	Corrupt BadPeer = "corrupt"
+	// Stall unchokes the leecher and never sends a block it asks for.
+	Stall BadPeer = "stall"
+	// Choke never unchokes the leecher.
+	Choke BadPeer = "choke"
+	// Drop hangs up once it has said which pieces it holds.
+	Drop BadPeer = "drop"
+)
 
 // Bytes is a size in bytes, written as a number and a unit, like 8.2GiB.
 type Bytes int64
@@ -90,6 +112,44 @@ type Tracker struct {
 	// Interval is the announce interval it answers. Zero is the production
 	// value, 30s.
 	Interval time.Duration `yaml:"interval,omitempty"`
+	// MinInterval is the min interval it answers, and in unit3d mode the
+	// window's base. Zero is Interval.
+	MinInterval time.Duration `yaml:"min_interval,omitempty"`
+	Mode        TrackerMode   `jsonschema:"enum=plain,enum=unit3d,enum=gazelle" yaml:"mode,omitempty"`
+	// AllowPeerIDs are the peer ID prefixes gazelle mode accepts. Empty is
+	// libtorrent's, -LT.
+	AllowPeerIDs []string `yaml:"allow_peer_ids,omitempty"`
+	// FailWithoutInterval answers failures with no interval or min interval.
+	FailWithoutInterval bool `yaml:"fail_without_interval,omitempty"`
+}
+
+// TrackerMode is the private tracker software fake-tracker plays.
+type TrackerMode string
+
+const (
+	// Plain accepts every announce for a known passkey and torrent.
+	Plain TrackerMode = "plain"
+	// UNIT3D rejects announces inside UNIT3D's min interval windows.
+	UNIT3D TrackerMode = "unit3d"
+	// Gazelle rejects peer IDs whose prefix is not on AllowPeerIDs.
+	Gazelle TrackerMode = "gazelle"
+)
+
+// Leecher is a peer that dials Node's listen port through its leecher
+// front, and says hello for Release's torrent, after Node's first announce
+// of it that fake-tracker accepted.
+type Leecher struct {
+	Node    string `jsonschema:"required" yaml:"node"`
+	Release string `jsonschema:"required" yaml:"release"`
+}
+
+func (l Leecher) check(add func(format string, args ...any), s Scenario) {
+	if !slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Name == l.Node }) {
+		add("leecher names node %s, which nodes does not list", l.Node)
+	}
+	if !slices.ContainsFunc(s.Releases, func(r Release) bool { return r.Name == l.Release && r.Seeded }) {
+		add("leecher names release %s, which releases does not list as seeded", l.Release)
+	}
 }
 
 var releaseName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
@@ -120,11 +180,37 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		if r.AdvertisedSize < 0 {
 			add("release %s advertises %d bytes", r.Name, r.AdvertisedSize)
 		}
+		r.BadPeer.check(add, r.Name)
+	}
+}
+
+func (b BadPeer) check(add func(format string, args ...any), release string) {
+	switch b {
+	case "", Corrupt, Stall, Choke, Drop:
+	default:
+		add("release %s bad_peer %q is not corrupt, stall, choke or drop", release, b)
 	}
 }
 
 func (t Tracker) check(add func(format string, args ...any)) {
 	if t.Interval < 0 {
 		add("tracker interval %s is negative", t.Interval)
+	}
+	if t.MinInterval < 0 {
+		add("tracker min_interval %s is negative", t.MinInterval)
+	}
+	if t.Interval > 0 && t.MinInterval > t.Interval {
+		add("tracker min_interval %s is above its interval %s", t.MinInterval, t.Interval)
+	}
+	switch t.Mode {
+	case "", Plain, UNIT3D, Gazelle:
+	default:
+		add("tracker mode %q is not plain, unit3d or gazelle", t.Mode)
+	}
+	if len(t.AllowPeerIDs) > 0 && t.Mode != Gazelle {
+		add("tracker allow_peer_ids is for gazelle mode, not %q", t.Mode)
+	}
+	if slices.Contains(t.AllowPeerIDs, "") {
+		add("tracker allow_peer_ids lists an empty prefix, which allows every peer ID")
 	}
 }

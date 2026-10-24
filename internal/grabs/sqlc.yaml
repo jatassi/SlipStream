@@ -53,6 +53,10 @@ sql:
               import: github.com/jatassi/slipstream/internal/files
               type: Unwanted
               pointer: true
+          - column: grabs_grab.torrent_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/downloadclients
+              type: ID
           - column: grabs_grab.root_id
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
@@ -75,14 +79,6 @@ sql:
           - column: grabs_search.outcome
             go_type:
               type: Outcome
-              pointer: true
-          - column: grabs_grab.download_files
-            go_type:
-              type: string
-              pointer: true
-          - column: grabs_grab.download_error
-            go_type:
-              type: string
               pointer: true
           - column: grabs_grab.probe
             go_type:

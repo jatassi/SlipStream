@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -18,12 +19,14 @@ import (
 type Shell interface {
 	Grabs() (*grabs.Grabs, bool)
 	Nodes() (*nodes.Service, bool)
+	DownloadClients() (*downloadclients.Clients, bool)
 	Health() (*health.Health, bool)
 }
 
 type counts struct {
-	Activity int    `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
-	Alerts   alerts `json:"alerts"`
+	Activity  int                       `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
+	Downloads downloadclients.Aggregate `json:"downloads" doc:"Every download at once; torrents.live keeps it current"`
+	Alerts    alerts                    `json:"alerts"`
 }
 
 type alerts struct {
@@ -59,16 +62,21 @@ func Routes(r *api.Router, sh Shell) {
 		Summary: "Get the counts the shell shows beside its navigation",
 		Status:  http.StatusOK,
 	}, func(ctx context.Context, by identity.Admin, _ *struct{}) (*countsOutput, error) {
-		g, ok := sh.Grabs()
-		roster, alsoOK := sh.Nodes()
+		g, grabsOK := sh.Grabs()
+		roster, nodesOK := sh.Nodes()
+		clients, clientsOK := sh.DownloadClients()
 		watch, healthOK := sh.Health()
-		if !ok || !alsoOK || !healthOK {
+		if !grabsOK || !nodesOK || !clientsOK || !healthOK {
 			panic("shellapi: getCounts ran on a Node that is no Controller")
 		}
 		n, err := g.Moving(ctx, by)
 		if err != nil {
 			return nil, err
 		}
-		return &countsOutput{Body: counts{Activity: n, Alerts: alertsOf(roster.Board().Alert(), watch)}}, nil
+		downloads, err := clients.Downloads(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &countsOutput{Body: counts{Activity: n, Downloads: downloads, Alerts: alertsOf(roster.Board().Alert(), watch)}}, nil
 	})
 }

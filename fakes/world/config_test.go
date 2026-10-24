@@ -54,13 +54,10 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 		}
 		endpoints := fakeEndpoints(s)
 		for i := range s.Nodes {
-			ids, uncovered := diverge(settings(configKeys(t, s, i, listen, endpoints), nodeenv.World("ca.pem")))
-			if uncovered != nil {
-				t.Fatalf("catalog %s node %s sets %v, which no divergence names", name, s.Nodes[i].Name, uncovered)
-			}
-			for id := range ids {
-				used[id] = true
-			}
+			use(t, used, "catalog "+name+" node "+s.Nodes[i].Name, settings(configKeys(t, s, i, listen, endpoints), nodeenv.World("ca.pem")))
+		}
+		if slices.ContainsFunc(s.Nodes, func(n scenario.Node) bool { return n.Setup == scenario.SetupController }) {
+			use(t, used, "catalog "+name, databaseSettings(setup.TCPPeers))
 		}
 	}
 	var all []string
@@ -69,6 +66,17 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	}
 	if got := usedIDs(used); !reflect.DeepEqual(got, all) {
 		t.Fatalf("the catalog uses divergences %v of %v; delete the rest", got, all)
+	}
+}
+
+func use(t *testing.T, used map[string]bool, who string, s []setting) {
+	t.Helper()
+	ids, uncovered := diverge(s)
+	if uncovered != nil {
+		t.Fatalf("%s sets %v, which no divergence names", who, uncovered)
+	}
+	for id := range ids {
+		used[id] = true
 	}
 }
 
@@ -141,7 +149,7 @@ func catalogPlan(t *testing.T, s scenario.Scenario) *fault.Plan {
 	for i, n := range s.Nodes {
 		names[i] = n.Name
 	}
-	plan := fault.NewPlan(planFronts(fakes, names, s.Releases), nil)
+	plan := fault.NewPlan(planFronts(fakes, names, s.Releases, s.Leecher), nil)
 	for _, spec := range fakes {
 		if _, err := spec.New(s, fake.NewEnv(s, spec, slog.New(slog.DiscardHandler), plan, discard{})); err != nil {
 			t.Fatal(err)

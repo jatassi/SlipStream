@@ -39,7 +39,7 @@ function DesktopLine({ signal, chip, subject, detail, since, action }: WarningLi
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3 ${line}`}>
       <SignalChip kind={signal}>{chip}</SignalChip>
       <span className="font-bold">{subject}</span>
-      <span className={`min-w-0 flex-[1_1_16ch] ${dim}`}>{detail}</span>
+      <span className={`min-w-0 flex-auto ${dim}`}>{detail}</span>
       {since !== undefined && <Since since={since} dim={dim} />}
       <Button look={signal} onClick={action.onClick}>
         {action.label}

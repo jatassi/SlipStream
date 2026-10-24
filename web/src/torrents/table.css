@@ -1,0 +1,101 @@
+.torrents {
+  container: torrents / inline-size;
+}
+
+.torrents [data-torrent-row] {
+  display: grid;
+  grid-template-columns:
+    auto minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1.5fr) minmax(0, 0.75fr) minmax(0, 1fr)
+    minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  grid-template-areas: "pick work state progress ratio speed tracker node menu";
+  align-items: center;
+}
+
+.torrents [data-col] {
+  padding-inline: 16px;
+}
+
+.torrents [data-col="pick"] {
+  grid-area: pick;
+  padding-inline: 16px 0;
+}
+.torrents [data-col="work"] {
+  grid-area: work;
+}
+.torrents [data-col="state"] {
+  grid-area: state;
+}
+.torrents [data-col="progress"] {
+  grid-area: progress;
+}
+.torrents [data-col="ratio"] {
+  grid-area: ratio;
+}
+.torrents [data-col="speed"] {
+  grid-area: speed;
+}
+.torrents [data-col="tracker"] {
+  grid-area: tracker;
+}
+.torrents [data-col="node"] {
+  grid-area: node;
+}
+.torrents [data-col="menu"] {
+  grid-area: menu;
+}
+
+.torrents [data-column-echo] {
+  display: none;
+}
+
+@container torrents (width < 980px) {
+  .torrents [data-column-echo] {
+    display: inline;
+  }
+
+  .torrents [data-torrent-row] {
+    grid-template-columns: auto minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.5fr) auto;
+    grid-template-areas: "pick work state progress menu";
+  }
+
+  .torrents :is([data-col="ratio"], [data-col="speed"], [data-col="tracker"], [data-col="node"]) {
+    display: none;
+  }
+}
+
+@container torrents (width < 620px) {
+  .torrents [data-column-echo] {
+    display: none;
+  }
+
+  .torrents [data-torrent-head] {
+    display: none;
+  }
+
+  .torrents [data-torrent-row] {
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      "pick work work menu"
+      ". state state state"
+      ". progress progress progress"
+      ". speed tracker tracker"
+      ". ratio node node";
+    row-gap: 10px;
+    padding-block: 14px;
+  }
+
+  .torrents :is([data-col="ratio"], [data-col="speed"], [data-col="tracker"], [data-col="node"]) {
+    display: block;
+  }
+
+  .torrents
+    :is([data-col="ratio"], [data-col="speed"], [data-col="tracker"], [data-col="node"])::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: var(--text-label);
+    line-height: var(--text-label--line-height);
+    font-weight: var(--text-label--font-weight);
+    color: var(--color-ink-3);
+  }
+}

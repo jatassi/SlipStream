@@ -58,7 +58,7 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 		if err != nil {
 			return err
 		}
-		rel, err := readRelated(ctx, db.New(r))
+		rel, err := readRelated(ctx, r, []db.GrabsGrab{row})
 		if err != nil {
 			return err
 		}

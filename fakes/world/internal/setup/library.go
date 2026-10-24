@@ -21,18 +21,11 @@ import (
 // the media dir, then the Targets and Profiles as goals makes them, then
 // the Indexers on the site fakes at sites, as an Admin would.
 func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address) error {
-	var controller string
-	for i, n := range s.Nodes {
-		if n.Setup == scenario.SetupController {
-			controller = url(ready[i])
-		}
+	if err := StorageLevels(ctx, c, s, ready, claims); err != nil {
+		return err
 	}
+	controller := controllerURL(s, ready)
 	apiKey := claims.APIKey
-	if l := s.Library.StorageLevels; l != nil {
-		if err := nodeapi.SetStorageLevels(ctx, c, controller, apiKey, *l); err != nil {
-			return err
-		}
-	}
 	for _, r := range s.Library.Roots {
 		folder := filepath.Join(mediaDir, r.Folder)
 		if err := os.MkdirAll(folder, 0o700); err != nil {
@@ -91,4 +84,18 @@ func goals(ctx context.Context, c *http.Client, lib *scenario.Library, controlle
 		}
 	}
 	return nil
+}
+
+// StorageLevels sets the Scenario's Storage levels on its controller Node,
+// if it has any.
+func StorageLevels(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims) error {
+	if s.Library == nil || s.Library.StorageLevels == nil {
+		return nil
+	}
+	return nodeapi.SetStorageLevels(ctx, c, controllerURL(s, ready), claims.APIKey, *s.Library.StorageLevels)
+}
+
+func controllerURL(s scenario.Scenario, ready []node.Ready) string {
+	i := slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Setup == scenario.SetupController })
+	return url(ready[i])
 }

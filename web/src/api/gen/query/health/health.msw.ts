@@ -17,7 +17,12 @@ export const getGetSystemHealthResponseMock = (
   categories: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       canCheck: faker.datatype.boolean(),
-      id: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+      id: faker.helpers.arrayElement([
+        "storage",
+        "nodes",
+        "download-clients",
+        "scheduled-tasks",
+      ] as const),
       items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           action: faker.helpers.arrayElement([
@@ -70,7 +75,12 @@ export const getGetSystemHealthResponseMock = (
   ),
   first: faker.helpers.arrayElement([
     {
-      category: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+      category: faker.helpers.arrayElement([
+        "storage",
+        "nodes",
+        "download-clients",
+        "scheduled-tasks",
+      ] as const),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
@@ -87,7 +97,12 @@ export const getCheckSystemHealthResponseMock = (
     categories: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         canCheck: faker.datatype.boolean(),
-        id: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+        id: faker.helpers.arrayElement([
+          "storage",
+          "nodes",
+          "download-clients",
+          "scheduled-tasks",
+        ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
             action: faker.helpers.arrayElement([
@@ -140,7 +155,12 @@ export const getCheckSystemHealthResponseMock = (
     ),
     first: faker.helpers.arrayElement([
       {
-        category: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+        category: faker.helpers.arrayElement([
+          "storage",
+          "nodes",
+          "download-clients",
+          "scheduled-tasks",
+        ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         text: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
@@ -517,7 +537,12 @@ export const getCheckHealthCategoryResponseMock = (
     categories: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         canCheck: faker.datatype.boolean(),
-        id: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+        id: faker.helpers.arrayElement([
+          "storage",
+          "nodes",
+          "download-clients",
+          "scheduled-tasks",
+        ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
             action: faker.helpers.arrayElement([
@@ -570,7 +595,12 @@ export const getCheckHealthCategoryResponseMock = (
     ),
     first: faker.helpers.arrayElement([
       {
-        category: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+        category: faker.helpers.arrayElement([
+          "storage",
+          "nodes",
+          "download-clients",
+          "scheduled-tasks",
+        ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         text: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
@@ -599,7 +629,12 @@ export const getCheckHealthItemResponseMock = (
     categories: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         canCheck: faker.datatype.boolean(),
-        id: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+        id: faker.helpers.arrayElement([
+          "storage",
+          "nodes",
+          "download-clients",
+          "scheduled-tasks",
+        ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
             action: faker.helpers.arrayElement([
@@ -652,7 +687,12 @@ export const getCheckHealthItemResponseMock = (
     ),
     first: faker.helpers.arrayElement([
       {
-        category: faker.helpers.arrayElement(["storage", "nodes", "scheduled-tasks"] as const),
+        category: faker.helpers.arrayElement([
+          "storage",
+          "nodes",
+          "download-clients",
+          "scheduled-tasks",
+        ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         text: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },

@@ -1,10 +1,12 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import { Link, type LinkProps } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { AlertDot, type AlertTone, Count, type CountDot, dotOf } from "../../ui/count";
 import { Icon } from "../../ui/icon";
+import { RowFill } from "../../ui/row-fill";
 import { Tooltip } from "../../ui/tooltip";
-import { alertOf, countDots, useCounts } from "../counts";
+import { type Fill, alertOf, countDots, fillOf, useCounts } from "../counts";
 import type { ShownRow } from "../nav";
 
 export function NavRows({ rows, collapsed }: { rows: readonly ShownRow[]; collapsed: boolean }) {
@@ -19,6 +21,7 @@ export function NavRows({ rows, collapsed }: { rows: readonly ShownRow[]; collap
             label={row.label}
             icon={row.icon}
             alert={alertOf(counts, row.alert)}
+            fill={fillOf(counts, row.fill)}
             count={
               row.count === undefined
                 ? undefined
@@ -66,6 +69,7 @@ function Row({
   icon,
   alert,
   count,
+  fill,
   collapsed,
   nested = false,
 }: {
@@ -75,15 +79,20 @@ function Row({
   icon: IconSvgElement;
   alert?: AlertTone | undefined;
   count?: RowCount | undefined;
+  fill?: Fill | undefined;
   collapsed: boolean;
   nested?: boolean;
 }) {
   const shown = count !== undefined && count.value > 0 ? count : undefined;
+  const tip = {
+    ...(shown === undefined ? {} : { count: shown.value }),
+    ...(alert === undefined ? {} : { alert }),
+  };
   const anchor = (
     <Link
       {...link}
       activeOptions={{ exact: !within }}
-      className={`flex h-8 items-center gap-2.5 rounded-item text-body text-ink-2 transition-colors duration-(--duration-control) hover:bg-fill hover:text-ink-1 aria-[current=page]:bg-selected aria-[current=page]:font-medium aria-[current=page]:text-ink-1 ${collapsed ? "justify-center" : nested ? "pr-2.5 pl-8" : "px-2.5"}`}
+      className={`relative flex h-8 items-center gap-2.5 rounded-item text-body text-ink-2 transition-colors duration-(--duration-control) hover:bg-fill hover:text-ink-1 aria-[current=page]:bg-selected aria-[current=page]:font-medium aria-[current=page]:text-ink-1 ${collapsed ? "justify-center" : nested ? "pr-2.5 pl-8" : "px-2.5"}`}
     >
       <RowIcon icon={icon} dot={collapsed ? (alert ?? shown?.dot) : undefined} />
       {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
@@ -91,16 +100,26 @@ function Row({
       {!collapsed && alert !== undefined && <AlertDot tone={alert} />}
     </Link>
   );
-  return collapsed ? (
-    <Tooltip
-      label={label}
-      side="right"
-      {...(shown === undefined ? {} : { count: shown.value })}
-      {...(alert === undefined ? {} : { alert })}
-    >
-      {anchor}
-    </Tooltip>
+  return (
+    <Filled fill={fill}>
+      {collapsed ? (
+        <Tooltip label={label} side="right" {...tip}>
+          {anchor}
+        </Tooltip>
+      ) : (
+        anchor
+      )}
+    </Filled>
+  );
+}
+
+function Filled({ fill, children }: { fill: Fill | undefined; children: ReactNode }) {
+  return fill === undefined ? (
+    children
   ) : (
-    anchor
+    <div className="relative">
+      <RowFill label="Downloads" {...fill} className="inset-0 rounded-item" />
+      {children}
+    </div>
   );
 }

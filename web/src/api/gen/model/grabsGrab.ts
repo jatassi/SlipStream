@@ -1,5 +1,6 @@
 import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
+import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
 import type { GrabsProgress } from "./grabsProgress.ts";
 
@@ -28,11 +29,18 @@ export interface GrabsGrab {
   nodeId: string;
   /** The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring */
   progress?: GrabsProgress;
+  /** The quality the release title names, absent when it names none */
+  quality?: GrabsGrabQuality;
   /** @minimum 0 */
   releaseSize: number;
   releaseTitle: string;
   stage: GrabsGrabStage;
   /** The Targets it was grabbed for, in Profile order */
   targetIds: string[];
+  /**
+   * The Torrent it downloads, null until the .torrent is fetched
+   * @nullable
+   */
+  torrentId: string | null;
   workId: string;
 }

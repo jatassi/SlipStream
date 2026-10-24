@@ -59,9 +59,8 @@ type Host struct {
 	Account string
 	// Service is a Windows service, which sees no mapped drive letters.
 	Service bool
-	// Data and Downloads are folders no root may overlap.
-	Data      string
-	Downloads string
+	// Data is a folder no root may overlap.
+	Data string
 }
 
 type Volume struct {

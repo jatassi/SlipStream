@@ -2,70 +2,74 @@ package grabs
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"slices"
 
-	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
-// DownloadIntent is node's Downloading intent: the torrent of every Grab on
-// node past fetching, whatever its stage, since every torrent seeds until
-// seeding goals exist.
-func DownloadIntent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv1.Intent, error) {
-	rows, err := db.New(r).ListTorrentsOfNode(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-	intent := &dlv1.Intent{}
-	for _, row := range rows {
-		intent.Torrents = append(intent.Torrents, &dlv1.Torrent{InfoHash: row.InfoHash, Metainfo: row.Metainfo, GrabId: row.ID.Bytes()})
-	}
-	return intent, nil
-}
+// TorrentUses answers downloadclients which Grabs used each Torrent.
+type TorrentUses struct{}
 
-// Kept is every Grab on node whose torrent its Downloading intent lists,
-// with the release's title, in the intent's order.
-func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]nodes.Grabbed, error) {
-	rows, err := db.New(r).ListKeptOfNode(ctx, node)
+// Of is each Torrent's Grabs, newest first.
+func (TorrentUses) Of(ctx context.Context, r storage.Reader[file], ids []downloadclients.ID) (map[downloadclients.ID][]downloadclients.Use, error) {
+	rows, err := db.New(r).ListGrabsOfTorrents(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]nodes.Grabbed, len(rows))
-	for i, row := range rows {
-		out[i] = nodes.Grabbed{Grab: row.ID.UUID, InfoHash: bencode.InfoHash(row.InfoHash), Title: row.ReleaseTitle}
+	out := map[downloadclients.ID][]downloadclients.Use{}
+	for _, row := range slices.Backward(rows) {
+		u := downloadclients.Use{
+			Grab: row.ID.UUID, Work: row.WorkID, Item: row.ItemID, Edition: string(row.Edition), Release: row.ReleaseTitle,
+			Stage: useStages[row.Stage], Created: row.CreatedAt.Time(),
+		}
+		if row.FileIndex != nil {
+			u.File = new(int(*row.FileIndex))
+		}
+		out[row.TorrentID] = append(out[row.TorrentID], u)
 	}
 	return out, nil
 }
 
-// ApplyDownload records how a Grab's download ended. It never moves the
-// stage: the reconciler does within one progress tick. A result for a
-// Grab past downloading, already recorded, or on another Node changes
-// nothing, so a resend after a restart is harmless.
-func ApplyDownload(ctx context.Context, tx *storage.Tx[file], node role.NodeID, res *dlv1.Result) error {
-	id, err := storage.UUIDFromBytes(res.GetGrabId())
+var useStages = map[Stage]downloadclients.UseStage{
+	Downloading:  downloadclients.UseDownloading,
+	Probing:      downloadclients.UseImporting,
+	Transferring: downloadclients.UseImporting,
+	Importing:    downloadclients.UseImporting,
+	Imported:     downloadclients.UseImported,
+	Failed:       downloadclients.UseFailed,
+}
+
+// Kept is every Torrent node's client keeps, in its intent's order,
+// titled by its newest Grab's release, or by its name once no Grab is
+// left.
+func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]nodes.Kept, error) {
+	held, err := downloadclients.Kept(ctx, r, node)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	params := db.RecordDownloadParams{ID: GrabID{UUID: id}, NodeID: node}
-	switch o := res.GetOutcome().(type) {
-	case *dlv1.Result_Completed:
-		fs := make([]engine.File, len(o.Completed.GetFiles()))
-		for i, f := range o.Completed.GetFiles() {
-			fs[i] = engine.File{Index: int(f.GetIndex()), Path: f.GetPath(), Size: f.GetSize()}
-		}
-		b, err := json.Marshal(fs)
-		if err != nil {
-			return fmt.Errorf("encode the download's files: %w", err)
-		}
-		params.DownloadFiles = new(string(b))
-	case *dlv1.Result_Failed:
-		params.DownloadError = new(o.Failed.GetError())
+	ids := make([]downloadclients.ID, len(held))
+	for i, h := range held {
+		ids[i] = h.ID
 	}
-	return db.New(tx).RecordDownload(ctx, params)
+	rows, err := db.New(r).ListGrabsOfTorrents(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	newest := map[downloadclients.ID]string{}
+	for _, row := range rows {
+		newest[row.TorrentID] = row.ReleaseTitle
+	}
+	out := make([]nodes.Kept, len(held))
+	for i, h := range held {
+		title, ok := newest[h.ID]
+		if !ok {
+			title = h.Name
+		}
+		out[i] = nodes.Kept{Torrent: h.ID.UUID, Title: title, Done: h.Done, Wanted: h.Size}
+	}
+	return out, nil
 }

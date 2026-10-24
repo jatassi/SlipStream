@@ -27,7 +27,6 @@ import (
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -84,14 +83,14 @@ func (h *heard) all() []nodes.Traffic {
 	return slices.Clone(h.samples)
 }
 
-// noClients is a Downloading control half no client reports to.
-type noClients struct{}
-
-func (noClients) Facts(nodes.ID) (*dlv1.Facts, bool) { return nil, false }
-
-func keptNothing(context.Context, storage.Reader[storage.Library], nodes.ID) ([]nodes.Grabbed, error) {
+func keptNothing(context.Context, storage.Reader[storage.Library], nodes.ID) ([]nodes.Kept, error) {
 	return nil, nil
 }
+
+// unsampled is torrent clients no Admin watches.
+type unsampled struct{}
+
+func (unsampled) Live(nodes.ID) (nodes.LiveClient, bool) { return nodes.LiveClient{}, false }
 
 func storesNothing(context.Context, storage.Reader[storage.Library], nodes.ID) (nodes.StorageFigures, error) {
 	return nodes.StorageFigures{}, nil
@@ -131,20 +130,20 @@ func (c *controller) open(t *testing.T, s *side) {
 	t.Helper()
 	pub, traffic := &published{}, &heard{}
 	cfg := nodes.Config{
-		Library:   c.lib,
-		Key:       c.node.Key,
-		Name:      "home",
-		Link:      c.node.Link,
-		Changed:   pub,
-		Traffic:   traffic,
-		Owners:    nodestest.Unowned(),
-		Downloads: noClients{},
-		Kept:      keptNothing,
-		Storage:   storesNothing,
-		Facts:     func(nodes.ID, string) {},
-		Timings:   nodes.DefaultTimings(),
-		Stall:     45 * time.Second,
-		Log:       discard,
+		Library:  c.lib,
+		Key:      c.node.Key,
+		Name:     "home",
+		Link:     c.node.Link,
+		Changed:  pub,
+		Traffic:  traffic,
+		Owners:   nodestest.Unowned(),
+		Kept:     keptNothing,
+		Torrents: unsampled{},
+		Storage:  storesNothing,
+		Facts:    func(nodes.ID, string) {},
+		Timings:  nodes.DefaultTimings(),
+		Stall:    45 * time.Second,
+		Log:      discard,
 	}
 	for _, e := range c.edit {
 		e(&cfg)

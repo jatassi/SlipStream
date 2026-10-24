@@ -221,6 +221,8 @@ func TestSkeletonHome(t *testing.T) {
 		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
 	}
 	checkAnnounces(t, w, seedbox)
+	checkLeecher(t, w, seedbox)
+	checkReach(t, w, seedbox, "reachable")
 	checkUpgradable(t, w)
 }
 
@@ -238,7 +240,49 @@ func TestSkeletonSingleMachine(t *testing.T) {
 		t.Fatalf("the root has a staging folder (%v), want none: no Transfer ran", err)
 	}
 	checkAnnounces(t, w, w.m.Nodes[0])
+	checkReach(t, w, w.m.Nodes[0], "unproven")
 	checkUpgradable(t, w)
+}
+
+// checkReach reads the downloader's card until its client's listen-port
+// verdict is want. The leecher that connects in is the only peer that
+// proves the port.
+func checkReach(t *testing.T, w walked, downloader world.Node, want string) {
+	t.Helper()
+	worldtest.Until(t, "the "+downloader.Name+" card's client reads "+want, func() (bool, error) {
+		var list struct {
+			Cards []struct {
+				NodeID string `json:"nodeId"`
+				Client *struct {
+					Reach string `json:"reach"`
+				} `json:"client"`
+			} `json:"cards"`
+		}
+		decode(t, "listDownloadClients", w.a.Admin("home", http.MethodGet, "/api/v1/download-clients", ""), &list)
+		for _, c := range list.Cards {
+			if c.NodeID == downloader.NodeID && c.Client != nil {
+				return c.Client.Reach == want, nil
+			}
+		}
+		return false, nil
+	})
+}
+
+// checkLeecher checks the Scenario's leecher connected in to the
+// downloader's listen port and was answered for the release it runs.
+func checkLeecher(t *testing.T, w walked, downloader world.Node) {
+	t.Helper()
+	rec, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: events.LeecherHello, Node: downloader.Name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var h world.Hello
+	if err := json.Unmarshal(rec.Data, &h); err != nil {
+		t.Fatal(err)
+	}
+	if want := (world.Hello{Release: release, Answered: true}); h != want {
+		t.Fatalf("the leecher's hello = %+v, want %+v", h, want)
+	}
 }
 
 // checkPlaced checks the media dir comes to hold only the imported file

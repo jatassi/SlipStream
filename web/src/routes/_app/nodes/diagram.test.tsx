@@ -174,6 +174,9 @@ test("a click on a Role chip, which a press would start dragging, opens the Insp
   await expect
     .element(inspector.getByText("home's Roles are set in its Roles section."))
     .toBeVisible();
+  await expect
+    .element(inspector.getByRole("link", { name: "Torrent client" }))
+    .toHaveAttribute("href", `/nodes/${ids.home}/torrent-client`);
   await userEvent.keyboard("{Escape}");
   await expect.element(inspector).not.toBeInTheDocument();
 });

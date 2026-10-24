@@ -1,7 +1,7 @@
 import { HttpResponse, http } from "msw";
 
 import type {
-  CheckRootInputBody,
+  CheckFolderInputBody,
   NodesNode,
   RehomeRootInputBody,
   RootsNewRoot,
@@ -12,7 +12,7 @@ import type {
   SettingDurationField,
 } from "../api/gen/model";
 import {
-  CheckRootBody,
+  CheckFolderBody,
   CreateRootBody,
   RehomeRootBody,
   UpdateRootSettingsBody,
@@ -97,14 +97,17 @@ export type RootsWorld = {
   volumes: RootsNodeVolumes[];
   sampleEvery: SettingDurationField;
   /** The verdict on a folder; usable on its volume unless a test says otherwise. */
-  check: (body: CheckRootInputBody) => RootsVerdict;
+  check: (body: Checked) => RootsVerdict;
   rehome: (rootId: string, body: RehomeRootInputBody) => Answer;
   remove: (rootId: string, worksTo: string | null) => Answer;
   /** Publishes roots.changed, as the Controller does after each change. */
   changed: (rootIds: string[]) => void;
 };
 
-const usableOnMedia = ({ path }: CheckRootInputBody): RootsVerdict => ({
+/** A checkFolder request, with the Node its path names. */
+export type Checked = CheckFolderInputBody & { nodeId: string };
+
+const usableOnMedia = ({ path }: Checked): RootsVerdict => ({
   usable: true,
   path,
   volume: mediaVolume,
@@ -112,7 +115,7 @@ const usableOnMedia = ({ path }: CheckRootInputBody): RootsVerdict => ({
 
 type Sent = {
   created: RootsNewRoot[];
-  checked: CheckRootInputBody[];
+  checked: Checked[];
   rehomed: RehomeRootInputBody[];
   defaulted: string[];
   deleted: { rootId: string; worksTo: string | null }[];
@@ -148,8 +151,8 @@ const readsOf = (world: RootsWorld, sent: Sent) => [
     };
     return HttpResponse.json({ sampleEvery: world.sampleEvery });
   }),
-  http.post("*/api/v1/roots/check", async ({ request }) => {
-    const body = CheckRootBody.parse(await request.json());
+  http.post("*/api/v1/nodes/:id/folders/check", async ({ params, request }) => {
+    const body = { nodeId: String(params["id"]), ...CheckFolderBody.parse(await request.json()) };
     sent.checked.push(body);
     return HttpResponse.json(world.check(body));
   }),

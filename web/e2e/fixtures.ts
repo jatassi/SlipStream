@@ -25,8 +25,10 @@ import { signIn } from "../harness/sign-in.ts";
 import { expectAccessible } from "./accessible.ts";
 import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
-import { warmUpFirefox, overrideNewPageWithWarmUp } from "./warm-up.ts";
+import { overrideNewPageWithWarmUp, warmUp } from "./warm-up.ts";
 import type { Scenario } from "./scenario.ts";
+import { waitForSheets } from "./sheets.ts";
+import { pageErrors } from "./page-errors.ts";
 
 export { expect, expectAccessible };
 
@@ -110,15 +112,12 @@ function testCommand(testInfo: TestInfo): string {
 async function guard(context: BrowserContext, origin: string): Promise<() => Promise<void>> {
   const foreign: string[] = [];
   const violations: string[] = [];
-  const errors: string[] = [];
+  const errors = await pageErrors(context);
   context.on("request", (request) => {
     const url = new URL(request.url());
     if (url.protocol !== "data:" && url.protocol !== "blob:" && url.origin !== origin) {
       foreign.push(request.url());
     }
-  });
-  context.on("weberror", (error) => {
-    errors.push(String(error.error()));
   });
   await context.exposeBinding("reportCspViolation", (_source, violation: string) => {
     violations.push(violation);
@@ -215,7 +214,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     });
   },
 
-  // A fresh Firefox on Windows can stall for seconds in its first page, so
+  // A fresh Firefox or WebKit can stall for seconds in its first page, so
   // engines that take nothing from a world at launch share one warmed-up
   // browser per worker.
   workerBrowser: [
@@ -225,9 +224,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         return;
       }
       const browser = await playwright[browserName].launch({ ...launchOptions, headless });
-      if (browserName === "firefox") {
-        await warmUpFirefox(browser);
-      }
+      await warmUp(browser);
       await use(browser);
       await browser.close();
     },
@@ -269,6 +266,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       if (browserName === "webkit") {
         overrideNewPageWithWarmUp(context, `${origin}/icon-192.png`);
       }
+      waitForSheets(context);
       if (!startupSequence) {
         await context.addInitScript({ path: startupPlayedScript });
       }
