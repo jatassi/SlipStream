@@ -17,7 +17,9 @@ const listedOrchard = {
   sortLabel: "Quiet Orchard",
   addedAt: "2026-10-12T09:00:00Z",
   refreshedAt: "2026-10-12T09:00:00Z",
+  goneUpstreamAt: null,
   fields: orchard.fields,
+  artwork: [],
 };
 
 test("/ opens the Library", async () => {

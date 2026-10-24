@@ -20,6 +20,8 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/liveapi"
 	"github.com/jatassi/slipstream/internal/mailapi"
+	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadataapi"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -50,6 +52,8 @@ var Events = []live.Event{
 	nodes.TrafficEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,
+	works.TypeChangedEvent,
+	metadata.ChangedEvent,
 	targets.ChangedEvent,
 	roots.ChangedEvent,
 	roots.VolumesChangedEvent,
@@ -72,6 +76,7 @@ type Node interface {
 	nodesapi.Roster
 	pairingapi.Joiner
 	worksapi.Shelf
+	metadataapi.Registry
 	targetsapi.Goals
 	rootsapi.Folders
 	indexersapi.Registry
@@ -102,6 +107,7 @@ func Mount(r *api.Router, s Services) {
 	nodesapi.Routes(r, s.Node)
 	pairingapi.Routes(r, s.Node)
 	worksapi.Routes(r, s.Node)
+	metadataapi.Routes(r, s.Node)
 	targetsapi.Routes(r, s.Node)
 	rootsapi.Routes(r, s.Node)
 	indexersapi.Routes(r, s.Node)

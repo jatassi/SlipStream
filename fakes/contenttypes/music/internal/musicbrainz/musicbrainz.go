@@ -3,30 +3,29 @@ package musicbrainz
 import (
 	"cmp"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 
+	"golang.org/x/time/rate"
+
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
-	"github.com/jatassi/slipstream/internal/works"
 )
 
 // pageSize is the most a browse returns per request.
 const pageSize = 100
 
 type Client struct {
-	http      *http.Client
-	base      string
-	userAgent string
+	line *metadata.Line
+	base endpoint.URL
 }
 
-func New(c *http.Client, base endpoint.URL, userAgent string) *Client {
-	return &Client{http: c, base: base.String(), userAgent: userAgent}
+// New registers MusicBrainz's Line on lines. The fake it reads keeps no
+// rate limit.
+func New(lines *metadata.Lines, base endpoint.URL) *Client {
+	return &Client{line: lines.Line(metadata.Provider{ID: "musicbrainz", Label: "MusicBrainz", Rate: rate.Inf, Burst: 1}), base: base}
 }
 
 type Artist struct {
@@ -68,22 +67,22 @@ type Recording struct {
 	ID string `json:"id"`
 }
 
-func (c *Client) SearchArtists(ctx context.Context, query string) ([]Artist, error) {
+func (c *Client) SearchArtists(ctx context.Context, ask metadata.Ask, query string) ([]Artist, error) {
 	var page struct {
 		Artists []Artist `json:"artists"`
 	}
-	err := c.get(ctx, "/artist", url.Values{"query": {query}, "limit": {"25"}}, works.ErrUnavailable, &page)
+	err := c.get(ctx, ask, "/artist", url.Values{"query": {query}, "limit": {"25"}}, false, &page)
 	return page.Artists, err
 }
 
-func (c *Client) Artist(ctx context.Context, mbid string) (Artist, error) {
+func (c *Client) Artist(ctx context.Context, ask metadata.Ask, mbid string) (Artist, error) {
 	var a Artist
-	err := c.get(ctx, "/artist/"+url.PathEscape(mbid), nil, works.ErrNotFound, &a)
+	err := c.get(ctx, ask, "/artist/"+url.PathEscape(mbid), url.Values{}, true, &a)
 	return a, err
 }
 
-func (c *Client) Albums(ctx context.Context, artist string) ([]Album, error) {
-	albums, err := browse(ctx, c, "/release-group", url.Values{"artist": {artist}, "type": {"album|ep"}}, func(p *albumPage) ([]Album, int) {
+func (c *Client) Albums(ctx context.Context, ask metadata.Ask, artist string) ([]Album, error) {
+	albums, err := browse(ctx, c, ask, "/release-group", url.Values{"artist": {artist}, "type": {"album|ep"}}, func(p *albumPage) ([]Album, int) {
 		return p.ReleaseGroups, p.Count
 	})
 	if err != nil {
@@ -100,8 +99,8 @@ type albumPage struct {
 	Count         int     `json:"release-group-count"`
 }
 
-func (c *Client) Canonical(ctx context.Context, album string) (Release, bool, error) {
-	releases, err := browse(ctx, c, "/release", url.Values{"release-group": {album}, "status": {"official"}, "inc": {"recordings media"}}, func(p *releasePage) ([]Release, int) {
+func (c *Client) Canonical(ctx context.Context, ask metadata.Ask, album string) (Release, bool, error) {
+	releases, err := browse(ctx, c, ask, "/release", url.Values{"release-group": {album}, "status": {"official"}, "inc": {"recordings media"}}, func(p *releasePage) ([]Release, int) {
 		return p.Releases, p.Count
 	})
 	if err != nil {
@@ -141,13 +140,13 @@ func trueFirst(a, b bool) int {
 	return 1
 }
 
-func browse[P, T any](ctx context.Context, c *Client, path string, q url.Values, items func(*P) ([]T, int)) ([]T, error) {
+func browse[P, T any](ctx context.Context, c *Client, ask metadata.Ask, path string, q url.Values, items func(*P) ([]T, int)) ([]T, error) {
 	var out []T
 	q.Set("limit", strconv.Itoa(pageSize))
 	for {
 		q.Set("offset", strconv.Itoa(len(out)))
 		var page P
-		if err := c.get(ctx, path, q, works.ErrUnavailable, &page); err != nil {
+		if err := c.get(ctx, ask, path, q, false, &page); err != nil {
 			return nil, err
 		}
 		got, total := items(&page)
@@ -158,41 +157,15 @@ func browse[P, T any](ctx context.Context, c *Client, path string, q url.Values,
 	}
 }
 
-// get answers a 404 with notFound: only a lookup by key can tell that the
-// source has no record, while a 404 inside a browse means the source changed
-// between two requests.
-func (c *Client) get(ctx context.Context, path string, q url.Values, notFound error, v any) error {
-	if q == nil {
-		q = url.Values{}
-	}
+// get decodes the answer at path into v. Only a lookup by key can tell
+// that the source has no record: a 404 inside a browse means the source
+// changed between two requests.
+func (c *Client) get(ctx context.Context, ask metadata.Ask, path string, q url.Values, lookup bool, v any) error {
 	q.Set("fmt", "json")
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path+"?"+q.Encode(), http.NoBody)
-	if err != nil {
+	u := c.base.JoinPath(path)
+	u.RawQuery = q.Encode()
+	if err := c.line.Get(ctx, ask, metadata.Request{URL: u, Lookup: lookup}, v); err != nil {
 		return fmt.Errorf("GET %s: %w", path, err)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", c.userAgent)
-	res, err := c.http.Do(req)
-	if err != nil {
-		if ue, ok := errors.AsType[*url.Error](err); ok {
-			err = ue.Err
-		}
-		return fmt.Errorf("GET %s: %w: %w", path, err, works.ErrUnavailable)
-	}
-	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, res.Body)
-	}
-	switch {
-	case res.StatusCode == http.StatusNotFound:
-		return fmt.Errorf("GET %s: %s: %w", path, res.Status, notFound)
-	case res.StatusCode >= http.StatusInternalServerError:
-		return fmt.Errorf("GET %s: %s: %w", path, res.Status, works.ErrUnavailable)
-	case res.StatusCode != http.StatusOK:
-		return fmt.Errorf("GET %s: %s", path, res.Status)
-	}
-	if err := json.NewDecoder(res.Body).Decode(v); err != nil {
-		return fmt.Errorf("GET %s: decode: %w: %w", path, err, works.ErrUnavailable)
 	}
 	return nil
 }

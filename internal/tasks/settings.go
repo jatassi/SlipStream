@@ -2,6 +2,8 @@ package tasks
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/setting"
@@ -108,6 +110,26 @@ func (s *Scheduler) SetOverdue(ctx context.Context, id TaskID, v setting.Stored[
 	return s.setTask(ctx, id, func(ctx context.Context, q *db.Queries) error {
 		return q.SetTaskOverdue(ctx, db.SetTaskOverdueParams{ID: id, Overdue: v.Override()})
 	})
+}
+
+// SetTuning changes the task's Tuning by key, all or none. A task with no
+// Tuning refuses every key.
+func (s *Scheduler) SetTuning(ctx context.Context, id TaskID, p setting.Patch) error {
+	t, ok := s.byID[id]
+	switch {
+	case !ok:
+		return ErrUnknownTask
+	case len(p) == 0:
+		return nil
+	case t.Tuning == nil:
+		return &setting.UnknownKeyError{Key: slices.Sorted(maps.Keys(p))[0]}
+	}
+	if err := t.Tuning.Apply(ctx, p); err != nil {
+		return err
+	}
+	s.changed(ctx, id)
+	s.Wake()
+	return nil
 }
 
 func (s *Scheduler) setTask(ctx context.Context, id TaskID, set func(context.Context, *db.Queries) error) error {

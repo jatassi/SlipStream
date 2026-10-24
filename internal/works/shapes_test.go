@@ -49,7 +49,7 @@ var (
 func shaped(t testing.TB, id works.TypeID, d works.Description) *harness {
 	t.Helper()
 	fx := contenttypetest.New()
-	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{id: described{fx, d}})
+	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{id: described{fx, d}}, fx.SourceAs(id))
 	h.fx = fx
 	return h
 }

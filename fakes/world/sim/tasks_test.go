@@ -38,11 +38,12 @@ type taskDetail struct {
 		DueOnReturn bool   `json:"dueOnReturn"`
 	} `json:"units"`
 	Runs []struct {
-		ID      int64  `json:"id"`
-		Trigger string `json:"trigger"`
-		Result  string `json:"result"`
-		Summary string `json:"summary"`
-		Units   []struct {
+		ID        int64     `json:"id"`
+		Trigger   string    `json:"trigger"`
+		Result    string    `json:"result"`
+		Summary   string    `json:"summary"`
+		StartedAt time.Time `json:"startedAt"`
+		Units     []struct {
 			Label   string  `json:"label"`
 			Node    string  `json:"node"`
 			Outcome string  `json:"outcome"`
@@ -150,11 +151,11 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
 		a := w.API()
-		time.Sleep(time.Until(at("2000-01-01T04:00:00Z")))
+		time.Sleep(time.Until(at("2000-01-01T04:30:00Z")))
 		synctest.Wait()
 		d := getTask(t, a, "housekeeping")
-		expect(t, "runs at 04:00", d.runs(), []string{"schedule|succeeded|6 steps"})
-		expect(t, "units at 04:00", d.units(), []string{
+		expect(t, "runs by 04:30", d.runs(), []string{"schedule|succeeded|6 steps"})
+		expect(t, "units by 04:30", d.units(), []string{
 			"Run history|home|succeeded|",
 			"Join Codes|home|succeeded|",
 			"Sessions|home|succeeded|",
@@ -201,8 +202,9 @@ func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
 		a := w.API()
-		time.Sleep(time.Until(at("2000-01-01T04:00:00Z")))
+		time.Sleep(time.Until(at("2000-01-01T04:30:00Z")))
 		synctest.Wait()
+		tidied := getTask(t, a, "housekeeping").Runs[0].StartedAt
 		partition(t, w)
 		time.Sleep(time.Until(at("2000-01-04T03:59:59Z")))
 		synctest.Wait()
@@ -210,9 +212,9 @@ func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
 		expect(t, "runs after two days", d.runs(), []string{"schedule|partial|5 of 6 steps, seedbox offline", "schedule|partial|5 of 6 steps, seedbox offline", "schedule|succeeded|6 steps"})
 		expect(t, "sentence after two days", sentence(t, a), []string{"Every task ran as scheduled."})
 
-		time.Sleep(time.Until(at("2000-01-04T04:00:01Z")))
+		time.Sleep(time.Until(at("2000-01-04T04:30:01Z")))
 		synctest.Wait()
-		expect(t, "sentence after the third day", sentence(t, a), []string{"Housekeeping has not finished Local database on seedbox since Jan 1 04:00."})
+		expect(t, "sentence after the third day", sentence(t, a), []string{"Housekeeping has not finished Local database on seedbox since " + tidied.Format("Jan 2 15:04") + "."})
 	})
 }
 

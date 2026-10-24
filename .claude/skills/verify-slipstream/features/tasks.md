@@ -1,6 +1,6 @@
 # Tasks
 
-The Controller runs each Scheduled task on its cadence and records every run with a plain result. The Tasks page opens with one sentence about what went wrong, then lists the shown tasks by group with cadence, last result, next run and Run now, and ends with the Schedule settings. Each task has a detail page with its units and its runs. A run an Admin starts, or a scheduled one open past the header delay, shows in a capsule in the desktop top bar and atop Activity on phone. `home` shows one task, Housekeeping, which prunes runs, Join Codes and sessions on the Controller and tidies each Node's database, so a stopped seedbox makes a run Partial and its return runs the seedbox's unit again.
+The Controller runs each Scheduled task on its cadence and records every run with a plain result. The Tasks page opens with one sentence about what went wrong, then lists the shown tasks by group with cadence, last result, next run and Run now, and ends with the Schedule settings. Each task has a detail page with its units and its runs. A run an Admin starts, or a scheduled one open past the header delay, shows in a capsule in the desktop top bar and atop Activity on phone. `home` shows one task, Housekeeping, which prunes runs, Join Codes and sessions on the Controller and tidies each Node's database, so a stopped seedbox makes a run Partial and its return runs the seedbox's unit again. Once the library holds a Work, Metadata refresh joins it under `Connect` ([Metadata refresh](./metadata-refresh.md)).
 
 ## Sub-features
 

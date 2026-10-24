@@ -47,6 +47,9 @@ func (d DataDir) LibraryKey() string { return filepath.Join(d.path, secret.KeyFi
 
 func (d DataDir) LocalDB() string { return filepath.Join(d.path, storage.LocalFile) }
 
+// ArtworkDir holds the Controller's artwork store, which local.db indexes.
+func (d DataDir) ArtworkDir() string { return filepath.Join(d.path, "artwork") }
+
 // Resolve is p against the data dir, unless p is absolute.
 func (d DataDir) Resolve(p string) string {
 	if filepath.IsAbs(p) {

@@ -7,32 +7,67 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Catalog is the facet through which works reaches a Content Type: the
-// shape of its tree, its metadata source, and its own rows.
+// Catalog is the facet through which works reaches a Content Type's
+// library half: the shape of its tree and its own rows. It does no network
+// IO; Source does.
 //
-// Search and Fetch are the only calls that do network IO, outside any
-// Write and bounded by timings.works.fetch. Their errors wrap ErrNotFound
-// or ErrUnavailable; any other error from any method is a bug that answers
-// 500 and logs the type's id.
+// Any error from any method is a bug that answers 500 and logs the type's
+// id.
 type Catalog interface {
 	// Describe is called once at start. Its level count is fixed once a
 	// type is released, like its id.
 	Describe() Description
-	// Search returns at most 25 candidates, best first, each with its
-	// Work-tier fields.
-	Search(ctx context.Context, query string) ([]Candidate, error)
-	// Fetch returns the whole Work as the source has it now.
-	Fetch(ctx context.Context, key Key) (Fetched, error)
 	// Store writes the type's own rows inside the core's Write, after the
-	// core rows exist. It upserts, never deletes, and does no IO. detail is
-	// Fetched.Detail, unread by the core.
-	Store(ctx context.Context, tx *storage.Tx[storage.Library], at Placed, detail []byte) error
+	// core rows exist, and does no IO. detail is Fetched.Detail, unread by
+	// the core. changed is false when every row already held what detail
+	// says.
+	Store(ctx context.Context, tx *storage.Tx[storage.Library], at Placed, detail []byte) (changed bool, err error)
 	// Fields reads the type's own rows for one Work: values keyed by node,
 	// each of the kind its FieldSpec declares.
 	Fields(ctx context.Context, r storage.Reader[storage.Library], w WorkID) (FieldSet, error)
+	Settings
+}
+
+// Source is the network: a Content Type's metadata source, reached through
+// a Node holding the Metadata Role. Its calls run outside any Write,
+// bounded by timings.works.fetch. Errors wrap ErrNotFound, ErrRefused,
+// ErrUnavailable or ErrInvalid, inside a *SourceError when the source said
+// more.
+type Source interface {
+	// Search returns at most 25 candidates, best first, each with its
+	// Work-tier fields.
+	Search(ctx context.Context, t TypeID, query string) ([]Candidate, error)
+	// Fetch returns the whole Work as the source has it now.
+	Fetch(ctx context.Context, t TypeID, key Key, f Fetching) (Fetched, error)
+}
+
+// Purpose is why a Work is fetched, which decides the cache and the
+// ratings providers.
+type Purpose uint8
+
+const (
+	// ForPreview reads no ratings provider and may answer from the cache.
+	ForPreview Purpose = iota + 1
+	// ForAdd may answer from the cache, so it reuses a preview's answer.
+	ForAdd
+	// ForRefresh bypasses the cache and writes its answer back.
+	ForRefresh
+)
+
+type Fetching struct {
+	Purpose Purpose
+	// RatingsReadAt is when the Work's ratings providers last answered,
+	// zero for a Work not yet stored. A refresh reads them again only once
+	// the ratings setting's time has passed since.
+	RatingsReadAt storage.Time
+	// Via is the Node a scheduled refresh runs on, which the call must
+	// leave from; zero lets the Controller pick one.
+	Via role.NodeID
 }
 
 type Description struct {
@@ -43,6 +78,8 @@ type Description struct {
 	Levels []Noun
 	Item   Noun
 	Fields []FieldSpec
+	// Artwork is the kinds of image the type's Works and Items carry.
+	Artwork []artwork.Kind
 }
 
 // Icon names the glyph that stands for a Content Type in navigation.
@@ -106,15 +143,23 @@ const (
 	KindNumber
 	KindDate
 	KindDuration
+	// KindTexts is an ordered list of strings, such as genres.
+	KindTexts
+	// KindPeople is an ordered list of credits.
+	KindPeople
+	// KindLink is a label and a URL.
+	KindLink
 )
 
-var kindNames = map[FieldKind]string{KindText: "text", KindNumber: "number", KindDate: "date", KindDuration: "duration"}
+var kindNames = map[FieldKind]string{
+	KindText: "text", KindNumber: "number", KindDate: "date", KindDuration: "duration",
+	KindTexts: "texts", KindPeople: "people", KindLink: "link",
+}
 
 func (k FieldKind) String() string { return kindNames[k] }
 
-// FieldValue is one field of one node. Build it with TextField,
-// NumberField, DateField or DurationField; only the value of its Kind is
-// read.
+// FieldValue is one field of one node. Build it with the constructor of
+// its kind, such as TextField; only the value of its Kind is read.
 type FieldValue struct {
 	Key      string
 	Kind     FieldKind
@@ -122,6 +167,23 @@ type FieldValue struct {
 	Number   float64
 	Date     Date
 	Duration time.Duration
+	Texts    []string
+	People   []Person
+	Link     Link
+}
+
+// Person is one credit. Its photo is a reference, never a URL, so no type
+// holds the key that signs artwork URLs.
+type Person struct {
+	Name       string
+	Role       string
+	Department string
+	Photo      artwork.Ref
+}
+
+type Link struct {
+	Label string
+	URL   string
 }
 
 func TextField(key, v string) FieldValue { return FieldValue{Key: key, Kind: KindText, Text: v} }
@@ -135,6 +197,16 @@ func DateField(key string, v Date) FieldValue { return FieldValue{Key: key, Kind
 func DurationField(key string, v time.Duration) FieldValue {
 	return FieldValue{Key: key, Kind: KindDuration, Duration: v}
 }
+
+func TextsField(key string, v []string) FieldValue {
+	return FieldValue{Key: key, Kind: KindTexts, Texts: v}
+}
+
+func PeopleField(key string, v []Person) FieldValue {
+	return FieldValue{Key: key, Kind: KindPeople, People: v}
+}
+
+func LinkField(key string, v Link) FieldValue { return FieldValue{Key: key, Kind: KindLink, Link: v} }
 
 // Date is a calendar date known to the year, the month or the day: Month
 // and Day are 0 when unknown.
@@ -195,6 +267,51 @@ type Fetched struct {
 	// Detail is the type's own encoding of the record, handed to Store
 	// unread, so fetching and storing can run on different Nodes.
 	Detail []byte
+	// Ratings are the source's ratings now. A source absent here keeps its
+	// stored row, so an outage never wipes a rating.
+	Ratings []Rating
+	// RatingsRead is true when the ratings providers answered, with values
+	// or with none.
+	RatingsRead bool
+	// Artwork is one reference per kind the source has now. A kind absent
+	// here keeps its stored row.
+	Artwork []Art
+}
+
+// Rating is one source's rating of the Work, or of one of its Items.
+type Rating struct {
+	// Item is empty for the Work's own rating.
+	Item   Key
+	Source RatingSource
+	Value  float64
+	// Votes is nil when the source counts none.
+	Votes *int64
+}
+
+// RatingSource is a ratings source the core knows. Its scale and label
+// come from RatingSources, so no Rating carries a scale that disagrees.
+type RatingSource string
+
+type RatingScale struct {
+	Label string
+	Scale float64
+}
+
+var RatingSources = map[RatingSource]RatingScale{
+	"tmdb":           {Label: "TMDB", Scale: 10},
+	"imdb":           {Label: "IMDb", Scale: 10},
+	"rottentomatoes": {Label: "Rotten Tomatoes critics", Scale: 100},
+	"metacritic":     {Label: "Metacritic", Scale: 100},
+}
+
+// Art is the source's image of one kind for the Work, or one of its Items.
+type Art struct {
+	// Item is empty for the Work's own image.
+	Item Key
+	// Kind is the key of an artwork.Kind the Description declares at the
+	// Item's or the Work's tier.
+	Kind string
+	Ref  artwork.Ref
 }
 
 // Entry is a level or an Item.
@@ -207,10 +324,16 @@ type Entry struct {
 // Candidate is one search result. WorkID is the core's: set when the Work
 // is already in the library.
 type Candidate struct {
-	Key    Key
-	Label  string
-	Fields []FieldValue
-	WorkID WorkID
+	Key   Key
+	Label string
+	// Original is the label in its original language, empty when it is
+	// Label.
+	Original string
+	// Overview is one line.
+	Overview string
+	Poster   artwork.Ref
+	Fields   []FieldValue
+	WorkID   WorkID `json:"-"`
 }
 
 type Placed struct {

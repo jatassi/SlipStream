@@ -8,8 +8,8 @@ import {
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
+import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
 import { getGetTopologyQueryKey } from "../api/gen/query/nodes/nodes";
-import { getListHealthVolumesQueryKey } from "../api/gen/query/health/health";
 import { getListRootsQueryKey, getListVolumesQueryKey } from "../api/gen/query/roots/roots";
 import {
   getListCutsQueryKey,
@@ -64,12 +64,10 @@ export const effects = {
     refresh({ queryKey: getListVolumesQueryKey() });
     refresh({ queryKey: getGetTopologyQueryKey() });
   },
-  "volumes.changed": (_data, { refresh }) => {
-    refresh({ queryKey: getListVolumesQueryKey() });
-    refresh({ queryKey: getListHealthVolumesQueryKey() });
-    refresh({ queryKey: getGetTopologyQueryKey() });
-  },
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });
+  },
+  "metadata.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListMetadataProvidersQueryKey() });
   },
 } satisfies LiveEffects;

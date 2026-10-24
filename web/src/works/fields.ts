@@ -14,6 +14,15 @@ export function fieldText(value: WorksFieldValue): string {
   if (value.kind === "date") {
     return value.date;
   }
+  if (value.kind === "texts") {
+    return value.texts.join(", ");
+  }
+  if (value.kind === "people") {
+    return value.people.map((person) => person.name).join(", ");
+  }
+  if (value.kind === "link") {
+    return value.label;
+  }
   const minutes = Math.round(value.ms / 60_000);
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }

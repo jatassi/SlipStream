@@ -32,7 +32,8 @@ const usageText = `usage: fakeworld <command>
       set a fault rule, replacing the one with its id; <fault> is one of
       refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB |
       tls=untrusted|expired|wrong-name | status=<code>[,retry-after=<dur>]
-      [,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+      [,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate> |
+      content-type=<media type>
   fault clear <run-dir> [<id>]
       clear the rule with id, or every rule
   fault list <run-dir>

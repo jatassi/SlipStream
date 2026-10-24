@@ -4,6 +4,7 @@ import { z } from "zod";
 import { expectColumns, orchardCells } from "./cells.ts";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 
 const Made = z.object({ id: z.string() });
 
@@ -29,7 +30,9 @@ async function openProfiles(page: Page) {
 
 async function pick(page: Page, button: string, item: string) {
   await page.getByRole("button", { name: button }).click();
-  await page.getByRole(isPhone(page) ? "button" : "menuitem", { name: item, exact: true }).click();
+  await clickWhenStill(
+    page.getByRole(isPhone(page) ? "button" : "menuitem", { name: item, exact: true }),
+  );
 }
 
 // On phone the table stacks each row as a card, labels inline, so a row is read by its parts.

@@ -44,6 +44,11 @@ export const systemEffects = {
     refresh({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
     refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
   },
+  "volumes.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListVolumesQueryKey() });
+    refresh({ queryKey: getListHealthVolumesQueryKey() });
+    refresh({ queryKey: getGetTopologyQueryKey() });
+  },
   "tasks.changed": (_data, { refresh }) => {
     refresh(everyTasksQuery);
   },
@@ -72,6 +77,7 @@ export const systemEffects = {
   | "nodes.changed"
   | "nodes.traffic"
   | "node.settings-changed"
+  | "volumes.changed"
   | "tasks.changed"
   | "health.changed"
   | "tasks.progress"

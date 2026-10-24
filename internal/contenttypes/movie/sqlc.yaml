@@ -24,3 +24,21 @@ sql:
             go_type:
               type: IMDbID
               pointer: true
+          - column: movie_credit.person_id
+            go_type:
+              type: PersonID
+          - column: movie_movie.studio_id
+            go_type:
+              type: CompanyID
+              pointer: true
+          - column: movie_movie.collection_id
+            go_type:
+              type: CollectionID
+              pointer: true
+          - column: movie_settings.id
+            go_type:
+              type: Singleton
+          - column: movie_settings.counts_as
+            go_type:
+              type: CountsAs
+              pointer: true

@@ -8,6 +8,14 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+type WorksArtwork struct {
+	WorkID WorkID
+	ItemID ItemID
+	Kind   string
+	Source string
+	Path   string
+}
+
 type WorksDisabledType struct {
 	ContentType TypeID
 	DisabledAt  storage.Time
@@ -35,12 +43,24 @@ type WorksLevel struct {
 	WithdrawnAt storage.Time
 }
 
+type WorksRating struct {
+	WorkID    WorkID
+	ItemID    ItemID
+	Source    string
+	Value     float64
+	Scale     float64
+	Votes     *int64
+	FetchedAt storage.Time
+}
+
 type WorksWork struct {
-	ID          WorkID
-	ContentType TypeID
-	Key         Key
-	Label       string
-	SortLabel   string
-	AddedAt     storage.Time
-	RefreshedAt storage.Time
+	ID             WorkID
+	ContentType    TypeID
+	Key            Key
+	Label          string
+	SortLabel      string
+	AddedAt        storage.Time
+	RefreshedAt    storage.Time
+	GoneUpstreamAt storage.Time
+	RatingsReadAt  storage.Time
 }

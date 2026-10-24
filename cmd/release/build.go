@@ -35,8 +35,13 @@ var mains = []struct {
 func runBuild(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("build", flag.ContinueOnError)
 	dist := flags.String("o", "", "output directory (default dist/ in the repository)")
+	withKeys := flags.Bool("bundle-keys", false, "carry SlipStream's metadata keys from "+strings.Join(bundledEnv(), " and ")+" in cmd/slipstream; only the release workflow's tag build passes it")
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
+	}
+	keys, err := bundledKeys(*withKeys, os.Getenv)
+	if err != nil {
+		return err
 	}
 	root, err := repoRoot(ctx)
 	if err != nil {
@@ -72,16 +77,14 @@ func runBuild(ctx context.Context, args []string) error {
 	if err := os.MkdirAll(*dist, 0o755); err != nil {
 		return fmt.Errorf("create dist: %w", err)
 	}
-	node := []string{
-		"-trimpath", "-tags", strings.Join(append([]string{"release"}, target.GoTags...), ","),
-		"-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp=" + ldflag,
-	}
+	tags := strings.Join(append([]string{"release"}, target.GoTags...), ",")
+	stamped := "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp=" + ldflag
 	for _, m := range mains {
 		if m.goos != nil && !slices.Contains(m.goos, target.GOOS) {
 			continue
 		}
 		out := executable(target, *dist, m.name)
-		flags, env := node, bundleEnv(bundle)
+		flags, env := nodeBuild(m.pkg, tags, stamped, keys), bundleEnv(bundle)
 		if m.role == linkage.Trampoline {
 			flags, env = trampolineBuild(target.GOOS)
 		}
@@ -91,6 +94,51 @@ func runBuild(ctx context.Context, args []string) error {
 		fmt.Println(out)
 	}
 	return placeTools(bundle, *dist)
+}
+
+// bundledKeyVars are the providers SlipStream bundles a key for, each with
+// the variable the release workflow puts its repository secret in.
+var bundledKeyVars = []struct{ provider, env string }{
+	{"tmdb", "SLIPSTREAM_TMDB_KEY"},
+	{"omdb", "SLIPSTREAM_OMDB_KEY"},
+}
+
+func bundledEnv() []string {
+	names := make([]string, len(bundledKeyVars))
+	for i, v := range bundledKeyVars {
+		names[i] = v.env
+	}
+	return names
+}
+
+// bundledKeys is the -X flag that bundles each provider's key from getenv,
+// and none without withKeys: then it never reads them.
+func bundledKeys(withKeys bool, getenv func(string) string) (string, error) {
+	if !withKeys {
+		return "", nil
+	}
+	pairs := make([]string, len(bundledKeyVars))
+	for i, v := range bundledKeyVars {
+		key := getenv(v.env)
+		if key == "" {
+			return "", fmt.Errorf("-bundle-keys: %s is empty", v.env)
+		}
+		if strings.ContainsAny(key, ",: \t\r\n'\"") {
+			return "", fmt.Errorf("-bundle-keys: %s holds a character no API key has", v.env)
+		}
+		pairs[i] = v.provider + ":" + key
+	}
+	return "-X=github.com/jatassi/slipstream/internal/metadata.bundled=" + strings.Join(pairs, ","), nil
+}
+
+// nodeBuild is the flags of a Node main: only cmd/slipstream carries the
+// bundled keys.
+func nodeBuild(pkg, tags, stamped, keys string) []string {
+	ldflags := stamped
+	if pkg == "./cmd/slipstream" && keys != "" {
+		ldflags += " " + keys
+	}
+	return []string{"-trimpath", "-tags", tags, "-ldflags", ldflags}
 }
 
 func trampolineBuild(goos string) (flags, env []string) {

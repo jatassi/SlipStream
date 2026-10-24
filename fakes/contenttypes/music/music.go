@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -14,9 +15,12 @@ import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/musicbrainz"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -27,14 +31,23 @@ type file = storage.Library
 //go:embed schema/*.sql
 var schemaFiles embed.FS
 
-var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, New)
+var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, contenttype.Halves[Endpoints]{
+	Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
+		return &Source{mb: musicbrainz.New(d.Lines, e.Metadata), covers: covers{host: e.CoverArt}}
+	},
+	Library: func(contenttype.LibraryDeps) contenttype.Library { return &Music{} },
+})
 
 type Endpoints struct {
 	Metadata endpoint.URL `yaml:"metadata"`
+	CoverArt endpoint.URL `yaml:"coverart"`
 }
 
 func DefaultEndpoints() Endpoints {
-	return Endpoints{Metadata: endpoint.MustParseURL("https://musicbrainz.invalid/ws/2")}
+	return Endpoints{
+		Metadata: endpoint.MustParseURL("https://musicbrainz.invalid/ws/2"),
+		CoverArt: endpoint.MustParseURL("https://coverart.invalid"),
+	}
 }
 
 var Description = works.Description{
@@ -50,20 +63,25 @@ var Description = works.Description{
 		{Key: "disc", Label: "Disc", Tier: works.TierItem, Kind: works.KindNumber},
 		{Key: "length", Label: "Length", Tier: works.TierItem, Kind: works.KindDuration},
 	},
+	Artwork: []artwork.Kind{coverKind},
 }
 
-type Music struct {
-	source *musicbrainz.Client
+// Source is the provider half: it reads MusicBrainz on any Metadata
+// holder.
+type Source struct {
+	mb     *musicbrainz.Client
+	covers covers
 }
 
-func New(d contenttype.Deps, e Endpoints) contenttype.Type {
-	return &Music{source: musicbrainz.New(d.HTTP, e.Metadata, d.UserAgent)}
-}
+func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.covers} }
+
+// Music is the library half.
+type Music struct{}
 
 func (*Music) Describe() works.Description { return Description }
 
-func (m *Music) Search(ctx context.Context, query string) ([]works.Candidate, error) {
-	artists, err := m.source.SearchArtists(ctx, query)
+func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {
+	artists, err := s.mb.SearchArtists(ctx, ask, query)
 	if err != nil {
 		return nil, err
 	}
@@ -95,19 +113,19 @@ type trackDetail struct {
 	LengthMs *int64    `json:"lengthMs"`
 }
 
-func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error) {
-	artist, err := m.source.Artist(ctx, string(key))
+func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+	artist, err := s.mb.Artist(ctx, ask, string(key))
 	if err != nil {
 		return works.Fetched{}, err
 	}
-	albums, err := m.source.Albums(ctx, artist.ID)
+	albums, err := s.mb.Albums(ctx, ask, artist.ID)
 	if err != nil {
 		return works.Fetched{}, err
 	}
 	f := works.Fetched{Label: artist.Name, SortLabel: artist.SortName}
 	d := detail{Country: artist.Country, Disambiguation: artist.Disambiguation}
 	for _, album := range albums {
-		canonical, ok, err := m.source.Canonical(ctx, album.ID)
+		canonical, ok, err := s.mb.Canonical(ctx, ask, album.ID)
 		if err != nil {
 			return works.Fetched{}, err
 		}
@@ -132,32 +150,52 @@ func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error)
 		f.Children = append(f.Children, level)
 		d.Albums = append(d.Albums, ad)
 	}
+	if len(f.Children) > 0 {
+		f.Artwork = []works.Art{{Kind: coverKind.Key, Ref: artwork.Ref{Source: CoverArtID, Shape: artwork.ShapeCover, Path: string(f.Children[0].Key)}}}
+	}
 	if f.Detail, err = json.Marshal(d); err != nil {
 		return works.Fetched{}, fmt.Errorf("encode artist %s: %w", key, err)
 	}
 	return f, nil
 }
 
-func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, raw []byte) error {
+func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, raw []byte) (bool, error) {
 	var d detail
 	if err := json.Unmarshal(raw, &d); err != nil {
-		return fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
+		return false, fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
 	}
 	q := db.New(tx)
-	if err := q.UpsertArtist(ctx, db.UpsertArtistParams{WorkID: at.Work, Country: d.Country, Disambiguation: d.Disambiguation}); err != nil {
-		return err
+	rows, err := q.UpsertArtist(ctx, db.UpsertArtistParams{WorkID: at.Work, Country: d.Country, Disambiguation: d.Disambiguation})
+	if err != nil {
+		return false, err
 	}
 	for _, a := range d.Albums {
-		if err := q.UpsertAlbum(ctx, db.UpsertAlbumParams{LevelID: at.Levels[a.Key], WorkID: at.Work, Released: a.Released, PrimaryType: a.PrimaryType, ReleaseID: a.Release}); err != nil {
-			return err
+		n, err := q.UpsertAlbum(ctx, db.UpsertAlbumParams{LevelID: at.Levels[a.Key], WorkID: at.Work, Released: a.Released, PrimaryType: a.PrimaryType, ReleaseID: a.Release})
+		if err != nil {
+			return false, err
 		}
+		rows += n
 		for _, t := range a.Tracks {
-			if err := q.UpsertTrack(ctx, db.UpsertTrackParams{ItemID: at.Items[t.Key], WorkID: at.Work, Disc: t.Disc, Number: t.Number, LengthMs: t.LengthMs}); err != nil {
-				return err
+			n, err := q.UpsertTrack(ctx, db.UpsertTrackParams{ItemID: at.Items[t.Key], WorkID: at.Work, Disc: t.Disc, Number: t.Number, LengthMs: t.LengthMs})
+			if err != nil {
+				return false, err
 			}
+			rows += n
 		}
 	}
-	return nil
+	return rows > 0, nil
+}
+
+// SettingFields answers none: music keeps no settings.
+func (*Music) SettingFields(context.Context, storage.Reader[file]) ([]setting.Field, error) {
+	return nil, nil
+}
+
+func (*Music) ApplySettings(_ context.Context, _ *storage.Tx[file], p setting.Patch) (bool, error) {
+	if len(p) > 0 {
+		return false, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
+	}
+	return false, nil
 }
 
 func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID) (works.FieldSet, error) {
@@ -261,6 +299,17 @@ func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.Wo
 		}
 	}
 	return out, nil
+}
+
+// Changes answers none: music keeps no changes list, so its tiers refresh
+// it.
+func (*Source) Changes(context.Context, metadata.Ask, time.Time, time.Time, int) (metadata.ChangesPage, error) {
+	return metadata.ChangesPage{}, metadata.ErrNoChanges
+}
+
+// Growing answers none.
+func (*Music) Growing(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID]bool, error) {
+	return nil, nil
 }
 
 func (*Music) Cuts() []release.Cut {

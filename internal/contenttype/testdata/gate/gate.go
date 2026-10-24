@@ -9,9 +9,9 @@ type Naming interface {
 	Name() string
 }
 
-type Type interface {
-	contenttype.Type
+type Library interface {
+	contenttype.Library
 	Naming
 }
 
-var _ Type = contenttypetest.New()
+var _ Library = contenttypetest.New()

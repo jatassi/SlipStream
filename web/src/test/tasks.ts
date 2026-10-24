@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import type {
   SettingChoiceField,
   SettingDurationField,
+  SettingField,
   TasksDetail,
   TasksOpenRuns,
   TasksOverview,
@@ -235,11 +236,12 @@ type TaskState = {
   open: TasksOpenRuns;
   runs: TasksRun[];
   settings: TasksSchedule;
+  tuning: SettingField[];
 };
 
 const detailOf = (state: TaskState, id: string): TasksDetail | undefined => {
   const task = state.tasks.find((candidate) => candidate.id === id);
-  return task && { task, units: detailUnits, runs: state.runs };
+  return task && { task, units: detailUnits, runs: state.runs, tuning: state.tuning };
 };
 
 export function taskServer({
@@ -253,7 +255,7 @@ export function taskServer({
   sentence?: TasksOverview["sentence"];
   open?: TasksOpenRuns;
 }) {
-  const state: TaskState = { tasks, open, runs: [succeededRun], settings: schedule };
+  const state: TaskState = { tasks, open, runs: [succeededRun], settings: schedule, tuning: [] };
   const writes: { method: string; path: string; body: unknown }[] = [];
   const record = async (request: Request, path: string) => {
     const text = await request.text();

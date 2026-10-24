@@ -65,6 +65,11 @@ func (p *Plan) HTTP(target Target, route Route, origin func(*http.Request) strin
 			code, body := head(w, h, r, -1)
 			w.WriteHeader(code)
 			slowly(w, r, body, Rate(f))
+		case ContentType:
+			code, body := head(w, h, r, -1)
+			w.Header().Set("Content-Type", string(f))
+			w.WriteHeader(code)
+			_, _ = w.Write(body)
 		default:
 			panic(fmt.Sprintf("fault: %s is not an HTTP fault", f))
 		}

@@ -1337,6 +1337,253 @@ export const MakeFolderInputBody = zod.object({
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
 
+export const MetadataChanged = zod.object({
+  provider: zod.string().describe("The provider whose status changed"),
+});
+
+export type MetadataChanged = zod.input<typeof MetadataChanged>;
+export type MetadataChangedOutput = zod.output<typeof MetadataChanged>;
+
+export const MetadataLastError = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  words: zod.string().describe("In plain words, the provider named"),
+});
+
+export type MetadataLastError = zod.input<typeof MetadataLastError>;
+export type MetadataLastErrorOutput = zod.output<typeof MetadataLastError>;
+
+export const MetadataReach = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  nodeId: zod.uuid(),
+  reached: zod.boolean().describe("Whether the Node reached the provider on its latest call"),
+});
+
+export type MetadataReach = zod.input<typeof MetadataReach>;
+export type MetadataReachOutput = zod.output<typeof MetadataReach>;
+
+export const MetadataDetails = zod.object({
+  lastError: zod.union([MetadataLastError, zod.null()]),
+  lastSuccess: zod.iso.datetime({ offset: true }).nullable(),
+  nodes: zod
+    .array(MetadataReach)
+    .describe(
+      "Each holder that called the provider since the Controller started or the key changed, by id",
+    ),
+});
+
+export type MetadataDetails = zod.input<typeof MetadataDetails>;
+export type MetadataDetailsOutput = zod.output<typeof MetadataDetails>;
+
+export const metadataNewKeyKeyMax = 256;
+
+export const MetadataNewKey = zod.object({
+  key: zod.string().min(1).max(metadataNewKeyKeyMax),
+});
+
+export type MetadataNewKey = zod.input<typeof MetadataNewKey>;
+export type MetadataNewKeyOutput = zod.output<typeof MetadataNewKey>;
+
+export const MetadataProvider = zod.object({
+  details: MetadataDetails,
+  id: zod.string().describe("The provider, such as tmdb"),
+  key: zod
+    .enum(["none", "bundled", "yours"])
+    .describe("Whose key calls carry: none in this build, SlipStream's, or the Admin's"),
+  label: zod.string(),
+  state: zod
+    .enum(["unused", "working", "key_refused", "rate_limited", "out_of_allowance", "unreachable"])
+    .describe("From the latest outcome of a call or test, unused until one"),
+  summary: zod
+    .string()
+    .describe(
+      "How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details",
+    ),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a rate limited provider, or one out of its daily allowance, takes calls again"),
+});
+
+export type MetadataProvider = zod.input<typeof MetadataProvider>;
+export type MetadataProviderOutput = zod.output<typeof MetadataProvider>;
+
+export const MetadataProviderList = zod.object({
+  providers: zod.array(MetadataProvider).describe("In display order"),
+});
+
+export type MetadataProviderList = zod.input<typeof MetadataProviderList>;
+export type MetadataProviderListOutput = zod.output<typeof MetadataProviderList>;
+
+export const MetadataRefreshStarted = zod.object({
+  runId: zod.int().describe("The Metadata refresh run that refreshes every Work of the type"),
+});
+
+export type MetadataRefreshStarted = zod.input<typeof MetadataRefreshStarted>;
+export type MetadataRefreshStartedOutput = zod.output<typeof MetadataRefreshStarted>;
+
+export const SettingChoiceOption = zod.object({
+  label: zod.string(),
+  value: zod.string(),
+});
+
+export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
+export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
+
+export const SettingChoiceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["choice"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  options: zod.array(SettingChoiceOption),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
+export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
+
+export const SettingTimes = zod.object({
+  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
+  start: zod.string().describe("HH:MM"),
+});
+
+export type SettingTimes = zod.input<typeof SettingTimes>;
+export type SettingTimesOutput = zod.output<typeof SettingTimes>;
+
+export const SettingWindowField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingTimes,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["window"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingTimes,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingTimes,
+  zone: zod.string().describe("The time zone's name, such as Europe/London"),
+});
+
+export type SettingWindowField = zod.input<typeof SettingWindowField>;
+export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
+
+export const SettingPortField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["port"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int(),
+});
+
+export type SettingPortField = zod.input<typeof SettingPortField>;
+export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
+
+export const SettingSwitchField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.boolean(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["switch"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.boolean(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.boolean(),
+});
+
+export type SettingSwitchField = zod.input<typeof SettingSwitchField>;
+export type SettingSwitchFieldOutput = zod.output<typeof SettingSwitchField>;
+
+export const SettingField = zod.discriminatedUnion("kind", [
+  SettingDurationField,
+  SettingCountField,
+  SettingChoiceField,
+  SettingWindowField,
+  SettingPortField,
+  SettingSwitchField,
+  SettingSpaceField,
+]);
+
+export type SettingField = zod.input<typeof SettingField>;
+export type SettingFieldOutput = zod.output<typeof SettingField>;
+
+export const MetadataSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe("Language and region first, then the cache, OMDb's ratings and the artwork store"),
+});
+
+export type MetadataSettings = zod.input<typeof MetadataSettings>;
+export type MetadataSettingsOutput = zod.output<typeof MetadataSettings>;
+
+export const MetadataSettingsChange = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe(
+      "Each setting's new value by key, all or none; null resets one to its default. A new language or region makes every Work due at the next Metadata refresh.",
+    ),
+});
+
+export type MetadataSettingsChange = zod.input<typeof MetadataSettingsChange>;
+export type MetadataSettingsChangeOutput = zod.output<typeof MetadataSettingsChange>;
+
 export const newPINInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
 
 export const NewPINInputBody = zod.object({
@@ -2646,149 +2893,6 @@ export const SetWorkRootInputBody = zod.object({
 export type SetWorkRootInputBody = zod.input<typeof SetWorkRootInputBody>;
 export type SetWorkRootInputBodyOutput = zod.output<typeof SetWorkRootInputBody>;
 
-export const SettingChoiceOption = zod.object({
-  label: zod.string(),
-  value: zod.string(),
-});
-
-export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
-export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
-
-export const SettingChoiceField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["choice"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  options: zod.array(SettingChoiceOption),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
-export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
-
-export const SettingTimes = zod.object({
-  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
-  start: zod.string().describe("HH:MM"),
-});
-
-export type SettingTimes = zod.input<typeof SettingTimes>;
-export type SettingTimesOutput = zod.output<typeof SettingTimes>;
-
-export const SettingWindowField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: SettingTimes,
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["window"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: SettingTimes,
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: SettingTimes,
-  zone: zod.string().describe("The time zone's name, such as Europe/London"),
-});
-
-export type SettingWindowField = zod.input<typeof SettingWindowField>;
-export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
-
-export const SettingPortField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["port"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int(),
-});
-
-export type SettingPortField = zod.input<typeof SettingPortField>;
-export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
-
-export const SettingSwitchField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.boolean(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["switch"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.boolean(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.boolean(),
-});
-
-export type SettingSwitchField = zod.input<typeof SettingSwitchField>;
-export type SettingSwitchFieldOutput = zod.output<typeof SettingSwitchField>;
-
-export const SettingField = zod.discriminatedUnion("kind", [
-  SettingDurationField,
-  SettingCountField,
-  SettingChoiceField,
-  SettingWindowField,
-  SettingPortField,
-  SettingSwitchField,
-  SettingSpaceField,
-]);
-
-export type SettingField = zod.input<typeof SettingField>;
-export type SettingFieldOutput = zod.output<typeof SettingField>;
-
 export const ShellAlerts = zod.object({
   health: zod
     .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
@@ -3598,6 +3702,11 @@ export type TasksUnitOutput = zod.output<typeof TasksUnit>;
 export const TasksDetail = zod.object({
   runs: zod.array(TasksRun).describe("Its runs, newest first, up to the runs kept"),
   task: TasksTask,
+  tuning: zod
+    .array(SettingField)
+    .describe(
+      "Settings its owner stores that tune what it does; PATCH sets them under tuning by key",
+    ),
   units: zod.array(TasksUnit).describe("Each unit it lists now, in run order"),
 });
 
@@ -3739,10 +3848,24 @@ export type TasksSchedulePatchOutput = zod.output<typeof TasksSchedulePatch>;
 export const TasksTaskPatch = zod.object({
   cadence: zod.int().nullish().describe("Seconds; null resets it to its default"),
   overdue: zod.string().nullish().describe("catch-up or wait; null resets it to its default"),
+  tuning: zod
+    .record(zod.string(), zod.unknown())
+    .exactOptional()
+    .describe(
+      "Each tuning setting's new value by key, all or none; null resets one to its default",
+    ),
 });
 
 export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
 export type TasksTaskPatchOutput = zod.output<typeof TasksTaskPatch>;
+
+export const WorksArt = zod.object({
+  kind: zod.string().describe("An artwork kind of the Content Type"),
+  url: zod.string().describe("The artwork route for the image, without a size"),
+});
+
+export type WorksArt = zod.input<typeof WorksArt>;
+export type WorksArtOutput = zod.output<typeof WorksArt>;
 
 export const WorksTextValue = zod.object({
   key: zod.string(),
@@ -3784,17 +3907,101 @@ export const WorksDurationValue = zod.object({
 export type WorksDurationValue = zod.input<typeof WorksDurationValue>;
 export type WorksDurationValueOutput = zod.output<typeof WorksDurationValue>;
 
+export const WorksTextsValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["texts"]),
+  texts: zod.array(zod.string()).describe("In the source's order"),
+});
+
+export type WorksTextsValue = zod.input<typeof WorksTextsValue>;
+export type WorksTextsValueOutput = zod.output<typeof WorksTextsValue>;
+
+export const WorksPerson = zod.object({
+  department: zod.string().describe("Empty when the source names none"),
+  name: zod.string(),
+  photoUrl: zod
+    .string()
+    .nullable()
+    .describe(
+      "The artwork route for the person's photo, without a size; null when the source has none",
+    ),
+  role: zod
+    .string()
+    .describe("The character played or the job done; empty when the source names none"),
+});
+
+export type WorksPerson = zod.input<typeof WorksPerson>;
+export type WorksPersonOutput = zod.output<typeof WorksPerson>;
+
+export const WorksPeopleValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["people"]),
+  people: zod.array(WorksPerson).describe("In the source's order"),
+});
+
+export type WorksPeopleValue = zod.input<typeof WorksPeopleValue>;
+export type WorksPeopleValueOutput = zod.output<typeof WorksPeopleValue>;
+
+export const WorksLinkValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["link"]),
+  label: zod.string(),
+  url: zod.url(),
+});
+
+export type WorksLinkValue = zod.input<typeof WorksLinkValue>;
+export type WorksLinkValueOutput = zod.output<typeof WorksLinkValue>;
+
 export const WorksFieldValue = zod.discriminatedUnion("kind", [
   WorksTextValue,
   WorksNumberValue,
   WorksDateValue,
   WorksDurationValue,
+  WorksTextsValue,
+  WorksPeopleValue,
+  WorksLinkValue,
 ]);
 
 export type WorksFieldValue = zod.input<typeof WorksFieldValue>;
 export type WorksFieldValueOutput = zod.output<typeof WorksFieldValue>;
 
+export const worksAvailabilityDateRegExp = new RegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$");
+
+export const WorksAvailability = zod.object({
+  basis: zod
+    .string()
+    .describe(
+      "The rule that chose the date, in words, such as Digital release in United States; empty when the Content Type names none",
+    ),
+  date: zod.string().regex(worksAvailabilityDateRegExp).describe("YYYY, YYYY-MM or YYYY-MM-DD"),
+});
+
+export type WorksAvailability = zod.input<typeof WorksAvailability>;
+export type WorksAvailabilityOutput = zod.output<typeof WorksAvailability>;
+
+export const worksRatingScaleExclusiveMin = 0;
+
+export const worksRatingValueMin = 0;
+
+export const worksRatingVotesMin = 0;
+
+export const WorksRating = zod.object({
+  fetchedAt: zod.iso.datetime({ offset: true }),
+  label: zod.string().describe("The source's name as a person reads it"),
+  scale: zod.number().gt(worksRatingScaleExclusiveMin).describe("The value's maximum"),
+  source: zod.string().describe("The ratings source, such as imdb"),
+  value: zod.number().min(worksRatingValueMin),
+  votes: zod.int().min(worksRatingVotesMin).nullable().describe("Null when the source counts none"),
+});
+
+export type WorksRating = zod.input<typeof WorksRating>;
+export type WorksRatingOutput = zod.output<typeof WorksRating>;
+
 export const WorksItem = zod.object({
+  artwork: zod.array(WorksArt).describe("By kind"),
+  availability: WorksAvailability.describe(
+    "The day the Item counts as released and the rule that chose it; null while no date is known",
+  ),
   fields: zod.array(WorksFieldValue),
   id: zod.uuid(),
   key: zod.string(),
@@ -3802,6 +4009,7 @@ export const WorksItem = zod.object({
   levelId: zod.uuid().nullable().describe("Null when the Content Type declares no levels"),
   monitored: zod.boolean(),
   position: zod.int().min(1),
+  ratings: zod.array(WorksRating).describe("By source"),
   withdrawnAt: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -3832,8 +4040,15 @@ export const worksTreeContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksTree = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  artwork: zod.array(WorksArt).describe("The Work's own images, by kind"),
   contentType: zod.string().regex(worksTreeContentTypeRegExp),
   fields: zod.array(WorksFieldValue),
+  goneUpstreamAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the metadata source last answered that it no longer has this Work; null while it has it",
+    ),
   id: zod.uuid(),
   items: zod
     .array(WorksItem)
@@ -3843,6 +4058,7 @@ export const WorksTree = zod.object({
   levels: zod
     .array(WorksLevel)
     .describe("By depth, then their parent's order, live before withdrawn, then position"),
+  ratings: zod.array(WorksRating).describe("The Work's own, by source"),
   refreshedAt: zod.iso.datetime({ offset: true }),
   sortLabel: zod.string(),
 });
@@ -3858,10 +4074,28 @@ export const WorksAdded = zod.object({
 export type WorksAdded = zod.input<typeof WorksAdded>;
 export type WorksAddedOutput = zod.output<typeof WorksAdded>;
 
+export const WorksArtworkKind = zod.object({
+  key: zod.string(),
+  label: zod.string(),
+  shape: zod.enum(["poster", "backdrop", "logo", "photo", "cover"]),
+  tier: zod.enum(["work", "item"]),
+});
+
+export type WorksArtworkKind = zod.input<typeof WorksArtworkKind>;
+export type WorksArtworkKindOutput = zod.output<typeof WorksArtworkKind>;
+
 export const WorksCandidate = zod.object({
   fields: zod.array(WorksFieldValue).describe("The Work's fields"),
   key: zod.string(),
   label: zod.string(),
+  original: zod.string().describe("The label in its original language; empty when it is the label"),
+  overview: zod.string().describe("One line; empty when the source has none"),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe(
+      "The artwork route for the result's poster, without a size; null when the source has none",
+    ),
   workId: zod.uuid().nullable().describe("The Work, once it is in the library"),
 });
 
@@ -3882,7 +4116,7 @@ export const WorksFieldSpec = zod.object({
     .exactOptional()
     .describe("The level's depth, 1 for the outermost; present only on tier level"),
   key: zod.string(),
-  kind: zod.enum(["text", "number", "date", "duration"]),
+  kind: zod.enum(["text", "number", "date", "duration", "texts", "people", "link"]),
   label: zod.string(),
   tier: zod.enum(["work", "level", "item"]),
 });
@@ -3901,6 +4135,7 @@ export type WorksNounOutput = zod.output<typeof WorksNoun>;
 export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksContentType = zod.object({
+  artwork: zod.array(WorksArtworkKind).describe("The kinds of image its Works and Items carry"),
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
   icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
@@ -3941,8 +4176,15 @@ export const worksListedWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}
 
 export const WorksListedWork = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  artwork: zod.array(WorksArt).describe("The Work's own images, by kind"),
   contentType: zod.string().regex(worksListedWorkContentTypeRegExp),
   fields: zod.array(WorksFieldValue).describe("The Work's own fields"),
+  goneUpstreamAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the metadata source last answered that it no longer has this Work; null while it has it",
+    ),
   id: zod.uuid(),
   key: zod.string(),
   label: zod.string(),
@@ -3983,6 +4225,41 @@ export const WorksNewWork = zod.object({
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
+
+export const WorksPreviewed = zod.object({
+  inLibrary: zod
+    .boolean()
+    .describe("Whether the Work is in the library; while it isn't, the ids in work name nothing"),
+  work: WorksTree,
+});
+
+export type WorksPreviewed = zod.input<typeof WorksPreviewed>;
+export type WorksPreviewedOutput = zod.output<typeof WorksPreviewed>;
+
+export const WorksSettingsChange = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type WorksSettingsChange = zod.input<typeof WorksSettingsChange>;
+export type WorksSettingsChangeOutput = zod.output<typeof WorksSettingsChange>;
+
+export const worksTypeChangedContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksTypeChanged = zod.object({
+  contentType: zod.string().regex(worksTypeChangedContentTypeRegExp),
+});
+
+export type WorksTypeChanged = zod.input<typeof WorksTypeChanged>;
+export type WorksTypeChangedOutput = zod.output<typeof WorksTypeChanged>;
+
+export const WorksTypeSettings = zod.object({
+  settings: zod.array(SettingField).describe("In the Content Type's order; empty when it has none"),
+});
+
+export type WorksTypeSettings = zod.input<typeof WorksTypeSettings>;
+export type WorksTypeSettingsOutput = zod.output<typeof WorksTypeSettings>;
 
 export const WorksWorkChanged = zod.object({
   workId: zod.uuid(),
@@ -4100,6 +4377,14 @@ export const LiveEventLiveSessionEnded = zod.object({
 export type LiveEventLiveSessionEnded = zod.input<typeof LiveEventLiveSessionEnded>;
 export type LiveEventLiveSessionEndedOutput = zod.output<typeof LiveEventLiveSessionEnded>;
 
+export const LiveEventMetadataChanged = zod.object({
+  event: zod.enum(["metadata.changed"]),
+  data: MetadataChanged,
+});
+
+export type LiveEventMetadataChanged = zod.input<typeof LiveEventMetadataChanged>;
+export type LiveEventMetadataChangedOutput = zod.output<typeof LiveEventMetadataChanged>;
+
 export const LiveEventNodeSettingsChanged = zod.object({
   event: zod.enum(["node.settings-changed"]),
   data: NodesSettingsChanged,
@@ -4182,6 +4467,14 @@ export type LiveEventWorksContentTypesChangedOutput = zod.output<
   typeof LiveEventWorksContentTypesChanged
 >;
 
+export const LiveEventWorksTypeChanged = zod.object({
+  event: zod.enum(["works.type-changed"]),
+  data: WorksTypeChanged,
+});
+
+export type LiveEventWorksTypeChanged = zod.input<typeof LiveEventWorksTypeChanged>;
+export type LiveEventWorksTypeChangedOutput = zod.output<typeof LiveEventWorksTypeChanged>;
+
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFilesChanged,
   LiveEventGrabsChanged,
@@ -4195,6 +4488,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventLiveAccessChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
+  LiveEventMetadataChanged,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,
   LiveEventNodesTraffic,
@@ -4205,6 +4499,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
+  LiveEventWorksTypeChanged,
 ]);
 
 export type LiveEvent = zod.input<typeof LiveEvent>;

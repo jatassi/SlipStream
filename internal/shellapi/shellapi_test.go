@@ -71,7 +71,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 		roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema(), health.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
+		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {

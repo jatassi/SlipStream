@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works/internal/db"
 )
@@ -60,9 +61,17 @@ type ContentTypesChanged struct {
 	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 }
 
+type TypeChanged struct {
+	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+}
+
 var (
 	ChangedEvent             = live.AdminEvent[WorkChanged]("works.changed")
 	ContentTypesChangedEvent = live.EveryoneEvent[ContentTypesChanged]("works.content-types-changed")
+	// TypeChangedEvent means every Work of the type may read differently,
+	// so a page refetches the type's Works instead of hearing one
+	// works.changed per Work.
+	TypeChangedEvent = live.AdminEvent[TypeChanged]("works.type-changed")
 )
 
 type Publisher[T any] interface {
@@ -75,6 +84,7 @@ var (
 	ErrNotFound    = errors.New("the metadata source has no record with that key")
 	ErrUnavailable = errors.New("the metadata source didn't answer")
 	ErrInvalid     = errors.New("the metadata source sent a record SlipStream can't use")
+	ErrRefused     = errors.New("the metadata source refused SlipStream's key")
 
 	ErrNoType       = errors.New("no Content Type has that id")
 	ErrTypeOff      = errors.New("that Content Type is turned off")
@@ -83,12 +93,39 @@ var (
 	ErrGoneUpstream = errors.New("the metadata source no longer has this Work")
 )
 
+// SourceError is a metadata call that failed at its source. Err is
+// ErrNotFound, ErrRefused, ErrUnavailable or ErrInvalid.
+type SourceError struct {
+	// Source names the provider in words, such as "TMDB".
+	Source string
+	// Until is when a rate-limited source takes calls again.
+	Until time.Time
+	Words string
+	Err   error
+}
+
+func (e *SourceError) Error() string {
+	if e.Words == "" {
+		return e.Source + ": " + e.Err.Error()
+	}
+	return e.Source + ": " + e.Words
+}
+
+func (e *SourceError) Unwrap() error { return e.Err }
+
 type Config struct {
-	Library      *storage.DB[file]
-	Catalogs     map[TypeID]Catalog
+	Library  *storage.DB[file]
+	Catalogs map[TypeID]Catalog
+	Source   Source
+	// Artwork fetches the images a new Work's kinds prefetch, after the add
+	// commits.
+	Artwork interface {
+		Prefetch(wants []artwork.Want)
+	}
 	Timings      Timings
 	Changed      Publisher[WorkChanged]
 	TypesChanged Publisher[ContentTypesChanged]
+	TypeChanged  Publisher[TypeChanged]
 	Log          *slog.Logger
 }
 
@@ -161,6 +198,30 @@ func validate(d Description) error {
 			seen[f.Tier] = map[string]bool{}
 		}
 		seen[f.Tier][f.Key] = true
+	}
+	return validateArtwork(d.Artwork)
+}
+
+func validateArtwork(kinds []artwork.Kind) error {
+	seen := map[bool]map[string]bool{false: {}, true: {}}
+	for _, k := range kinds {
+		_, shapeErr := artwork.ParseShape(string(k.Shape))
+		switch {
+		case !fieldKey.MatchString(k.Key):
+			return fmt.Errorf("artwork kind %s is not %s", k.Key, fieldKey)
+		case k.Label == "":
+			return fmt.Errorf("artwork kind %s has no label", k.Key)
+		case shapeErr != nil:
+			return fmt.Errorf("artwork kind %s: %w", k.Key, shapeErr)
+		case seen[k.Item][k.Key]:
+			return fmt.Errorf("artwork kind %s is declared twice", k.Key)
+		}
+		if k.Prefetch != "" {
+			if _, err := artwork.ParseSize(string(k.Prefetch)); err != nil {
+				return fmt.Errorf("artwork kind %s: %w", k.Key, err)
+			}
+		}
+		seen[k.Item][k.Key] = true
 	}
 	return nil
 }

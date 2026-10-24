@@ -153,11 +153,13 @@ type Overview struct {
 	Schedule  Schedule
 }
 
-// Detail is one shown task with its units and its runs, newest first.
+// Detail is one shown task with its units, its runs, newest first, and
+// its Tuning's fields.
 type Detail struct {
-	View  View
-	Units []UnitView
-	Runs  []Run
+	View   View
+	Units  []UnitView
+	Runs   []Run
+	Tuning []setting.Field
 }
 
 type Active struct {
@@ -173,18 +175,21 @@ type Active struct {
 
 type look struct {
 	snap   snapshot
+	shown  map[TaskID]bool
 	listed map[TaskID][]Unit
 	rows   map[TaskID][]db.TasksUnit
 	nodes  map[role.NodeID]nodes.Named
 	count  int
 }
 
-func (s *Scheduler) look(ctx context.Context) (look, error) {
+// look reads every task's state. It lists the units of each task without
+// Shown and of detail, the task whose page is read.
+func (s *Scheduler) look(ctx context.Context, detail TaskID) (look, error) {
 	names, err := s.cfg.Roster.Names(ctx)
 	if err != nil {
 		return look{}, err
 	}
-	l := look{listed: map[TaskID][]Unit{}, rows: map[TaskID][]db.TasksUnit{}, nodes: names}
+	l := look{shown: map[TaskID]bool{}, listed: map[TaskID][]Unit{}, rows: map[TaskID][]db.TasksUnit{}, nodes: names}
 	for _, n := range names {
 		if !n.Removed {
 			l.count++
@@ -197,10 +202,7 @@ func (s *Scheduler) look(ctx context.Context) (look, error) {
 			return err
 		}
 		for _, t := range s.cfg.Catalog {
-			if l.listed[t.ID], err = t.Units(ctx, r); err != nil {
-				return fmt.Errorf("list %s's units: %w", t.ID, err)
-			}
-			if l.rows[t.ID], err = q.ListUnits(ctx, t.ID); err != nil {
+			if err := l.read(ctx, r, t, t.Shown == nil || t.ID == detail); err != nil {
 				return err
 			}
 		}
@@ -209,12 +211,28 @@ func (s *Scheduler) look(ctx context.Context) (look, error) {
 	return l, err
 }
 
+// read records whether t is shown and its unit rows, and its units when
+// list is set.
+func (l look) read(ctx context.Context, r storage.Reader[file], t Task, list bool) error {
+	var err error
+	if list {
+		if l.listed[t.ID], err = t.Units(ctx, r); err != nil {
+			return fmt.Errorf("list %s's units: %w", t.ID, err)
+		}
+	}
+	if l.shown[t.ID], err = shownIn(ctx, r, t, l.listed[t.ID]); err != nil {
+		return fmt.Errorf("ask whether %s is shown: %w", t.ID, err)
+	}
+	l.rows[t.ID], err = db.New(r).ListUnits(ctx, t.ID)
+	return err
+}
+
 func (l look) name(node role.NodeID) string { return l.nodes[node].Name }
 
 func (l look) removed(node role.NodeID) bool { return l.nodes[node].Removed }
 
 func (s *Scheduler) Overview(ctx context.Context) (Overview, error) {
-	l, err := s.look(ctx)
+	l, err := s.look(ctx, everyTask)
 	if err != nil {
 		return Overview{}, err
 	}
@@ -226,7 +244,7 @@ func (s *Scheduler) Overview(ctx context.Context) (Overview, error) {
 // Task is one shown task with its units and up to runs_kept of its runs,
 // or ErrUnknownTask.
 func (s *Scheduler) Task(ctx context.Context, id TaskID) (Detail, error) {
-	l, err := s.look(ctx)
+	l, err := s.look(ctx, id)
 	if err != nil {
 		return Detail{}, err
 	}
@@ -257,6 +275,10 @@ func (s *Scheduler) Task(ctx context.Context, id TaskID) (Detail, error) {
 		}
 		return err
 	})
+	if err != nil || d.View.Task.Tuning == nil {
+		return d, err
+	}
+	d.Tuning, err = d.View.Task.Tuning.Fields(ctx)
 	return d, err
 }
 
@@ -324,10 +346,10 @@ func (s *Scheduler) views(l look, now time.Time) []View {
 	}
 	var views []View
 	for _, t := range s.cfg.Catalog {
-		units := l.listed[t.ID]
-		if len(units) == 0 {
+		if !l.shown[t.ID] {
 			continue
 		}
+		units := l.listed[t.ID]
 		row := rows[t.ID]
 		v := View{Task: t, Every: row.EverySeconds, Overdue: row.Overdue, Global: k.overdue, Nodes: s.names(l, units)}
 		if run, ok := latest[t.ID]; ok {
@@ -354,6 +376,9 @@ func (s *Scheduler) status(l look, t Task, units []Unit, next time.Time) Status 
 		}
 	}
 	s.mu.Unlock()
+	if len(units) == 0 {
+		return Idle{Next: next}
+	}
 	for _, u := range units {
 		if u.Place.kind != tiedTo || s.reaches(u.Place.node) {
 			return Idle{Next: next}
@@ -449,7 +474,7 @@ func (s *Scheduler) overdueAfter(l look, v View) time.Duration {
 }
 
 func (s *Scheduler) Warnings(ctx context.Context) ([]Warning, error) {
-	l, err := s.look(ctx)
+	l, err := s.look(ctx, everyTask)
 	if err != nil {
 		return nil, err
 	}

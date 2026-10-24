@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -23,7 +25,14 @@ import (
 	"github.com/jatassi/slipstream/internal/tasks"
 )
 
-var home = role.NodeID{UUID: storage.NewUUID()}
+var home = role.NodeID{UUID: must(storage.ParseUUID("019a0000-0000-7000-8000-00000000000a"))}
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 type roster struct{}
 
@@ -537,6 +546,169 @@ func TestAPortableUnitRunsWhereItsHomeRoutesEachRun(t *testing.T) {
 			if !strings.Contains(lines[i], node.String()) {
 				t.Fatalf("run %d's line is %s, want it on %s", i+1, lines[i], node)
 			}
+		}
+	})
+}
+
+var works = setting.Noun{One: "Work", Many: "Works"}
+
+// refresh lists no units and is shown while shown is set.
+func refresh(shown *atomic.Bool) tasks.Task {
+	t := tidy(nil)
+	t.ID, t.Name, t.Noun = "refresh", "Refresh", works
+	t.Units = func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) { return nil, nil }
+	t.Shown = func(context.Context, storage.Reader[storage.Library]) (bool, error) { return shown.Load(), nil }
+	return t
+}
+
+func TestAShownTaskIsListedWithNoUnits(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		var shown atomic.Bool
+		s := open(t, lib, refresh(&shown))
+		clock(t, s)
+		if _, err := s.Task(t.Context(), "refresh"); !errors.Is(err, tasks.ErrUnknownTask) {
+			t.Fatalf("Task while Shown is false = %v, want ErrUnknownTask", err)
+		}
+		if _, err := s.RunNow(t.Context(), "refresh", admin); !errors.Is(err, tasks.ErrUnknownTask) {
+			t.Fatalf("Run now while Shown is false = %v, want ErrUnknownTask", err)
+		}
+
+		shown.Store(true)
+		o, err := s.Overview(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(o.Tasks) != 1 || o.Tasks[0].Task.ID != "refresh" {
+			t.Fatalf("the overview lists %+v, want refresh", o.Tasks)
+		}
+		if _, idle := o.Tasks[0].Status.(tasks.Idle); !idle {
+			t.Fatalf("refresh is %T, want Idle", o.Tasks[0].Status)
+		}
+		d, err := s.Task(t.Context(), "refresh")
+		if err != nil || len(d.Units) != 0 {
+			t.Fatalf("Task = %+v, %v, want refresh with no units", d, err)
+		}
+	})
+}
+
+func TestAShownTaskWithNoUnitsSucceedsWithZero(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		var shown atomic.Bool
+		shown.Store(true)
+		s := open(t, lib, refresh(&shown))
+		clock(t, s)
+		synctest.Wait()
+		if _, err := s.RunNow(t.Context(), "refresh", admin); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(9 * time.Hour)
+		synctest.Wait()
+		want := []string{"run-now|succeeded|0 Works|[]", "schedule|succeeded|0 Works|[]"}
+		if got := rows(t, lib, "SELECT kind, result, summary, units FROM tasks_run ORDER BY id"); !equal(got, want) {
+			t.Fatalf("runs = %q, want %q", got, want)
+		}
+	})
+}
+
+// TestPrepareRunsBeforeUnitsOutsideARead holds Prepare open: the run is
+// open and the clock still answers Run now. What Prepare writes is the
+// unit Units lists.
+func TestPrepareRunsBeforeUnitsOutsideARead(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, "CREATE TABLE learned (unit TEXT NOT NULL) STRICT")
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		release := make(chan struct{})
+		var mu sync.Mutex
+		var triggers []tasks.Trigger
+		prepared := tidy(nil)
+		prepared.ID = "prepared"
+		prepared.Shown = func(context.Context, storage.Reader[storage.Library]) (bool, error) { return true, nil }
+		prepared.Prepare = func(ctx context.Context, trigger tasks.Trigger) {
+			mu.Lock()
+			triggers = append(triggers, trigger)
+			mu.Unlock()
+			<-release
+			if err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+				_, err := tx.ExecContext(ctx, "INSERT INTO learned (unit) VALUES ('fresh')")
+				return err
+			}); err != nil {
+				t.Error(err)
+			}
+		}
+		prepared.Units = func(ctx context.Context, r storage.Reader[storage.Library]) ([]tasks.Unit, error) {
+			var key string
+			switch err := r.QueryRowContext(ctx, "SELECT unit FROM learned").Scan(&key); {
+			case errors.Is(err, sql.ErrNoRows):
+				return nil, nil
+			case err != nil:
+				return nil, fmt.Errorf("read what Prepare learned: %w", err)
+			}
+			return []tasks.Unit{{Key: tasks.UnitKey(key), Label: key, Place: tasks.OnController()}}, nil
+		}
+		quick := make(chan struct{})
+		close(quick)
+		s := open(t, lib, prepared, tidy(quick))
+		clock(t, s)
+		synctest.Wait()
+
+		if _, err := s.RunNow(t.Context(), "prepared", admin); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if got := rows(t, lib, "SELECT task_id, result FROM tasks_run WHERE task_id = 'prepared'"); !equal(got, []string{"prepared|NULL"}) {
+			t.Fatalf("while Prepare runs the runs are %q, want the prepared run open", got)
+		}
+		if _, err := s.RunNow(t.Context(), "tidy", admin); err != nil {
+			t.Fatalf("Run now while Prepare runs = %v, want the clock free", err)
+		}
+		synctest.Wait()
+		close(release)
+		synctest.Wait()
+		want := []string{"prepared|succeeded|1 step|fresh", "tidy|succeeded|3 steps|a"}
+		if got := rows(t, lib, "SELECT task_id, result, summary, json_extract(units, '$[0].key') FROM tasks_run ORDER BY task_id"); !equal(got, want) {
+			t.Fatalf("runs = %q, want %q", got, want)
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if !slices.Equal(triggers, []tasks.Trigger{tasks.ByRunNow}) {
+			t.Fatalf("Prepare saw %q, want one run-now", triggers)
+		}
+	})
+}
+
+func TestRunNowIgnoresTheSpread(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		nightly := tidy(nil)
+		nightly.Cadence = tasks.InWindow{
+			Days:   setting.Duration{Key: "tasks.tidy.cadence", Label: "Tidy", Default: 24 * time.Hour, Min: 24 * time.Hour, Max: 7 * 24 * time.Hour, Step: 24 * time.Hour},
+			Spread: 30 * time.Minute,
+		}
+		nightly.Run = func(context.Context, tasks.Unit, *tasks.Progress) error { return nil }
+		s := open(t, lib, nightly)
+		clock(t, s)
+		time.Sleep(4 * time.Hour)
+		synctest.Wait()
+		if _, err := s.RunNow(t.Context(), "tidy", admin); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(30 * time.Minute)
+		synctest.Wait()
+		opening := time.Date(2000, 1, 1, 4, 0, 0, 0, time.UTC).UnixMicro()
+		got := rows(t, lib, fmt.Sprintf("SELECT kind, (started_at - %d) / 1000000 FROM tasks_run ORDER BY id", opening))
+		var offset int
+		if len(got) != 2 || got[0] != "run-now|0" || !strings.HasPrefix(got[1], "schedule|") {
+			t.Fatalf("runs = %q, want Run now at the window's opening, then the scheduled run", got)
+		}
+		if _, err := fmt.Sscanf(got[1], "schedule|%d", &offset); err != nil || offset <= 0 || offset >= 30*60 {
+			t.Fatalf("the scheduled run started %q seconds after the opening, want inside its first 30 minutes", got[1])
 		}
 	})
 }

@@ -5,9 +5,11 @@ An Admin searches the metadata catalog from the Library's `Add` menu and adds a 
 ## Sub-features
 
 - `add-search` a title search lists catalog matches from the Fake world's TMDB with year and an `Add` button, from the `home` Scenario's catalog (P-256).
+- `add-search-year` the API's search for `quiet orchard 2021` reads the title before the year filtered to 2021, then the whole query, and answers The Quiet Orchard once, with `original` and `overview` empty because the `home` record has none (P-054).
+- `add-preview` the API's `GET /api/v1/content-types/movie/catalog/9000001` answers `inLibrary` false and the tree adding would make, with every field `add-work-page` lists and the Item unmonitored; `GET /api/v1/works` still lists nothing, and fake-omdb sees no connection (P-054). Once added, the same call answers `inLibrary` true and the stored Work's id.
 - `add-no-match` a search with no match reads `Nothing matches “<query>”.`
 - `add-work` `Add The Quiet Orchard` opens the add sheet, whose `Profile` reads `Movies (default)`, and its `Add Movie` creates the Work and opens its Work page.
-- `add-work-page` the Work page shows Year `2021`, Released `2021-04-16`, Runtime `1h 44m` and the table `Any cut cells` with the starter `1080p` Target reading `Missing` (P-259).
+- `add-work-page` the Work page shows the movie's record from fake-tmdb: English title and Original title `The Quiet Orchard`, Original language `en`, Year `2021`, Release date `2021-04-16`, Runtime `1h 44m`, Status `Released` and IMDb id `tt9000001`, and the table `Any cut cells` with the starter `1080p` Target reading `Missing` (P-259). `GET /api/v1/works/{id}` carries the same fields, and no ratings: `home`'s fake-omdb knows no title and its fake-tmdb lists no votes.
 - `add-open-existing` a Work already in the library is a link, `The Quiet Orchard 2021 In the library`, in place of `Add`, and opens its Work page.
 
 ## How to get to it (user POV)
@@ -16,7 +18,7 @@ An Admin searches the metadata catalog from the Library's `Add` menu and adds a 
 - Phone shell: on the `Library` tab, `Add` beside the large title opens the action sheet `Add a Work` with `Add a Movie`.
 - Both shells: the palette's `Add a Movie` (Ctrl+K or ⌘K on desktop, the `Search` tab on phone).
 - Both shells: `/add?contentType=movie&query=<title>` runs the search directly. The Library at `/library` (`/` redirects there) lists the added Work.
-- API: `GET /api/v1/content-types/{contentType}/catalog?query=`, `POST /api/v1/works`, `GET /api/v1/works`.
+- API: `GET /api/v1/content-types/{contentType}/catalog?query=`, `GET /api/v1/content-types/{contentType}/catalog/{key}` (preview), `POST /api/v1/works`, `GET /api/v1/works`. Search and preview have no screen yet.
 
 ## Driving it with fakeworld and playwright cli
 
@@ -34,6 +36,14 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("searchbox", { name: "Title" })' "quiet orchard"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN --proof add-a-movie/add-search -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-search/results.aria.yml
+  ```
+
+- **Search with a year and preview, by API.** On a fresh run, search with a trailing year, preview the record, and list the Works. The search answers The Quiet Orchard once; the preview answers `"inLibrary":false` with the record's fields; the list is `{"works":[]}`. `events.jsonl` holds no front open to the `omdb` fake up to here.
+
+  ```sh
+  $FW exec $RUN --proof add-a-movie/add-search-year -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=quiet+orchard+2021'
+  $FW exec $RUN --proof add-a-movie/add-preview -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
+  $FW exec $RUN --proof add-a-movie/add-preview -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works'
   ```
 
 - **No match.** Go to `/add?contentType=movie&query=volcano`. The page reads `Nothing matches “volcano”.`
@@ -66,4 +76,5 @@ Steps:
 - The Add page's search button and the Work page's search button are both named `Search`; the first searches the catalog, the second the Indexers. The top bar's capsule `Search Works or run a command` matches `Search` too. Scope the catalog's to `getByRole("main")` with `exact: true`; on desktop the Work page's sits in `getByRole("banner")` as the page's action.
 - `/add` needs `contentType`: without it, or with a type that isn't enabled, the page reads `There's nothing at this address.`
 - `home`'s catalog holds one movie, The Quiet Orchard (2021). Other titles find nothing.
+- fake-tmdb matches a query as a substring of a title, so the whole query `quiet orchard 2021` finds nothing there; only the year-filtered read finds the movie.
 - Adding a Work is permanent for the run: a recipe that needs an empty library wants a fresh run.

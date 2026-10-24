@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import { isPhone } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 
 // A phone shell's Menu is a sheet of buttons.
 export const menuItem = (page: Page, menu: string, name: string) =>
@@ -32,7 +33,7 @@ export async function upTo(page: Page, parent: string): Promise<void> {
 export async function newFolder(page: Page, name: string): Promise<void> {
   if (isPhone(page)) {
     await browser(page).getByRole("button", { name: "Folder actions" }).click();
-    await menuItem(page, "Folder actions", "New folder").click();
+    await clickWhenStill(menuItem(page, "Folder actions", "New folder"));
   } else {
     await browser(page).getByRole("button", { name: "New folder" }).click();
   }

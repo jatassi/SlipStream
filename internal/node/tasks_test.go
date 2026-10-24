@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/housekeeping"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/tasks"
 )
 
 func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 	seen := map[tasks.TaskID]bool{}
 	var window []tasks.TaskID
-	for _, task := range catalog(housekeeping.Config{}) {
+	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}) {
 		if seen[task.ID] {
 			t.Fatalf("the catalog lists %q twice", task.ID)
 		}
@@ -23,7 +24,7 @@ func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 			window = append(window, task.ID)
 		}
 	}
-	if want := []tasks.TaskID{"housekeeping"}; !slices.Equal(window, want) {
+	if want := []tasks.TaskID{"metadata-refresh", "housekeeping"}; !slices.Equal(window, want) {
 		t.Fatalf("window order %q, want %q", window, want)
 	}
 }

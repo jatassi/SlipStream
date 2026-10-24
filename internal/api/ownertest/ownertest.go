@@ -22,10 +22,11 @@ import (
 )
 
 // Owner is one owner's operations served on a claimed Controller, called
-// with its Admin's API key.
+// with its Admin's API key or signed-in session.
 type Owner struct {
 	handler http.Handler
 	apiKey  string
+	session *http.Cookie
 	Log     *bytes.Buffer
 }
 
@@ -65,19 +66,32 @@ func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Rout
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	routes(r)
-	return &Owner{handler: r.Handler(), apiKey: admin.APIKey.Reveal(), Log: logged}
+	return &Owner{handler: r.Handler(), apiKey: admin.APIKey.Reveal(), session: admin.Cookie, Log: logged}
 }
 
 func (o *Owner) Call(t *testing.T, method, path, body string) (status int, reply string) {
 	t.Helper()
+	w := o.serve(t, method, path, body, func(r *http.Request) { r.Header.Set("X-Api-Key", o.apiKey) })
+	return w.Code, w.Body.String()
+}
+
+// Browse GETs path as the Admin's signed-in browser does, answering the
+// whole response.
+func (o *Owner) Browse(t *testing.T, path string) *http.Response {
+	t.Helper()
+	return o.serve(t, http.MethodGet, path, "", func(r *http.Request) { r.AddCookie(o.session) }).Result()
+}
+
+func (o *Owner) serve(t *testing.T, method, path, body string, as func(*http.Request)) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
-	req.Header.Set("X-Api-Key", o.apiKey)
+	as(req)
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	w := httptest.NewRecorder()
 	o.handler.ServeHTTP(w, req)
-	return w.Code, w.Body.String()
+	return w
 }
 
 // Expect calls and compares the reply, masked, to want.
