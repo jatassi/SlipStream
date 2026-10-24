@@ -35,6 +35,9 @@ type VolumeSource struct {
 	// are recorded; an error wrapping ErrUnreachable is a Node away.
 	Sample func(ctx context.Context, node role.NodeID) error
 	Events []live.Event
+	// Remedy is what else frees a full volume of this holder's, finishing
+	// "Free up space on it, or ...".
+	Remedy string
 }
 
 // Volume is one volume as a holder last recorded it.
