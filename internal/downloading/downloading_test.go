@@ -291,7 +291,11 @@ var listen = netip.MustParseAddrPort("0.0.0.0:6881")
 
 const volumeTotal = 1 << 40
 
-func (n *node) volume(context.Context, string) (storing.Volume, error) {
+// volume reads path itself, as statfs does, so a missing folder has none.
+func (n *node) volume(_ context.Context, path string) (storing.Volume, error) {
+	if _, err := os.Stat(path); err != nil {
+		return storing.Volume{}, err
+	}
 	return storing.Volume{Mount: "/data", Name: "/data", Total: volumeTotal, Free: n.free.Load(), SampledAt: time.Now()}, nil
 }
 

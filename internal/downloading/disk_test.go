@@ -1,6 +1,7 @@
 package downloading_test
 
 import (
+	"path/filepath"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -44,6 +45,21 @@ func TestTheClientSamplesItsDownloadsVolumeAtStoragesCadence(t *testing.T) {
 		c.send(faster)
 		if got := c.h.lastFacts().GetDownloads().GetFree(); got != 300*gb {
 			t.Errorf("a new cadence sampled %d bytes free, want a sample at once", got)
+		}
+	})
+}
+
+func TestAClientWhoseDownloadsFolderIsMissingStillSamplesItsVolume(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		n.dir = filepath.Join(n.dir, "downloads")
+		n.free.Store(500 * gb)
+		c := n.start()
+		in := live()
+		in.Intent.SampleEverySeconds = 300
+		c.send(in)
+		if v := c.h.lastFacts().GetDownloads(); v.GetFree() != 500*gb {
+			t.Fatalf("the facts carry %v before any torrent made the downloads folder, want its volume with 500 GB free", v)
 		}
 	})
 }
