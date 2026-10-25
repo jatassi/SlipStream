@@ -41,8 +41,8 @@ export function verdictWords(verdict: Verdict, node: string): VerdictWords {
   switch (verdict.kind) {
     case "offline":
       return {
-        sentence: `${node} is offline, so its client can't say how it is doing.`,
-        hint: "Its settings reach it when it is back.",
+        sentence: `${node} is offline, so its client's status is unknown.`,
+        hint: "Changed settings apply when it reconnects.",
       };
     case "unreported":
       return { sentence: `${node}'s client hasn't reported yet.` };
@@ -54,7 +54,7 @@ export function verdictWords(verdict: Verdict, node: string): VerdictWords {
           verdict.reason === undefined
             ? `Not listening on ${verdict.listen} yet.`
             : `Can't listen on ${verdict.listen}: ${verdict.reason}.`,
-        hint: "No peer can connect in until it listens. If another program holds the port, choose another one or free it, then restart.",
+        hint: "No peer can connect to it until it listens. If another program is using the port, choose another one or free it, then restart.",
       };
     case "reachable":
       return {
@@ -64,8 +64,8 @@ export function verdictWords(verdict: Verdict, node: string): VerdictWords {
       };
     case "unproven":
       return {
-        sentence: `Listening on ${verdict.bound}. No peer from the internet has connected in yet, so port ${portOf(verdict.bound)} is unproven.`,
-        hint: `If it stays unproven, check that your router forwards port ${portOf(verdict.bound)} to this computer. Downloads still work, from fewer peers.`,
+        sentence: `Listening on ${verdict.bound}. No peer from the internet has connected to port ${portOf(verdict.bound)} yet, so it may not be reachable.`,
+        hint: `If no peer connects, check that your router forwards port ${portOf(verdict.bound)} to this computer. Downloads still work, but with fewer peers.`,
       };
     default:
       return verdict satisfies never;

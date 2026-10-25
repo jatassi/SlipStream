@@ -54,7 +54,7 @@ func TestABindFailureIsAHealthError(t *testing.T) {
 	}
 	it := a.Items[0]
 	if it.Level != health.Fail || it.Subject != "Torrent client on seedbox" ||
-		!strings.HasPrefix(it.Text, "The torrent client on seedbox can't listen on 0.0.0.0:6881, so no peer can connect in.") {
+		!strings.HasPrefix(it.Text, "The torrent client on seedbox can't listen on 0.0.0.0:6881, and no peer can connect to it until it does.") {
 		t.Errorf("seedbox's item = %+v, want an error that leads with why no peer connects in", it)
 	}
 	if it.Action.Kind() != health.ActionLink || it.Action.Href() != "/nodes/"+seedbox.String()+"/torrent-client" {
@@ -157,7 +157,7 @@ func TestTheDiskGuardItemNamesAPercentLevelInBytes(t *testing.T) {
 	g.sample(12*setting.GB, time.Now())
 	it, ok := itemFor(answer(t, g.c), g.node)
 	want := "New downloads on seedbox wait for disk space. /data has 12 GB left, below its error level of 500 GB. " +
-		"Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on."
+		"Free up space there, or move the downloads folder to a volume with more room. Downloads already running continue."
 	if !ok || it.Text != want {
 		t.Fatalf("seedbox's item says %q (found %v), want %q", it.Text, ok, want)
 	}

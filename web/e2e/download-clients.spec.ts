@@ -23,14 +23,14 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
   const card = page.getByRole("article", { name: "Built-in client on home" });
   await expect(
     card.getByText(
-      /^Listening on 127\.0\.0\.\d+:(\d+)\. No peer from the internet has connected in yet, so port \1 is unproven\.$/u,
+      /^Listening on 127\.0\.0\.\d+:(\d+)\. No peer from the internet has connected to port \1 yet, so it may not be reachable\.$/u,
     ),
   ).toBeVisible();
   await expect(card.getByText(/^0 torrents, 0 bytes uploaded/u)).toBeVisible();
   await card.getByRole("button", { name: "Details" }).click();
   await expect(card.getByText(/^-LT\w{4}-$/u)).toBeVisible();
   await expect(card.getByText(/^libtorrent\/\d+\.\d+\.\d+/u)).toBeVisible();
-  await expect(card.getByText("Goes away when this Node stops downloading.")).toBeVisible();
+  await expect(card.getByText(/^This card is removed once this Node stops/u)).toBeVisible();
   await expect(card.getByRole("button", { name: /remove/iu })).toHaveCount(0);
 
   await page.getByRole("textbox", { name: "Unregistered twice, this far apart" }).fill("45");

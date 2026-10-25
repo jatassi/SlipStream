@@ -136,7 +136,7 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "an import names the Work it is finishing",
     { code: "importing", workId: batman },
     "remove",
-    "Finishing the import of The Batman, try again after.",
+    "SlipStream is finishing the import of The Batman. Try again once it's done.",
   ],
   [
     "a tracker's window says when it accepts",
@@ -148,7 +148,7 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "an offline Node says it waits",
     { code: "offline" },
     "recheck",
-    "The Node holding The Quiet Orchard is offline, so it can't recheck until it is back.",
+    "The Node holding The Quiet Orchard is offline. Try again once it's back online.",
   ],
   [
     "a torrent its Node no longer holds",
@@ -166,7 +166,7 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "a failed torrent can only go",
     { code: "failed" },
     "recheck",
-    "The torrent client failed The Quiet Orchard, so it can't recheck. Remove it instead.",
+    "The Quiet Orchard failed in the torrent client and can't recheck. Remove it instead.",
   ],
   [
     "a stall that cleared stays",

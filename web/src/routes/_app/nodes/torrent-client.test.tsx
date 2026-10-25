@@ -24,7 +24,7 @@ test("Torrent client leads with the port verdict, then its restart rows and live
   await expect
     .element(
       page.getByText(
-        "Listening on 192.168.1.20:6881. No peer from the internet has connected in yet, so port 6881 is unproven.",
+        "Listening on 192.168.1.20:6881. No peer from the internet has connected to port 6881 yet, so it may not be reachable.",
       ),
     )
     .toBeVisible();
@@ -37,7 +37,7 @@ test("Torrent client leads with the port verdict, then its restart rows and live
   await expect
     .element(
       page.getByText(
-        "0.0.0.0 or [::] listens on the address this computer reaches the internet from.",
+        "With 0.0.0.0 or [::], the client listens on the address this computer reaches the internet from.",
       ),
     )
     .toBeVisible();
@@ -118,7 +118,7 @@ test("an offline Node keeps its live limits and says its restart rows wait for i
   await expect
     .element(
       page.getByText(
-        "seedbox is offline. Its listen address and downloads folder come back when it reconnects.",
+        "seedbox is offline. Its listen address and downloads folder show here when it reconnects.",
       ),
     )
     .toBeVisible();

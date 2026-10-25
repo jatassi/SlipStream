@@ -72,7 +72,7 @@ test("Torrents leads with its sentence and problems, then the downloads by defau
   await expect
     .element(page.getByRole("region", { name: "Needs you" }))
     .toMatchTextContent(
-      "UnregisteredGone.Release.2020.1080pUnregistered by beacon.example: the tracker no longer knows the torrent.",
+      "UnregisteredGone.Release.2020.1080pbeacon.example reports that the torrent is no longer registered.",
     );
 
   await expect.element(tabs().getByRole("radio", { name: "Downloading 1" })).toBeChecked();

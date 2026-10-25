@@ -11,9 +11,9 @@ export interface DownloadclientsClientFacts {
   listenError?: string;
   /** The peer ID prefix it announces, which a tracker's allow list names */
   peerIdPrefix: string;
-  /** reachable once a peer from the internet connected in to where it listens now */
+  /** reachable once a peer from the internet has connected to the address it listens on now */
   reach: DownloadclientsClientFactsReach;
-  /** When the first such peer connected in */
+  /** When the first such peer connected */
   reachedAt?: string;
   /** The user agent it announces */
   userAgent: string;

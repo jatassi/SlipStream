@@ -74,7 +74,7 @@ type Action struct {
 }
 
 // ErrNoPreview is a dry run of an action that has nothing to preview.
-var ErrNoPreview = errors.New("only remove, mark-failed and recheck preview what they would do")
+var ErrNoPreview = errors.New("only remove, mark-failed and recheck can be previewed")
 
 // Result is the action's outcome for one Torrent: done, or refused.
 type Result struct {

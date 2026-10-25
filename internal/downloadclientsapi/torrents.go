@@ -19,14 +19,14 @@ import (
 
 var (
 	torrentNotFound = api.NewCode(http.StatusNotFound, "torrent_not_found", "No Torrent has this id")
-	noPreview       = api.NewCode(http.StatusBadRequest, "no_preview", "Only remove, mark failed and recheck can say what they would do")
+	noPreview       = api.NewCode(http.StatusBadRequest, "no_preview", "Only remove, mark failed and recheck can be previewed")
 )
 
 // TorrentRow is one Torrent as the Torrents view lists it.
 type TorrentRow struct {
 	ID          string       `json:"id" format:"uuid"`
 	NodeID      string       `json:"nodeId" format:"uuid"`
-	Name        string       `json:"name" doc:"The release's name in its metainfo, which a Torrent whose Work was deleted reads by"`
+	Name        string       `json:"name" doc:"The release's name in its metainfo, shown for a Torrent whose Work was deleted"`
 	ContentType string       `json:"contentType" doc:"The Content Type it was first grabbed for"`
 	WorkID      *string      `json:"workId,omitempty" format:"uuid" doc:"Its newest Grab's Work, absent once no Grab is left"`
 	Edition     string       `json:"edition,omitempty" doc:"Its newest Grab's Edition"`
@@ -37,15 +37,15 @@ type TorrentRow struct {
 	InLine      int          `json:"queuePosition,omitempty" minimum:"0" doc:"Its place, from 1, among its Node's downloads waiting for a slot"`
 	Severity    string       `json:"severity" enum:"none,warning,failure"`
 	Tabs        []string     `json:"tabs" enum:"downloading,seeding,problems,all" nullable:"false" doc:"The Torrents view's tabs it shows under"`
-	Pending     string       `json:"pending,omitempty" enum:"pause,resume" doc:"An Admin's pause or resume its Node has yet to act on"`
+	Pending     string       `json:"pending,omitempty" enum:"pause,resume" doc:"An Admin's pause or resume its Node hasn't applied yet"`
 	Size        int64        `json:"size" minimum:"0" doc:"Bytes wanted"`
 	Done        int64        `json:"done" minimum:"0" doc:"Bytes done as its Node last reported them; torrents.live carries the live figure"`
 	Uploaded    int64        `json:"uploaded" minimum:"0" doc:"All-time bytes uploaded"`
 	Ratio       float64      `json:"ratio" minimum:"0" doc:"Uploaded over the larger of downloaded and size"`
 	Seeding     int64        `json:"seedingSeconds" minimum:"0" doc:"All-time seconds seeded"`
 	Tracker     *trackerCell `json:"tracker,omitempty" doc:"Absent when its metainfo names no tracker"`
-	Error       string       `json:"error,omitempty" doc:"The engine's words for why it failed it"`
-	Fault       *fault       `json:"fault,omitempty" doc:"Why the release itself looks bad, once it does"`
+	Error       string       `json:"error,omitempty" doc:"The engine's error message for the failure"`
+	Fault       *fault       `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
 	LastKnown   *time.Time   `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the Node is out of step"`
 	AddedAt     time.Time    `json:"addedAt"`
 }
@@ -60,14 +60,14 @@ type trackerCell struct {
 type fault struct {
 	Kind     string    `json:"kind" enum:"engine_error,unregistered,no_payload"`
 	At       time.Time `json:"at"`
-	Sentence string    `json:"sentence" doc:"Why the release looks bad, in plain words"`
+	Sentence string    `json:"sentence" doc:"The fault, as a sentence"`
 }
 
 // faultWords is why each fault makes a release look bad.
 var faultWords = map[downloadclients.FaultKind]string{
-	downloadclients.FaultEngineError:  "The release looks bad: the torrent client hit an error in its data.",
-	downloadclients.FaultUnregistered: "The release looks bad: its tracker says the torrent is no longer registered.",
-	downloadclients.FaultNoPayload:    "The release looks bad: no data at all arrived in the time it was downloading.",
+	downloadclients.FaultEngineError:  "The torrent client found an error in the release's data.",
+	downloadclients.FaultUnregistered: "The release's tracker reports that the torrent is no longer registered.",
+	downloadclients.FaultNoPayload:    "No data arrived at any point while it was downloading.",
 }
 
 var (
@@ -229,7 +229,7 @@ type TorrentDetail struct {
 	Trackers   []trackerDetail `json:"trackers" nullable:"false" doc:"In its metainfo's order"`
 	Files      []fileDetail    `json:"files" nullable:"false" doc:"In its metainfo's order"`
 	Grabs      []torrentGrab   `json:"grabs" nullable:"false" doc:"The Grabs that used it, newest first"`
-	Live       bool            `json:"live" doc:"Its Node answered now, so trackers and files are live rather than its last report"`
+	Live       bool            `json:"live" doc:"Its Node responded, so trackers and files are live. Otherwise they are from its last report"`
 	AnnounceAt *time.Time      `json:"announceAt,omitempty" doc:"The earliest every tracker accepts an announce, set while live"`
 }
 
@@ -239,7 +239,7 @@ type trackerDetail struct {
 	Status       string     `json:"status" enum:"working,updating,error,unregistered,not_contacted"`
 	Message      string     `json:"message,omitempty" doc:"The tracker's failure reason or warning, verbatim"`
 	RetryAt      *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing tracker again, from the last report"`
-	AnsweredAt   *time.Time `json:"answeredAt,omitempty" doc:"Its last answer, set while live"`
+	AnsweredAt   *time.Time `json:"answeredAt,omitempty" doc:"When it last responded, set while live"`
 	NextAnnounce *time.Time `json:"nextAnnounce,omitempty" doc:"When its next announce is due, set while live"`
 	MinInterval  int64      `json:"minIntervalSeconds,omitempty" minimum:"0" doc:"Its min interval as the announce policy holds to it, set while live"`
 	AcceptsAt    *time.Time `json:"acceptsAt,omitempty" doc:"The earliest it accepts an announce, set while live"`
@@ -313,7 +313,7 @@ type actInput struct {
 		Action      string   `json:"action" enum:"pause,resume,announce,recheck,mark-failed,remove"`
 		IDs         []string `json:"ids" format:"uuid" minItems:"1" nullable:"false"`
 		DeleteFiles bool     `json:"deleteFiles,omitempty" doc:"remove: also delete each download copy"`
-		DryRun      bool     `json:"dryRun,omitempty" doc:"remove, mark-failed and recheck: say what it would do and change nothing"`
+		DryRun      bool     `json:"dryRun,omitempty" doc:"remove, mark-failed and recheck: return what it would do and change nothing"`
 	}
 }
 
@@ -337,7 +337,7 @@ type refusal struct {
 type preview struct {
 	Cancels     []canceled `json:"cancels" nullable:"false" doc:"The Grabs at downloading that a remove fails"`
 	StopSeeding []string   `json:"stopSeeding" format:"uuid" nullable:"false" doc:"The Works whose complete Torrents stop seeding"`
-	Frees       *int64     `json:"frees" minimum:"0" doc:"Bytes deleting the download copies frees, null while a Node can't say"`
+	Frees       *int64     `json:"frees" minimum:"0" doc:"Bytes deleting the download copies frees, null while a Node can't report it"`
 	Linked      bool       `json:"linked" doc:"Some file is also a library file, as a recheck reads it"`
 }
 

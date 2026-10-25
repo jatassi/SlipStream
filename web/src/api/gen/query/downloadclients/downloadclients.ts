@@ -803,7 +803,7 @@ export const getActOnTorrentsUrl = () => {
 };
 
 /**
- * @summary Pause, resume, announce, recheck, mark failed or remove Torrents, answering for each
+ * @summary Pause, resume, announce, recheck, mark failed or remove Torrents, and return the result for each
  */
 export const actOnTorrents = async (
   actInputBody: ActInputBody,
@@ -894,7 +894,7 @@ export type ActOnTorrentsMutationError = ErrorType<
 export type ActOnTorrentsMutationVariables = { data: ActInputBody };
 
 /**
- * @summary Pause, resume, announce, recheck, mark failed or remove Torrents, answering for each
+ * @summary Pause, resume, announce, recheck, mark failed or remove Torrents, and return the result for each
  */
 export const useActOnTorrents = <
   TError = ErrorType<
@@ -930,7 +930,7 @@ export const getGetTorrentUrl = (id: string) => {
 };
 
 /**
- * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while it answers
+ * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds
  */
 export const getTorrent = async (
   id: string,
@@ -1021,7 +1021,7 @@ export function useGetTorrentSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while it answers
+ * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds
  */
 
 export function useGetTorrentSuspense<

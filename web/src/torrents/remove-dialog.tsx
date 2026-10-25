@@ -71,7 +71,7 @@ export function RemoveDialog({
           ? "Files in your library stay."
           : `It is removed and its download copy deleted${frees}. Files in your library stay.`}
       </p>
-      {preview.isPending && <Spinner label="Checking what this takes with it" />}
+      {preview.isPending && <Spinner label="Checking what this changes" />}
       {preview.isError && <p className="text-fail-ink">{sentenceOf(preview.error)}</p>}
       {preview.data !== undefined && (
         <Preview parting={parting} acted={preview.data} subjects={subjects} work={work} />

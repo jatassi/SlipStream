@@ -90,7 +90,7 @@ function heldLine(row: Row, { node, clock }: Place): string {
         ? "Waiting for its tracker"
         : `Resumes at ${sinceWords(row.until, clock)}`;
     case "disk_full":
-      return "Disk full, carries on once there is space";
+      return "Disk full, resumes once there is space";
     case "slot":
       return row.queuePosition === undefined
         ? "Waiting for a slot"
@@ -100,7 +100,7 @@ function heldLine(row: Row, { node, clock }: Place): string {
     case "disk_guard":
       return `Waiting for disk space on ${node}`;
     case "draining":
-      return `Waiting, ${node} is draining`;
+      return `Waiting because ${node} is draining`;
     case "controller":
       return "Waiting for the Controller";
     case "wanted":
@@ -154,7 +154,7 @@ export function trackerLine(
   }
   const host = cell.host === "" ? "Its tracker" : cell.host;
   const retry =
-    cell.retryAt === undefined ? "" : `, trying again at ${sinceWords(cell.retryAt, clock)}`;
+    cell.retryAt === undefined ? "" : `, retrying at ${sinceWords(cell.retryAt, clock)}`;
   switch (cell.status) {
     case "working":
       return { host, status: "Working" };
@@ -167,7 +167,7 @@ export function trackerLine(
     case "error":
       return {
         host,
-        status: `${cell.message === undefined ? "Not answering" : `Said: ${cell.message}`}${retry}`,
+        status: `${cell.message === undefined ? "Not responding" : `Error: ${cell.message}`}${retry}`,
       };
     default:
       return cell.status satisfies never;

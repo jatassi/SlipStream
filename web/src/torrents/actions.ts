@@ -103,18 +103,18 @@ const refusalWords: {
       ? `${names[0]} is already being removed.`
       : `${torrents(names.length)} are already being removed.`,
   importing: ({ names, refusal }, { work }) =>
-    `Finishing the import of ${(refusal.workId === undefined ? undefined : work(refusal.workId)) ?? names[0]}, try again after.`,
+    `SlipStream is finishing the import of ${(refusal.workId === undefined ? undefined : work(refusal.workId)) ?? names[0]}. Try again once it's done.`,
   not_stalled: ({ names }) =>
     `${names.join(", ")} ${names.length === 1 ? "is" : "are"} moving again, so nothing was marked failed.`,
-  offline: ({ names }, { action }) =>
-    `The Node holding ${names.join(", ")} is offline, so it can't ${verbs[action]} until it is back.`,
+  offline: ({ names }) =>
+    `The Node holding ${names.join(", ")} is offline. Try again once it's back online.`,
   window: ({ names, refusal }, { clock }) =>
     refusal.acceptsAt === undefined
       ? `A tracker of ${names.join(", ")} would reject an announce now.`
       : `A tracker of ${names.join(", ")} would reject an announce until ${sinceWords(refusal.acceptsAt, clock)}.`,
   not_running: ({ names }) => `${names.join(", ")} isn't running, so it has nothing to announce.`,
   failed: ({ names }, { action }) =>
-    `The torrent client failed ${names.join(", ")}, so it can't ${verbs[action]}. Remove it instead.`,
+    `${names.join(", ")} failed in the torrent client and can't ${verbs[action]}. Remove it instead.`,
 };
 
 // Refusals that say the same thing for every Torrent they hold group into one sentence.

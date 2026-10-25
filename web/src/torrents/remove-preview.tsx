@@ -77,7 +77,7 @@ export function SpaceNote({ acted }: { acted: DownloadclientsActed | undefined }
   if (preview.frees === null) {
     return (
       <p className="text-meta text-ink-3">
-        {"Its Node can't say how much space that frees right now."}
+        {"The space this frees is unknown because its Node didn't respond."}
       </p>
     );
   }

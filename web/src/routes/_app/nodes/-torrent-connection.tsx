@@ -47,13 +47,13 @@ export function TorrentConnection({ node, online }: { node: NodesNode; online: b
         <div className="flex flex-col gap-3">
           <PendingRestart node={node} />
           <NodeSettings nodeId={node.id} section="torrent" />
-          <Details summary="0.0.0.0 or [::] listens on the address this computer reaches the internet from.">
+          <Details summary="With 0.0.0.0 or [::], the client listens on the address this computer reaches the internet from.">
             <p className="mt-1 text-pretty">{adapterNote}</p>
           </Details>
         </div>
       ) : (
         <Empty>
-          {node.name} is offline. Its listen address and downloads folder come back when it
+          {node.name} is offline. Its listen address and downloads folder show here when it
           reconnects.
         </Empty>
       )}

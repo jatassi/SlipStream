@@ -53,7 +53,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a pause its Node hasn't taken",
     { state: "downloading", pending: "pause" },
     sample,
-    "Pausing. It stops downloading and seeding once seedbox takes the pause.",
+    "Pausing. It stops downloading and seeding once seedbox applies the pause.",
   ],
   [
     "a pause on an offline Node waits for it",
@@ -77,7 +77,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a full disk",
     { state: "paused", hold: "disk_full" },
     undefined,
-    "Paused, because seedbox ran out of disk space. It carries on once there is space.",
+    "Paused because seedbox ran out of disk space. It resumes once there is space.",
   ],
   [
     "a recheck that resumes after",
@@ -89,19 +89,19 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a stall offers the way out",
     { state: "stalled" },
     undefined,
-    "Stalled. No data has arrived for a while, so it gave up its download slot. Mark it failed to give up on this release.",
+    "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this release, mark it failed.",
   ],
   [
     "the engine's words for a failure",
     { state: "failed", error: "no space left on device" },
     undefined,
-    "The torrent client stopped it, saying no space left on device. Remove it, then search for another release.",
+    'The torrent client stopped it with the error "no space left on device". Remove it, then search for another release.',
   ],
   [
     "an unregistered torrent",
     { state: "tracker-error", tracker: { host: "beacon.example", status: "unregistered" } },
     undefined,
-    "beacon.example no longer knows this torrent, so no peers come from it. Remove it, then search for another release.",
+    "beacon.example reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another release.",
   ],
   [
     "a tracker's own words and its retry",
@@ -115,13 +115,13 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
       },
     },
     undefined,
-    'beacon.example said "too many requests", so no peers come from it. It tries again at 12:30.',
+    'beacon.example responded with "too many requests", so no peers come from it. SlipStream retries at 12:30.',
   ],
   [
     "a remove waits for its Node",
     { state: "removing" },
     undefined,
-    "Removing. It is gone once seedbox confirms.",
+    "Removing. Waiting for seedbox to confirm.",
   ],
 ])("%s", (_, shape, live, sentence) => {
   expect(inspectorSentence(torrent(shape), live, place)).toBe(sentence);

@@ -30,7 +30,12 @@ test.each<
   ],
   ["waiting to check", { state: "queued", hold: "check_slot" }, false, "Waiting to check"],
   ["not yet reported", { state: "queued" }, false, "Waiting for seedbox"],
-  ["a draining Node", { state: "queued", hold: "draining" }, false, "Waiting, seedbox is draining"],
+  [
+    "a draining Node",
+    { state: "queued", hold: "draining" },
+    false,
+    "Waiting because seedbox is draining",
+  ],
   ["the Controller", { state: "queued", hold: "controller" }, false, "Waiting for the Controller"],
   [
     "the disk guard",
@@ -48,7 +53,7 @@ test.each<
     "a full disk",
     { state: "paused", hold: "disk_full" },
     false,
-    "Disk full, carries on once there is space",
+    "Disk full, resumes once there is space",
   ],
   ["an Admin's pause", { state: "paused", hold: "wanted" }, false, ""],
   [
@@ -107,7 +112,7 @@ test.each([
       message: "Tracker is down",
       retryAt: "2026-10-20T15:10:00Z",
     } as const,
-    { host: "beacon.example", status: "Said: Tracker is down, trying again at 15:10" },
+    { host: "beacon.example", status: "Error: Tracker is down, retrying at 15:10" },
   ],
 ])("a tracker cell reads who and how its announce went", (cell, words) => {
   expect(trackerLine(cell, clock)).toEqual(words);
@@ -165,7 +170,7 @@ test("one tracker down for many seeds is one warning holding them all", () => {
   const [only, ...rest] = signalsOf(rows, nodeName, clock);
   expect(rest).toEqual([]);
   expect(only?.signal).toBe("warn");
-  expect(only?.verdict).toBe("beacon.example said: Tracker is down.");
+  expect(only?.verdict).toBe('beacon.example responded with "Tracker is down".');
   expect(only?.rows).toHaveLength(3);
 });
 
@@ -197,7 +202,7 @@ test("failures lead the warnings, each cause with its oldest torrent first", () 
   const quiet = torrent({ state: "seeding" });
   const signals = signalsOf([stalled, failed, unregistered, guarded, quiet], nodeName, clock);
   expect(signals.map(({ chip, verdict }) => [chip, verdict])).toEqual([
-    ["Unregistered", "Unregistered by beacon.example: the tracker no longer knows the torrent."],
+    ["Unregistered", "beacon.example reports that the torrent is no longer registered."],
     ["Failed", "The torrent client stopped it: file too short."],
     ["Waiting for disk", "New downloads on seedbox wait for disk space."],
     ["Stalled", "No data has arrived for a while, so it no longer holds a download slot."],

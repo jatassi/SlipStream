@@ -44,7 +44,7 @@
             "type": "boolean"
           },
           "dryRun": {
-            "description": "remove, mark-failed and recheck: say what it would do and change nothing",
+            "description": "remove, mark-failed and recheck: return what it would do and change nothing",
             "type": "boolean"
           },
           "ids": {
@@ -277,7 +277,7 @@
             "type": "string"
           },
           "reach": {
-            "description": "reachable once a peer from the internet connected in to where it listens now",
+            "description": "reachable once a peer from the internet has connected to the address it listens on now",
             "enum": [
               "reachable",
               "unproven"
@@ -285,7 +285,7 @@
             "type": "string"
           },
           "reachedAt": {
-            "description": "When the first such peer connected in",
+            "description": "When the first such peer connected",
             "format": "date-time",
             "type": "string"
           },
@@ -395,7 +395,7 @@
             "type": "string"
           },
           "sentence": {
-            "description": "What the guard says, as Health says it",
+            "description": "The guard's sentence, as Health shows it",
             "type": "string"
           },
           "volume": {
@@ -429,7 +429,7 @@
             "type": "string"
           },
           "sentence": {
-            "description": "Why the release looks bad, in plain words",
+            "description": "The fault, as a sentence",
             "type": "string"
           }
         },
@@ -629,7 +629,7 @@
             "type": "array"
           },
           "frees": {
-            "description": "Bytes deleting the download copies frees, null while a Node can't say",
+            "description": "Bytes deleting the download copies frees, null while a Node can't report it",
             "format": "int64",
             "minimum": 0,
             "type": [
@@ -917,12 +917,12 @@
             "type": "string"
           },
           "error": {
-            "description": "The engine's words for why it failed it",
+            "description": "The engine's error message for the failure",
             "type": "string"
           },
           "fault": {
             "$ref": "#/components/schemas/DownloadclientsFault",
-            "description": "Why the release itself looks bad, once it does"
+            "description": "The fault found in the release itself, once there is one"
           },
           "files": {
             "description": "In its metainfo's order",
@@ -966,11 +966,11 @@
             "type": "string"
           },
           "live": {
-            "description": "Its Node answered now, so trackers and files are live rather than its last report",
+            "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
           "name": {
-            "description": "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+            "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
             "type": "string"
           },
           "nodeId": {
@@ -978,7 +978,7 @@
             "type": "string"
           },
           "pending": {
-            "description": "An Admin's pause or resume its Node has yet to act on",
+            "description": "An Admin's pause or resume its Node hasn't applied yet",
             "enum": [
               "pause",
               "resume"
@@ -1215,12 +1215,12 @@
             "type": "string"
           },
           "error": {
-            "description": "The engine's words for why it failed it",
+            "description": "The engine's error message for the failure",
             "type": "string"
           },
           "fault": {
             "$ref": "#/components/schemas/DownloadclientsFault",
-            "description": "Why the release itself looks bad, once it does"
+            "description": "The fault found in the release itself, once there is one"
           },
           "hold": {
             "description": "Why its Node holds it back, as its Node last reported",
@@ -1246,7 +1246,7 @@
             "type": "string"
           },
           "name": {
-            "description": "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+            "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
             "type": "string"
           },
           "nodeId": {
@@ -1254,7 +1254,7 @@
             "type": "string"
           },
           "pending": {
-            "description": "An Admin's pause or resume its Node has yet to act on",
+            "description": "An Admin's pause or resume its Node hasn't applied yet",
             "enum": [
               "pause",
               "resume"
@@ -1458,7 +1458,7 @@
             "type": "string"
           },
           "answeredAt": {
-            "description": "Its last answer, set while live",
+            "description": "When it last responded, set while live",
             "format": "date-time",
             "type": "string"
           },
@@ -38118,7 +38118,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Pause, resume, announce, recheck, mark failed or remove Torrents, answering for each",
+        "summary": "Pause, resume, announce, recheck, mark failed or remove Torrents, and return the result for each",
         "tags": [
           "downloadclients"
         ],
@@ -38313,7 +38313,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while it answers",
+        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
         "tags": [
           "downloadclients"
         ],

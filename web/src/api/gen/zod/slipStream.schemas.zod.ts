@@ -24,7 +24,7 @@ export const ActInputBody = zod.object({
   dryRun: zod
     .boolean()
     .exactOptional()
-    .describe("remove, mark-failed and recheck: say what it would do and change nothing"),
+    .describe("remove, mark-failed and recheck: return what it would do and change nothing"),
   ids: zod.array(zod.uuid()).min(1),
 });
 
@@ -105,7 +105,7 @@ export const DownloadclientsPreview = zod.object({
     .int()
     .min(downloadclientsPreviewFreesMin)
     .nullable()
-    .describe("Bytes deleting the download copies frees, null while a Node can't say"),
+    .describe("Bytes deleting the download copies frees, null while a Node can't report it"),
   linked: zod.boolean().describe("Some file is also a library file, as a recheck reads it"),
   stopSeeding: zod.array(zod.uuid()).describe("The Works whose complete Torrents stop seeding"),
 });
@@ -150,11 +150,13 @@ export const DownloadclientsClientFacts = zod.object({
     .describe("The peer ID prefix it announces, which a tracker's allow list names"),
   reach: zod
     .enum(["reachable", "unproven"])
-    .describe("reachable once a peer from the internet connected in to where it listens now"),
+    .describe(
+      "reachable once a peer from the internet has connected to the address it listens on now",
+    ),
   reachedAt: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("When the first such peer connected in"),
+    .describe("When the first such peer connected"),
   userAgent: zod.string().describe("The user agent it announces"),
 });
 
@@ -177,7 +179,7 @@ export const DownloadclientsDiskGuard = zod.object({
       "What explains the sentence: the volume, its free space, its error level and what to do",
     ),
   sampledAt: zod.iso.datetime({ offset: true }),
-  sentence: zod.string().describe("What the guard says, as Health says it"),
+  sentence: zod.string().describe("The guard's sentence, as Health shows it"),
   volume: zod.string().describe("The downloads folder's volume, as the Node names it"),
 });
 
@@ -367,7 +369,7 @@ export type DownloadclientsCountsOutput = zod.output<typeof DownloadclientsCount
 export const DownloadclientsFault = zod.object({
   at: zod.iso.datetime({ offset: true }),
   kind: zod.enum(["engine_error", "unregistered", "no_payload"]),
-  sentence: zod.string().describe("Why the release looks bad, in plain words"),
+  sentence: zod.string().describe("The fault, as a sentence"),
 });
 
 export type DownloadclientsFault = zod.input<typeof DownloadclientsFault>;
@@ -601,7 +603,7 @@ export const DownloadclientsTrackerDetail = zod.object({
   answeredAt: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("Its last answer, set while live"),
+    .describe("When it last responded, set while live"),
   message: zod
     .string()
     .exactOptional()
@@ -663,9 +665,9 @@ export const DownloadclientsTorrentDetail = zod.object({
     .min(downloadclientsTorrentDetailDownloadedMin)
     .describe("All-time bytes downloaded"),
   edition: zod.string().exactOptional().describe("Its newest Grab's Edition"),
-  error: zod.string().exactOptional().describe("The engine's words for why it failed it"),
+  error: zod.string().exactOptional().describe("The engine's error message for the failure"),
   fault: DownloadclientsFault.exactOptional().describe(
-    "Why the release itself looks bad, once it does",
+    "The fault found in the release itself, once there is one",
   ),
   files: zod.array(DownloadclientsFileDetail).describe("In its metainfo's order"),
   grabs: zod.array(DownloadclientsTorrentGrab).describe("The Grabs that used it, newest first"),
@@ -690,17 +692,17 @@ export const DownloadclientsTorrentDetail = zod.object({
     .describe("When its Node last reported it, set while the Node is out of step"),
   live: zod
     .boolean()
-    .describe("Its Node answered now, so trackers and files are live rather than its last report"),
+    .describe(
+      "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
+    ),
   name: zod
     .string()
-    .describe(
-      "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
-    ),
+    .describe("The release's name in its metainfo, shown for a Torrent whose Work was deleted"),
   nodeId: zod.uuid(),
   pending: zod
     .enum(["pause", "resume"])
     .exactOptional()
-    .describe("An Admin's pause or resume its Node has yet to act on"),
+    .describe("An Admin's pause or resume its Node hasn't applied yet"),
   pieceSize: zod.int().min(1).describe("Bytes"),
   private: zod.boolean(),
   quality: zod
@@ -800,9 +802,9 @@ export const DownloadclientsTorrentRow = zod.object({
     .min(downloadclientsTorrentRowDoneMin)
     .describe("Bytes done as its Node last reported them; torrents.live carries the live figure"),
   edition: zod.string().exactOptional().describe("Its newest Grab's Edition"),
-  error: zod.string().exactOptional().describe("The engine's words for why it failed it"),
+  error: zod.string().exactOptional().describe("The engine's error message for the failure"),
   fault: DownloadclientsFault.exactOptional().describe(
-    "Why the release itself looks bad, once it does",
+    "The fault found in the release itself, once there is one",
   ),
   hold: zod
     .enum([
@@ -824,14 +826,12 @@ export const DownloadclientsTorrentRow = zod.object({
     .describe("When its Node last reported it, set while the Node is out of step"),
   name: zod
     .string()
-    .describe(
-      "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
-    ),
+    .describe("The release's name in its metainfo, shown for a Torrent whose Work was deleted"),
   nodeId: zod.uuid(),
   pending: zod
     .enum(["pause", "resume"])
     .exactOptional()
-    .describe("An Admin's pause or resume its Node has yet to act on"),
+    .describe("An Admin's pause or resume its Node hasn't applied yet"),
   quality: zod
     .enum([
       "sdtv",
