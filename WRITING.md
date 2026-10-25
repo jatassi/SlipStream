@@ -7,7 +7,7 @@ How SlipStream writes the words people read. [GLOSSARY.md](GLOSSARY.md) sets the
 Every string a person can read follows this file:
 
 - UI copy: labels, buttons, dialogs, toasts, empty states, field errors and the error page.
-- API problem titles and details, and OpenAPI operation summaries.
+- API problem titles and details, OpenAPI operation summaries and field descriptions.
 - Health items, task outcomes, log messages and CLI output.
 - Go error strings, because they wrap into logs, Health items and problem details.
 - Email.
@@ -62,6 +62,7 @@ Large language models write in recognisable patterns ([Wikipedia](https://en.wik
 - Straight quotes (`"` and `'`) in source. The ellipsis character `…` marks only an in-progress state or a menu item that opens a dialog, as DESIGN.md sets.
 - Go error strings start lowercase, end without punctuation and add context as they wrap: `fmt.Errorf("read the volumes: %w", err)`. Their words still follow every rule above.
 - An API problem's `title` and `detail` are sentences a person reads, so they follow the message rules.
+- An OpenAPI field description may use the reference shorthand of a fact, a semicolon and its edge case: "Seconds; null resets it to its default". Everywhere else, rule 11 holds.
 
 ## Examples from this codebase
 
@@ -76,4 +77,4 @@ Large language models write in recognisable patterns ([Wikipedia](https://en.wik
 
 ## Reviewing
 
-Every review of a diff that adds or changes a string in scope checks it against this file, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms. Quote the string, name the rule number and give the rewrite. The `copy-words` lint fails on the fixed words and dashes from rules 2, 4, 11, 14 and 15 in Go and web source. Everything else needs a reviewer.
+Every review of a diff that adds or changes a string in scope checks it against this file, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms. Quote the string, name the rule number and give the rewrite. The `copy-words` lint fails on the fixed words and dashes from rules 2, 4, 11, 14 and 15 in Go and web source. It keeps one list in `cmd/release/internal/lint/rules/copy_words.go` and one in `web/.oxlintrc.json`. Change them together. Everything else needs a reviewer.

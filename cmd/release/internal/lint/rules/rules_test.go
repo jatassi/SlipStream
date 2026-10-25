@@ -117,6 +117,19 @@ func TestEndpointLiterals(t *testing.T) {
 	})
 }
 
+func TestCopyWords(t *testing.T) {
+	const rewrite = " is banned in user-facing strings; rewrite it per WRITING.md"
+	assertFindings(t, check(t, "copy-words", fixtureRepo(t, "copy-words")), []string{
+		`internal/api/problem.go:9: [copy-words] "something went wrong"` + rewrite,
+		`internal/api/problem.go:12: [copy-words] "please"` + rewrite,
+		`internal/api/problem.go:12: [copy-words] "sorry"` + rewrite,
+		`internal/api/problem.go:13: [copy-words] "em dash"` + rewrite,
+		`internal/api/problem.go:14: [copy-words] "en dash"` + rewrite,
+		`internal/api/problem.go:15: [copy-words] "all set"` + rewrite,
+		`internal/api/problem.go:17: [copy-words] "seamless"` + rewrite,
+	})
+}
+
 func TestProcessGlobals(t *testing.T) {
 	const (
 		stream = " is process-global; draw from the subsystem's seeded stream from its Node"
