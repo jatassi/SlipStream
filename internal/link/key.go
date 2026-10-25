@@ -80,7 +80,7 @@ type MalformedKeyError struct {
 }
 
 func (e *MalformedKeyError) Error() string {
-	return fmt.Sprintf("node key %s is not 64 hex characters", e.Path)
+	return fmt.Sprintf("node key %s isn't 64 hex characters", e.Path)
 }
 
 // UnreadableKeyError is a node.key that exists but cannot be read.

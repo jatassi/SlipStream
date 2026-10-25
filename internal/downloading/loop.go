@@ -397,7 +397,7 @@ func (l *loop) addFromResume(t *torrent) {
 	}
 	handle, err := l.eng.Add(engine.AddParams{Resume: row.Resume, SavePath: row.SaveFolder})
 	if err != nil {
-		l.c.cfg.Log.Warn("add a torrent from its resume data. The Node fetches it again", "info_hash", t.Hash.String(), "err", err.Error())
+		l.c.cfg.Log.Warn("can't add a torrent from its resume data, so the Node fetches it again", "info_hash", t.Hash.String(), "err", err.Error())
 		return
 	}
 	spread := l.c.cfg.Timings.StartSpread

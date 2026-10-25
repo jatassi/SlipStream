@@ -69,7 +69,7 @@ function LinkForm({ onIssued }: { onIssued: (issued: IdentityIssuedSignupLink) =
                 type="url"
                 autoComplete="off"
                 spellCheck={false}
-                description="Links use this address. It is saved for every link after this one."
+                description="Links use this address. It's saved for every link after this one."
               />
             )}
           </form.AppField>

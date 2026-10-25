@@ -1,11 +1,14 @@
 package rules
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/token"
+	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 )
@@ -13,79 +16,67 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "copy-words",
-		Doc:   "string literals in product code use none of the words and dashes WRITING.md bans",
+		Doc:   "string literals and doc tags in product code use none of the words and dashes WRITING.md bans",
 		Check: checkCopyWords,
 	})
 }
 
+const copyWordsList = "web/lint/copy-words.json"
+
+// quotesThirdParty names, per file, the function whose strings are another
+// program's own text, which SlipStream replays word for word.
+var quotesThirdParty = map[string]string{
+	"internal/torrent/unit3d/unit3d.go": "rejected",
+}
+
 type bannedCopy struct {
-	name    string
-	pattern string
+	Name    string `json:"name"`
+	Pattern string `json:"pattern"`
+	Alone   bool   `json:"alone"`
+	re      *regexp.Regexp
+	whole   *regexp.Regexp
 }
 
-var bannedCopyWords = []bannedCopy{
-	{"em dash", `\S\s*—\s*\S`},
-	{"en dash", `\S\s*–\s*\S`},
-	{"please", `\bplease\b`},
-	{"sorry", `\bsorry\b`},
-	{"oops", `\boops\b`},
-	{"whoops", `\bwhoops\b`},
-	{"something went wrong", `\bsomething\s+went\s+wrong\b`},
-	{"an error occurred", `\ban\s+error\s+occurred\b`},
-	{"all set", `\ball\s+set\b`},
-	{"all good", `\ball\s+good\b`},
-	{"additionally", `\badditionally\b`},
-	{"delve", `\bdelve\b`},
-	{"leverage", `\bleverage\b`},
-	{"utilize", `\butilize\b`},
-	{"seamless", `\bseamless(?:ly)?\b`},
-	{"robust", `\brobust\b`},
-	{"crucial", `\bcrucial\b`},
-	{"pivotal", `\bpivotal\b`},
-	{"showcase", `\bshowcase\b`},
-	{"testament", `\btestament\b`},
-	{"vibrant", `\bvibrant\b`},
-	{"meticulous", `\bmeticulous(?:ly)?\b`},
-	{"multifaceted", `\bmultifaceted\b`},
+func (b bannedCopy) in(s string) bool {
+	return b.re.MatchString(s) && !(b.Alone && b.whole.MatchString(strings.TrimSpace(s)))
 }
 
-// quotesThirdParty holds files whose strings are another program's own text,
-// which SlipStream matches or replays word for word.
-var quotesThirdParty = map[string]bool{
-	"internal/torrent/unit3d/unit3d.go": true,
-}
-
-var bannedCopyPatterns = compileBannedCopy(bannedCopyWords)
-
-func compileBannedCopy(words []bannedCopy) []*regexp.Regexp {
-	res := make([]*regexp.Regexp, len(words))
-	for i, w := range words {
-		res[i] = regexp.MustCompile("(?i)" + w.pattern)
+func loadBannedCopy(repo *lint.Repo) ([]bannedCopy, error) {
+	src, err := repo.Read(copyWordsList)
+	if err != nil {
+		return nil, err
 	}
-	return res
+	var words []bannedCopy
+	if err := json.Unmarshal(src, &words); err != nil {
+		return nil, fmt.Errorf("%s: %w", copyWordsList, err)
+	}
+	for i := range words {
+		if words[i].re, err = regexp.Compile("(?i)" + words[i].Pattern); err != nil {
+			return nil, fmt.Errorf("%s: %s: %w", copyWordsList, words[i].Name, err)
+		}
+		words[i].whole = regexp.MustCompile("(?i)^(?:" + words[i].Pattern + ")$")
+	}
+	return words, nil
 }
 
 func checkCopyWords(repo *lint.Repo) ([]lint.Finding, error) {
+	words, err := loadBannedCopy(repo)
+	if err != nil {
+		return nil, err
+	}
 	files, err := productFiles(repo)
 	if err != nil {
 		return nil, err
 	}
 	var findings []lint.Finding
 	for _, f := range files {
-		if quotesThirdParty[f.Path] {
-			continue
-		}
-		for _, lit := range copyLiterals(f.Syntax) {
-			s, err := strconv.Unquote(lit.Value)
-			if err != nil {
-				return nil, fmt.Errorf("%s: unquote %s: %w", f.Path, lit.Value, err)
-			}
-			for i, re := range bannedCopyPatterns {
-				if re.MatchString(s) {
+		for _, lit := range copyLiterals(f.Syntax, quotesThirdParty[f.Path]) {
+			for _, w := range words {
+				if w.in(lit.text) {
 					findings = append(findings, lint.Finding{
 						Path:    f.Path,
-						Line:    repo.Fset.Position(lit.Pos()).Line,
-						Message: fmt.Sprintf("%q is banned in user-facing strings; rewrite it per WRITING.md", bannedCopyWords[i].name),
+						Line:    repo.Fset.Position(lit.pos).Line,
+						Message: fmt.Sprintf("%q is banned in user-facing strings. Rewrite it per WRITING.md", w.Name),
 					})
 				}
 			}
@@ -94,23 +85,36 @@ func checkCopyWords(repo *lint.Repo) ([]lint.Finding, error) {
 	return findings, nil
 }
 
-func copyLiterals(file *ast.File) []*ast.BasicLit {
+type copyLiteral struct {
+	text string
+	pos  token.Pos
+}
+
+func copyLiterals(file *ast.File, skipFunc string) []copyLiteral {
 	tags := map[*ast.BasicLit]bool{}
-	var lits []*ast.BasicLit
-	ast.Inspect(file, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.ImportSpec:
-			return false
-		case *ast.Field:
-			if n.Tag != nil {
-				tags[n.Tag] = true
-			}
-		case *ast.BasicLit:
-			if n.Kind == token.STRING && !tags[n] {
-				lits = append(lits, n)
-			}
+	var lits []copyLiteral
+	for _, decl := range file.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == skipFunc {
+			continue
 		}
-		return true
-	})
+		ast.Inspect(decl, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.Field:
+				if n.Tag != nil {
+					tags[n.Tag] = true
+					tag, _ := strconv.Unquote(n.Tag.Value)
+					if doc := reflect.StructTag(tag).Get("doc"); doc != "" {
+						lits = append(lits, copyLiteral{doc, n.Tag.Pos()})
+					}
+				}
+			case *ast.BasicLit:
+				if n.Kind == token.STRING && !tags[n] {
+					s, _ := strconv.Unquote(n.Value)
+					lits = append(lits, copyLiteral{s, n.Pos()})
+				}
+			}
+			return true
+		})
+	}
 	return lits
 }

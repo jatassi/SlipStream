@@ -37,7 +37,7 @@ var (
 	ErrNotHeld = errors.New("the artwork store holds no such image")
 	// ErrMissing means a fetch of the image failed and its retry time
 	// hasn't come.
-	ErrMissing = errors.New("the image couldn't be fetched. SlipStream tries again later")
+	ErrMissing = errors.New("the image couldn't be fetched")
 	// ErrUnfit is a body that isn't whole as the image type it claims.
 	ErrUnfit = errors.New("not a whole PNG, JPEG, WebP or SVG image")
 )

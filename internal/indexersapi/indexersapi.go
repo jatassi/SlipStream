@@ -41,6 +41,8 @@ func answer(err error) error {
 	switch {
 	case errors.As(err, &refused):
 		return indexerRefused.Because("error " + refused.Code + ": " + refused.Description)
+	case errors.Is(err, indexers.ErrAPIKeyDropped):
+		return indexerUnavailable.Because(indexers.ErrAPIKeyDropped.Error() + ". Enter it again.")
 	case errors.As(err, &unavailable):
 		return indexerUnavailable.Because(unavailable.Err.Error())
 	case errors.Is(err, indexers.ErrNameTaken):

@@ -212,11 +212,7 @@ test("a typed password is sent, and a failed test shows the mail server's reply"
 
   await userEvent.click(page.getByRole("button", { name: "Send a test email" }));
   await expect
-    .element(
-      page.getByText(
-        "The test email failed. The mail server responded: 535 5.7.8 Authentication failed",
-      ),
-    )
+    .element(page.getByText("The test email failed: 535 5.7.8 Authentication failed"))
     .toBeVisible();
 });
 

@@ -74,8 +74,8 @@ function warningOf(row: Row, host: string, node: string, clock: Clock): Cause {
     key: `tracker:${host}:${said ?? ""}`,
     signal: "warn",
     chip: "Tracker error",
-    verdict: `${said === undefined ? `${host} isn't responding.` : `${host} responded with "${said}".`}${
-      retry === undefined ? "" : ` SlipStream retries at ${sinceWords(retry, clock)}.`
+    verdict: `${said === undefined ? `${host} isn't responding.` : `${host} reported "${said}".`}${
+      retry === undefined ? "" : ` The client retries at ${sinceWords(retry, clock)}.`
     }`,
   };
 }

@@ -54,7 +54,7 @@ export function verdictWords(verdict: Verdict, node: string): VerdictWords {
           verdict.reason === undefined
             ? `Not listening on ${verdict.listen} yet.`
             : `Can't listen on ${verdict.listen}: ${verdict.reason}.`,
-        hint: "No peer can connect to it until it listens. If another program is using the port, choose another one or free it, then restart.",
+        hint: "No peer can connect to it until it listens. If another program is using the port, free it or choose another, then restart.",
       };
     case "reachable":
       return {

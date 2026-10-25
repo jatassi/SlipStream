@@ -13,8 +13,8 @@ const sentences: { readonly [S in PinState]: (until: string | undefined) => stri
   fine: () => "The PIN works.",
   waiting: (until) =>
     until === undefined
-      ? "Sign-in is paused after too many wrong PINs."
-      : `Sign-in is paused until ${clock(until)} after too many wrong PINs.`,
+      ? "After too many wrong PINs, sign-in is paused."
+      : `After too many wrong PINs, sign-in is paused until ${clock(until)}.`,
   off: () =>
     "The PIN was turned off after too many wrong PINs. Send a Reset link to set a new one.",
 };

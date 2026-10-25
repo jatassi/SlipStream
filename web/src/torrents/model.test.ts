@@ -170,7 +170,7 @@ test("one tracker down for many seeds is one warning holding them all", () => {
   const [only, ...rest] = signalsOf(rows, nodeName, clock);
   expect(rest).toEqual([]);
   expect(only?.signal).toBe("warn");
-  expect(only?.verdict).toBe('beacon.example responded with "Tracker is down".');
+  expect(only?.verdict).toBe('beacon.example reported "Tracker is down".');
   expect(only?.rows).toHaveLength(3);
 });
 

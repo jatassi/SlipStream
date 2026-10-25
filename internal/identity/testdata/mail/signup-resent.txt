@@ -10,4 +10,4 @@ This replaces the link sent on Thursday, October 15, 2026 at 9:30 AM UTC, which 
 
 If the button doesn't work, open this address: https://slipstream.example.com/signup#token=Zm9vYmFy
 
-If you did not expect this email, you can ignore it. Nothing changes until the link is used.
+If you didn't expect this email, you can ignore it. Nothing changes until the link is used.

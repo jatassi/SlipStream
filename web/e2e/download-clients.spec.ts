@@ -8,6 +8,7 @@ const Thresholds = z.object({
   cards: z.array(z.object({ nodeId: z.string() })),
 });
 const Limits = z.object({ activeDownloads: z.object({ value: z.number() }) });
+const cardGoes = "This card is removed once this Node stops downloading.";
 
 test("Download Clients shows home's built-in client, saves a threshold, and its Torrent client saves a limit", async ({
   adminPage: page,
@@ -30,7 +31,7 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
   await card.getByRole("button", { name: "Details" }).click();
   await expect(card.getByText(/^-LT\w{4}-$/u)).toBeVisible();
   await expect(card.getByText(/^libtorrent\/\d+\.\d+\.\d+/u)).toBeVisible();
-  await expect(card.getByText(/^This card is removed once this Node stops/u)).toBeVisible();
+  await expect(card.getByText(cardGoes, { exact: true })).toBeVisible();
   await expect(card.getByRole("button", { name: /remove/iu })).toHaveCount(0);
 
   await page.getByRole("textbox", { name: "Unregistered twice, this far apart" }).fill("45");

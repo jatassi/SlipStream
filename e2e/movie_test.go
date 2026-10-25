@@ -285,7 +285,8 @@ func TestArtworkIsServedAtEachSizeAndNeverFromAHalfImage(t *testing.T) {
 	treatment := work.art(t, "title_treatment")
 	setFault(t, run, fault.Rule{ID: "half-image", Target: "image-cdn", Route: "image"}, "truncate")
 	if got := fetchArtwork(t, a, session, treatment, "small"); got.status != http.StatusNotFound || got.cache != "no-store" ||
-		!strings.HasPrefix(string(got.body), `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"the image couldn't be fetched. SlipStream tries again later: `) {
+		!strings.HasPrefix(string(got.body), `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"the image couldn't be fetched: `) ||
+		!strings.Contains(string(got.body), `. SlipStream tries again later."`) {
 		t.Fatalf("the title treatment cut off mid-answer = %d %q %s, want 404 no-store artwork_unavailable", got.status, got.cache, got.body)
 	}
 	if got := fetchArtwork(t, a, session, poster, "small"); got.status != http.StatusOK || !bytes.Equal(got.body, small.body) {

@@ -85,7 +85,7 @@ type Publisher interface {
 var (
 	ErrNameTaken       = errors.New("another Indexer has that name")
 	ErrNoSearchingNode = errors.New("no Node holds Searching")
-	ErrAPIKeyDropped   = errors.New("the Indexer's API key was dropped. Enter it again")
+	ErrAPIKeyDropped   = errors.New("the Indexer's API key was dropped")
 	ErrNoIndexer       = errors.New("no such Indexer")
 )
 

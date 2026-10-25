@@ -112,7 +112,9 @@ test("with a Node that can't count, the choice stands without a size", async () 
     .toBeVisible();
   await expect
     .element(dialog)
-    .toMatchTextContent("The space this frees is unknown because its Node didn't respond.");
+    .toMatchTextContent(
+      "The space this frees is unknown because a Node that holds it can't be reached.",
+    );
 });
 
 test("a torrent being imported refuses the remove in plain words", async () => {

@@ -129,8 +129,8 @@ func TestOnlyTheExactKeyFormIsRead(t *testing.T) {
 			write(t, path, tc.content)
 			keys, err := secret.Open(t.Context(), lib, path)
 			if tc.malformed {
-				if err == nil || err.Error() != "library.key is not 64 hex characters" {
-					t.Fatalf("err = %v, want library.key is not 64 hex characters", err)
+				if err == nil || err.Error() != "library.key isn't 64 hex characters" {
+					t.Fatalf("err = %v, want library.key isn't 64 hex characters", err)
 				}
 				return
 			}

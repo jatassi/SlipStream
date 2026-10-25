@@ -17,11 +17,11 @@ function pendingSentence(row: Row, { node }: Place): string | undefined {
   switch (row.pending) {
     case "pause":
       return away
-        ? `It pauses when ${node} is back online.`
+        ? `It pauses when ${node} reconnects.`
         : `Pausing. It stops downloading and seeding once ${node} applies the pause.`;
     case "resume":
       return away
-        ? `It resumes when ${node} is back online.`
+        ? `It resumes when ${node} reconnects.`
         : `Resuming. It continues once ${node} applies the resume.`;
     case undefined:
       return undefined;
@@ -67,10 +67,10 @@ function trackerSentence(row: Row, { clock }: Place): string {
   const said =
     tracker?.message === undefined
       ? `${host} isn't responding, so no peers come from it.`
-      : `${host} responded with "${tracker.message}", so no peers come from it.`;
+      : `${host} reported "${tracker.message}", so no peers come from it.`;
   return tracker?.retryAt === undefined
     ? said
-    : `${said} SlipStream retries at ${sinceWords(tracker.retryAt, clock)}.`;
+    : `${said} The client retries at ${sinceWords(tracker.retryAt, clock)}.`;
 }
 
 function movingSentence(row: Row, live: LiveRow | undefined): string {

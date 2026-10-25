@@ -1378,7 +1378,7 @@ export const HealthItem = zod.object({
   since: zod.iso.datetime({ offset: true }).describe("When it first appeared at any level"),
   subject: zod.string(),
   text: zod.string().describe("What to do first"),
-  unsure: zod.boolean().describe("Its owner can't judge it now, so it reads as it last did"),
+  unsure: zod.boolean().describe("SlipStream couldn't check it, so it shows the last known state"),
 });
 
 export type HealthItem = zod.input<typeof HealthItem>;

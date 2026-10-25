@@ -14,7 +14,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 ## Writing
 
-Every string a person reads (UI copy, API problems, Health items, logs, CLI output, Go error strings, email) follows [WRITING.md](WRITING.md). Any review of a diff that adds or changes such a string, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms, puts WRITING.md in the reviewer's brief and reports each violation with the string, the rule number and a rewrite.
+Every string a person reads follows [WRITING.md](WRITING.md). Its Scope section lists those strings, and its Reviewing section sets how a review checks them.
 
 ## Third-party code
 

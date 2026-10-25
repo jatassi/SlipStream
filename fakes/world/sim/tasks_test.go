@@ -214,7 +214,7 @@ func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
 
 		time.Sleep(time.Until(at("2000-01-04T04:30:01Z")))
 		synctest.Wait()
-		expect(t, "sentence after the third day", sentence(t, a), []string{"Housekeeping has not finished Local database on seedbox since " + tidied.Format("Jan 2 15:04") + "."})
+		expect(t, "sentence after the third day", sentence(t, a), []string{"Housekeeping hasn't finished Local database on seedbox since " + tidied.Format("Jan 2 15:04") + "."})
 	})
 }
 

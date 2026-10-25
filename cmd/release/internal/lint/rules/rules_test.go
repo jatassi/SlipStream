@@ -118,15 +118,32 @@ func TestEndpointLiterals(t *testing.T) {
 }
 
 func TestCopyWords(t *testing.T) {
-	const rewrite = " is banned in user-facing strings; rewrite it per WRITING.md"
-	assertFindings(t, check(t, "copy-words", fixtureRepo(t, "copy-words")), []string{
-		`internal/api/problem.go:9: [copy-words] "something went wrong"` + rewrite,
-		`internal/api/problem.go:12: [copy-words] "please"` + rewrite,
-		`internal/api/problem.go:12: [copy-words] "sorry"` + rewrite,
-		`internal/api/problem.go:13: [copy-words] "em dash"` + rewrite,
-		`internal/api/problem.go:14: [copy-words] "en dash"` + rewrite,
-		`internal/api/problem.go:16: [copy-words] "all set"` + rewrite,
-		`internal/api/problem.go:18: [copy-words] "seamless"` + rewrite,
+	const rewrite = " is banned in user-facing strings. Rewrite it per WRITING.md"
+	repo := fixtureRepo(t, "copy-words")
+	words, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "web", "lint", "copy-words.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repo.Root, "web", "lint"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo.Root, "web", "lint", "copy-words.json"), words, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	assertFindings(t, check(t, "copy-words", repo), []string{
+		`internal/api/problem.go:6: [copy-words] "please"` + rewrite,
+		`internal/api/problem.go:6: [copy-words] "robust"` + rewrite,
+		`internal/api/problem.go:10: [copy-words] "something went wrong"` + rewrite,
+		`internal/api/problem.go:13: [copy-words] "please"` + rewrite,
+		`internal/api/problem.go:13: [copy-words] "sorry"` + rewrite,
+		`internal/api/problem.go:14: [copy-words] "em dash"` + rewrite,
+		`internal/api/problem.go:15: [copy-words] "en dash"` + rewrite,
+		`internal/api/problem.go:17: [copy-words] "em dash"` + rewrite,
+		`internal/api/problem.go:18: [copy-words] "all set"` + rewrite,
+		`internal/api/problem.go:20: [copy-words] "seamless"` + rewrite,
+		`internal/api/problem.go:21: [copy-words] "enhance"` + rewrite,
+		`internal/api/problem.go:21: [copy-words] "let's"` + rewrite,
+		`internal/torrent/unit3d/unit3d.go:9: [copy-words] "please"` + rewrite,
 	})
 }
 

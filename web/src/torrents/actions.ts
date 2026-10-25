@@ -107,7 +107,7 @@ const refusalWords: {
   not_stalled: ({ names }) =>
     `${names.join(", ")} ${names.length === 1 ? "is" : "are"} moving again, so nothing was marked failed.`,
   offline: ({ names }) =>
-    `The Node holding ${names.join(", ")} is offline. Try again once it's back online.`,
+    `The Node holding ${names.join(", ")} is offline. Try again once it reconnects.`,
   window: ({ names, refusal }, { clock }) =>
     refusal.acceptsAt === undefined
       ? `A tracker of ${names.join(", ")} would reject an announce now.`

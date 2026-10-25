@@ -2614,7 +2614,7 @@
             "type": "string"
           },
           "unsure": {
-            "description": "Its owner can't judge it now, so it reads as it last did",
+            "description": "SlipStream couldn't check it, so it shows the last known state",
             "type": "boolean"
           }
         },
@@ -15891,12 +15891,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -27942,12 +27942,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -28369,12 +28369,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -35933,12 +35933,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -40295,12 +40295,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },

@@ -114,7 +114,7 @@ func TestWarn(t *testing.T) {
 		{"the next Succeeded clears it", housekeeping, latest{result: RunSucceeded, ended: at("2026-10-17T04:01:00Z")}, "2026-10-17T05:00:00Z", ""},
 		{"Partial within the interval multiple raises none", housekeeping, latest{result: RunPartial, ended: at("2026-10-15T03:59:00Z")}, "2026-10-15T03:59:00Z", ""},
 		{"Partial past it raises one naming the unit", housekeeping, latest{result: RunPartial, ended: at("2026-10-15T04:01:00Z"), cause: "disk is full"}, "2026-10-15T04:01:00Z",
-			"scheduled-tasks|Housekeeping|overdue|2026-10-12T04:00:00Z|disk is full|seedbox|Housekeeping has not finished seedbox since Oct 12 04:00"},
+			"scheduled-tasks|Housekeeping|overdue|2026-10-12T04:00:00Z|disk is full|seedbox|Housekeeping hasn't finished seedbox since Oct 12 04:00"},
 		{"Skipped raises nothing", housekeeping, latest{result: RunSkipped}, "2026-10-20T00:00:00Z", ""},
 		{"Canceled raises nothing", housekeeping, latest{result: RunCanceled}, "2026-10-20T00:00:00Z", ""},
 		{"a task's own Health is its category", backup, latest{result: RunFailed, ended: at("2026-10-16T04:12:00Z"), cause: "no space"}, "2026-10-16T05:00:00Z",

@@ -67,7 +67,7 @@ type fault struct {
 var faultWords = map[downloadclients.FaultKind]string{
 	downloadclients.FaultEngineError:  "The torrent client found an error in the release's data.",
 	downloadclients.FaultUnregistered: "The release's tracker reports that the torrent is no longer registered.",
-	downloadclients.FaultNoPayload:    "No data arrived at any point while it was downloading.",
+	downloadclients.FaultNoPayload:    "The torrent received no data while it was downloading.",
 }
 
 var (

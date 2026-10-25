@@ -209,7 +209,7 @@ func TestUnreadableLibraryIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := storage.OpenLibrary(t.Context(), path, both(), nil, timings, slog.New(slog.DiscardHandler))
-	assertRefused(t, err, "library.db is not a readable SQLite database. Restore a Backup")
+	assertRefused(t, err, "library.db isn't a readable SQLite database. Restore a Backup")
 }
 
 func assertRefused(t *testing.T, err error, want string) {
@@ -287,7 +287,7 @@ func TestUnreadableLocalOpensEmpty(t *testing.T) {
 	}
 	log, records := newLog()
 	db := openLocal(t, path, []storage.Schema[storage.Local]{outbox()}, log)
-	want := []string{`{"level":"WARN","msg":"local state discarded","file":"local.db","reason":"local.db is not a readable SQLite database"}`,
+	want := []string{`{"level":"WARN","msg":"local state discarded","file":"local.db","reason":"local.db isn't a readable SQLite database"}`,
 		`{"level":"INFO","msg":"migrated","file":"local.db","sets":[{"set":"outbox","from":0,"to":2}]}`}
 	if got := records.lines(); !slices.Equal(got, want) {
 		t.Errorf("log = %q, want %q", got, want)

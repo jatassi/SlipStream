@@ -95,7 +95,7 @@ type item struct {
 	Action    api.Nullable[action] `json:"action" doc:"Its one action, null when it has none"`
 	Since     time.Time            `json:"since" doc:"When it first appeared at any level"`
 	ChangedAt time.Time            `json:"changedAt" doc:"When its level last changed"`
-	Unsure    bool                 `json:"unsure" doc:"Its owner can't judge it now, so it reads as it last did"`
+	Unsure    bool                 `json:"unsure" doc:"SlipStream couldn't check it, so it shows the last known state"`
 }
 
 type fact struct {

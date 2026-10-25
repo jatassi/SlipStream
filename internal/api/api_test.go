@@ -402,7 +402,7 @@ func TestAnUnembeddedWebAppPointsAtVite(t *testing.T) {
 	r := newRouter(t, &bytes.Buffer{})
 	r.services.Web = fstest.MapFS{}
 	w := get(t, r.Handler(), "/")
-	want := "the web app isn't embedded in this build. Use the Vite dev server\n"
+	want := "This build doesn't include the web app. Use the Vite dev server.\n"
 	if w.Code != http.StatusNotFound || w.Body.String() != want {
 		t.Fatalf("GET / = %d %q, want 404 %q", w.Code, w.Body, want)
 	}
@@ -415,14 +415,14 @@ func TestOriginAcceptsOnlyTheCanonicalSchemeHostAndPort(t *testing.T) {
 		"http://192.0.2.1:8484":           "",
 		"http://[2001:db8::1]:8484":       "",
 		"https://[2001:db8::1]":           "",
-		"https://media.example.com/":      "not the canonical origin https://media.example.com",
-		"https://media.example.com/path":  "not the canonical origin https://media.example.com",
-		"HTTPS://Media.Example.com":       "not the canonical origin https://media.example.com",
-		"https://media.example.com:443":   "not the canonical origin https://media.example.com",
-		"http://192.0.2.1:80":             "not the canonical origin http://192.0.2.1",
-		"http://192.0.2.1:":               "not the canonical origin http://192.0.2.1",
-		"https://[2001:DB8::1]:443":       "not the canonical origin https://[2001:db8::1]",
-		"https://media.example.com:8443/": "not the canonical origin https://media.example.com:8443",
+		"https://media.example.com/":      "not in canonical form. Write it as https://media.example.com",
+		"https://media.example.com/path":  "not in canonical form. Write it as https://media.example.com",
+		"HTTPS://Media.Example.com":       "not in canonical form. Write it as https://media.example.com",
+		"https://media.example.com:443":   "not in canonical form. Write it as https://media.example.com",
+		"http://192.0.2.1:80":             "not in canonical form. Write it as http://192.0.2.1",
+		"http://192.0.2.1:":               "not in canonical form. Write it as http://192.0.2.1",
+		"https://[2001:DB8::1]:443":       "not in canonical form. Write it as https://[2001:db8::1]",
+		"https://media.example.com:8443/": "not in canonical form. Write it as https://media.example.com:8443",
 		"media.example.com":               shape,
 		"ftp://media.example.com":         shape,
 		"https://user@media.example.com":  shape,

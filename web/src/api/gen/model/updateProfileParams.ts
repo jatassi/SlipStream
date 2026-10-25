@@ -2,7 +2,7 @@ import type { UpdateProfileUnwanted } from "./updateProfileUnwanted.ts";
 
 export type UpdateProfileParams = {
   /**
-   * Answer the change's Impact and save nothing
+   * Return the change's Impact and save nothing
    */
   preview?: boolean;
   /**

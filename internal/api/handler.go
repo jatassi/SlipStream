@@ -15,7 +15,7 @@ const (
 	apiKeyHeader    = "X-Api-Key" //nolint:gosec // a header's name, not a credential
 	setupCodeHeader = "X-Setup-Code"
 	apiTree         = "/api/"
-	notEmbedded     = "the web app isn't embedded in this build. Use the Vite dev server"
+	notEmbedded     = "This build doesn't include the web app. Use the Vite dev server."
 )
 
 var securityHeaders = []struct{ name, value string }{

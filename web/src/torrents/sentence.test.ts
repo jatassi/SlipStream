@@ -59,7 +59,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a pause on an offline Node waits for it",
     { state: "downloading", pending: "pause", lastKnown: "2026-10-20T11:00:00Z" },
     undefined,
-    "It pauses when seedbox is back online.",
+    "It pauses when seedbox reconnects.",
   ],
   [
     "an offline Node's last word",
@@ -115,7 +115,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
       },
     },
     undefined,
-    'beacon.example responded with "too many requests", so no peers come from it. SlipStream retries at 12:30.',
+    'beacon.example reported "too many requests", so no peers come from it. The client retries at 12:30.',
   ],
   [
     "a remove waits for its Node",

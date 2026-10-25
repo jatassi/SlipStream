@@ -16,10 +16,11 @@ Panic and invariant messages that only a developer sees follow the Go convention
 
 ## Sources
 
-These rules come from established guides. When this file is silent, follow them in this order.
+These rules come from established guides. For a case this file doesn't cover, follow them in this order.
 
 - Google, [Writing helpful error messages](https://developers.google.com/tech-writing/error-messages/set-tone).
 - Microsoft, [Error message guidelines](https://learn.microsoft.com/en-us/windows/win32/debug/error-message-guidelines).
+- Microsoft Writing Style Guide, [Use contractions](https://learn.microsoft.com/en-us/style-guide/word-choice/use-contractions).
 - GOV.UK Design System, [Error message](https://design-system.service.gov.uk/components/error-message).
 - Nielsen Norman Group, [Error-message guidelines](https://www.nngroup.com/articles/error-message-guidelines/).
 - Go Wiki, [Code Review Comments: error strings](https://go.dev/wiki/CodeReviewComments#error-strings).
@@ -31,14 +32,14 @@ These rules come from established guides. When this file is silent, follow them 
 2. **Be specific.** Name the thing and the cause. Never write "Something went wrong", "An error occurred" or "Invalid input". (GOV.UK, Microsoft)
 3. **Describe the problem, not the person.** "That PIN is wrong." is fine. "You entered a wrong PIN." blames. (Google)
 4. **No apologies, courtesy words, jokes or cheer.** Leave out "sorry", "please", "oops", "whoops" and exclamation marks. (Google, GOV.UK, Microsoft)
-5. **No harsh or vague verdicts.** Leave out "invalid", "illegal", "forbidden", "bad" and "fatal". Say what is wrong and what would be right: "Use 100 characters or fewer." (GOV.UK, Microsoft)
+5. **No harsh or vague verdicts.** Leave out "invalid", "illegal", "forbidden", "bad" and "fatal". Say what is wrong and what would be right: "Use 100 characters or fewer." Glossary terms such as Mark bad are exempt. (GOV.UK, Microsoft)
 
 ## Plain, literal words
 
 6. **Don't give software human verbs.** A program, Node, disk or server does not answer, tell, think, know better or act on its own. Microsoft's guide forbids this outright. Glossary verbs such as a Node *holds* a Role or an Item *wants* a Target are defined terms, so use them as the glossary does.
 7. **Use the standard word for a standard thing.** A server *responds*, a request gets a *response*, a retry happens *automatically*. A plain word that no other software uses is harder to read than the common one.
 8. **No figures of speech.** Say the literal thing. "Its rules go with it" becomes "Deleting it also deletes its rules."
-9. **Use contractions.** "can't", "isn't" and "doesn't" read as speech. Read the message aloud. If you wouldn't say it, rewrite it. (GOV.UK)
+9. **Use contractions.** "can't", "isn't" and "doesn't" read as speech. (Microsoft) Read the message aloud. If you wouldn't say it, rewrite it. (GOV.UK)
 
 ## Patterns that read as machine-written
 
@@ -61,7 +62,9 @@ Large language models write in recognisable patterns ([Wikipedia](https://en.wik
 - A full sentence ends with a period. Labels, buttons, headings and menu items don't.
 - Straight quotes (`"` and `'`) in source. The ellipsis character `…` marks only an in-progress state or a menu item that opens a dialog, as DESIGN.md sets.
 - Go error strings start lowercase, end without punctuation and add context as they wrap: `fmt.Errorf("read the volumes: %w", err)`. Their words still follow every rule above.
+- A Go error states the cause and nothing else. The layer that shows it to a person, such as a problem's title or detail, a Health item or a HostRefusal, adds what to do as its own sentence. An error that ends a CLI command and is printed after a prefix may carry its instruction as a second sentence after a period.
 - An API problem's `title` and `detail` are sentences a person reads, so they follow the message rules.
+- A problem title of one sentence has no final period. A title of two sentences ends each with a period.
 - An OpenAPI field description may use the reference shorthand of a fact, a semicolon and its edge case: "Seconds; null resets it to its default". Everywhere else, rule 11 holds.
 
 ## Examples from this codebase
@@ -71,10 +74,10 @@ Large language models write in recognisable patterns ([Wikipedia](https://en.wik
 | The server did not answer, so check your connection and try again. | SlipStream isn't responding. Check your connection and try again. | 6, 7, 9, 10 |
 | The folder isn't answering. | The folder isn't responding. Check the disk or share it is on. | 1, 6 |
 | It tries again on its own; check the network of each Node that can't reach it. | SlipStream retries automatically. Check the network of each Node that can't reach it. | 6, 7, 11 |
-| Accept them only on purpose; they rank below every other quality. | They rank below every other quality. Accept them only if you want them. | 11 |
+| Accept them only on purpose; they rank below every other quality. | They rank below every other quality. Accept them only if you want cinema recordings. | 11 |
 | You're all set, Sam. | Your Account is ready, Sam. | 14 |
 | Another cut already goes by this name or one of these phrases. | Another cut already uses this name or one of these phrases. | 8 |
 
 ## Reviewing
 
-Every review of a diff that adds or changes a string in scope checks it against this file, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms. Quote the string, name the rule number and give the rewrite. The `copy-words` lint fails on the fixed words and dashes from rules 2, 4, 11, 14 and 15 in Go and web source. It keeps one list in `cmd/release/internal/lint/rules/copy_words.go` and one in `web/.oxlintrc.json`. Change them together. Everything else needs a reviewer.
+Every review of a diff that adds or changes a string in scope checks it against this file, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms. Quote the string, name the rule number and give the rewrite. The `copy-words` lint fails on the fixed phrases and words from rules 2, 4, 14 and 15 and on any em or en dash, except a string that is only a dash, such as an empty-cell marker. It checks Go string literals and `doc:` tags in product code, and web string literals, template text and JSX text outside tests, `e2e/` and `harness/`. The Go and web checks read one list, `web/lint/copy-words.json`. Everything else needs a reviewer.

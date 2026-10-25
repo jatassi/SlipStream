@@ -339,7 +339,10 @@ type artworkInput struct {
 
 func (h handlers) artwork(ctx context.Context, _ identity.Account, in *artworkInput) (*api.Image, error) {
 	img, err := open(h.registry).Artwork(ctx, in.Token, artwork.Size(in.Size))
-	if errors.Is(err, artwork.ErrForged) || errors.Is(err, artwork.ErrMissing) {
+	if errors.Is(err, artwork.ErrMissing) {
+		return nil, artworkUnavailable.Because(err.Error() + ". SlipStream tries again later.")
+	}
+	if errors.Is(err, artwork.ErrForged) {
 		return nil, artworkUnavailable.Because(err.Error())
 	}
 	if err != nil {

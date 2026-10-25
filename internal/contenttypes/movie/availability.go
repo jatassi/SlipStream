@@ -32,7 +32,7 @@ var (
 		{Value: homeRelease, Label: "Home release"},
 		{Value: cinemaRelease, Label: "Cinema release"},
 	}}
-	CinemaDelay = setting.Duration{Key: "movie.cinemaDelay", Label: "Movies count as released this long after a cinema release", Default: 90 * day, Max: 365 * day, Step: day}
+	CinemaDelay = setting.Duration{Key: "movie.cinemaDelay", Label: "Delay after a cinema release", Default: 90 * day, Max: 365 * day, Step: day}
 )
 
 func (*Movie) SettingFields(ctx context.Context, r storage.Reader[file]) ([]setting.Field, error) {

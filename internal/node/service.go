@@ -35,7 +35,7 @@ func service(args []string) int {
 		return usage(fmt.Errorf("service %s: unexpected argument %q", action, flags.Arg(0)))
 	}
 	if !*user {
-		return usage(fmt.Errorf("service %s takes --user, because the deb and rpm install the system service", action))
+		return usage(fmt.Errorf("service %s needs --user. The deb and rpm packages install the system service", action))
 	}
 	env, err := ProcessEnv("service "+action, *dataDir)
 	if err != nil {
@@ -85,7 +85,7 @@ func uninstallUserService(env Env, layout install.Layout) int {
 		fmt.Println("no slipstream user service is installed")
 		return ExitOK
 	}
-	fmt.Println("slipstream service removed. Linger stays on. Run loginctl disable-linger to turn it off.")
+	fmt.Println("Removed the slipstream service. Linger is still on, and loginctl disable-linger turns it off.")
 	return ExitOK
 }
 

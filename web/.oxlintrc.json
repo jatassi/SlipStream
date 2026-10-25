@@ -179,6 +179,7 @@
       }
     ],
     "unicorn/prefer-top-level-await": "off",
+    "slipstream/copy-words": "error",
     "slipstream/no-restricted-syntax": [
       "error",
       {
@@ -212,10 +213,6 @@
       {
         "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
         "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
-      },
-      {
-        "selector": ":matches(Literal[value=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i], TemplateElement[value.raw=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i], JSXText[value=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i])",
-        "message": "WRITING.md bans this word or dash in user-facing strings; rewrite the string"
       }
     ]
   },
@@ -670,27 +667,7 @@
       }
     },
     {
-      "files": ["src/ui/**"],
-      "rules": {
-        "slipstream/no-restricted-syntax": [
-          "error",
-          {
-            "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
-            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
-          },
-          {
-            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
-            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
-          },
-          {
-            "selector": ":matches(Literal[value=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i], TemplateElement[value.raw=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i], JSXText[value=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i])",
-            "message": "WRITING.md bans this word or dash in user-facing strings; rewrite the string"
-          }
-        ]
-      }
-    },
-    {
-      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
+      "files": ["src/ui/**", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
       "rules": {
         "slipstream/no-restricted-syntax": [
           "error",
@@ -708,53 +685,13 @@
     {
       "files": ["src/ui/data.tsx"],
       "rules": {
-        "slipstream/no-restricted-syntax": [
-          "error",
-          {
-            "selector": ":matches(Literal[value=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i], TemplateElement[value.raw=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i], JSXText[value=/\\S\\s*[—–]\\s*\\S|\\bplease\\b|\\bsorry\\b|\\boops\\b|\\bwhoops\\b|\\bsomething\\s+went\\s+wrong\\b|\\ban\\s+error\\s+occurred\\b|\\ball\\s+set\\b|\\ball\\s+good\\b|\\badditionally\\b|\\bdelve\\b|\\bleverage\\b|\\butilize\\b|\\bseamless(ly)?\\b|\\brobust\\b|\\bcrucial\\b|\\bpivotal\\b|\\bshowcase\\b|\\btestament\\b|\\bvibrant\\b|\\bmeticulous(ly)?\\b|\\bmultifaceted\\b/i])",
-            "message": "WRITING.md bans this word or dash in user-facing strings; rewrite the string"
-          }
-        ]
+        "slipstream/no-restricted-syntax": "off"
       }
     },
     {
-      "files": ["e2e/**", "harness/**"],
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**", "e2e/**", "harness/**"],
       "rules": {
-        "slipstream/no-restricted-syntax": [
-          "error",
-          {
-            "selector": "JSXAttribute[name.name='className'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='style'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='style'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "Literal[value=/\\[(#|rgba?\\(|hsla?\\()/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "TemplateElement[value.raw=/\\[(#|rgba?\\(|hsla?\\()/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
-            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
-          },
-          {
-            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
-            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
-          }
-        ]
+        "slipstream/copy-words": "off"
       }
     }
   ]

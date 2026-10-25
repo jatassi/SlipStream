@@ -26,7 +26,7 @@ func DefaultTimings() Timings { return Timings{BusyTimeout: 5 * time.Second} }
 // maps it to ExitLibraryRefused. Its text is the wrapped error's, for an
 // unreadable file:
 //
-//	library.db is not a readable SQLite database. Restore a Backup
+//	library.db isn't a readable SQLite database. Restore a Backup
 type RefusedError struct{ Err error }
 
 func (e *RefusedError) Error() string { return e.Err.Error() }

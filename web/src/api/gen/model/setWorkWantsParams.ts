@@ -2,7 +2,7 @@ import type { SetWorkWantsUnwanted } from "./setWorkWantsUnwanted.ts";
 
 export type SetWorkWantsParams = {
   /**
-   * Answer the change's Impact and save nothing
+   * Return the change's Impact and save nothing
    */
   preview?: boolean;
   /**

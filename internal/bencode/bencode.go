@@ -105,7 +105,7 @@ func (d *decoder) integer(stop byte) (int64, error) {
 	digits := string(d.data[d.pos : d.pos+end])
 	n, err := strconv.ParseInt(digits, 10, 64)
 	if abs := strings.TrimPrefix(digits, "-"); err != nil || abs[0] == '+' || (abs[0] == '0' && digits != "0") {
-		return 0, d.errorf("%q is not a bencode integer", digits)
+		return 0, d.errorf("%q isn't a bencode integer", digits)
 	}
 	d.pos += end + 1
 	return n, nil

@@ -162,8 +162,8 @@ func TestParseFetchedRefusesATreeThatBreaksARule(t *testing.T) {
 		{"work label", records, Fetched{}, "artist a1: its label is empty"},
 		{"level label", records, Fetched{Label: "A", Children: []Entry{{Key: "b1"}}}, "album b1: its label is empty"},
 		{"item label", records, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1"}}}}}, "track c1: its label is empty"},
-		{"empty key", records, Fetched{Label: "A", Children: []Entry{{Label: "B"}}}, "artist a1: album 1 has a key of 0 bytes, not 1 to 200"},
-		{"long key", records, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}, {Key: Key(strings.Repeat("k", 201)), Label: "C"}}}}}, "album b1: track 2 has a key of 201 bytes, not 1 to 200"},
+		{"empty key", records, Fetched{Label: "A", Children: []Entry{{Label: "B"}}}, "artist a1: album 1 has a key of 0 bytes. A key is 1 to 200 bytes"},
+		{"long key", records, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}, {Key: Key(strings.Repeat("k", 201)), Label: "C"}}}}}, "album b1: track 2 has a key of 201 bytes. A key is 1 to 200 bytes"},
 		{"two items", records, Fetched{Label: "A", Children: []Entry{
 			{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}}},
 			{Key: "b2", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}}},

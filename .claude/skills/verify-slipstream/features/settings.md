@@ -6,7 +6,7 @@ Settings holds the Controller-wide settings an Admin tunes. Address is the origi
 
 - `settings-address` Settings > Address shows the saved address, suggests the one in use while none is set, warns `Passkeys don't work on a plain-HTTP address. Use an https:// address.` for a plain-HTTP address other than `localhost` or `*.localhost`, refuses an IP address with `The address must be a name, not an IP address` and saves with `Saved the address`.
 - `settings-email` Settings > Email reads `Every email SlipStream sends goes through <host>.` over the fields `Server`, `Port`, `Security`, `Username`, `Password`, `From address` and `From name`, keeps the password write-only and saves with `Saved the email settings`.
-- `settings-email-test` `Send a test email` reads `Sent a test email to ada@example.test.` and the `mail` capture holds it; under `smtp-reject` it reads `The test email failed. The mail server responded: 550 5.1.1 Mailbox unavailable`.
+- `settings-email-test` `Send a test email` reads `Sent a test email to ada@example.test.` and the `mail` capture holds it; under `smtp-reject` it reads `The test email failed: 550 5.1.1 Mailbox unavailable`.
 - `settings-sign-in` Settings > Sign-in groups its settings under `Wrong PINs`, `Failed attempts from one address`, `Sessions and re-confirm` and `Link lifetimes`, saves one and refuses a value outside its bounds on the field, as `Between 3 and 9 wrong PINs.` while the PIN turns off after 10 (P-238).
 
 ## How to get to it (user POV)
@@ -39,7 +39,7 @@ Steps:
   $FW mail list $RUN --where 'to=["ada@example.test"]'
   ```
 
-- **A failing server.** Play `smtp-reject` and send the test again. The page reads `The test email failed. The mail server responded: 550 5.1.1 Mailbox unavailable`. Turn the cue off after.
+- **A failing server.** Play `smtp-reject` and send the test again. The page reads `The test email failed: 550 5.1.1 Mailbox unavailable`. Turn the cue off after.
 
   ```sh
   $FW cue $RUN smtp-reject

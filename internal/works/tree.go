@@ -80,7 +80,7 @@ func (p *parser) entries(parentName string, parent Key, depth int, es []Entry) e
 	}
 	for i, e := range es {
 		if len(e.Key) == 0 || len(e.Key) > maxKey {
-			return invalid("%s: %s %d has a key of %d bytes, not 1 to %d", parentName, strings.ToLower(noun.One), i+1, len(e.Key), maxKey)
+			return invalid("%s: %s %d has a key of %d bytes. A key is 1 to %d bytes", parentName, strings.ToLower(noun.One), i+1, len(e.Key), maxKey)
 		}
 		name := strings.ToLower(noun.One) + " " + string(e.Key)
 		switch {

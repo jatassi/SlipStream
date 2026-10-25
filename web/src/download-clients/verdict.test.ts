@@ -37,7 +37,7 @@ test.each([
       signal: "fail",
       chip: "Not listening",
       sentence: "Can't listen on 0.0.0.0:6881: address already in use.",
-      hint: "No peer can connect to it until it listens. If another program is using the port, choose another one or free it, then restart.",
+      hint: "No peer can connect to it until it listens. If another program is using the port, free it or choose another, then restart.",
     },
   },
   {
@@ -47,7 +47,7 @@ test.each([
       signal: "fail",
       chip: "Not listening",
       sentence: "Not listening on 0.0.0.0:6881 yet.",
-      hint: "No peer can connect to it until it listens. If another program is using the port, choose another one or free it, then restart.",
+      hint: "No peer can connect to it until it listens. If another program is using the port, free it or choose another, then restart.",
     },
   },
   {

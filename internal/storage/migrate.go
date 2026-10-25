@@ -182,7 +182,7 @@ type corruptError struct {
 }
 
 func (e *corruptError) Error() string {
-	return e.file + " is not a readable SQLite database" + e.advice
+	return e.file + " isn't a readable SQLite database" + e.advice
 }
 
 func (e *corruptError) Unwrap() error { return e.cause }

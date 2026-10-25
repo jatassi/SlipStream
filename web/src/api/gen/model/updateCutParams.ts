@@ -2,7 +2,7 @@ import type { UpdateCutUnwanted } from "./updateCutUnwanted.ts";
 
 export type UpdateCutParams = {
   /**
-   * Answer the change's Impact and save nothing
+   * Return the change's Impact and save nothing
    */
   preview?: boolean;
   /**

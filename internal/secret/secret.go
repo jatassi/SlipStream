@@ -42,7 +42,7 @@ type Keys struct {
 var (
 	errMissing   = errors.New("library.key is missing, but library.db was set up with one. Restore library.key from the Backup that holds this library.db")
 	errForeign   = errors.New("library.key doesn't belong to this library.db. Restore the library.key that does")
-	errMalformed = errors.New("library.key is not 64 hex characters")
+	errMalformed = errors.New("library.key isn't 64 hex characters")
 )
 
 // Open converges the key file at path with library.db's check row. A key

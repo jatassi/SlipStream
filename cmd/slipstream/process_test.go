@@ -333,7 +333,7 @@ func TestAMalformedNodeKeyExitsWithItsOwnCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
-	want := "node key " + key + " is not 64 hex characters"
+	want := "node key " + key + " isn't 64 hex characters"
 	if got := startFailed(res.stderr); res.code != node.ExitRecordRefused || got != want {
 		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, got, node.ExitRecordRefused, want, res.stderr)
 	}

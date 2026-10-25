@@ -148,7 +148,7 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "an offline Node says it waits",
     { code: "offline" },
     "recheck",
-    "The Node holding The Quiet Orchard is offline. Try again once it's back online.",
+    "The Node holding The Quiet Orchard is offline. Try again once it reconnects.",
   ],
   [
     "a torrent its Node no longer holds",
