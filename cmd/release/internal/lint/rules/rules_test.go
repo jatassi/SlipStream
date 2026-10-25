@@ -125,8 +125,8 @@ func TestCopyWords(t *testing.T) {
 		`internal/api/problem.go:12: [copy-words] "sorry"` + rewrite,
 		`internal/api/problem.go:13: [copy-words] "em dash"` + rewrite,
 		`internal/api/problem.go:14: [copy-words] "en dash"` + rewrite,
-		`internal/api/problem.go:15: [copy-words] "all set"` + rewrite,
-		`internal/api/problem.go:17: [copy-words] "seamless"` + rewrite,
+		`internal/api/problem.go:16: [copy-words] "all set"` + rewrite,
+		`internal/api/problem.go:18: [copy-words] "seamless"` + rewrite,
 	})
 }
 

@@ -24,8 +24,8 @@ type bannedCopy struct {
 }
 
 var bannedCopyWords = []bannedCopy{
-	{"em dash", "—"},
-	{"en dash", "–"},
+	{"em dash", `\S\s*—\s*\S`},
+	{"en dash", `\S\s*–\s*\S`},
 	{"please", `\bplease\b`},
 	{"sorry", `\bsorry\b`},
 	{"oops", `\boops\b`},
@@ -49,6 +49,12 @@ var bannedCopyWords = []bannedCopy{
 	{"multifaceted", `\bmultifaceted\b`},
 }
 
+// quotesThirdParty holds files whose strings are another program's own text,
+// which SlipStream matches or replays word for word.
+var quotesThirdParty = map[string]bool{
+	"internal/torrent/unit3d/unit3d.go": true,
+}
+
 var bannedCopyPatterns = compileBannedCopy(bannedCopyWords)
 
 func compileBannedCopy(words []bannedCopy) []*regexp.Regexp {
@@ -66,6 +72,9 @@ func checkCopyWords(repo *lint.Repo) ([]lint.Finding, error) {
 	}
 	var findings []lint.Finding
 	for _, f := range files {
+		if quotesThirdParty[f.Path] {
+			continue
+		}
 		for _, lit := range copyLiterals(f.Syntax) {
 			s, err := strconv.Unquote(lit.Value)
 			if err != nil {

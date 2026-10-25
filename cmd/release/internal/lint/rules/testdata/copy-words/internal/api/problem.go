@@ -12,6 +12,7 @@ var (
 	errSorry = errors.New("sorry, PLEASE retry")
 	dash     = "Ready — now"
 	range_   = `1–3`
+	empty    = "—"
 	spaced   = "You're all\n set"
 	fine     = "pleased, seamlessness and allgood"
 	adverb   = "Seamlessly synced"
