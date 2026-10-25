@@ -29,7 +29,10 @@ type Payloads interface {
 type Config struct {
 	Disk     Disk
 	Payloads Payloads
-	Timings  Timings
+	// Downloads is the downloads folder and every save folder outside it,
+	// which no root may overlap.
+	Downloads func() []string
+	Timings   Timings
 }
 
 // resampleEvery is the least time between two samples a placement asks
@@ -520,6 +523,11 @@ func (s *Store) resample(root storage.UUID) {
 	if due {
 		s.wake()
 	}
+}
+
+// Volume reads the volume that holds path under the stat deadline.
+func (s *Store) Volume(ctx context.Context, path string) (Volume, error) {
+	return timed(ctx, s, path, func(ctx context.Context) (Volume, error) { return s.cfg.Disk.Volume(ctx, path) })
 }
 
 // errUnresponsive is a Disk call that missed the stat deadline. The call

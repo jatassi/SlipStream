@@ -140,6 +140,60 @@ func (VolumeKind) EnumDescriptor() ([]byte, []int) {
 	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{1}
 }
 
+// Purpose is what a folder is for, which decides the rules it is judged by.
+type Purpose int32
+
+const (
+	Purpose_PURPOSE_UNSPECIFIED Purpose = 0
+	// ROOT: a library root, apart from other roots and the Node's data and
+	// downloads folders.
+	Purpose_PURPOSE_ROOT Purpose = 1
+	// DOWNLOADS: where the Node downloads, writable, on no network share,
+	// and apart from every root it holds.
+	Purpose_PURPOSE_DOWNLOADS Purpose = 2
+)
+
+// Enum value maps for Purpose.
+var (
+	Purpose_name = map[int32]string{
+		0: "PURPOSE_UNSPECIFIED",
+		1: "PURPOSE_ROOT",
+		2: "PURPOSE_DOWNLOADS",
+	}
+	Purpose_value = map[string]int32{
+		"PURPOSE_UNSPECIFIED": 0,
+		"PURPOSE_ROOT":        1,
+		"PURPOSE_DOWNLOADS":   2,
+	}
+)
+
+func (x Purpose) Enum() *Purpose {
+	p := new(Purpose)
+	*p = x
+	return p
+}
+
+func (x Purpose) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Purpose) Descriptor() protoreflect.EnumDescriptor {
+	return file_slipstream_storage_v1_storage_proto_enumTypes[2].Descriptor()
+}
+
+func (Purpose) Type() protoreflect.EnumType {
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[2]
+}
+
+func (x Purpose) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Purpose.Descriptor instead.
+func (Purpose) EnumDescriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{2}
+}
+
 type Reason int32
 
 const (
@@ -155,6 +209,7 @@ const (
 	Reason_REASON_INSIDE_DOWNLOADS   Reason = 9
 	Reason_REASON_CONTAINS_DOWNLOADS Reason = 10
 	Reason_REASON_UNRESPONSIVE       Reason = 11
+	Reason_REASON_NETWORK_SHARE      Reason = 12
 )
 
 // Enum value maps for Reason.
@@ -172,6 +227,7 @@ var (
 		9:  "REASON_INSIDE_DOWNLOADS",
 		10: "REASON_CONTAINS_DOWNLOADS",
 		11: "REASON_UNRESPONSIVE",
+		12: "REASON_NETWORK_SHARE",
 	}
 	Reason_value = map[string]int32{
 		"REASON_UNSPECIFIED":        0,
@@ -186,6 +242,7 @@ var (
 		"REASON_INSIDE_DOWNLOADS":   9,
 		"REASON_CONTAINS_DOWNLOADS": 10,
 		"REASON_UNRESPONSIVE":       11,
+		"REASON_NETWORK_SHARE":      12,
 	}
 )
 
@@ -200,11 +257,11 @@ func (x Reason) String() string {
 }
 
 func (Reason) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_storage_v1_storage_proto_enumTypes[2].Descriptor()
+	return file_slipstream_storage_v1_storage_proto_enumTypes[3].Descriptor()
 }
 
 func (Reason) Type() protoreflect.EnumType {
-	return &file_slipstream_storage_v1_storage_proto_enumTypes[2]
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[3]
 }
 
 func (x Reason) Number() protoreflect.EnumNumber {
@@ -213,7 +270,7 @@ func (x Reason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Reason.Descriptor instead.
 func (Reason) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{2}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{3}
 }
 
 type MissingReason int32
@@ -249,11 +306,11 @@ func (x MissingReason) String() string {
 }
 
 func (MissingReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_storage_v1_storage_proto_enumTypes[3].Descriptor()
+	return file_slipstream_storage_v1_storage_proto_enumTypes[4].Descriptor()
 }
 
 func (MissingReason) Type() protoreflect.EnumType {
-	return &file_slipstream_storage_v1_storage_proto_enumTypes[3]
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[4]
 }
 
 func (x MissingReason) Number() protoreflect.EnumNumber {
@@ -262,7 +319,7 @@ func (x MissingReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MissingReason.Descriptor instead.
 func (MissingReason) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{3}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{4}
 }
 
 type HeldFolder int32
@@ -298,11 +355,11 @@ func (x HeldFolder) String() string {
 }
 
 func (HeldFolder) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_storage_v1_storage_proto_enumTypes[4].Descriptor()
+	return file_slipstream_storage_v1_storage_proto_enumTypes[5].Descriptor()
 }
 
 func (HeldFolder) Type() protoreflect.EnumType {
-	return &file_slipstream_storage_v1_storage_proto_enumTypes[4]
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[5]
 }
 
 func (x HeldFolder) Number() protoreflect.EnumNumber {
@@ -311,7 +368,7 @@ func (x HeldFolder) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HeldFolder.Descriptor instead.
 func (HeldFolder) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{4}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{5}
 }
 
 type FolderErrorKind int32
@@ -356,11 +413,11 @@ func (x FolderErrorKind) String() string {
 }
 
 func (FolderErrorKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_storage_v1_storage_proto_enumTypes[5].Descriptor()
+	return file_slipstream_storage_v1_storage_proto_enumTypes[6].Descriptor()
 }
 
 func (FolderErrorKind) Type() protoreflect.EnumType {
-	return &file_slipstream_storage_v1_storage_proto_enumTypes[5]
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[6]
 }
 
 func (x FolderErrorKind) Number() protoreflect.EnumNumber {
@@ -369,7 +426,7 @@ func (x FolderErrorKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FolderErrorKind.Descriptor instead.
 func (FolderErrorKind) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{6}
 }
 
 // Intent is every root the Node holds, by id, and how often to sample.
@@ -1325,10 +1382,12 @@ func (x *MakeFolderResponse) GetPath() string {
 type CheckRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Path  string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// others is every root on this Node the folder must not overlap. The
-	// Controller sends them, so a root it just saved counts before the
-	// Node's intent catches up, and a re-homing root leaves itself out.
+	// others is, for PURPOSE_ROOT, every root on this Node the folder must
+	// not overlap. The Controller sends them, so a root it just saved counts
+	// before the Node's intent catches up, and a re-homing root leaves itself
+	// out. PURPOSE_DOWNLOADS reads the roots the Node holds instead.
 	Others        []*Other `protobuf:"bytes,2,rep,name=others,proto3" json:"others,omitempty"`
+	Purpose       Purpose  `protobuf:"varint,3,opt,name=purpose,proto3,enum=slipstream.storage.v1.Purpose" json:"purpose,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1375,6 +1434,13 @@ func (x *CheckRequest) GetOthers() []*Other {
 		return x.Others
 	}
 	return nil
+}
+
+func (x *CheckRequest) GetPurpose() Purpose {
+	if x != nil {
+		return x.Purpose
+	}
+	return Purpose_PURPOSE_UNSPECIFIED
 }
 
 type Other struct {
@@ -2401,10 +2467,11 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x06parent\x18\x01 \x01(\tR\x06parent\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"(\n" +
 	"\x12MakeFolderResponse\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"X\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"\x92\x01\n" +
 	"\fCheckRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x124\n" +
-	"\x06others\x18\x02 \x03(\v2\x1c.slipstream.storage.v1.OtherR\x06others\"+\n" +
+	"\x06others\x18\x02 \x03(\v2\x1c.slipstream.storage.v1.OtherR\x06others\x128\n" +
+	"\apurpose\x18\x03 \x01(\x0e2\x1e.slipstream.storage.v1.PurposeR\apurpose\"+\n" +
 	"\x05Other\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\"\xc4\x01\n" +
@@ -2474,7 +2541,11 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x17VOLUME_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11VOLUME_KIND_LOCAL\x10\x01\x12\x19\n" +
 	"\x15VOLUME_KIND_REMOVABLE\x10\x02\x12\x17\n" +
-	"\x13VOLUME_KIND_NETWORK\x10\x03*\xb8\x02\n" +
+	"\x13VOLUME_KIND_NETWORK\x10\x03*K\n" +
+	"\aPurpose\x12\x17\n" +
+	"\x13PURPOSE_UNSPECIFIED\x10\x00\x12\x10\n" +
+	"\fPURPOSE_ROOT\x10\x01\x12\x15\n" +
+	"\x11PURPOSE_DOWNLOADS\x10\x02*\xd2\x02\n" +
 	"\x06Reason\x12\x16\n" +
 	"\x12REASON_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13REASON_NOT_ABSOLUTE\x10\x01\x12\x14\n" +
@@ -2488,7 +2559,8 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x17REASON_INSIDE_DOWNLOADS\x10\t\x12\x1d\n" +
 	"\x19REASON_CONTAINS_DOWNLOADS\x10\n" +
 	"\x12\x17\n" +
-	"\x13REASON_UNRESPONSIVE\x10\v*l\n" +
+	"\x13REASON_UNRESPONSIVE\x10\v\x12\x18\n" +
+	"\x14REASON_NETWORK_SHARE\x10\f*l\n" +
 	"\rMissingReason\x12\x1e\n" +
 	"\x1aMISSING_REASON_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16MISSING_REASON_MISSING\x10\x01\x12\x1f\n" +
@@ -2504,19 +2576,20 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x1eFOLDER_ERROR_KIND_NOT_A_FOLDER\x10\x02\x12\x1c\n" +
 	"\x18FOLDER_ERROR_KIND_DENIED\x10\x03\x12\"\n" +
 	"\x1eFOLDER_ERROR_KIND_UNRESPONSIVE\x10\x04\x12\x18\n" +
-	"\x14FOLDER_ERROR_KIND_IO\x10\x052\x82\a\n" +
+	"\x14FOLDER_ERROR_KIND_IO\x10\x052\x9a\x04\n" +
 	"\x0eStorageService\x12U\n" +
-	"\x06Browse\x12$.slipstream.storage.v1.BrowseRequest\x1a%.slipstream.storage.v1.BrowseResponse\x12X\n" +
-	"\aSuggest\x12%.slipstream.storage.v1.SuggestRequest\x1a&.slipstream.storage.v1.SuggestResponse\x12a\n" +
-	"\n" +
-	"MakeFolder\x12(.slipstream.storage.v1.MakeFolderRequest\x1a).slipstream.storage.v1.MakeFolderResponse\x12R\n" +
-	"\x05Check\x12#.slipstream.storage.v1.CheckRequest\x1a$.slipstream.storage.v1.CheckResponse\x12U\n" +
 	"\x06Verify\x12$.slipstream.storage.v1.VerifyRequest\x1a%.slipstream.storage.v1.VerifyResponse\x12R\n" +
 	"\x05Place\x12#.slipstream.storage.v1.PlaceRequest\x1a$.slipstream.storage.v1.PlaceResponse\x12O\n" +
 	"\x04Move\x12\".slipstream.storage.v1.MoveRequest\x1a#.slipstream.storage.v1.MoveResponse\x12U\n" +
 	"\x06Remove\x12$.slipstream.storage.v1.RemoveRequest\x1a%.slipstream.storage.v1.RemoveResponse\x12O\n" +
 	"\x04List\x12\".slipstream.storage.v1.ListRequest\x1a#.slipstream.storage.v1.ListResponse\x12U\n" +
-	"\x06Sample\x12$.slipstream.storage.v1.SampleRequest\x1a%.slipstream.storage.v1.SampleResponse\x1a\r\xc2\xf3\x18\t\x1a\astorageB\xea\x01\n" +
+	"\x06Sample\x12$.slipstream.storage.v1.SampleRequest\x1a%.slipstream.storage.v1.SampleResponse\x1a\r\xc2\xf3\x18\t\x1a\astorage2\xff\x02\n" +
+	"\rFolderService\x12U\n" +
+	"\x06Browse\x12$.slipstream.storage.v1.BrowseRequest\x1a%.slipstream.storage.v1.BrowseResponse\x12X\n" +
+	"\aSuggest\x12%.slipstream.storage.v1.SuggestRequest\x1a&.slipstream.storage.v1.SuggestResponse\x12a\n" +
+	"\n" +
+	"MakeFolder\x12(.slipstream.storage.v1.MakeFolderRequest\x1a).slipstream.storage.v1.MakeFolderResponse\x12R\n" +
+	"\x05Check\x12#.slipstream.storage.v1.CheckRequest\x1a$.slipstream.storage.v1.CheckResponse\x1a\x06\xc2\xf3\x18\x02\x10\x01B\xea\x01\n" +
 	"\x19com.slipstream.storage.v1B\fStorageProtoP\x01ZIgithub.com/jatassi/slipstream/internal/pb/slipstream/storage/v1;storagev1\xa2\x02\x03SSX\xaa\x02\x15Slipstream.Storage.V1\xca\x02\x15Slipstream\\Storage\\V1\xe2\x02!Slipstream\\Storage\\V1\\GPBMetadata\xea\x02\x17Slipstream::Storage::V1b\x06proto3"
 
 var (
@@ -2531,95 +2604,97 @@ func file_slipstream_storage_v1_storage_proto_rawDescGZIP() []byte {
 	return file_slipstream_storage_v1_storage_proto_rawDescData
 }
 
-var file_slipstream_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_slipstream_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
 var file_slipstream_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_slipstream_storage_v1_storage_proto_goTypes = []any{
 	(RootState)(0),             // 0: slipstream.storage.v1.RootState
 	(VolumeKind)(0),            // 1: slipstream.storage.v1.VolumeKind
-	(Reason)(0),                // 2: slipstream.storage.v1.Reason
-	(MissingReason)(0),         // 3: slipstream.storage.v1.MissingReason
-	(HeldFolder)(0),            // 4: slipstream.storage.v1.HeldFolder
-	(FolderErrorKind)(0),       // 5: slipstream.storage.v1.FolderErrorKind
-	(*Intent)(nil),             // 6: slipstream.storage.v1.Intent
-	(*Root)(nil),               // 7: slipstream.storage.v1.Root
-	(*Facts)(nil),              // 8: slipstream.storage.v1.Facts
-	(*RootFacts)(nil),          // 9: slipstream.storage.v1.RootFacts
-	(*Volume)(nil),             // 10: slipstream.storage.v1.Volume
-	(*Result)(nil),             // 11: slipstream.storage.v1.Result
-	(*BrowseRequest)(nil),      // 12: slipstream.storage.v1.BrowseRequest
-	(*BrowseResponse)(nil),     // 13: slipstream.storage.v1.BrowseResponse
-	(*Segment)(nil),            // 14: slipstream.storage.v1.Segment
-	(*Folder)(nil),             // 15: slipstream.storage.v1.Folder
-	(*Place)(nil),              // 16: slipstream.storage.v1.Place
-	(*SuggestRequest)(nil),     // 17: slipstream.storage.v1.SuggestRequest
-	(*SuggestResponse)(nil),    // 18: slipstream.storage.v1.SuggestResponse
-	(*MakeFolderRequest)(nil),  // 19: slipstream.storage.v1.MakeFolderRequest
-	(*MakeFolderResponse)(nil), // 20: slipstream.storage.v1.MakeFolderResponse
-	(*CheckRequest)(nil),       // 21: slipstream.storage.v1.CheckRequest
-	(*Other)(nil),              // 22: slipstream.storage.v1.Other
-	(*CheckResponse)(nil),      // 23: slipstream.storage.v1.CheckResponse
-	(*VerifyRequest)(nil),      // 24: slipstream.storage.v1.VerifyRequest
-	(*Recorded)(nil),           // 25: slipstream.storage.v1.Recorded
-	(*VerifyResponse)(nil),     // 26: slipstream.storage.v1.VerifyResponse
-	(*Missing)(nil),            // 27: slipstream.storage.v1.Missing
-	(*PlaceRequest)(nil),       // 28: slipstream.storage.v1.PlaceRequest
-	(*PlaceResponse)(nil),      // 29: slipstream.storage.v1.PlaceResponse
-	(*MoveRequest)(nil),        // 30: slipstream.storage.v1.MoveRequest
-	(*MoveResponse)(nil),       // 31: slipstream.storage.v1.MoveResponse
-	(*RemoveRequest)(nil),      // 32: slipstream.storage.v1.RemoveRequest
-	(*RemoveResponse)(nil),     // 33: slipstream.storage.v1.RemoveResponse
-	(*ListRequest)(nil),        // 34: slipstream.storage.v1.ListRequest
-	(*ListResponse)(nil),       // 35: slipstream.storage.v1.ListResponse
-	(*SampleRequest)(nil),      // 36: slipstream.storage.v1.SampleRequest
-	(*SampleResponse)(nil),     // 37: slipstream.storage.v1.SampleResponse
-	(*FolderError)(nil),        // 38: slipstream.storage.v1.FolderError
-	(*NotReady)(nil),           // 39: slipstream.storage.v1.NotReady
+	(Purpose)(0),               // 2: slipstream.storage.v1.Purpose
+	(Reason)(0),                // 3: slipstream.storage.v1.Reason
+	(MissingReason)(0),         // 4: slipstream.storage.v1.MissingReason
+	(HeldFolder)(0),            // 5: slipstream.storage.v1.HeldFolder
+	(FolderErrorKind)(0),       // 6: slipstream.storage.v1.FolderErrorKind
+	(*Intent)(nil),             // 7: slipstream.storage.v1.Intent
+	(*Root)(nil),               // 8: slipstream.storage.v1.Root
+	(*Facts)(nil),              // 9: slipstream.storage.v1.Facts
+	(*RootFacts)(nil),          // 10: slipstream.storage.v1.RootFacts
+	(*Volume)(nil),             // 11: slipstream.storage.v1.Volume
+	(*Result)(nil),             // 12: slipstream.storage.v1.Result
+	(*BrowseRequest)(nil),      // 13: slipstream.storage.v1.BrowseRequest
+	(*BrowseResponse)(nil),     // 14: slipstream.storage.v1.BrowseResponse
+	(*Segment)(nil),            // 15: slipstream.storage.v1.Segment
+	(*Folder)(nil),             // 16: slipstream.storage.v1.Folder
+	(*Place)(nil),              // 17: slipstream.storage.v1.Place
+	(*SuggestRequest)(nil),     // 18: slipstream.storage.v1.SuggestRequest
+	(*SuggestResponse)(nil),    // 19: slipstream.storage.v1.SuggestResponse
+	(*MakeFolderRequest)(nil),  // 20: slipstream.storage.v1.MakeFolderRequest
+	(*MakeFolderResponse)(nil), // 21: slipstream.storage.v1.MakeFolderResponse
+	(*CheckRequest)(nil),       // 22: slipstream.storage.v1.CheckRequest
+	(*Other)(nil),              // 23: slipstream.storage.v1.Other
+	(*CheckResponse)(nil),      // 24: slipstream.storage.v1.CheckResponse
+	(*VerifyRequest)(nil),      // 25: slipstream.storage.v1.VerifyRequest
+	(*Recorded)(nil),           // 26: slipstream.storage.v1.Recorded
+	(*VerifyResponse)(nil),     // 27: slipstream.storage.v1.VerifyResponse
+	(*Missing)(nil),            // 28: slipstream.storage.v1.Missing
+	(*PlaceRequest)(nil),       // 29: slipstream.storage.v1.PlaceRequest
+	(*PlaceResponse)(nil),      // 30: slipstream.storage.v1.PlaceResponse
+	(*MoveRequest)(nil),        // 31: slipstream.storage.v1.MoveRequest
+	(*MoveResponse)(nil),       // 32: slipstream.storage.v1.MoveResponse
+	(*RemoveRequest)(nil),      // 33: slipstream.storage.v1.RemoveRequest
+	(*RemoveResponse)(nil),     // 34: slipstream.storage.v1.RemoveResponse
+	(*ListRequest)(nil),        // 35: slipstream.storage.v1.ListRequest
+	(*ListResponse)(nil),       // 36: slipstream.storage.v1.ListResponse
+	(*SampleRequest)(nil),      // 37: slipstream.storage.v1.SampleRequest
+	(*SampleResponse)(nil),     // 38: slipstream.storage.v1.SampleResponse
+	(*FolderError)(nil),        // 39: slipstream.storage.v1.FolderError
+	(*NotReady)(nil),           // 40: slipstream.storage.v1.NotReady
 }
 var file_slipstream_storage_v1_storage_proto_depIdxs = []int32{
-	7,  // 0: slipstream.storage.v1.Intent.roots:type_name -> slipstream.storage.v1.Root
-	9,  // 1: slipstream.storage.v1.Facts.roots:type_name -> slipstream.storage.v1.RootFacts
-	10, // 2: slipstream.storage.v1.Facts.volumes:type_name -> slipstream.storage.v1.Volume
+	8,  // 0: slipstream.storage.v1.Intent.roots:type_name -> slipstream.storage.v1.Root
+	10, // 1: slipstream.storage.v1.Facts.roots:type_name -> slipstream.storage.v1.RootFacts
+	11, // 2: slipstream.storage.v1.Facts.volumes:type_name -> slipstream.storage.v1.Volume
 	0,  // 3: slipstream.storage.v1.RootFacts.state:type_name -> slipstream.storage.v1.RootState
 	1,  // 4: slipstream.storage.v1.Volume.kind:type_name -> slipstream.storage.v1.VolumeKind
-	14, // 5: slipstream.storage.v1.BrowseResponse.segments:type_name -> slipstream.storage.v1.Segment
-	10, // 6: slipstream.storage.v1.BrowseResponse.volume:type_name -> slipstream.storage.v1.Volume
-	15, // 7: slipstream.storage.v1.BrowseResponse.folders:type_name -> slipstream.storage.v1.Folder
-	16, // 8: slipstream.storage.v1.BrowseResponse.places:type_name -> slipstream.storage.v1.Place
+	15, // 5: slipstream.storage.v1.BrowseResponse.segments:type_name -> slipstream.storage.v1.Segment
+	11, // 6: slipstream.storage.v1.BrowseResponse.volume:type_name -> slipstream.storage.v1.Volume
+	16, // 7: slipstream.storage.v1.BrowseResponse.folders:type_name -> slipstream.storage.v1.Folder
+	17, // 8: slipstream.storage.v1.BrowseResponse.places:type_name -> slipstream.storage.v1.Place
 	1,  // 9: slipstream.storage.v1.Place.kind:type_name -> slipstream.storage.v1.VolumeKind
-	22, // 10: slipstream.storage.v1.CheckRequest.others:type_name -> slipstream.storage.v1.Other
-	10, // 11: slipstream.storage.v1.CheckResponse.volume:type_name -> slipstream.storage.v1.Volume
-	2,  // 12: slipstream.storage.v1.CheckResponse.refusal:type_name -> slipstream.storage.v1.Reason
-	25, // 13: slipstream.storage.v1.VerifyRequest.files:type_name -> slipstream.storage.v1.Recorded
-	27, // 14: slipstream.storage.v1.VerifyResponse.missing:type_name -> slipstream.storage.v1.Missing
-	3,  // 15: slipstream.storage.v1.Missing.reason:type_name -> slipstream.storage.v1.MissingReason
-	4,  // 16: slipstream.storage.v1.ListRequest.folder:type_name -> slipstream.storage.v1.HeldFolder
-	5,  // 17: slipstream.storage.v1.FolderError.kind:type_name -> slipstream.storage.v1.FolderErrorKind
-	0,  // 18: slipstream.storage.v1.NotReady.state:type_name -> slipstream.storage.v1.RootState
-	12, // 19: slipstream.storage.v1.StorageService.Browse:input_type -> slipstream.storage.v1.BrowseRequest
-	17, // 20: slipstream.storage.v1.StorageService.Suggest:input_type -> slipstream.storage.v1.SuggestRequest
-	19, // 21: slipstream.storage.v1.StorageService.MakeFolder:input_type -> slipstream.storage.v1.MakeFolderRequest
-	21, // 22: slipstream.storage.v1.StorageService.Check:input_type -> slipstream.storage.v1.CheckRequest
-	24, // 23: slipstream.storage.v1.StorageService.Verify:input_type -> slipstream.storage.v1.VerifyRequest
-	28, // 24: slipstream.storage.v1.StorageService.Place:input_type -> slipstream.storage.v1.PlaceRequest
-	30, // 25: slipstream.storage.v1.StorageService.Move:input_type -> slipstream.storage.v1.MoveRequest
-	32, // 26: slipstream.storage.v1.StorageService.Remove:input_type -> slipstream.storage.v1.RemoveRequest
-	34, // 27: slipstream.storage.v1.StorageService.List:input_type -> slipstream.storage.v1.ListRequest
-	36, // 28: slipstream.storage.v1.StorageService.Sample:input_type -> slipstream.storage.v1.SampleRequest
-	13, // 29: slipstream.storage.v1.StorageService.Browse:output_type -> slipstream.storage.v1.BrowseResponse
-	18, // 30: slipstream.storage.v1.StorageService.Suggest:output_type -> slipstream.storage.v1.SuggestResponse
-	20, // 31: slipstream.storage.v1.StorageService.MakeFolder:output_type -> slipstream.storage.v1.MakeFolderResponse
-	23, // 32: slipstream.storage.v1.StorageService.Check:output_type -> slipstream.storage.v1.CheckResponse
-	26, // 33: slipstream.storage.v1.StorageService.Verify:output_type -> slipstream.storage.v1.VerifyResponse
-	29, // 34: slipstream.storage.v1.StorageService.Place:output_type -> slipstream.storage.v1.PlaceResponse
-	31, // 35: slipstream.storage.v1.StorageService.Move:output_type -> slipstream.storage.v1.MoveResponse
-	33, // 36: slipstream.storage.v1.StorageService.Remove:output_type -> slipstream.storage.v1.RemoveResponse
-	35, // 37: slipstream.storage.v1.StorageService.List:output_type -> slipstream.storage.v1.ListResponse
-	37, // 38: slipstream.storage.v1.StorageService.Sample:output_type -> slipstream.storage.v1.SampleResponse
-	29, // [29:39] is the sub-list for method output_type
-	19, // [19:29] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	23, // 10: slipstream.storage.v1.CheckRequest.others:type_name -> slipstream.storage.v1.Other
+	2,  // 11: slipstream.storage.v1.CheckRequest.purpose:type_name -> slipstream.storage.v1.Purpose
+	11, // 12: slipstream.storage.v1.CheckResponse.volume:type_name -> slipstream.storage.v1.Volume
+	3,  // 13: slipstream.storage.v1.CheckResponse.refusal:type_name -> slipstream.storage.v1.Reason
+	26, // 14: slipstream.storage.v1.VerifyRequest.files:type_name -> slipstream.storage.v1.Recorded
+	28, // 15: slipstream.storage.v1.VerifyResponse.missing:type_name -> slipstream.storage.v1.Missing
+	4,  // 16: slipstream.storage.v1.Missing.reason:type_name -> slipstream.storage.v1.MissingReason
+	5,  // 17: slipstream.storage.v1.ListRequest.folder:type_name -> slipstream.storage.v1.HeldFolder
+	6,  // 18: slipstream.storage.v1.FolderError.kind:type_name -> slipstream.storage.v1.FolderErrorKind
+	0,  // 19: slipstream.storage.v1.NotReady.state:type_name -> slipstream.storage.v1.RootState
+	25, // 20: slipstream.storage.v1.StorageService.Verify:input_type -> slipstream.storage.v1.VerifyRequest
+	29, // 21: slipstream.storage.v1.StorageService.Place:input_type -> slipstream.storage.v1.PlaceRequest
+	31, // 22: slipstream.storage.v1.StorageService.Move:input_type -> slipstream.storage.v1.MoveRequest
+	33, // 23: slipstream.storage.v1.StorageService.Remove:input_type -> slipstream.storage.v1.RemoveRequest
+	35, // 24: slipstream.storage.v1.StorageService.List:input_type -> slipstream.storage.v1.ListRequest
+	37, // 25: slipstream.storage.v1.StorageService.Sample:input_type -> slipstream.storage.v1.SampleRequest
+	13, // 26: slipstream.storage.v1.FolderService.Browse:input_type -> slipstream.storage.v1.BrowseRequest
+	18, // 27: slipstream.storage.v1.FolderService.Suggest:input_type -> slipstream.storage.v1.SuggestRequest
+	20, // 28: slipstream.storage.v1.FolderService.MakeFolder:input_type -> slipstream.storage.v1.MakeFolderRequest
+	22, // 29: slipstream.storage.v1.FolderService.Check:input_type -> slipstream.storage.v1.CheckRequest
+	27, // 30: slipstream.storage.v1.StorageService.Verify:output_type -> slipstream.storage.v1.VerifyResponse
+	30, // 31: slipstream.storage.v1.StorageService.Place:output_type -> slipstream.storage.v1.PlaceResponse
+	32, // 32: slipstream.storage.v1.StorageService.Move:output_type -> slipstream.storage.v1.MoveResponse
+	34, // 33: slipstream.storage.v1.StorageService.Remove:output_type -> slipstream.storage.v1.RemoveResponse
+	36, // 34: slipstream.storage.v1.StorageService.List:output_type -> slipstream.storage.v1.ListResponse
+	38, // 35: slipstream.storage.v1.StorageService.Sample:output_type -> slipstream.storage.v1.SampleResponse
+	14, // 36: slipstream.storage.v1.FolderService.Browse:output_type -> slipstream.storage.v1.BrowseResponse
+	19, // 37: slipstream.storage.v1.FolderService.Suggest:output_type -> slipstream.storage.v1.SuggestResponse
+	21, // 38: slipstream.storage.v1.FolderService.MakeFolder:output_type -> slipstream.storage.v1.MakeFolderResponse
+	24, // 39: slipstream.storage.v1.FolderService.Check:output_type -> slipstream.storage.v1.CheckResponse
+	30, // [30:40] is the sub-list for method output_type
+	20, // [20:30] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_storage_v1_storage_proto_init() }
@@ -2632,10 +2707,10 @@ func file_slipstream_storage_v1_storage_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_storage_v1_storage_proto_rawDesc), len(file_slipstream_storage_v1_storage_proto_rawDesc)),
-			NumEnums:      6,
+			NumEnums:      7,
 			NumMessages:   34,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_slipstream_storage_v1_storage_proto_goTypes,
 		DependencyIndexes: file_slipstream_storage_v1_storage_proto_depIdxs,

@@ -12,9 +12,9 @@ import (
 // no df.
 type OSDisk struct{ host Host }
 
-// NewOSDisk is this machine's Disk; data and downloads are the folders no
-// root may overlap.
-func NewOSDisk(data, downloads string) (OSDisk, error) {
+// NewOSDisk is this machine's Disk; data is SlipStream's data folder,
+// which no root may overlap.
+func NewOSDisk(data string) (OSDisk, error) {
 	account, err := account()
 	if err != nil {
 		return OSDisk{}, err
@@ -23,7 +23,7 @@ func NewOSDisk(data, downloads string) (OSDisk, error) {
 	if err != nil {
 		return OSDisk{}, err
 	}
-	return OSDisk{Host{Style: nativeStyle, Account: account, Service: service, Data: data, Downloads: downloads}}, nil
+	return OSDisk{Host{Style: nativeStyle, Account: account, Service: service, Data: data}}, nil
 }
 
 func (d OSDisk) Host() Host { return d.host }

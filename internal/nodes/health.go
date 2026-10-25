@@ -79,6 +79,9 @@ func itemsOf(b *Board, probes map[ID][]role.ProbeResult) health.Answer {
 				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: awayWords(v) + " Its probes run again once it is back."}})
 			case !ok:
 				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: v.Name + " hasn't reported its probes since SlipStream started."}})
+			case verdict.Reason == role.EngineNotListening:
+				// Download Clients reports a listener that can't bind, beside the
+				// port it is set to.
 			case verdict.Fit == role.Fails:
 				a.Items = append(a.Items, probeItem(pk, health.Fail, subject, fmt.Sprintf("%s can't run on %s.", labels(roles), v.Name), verdict))
 			case verdict.Fit == role.Weak:

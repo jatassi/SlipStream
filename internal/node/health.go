@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -16,6 +17,7 @@ import (
 func healthCategories(h *half) []health.Category {
 	return []health.Category{
 		{About: nodes.HealthAbout, Source: h.nodes.HealthSource()},
+		{About: downloadclients.HealthAbout, Source: h.clients.HealthSource()},
 		{About: tasks.HealthAbout, Source: h.tasks.HealthSource(health.ScheduledTasksID)},
 	}
 }
@@ -24,7 +26,7 @@ func healthCategories(h *half) []health.Category {
 // that samples volumes, and the library roots' own items.
 func storageParts(h *half) health.StorageParts {
 	return health.StorageParts{
-		Volumes:    []health.VolumeSource{h.roots.HealthVolumes()},
+		Volumes:    []health.VolumeSource{h.roots.HealthVolumes(), h.clients.HealthVolumes()},
 		Roots:      h.roots.HealthSource(),
 		RootEvents: roots.HealthEvents,
 	}

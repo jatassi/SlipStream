@@ -76,18 +76,22 @@ async function calmPage(page: Page): Promise<void> {
   await expectHealthRow(page, "");
   await navigate(page, "Health");
   await expect(page.getByText("Everything is working.")).toBeVisible();
-  await expect(page.getByText("Checked storage, Nodes and scheduled tasks")).toBeVisible();
+  await expect(
+    page.getByText("Checked storage, Nodes, download clients and scheduled tasks"),
+  ).toBeVisible();
   for (const [label, phrase] of [
     ["Storage", "storage"],
     ["Nodes", "Nodes"],
+    ["Download Clients", "download clients"],
     ["Scheduled tasks", "scheduled tasks"],
   ] as const) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label)).toContainText(`Nothing is wrong with ${phrase}.`);
   }
-  await expect(
-    category(page, "Scheduled tasks").getByRole("button", { name: /^Check now/u }),
-  ).toHaveCount(0);
+  for (const label of ["Download Clients", "Scheduled tasks"]) {
+    // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
+    await expect(category(page, label).getByRole("button", { name: /^Check now/u })).toHaveCount(0);
+  }
 
   await page.getByRole("button", { name: "Check all" }).click();
   await expect(checked(page)).toHaveText("Checked.");

@@ -3,10 +3,15 @@ import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { GrabsGrab } from "../../../api/gen/model";
+import { getListTorrentsMockHandler } from "../../../api/gen/query/downloadclients/downloadclients.msw";
+import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
 import { downloading, imported } from "../../../test/grabs";
 import { problem } from "../../../test/handlers";
 import { orchardId } from "../../../test/library";
+import { liveServer } from "../../../test/live-server";
+// oxlint-disable-next-line import/max-dependencies -- the Work page's Grabs read the Torrents and the live stream too
 import { renderApp } from "../../../test/render-app";
+import { listOf, torrent } from "../../../test/torrents";
 import {
   filled,
   grabbed,
@@ -236,4 +241,41 @@ test("a failed Grab shows under Needs you with its stage, cause and a way to sea
 
   await userEvent.click(card.getByRole("button", { name: "Search again" }));
   await expect.poll(() => server.searched).toEqual([orchardId]);
+});
+
+test("a Grab's time left and speed show only while its torrent downloads", async () => {
+  const live = liveServer();
+  const moving = torrent({
+    id: downloading.torrentId ?? "",
+    state: "downloading",
+    tabs: ["downloading", "all"],
+    workId: orchardId,
+    name: downloading.releaseTitle,
+  });
+  let listed: (typeof moving)[] = [{ ...moving, state: "paused", hold: "wanted" }];
+  renderApp({
+    path: `/works/${orchardId}`,
+    handlers: [
+      getListGrabsMockHandler({ grabs: [downloading] }),
+      getListTorrentsMockHandler(() => listOf(listed)),
+      ...live.handlers,
+      ...workServer().handlers,
+    ],
+  });
+  const grabs = page.getByRole("table", { name: "Grabs" });
+  await expect.element(grabs).toMatchTextContent("25%175 MB of 700 MB");
+  const sample = { id: moving.id, done: 367_001_600, wanted: 734_003_200, upBps: 0 };
+  live.clients[0]?.send({
+    event: "torrents.live",
+    data: {
+      at: "2026-10-20T12:00:00Z",
+      rows: [{ ...sample, downBps: 512 * 1024, peers: 0, seeds: 0 }],
+      downloads: { done: sample.done, wanted: sample.wanted, allPaused: true },
+    },
+  });
+  await expect.element(grabs).toMatchTextContent("50%350 MB of 700 MB");
+
+  listed = [moving];
+  live.clients[0]?.send({ event: "torrents.changed", data: { ids: [moving.id] } });
+  await expect.element(grabs).toMatchTextContent("50%12 min left · 512 KB/s");
 });

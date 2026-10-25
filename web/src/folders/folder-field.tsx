@@ -15,13 +15,19 @@ export type FolderFieldProps = Omit<
 > & {
   readonly label: string;
   readonly description?: string;
+  readonly disabled?: boolean;
 };
 
 /**
  * A form's path field on one Node, inside its form.AppField: the path in
  * Data, Browse, and the purpose's check of the folder typed or picked.
  */
-export function FolderField({ label, description, ...browser }: FolderFieldProps) {
+export function FolderField({
+  label,
+  description,
+  disabled = false,
+  ...browser
+}: FolderFieldProps) {
   const field = useFieldContext<string>();
   const typed = field.state.value.trim();
   const [browsing, setBrowsing] = useState(false);
@@ -37,8 +43,10 @@ export function FolderField({ label, description, ...browser }: FolderFieldProps
         autoComplete="off"
         autoCapitalize="off"
         spellCheck={false}
+        disabled={disabled}
         action={
           <Button
+            disabled={disabled}
             onClick={() => {
               setBrowsing(true);
             }}

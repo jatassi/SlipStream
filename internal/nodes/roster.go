@@ -90,6 +90,8 @@ func (s *Service) Changed() <-chan struct{} { return s.Board().Changed() }
 // Serves reports whether node serves r now.
 func (s *Service) Serves(r role.Name, node ID) bool { return s.Who(r).Serves(node) }
 
+func (s *Service) Serving(r role.Name) []ID { return s.Who(r).Serving() }
+
 func (s *Service) Holds(r role.Name, node ID) bool { return s.Who(r).Holds(node) }
 
 func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick(prefer) }

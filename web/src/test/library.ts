@@ -1,4 +1,4 @@
-import type { WorksContentType, WorksTree } from "../api/gen/model";
+import type { WorksContentType, WorksListedWork, WorksTree } from "../api/gen/model";
 
 export const cinema: WorksContentType = {
   id: "cinema",
@@ -51,4 +51,17 @@ export const orchard: WorksTree = {
       availability: { date: "2021-04-09", basis: "Digital release in United States" },
     },
   ],
+};
+
+export const orchardListed: WorksListedWork = {
+  id: orchard.id,
+  contentType: orchard.contentType,
+  key: orchard.key,
+  label: orchard.label,
+  sortLabel: orchard.sortLabel,
+  addedAt: orchard.addedAt,
+  refreshedAt: orchard.refreshedAt,
+  goneUpstreamAt: orchard.goneUpstreamAt,
+  fields: orchard.fields,
+  artwork: orchard.artwork,
 };

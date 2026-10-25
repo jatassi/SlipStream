@@ -6,6 +6,8 @@ export const loaderTitle: unique symbol = Symbol("the loader's title");
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
     title?: string | typeof loaderTitle;
+    /** The route is one view of its layout's page, such as Activity's Torrents, so a phone keeps it a top-level page. */
+    view?: true;
   }
 }
 

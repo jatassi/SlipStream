@@ -3,7 +3,8 @@ import { Link, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { Icon } from "../../ui/icon";
-import { useCounts } from "../counts";
+import { RowFill } from "../../ui/row-fill";
+import { fillOf, useCounts } from "../counts";
 import type { ShownRow } from "../nav";
 
 const cell =
@@ -33,16 +34,26 @@ export function TabBar({
       className="fixed inset-x-0 bottom-0 z-20 bg-chrome pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-[inset_0_1px_0_var(--color-hairline)] backdrop-blur-[24px] backdrop-saturate-[1.6] [view-transition-name:tab-bar]"
     >
       <ul className="grid auto-cols-fr grid-flow-col">
-        {tabs.map((row) => (
-          <li key={row.id}>
-            <Tab
-              row={row}
-              current={row.id === current?.id}
-              badge={row.count === undefined ? 0 : (counts?.[row.count] ?? 0)}
-              onOpen={onOpen}
-            />
-          </li>
-        ))}
+        {tabs.map((row) => {
+          const fill = fillOf(counts, row.fill);
+          return (
+            <li key={row.id} className="relative">
+              {fill !== undefined && (
+                <RowFill
+                  label="Downloads"
+                  {...fill}
+                  className="inset-x-1.5 inset-y-1 rounded-item"
+                />
+              )}
+              <Tab
+                row={row}
+                current={row.id === current?.id}
+                badge={row.count === undefined ? 0 : (counts?.[row.count] ?? 0)}
+                onOpen={onOpen}
+              />
+            </li>
+          );
+        })}
         {actions.map((action) => (
           <li key={action.label}>
             <button type="button" onClick={action.onPress} className={`${cell} text-ink-3`}>

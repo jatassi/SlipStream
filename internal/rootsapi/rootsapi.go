@@ -36,6 +36,7 @@ var (
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	nodeNotStorage      = api.NewCode(http.StatusConflict, "node_not_storage", "The Node doesn't hold Storage")
+	nodeNotFound        = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 	nodeOffline         = api.NewCode(http.StatusServiceUnavailable, "node_offline", "The Node is offline")
 	rootUnusable        = api.NewCarrying[refusal](http.StatusUnprocessableEntity, "root_unusable", "The folder can't be a root", "refusal")
 	folderUnreadable    = api.NewCarrying[folderProblem](http.StatusUnprocessableEntity, "folder_unreadable", "The Node can't read the folder", "problem")
@@ -58,6 +59,7 @@ var codes = []struct {
 	{roots.ErrNotFound, rootNotFound},
 	{works.ErrNoWork, workNotFound},
 	{roots.ErrNotStorage, nodeNotStorage},
+	{roots.ErrNoNode, nodeNotFound},
 	{roots.ErrNodeAway, nodeOffline},
 	{roots.ErrWrongType, rootWrongType},
 	{roots.ErrHasFiles, workHasFiles},
@@ -144,7 +146,7 @@ type inUse struct {
 }
 
 type refusal struct {
-	Reason string `json:"reason" enum:"not_absolute,not_found,not_a_folder,unwritable,inside_root,contains_root,inside_data,contains_data,inside_downloads,contains_downloads,unresponsive,node_offline" doc:"Why the folder can't be a root"`
+	Reason string `json:"reason" enum:"not_absolute,not_found,not_a_folder,unwritable,inside_root,contains_root,inside_data,contains_data,inside_downloads,contains_downloads,unresponsive,network_share,node_offline" doc:"Why the folder can't serve its purpose"`
 	RootID string `json:"rootId,omitempty" format:"uuid" doc:"The root the folder is inside, contains or carries the marker of"`
 }
 
@@ -200,11 +202,12 @@ type rootInput struct {
 	RootID string `path:"rootId" format:"uuid"`
 }
 
-type checkRootInput struct {
-	Body struct {
-		NodeID string `json:"nodeId" format:"uuid"`
-		Path   string `json:"path" minLength:"1" maxLength:"4096"`
-		RootID string `json:"rootId,omitempty" format:"uuid" doc:"The root being re-homed, which the folder may overlap"`
+type checkFolderInput struct {
+	NodeID string `path:"id" format:"uuid"`
+	Body   struct {
+		Path    string `json:"path" minLength:"1" maxLength:"4096"`
+		Purpose string `json:"purpose" enum:"root,downloads" doc:"root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node"`
+		RootID  string `json:"rootId,omitempty" format:"uuid" doc:"For root: the root being re-homed, which the folder may overlap"`
 	}
 }
 
@@ -212,7 +215,7 @@ type verdict struct {
 	Usable  bool     `json:"usable"`
 	Path    string   `json:"path" doc:"The folder as its Node cleaned it"`
 	Volume  *volume  `json:"volume,omitempty" doc:"The volume it sits on, when the Node read it"`
-	Refusal *refusal `json:"refusal,omitempty" doc:"Why it can't be a root; absent when usable"`
+	Refusal *refusal `json:"refusal,omitempty" doc:"Why it can't serve its purpose; absent when usable"`
 }
 
 type verdictOutput struct{ Body verdict }
@@ -382,15 +385,6 @@ func Routes(r *api.Router, folders Folders) {
 	}, h.createRoot)
 
 	api.Register(o, api.Admin, api.Op{
-		ID:      "checkRoot",
-		Method:  http.MethodPost,
-		Path:    "/roots/check",
-		Summary: "Judge a folder on a Storage Node as a library root without saving it",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotStorage, folderUnreadable.Code},
-	}, h.checkRoot)
-
-	api.Register(o, api.Admin, api.Op{
 		ID:      "listRoots",
 		Method:  http.MethodGet,
 		Path:    "/roots",
@@ -463,28 +457,37 @@ func Routes(r *api.Router, folders Folders) {
 		ID:      "browseFolders",
 		Method:  http.MethodGet,
 		Path:    "/nodes/{id}/folders",
-		Summary: "List a folder on a Storage Node, or its places",
+		Summary: "List a folder on a Node, or its places",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotStorage, nodeOffline, folderUnreadable.Code, folderInvalid},
+		Errors:  []*api.Code{nodeNotFound, nodeOffline, folderUnreadable.Code, folderInvalid},
 	}, h.browseFolders)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "suggestFolders",
 		Method:  http.MethodGet,
 		Path:    "/nodes/{id}/folders/suggest",
-		Summary: "List the folders on a Storage Node that complete a typed path",
+		Summary: "List the folders on a Node that complete a typed path",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotStorage, nodeOffline, folderUnreadable.Code},
+		Errors:  []*api.Code{nodeNotFound, nodeOffline, folderUnreadable.Code},
 	}, h.suggestFolders)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "makeFolder",
 		Method:  http.MethodPost,
 		Path:    "/nodes/{id}/folders",
-		Summary: "Make a folder in an existing folder on a Storage Node",
+		Summary: "Make a folder in an existing folder on a Node",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{nodeNotStorage, nodeOffline, folderUnreadable.Code, folderInvalid, folderExists},
+		Errors:  []*api.Code{nodeNotFound, nodeOffline, folderUnreadable.Code, folderInvalid, folderExists},
 	}, h.makeFolder)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "checkFolder",
+		Method:  http.MethodPost,
+		Path:    "/nodes/{id}/folders/check",
+		Summary: "Judge a folder on a Node for a purpose without saving it",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotFound, nodeNotStorage, folderUnreadable.Code},
+	}, h.checkFolder)
 }
 
 type handlers struct{ folders Folders }
@@ -503,8 +506,12 @@ func (h handlers) createRoot(ctx context.Context, by identity.Admin, in *createR
 	return &rootOutput{Body: rootOf(r)}, nil
 }
 
-func (h handlers) checkRoot(ctx context.Context, by identity.Admin, in *checkRootInput) (*verdictOutput, error) {
-	node, err := nodeID(in.Body.NodeID)
+func (h handlers) checkFolder(ctx context.Context, by identity.Admin, in *checkFolderInput) (*verdictOutput, error) {
+	node, err := nodeID(in.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	purpose, err := storing.ParsePurposeWord(in.Body.Purpose)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +523,7 @@ func (h handlers) checkRoot(ctx context.Context, by identity.Admin, in *checkRoo
 		}
 		except = &id
 	}
-	v, err := open(h.folders).Check(ctx, by, node, in.Body.Path, except)
+	v, err := open(h.folders).Check(ctx, by, node, in.Body.Path, purpose, except)
 	if err != nil {
 		return nil, answer(err)
 	}

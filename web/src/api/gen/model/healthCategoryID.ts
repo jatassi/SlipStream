@@ -1,1 +1,1 @@
-export type HealthCategoryID = "storage" | "nodes" | "scheduled-tasks";
+export type HealthCategoryID = "storage" | "nodes" | "download-clients" | "scheduled-tasks";

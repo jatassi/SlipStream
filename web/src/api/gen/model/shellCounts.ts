@@ -1,3 +1,4 @@
+import type { DownloadclientsAggregate } from "./downloadclientsAggregate.ts";
 import type { ShellAlerts } from "./shellAlerts.ts";
 
 export interface ShellCounts {
@@ -7,4 +8,6 @@ export interface ShellCounts {
    */
   activity: number;
   alerts: ShellAlerts;
+  /** Every download at once; torrents.live keeps it current */
+  downloads: DownloadclientsAggregate;
 }

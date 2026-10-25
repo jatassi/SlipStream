@@ -153,11 +153,13 @@ func (p *publisher) take() [][]string {
 }
 
 type world struct {
-	lib     *storage.DB[storage.Library]
-	hub     *live.Hub
-	nodes   *source
-	tasks   *source
-	vols    *volumes
+	lib   *storage.DB[storage.Library]
+	hub   *live.Hub
+	nodes *source
+	tasks *source
+	vols  *volumes
+	// remedy is what else vols' holder offers for a full volume.
+	remedy  string
 	sink    *sink
 	changed *publisher
 
@@ -190,6 +192,7 @@ func newWorld(t *testing.T) *world {
 		nodes:   &source{},
 		tasks:   &source{},
 		vols:    &volumes{},
+		remedy:  "add a library root on another volume",
 		sink:    &sink{},
 		changed: &publisher{},
 		names:   map[role.NodeID]string{media: "Media server"},
@@ -205,9 +208,10 @@ func (w *world) open(t *testing.T) *health.Health {
 		Library: w.lib,
 		Hub:     w.hub,
 		Changed: w.changed,
-		Storage: health.StorageParts{Volumes: []health.VolumeSource{{Volumes: w.vols.Volumes, Sample: w.vols.Sample, Events: []live.Event{volumesEvent}}}},
+		Storage: health.StorageParts{Volumes: []health.VolumeSource{{Volumes: w.vols.Volumes, Sample: w.vols.Sample, Events: []live.Event{volumesEvent}, Remedy: w.remedy}}},
 		Categories: []health.Category{
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes", Events: []live.Event{nodesEvent}}, Source: health.Source{Answer: w.nodes.Answer, Check: w.nodes.Check}},
+			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks", Events: []live.Event{tasksEvent}}, Source: health.Source{Answer: w.tasks.Answer}},
 		},
 		Names: func(context.Context, storage.Reader[storage.Library]) (map[role.NodeID]string, error) {
@@ -481,6 +485,22 @@ func amount(t *testing.T, s setting.Space, a setting.Amount) *setting.Stored[set
 		t.Fatal(err)
 	}
 	return &v
+}
+
+func TestADownloadsOnlyVolumeAdvisesMovingTheDownloadsFolder(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		w.remedy = "move the downloads folder to another volume"
+		w.vols.set(10*setting.GB, true)
+		h := w.open(t)
+		run(t, h)
+		r, _ := h.Report(t.Context())
+		got := items(t, r, health.StorageID)
+		want := "Free up space on D: (Media) on Media server, or move the downloads folder to another volume. It has 10 GB left."
+		if len(got) != 1 || got[0].Text != want {
+			t.Fatalf("storage shows %+v, want an error saying %q", got, want)
+		}
+	})
 }
 
 func TestALevelsWriteEvaluatesAndPublishesStorage(t *testing.T) {

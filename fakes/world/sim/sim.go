@@ -92,6 +92,7 @@ type Node struct {
 	half    node.Half
 	probe   *roletest.Probe
 	control *roletest.Control
+	swarm   *enginetest.World
 }
 
 // Launch starts every Node of s inside the caller's synctest bubble and
@@ -142,6 +143,8 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	}
 	if w.walk != nil {
 		w.walk.seed(w, ready)
+	} else if err := setup.StorageLevels(t.Context(), w.client, s, ready, w.claims); err != nil {
+		t.Fatal(err)
 	}
 	return w
 }
@@ -315,8 +318,8 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
-		Disk: func(data, downloads string) (storing.Disk, error) {
-			d, err := node.OSDisk(data, downloads)
+		Disk: func(data string) (storing.Disk, error) {
+			d, err := node.OSDisk(data)
 			if err != nil {
 				return nil, err
 			}
@@ -329,7 +332,7 @@ func (n *Node) env() node.Env {
 		Test: n.test(),
 	}
 	if n.w.walk != nil {
-		n.w.walk.env(&env)
+		n.w.walk.env(n, &env)
 	}
 	for _, edit := range n.w.opts.edits {
 		edit(n.spec.Name, &env)
@@ -421,6 +424,14 @@ func (n *Node) Probe() *roletest.Probe {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return n.probe
+}
+
+// Swarm is the World the Node's engine last opened in under the walk:
+// its payloads, peers and trackers.
+func (n *Node) Swarm() *enginetest.World {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.swarm
 }
 
 // Control is the Probe's control half on a Controller.

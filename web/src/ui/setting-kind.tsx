@@ -3,11 +3,14 @@ import { Input } from "@base-ui/react/input";
 import type { ReactNode } from "react";
 
 import type {
+  SettingAddressField,
   SettingAmount,
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFolderField,
   SettingPortField,
+  SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
   SettingTimes,
@@ -22,6 +25,9 @@ export type Fields = {
   window: SettingWindowField;
   port: SettingPortField;
   switch: SettingSwitchField;
+  rate: SettingRateField;
+  address: SettingAddressField;
+  folder: SettingFolderField;
   space: SettingSpaceField;
 };
 
@@ -32,6 +38,9 @@ export type Values = {
   window: SettingTimes;
   port: number;
   switch: boolean;
+  rate: number;
+  address: string;
+  folder: string;
   space: SettingAmount;
 };
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/apitest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
@@ -63,6 +64,8 @@ func (worker) Files() (*files.Files, bool) { return nil, false }
 func (worker) Grabs() (*grabs.Grabs, bool) { return nil, false }
 
 func (worker) Tasks() (*tasks.Scheduler, bool) { return nil, false }
+
+func (worker) DownloadClients() (*downloadclients.Clients, bool) { return nil, false }
 
 func (worker) Health() (*health.Health, bool) { return nil, false }
 

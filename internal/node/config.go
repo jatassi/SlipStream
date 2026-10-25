@@ -248,7 +248,8 @@ func loadConfig(fsys fs.FS, environ []string, types contenttype.Set, kind instal
 }
 
 // CheckConfig holds the rules no leaf type carries: the Node settings
-// table's ranges, and a web port the Node binds for something else.
+// table's ranges, and a web or torrent port the Node binds for something
+// else.
 func (c *Config) CheckConfig(fail func(key string, err error)) {
 	if len(c.Link.Advertise) > 0 {
 		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
@@ -260,16 +261,15 @@ func (c *Config) CheckConfig(fail func(key string, err error)) {
 			fail(r.key(), err)
 		}
 	}
-	if err := c.webPortUsed(); err != nil {
-		fail("http.listen", err)
-	}
+	c.portsUsed(fail)
 }
 
 // PortUsedError is http.listen's port configured for another of the
 // Node's listeners, which then can never bind it.
 type PortUsedError struct {
 	Port uint16
-	// Other is what uses the port: "the Node link" or "the torrent client".
+	// Other is what uses the port: "the web server", "the Node link" or
+	// "the torrent client".
 	Other string
 }
 
@@ -282,17 +282,28 @@ func (e *PortUsedError) Sentence() string {
 	return strings.ToUpper(e.Other[:1]) + e.Error()[1:] + "."
 }
 
-func (c *Config) webPortUsed() error {
-	port := c.HTTP.Listen.Port()
-	for _, other := range []struct {
-		addr netip.AddrPort
-		name string
-	}{{c.Link.Listen, "the Node link"}, {c.Torrent.Listen, "the torrent client"}} {
-		if port != 0 && other.addr.Port() == port {
-			return &PortUsedError{Port: port, Other: other.name}
+// portsUsed fails each settings row whose port another of the Node's
+// listeners is configured for. Port 0 binds any free port.
+func (c *Config) portsUsed(fail func(key string, err error)) {
+	listeners := []struct {
+		key, name string
+		port      uint16
+	}{
+		{"http.listen", "the web server", c.HTTP.Listen.Port()},
+		{"link.listen", "the Node link", c.Link.Listen.Port()},
+		{"torrent.listen", "the torrent client", c.Torrent.Listen.Port()},
+	}
+	for _, l := range listeners {
+		if _, row := settingRowOf(l.key); !row || l.port == 0 {
+			continue
+		}
+		for _, other := range listeners {
+			if other.key != l.key && other.port == l.port {
+				fail(l.key, &PortUsedError{Port: l.port, Other: other.name})
+				break
+			}
 		}
 	}
-	return nil
 }
 
 // overrides are the keys a layer set to something other than the default.

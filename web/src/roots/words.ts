@@ -65,6 +65,7 @@ const because: {
   inside_downloads: () => "it's inside the downloads folder",
   contains_downloads: () => "it contains the downloads folder",
   unresponsive: (_refusal, { node }) => `${node} didn't respond in time`,
+  network_share: () => "it's on a network share",
   node_offline: (_refusal, { node }) => `${node} is offline`,
 };
 

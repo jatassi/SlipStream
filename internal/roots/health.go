@@ -29,6 +29,7 @@ func (r *Roots) HealthVolumes() health.VolumeSource {
 			return unreachable(r.Sample(ctx, node))
 		},
 		Events: []live.Event{VolumesChangedEvent, ChangedEvent},
+		Remedy: "add a library root on another volume",
 	}
 }
 

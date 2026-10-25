@@ -25,9 +25,15 @@ import (
 // engines follows the torrents in a Node's engine, the last one it
 // opened, and how many its engines added.
 type engines struct {
-	mu    sync.Mutex
-	held  map[engine.Handle]bool
-	added int
+	mu      sync.Mutex
+	held    map[engine.Handle]bool
+	added   int
+	removed []removal
+}
+
+type removal struct {
+	at          time.Time
+	deleteFiles bool
 }
 
 func (e *engines) wrap(open func(engine.Config) (engine.Engine, error)) func(engine.Config) (engine.Engine, error) {
@@ -68,14 +74,21 @@ func (f followed) Add(p engine.AddParams) (engine.Handle, error) {
 	return h, err
 }
 
-func (f followed) Remove(h engine.Handle) error {
-	err := f.Engine.Remove(h)
+func (f followed) Remove(h engine.Handle, deleteFiles bool) error {
+	err := f.Engine.Remove(h, deleteFiles)
 	if err == nil {
 		f.e.mu.Lock()
 		delete(f.e.held, h)
+		f.e.removed = append(f.e.removed, removal{at: time.Now(), deleteFiles: deleteFiles})
 		f.e.mu.Unlock()
 	}
 	return err
+}
+
+func (e *engines) removals() []removal {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.removed)
 }
 
 func stateOf(r worldtest.Row, role string) string {
@@ -216,7 +229,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 			}
 			return failed.Stage == "failed" && forfeits(t, w) == 0
 		})
-		expectFailed(t, failed, "probing", "node_written_off", "the Admin wrote off what this Grab's Node downloads")
+		expectFailed(t, failed, "probing", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
 
 		w.Node("seedbox").Start()
 		a = w.API()
@@ -245,11 +258,13 @@ func (p *failsOnce) Probe(ctx context.Context, path string) (media.Probe, error)
 	return p.Prober.Probe(ctx, path)
 }
 
-// TestANewGrabGoesHomeWhileSeedboxDrains fails seedbox's first Grab at
-// probing, so its torrent keeps seeding, then unticks Downloading on
-// seedbox: seedbox drains, and the next search's Grab is fetched through
-// seedbox, which still searches, and downloaded by home.
-func TestANewGrabGoesHomeWhileSeedboxDrains(t *testing.T) {
+// TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds fails seedbox's
+// first Grab at probing, so its torrent keeps seeding, then unticks
+// Downloading on seedbox: seedbox drains. The next search's Grab is
+// fetched through seedbox, which still searches, and though the router
+// picks home, it attaches to the Torrent seedbox already holds instead of
+// downloading the release again.
+func TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
@@ -258,7 +273,8 @@ func TestANewGrabGoesHomeWhileSeedboxDrains(t *testing.T) {
 		}))
 		work := addOrchard(t, w)
 		search(t, w, work)
-		if first := await(t, w); first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
+		first := await(t, w)
+		if first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
 			t.Fatalf("seedbox's first Grab ended %s with %+v, want failed at probing", first.Stage, first.Failure)
 		}
 		a := w.API()
@@ -284,9 +300,9 @@ func TestANewGrabGoesHomeWhileSeedboxDrains(t *testing.T) {
 			}
 			return next.Stage == "imported"
 		})
-		if next.NodeID != home || next.FetchNodeID != box1.ID {
-			t.Fatalf("the second Grab was fetched by %s and downloaded by %s, want fetched by seedbox %s and downloaded by home %s",
-				next.FetchNodeID, next.NodeID, box1.ID, home)
+		if next.NodeID != box1.ID || next.FetchNodeID != box1.ID || next.InfoHash != first.InfoHash {
+			t.Fatalf("the second Grab was fetched by %s and downloaded by %s with %s, want both seedbox %s with the first Grab's torrent %s, not home %s",
+				next.FetchNodeID, next.NodeID, next.InfoHash, box1.ID, first.InfoHash, home)
 		}
 		if st := stateOf(seedbox(t, a), "downloading"); st != "draining" || box.torrents() != 1 {
 			t.Fatalf("after home's Grab, seedbox stands %s in Downloading with %d torrents, want still draining the 1 it seeds", st, box.torrents())

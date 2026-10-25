@@ -69,9 +69,8 @@ type Env struct {
 	// Run finds beside the executable.
 	Media media.Prober
 	// Disk opens every filesystem call the Storage Role makes, with data
-	// and downloads the folders no root may overlap: the OS's own for a
-	// process.
-	Disk func(data, downloads string) (storing.Disk, error)
+	// the folder no root may overlap: the OS's own for a process.
+	Disk func(data string) (storing.Disk, error)
 	// Restart starts the process that follows this one once it has stopped
 	// and released the data dir: an exec in place on Unix, a new process on
 	// Windows. Nil for a Node that cannot restart itself.
@@ -477,35 +476,49 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 
 // startTorrent opens the torrent engine and the Node's built-in client,
 // which reads its events from now on, claimed or not.
-func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
-	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen, OutgoingUTP: cfg.Torrent.OutgoingUTP, Rand: ports})
+func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) error {
+	torrent, err := n.env.Engine(engine.Config{
+		ListenInterface:   cfg.Torrent.Listen,
+		AnnounceFloor:     cfg.Timings.Downloading.AnnounceFloor,
+		RouteCheck:        cfg.Timings.Downloading.RouteCheck,
+		Rand:              torrentRand,
+		PeersShareAddress: cfg.Torrent.LoopbackPeers,
+	})
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}
 	n.torrent = torrent
 	n.downloads = downloading.NewClient(downloading.Config{
-		Engine:  torrent,
-		Dir:     n.env.DataDir.Resolve(cfg.Torrent.Downloads),
-		Timings: cfg.Timings.Downloading,
-		Log:     n.rootLog.With("subsystem", "downloading"),
+		Engine:     torrent,
+		Dir:        n.env.DataDir.Resolve(cfg.Torrent.Downloads),
+		Listen:     cfg.Torrent.Listen,
+		Timings:    cfg.Timings.Downloading,
+		RetryMin:   cfg.Timings.Role.RestartMin,
+		RetryMax:   cfg.Timings.Role.RestartMax,
+		Rand:       torrentRand,
+		ProvesPort: downloading.PublicPeer(cfg.Torrent.LoopbackPeers),
+		Volume:     func(ctx context.Context, path string) (storing.Volume, error) { return n.store.Volume(ctx, path) },
+		Log:        n.rootLog.With("subsystem", "downloading"),
 	})
-	n.stack.Go("torrent events", n.downloads.Drain)
+	n.stack.Go("torrent client", n.downloads.Loop)
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
-	if l.Torrent, err = torrent.ListenAddr(); err != nil {
+	// An engine whose port was taken runs without a listener, and the
+	// engine-starts probe says so.
+	if l.Torrent, err = torrent.ListenAddr(); err != nil && !errors.Is(err, engine.ErrNotListening) {
 		return fmt.Errorf("torrent listen address: %w", err)
 	}
 	return nil
 }
 
-func OSDisk(data, downloads string) (storing.Disk, error) { return storing.NewOSDisk(data, downloads) }
+func OSDisk(data string) (storing.Disk, error) { return storing.NewOSDisk(data) }
 
 // startStorage opens the Node's Storage over its Disk, claimed or not.
 func (n *Node) startStorage(cfg Config) error {
-	disk, err := n.env.Disk(n.env.DataDir.Path(), n.env.DataDir.Resolve(cfg.Torrent.Downloads))
+	disk, err := n.env.Disk(n.env.DataDir.Path())
 	if err != nil {
 		return fmt.Errorf("open the disk: %w", err)
 	}
-	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloads, Timings: cfg.Timings.Storing})
+	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloads, Downloads: n.downloads.Folders, Timings: cfg.Timings.Storing})
 	return nil
 }
 

@@ -58,6 +58,28 @@ func TestDecodeMetainfoReadsASingleFile(t *testing.T) {
 	}
 }
 
+func TestTrackersFollowTheAnnounceList(t *testing.T) {
+	const info = "4:infod6:lengthi5e4:name5:a.mkv12:piece lengthi262144e6:pieces20:aaaaaaaaaaaaaaaaaaaae"
+	for _, c := range []struct {
+		name, top string
+		want      []string
+	}{
+		{"announce alone", "8:announce10:http://a/a", []string{"http://a/a"}},
+		{"tiers in order, announce ignored", "8:announce10:http://a/a13:announce-listll10:http://b/b10:http://c/cel10:http://d/dee", []string{"http://b/b", "http://c/c", "http://d/d"}},
+		{"malformed tiers skipped", "8:announce10:http://a/a13:announce-listli7el10:http://b/bi3eee", []string{"http://b/b"}},
+		{"an empty list falls back to announce", "8:announce10:http://a/a13:announce-listle", []string{"http://a/a"}},
+		{"no tracker", "", nil},
+	} {
+		m, err := bencode.DecodeMetainfo([]byte("d" + c.top + info + "e"))
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if got := m.Trackers(); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: Trackers = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
 func TestDecodeMetainfoRefusesV2Only(t *testing.T) {
 	for _, info := range []string{
 		"d9:file treed5:a.mkvd0:d6:lengthi5e11:pieces root32:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeee12:meta versioni2e4:name5:a.mkv12:piece lengthi16384ee",

@@ -4,10 +4,13 @@ import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
 import type {
+  SettingAddressField,
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFolderField,
   SettingPortField,
+  SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
   SettingWindowField,
@@ -236,6 +239,102 @@ export const getGetNodeConfigResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetNodeConfigResponseSettingRateFieldMock = (
+  overrideResponse: Partial<SettingRateField> = {},
+): SettingRateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["rate"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getGetNodeConfigResponseSettingAddressFieldMock = (
+  overrideResponse: Partial<SettingAddressField> = {},
+): SettingAddressField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["address"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetNodeConfigResponseSettingFolderFieldMock = (
+  overrideResponse: Partial<SettingFolderField> = {},
+): SettingFolderField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["folder"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetNodeConfigResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -290,10 +389,13 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingWindowFieldMock() },
             { ...getGetNodeConfigResponseSettingPortFieldMock() },
             { ...getGetNodeConfigResponseSettingSwitchFieldMock() },
+            { ...getGetNodeConfigResponseSettingRateFieldMock() },
+            { ...getGetNodeConfigResponseSettingAddressFieldMock() },
+            { ...getGetNodeConfigResponseSettingFolderFieldMock() },
             { ...getGetNodeConfigResponseSettingSpaceFieldMock() },
           ]),
       ),
-      id: faker.helpers.arrayElement(["web", "log"] as const),
+      id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),
     }),
   ),
   ...overrideResponse,
@@ -513,6 +615,102 @@ export const getUpdateNodeConfigResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateNodeConfigResponseSettingRateFieldMock = (
+  overrideResponse: Partial<SettingRateField> = {},
+): SettingRateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["rate"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateNodeConfigResponseSettingAddressFieldMock = (
+  overrideResponse: Partial<SettingAddressField> = {},
+): SettingAddressField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["address"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateNodeConfigResponseSettingFolderFieldMock = (
+  overrideResponse: Partial<SettingFolderField> = {},
+): SettingFolderField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["folder"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateNodeConfigResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -567,10 +765,13 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingWindowFieldMock() },
             { ...getUpdateNodeConfigResponseSettingPortFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSwitchFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingRateFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingAddressFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingFolderFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSpaceFieldMock() },
           ]),
       ),
-      id: faker.helpers.arrayElement(["web", "log"] as const),
+      id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),
     }),
   ),
   ...overrideResponse,

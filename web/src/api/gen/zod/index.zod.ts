@@ -1,3 +1,4 @@
+export * from "./downloadclients/downloadclients.zod.ts";
 export * from "./files/files.zod.ts";
 export * from "./grabs/grabs.zod.ts";
 export * from "./health/health.zod.ts";

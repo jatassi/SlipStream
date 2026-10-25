@@ -143,9 +143,28 @@ func ParseInfoHash(s string) (InfoHash, error) {
 // dictionary exactly as data held it, and InfoHash is its SHA-1.
 type Metainfo struct {
 	Announce string
-	Info     Info
-	RawInfo  []byte
-	InfoHash InfoHash
+	// AnnounceList is the announce-list's tiers (BEP 12), nil when absent
+	// or empty.
+	AnnounceList [][]string
+	Info         Info
+	RawInfo      []byte
+	InfoHash     InfoHash
+}
+
+// Trackers is every tracker URL in announce-list order, its tiers one
+// after another, or the announce URL alone when there is no list.
+func (m Metainfo) Trackers() []string {
+	if len(m.AnnounceList) == 0 {
+		if m.Announce == "" {
+			return nil
+		}
+		return []string{m.Announce}
+	}
+	var out []string
+	for _, tier := range m.AnnounceList {
+		out = append(out, tier...)
+	}
+	return out
 }
 
 type Info struct {
@@ -194,7 +213,27 @@ func DecodeMetainfo(data []byte) (Metainfo, error) {
 		return Metainfo{}, err
 	}
 	announce, _ := top["announce"].(string)
-	return Metainfo{Announce: announce, Info: info, RawInfo: raw, InfoHash: sha1.Sum(raw)}, nil //nolint:gosec // the v1 info hash
+	return Metainfo{Announce: announce, AnnounceList: decodeAnnounceList(top["announce-list"]), Info: info, RawInfo: raw, InfoHash: sha1.Sum(raw)}, nil //nolint:gosec // the v1 info hash
+}
+
+// decodeAnnounceList reads the tiers' strings and skips anything else,
+// as libtorrent does, so a release the engine takes is never refused here.
+func decodeAnnounceList(v any) [][]string {
+	tiers, _ := v.([]any)
+	var out [][]string
+	for _, t := range tiers {
+		urls, _ := t.([]any)
+		var tier []string
+		for _, u := range urls {
+			if s, ok := u.(string); ok && s != "" {
+				tier = append(tier, s)
+			}
+		}
+		if tier != nil {
+			out = append(out, tier)
+		}
+	}
+	return out
 }
 
 func decodeInfo(v any) (Info, error) {

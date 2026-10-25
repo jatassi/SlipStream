@@ -8,25 +8,30 @@ type reserved struct {
 	inside, contains Reason
 }
 
-// judge refuses a clean folder that is inside, equal to or contains another
-// root, the data dir or the downloads dir. It walks each one's ancestors
-// with same, the file-identity comparison (os.SameFile on the Node), so
-// case, separators and links can't fool it. A folder same can't read is
-// never the same as another: a root that can't be read can't hold folder
-// now.
-func judge(style PathStyle, folder string, others []Other, data, downloads string, same func(a, b string) bool) *Refusal {
-	var all []reserved
-	for _, o := range others {
+func apartFrom(roots []Other) []reserved {
+	all := make([]reserved, 0, len(roots))
+	for _, o := range roots {
 		all = append(all, reserved{o.Path, o.ID, ReasonInsideRoot, ReasonContainsRoot})
 	}
-	for _, r := range []reserved{
-		{path: data, inside: ReasonInsideData, contains: ReasonContainsData},
-		{path: downloads, inside: ReasonInsideDownloads, contains: ReasonContainsDownloads},
-	} {
-		if r.path != "" {
-			all = append(all, r)
-		}
+	return all
+}
+
+// forRoot is the Node's own folders a root may not overlap: its data
+// folder and its downloads folders.
+func forRoot(data string, downloads []string) []reserved {
+	all := []reserved{{path: data, inside: ReasonInsideData, contains: ReasonContainsData}}
+	for _, d := range downloads {
+		all = append(all, reserved{path: d, inside: ReasonInsideDownloads, contains: ReasonContainsDownloads})
 	}
+	return all
+}
+
+// judge refuses a clean folder that is inside, equal to or contains a
+// reserved folder, in order. It walks each one's ancestors with same, the
+// file-identity comparison (os.SameFile on the Node), so case, separators
+// and links can't fool it. A folder same can't read is never the same as
+// another: a root that can't be read can't hold folder now.
+func judge(style PathStyle, folder string, all []reserved, same func(a, b string) bool) *Refusal {
 	for _, r := range all {
 		if within(style, folder, r.path, same) {
 			return &Refusal{Reason: r.inside, Root: r.root}

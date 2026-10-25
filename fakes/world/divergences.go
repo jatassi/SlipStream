@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -12,16 +13,24 @@ type divergence struct {
 	id          string
 	keyPatterns []string
 	env         []string
-	reason      string
-	spec        string
+	// settings are database setting keys the world sets through the API.
+	settings []string
+	reason   string
+	spec     string
 }
 
 var divergences = []divergence{
 	{
 		id:          "loopback-listen",
 		keyPatterns: []string{"*.listen"},
-		reason:      "Every listener binds its Node's own 127.0.0.N on port 0.",
+		reason:      "Every listener binds its Node's own 127.0.0.N on port 0, the torrent client's on a port the world picked, since port 0 makes it draw from the seed concurrent runs share.",
 		spec:        "#130",
+	},
+	{
+		id:          "loopback-peers",
+		keyPatterns: []string{"torrent.loopback_peers"},
+		reason:      "Every peer in the world is on loopback, so a loopback peer that connects in proves a Node's listen port, and a Node keeps a connection to each peer on 127.0.0.1.",
+		spec:        "#153",
 	},
 	{
 		id:          "seed",
@@ -54,10 +63,10 @@ var divergences = []divergence{
 		spec:        "#135",
 	},
 	{
-		id:          "tcp-peers",
-		keyPatterns: []string{"torrent.outgoing_utp"},
-		reason:      "Nodes dial peers over TCP only, since seeder fronts carry no uTP and a uTP attempt at one costs a leecher about 4 s before it falls back.",
-		spec:        "#135",
+		id:       "tcp-peers",
+		settings: setup.TCPPeers,
+		reason:   "Nodes dial and accept peers over TCP only, since seeder fronts carry no uTP and a uTP attempt at one costs a leecher about 4 s before it falls back.",
+		spec:     "#135",
 	},
 	{
 		id:          "fake-endpoints",
@@ -68,8 +77,9 @@ var divergences = []divergence{
 }
 
 type setting struct {
-	name string
-	env  bool
+	name     string
+	env      bool
+	database bool
 }
 
 func settings(overrides []node.Key, worldEnv []string) []setting {
@@ -84,9 +94,20 @@ func settings(overrides []node.Key, worldEnv []string) []setting {
 	return out
 }
 
+func databaseSettings(keys []string) []setting {
+	out := make([]setting, len(keys))
+	for i, k := range keys {
+		out[i] = setting{name: k, database: true}
+	}
+	return out
+}
+
 func (d divergence) covers(s setting) bool {
-	if s.env {
+	switch {
+	case s.env:
 		return slices.Contains(d.env, s.name)
+	case s.database:
+		return slices.Contains(d.settings, s.name)
 	}
 	return slices.ContainsFunc(d.keyPatterns, func(pattern string) bool {
 		ok, _ := path.Match(pattern, s.name)

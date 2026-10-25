@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
@@ -35,12 +36,14 @@ func (discard[T]) Publish(context.Context, T) {}
 type shell struct {
 	g *grabs.Grabs
 	n *nodes.Service
+	c *downloadclients.Clients
 	h *health.Health
 }
 
-func (s shell) Grabs() (*grabs.Grabs, bool)    { return s.g, true }
-func (s shell) Nodes() (*nodes.Service, bool)  { return s.n, true }
-func (s shell) Health() (*health.Health, bool) { return s.h, true }
+func (s shell) Grabs() (*grabs.Grabs, bool)                       { return s.g, true }
+func (s shell) Nodes() (*nodes.Service, bool)                     { return s.n, true }
+func (s shell) DownloadClients() (*downloadclients.Clients, bool) { return s.c, true }
+func (s shell) Health() (*health.Health, bool)                    { return s.h, true }
 
 type unlinked struct{}
 
@@ -56,10 +59,9 @@ func (unlinked) Stats(link.Key) (link.Stats, bool)            { return link.Stat
 // seed inserts one Grab in stage, with the columns the stage's CHECKs ask
 // for, against the one Item in the library.
 const seed = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id,
-	release_title, release_size, release_link, stage, info_hash, metainfo, path, failure_code, created_at, updated_at)
+	release_title, release_size, release_link, stage, torrent_id, path, failure_code, created_at, updated_at)
 SELECT ?, work_id, id, 'standard', 'search', ?, ?, 'The.Attic.1080p.WEB', 4096, 'https://site.test/dl/1', ?,
-	CASE WHEN ? = 'fetching' THEN NULL ELSE randomblob(20) END,
-	CASE WHEN ? = 'fetching' THEN NULL ELSE x'00' END,
+	CASE WHEN ? = 'fetching' THEN NULL ELSE ? END,
 	CASE WHEN ? IN ('transferring', 'importing', 'imported') THEN 'The Attic.mkv' END,
 	CASE WHEN ? = 'failed' THEN 'download_failed' END,
 	0, 0
@@ -68,7 +70,7 @@ FROM works_item`
 func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema(), health.Schema())
+		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), health.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -89,16 +91,23 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 	watch := openHealth(t, lib, roster)
-	s := ownertest.Serve(t, lib, func(r *api.Router) { shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, watch}) })
+	s := ownertest.Serve(t, lib, func(r *api.Router) {
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch})
+	})
 
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"alerts":{"nodes":null,"health":null,"tasks":null}}`)
-	home, indexer := roster.Self(), storage.NewUUID()
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null}}`)
+	home, indexer, torrent := roster.Self(), storage.NewUUID(), storage.NewUUID()
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, home); err != nil {
 			return err
 		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
+			content_type, wanted, added_order, added_at) VALUES (?, ?, randomblob(20), x'00', 'The.Attic.1080p.WEB', 4096, 1, '[]', 'fixture', 'started', 1, 0)`,
+			torrent, home); err != nil {
+			return err
+		}
 		for _, stage := range []string{"fetching", "fetching", "downloading", "probing", "transferring", "importing", "imported", "imported", "failed"} {
-			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), indexer, home, stage, stage, stage, stage, stage); err != nil {
+			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), indexer, home, stage, stage, torrent, stage, stage); err != nil {
 				return err
 			}
 		}
@@ -107,7 +116,12 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"alerts":{"nodes":null,"health":null,"tasks":null}}`)
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"downloads":{"done":0,"wanted":4096,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null}}`)
+}
+
+var quietClients = health.Category{
+	About:  health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"},
+	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
 }
 
 var failedTask = health.Category{
@@ -125,7 +139,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 		Library:    lib,
 		Hub:        hub,
 		Changed:    discard[health.Changed]{},
-		Categories: []health.Category{{About: nodes.HealthAbout, Source: roster.HealthSource()}, failedTask},
+		Categories: []health.Category{{About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, failedTask},
 		Timings:    health.DefaultTimings(),
 		Log:        slog.New(slog.DiscardHandler),
 	})
@@ -136,7 +150,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 }
 
 func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), grabs.Schema(), health.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), downloadclients.Schema(), grabs.Schema(), health.Schema())
 	roster, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)
@@ -155,6 +169,8 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 	if _, err := watch.Report(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	s := ownertest.Serve(t, lib, func(r *api.Router) { shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, watch}) })
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"alerts":{"nodes":null,"health":"warn","tasks":"warn"}}`)
+	s := ownertest.Serve(t, lib, func(r *api.Router) {
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch})
+	})
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn"}}`)
 }

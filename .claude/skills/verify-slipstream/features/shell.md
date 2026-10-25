@@ -8,6 +8,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-current-page` the current row is the only link with `aria-current="page"` (the brand link `SlipStream` never is), and the page's title names it; on phone a Work and Add go back to `Movies` (P-001).
 - `shell-collapse` `Collapse sidebar` shrinks the sidebar to a 60px rail whose icons name themselves in a tooltip on hover; the choice survives a reload, and a window below 1100px starts collapsed (P-001). The toggle and the brand mark share the top row and keep their places in both widths, the toggle at x 14 to 46 inside the rail and the mark at x 74 to 98 just past its edge, while the wordmark wipes in and out with the sidebar.
 - `shell-activity-count` a moving Grab shows `Activity 1 live` in the sidebar and `Activity 1` on the phone's tab, and the count leaves when the Grab is imported.
+- `shell-activity-fill` while a download runs, the sidebar's `Activity` row and the phone's `Activity` tab fill behind with the downloads' combined progress, a progressbar named `Downloads` that `torrents.live` moves each second; pausing every download dims the fill and its value reads `<n>%, paused`, and the fill leaves when nothing is downloading (P-003).
 - `shell-page-action` a page's main action sits at the top bar's right: `Add` opens the menu `Add a Work` on the Library, and `Add a Movie` is a link on the Movies library.
 - `shell-top-bar-slots` the top bar's right side runs the connection line, the running-tasks capsule and the page's action, in that order; the capsule takes no room while no run is shown, and [Tasks](./tasks.md) drives it (P-007).
 - `shell-account-menu` `Account` at the sidebar's foot opens a menu with `Open the portal`, the `Startup sequence` checkbox, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` (P-010).
@@ -39,7 +40,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - Both shells: `/` redirects to `/library`, and any address the app doesn't know shows the not-found page.
 - Both shells: the portal at `/portal`, through `Open the portal` in the desktop `Account` menu or the More sheet; the portal leads back through `Back to Library`.
 - The startup sequence: any new tab or window on the Controller, signed in or not. Verify sessions open past it; the recipe below opens one that plays it.
-- API: `GET /api/v1/counts` gives the Activity count, `GET /api/v1/content-types` the Library's children, and `GET /api/v1/system` the More sheet's version.
+- API: `GET /api/v1/counts` gives the Activity count and `downloads {done, wanted, allPaused}` for the fill, `GET /api/v1/content-types` the Library's children, and `GET /api/v1/system` the More sheet's version.
 
 ## Driving it with fakeworld and playwright cli
 
@@ -202,8 +203,23 @@ Steps:
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity 1 live" }).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-phone run-code 'async page => { await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Activity 1" }).waitFor({ timeout: 15000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/counts'
+  ```
+
+- **Watch the Activity fill.** While the swarm is held, the row and the tab each carry a progressbar `Downloads` whose value climbs. Pause the download through the API and the fill dims, its value reading `<n>%, paused`; resume it and clear the throttle, and the fill leaves once the Grab imports.
+
+  ```sh
+  $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const bar = page.getByRole("navigation", { name: "Main" }).getByRole("progressbar", { name: "Downloads" }); await bar.waitFor({ timeout: 30000 }); return bar.getAttribute("aria-valuetext"); }'
+  $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-activity-fill/desktop.png
+  $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/shell/shell-activity-fill/phone.png
+  ID=$(curl -sS -H "X-Api-Key: $(jq -r .apiKey $RUN/manifest.json)" "$(jq -r '.nodes[] | select(.name == "home").url' $RUN/manifest.json)/api/v1/torrents" | jq -r '.rows[0].id')
+  $FW exec $RUN --proof shell/shell-activity-fill -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"action\":\"pause\",\"ids\":[\"$ID\"]}" '{nodes.home.url}/api/v1/torrents/actions'
+  $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("progressbar", { name: "Downloads" }).and(page.locator("[aria-valuetext$=paused]")).waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-activity-fill/desktop-paused.png
+  $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/shell/shell-activity-fill/phone-paused.png
+  $FW exec $RUN --proof shell/shell-activity-fill -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"action\":\"resume\",\"ids\":[\"$ID\"]}" '{nodes.home.url}/api/v1/torrents/actions'
   $FW fault clear $RUN swarm-hold
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity", exact: true }).waitFor({ timeout: 120000 }); }'
+  $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("progressbar", { name: "Downloads" }).waitFor({ state: "detached", timeout: 30000 }); }'
   ```
 
 - **Open the portal.** On the desktop, `Account` › `Open the portal`; on the phone, `More` › `Open the portal`. The desktop shows the top nav `Portal` and the heading `Home`; the phone shows the tab bar `Tabs` with `Home`, `Search`, `Requests` and `Account`. `Back to Library` in the desktop's `Account` menu, and on the phone's `Account` tab, returns to `/library`.

@@ -17,28 +17,31 @@ const media: FakeNode = {
 
 function judge() {
   const asked: string[] = [];
-  const check: FolderCheck = ({ path }) => {
-    asked.push(path);
-    return Promise.resolve(
-      path === "/srv"
-        ? {
-            usable: false,
-            sentence: "Can't use this folder because it contains SlipStream's data folder.",
-          }
-        : { usable: true, sentence: `${path} is on /, 1.2 TB free.` },
-    );
+  const check: FolderCheck = {
+    rules: ["root"],
+    judge: ({ path }) => {
+      asked.push(path);
+      return Promise.resolve(
+        path === "/srv"
+          ? {
+              usable: false,
+              sentence: "Can't use this folder because it contains SlipStream's data folder.",
+            }
+          : { usable: true, sentence: `${path} is on /, 1.2 TB free.` },
+      );
+    },
   };
   return { asked, check };
 }
 
-function RootForm({ check }: { check: FolderCheck }) {
+function RootForm({ check, label = "Folder" }: { check: FolderCheck; label?: string }) {
   const form = useAppForm({ defaultValues: { path: "" } });
   return (
     <form.AppForm>
       <form.AppField name="path">
         {() => (
           <FolderField
-            label="Folder"
+            label={label}
             nodeId="media"
             nodeName="Media server"
             check={check}
@@ -90,4 +93,27 @@ test("Browse opens on the field's value each time, and a pick fills the field an
   await userEvent.type(folder(), "/srv");
   await userEvent.click(page.getByRole("button", { name: "Browse" }));
   await expect.element(here).toHaveTextContent("srv");
+});
+
+const verdictFor =
+  (sentence: string): FolderCheck["judge"] =>
+  () =>
+    Promise.resolve({ usable: true, sentence });
+
+test("one folder on one Node keeps a verdict per purpose", async () => {
+  serveFolders({ media });
+  renderQueried(
+    <>
+      <RootForm label="Root" check={{ rules: ["root"], judge: verdictFor("A fine root.") }} />
+      <RootForm
+        label="Downloads"
+        check={{ rules: ["downloads"], judge: verdictFor("A fine downloads folder.") }}
+      />
+    </>,
+  );
+  await userEvent.type(page.getByRole("textbox", { name: "Root" }), "/srv/media");
+  await expect.element(page.getByText("A fine root.")).toBeVisible();
+  await userEvent.type(page.getByRole("textbox", { name: "Downloads" }), "/srv/media");
+  await expect.element(page.getByText("A fine downloads folder.")).toBeVisible();
+  await expect.element(page.getByText("A fine root.")).toBeVisible();
 });

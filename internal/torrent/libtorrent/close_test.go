@@ -47,13 +47,13 @@ func partlyDownloaded(t *testing.T, meta, payload []byte) (engine.Engine, engine
 		t.Fatal(err)
 	}
 	seeder, leecher := open(t), open(t)
-	if _, err := seeder.Add(engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true}); err != nil {
-		t.Fatalf("seeder add: %v", err)
+	// The home world's Nodes peer over TCP alone (its tcp-peers
+	// divergence); a uTP peer adds about 0.8 s to a close.
+	if err := leecher.Configure(engine.Limits{}); err != nil {
+		t.Fatal(err)
 	}
-	h, err := leecher.Add(engine.AddParams{Metainfo: meta, SavePath: leechDir})
-	if err != nil {
-		t.Fatalf("leecher add: %v", err)
-	}
+	started(t, seeder, engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
+	h := started(t, leecher, engine.AddParams{Metainfo: meta, SavePath: leechDir})
 	seederAddr, err := seeder.ListenAddr()
 	if err != nil {
 		t.Fatal(err)
@@ -63,8 +63,8 @@ func partlyDownloaded(t *testing.T, meta, payload []byte) (engine.Engine, engine
 	}
 	var st engine.Status
 	for deadline := time.Now().Add(60 * time.Second); st.Done == 0; time.Sleep(time.Millisecond) {
-		if st, err = leecher.Status(h); err != nil {
-			t.Fatalf("status: %v", err)
+		if s, ok := updated(t, leecher, h); ok {
+			st = s
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("status = %+v, want a piece done", st)

@@ -183,7 +183,7 @@ Steps:
   $FW exec $RUN -- bash -c 'for i in $(seq 30); do curl -sSf "{nodes.seedbox.url}/api/v1/status" | grep -q "\"removed\"" && exit 0; sleep 1; done; exit 1'
   $FW exec $RUN --proof pairing/pairing-remove -- curl -sS '{nodes.seedbox.url}/api/v1/status'
   $FW exec $RUN --proof pairing/pairing-remove -- grep 'This Node was removed from home' '{nodes.seedbox.log}'
-  $FW exec $RUN --proof pairing/pairing-remove -- $FW fs match {runDir} "{nodes.seedbox.dataDir}/downloads/$HASH/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv" --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+  $FW exec $RUN --proof pairing/pairing-remove -- $FW fs match {runDir} "{nodes.seedbox.dataDir}/downloads/Movies/$HASH/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv" --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   ```
 
 - **Join seedbox again.** With the new Setup code its log holds and a new Join Code, `POST /api/v1/setup/worker` answers 201 with `state` `joined` and a new `nodeId`. The roster lists `seedbox` `up` under that id with no Roles. Tick Searching and Downloading on it: its facts run `downloading`, and the tracker's last seedbox announce is still the `stopped` from the removal.

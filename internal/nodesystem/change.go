@@ -54,6 +54,9 @@ const (
 	PortUsedByNode
 	UnknownSetting
 	NotWritable
+	// UnusableFolder is a folder the Node can't use for the setting's
+	// purpose.
+	UnusableFolder
 	// Invalid is a config.yaml the change would leave unloadable for a
 	// reason no other names.
 	Invalid
@@ -65,6 +68,7 @@ var reasons = [...]string{
 	PortUsedByNode:   "port_used_by_node",
 	UnknownSetting:   "unknown_setting",
 	NotWritable:      "not_writable",
+	UnusableFolder:   "unusable_folder",
 	Invalid:          "invalid",
 }
 
