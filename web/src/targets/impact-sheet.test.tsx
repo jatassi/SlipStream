@@ -45,7 +45,7 @@ test("saving a Target shows its Impact in plain counts, with Delete chosen and t
     "1 file would fill nothing (700 MB).",
     "3 files are renamed.",
     "4 cells become wanted.",
-    "1 download in progress is for a cell that goes. Its file follows the choice below.",
+    "1 download in progress is for a cell that is no longer wanted. Its file is deleted or kept, as chosen below.",
   ]);
   await expect.element(sheet().getByRole("radio", { name: "Delete" })).toBeChecked();
   await expect

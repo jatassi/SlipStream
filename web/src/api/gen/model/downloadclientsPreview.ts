@@ -4,7 +4,7 @@ export interface DownloadclientsPreview {
   /** The Grabs at downloading that a remove fails */
   cancels: DownloadclientsCanceled[];
   /**
-   * Bytes deleting the download copies frees, null while a Node can't say
+   * Bytes deleting the download copies frees, null while a Node can't report it
    * @minimum 0
    * @nullable
    */

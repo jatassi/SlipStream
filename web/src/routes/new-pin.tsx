@@ -42,7 +42,7 @@ function NewPin() {
   const form = useNewPinForm();
   return (
     <EntryPage title="Set a new PIN">
-      <p>Your PIN was turned off after too many wrong tries. Choose a new one to carry on.</p>
+      <p>Your PIN was turned off after too many wrong PINs. Choose a new one to continue.</p>
       <form
         noValidate
         className="flex flex-col gap-4"

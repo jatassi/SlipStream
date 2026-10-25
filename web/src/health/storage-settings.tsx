@@ -33,8 +33,8 @@ function StraightToError() {
   return (
     <div className="flex flex-col gap-1">
       <p>
-        These volumes go straight to an error, because their error level is at or above their
-        warning level:
+        These volumes never show a warning, because their error level is at or above their warning
+        level:
       </p>
       <ul className="list-disc pl-5">
         {skipping.map((volume) => (

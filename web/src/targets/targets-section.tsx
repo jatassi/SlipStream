@@ -113,7 +113,9 @@ export function TargetsSection() {
         }}
         onConfirm={() => (acting === undefined ? undefined : deleting(acting.target))}
       >
-        <p>Its rules go with it. A Target that a Profile holds can&apos;t be deleted.</p>
+        <p>
+          Deleting it also deletes its rules. A Target that a Profile holds can&apos;t be deleted.
+        </p>
       </ConfirmDialog>
     </div>
   );

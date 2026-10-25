@@ -70,7 +70,7 @@ export function ClientCard({ card }: { card: Card }) {
         >
           Torrent client settings on {card.nodeName}
         </Link>
-        <p>Goes away when this Node stops downloading.</p>
+        <p>This card is removed once this Node stops downloading.</p>
       </footer>
     </article>
   );

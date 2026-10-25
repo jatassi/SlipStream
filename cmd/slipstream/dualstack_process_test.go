@@ -75,7 +75,7 @@ func TestALinkOnTheUnspecifiedIPv6AddressServesIPv4(t *testing.T) {
 		return
 	}
 	id := h.boxID(t)
-	if want := fmt.Sprintf("joined home as box (node %s); link up to %s\n", id, viaIPv4); res.code != node.ExitOK || res.stdout != want {
+	if want := fmt.Sprintf("joined home as box (node %s), linked to %s\n", id, viaIPv4); res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("join through %s: exit %d, stdout %q, stderr %q; want exit 0, stdout %q", viaIPv4, res.code, res.stdout, res.stderr, want)
 	}
 }

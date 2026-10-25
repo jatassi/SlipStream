@@ -11,7 +11,7 @@ const unreadableWords: { readonly [K in RootsFolderProblemKind]: (node: string) 
   not_a_folder: () => "This is a file, not a folder.",
   denied: (node) => `SlipStream on ${node} isn't allowed to open this folder.`,
   unresponsive: (node) =>
-    `${node} hasn't answered about this folder. A network share or a sleeping disk can be slow.`,
+    `${node} took too long to read this folder. A network share or a sleeping disk can be slow.`,
   io: (node) => `${node} couldn't read this folder.`,
 };
 

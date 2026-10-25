@@ -8,7 +8,7 @@ func TestBelowFloor(t *testing.T) {
 		{"kernel", "4.15.0-20-generic", "kernel 4.15.0-20-generic is older than 4.18, the oldest SlipStream supports"},
 		{"glibc", "2.27", "glibc 2.27 is older than 2.28, the oldest SlipStream supports"},
 		{"glibc", "2.40", ""},
-		{"glibc", "", `cannot read the glibc version: "" is not a version`},
+		{"glibc", "", `can't read the glibc version: "" is not a version`},
 	} {
 		floor := kernelFloor
 		if tc.what == "glibc" {

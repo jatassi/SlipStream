@@ -8,10 +8,10 @@ An Admin issues a Signup link for an email on Accounts. SlipStream emails it whe
 - `signup-link-email` the email reaches the `mail` capture with the subject `Ada Okafor invited you to <host>`, the button and the raw link in its text part.
 - `signup-link-pending` a pending link's `Actions for <email>` menu has `Copy link`, `Send again` (a new link, the old one withdrawn) and `Withdraw` (P-307).
 - `signup-link-account-exists` an email that already has an Account is refused on the field with `An Account already has that email`.
-- `signup-link-address` with no address set, `Make the link` answers `Set SlipStream's address first, so links point somewhere people can reach` over the field `SlipStream's address`, filled with the address in use; `Make the link` again saves it and makes the link, which reads `Email is not set up, so copy the link and send it yourself.` when no email server is saved.
+- `signup-link-address` with no address set, `Make the link` answers `Set SlipStream's address first, so links point somewhere people can reach` over the field `SlipStream's address`, filled with the address in use; `Make the link` again saves it and makes the link, which reads `Email isn't set up. Copy the link and send it yourself.` when no email server is saved.
 - `signup-join` the link opens the guided flow, `Step 1 of 5` on the Node's name and `Step 1 of 4` on its IP address, and ends on the portal's Home signed in as the new Member (P-310).
 - `signup-join-phone` the same flow on the phone shell takes the PIN on the 80px keypad.
-- `signup-dead-link` a used link says `This link was already used, and each link works once, so sign in or ask Ada Okafor for a new one.` with `Sign in`; a made-up one names nobody.
+- `signup-dead-link` a used link says `This link was already used, and each link works only once. Sign in, or ask Ada Okafor for a new one.` with `Sign in`; a made-up one names nobody.
 - `signup-signed-in-visitor` a signed-in visitor reads `You're signed in as <name>. Sign out to use this link.`
 
 ## How to get to it (user POV)
@@ -69,7 +69,7 @@ Steps:
   $FW exec $RUN --proof signup-links/signup-link-pending -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/signup-links'
   ```
 
-- **Withdraw and resend.** Issue a link for `alan@example.test`, then from its `Actions for alan@example.test` menu choose `Send again`. The dialog `Send a new Signup link?` reads `A new link goes to alan@example.test, and the old one stops working.`; confirm `Send again` and a second email arrives, and the first link's page reads `This link was replaced or cancelled, so ask Ada Okafor whether a new one is on its way.` `Withdraw` empties the list.
+- **Withdraw and resend.** Issue a link for `alan@example.test`, then from its `Actions for alan@example.test` menu choose `Send again`. The dialog `Send a new Signup link?` reads `A new link goes to alan@example.test, and the old one stops working.`; confirm `Send again` and a second email arrives, and the first link's page reads `This link was replaced or cancelled. Ask Ada Okafor whether they sent a new one.` `Withdraw` empties the list.
 
 ## Gotchas
 

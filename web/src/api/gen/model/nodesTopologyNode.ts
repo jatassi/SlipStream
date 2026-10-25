@@ -14,7 +14,7 @@ export interface NodesTopologyNode {
   resources: NodesResources;
   /** Every Role the Node stands in, in table order */
   roles: NodesRoleView[];
-  /** The Node answering, which is the Controller */
+  /** The Node that responded, which is the Controller */
   self: boolean;
   /** When it came in step; while away, its last Sync frame */
   since: string;

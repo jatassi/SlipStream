@@ -6,4 +6,4 @@ Set a new PIN: https://slipstream.example.com/reset#token=Zm9vYmFy
 
 If the button doesn't work, open this address: https://slipstream.example.com/reset#token=Zm9vYmFy
 
-If you did not expect this email, you can ignore it. Nothing changes until the link is used.
+If you didn't expect this email, you can ignore it. Nothing changes until the link is used.

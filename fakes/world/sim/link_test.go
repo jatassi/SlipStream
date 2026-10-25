@@ -216,7 +216,7 @@ func TestRepairSupersedes(t *testing.T) {
 		home.Half().Link.Keep(link.Target{Key: boxKey, Addresses: addresses(t, worker.Ready().Listeners.Link)})
 		synctest.Wait()
 		refusals := logged(t, home, "link refused")
-		if len(refusals) != 1 || refusals[0]["err"] != "the peer answered that key "+officeLinkKey.Fingerprint()+" superseded this Node" {
+		if len(refusals) != 1 || refusals[0]["err"] != "the peer reported that key "+officeLinkKey.Fingerprint()+" superseded this Node" {
 			t.Fatalf("home logged link refused %v, want one naming office's key %s", refusals, officeLinkKey.Fingerprint())
 		}
 		home.Half().Link.Drop(boxKey)

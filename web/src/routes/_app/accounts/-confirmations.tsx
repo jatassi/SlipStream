@@ -75,7 +75,7 @@ function confirmationsOf(
       title: `Delete ${name}?`,
       confirmLabel: "Delete",
       look: "fail",
-      body: "Their Account, passkeys and sessions are gone for good.",
+      body: "Their Account, passkeys and sessions are deleted permanently.",
       run: async () => {
         await deleteAccount(id);
         await onDeleted();

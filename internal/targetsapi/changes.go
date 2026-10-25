@@ -31,7 +31,7 @@ type impact struct {
 	Unwanted    unwantedFiles `json:"unwanted" doc:"Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"`
 	Renamed     int           `json:"renamed" minimum:"0" doc:"Files that still fill a cell and change name"`
 	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"Cells that become wanted"`
-	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in flight for cells that go; their files follow the save's choice"`
+	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept"`
 }
 
 func impactOf(i files.Impact) impact {
@@ -44,7 +44,7 @@ func impactOf(i files.Impact) impact {
 // Changing is the query every change that can leave files unwanted takes.
 // It is exported so the document carries the parameters it embeds.
 type Changing struct {
-	Preview  bool                `query:"preview" doc:"Answer the change's Impact and save nothing"`
+	Preview  bool                `query:"preview" doc:"Return the change's Impact and save nothing"`
 	Unwanted string              `query:"unwanted" enum:"delete,keep" default:"delete" doc:"What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes"`
 	Confirm  api.Optional[int64] `query:"confirm" minimum:"0" doc:"The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
 }

@@ -24,7 +24,7 @@ type Change struct {
 
 // ErrNotRegular refuses a config.yaml that a rename can't replace in place:
 // a symlink, or a file bind-mounted on its own.
-var ErrNotRegular = errors.New("config.yaml is not a regular file, so SlipStream can't rewrite it; edit it by hand")
+var ErrNotRegular = errors.New("config.yaml isn't a regular file, so SlipStream can't rewrite it. Edit it by hand")
 
 // Edit applies changes to dir/config.yaml's node tree, so comments and key
 // order survive. It creates the file when missing, creates the mappings a

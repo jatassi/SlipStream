@@ -230,7 +230,7 @@ func TestTheEventStreamThroughAStartedNode(t *testing.T) {
 func claimThroughTheGate(t *testing.T, c client, code string) claimedNode {
 	expect(t, c.claim("0000-0000-0000", "1234"), 403, problem(403, "setup_code_wrong", "The Setup code is wrong"))
 	expect(t, c.claim(code, "12a4"), 422,
-		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.pin","message":"expected string to match pattern ^[0-9]{4}$"}]}`+"\n")
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.pin","message":"expected string to match pattern ^[0-9]{4}$"}]}`+"\n")
 	typed := strings.ToLower(strings.ReplaceAll(code, "-", " "))
 	body, held := io.Pipe()
 	first := make(chan reply)
@@ -275,6 +275,7 @@ func signInAsTheAdmin(t *testing.T, cn claimedNode) string {
 // streamAndSignOut is steps 4 to 9 on session A's streams.
 func streamAndSignOut(t *testing.T, cn claimedNode, a string) {
 	c := cn.c
+	synctest.Wait()
 	streamA := c.stream(a, "")
 	first := next(t, streamA)
 	h, _, _ := strings.Cut(strings.TrimPrefix(first, "id: "), "\n")
@@ -367,7 +368,7 @@ func refuseCrossSiteAndOversized(t *testing.T, cn claimedNode) {
 	crossSite := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}
 	signIn := `{"email":"admin@example.com","pin":"1235"}`
 	expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 403,
-		problem(403, "cross_origin", "Another site cannot do this"))
+		problem(403, "cross_origin", "Another site can't make this request"))
 	crossSite["X-Api-Key"] = cn.apiKey
 	expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 401, pinWrong)
 	padding := `{"email":"admin@example.com","pin":"1234","x":"`

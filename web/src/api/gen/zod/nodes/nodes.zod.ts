@@ -69,7 +69,7 @@ export const ListNodesResponse = NodesNodeList;
 export const GetRoleBoardResponse = NodesRoleBoard;
 
 /**
- * @summary Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers
+ * @summary Apply a change of Roles. The Nodes in step it changes have their new Roles when this responds
  */
 export const SetRolesBody = NodesRolesChange;
 
@@ -95,12 +95,12 @@ export const UpdateNodeSettingsBody = NodesSettingsPatch;
 export const UpdateNodeSettingsResponse = NodesSettings;
 
 /**
- * @summary Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates
+ * @summary Get every Node, what it holds and the links between them, as the canvas draws them. The nodes.traffic event carries the rates
  */
 export const GetTopologyResponse = NodesTopology;
 
 /**
- * @summary Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history
+ * @summary Remove a Node. Its Roles fall back as if unticked, and its row stays as a tombstone for history
  */
 export const RemoveNodeParams = zod.object({
   id: zod.uuid(),
@@ -127,7 +127,7 @@ export const GetNodeParams = zod.object({
 export const GetNodeResponse = NodesNode;
 
 /**
- * @summary Rename a Node; a Node in step has its new name when this answers
+ * @summary Rename a Node. A Node in step has its new name when this responds
  */
 export const RenameNodeParams = zod.object({
   id: zod.uuid(),
@@ -149,7 +149,7 @@ export const SetNodeDialBody = NodesNodeDial;
 export const SetNodeDialResponse = NodesNode;
 
 /**
- * @summary Give up the work a Node holds for Roles, live or offline; its files are kept
+ * @summary Give up the work a Node holds for Roles, live or offline, and keep its files
  */
 export const WriteOffParams = zod.object({
   id: zod.uuid(),

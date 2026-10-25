@@ -68,7 +68,7 @@ func (o *Origin) UnmarshalText(text []byte) error {
 	}
 	canonical := u.Scheme + "://" + host
 	if s != canonical {
-		return fmt.Errorf("not a canonical origin; write %s", canonical)
+		return fmt.Errorf("not in canonical form. Write it as %s", canonical)
 	}
 	o.origin = s
 	return nil

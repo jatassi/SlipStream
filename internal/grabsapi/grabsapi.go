@@ -102,7 +102,7 @@ type search struct {
 	StartedAt  time.Time  `json:"startedAt"`
 	FinishedAt *time.Time `json:"finishedAt" doc:"Null while the run searches"`
 	Outcome    *string    `json:"outcome" enum:"grabbed,nothing_acceptable,indexer_unavailable,indexer_refused" doc:"Null while the run searches"`
-	Candidates int        `json:"candidates" minimum:"0" doc:"The releases the Indexer answered"`
+	Candidates int        `json:"candidates" minimum:"0" doc:"The releases in the Indexer's response"`
 	Refused    []refusal  `json:"refused" nullable:"false" doc:"The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused"`
 	GrabID     *string    `json:"grabId" format:"uuid" doc:"The Grab the run made, null when none"`
 	Notes      []reason   `json:"notes" nullable:"false" doc:"The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for"`

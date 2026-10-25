@@ -22,7 +22,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-palette-phone` the `Search` tab opens the palette full screen with `Cancel`.
 - `shell-titles` the tab is titled `<page> · SlipStream`, as `Activity · SlipStream` and `The Quiet Orchard · SlipStream` (P-014).
 - `shell-toast` adding a Work shows the toast `Added The Quiet Orchard`, top right in the desktop shell and top centre on phone (P-013).
-- `shell-route-error` with the Controller down, a page that fails to load says `SlipStream isn't answering. Check that it's running, then try again.` inside the standing shell, `Details` shows the message, and `Try again` loads the page once the Controller is back (P-015).
+- `shell-route-error` with the Controller down, a page that fails to load says `SlipStream isn't responding. Check that it's running, then try again.` inside the standing shell, `Details` shows the message, and `Try again` loads the page once the Controller is back (P-015).
 - `shell-not-found` a dead address such as `/nowhere` reads `There's nothing at this address.` with `Go to Library`, inside the shell.
 - `shell-brand` the sidebar carries the Two Nodes mark and wordmark, and the page links the mark as its favicon with `theme-color` `#0c0d0e` (P-017).
 - `shell-portal` `/portal` shows the portal shell: in a desktop browser a top nav `Portal` with Home, Search, Requests and Account and an `Account` menu; on phone a tab bar `Tabs` with the same four. An Admin opens it from `Open the portal` and returns through `Back to Library` in the portal's `Account` menu or on its Account page (story 40).

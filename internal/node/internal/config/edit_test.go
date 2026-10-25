@@ -155,7 +155,7 @@ func TestEditRefusesASymlinkedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := config.Edit(dir, []config.Change{{Key: "log.level", Text: text("debug")}}, accept)
-	want := "config.yaml is not a regular file, so SlipStream can't rewrite it; edit it by hand"
+	want := "config.yaml isn't a regular file, so SlipStream can't rewrite it. Edit it by hand"
 	if !errors.Is(err, config.ErrNotRegular) || err.Error() != want {
 		t.Fatalf("err = %v, want %q", err, want)
 	}

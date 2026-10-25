@@ -31,7 +31,7 @@ type Worker interface {
 	Worker() (Facts, bool)
 }
 
-var notAWorker = api.NewCode(http.StatusConflict, "not_a_worker", "This Node is not a Worker")
+var notAWorker = api.NewCode(http.StatusConflict, "not_a_worker", "This Node isn't a Worker")
 
 type worker struct {
 	Name        string     `json:"name" doc:"This Worker's name"`
@@ -53,7 +53,7 @@ func Routes(r *api.Router, w Worker) {
 		ID:      "getServing",
 		Method:  http.MethodGet,
 		Path:    "/serving",
-		Summary: "Report this Worker's name, key and Controller, and what it holds and seeds; a Serving Worker answers it itself",
+		Summary: "Report this Worker's name, key and Controller, and what it holds and seeds. A Serving Worker responds to this itself",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{notAWorker},
 	}, func(context.Context, identity.Anyone, *struct{}) (*workerOutput, error) {

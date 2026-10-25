@@ -178,7 +178,8 @@ lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, in
 int lts_configure(lts_session* s, const lts_limits* l, lts_error* err);
 /* The peer fingerprint and user agent the session announces with. */
 int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char* user_agent, size_t user_agent_len, lts_error* err);
-/* Moves the listener to address and port, as lts_open binds them. */
+/* Moves the listener to address and port, as lts_open binds them. Called
+   again with the same address and port, it retries a listen that failed. */
 int lts_listen_on(lts_session* s, const char* address, uint16_t port, lts_error* err);
 int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 /* Adds the torrent paused and not auto-managed, whatever resume data says. */

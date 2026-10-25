@@ -51,8 +51,8 @@ func TestOnlyAnArtistLookupFindsNoRecord(t *testing.T) {
 		is   error
 	}{
 		{lookup, "GET /artist/ffffffff-0000-4000-8000-000000000000: MusicBrainz: has no such record", works.ErrNotFound},
-		{groups, "GET /release-group: MusicBrainz: answered 404 Not Found", works.ErrUnavailable},
-		{releases, "GET /release: MusicBrainz: answered 404 Not Found", works.ErrUnavailable},
+		{groups, "GET /release-group: MusicBrainz: responded with 404 Not Found", works.ErrUnavailable},
+		{releases, "GET /release: MusicBrainz: responded with 404 Not Found", works.ErrUnavailable},
 	} {
 		if r.err == nil || r.err.Error() != r.want || !errors.Is(r.err, r.is) {
 			t.Errorf("got %v, want %s wrapping %v", r.err, r.want, r.is)

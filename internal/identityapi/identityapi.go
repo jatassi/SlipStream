@@ -178,7 +178,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "finishPasskeySignIn",
 		Method:  http.MethodPost,
 		Path:    "/passkeys/assertion/{ceremony}",
-		Summary: "Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first",
+		Summary: "Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed, tooManyAttempts, accountDisabled},
 	}, finishPasskeySignIn(lib))
@@ -229,7 +229,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "finishPasskeyReconfirm",
 		Method:  http.MethodPost,
 		Path:    "/session/reconfirm/passkey/{ceremony}",
-		Summary: "Confirm it's you with the browser's passkey answer",
+		Summary: "Confirm it's you with the browser's passkey response",
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed, tooManyAttempts},
 	}, finishPasskeyReconfirm(lib))
@@ -255,7 +255,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "regenerateAPIKey",
 		Method:  http.MethodPost,
 		Path:    "/api-key",
-		Summary: "Replace the API key, shown this once; the old one stops working",
+		Summary: "Replace the API key, shown this once. The old key stops working",
 		Status:  http.StatusOK,
 	}, regenerateAPIKey(lib))
 
@@ -305,7 +305,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "finishPasskeyRegistration",
 		Method:  http.MethodPost,
 		Path:    "/passkeys/registration/{ceremony}",
-		Summary: "Finish adding a passkey with the browser's answer",
+		Summary: "Finish adding a passkey with the browser's response",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed},
 	}, finishPasskeyRegistration(lib))
@@ -402,7 +402,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "startEmailChange",
 		Method:  http.MethodPost,
 		Path:    "/account/email",
-		Summary: "Change your email: a confirm link goes to the new address, and the email changes when it is followed",
+		Summary: "Change your email by sending a confirm link to the new address. The email changes when the link is followed",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{emailTaken, addressUnset},
 	}, startEmailChange(lib))
@@ -419,7 +419,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "createSignupLink",
 		Method:  http.MethodPost,
 		Path:    "/signup-links",
-		Summary: "Issue a Signup link for an email, email it, and answer it to copy",
+		Summary: "Issue a Signup link for an email, email it, and return it to copy",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{addressUnset, accountExists},
 	}, issueSignupLink(lib))
@@ -437,7 +437,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "resendSignupLink",
 		Method:  http.MethodPost,
 		Path:    "/signup-links/{id}/resend",
-		Summary: "Send a pending Signup link again as a new link; the old one stops working",
+		Summary: "Send a pending Signup link again as a new link. The old link stops working",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{linkNotFound, addressUnset, accountExists},
 	}, resendSignupLink(lib))
@@ -472,7 +472,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "createResetLink",
 		Method:  http.MethodPost,
 		Path:    "/accounts/{id}/reset-link",
-		Summary: "Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer",
+		Summary: "Issue a Reset link for an Account and end its sessions. Only this response shows the link",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{accountNotFound, accountDisabled, addressUnset},
 	}, issueResetLink(lib))

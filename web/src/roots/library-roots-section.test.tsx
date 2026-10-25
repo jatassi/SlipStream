@@ -30,9 +30,7 @@ test("Library roots lists each Content Type's roots with the default, the Node, 
     "/mnt/archive/filmsThe folder is there but looks unmountedonlinehomeNot read yet3 Films, 0 bytes",
   ]);
   await expect.element(page.getByRole("heading", { name: "Zines 0", level: 2 })).toBeVisible();
-  await expect
-    .element(page.getByText("Add a library root for Zines so SlipStream knows where to put them."))
-    .toBeVisible();
+  await expect.element(page.getByText("Add a library root to hold Zines.")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Add a root for Zines" })).toBeVisible();
 });
 

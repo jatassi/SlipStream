@@ -145,7 +145,7 @@ export function WriteOffDialog({
       <HeldList board={board} seat={seat} held={held} chosen={chosen} onChosen={setChosen} />
       {held.some(({ role }) => role === "storage") && <RootPaths seat={seat} />}
       <p>{leftWords(roles)}</p>
-      {seat.away && <p>{seat.name} is offline, so it lets the work go when it comes back.</p>}
+      {seat.away && <p>{seat.name} is offline, so it gives up the work when it reconnects.</p>}
       {unticks.length > 0 && (
         <p>
           This also unticks {unticks.map((role) => labelOf(board, role)).join(" and ")} on{" "}

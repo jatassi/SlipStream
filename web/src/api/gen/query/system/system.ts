@@ -488,7 +488,7 @@ export const getRestartNodeUrl = (id: string) => {
 };
 
 /**
- * @summary Restart a Node; it answers before it stops
+ * @summary Restart a Node. The response comes before it stops
  */
 export const restartNode = async (
   id: string,
@@ -560,7 +560,7 @@ export type RestartNodeMutationError = ErrorType<
 export type RestartNodeMutationVariables = { id: string };
 
 /**
- * @summary Restart a Node; it answers before it stops
+ * @summary Restart a Node. The response comes before it stops
  */
 export const useRestartNode = <
   TError = ErrorType<

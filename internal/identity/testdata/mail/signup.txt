@@ -8,4 +8,4 @@ The link works once, until Friday, October 23, 2026 at 3:04 PM UTC.
 
 If the button doesn't work, open this address: https://slipstream.example.com/signup#token=Zm9vYmFy
 
-If you did not expect this email, you can ignore it. Nothing changes until the link is used.
+If you didn't expect this email, you can ignore it. Nothing changes until the link is used.

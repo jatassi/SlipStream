@@ -7,10 +7,10 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 - `pairing-roster` the Controller lists every paired Node with its link state and Roles over `GET /api/v1/nodes`: a Worker reads `up` while its Sync session is attached, and once it stops, `down` since its last Sync frame.
 - `pairing-wipe` a stopped, wiped seedbox starts Unclaimed on its first address: `{"claim":"unclaimed"}`.
 - `pairing-join-code` the Controller issues a single-use Join Code, `SLP1-…`, over `POST /api/v1/join-codes`.
-- `pairing-join` `slipstream join` pairs the stopped Node and prints `joined home as seedbox-2 (node <id>); link up to <address>`.
+- `pairing-join` `slipstream join` pairs the stopped Node and prints `joined home as seedbox-2 (node <id>), linked to <address>`.
 - `pairing-replace` after a wiped seedbox joins again as `seedbox-2`, `DELETE /api/v1/nodes/{id}` on the old `seedbox` row, down and holding nothing, answers 204 and hands Searching and Downloading back to home; `PATCH /api/v1/nodes/{id}` renames `seedbox-2` to `seedbox`, so the Roster reads home and `seedbox` `Online · seedbox dials home` with `No Roles yet`, and the Worker page's `Name` reads `seedbox`.
 - `pairing-join-codes` `GET /api/v1/join-codes` lists each open code's `id`, `createdAt` and `expiresAt`, never its text; `GET /api/v1/join-codes/{id}` reads it `open`, `used` with `nodeId`, or `expired`, with `dialing{address, addresses, since, unreachable}` once a Node address is pasted; `DELETE` answers 204, and the code then reads 404 `join_code_not_found`.
-- `pairing-reverse-dial` on `cgnat-home`, `slipstream join` prints `Can't reach the Controller at <address>.`, `Paste this Node address into the Add a Node dialog on the Controller:`, the indented `SLN1-…` and `Waiting for the Controller to dial until <HH:MM>. Ctrl-C stops.`; `POST /api/v1/join-codes/{id}/dial` with that `nodeAddress` answers 202, the command exits 0 with the joined line, and the roster lists `seedbox` `up` with `dial` `{"by":"controller","controllerDials":["<seedbox's link front>"]}`, also after both Nodes restart.
+- `pairing-reverse-dial` on `cgnat-home`, `slipstream join` prints `Can't reach the Controller at <address>.`, `Paste this Node address into the Add a Node dialog on the Controller:`, the indented `SLN1-…` and `Waiting for the Controller to dial until <HH:MM>. Press Ctrl-C to stop.`; `POST /api/v1/join-codes/{id}/dial` with that `nodeAddress` answers 202, the command exits 0 with the joined line, and the roster lists `seedbox` `up` with `dial` `{"by":"controller","controllerDials":["<seedbox's link front>"]}`, also after both Nodes restart.
 - `pairing-setup-pending` on `cgnat-home`, `POST /api/v1/setup/worker` answers 202 with `state` `awaiting-dial`, `nodeAddress` and `until`; `POST /api/v1/setup/controller` then answers 409 `join_pending`; once the Controller dials, `GET /api/v1/setup/worker` reads `state` `joined` with `nodeId`.
 - `pairing-add-dialog` **Add a Node** on the Nodes landing opens the `Add a Node` dialog at `?add=<code id>`, with the `Join Code` `SLP1-…`, `Expires in 59:42. It pairs one Node.` ticking, Copy, the three ways (`First-run page.`, `slipstream join <code>`, `SLIPSTREAM_JOIN_CODE=<code>`), `Waiting for the new Node to pair…` and the `Open Join Codes` list; after a reload it reads `A Join Code shows only when it is made. This one still works for <left>.`
 - `pairing-add-dialog-paired` once a Node joins with the dialog's code, the dialog reads `seedbox paired.` with its `Key` (the Worker's fingerprint) and `Reached by` `seedbox dials home`; **Choose its Roles** shows the Role Groups with Searching and Downloading ticked, and **Review** then **Apply** lands on seedbox's Roles section with both held.
@@ -66,7 +66,7 @@ Steps:
   CODE=$($FW exec $RUN --proof pairing/pairing-join-code -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/join-codes' | jq -r .code)
   ```
 
-- **Join from the host CLI.** The command exits 0 and prints `joined home as seedbox-2 (node <id>); link up to 127.0.0.1:<port>`, the link front.
+- **Join from the host CLI.** The command exits 0 and prints `joined home as seedbox-2 (node <id>), linked to 127.0.0.1:<port>`, the link front.
 
   ```sh
   $FW exec $RUN --proof pairing/pairing-join -- {runDir}/bin/slipstream join --data-dir {nodes.seedbox.dataDir} "$CODE"
@@ -113,7 +113,7 @@ Steps:
   cat $RUN/join.out
   ```
 
-- **Dial the Node address.** Paste it into `dialForCode`. It answers 202, the join exits 0 with `joined home as seedbox (node <id>); link up to <address>`, and the roster lists seedbox `up` with `dial.by` `controller` and `dial.controllerDials` its link front.
+- **Dial the Node address.** Paste it into `dialForCode`. It answers 202, the join exits 0 with `joined home as seedbox (node <id>), linked to <address>`, and the roster lists seedbox `up` with `dial.by` `controller` and `dial.controllerDials` its link front.
 
   ```sh
   $FW exec $RUN --proof pairing/pairing-reverse-dial -- curl -sS -w '%{{http_code}\n' -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"nodeAddress\":\"$(sed -n 's/^  //p' $RUN/join.out)\"}" "{nodes.home.url}/api/v1/join-codes/$(jq -r .id <<<"$MINTED")/dial"

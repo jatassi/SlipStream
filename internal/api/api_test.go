@@ -54,7 +54,7 @@ func get(t *testing.T, h http.Handler, target string) *httptest.ResponseRecorder
 	return w
 }
 
-const internalBody = `{"status":500,"code":"internal","title":"Something went wrong"}` + "\n"
+const internalBody = `{"status":500,"code":"internal","title":"SlipStream had an internal error. This Node's log has the details."}` + "\n"
 
 func TestTheAccessWalkFlagsAPlantedOperation(t *testing.T) {
 	r := NewRouter(Services{})
@@ -402,7 +402,7 @@ func TestAnUnembeddedWebAppPointsAtVite(t *testing.T) {
 	r := newRouter(t, &bytes.Buffer{})
 	r.services.Web = fstest.MapFS{}
 	w := get(t, r.Handler(), "/")
-	want := "the web app is not embedded in this build; use the Vite dev server\n"
+	want := "This build doesn't include the web app. Use the Vite dev server.\n"
 	if w.Code != http.StatusNotFound || w.Body.String() != want {
 		t.Fatalf("GET / = %d %q, want 404 %q", w.Code, w.Body, want)
 	}
@@ -415,14 +415,14 @@ func TestOriginAcceptsOnlyTheCanonicalSchemeHostAndPort(t *testing.T) {
 		"http://192.0.2.1:8484":           "",
 		"http://[2001:db8::1]:8484":       "",
 		"https://[2001:db8::1]":           "",
-		"https://media.example.com/":      "not a canonical origin; write https://media.example.com",
-		"https://media.example.com/path":  "not a canonical origin; write https://media.example.com",
-		"HTTPS://Media.Example.com":       "not a canonical origin; write https://media.example.com",
-		"https://media.example.com:443":   "not a canonical origin; write https://media.example.com",
-		"http://192.0.2.1:80":             "not a canonical origin; write http://192.0.2.1",
-		"http://192.0.2.1:":               "not a canonical origin; write http://192.0.2.1",
-		"https://[2001:DB8::1]:443":       "not a canonical origin; write https://[2001:db8::1]",
-		"https://media.example.com:8443/": "not a canonical origin; write https://media.example.com:8443",
+		"https://media.example.com/":      "not in canonical form. Write it as https://media.example.com",
+		"https://media.example.com/path":  "not in canonical form. Write it as https://media.example.com",
+		"HTTPS://Media.Example.com":       "not in canonical form. Write it as https://media.example.com",
+		"https://media.example.com:443":   "not in canonical form. Write it as https://media.example.com",
+		"http://192.0.2.1:80":             "not in canonical form. Write it as http://192.0.2.1",
+		"http://192.0.2.1:":               "not in canonical form. Write it as http://192.0.2.1",
+		"https://[2001:DB8::1]:443":       "not in canonical form. Write it as https://[2001:db8::1]",
+		"https://media.example.com:8443/": "not in canonical form. Write it as https://media.example.com:8443",
 		"media.example.com":               shape,
 		"ftp://media.example.com":         shape,
 		"https://user@media.example.com":  shape,

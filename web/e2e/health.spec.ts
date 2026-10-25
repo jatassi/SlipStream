@@ -79,9 +79,14 @@ async function calmPage(page: Page): Promise<void> {
   await expect(
     page.getByText("Checked storage, Nodes, download clients and scheduled tasks"),
   ).toBeVisible();
-  for (const label of ["Storage", "Nodes", "Download Clients", "Scheduled tasks"]) {
+  for (const [label, phrase] of [
+    ["Storage", "storage"],
+    ["Nodes", "Nodes"],
+    ["Download Clients", "download clients"],
+    ["Scheduled tasks", "scheduled tasks"],
+  ] as const) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
-    await expect(category(page, label)).toContainText(`${label}. All good.`);
+    await expect(category(page, label)).toContainText(`Nothing is wrong with ${phrase}.`);
   }
   for (const label of ["Download Clients", "Scheduled tasks"]) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order

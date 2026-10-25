@@ -21,7 +21,7 @@ const sharedKeys = "Every SlipStream install shares the bundled keys."
 var (
 	LanguageChoice = setting.Choice[string]{Key: "metadata.language", Label: "Metadata language", Default: DefaultLanguage, Options: languages}
 	RegionChoice   = setting.Choice[string]{Key: "metadata.region", Label: "Metadata region", Default: DefaultRegion, Options: regions}
-	CacheFor       = setting.Duration{Key: "metadata.cacheFor", Label: "Metadata cache keeps answers for", Default: time.Hour, Min: 0, Max: day, Step: time.Minute}
+	CacheFor       = setting.Duration{Key: "metadata.cacheFor", Label: "Metadata cache keeps responses for", Default: time.Hour, Min: 0, Max: day, Step: time.Minute}
 	RatingsEvery   = setting.Duration{Key: "metadata.ratingsEvery", Label: "OMDb ratings no more often than every", Default: 7 * day, Min: day, Max: 365 * day, Step: day}
 	ArtworkStore   = setting.Count{Key: "metadata.artworkStore", Label: "Artwork store size", Default: 2048, Min: 100, Max: 1 << 20, Unit: setting.Noun{One: "MB", Many: "MB"}}
 

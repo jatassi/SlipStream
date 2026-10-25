@@ -254,7 +254,7 @@ func TestAMissingKeyFileRefusesTheStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
-	want := "library.key is missing, but library.db was set up with one; restore library.key from the Backup that holds this library.db"
+	want := "library.key is missing, but library.db was set up with one. Restore library.key from the Backup that holds this library.db"
 	var failed struct{ Msg, Err string }
 	for line := range strings.SplitSeq(strings.TrimSpace(res.stderr), "\n") {
 		if err := json.Unmarshal([]byte(line), &failed); err == nil && failed.Msg == "start failed" {

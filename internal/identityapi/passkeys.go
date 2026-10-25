@@ -42,7 +42,7 @@ func ceremonyOf(c identity.Ceremony) *ceremonyOutput {
 
 type finishInput struct {
 	Ceremony string          `path:"ceremony" maxLength:"64"`
-	Body     json.RawMessage `doc:"The browser's PublicKeyCredential, as its toJSON() answers"`
+	Body     json.RawMessage `doc:"The browser's PublicKeyCredential, as its toJSON() returns it"`
 }
 
 type passkeyOutput struct{ Body passkey }

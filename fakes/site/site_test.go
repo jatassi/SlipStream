@@ -198,7 +198,7 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("an off-host FetchTorrent = %v, want an unavailable error that does not wait", err)
 	}
 	_, err = x.FetchTorrent(t.Context(), idx, f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent"))
-	if err == nil || err.Error() != "the Indexer is unavailable: aborted: the Indexer answered status 404" {
+	if err == nil || err.Error() != "the Indexer is unavailable: aborted: the Indexer responded with status 404" {
 		t.Fatalf("a missing torrent = %v", err)
 	}
 

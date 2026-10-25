@@ -72,7 +72,7 @@ func (h *Home) FetchTorrent(ctx context.Context, req *searchv1.FetchTorrentReque
 		return nil, err
 	}
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return nil, rpc.Errorf(rpc.CodeAborted, "the Indexer answered status %d", status)
+		return nil, rpc.Errorf(rpc.CodeAborted, "the Indexer responded with status %d", status)
 	}
 	return &searchv1.FetchTorrentResponse{Torrent: body}, nil
 }
@@ -115,10 +115,10 @@ func (h *Home) get(ctx context.Context, u *url.URL, limit int64) (body []byte, s
 	defer func() { _ = res.Body.Close() }()
 	body, err = io.ReadAll(io.LimitReader(res.Body, limit+1))
 	if err != nil {
-		return nil, 0, rpc.Errorf(rpc.CodeAborted, "read the Indexer's answer: %v", err)
+		return nil, 0, rpc.Errorf(rpc.CodeAborted, "read the Indexer's response: %v", err)
 	}
 	if int64(len(body)) > limit {
-		return nil, 0, rpc.Errorf(rpc.CodeResourceExhausted, "the Indexer's answer is over %d bytes", limit)
+		return nil, 0, rpc.Errorf(rpc.CodeResourceExhausted, "the Indexer's response is over %d bytes", limit)
 	}
 	return body, int32(res.StatusCode), nil //nolint:gosec // an HTTP status fits
 }

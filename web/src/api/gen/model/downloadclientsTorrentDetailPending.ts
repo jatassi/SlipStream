@@ -1,4 +1,4 @@
 /**
- * An Admin's pause or resume its Node has yet to act on
+ * An Admin's pause or resume its Node hasn't applied yet
  */
 export type DownloadclientsTorrentDetailPending = "pause" | "resume";

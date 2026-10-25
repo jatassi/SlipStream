@@ -905,7 +905,7 @@ export const getRunTaskUrl = (taskId: string) => {
 };
 
 /**
- * @summary Run a task now over every unit; its schedule stays as it was
+ * @summary Run a task now over every unit. Its schedule stays as it was
  */
 export const runTask = async (
   taskId: string,
@@ -963,7 +963,7 @@ export type RunTaskMutationError = ErrorType<
 export type RunTaskMutationVariables = { taskId: string };
 
 /**
- * @summary Run a task now over every unit; its schedule stays as it was
+ * @summary Run a task now over every unit. Its schedule stays as it was
  */
 export const useRunTask = <
   TError = ErrorType<RunTask401 | RunTask403 | RunTask404 | RunTask409 | RunTask422 | RunTask500>,

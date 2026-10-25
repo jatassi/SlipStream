@@ -141,7 +141,7 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 	harborRow := `{"id":"id1","nodeId":"id2","name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"tracker":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"The release looks bad: its tracker says the torrent is no longer registered."},"addedAt":"T"}`
+		`"fault":{"kind":"unregistered","at":"T","sentence":"The release's tracker reports that the torrent is no longer registered."},"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?ids="+harbor.String(), "", http.StatusOK, `{"rows":[`+harborRow+`],`+counts("id2"))
 
 	var got struct {
@@ -173,7 +173,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	want := `{"id":"id1","nodeId":"id2","name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"tracker":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"The release looks bad: its tracker says the torrent is no longer registered."},"addedAt":"T",` +
+		`"fault":{"kind":"unregistered","at":"T","sentence":"The release's tracker reports that the torrent is no longer registered."},"addedAt":"T",` +
 		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +
@@ -202,7 +202,7 @@ func TestActionsAnswerForEachTorrent(t *testing.T) {
 	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"remove","ids":["`+orchard.String()+`"],"deleteFiles":true,"dryRun":true}`, http.StatusOK,
 		`{"results":[{"id":"id1","done":true}],"preview":{"cancels":[{"grabId":"id2","workId":"id3","release":"`+orchardRelease+`"}],"stopSeeding":[],"frees":900,"linked":false}}`)
 	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"pause","ids":["`+orchard.String()+`"],"dryRun":true}`, http.StatusBadRequest,
-		`{"status":400,"code":"no_preview","title":"Only remove, mark failed and recheck can say what they would do"}`)
+		`{"status":400,"code":"no_preview","title":"Only remove, mark failed and recheck can be previewed"}`)
 
 	w.roster.away[w.self] = true
 	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"recheck","ids":["`+harbor.String()+`"]}`, http.StatusOK,

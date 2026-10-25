@@ -16,6 +16,6 @@ export interface HealthItem {
   subject: string;
   /** What to do first */
   text: string;
-  /** Its owner can't judge it now, so it reads as it last did */
+  /** SlipStream couldn't check it, so it shows the last known state */
   unsure: boolean;
 }

@@ -2,7 +2,7 @@ import type { TargetsUnwantedFiles } from "./targetsUnwantedFiles.ts";
 
 export interface TargetsImpact {
   /**
-   * Downloads in flight for cells that go; their files follow the save's choice
+   * Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept
    * @minimum 0
    */
   downloading: number;

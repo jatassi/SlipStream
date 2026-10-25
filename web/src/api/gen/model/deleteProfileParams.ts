@@ -6,7 +6,7 @@ export type DeleteProfileParams = {
    */
   moveTo: string;
   /**
-   * Answer the change's Impact and save nothing
+   * Return the change's Impact and save nothing
    */
   preview?: boolean;
   /**

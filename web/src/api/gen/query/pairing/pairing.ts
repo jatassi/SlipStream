@@ -202,7 +202,7 @@ export const getClaimWorkerUrl = () => {
 };
 
 /**
- * @summary Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial
+ * @summary Join this Node to a Controller as a Worker with a Join Code. Returns 202 while it awaits the Controller's dial
  */
 export const claimWorker = async (
   pairingJoinBody: PairingJoinBody,
@@ -293,7 +293,7 @@ export type ClaimWorkerMutationError = ErrorType<
 export type ClaimWorkerMutationVariables = { data: PairingJoinBody };
 
 /**
- * @summary Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial
+ * @summary Join this Node to a Controller as a Worker with a Join Code. Returns 202 while it awaits the Controller's dial
  */
 export const useClaimWorker = <
   TError = ErrorType<

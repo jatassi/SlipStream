@@ -201,7 +201,7 @@ func Routes(r *api.Router, facts system.Facts, node Node) {
 		ID:      "restartNode",
 		Method:  http.MethodPost,
 		Path:    "/nodes/{id}/restart",
-		Summary: "Restart a Node; it answers before it stops",
+		Summary: "Restart a Node. The response comes before it stops",
 		Status:  http.StatusAccepted,
 		Errors:  slices.Concat(reach, []*api.Code{alreadyRestarting}),
 	}, h.restartNode)

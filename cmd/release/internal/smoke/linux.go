@@ -78,7 +78,7 @@ func (r *Run) smokeService(ctx context.Context, s system, k install.Kind) error 
 	if err != nil {
 		return err
 	}
-	owner := "data dir /var/lib/slipstream belongs to slipstream; run: sudo -u slipstream slipstream join ..."
+	owner := "data dir /var/lib/slipstream belongs to slipstream. Run: sudo -u slipstream slipstream join ..."
 	if res.code != 3 || !strings.Contains(res.stderr, owner) {
 		return fmt.Errorf("join as root: %s; want exit 3 and %q", res, owner)
 	}

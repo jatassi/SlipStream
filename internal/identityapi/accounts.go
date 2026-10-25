@@ -95,7 +95,7 @@ type accountPatchInput struct {
 	ID   string `path:"id" format:"uuid"`
 	Body struct {
 		DisplayName *string `json:"displayName,omitempty" minLength:"1" maxLength:"100"`
-		Email       *string `json:"email,omitempty" format:"email" maxLength:"254" doc:"Changed at once; the old address is told"`
+		Email       *string `json:"email,omitempty" format:"email" maxLength:"254" doc:"Changed at once. SlipStream emails the old address about the change"`
 		Admin       *bool   `json:"admin,omitempty"`
 		Disabled    *bool   `json:"disabled,omitempty" doc:"Turning it off ends every session it holds"`
 	}

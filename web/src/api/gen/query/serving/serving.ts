@@ -35,7 +35,7 @@ export const getGetServingUrl = () => {
 };
 
 /**
- * @summary Report this Worker's name, key and Controller, and what it holds and seeds; a Serving Worker answers it itself
+ * @summary Report this Worker's name, key and Controller, and what it holds and seeds. A Serving Worker responds to this itself
  */
 export const getServing = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -109,7 +109,7 @@ export function useGetServingSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Report this Worker's name, key and Controller, and what it holds and seeds; a Serving Worker answers it itself
+ * @summary Report this Worker's name, key and Controller, and what it holds and seeds. A Serving Worker responds to this itself
  */
 
 export function useGetServingSuspense<

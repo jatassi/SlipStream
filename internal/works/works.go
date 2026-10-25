@@ -82,7 +82,7 @@ var (
 	// ErrNotFound and ErrUnavailable are what a Content Type wraps: its
 	// source has no record with the key, or didn't answer.
 	ErrNotFound    = errors.New("the metadata source has no record with that key")
-	ErrUnavailable = errors.New("the metadata source didn't answer")
+	ErrUnavailable = errors.New("the metadata source didn't respond")
 	ErrInvalid     = errors.New("the metadata source sent a record SlipStream can't use")
 	ErrRefused     = errors.New("the metadata source refused SlipStream's key")
 
@@ -159,7 +159,7 @@ func Open(ctx context.Context, cfg Config) (*Works, error) {
 	}
 	for _, id := range held {
 		if _, ok := w.types[id]; !ok {
-			return nil, &storage.RefusedError{Err: fmt.Errorf("library.db holds Works of Content Type %s, which this binary does not register", id)}
+			return nil, &storage.RefusedError{Err: fmt.Errorf("library.db holds Works of Content Type %s, which this binary doesn't register", id)}
 		}
 	}
 	return w, nil

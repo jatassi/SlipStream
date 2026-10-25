@@ -52,7 +52,7 @@ export const updateCutQueryUnwantedDefault = `delete`;
 export const updateCutQueryConfirmMin = 0;
 
 export const UpdateCutQueryParams = zod.object({
-  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateCutQueryUnwantedDefault)
@@ -78,7 +78,7 @@ export const UpdateCutResponse = TargetsCutChange;
 export const ListProfilesResponse = TargetsProfileList;
 
 /**
- * @summary Create a Profile of Targets in Profile order; it is never the default
+ * @summary Create a Profile of Targets in Profile order. A new Profile is never the default
  */
 export const CreateProfileBody = TargetsNewProfile;
 
@@ -96,7 +96,7 @@ export const deleteProfileQueryConfirmMin = 0;
 
 export const DeleteProfileQueryParams = zod.object({
   moveTo: zod.uuid().describe("The Profile of the same Content Type that its Works move to"),
-  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])
     .default(deleteProfileQueryUnwantedDefault)
@@ -134,7 +134,7 @@ export const updateProfileQueryUnwantedDefault = `delete`;
 export const updateProfileQueryConfirmMin = 0;
 
 export const UpdateProfileQueryParams = zod.object({
-  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateProfileQueryUnwantedDefault)
@@ -155,7 +155,7 @@ export const UpdateProfileBody = TargetsNewProfile;
 export const UpdateProfileResponse = TargetsProfileChange;
 
 /**
- * @summary Make a Profile its Content Type's default; existing Works keep theirs
+ * @summary Make a Profile its Content Type's default. Existing Works keep theirs
  */
 export const MakeDefaultProfileParams = zod.object({
   profileId: zod.uuid(),
@@ -209,7 +209,7 @@ export const updateTargetQueryUnwantedDefault = `delete`;
 export const updateTargetQueryConfirmMin = 0;
 
 export const UpdateTargetQueryParams = zod.object({
-  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateTargetQueryUnwantedDefault)
@@ -258,7 +258,7 @@ export const setWorkWantsQueryUnwantedDefault = `delete`;
 export const setWorkWantsQueryConfirmMin = 0;
 
 export const SetWorkWantsQueryParams = zod.object({
-  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])
     .default(setWorkWantsQueryUnwantedDefault)

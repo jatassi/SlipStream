@@ -83,7 +83,7 @@ func TestChangePINNeedsTheCurrentOne(t *testing.T) {
 	n := newNode(t)
 	_, session := n.claimed()
 	expect(t, n.changePIN(session, `{"new":"5678"}`), 422,
-		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.current","message":"expected the current PIN"}]}`+"\n")
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.current","message":"expected the current PIN"}]}`+"\n")
 	want(t, "a wrong current PIN", answerOf(n.changePIN(session, `{"current":"9999","new":"5678"}`)), wrongAnswer)
 	want(t, "the right current PIN", answerOf(n.changePIN(session, `{"current":"1234","new":"5678"}`)), answer{status: 204})
 	want(t, "the old PIN", n.signInFrom("192.0.2.1:1", "admin@example.com", "1234", nil), wrongAnswer)

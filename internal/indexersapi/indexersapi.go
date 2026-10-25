@@ -30,7 +30,7 @@ func open(r Registry) *indexers.Indexers {
 var (
 	indexerNameTaken   = api.NewCode(http.StatusConflict, "indexer_name_taken", "Another Indexer has that name")
 	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node holds Searching. Give one the Searching Role first.")
-	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Indexer didn't answer")
+	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Indexer didn't respond")
 	indexerRefused     = api.NewCode(http.StatusUnprocessableEntity, "indexer_refused", "The Indexer refused the request")
 	indexerNotFound    = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )
@@ -41,6 +41,8 @@ func answer(err error) error {
 	switch {
 	case errors.As(err, &refused):
 		return indexerRefused.Because("error " + refused.Code + ": " + refused.Description)
+	case errors.Is(err, indexers.ErrAPIKeyDropped):
+		return indexerUnavailable.Because(indexers.ErrAPIKeyDropped.Error() + ". Enter it again.")
 	case errors.As(err, &unavailable):
 		return indexerUnavailable.Because(unavailable.Err.Error())
 	case errors.Is(err, indexers.ErrNameTaken):

@@ -292,7 +292,7 @@ func TestEachNodesReachIsShown(t *testing.T) {
 	if err := f.fetch(t); !errors.Is(err, works.ErrUnavailable) {
 		t.Fatalf("fetch through box = %v, want ErrUnavailable", err)
 	}
-	if s := f.status(t); s.State != metadata.StateUnreachable || s.Summary != "SlipStream can't reach TMDB. It tries again on its own; check the network of each Node that can't reach it." {
+	if s := f.status(t); s.State != metadata.StateUnreachable || s.Summary != "SlipStream can't reach TMDB. SlipStream retries automatically. Check the network of each Node that can't reach it." {
 		t.Fatalf("status = %+v, want unreachable", s)
 	}
 	f.roster.may = []role.NodeID{home, box}

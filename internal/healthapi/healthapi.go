@@ -82,7 +82,7 @@ type category struct {
 	Phrase   string               `json:"phrase" doc:"The label inside a sentence, such as storage"`
 	Level    *string              `json:"level" enum:"warn,fail" doc:"Its worst item's level, null while it has none"`
 	CanCheck bool                 `json:"canCheck" doc:"It has a Check now"`
-	Unread   string               `json:"unread,omitempty" doc:"Why its last answer failed; its items then read as they last did. Absent while it answers"`
+	Unread   string               `json:"unread,omitempty" doc:"Why its last check failed. Its items then show their last known state. Absent while checks succeed"`
 	Items    []item               `json:"items" nullable:"false" doc:"Errors first, then the oldest"`
 }
 
@@ -95,7 +95,7 @@ type item struct {
 	Action    api.Nullable[action] `json:"action" doc:"Its one action, null when it has none"`
 	Since     time.Time            `json:"since" doc:"When it first appeared at any level"`
 	ChangedAt time.Time            `json:"changedAt" doc:"When its level last changed"`
-	Unsure    bool                 `json:"unsure" doc:"Its owner can't judge it now, so it reads as it last did"`
+	Unsure    bool                 `json:"unsure" doc:"SlipStream couldn't check it, so it shows the last known state"`
 }
 
 type fact struct {
@@ -208,7 +208,7 @@ type volume struct {
 	Total        int64              `json:"total"`
 	Free         int64              `json:"free" doc:"The bytes SlipStream may write"`
 	SampledAt    time.Time          `json:"sampledAt"`
-	Live         bool               `json:"live" doc:"Its Node is in step, so its figures are current; else they read as of sampledAt"`
+	Live         bool               `json:"live" doc:"Its Node is in step, so its figures are current. Otherwise they are from sampledAt"`
 	WarnBelow    setting.SpaceField `json:"warnBelow" doc:"Its own warning level, the default while it follows the global one"`
 	ErrorBelow   setting.SpaceField `json:"errorBelow" doc:"Its own error level, the default while it follows the global one"`
 	WarnBytes    int64              `json:"warnBytes" doc:"The warning level it follows, in bytes"`

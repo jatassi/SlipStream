@@ -144,7 +144,11 @@ test("a failed Add says the server's reason in a toast", async () => {
     path: "/add?contentType=cinema&query=quiet",
     handlers: [
       http.post("*/api/v1/works", () =>
-        problem(502, "metadata_unavailable", "The metadata source didn't answer. Try again later."),
+        problem(
+          502,
+          "metadata_unavailable",
+          "The metadata source didn't respond. Try again later.",
+        ),
       ),
       ...server.handlers,
     ],
@@ -153,7 +157,7 @@ test("a failed Add says the server's reason in a toast", async () => {
   await userEvent.click(sheet.getByRole("button", { name: "Add Film" }));
   await expect
     .element(notifications().getByRole("dialog"))
-    .toHaveTextContent("FailedThe metadata source didn't answer. Try again later.");
+    .toHaveTextContent("FailedThe metadata source didn't respond. Try again later.");
   await expect.element(sheet.getByRole("button", { name: "Add Film" })).toBeEnabled();
 });
 

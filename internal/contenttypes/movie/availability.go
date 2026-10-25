@@ -28,11 +28,11 @@ const (
 
 // The movie settings, stored in movie_settings.
 var (
-	CountsAs = setting.Choice[db.CountsAs]{Key: "movie.countsAs", Label: "Movies count as out on", Default: homeRelease, Options: []setting.Option[db.CountsAs]{
+	CountsAs = setting.Choice[db.CountsAs]{Key: "movie.countsAs", Label: "Movies count as released on", Default: homeRelease, Options: []setting.Option[db.CountsAs]{
 		{Value: homeRelease, Label: "Home release"},
 		{Value: cinemaRelease, Label: "Cinema release"},
 	}}
-	CinemaDelay = setting.Duration{Key: "movie.cinemaDelay", Label: "A cinema release counts as out after", Default: 90 * day, Max: 365 * day, Step: day}
+	CinemaDelay = setting.Duration{Key: "movie.cinemaDelay", Label: "Delay after a cinema release", Default: 90 * day, Max: 365 * day, Step: day}
 )
 
 func (*Movie) SettingFields(ctx context.Context, r storage.Reader[file]) ([]setting.Field, error) {

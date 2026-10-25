@@ -199,7 +199,7 @@ func (c *Client) Shutdown(local *storage.DB[storage.Local]) func(context.Context
 		select {
 		case <-saved:
 		case <-timer.C:
-			c.cfg.Log.Warn("Some torrents' resume data wasn't saved before the Node stopped; they check their files when it starts")
+			c.cfg.Log.Warn("Some torrents' resume data wasn't saved before the Node stopped. Their files are rechecked when the Node starts")
 		case <-ctx.Done():
 		}
 		return nil

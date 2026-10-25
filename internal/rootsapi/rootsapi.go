@@ -225,7 +225,7 @@ type rehomeRootInput struct {
 	Body   struct {
 		NodeID string `json:"nodeId,omitempty" format:"uuid" doc:"The Storage Node whose disk holds it now; left out, its Node"`
 		Path   string `json:"path,omitempty" maxLength:"4096" doc:"The folder that holds it now, in its Node's path style; left out, its folder"`
-		Forget *int   `json:"forget,omitempty" minimum:"0" doc:"The missing file count the Admin confirmed from a rehome_missing answer: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again"`
+		Forget *int   `json:"forget,omitempty" minimum:"0" doc:"The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again"`
 	}
 }
 
@@ -338,7 +338,7 @@ type madeFolderOutput struct{ Body madeFolder }
 
 type nodeVolumes struct {
 	NodeID  string       `json:"nodeId" format:"uuid"`
-	Live    bool         `json:"live" doc:"The Node is online, so its figures are current; else each volume reads as of its sampledAt"`
+	Live    bool         `json:"live" doc:"The Node is online, so its figures are current. Otherwise each volume's figures are from its sampledAt"`
 	Volumes []rootVolume `json:"volumes" nullable:"false" doc:"Its volumes that hold a root, by name"`
 }
 

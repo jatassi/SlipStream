@@ -29,7 +29,7 @@ func TestARunningWorkerRepairsOnlyAtStart(t *testing.T) {
 		reply, err := worker.JoinOp(t.Context(), code)
 		want := pairing.Error{
 			Kind:   "restart_required",
-			Reason: "a running Worker re-pairs only at start: stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
+			Reason: "a running Worker re-pairs only at start. Stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
 		}
 		if err != nil || reply.Refused == nil || *reply.Refused != want {
 			t.Fatalf("the join op with office's code = %+v, %v; want refused %+v", reply, err, want)

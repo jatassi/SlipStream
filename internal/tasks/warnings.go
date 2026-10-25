@@ -48,7 +48,7 @@ func warn(t Task, run latest, units []unitSince, after time.Duration, now time.T
 		for _, u := range units {
 			if !now.Before(u.at.Add(after)) {
 				w.At, w.Unit = u.at, u.label
-				w.Text = fmt.Sprintf("%s has not finished %s since %s", t.Name, u.label, u.at.In(zone).Format("Jan 2 15:04"))
+				w.Text = fmt.Sprintf("%s hasn't finished %s since %s", t.Name, u.label, u.at.In(zone).Format("Jan 2 15:04"))
 				return w, true
 			}
 		}

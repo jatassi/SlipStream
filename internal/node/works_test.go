@@ -58,7 +58,7 @@ func TestAControllerBuildsItsContentTypesOnce(t *testing.T) {
 	env.Types, env.Environ = contenttype.NewSet(), listeners
 	_, err := Start(t.Context(), env)
 	var refused *storage.RefusedError
-	if want := "library.db holds Works of Content Type fixture, which this binary does not register"; !errors.As(err, &refused) || err.Error() != want || ExitCode(err) != ExitLibraryRefused {
+	if want := "library.db holds Works of Content Type fixture, which this binary doesn't register"; !errors.As(err, &refused) || err.Error() != want || ExitCode(err) != ExitLibraryRefused {
 		t.Fatalf("start without the fixture = %v, want %q with exit %d", err, want, ExitLibraryRefused)
 	}
 }

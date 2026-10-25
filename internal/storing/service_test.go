@@ -68,7 +68,7 @@ func TestBrowseTypesEveryError(t *testing.T) {
 			{filepath.Join(base, "gone"), FolderNotFound, "gone", ""},
 			{write(t, filepath.Join(base, "notes.txt"), "x"), FolderNotAFolder, "not a folder", ""},
 			{denied, FolderDenied, "permission denied", "media"},
-			{hung, FolderUnresponsive, "hasn't answered within 10s", ""},
+			{hung, FolderUnresponsive, "hasn't responded within 10s", ""},
 			{broken, FolderIO, "input/output error", ""},
 		} {
 			_, err := remote.Browse(t.Context(), node, c.path, false)

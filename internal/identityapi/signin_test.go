@@ -370,7 +370,7 @@ func TestTheAddressIsAnOriginWithAName(t *testing.T) {
 	expect(t, put(`{"address":"http://192.168.1.4:8484"}`), 422,
 		problem(422, "address_ip", "The address must be a name, not an IP address"))
 	expect(t, put(`{"address":"ftp://media.example.com"}`), 422,
-		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.address","message":"expected http:// or https:// then a host name and an optional port"}]}`+"\n")
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.address","message":"expected http:// or https:// then a host name and an optional port"}]}`+"\n")
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/identity/address", host: "media.example.com:8484", headers: apiKey}), 200,
 		`{"address":"https://media.example.com","suggestedAddress":"http://media.example.com:8484"}`+"\n")
 }

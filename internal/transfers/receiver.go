@@ -185,7 +185,7 @@ func (r *Receiver) open(f *frames, j Job) (Manifest, error) {
 	case *transferv1.Frame_Absent:
 		return Manifest{}, ErrNotPresent
 	}
-	return Manifest{}, &FailedError{Reason: fmt.Sprintf("the source answered Open with %T", fr.GetFrame())}
+	return Manifest{}, &FailedError{Reason: fmt.Sprintf("the source responded to Open with %T", fr.GetFrame())}
 }
 
 // adopt is the chunks already verified against m. A manifest that changed,

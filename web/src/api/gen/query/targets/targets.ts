@@ -714,7 +714,7 @@ export const getCreateProfileUrl = () => {
 };
 
 /**
- * @summary Create a Profile of Targets in Profile order; it is never the default
+ * @summary Create a Profile of Targets in Profile order. A new Profile is never the default
  */
 export const createProfile = async (
   targetsNewProfile: TargetsNewProfile,
@@ -805,7 +805,7 @@ export type CreateProfileMutationError = ErrorType<
 export type CreateProfileMutationVariables = { data: TargetsNewProfile };
 
 /**
- * @summary Create a Profile of Targets in Profile order; it is never the default
+ * @summary Create a Profile of Targets in Profile order. A new Profile is never the default
  */
 export const useCreateProfile = <
   TError = ErrorType<
@@ -1227,7 +1227,7 @@ export const getMakeDefaultProfileUrl = (profileId: string) => {
 };
 
 /**
- * @summary Make a Profile its Content Type's default; existing Works keep theirs
+ * @summary Make a Profile its Content Type's default. Existing Works keep theirs
  */
 export const makeDefaultProfile = async (
   profileId: string,
@@ -1299,7 +1299,7 @@ export type MakeDefaultProfileMutationError = ErrorType<
 export type MakeDefaultProfileMutationVariables = { profileId: string };
 
 /**
- * @summary Make a Profile its Content Type's default; existing Works keep theirs
+ * @summary Make a Profile its Content Type's default. Existing Works keep theirs
  */
 export const useMakeDefaultProfile = <
   TError = ErrorType<

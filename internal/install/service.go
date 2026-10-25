@@ -47,7 +47,7 @@ func UserServiceInstall(k Kind, l Layout, dataDir string, current []byte, linger
 	if k == AppImage {
 		// An AppImage runs from a mount under /tmp that dies with it.
 		if exe = l.Getenv("APPIMAGE"); !l.isAbs(exe) {
-			return nil, fmt.Errorf("APPIMAGE is %q, not an absolute path: start service install --user from the AppImage", exe)
+			return nil, fmt.Errorf("APPIMAGE is %q, not an absolute path. Start service install --user from the AppImage", exe)
 		}
 	}
 	unit := UserUnit(exe, dataDir)

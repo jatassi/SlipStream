@@ -2,12 +2,12 @@ import type { MailOutcome } from "../api/gen/model";
 import { ReadOnlyField } from "../ui/read-only-field";
 
 const mailSentence: {
-  readonly [O in MailOutcome["outcome"]]: (to: string, detail: string) => string;
+  readonly [O in MailOutcome["outcome"]]: (to: string, detail: string | undefined) => string;
 } = {
   sent: (to) => `Emailed it to ${to}.`,
   failed: (to, detail) =>
-    `The email to ${to} failed, so copy the link and send it yourself. The mail server said: ${detail}`,
-  "not-set-up": () => "Email is not set up, so copy the link and send it yourself.",
+    `The email to ${to} failed${detail === undefined ? "" : `: ${detail}`}. Copy the link and send it yourself.`,
+  "not-set-up": () => "Email isn't set up. Copy the link and send it yourself.",
 };
 
 export function IssuedLink({
@@ -26,9 +26,9 @@ export function IssuedLink({
       <ReadOnlyField
         label={label}
         value={url}
-        description="Anyone with this link can use it, so send it only to them."
+        description="Anyone with this link can use it. Send it only to the person it's for."
       />
-      <output className="text-ink-2">{mailSentence[mail.outcome](to, mail.detail ?? "")}</output>
+      <output className="text-ink-2">{mailSentence[mail.outcome](to, mail.detail)}</output>
     </div>
   );
 }

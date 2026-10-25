@@ -23,8 +23,8 @@ test.each([
     card: homeCard,
     words: {
       sentence:
-        "Listening on 192.168.1.20:6881. No peer from the internet has connected in yet, so port 6881 is unproven.",
-      hint: "If it stays unproven, check that your router forwards port 6881 to this computer. Downloads still work, from fewer peers.",
+        "Listening on 192.168.1.20:6881. No peer from the internet has connected to port 6881 yet, so it may not be reachable.",
+      hint: "If no peer connects, check that your router forwards port 6881 to this computer. Downloads still work, but with fewer peers.",
     },
   },
   {
@@ -37,7 +37,7 @@ test.each([
       signal: "fail",
       chip: "Not listening",
       sentence: "Can't listen on 0.0.0.0:6881: address already in use.",
-      hint: "No peer can connect in until it listens. If another program holds the port, choose another one or free it, then restart.",
+      hint: "No peer can connect to it until it listens. If another program is using the port, free it or choose another, then restart.",
     },
   },
   {
@@ -47,7 +47,7 @@ test.each([
       signal: "fail",
       chip: "Not listening",
       sentence: "Not listening on 0.0.0.0:6881 yet.",
-      hint: "No peer can connect in until it listens. If another program holds the port, choose another one or free it, then restart.",
+      hint: "No peer can connect to it until it listens. If another program is using the port, free it or choose another, then restart.",
     },
   },
   {
@@ -61,8 +61,8 @@ test.each([
       totals: homeCard.totals,
     },
     words: {
-      sentence: "home is offline, so its client can't say how it is doing.",
-      hint: "Its settings reach it when it is back.",
+      sentence: "home is offline, so its client's status is unknown.",
+      hint: "Changed settings apply when it reconnects.",
     },
   },
   {

@@ -23,8 +23,8 @@ export function CinemaSources({
       />
       <p className="flex items-center gap-1.5 text-meta text-warn-ink">
         <Icon icon={Alert02Icon} className="size-3.5 shrink-0" />
-        Cinema recordings (CAM, TS, TELESYNC, HDCAM) are filmed in a theatre. Accept them only on
-        purpose; they rank below every other quality.
+        Cinema recordings (CAM, TS, TELESYNC, HDCAM) are filmed in a theatre. They rank below every
+        other quality. Accept them only if you want cinema recordings.
       </p>
     </div>
   );

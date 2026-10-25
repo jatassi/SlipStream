@@ -26,7 +26,7 @@ test("each downloading Node's card leads with its port verdict and links to its 
   await expect
     .element(
       card("home").getByText(
-        "Listening on 192.168.1.20:6881. No peer from the internet has connected in yet, so port 6881 is unproven.",
+        "Listening on 192.168.1.20:6881. No peer from the internet has connected to port 6881 yet, so it may not be reachable.",
       ),
     )
     .toBeVisible();
@@ -38,7 +38,7 @@ test("each downloading Node's card leads with its port verdict and links to its 
     .element(card("seedbox").getByText("Can't listen on 0.0.0.0:51413: address already in use."))
     .toBeVisible();
   await expect
-    .element(card("home").getByText("Goes away when this Node stops downloading."))
+    .element(card("home").getByText("This card is removed once this Node stops downloading."))
     .toBeVisible();
   expect(page.getByRole("button", { name: /remove/iu }).query()).toBeNull();
 
@@ -76,7 +76,7 @@ test("a card whose disk guard holds leads with new downloads waiting for disk sp
     ...seedboxCard,
     diskGuard: {
       sentence: "New downloads on seedbox wait for disk space.",
-      hint: "/data has 12 GB left, below its error level of 20 GB. Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on.",
+      hint: "/data has 12 GB left, below its error level of 20 GB. Free up space there, or move the downloads folder to a volume with more room. Downloads already running continue.",
       volume: "/data",
       free: 12 * gb,
       errorBelow: 20 * gb,
@@ -91,7 +91,7 @@ test("a card whose disk guard holds leads with new downloads waiting for disk sp
   await expect
     .element(
       card("seedbox").getByText(
-        "/data has 12 GB left, below its error level of 20 GB. Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on.",
+        "/data has 12 GB left, below its error level of 20 GB. Free up space there, or move the downloads folder to a volume with more room. Downloads already running continue.",
       ),
     )
     .toBeVisible();

@@ -13,7 +13,7 @@ const cutForm = z.object({
   aliases: z.string(),
 });
 
-const nameTaken = "Another cut already goes by this name or one of these phrases.";
+const nameTaken = "Another cut already uses this name or one of these phrases.";
 
 function refusedWith(error: unknown) {
   return isProblem(error, "cut_name_taken") ? { fields: { name: nameTaken } } : submitErrors(error);

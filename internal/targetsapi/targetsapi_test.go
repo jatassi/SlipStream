@@ -211,25 +211,25 @@ func TestEachTargetsErrorAnswersItsProblem(t *testing.T) {
 		},
 		{
 			http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1440p"]],"cutoff":"webdl-1080p"}`, http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.tiers[0][0]","message":"\"webdl-1440p\" is not a quality"}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.tiers[0][0]","message":"\"webdl-1440p\" is not a quality"}]}`,
 		},
 		{
 			http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1080p"],[]],"cutoff":"webdl-1080p"}`, http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","detail":"tiers are missing, empty or repeat a quality: tier 2 is empty","errors":[{"location":"body.tiers","message":"tiers are missing, empty or repeat a quality: tier 2 is empty"}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"tiers are missing, empty or repeat a quality: tier 2 is empty","errors":[{"location":"body.tiers","message":"tiers are missing, empty or repeat a quality: tier 2 is empty"}]}`,
 		},
 		{
 			http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1080p"],["webdl-1080p"]],"cutoff":"webdl-1080p"}`, http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","detail":"tiers are missing, empty or repeat a quality: webdl-1080p twice","errors":[{"location":"body.tiers","message":"tiers are missing, empty or repeat a quality: webdl-1080p twice"}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"tiers are missing, empty or repeat a quality: webdl-1080p twice","errors":[{"location":"body.tiers","message":"tiers are missing, empty or repeat a quality: webdl-1080p twice"}]}`,
 		},
 		{
 			http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p","sizes":[{"quality":"webdl-1080p","min":20,"max":10}]}`, http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","detail":"a size is negative or its maximum is below its minimum: webdl-1080p","errors":[{"location":"body.sizes","message":"a size is negative or its maximum is below its minimum: webdl-1080p"}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"a size is negative or its maximum is below its minimum: webdl-1080p","errors":[{"location":"body.sizes","message":"a size is negative or its maximum is below its minimum: webdl-1080p"}]}`,
 		},
 		{
 			http.MethodPost, "/api/v1/targets",
 			`{"name":"X","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p","filters":[{"attribute":"video_codec","mode":"only","values":["TrueHD"]},{"attribute":"video_codec","mode":"not","values":["x264"]}],"sizes":[{"quality":"webdl-1080p","min":1,"max":null},{"quality":"webdl-1080p","min":2,"max":null}]}`,
 			http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[` +
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[` +
 				`{"location":"body.filters[0].values","message":"a filter is Any with values, Only or Not with none, or names a value twice: \"TrueHD\" is not a video codec"},` +
 				`{"location":"body.filters[1].attribute","message":"the attribute is listed twice"},` +
 				`{"location":"body.sizes[1].quality","message":"the quality is listed twice"}]}`,
@@ -252,7 +252,7 @@ func TestEachTargetsErrorAnswersItsProblem(t *testing.T) {
 		{
 			http.MethodPost, "/api/v1/profiles", `{"name":"Twice","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"download"},{"targetId":"` + strings.ToUpper(id) + `","sourcing":"download"}],"editions":{"kind":"any"}}`,
 			http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","detail":"a Profile holds a Target twice","errors":[{"location":"body.targets","message":"a Profile holds a Target twice"}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"a Profile holds a Target twice","errors":[{"location":"body.targets","message":"a Profile holds a Target twice"}]}`,
 		},
 		{
 			http.MethodPost, "/api/v1/profiles", `{"name":"Standard","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"derive"}],"editions":{"kind":"any"}}`,

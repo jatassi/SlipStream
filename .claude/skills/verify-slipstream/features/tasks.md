@@ -9,7 +9,7 @@ The Controller runs each Scheduled task on its cadence and records every run wit
 - `tasks-capsule` the desktop top bar shows `1 task running: Housekeeping` between the connection line and the page action, and its popover `Running tasks` lists the run with `home, seedbox · <n> of 6 steps`, a meter and `Cancel`; a scheduled run shows only after the header delay (P-007, P-008).
 - `tasks-phone-running` on phone the same list, `Running tasks`, heads Activity while the run is open, and Activity's count and Home's colour never count it (P-007, P-008).
 - `tasks-detail` `/tasks/housekeeping` reads the last result and the next run, the cadence and the overdue rule under `When it runs`, the `Units` table with each unit's last outcome, last success and cause, a unit's Node linking to that Node's page and a removed Node reading `<name> (removed)`, and the `Runs` list newest first, each run expanding to its units (P-228).
-- `tasks-partial` with seedbox stopped, Run now ends `Partial` with `5 of 6 steps, seedbox offline`, and the unit `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox returns.` (P-228).
+- `tasks-partial` with seedbox stopped, Run now ends `Partial` with `5 of 6 steps, seedbox offline`, and the unit `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox reconnects.` (P-228).
 - `tasks-returned` when seedbox starts again a `Node returned` run of `1 step` runs its unit, which ends `Succeeded` (P-228).
 - `tasks-cadence` the row's `Runs every: Daily in the Maintenance window` opens the cadence; 2 days reads `Every 2 days in the Maintenance window` on the row and the detail page, a cadence outside 1 to 7 days answers 422 with `Between 1 day and 7 days.`, and `Reset to default` brings back daily (P-229).
 - `tasks-schedule` the `Schedule` section edits the `Maintenance window` with the Controller's zone beside it, `Overdue tasks`, `Runs kept per task`, and under `Details` the jitter, the header delay and the Partial rule; a window of 01:00 to 03:00 moves Housekeeping's next run to 01:00 (P-229).
@@ -119,7 +119,7 @@ Steps:
   $FW fault clear $RUN slow-link
   ```
 
-- **Stop seedbox and Run now.** Stop seedbox, open Housekeeping and choose `Run now: Housekeeping` in the top bar. The first run reads `Partial` with `5 of 6 steps, seedbox offline`, and the `Units` row `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox returns.`.
+- **Stop seedbox and Run now.** Stop seedbox, open Housekeeping and choose `Run now: Housekeeping` in the top bar. The first run reads `Partial` with `5 of 6 steps, seedbox offline`, and the `Units` row `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox reconnects.`.
 
   ```sh
   $FW node stop $RUN seedbox

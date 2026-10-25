@@ -146,7 +146,7 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "createProfile",
 		Method:  http.MethodPost,
 		Path:    "/profiles",
-		Summary: "Create a Profile of Targets in Profile order; it is never the default",
+		Summary: "Create a Profile of Targets in Profile order. A new Profile is never the default",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{profileNameTaken, contentTypeNotFound, targetNotFound, cutNotFound},
 	}, h.createProfile)
@@ -185,7 +185,7 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "makeDefaultProfile",
 		Method:  http.MethodPost,
 		Path:    "/profiles/{profileId}/default",
-		Summary: "Make a Profile its Content Type's default; existing Works keep theirs",
+		Summary: "Make a Profile its Content Type's default. Existing Works keep theirs",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{noSuchProfile},
 	}, h.makeDefaultProfile)

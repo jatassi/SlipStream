@@ -1,10 +1,10 @@
 # Search and grab
 
-An Admin searches a Work's Indexers from the Work page, and SlipStream grabs the best release, downloads it on the Node that holds Downloading, transfers it to the Node that holds Storage and imports it into the library. An Indexer that answers 429 ends one search with `The Indexer didn't answer`, and the next search grabs.
+An Admin searches a Work's Indexers from the Work page, and SlipStream grabs the best release, downloads it on the Node that holds Downloading, transfers it to the Node that holds Storage and imports it into the library. An Indexer that answers 429 ends one search with `The Indexer didn't respond`, and the next search grabs.
 
 ## Sub-features
 
-- `grab-indexer-429` a search whose Indexer answers 429 ends `The Indexer didn't answer` with no Grab.
+- `grab-indexer-429` a search whose Indexer answers 429 ends `The Indexer didn't respond` with no Grab.
 - `grab-search` a search that reaches the fake Indexer ends `Grabbed a release` with `2 releases found` and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
 - `grab-held` a throttled swarm holds the Grab at `Downloading` with a progress bar, and the seedbox's `started` announce reaches the tracker.
 - `grab-complete-now` clearing the throttle completes the torrent at once while the seedbox's libtorrent still hashes every piece (P-257).
@@ -49,12 +49,12 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
   ```
 
-- **Search into the 429.** Choose `Search` on the Work page. The rule fires once for the seedbox, and the Searches list reads `The Indexer didn't answer` with no Grab.
+- **Search into the 429.** Choose `Search` on the Work page. The rule fires once for the seedbox, and the Searches list reads `The Indexer didn't respond` with no Grab.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
   FIRED=$($FW fault wait $RUN --rule indexer-429 --timeout 30s | jq .seq)
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText(/^The Indexer didn.t answer$/).waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText(/^The Indexer didn.t respond$/).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-indexer-429 -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/search-and-grab/grab-indexer-429/work.aria.yml
   $FW exec $RUN --proof search-and-grab/grab-indexer-429 -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-indexer-429/work.png
   ```

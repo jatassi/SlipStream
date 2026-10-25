@@ -17,8 +17,8 @@ export function ClearCache() {
   return (
     <div className="flex flex-col items-start gap-2">
       <p>
-        Each Node reading metadata keeps recent answers. Clear them to have every Node ask the
-        providers again on its next call.
+        Each Node that reads metadata caches the providers&apos; recent responses. Clear the cache
+        to make every Node request them again on its next call.
       </p>
       <Button
         busy={clear.isPending}

@@ -2,4 +2,4 @@
 {{button "Make your Account" .URL}}<p style="margin:0 0 16px;">The link works once, until {{.Expires}}.</p>
 {{if .Replaces}}{{callout (printf "This replaces the link sent on %s, which no longer works." .Replaces)}}{{end}}{{end}}
 {{define "footer"}}<p style="margin:0 0 8px;">If the button doesn't work, open this address: <a href="{{.URL}}" style="color:#6b6862;word-break:break-all;">{{.URL}}</a></p>
-<p style="margin:0;">If you did not expect this email, you can ignore it. Nothing changes until the link is used.</p>{{end}}
+<p style="margin:0;">If you didn't expect this email, you can ignore it. Nothing changes until the link is used.</p>{{end}}

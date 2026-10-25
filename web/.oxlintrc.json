@@ -179,6 +179,7 @@
       }
     ],
     "unicorn/prefer-top-level-await": "off",
+    "slipstream/copy-words": "error",
     "slipstream/no-restricted-syntax": [
       "error",
       {
@@ -685,6 +686,12 @@
       "files": ["src/ui/data.tsx"],
       "rules": {
         "slipstream/no-restricted-syntax": "off"
+      }
+    },
+    {
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**", "e2e/**", "harness/**"],
+      "rules": {
+        "slipstream/copy-words": "off"
       }
     }
   ]

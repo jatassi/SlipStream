@@ -63,7 +63,7 @@ export const UpdateTaskBody = TasksTaskPatch;
 export const UpdateTaskResponse = TasksTask;
 
 /**
- * @summary Run a task now over every unit; its schedule stays as it was
+ * @summary Run a task now over every unit. Its schedule stays as it was
  */
 export const RunTaskParams = zod.object({
   taskId: zod.string(),

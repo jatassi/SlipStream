@@ -184,7 +184,7 @@ func TestSupersededHelloBacksOffAtRedialMaxAndLogsOnce(t *testing.T) {
 		old.Keep(worker.Target())
 		time.Sleep(3 * time.Minute)
 
-		want := []string{"link refused: the peer answered that key " + replacement.Fingerprint() + " superseded this Node"}
+		want := []string{"link refused: the peer reported that key " + replacement.Fingerprint() + " superseded this Node"}
 		if got := log.warnings(); !slices.Equal(got, want) {
 			t.Fatalf("warnings %q, want %q", got, want)
 		}

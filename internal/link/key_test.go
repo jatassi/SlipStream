@@ -86,7 +86,7 @@ func TestOnlyTheExactKeyFormIsRead(t *testing.T) {
 				}
 				return
 			}
-			if want := "node key " + path + " is not 64 hex characters"; err == nil || err.Error() != want {
+			if want := "node key " + path + " isn't 64 hex characters"; err == nil || err.Error() != want {
 				t.Fatalf("OpenKey = %v, want %s", err, want)
 			}
 		})

@@ -33,9 +33,9 @@ export interface DownloadclientsTorrentDetail {
   downloaded: number;
   /** Its newest Grab's Edition */
   edition?: string;
-  /** The engine's words for why it failed it */
+  /** The engine's error message for the failure */
   error?: string;
-  /** Why the release itself looks bad, once it does */
+  /** The fault found in the release itself, once there is one */
   fault?: DownloadclientsFault;
   /** In its metainfo's order */
   files: DownloadclientsFileDetail[];
@@ -48,12 +48,12 @@ export interface DownloadclientsTorrentDetail {
   infoHash: string;
   /** When its Node last reported it, set while the Node is out of step */
   lastKnown?: string;
-  /** Its Node answered now, so trackers and files are live rather than its last report */
+  /** Its Node responded, so trackers and files are live. Otherwise they are from its last report */
   live: boolean;
-  /** The release's name in its metainfo, which a Torrent whose Work was deleted reads by */
+  /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
   name: string;
   nodeId: string;
-  /** An Admin's pause or resume its Node has yet to act on */
+  /** An Admin's pause or resume its Node hasn't applied yet */
   pending?: DownloadclientsTorrentDetailPending;
   /**
    * Bytes

@@ -298,7 +298,7 @@ func (l *loop) incoming(from netip.Addr) {
 		return
 	}
 	l.listen.incomingAt = time.Now()
-	l.c.cfg.Log.Info("A peer connected in to the torrent listen port, which proves it reachable", "listen", l.listen.bound.String())
+	l.c.cfg.Log.Info("A peer from the internet connected to the torrent listen port, so the port is reachable", "listen", l.listen.bound.String())
 	l.configure()
 }
 
@@ -397,7 +397,7 @@ func (l *loop) addFromResume(t *torrent) {
 	}
 	handle, err := l.eng.Add(engine.AddParams{Resume: row.Resume, SavePath: row.SaveFolder})
 	if err != nil {
-		l.c.cfg.Log.Warn("add a torrent from its resume data; fetching it again", "info_hash", t.Hash.String(), "err", err.Error())
+		l.c.cfg.Log.Warn("can't add a torrent from its resume data, so the Node fetches it again", "info_hash", t.Hash.String(), "err", err.Error())
 		return
 	}
 	spread := l.c.cfg.Timings.StartSpread
@@ -660,7 +660,7 @@ func inside(dir, path string) bool {
 func (l *loop) event(ev engine.Event) {
 	switch ev := ev.(type) {
 	case engine.ListenFailed:
-		l.c.cfg.Log.Warn("The torrent engine is not listening", "error", ev.Err)
+		l.c.cfg.Log.Warn("The torrent engine isn't listening", "error", ev.Err)
 		l.listen.err = ev.Err.Text
 	case engine.IncomingPeer:
 		l.incoming(ev.Addr)

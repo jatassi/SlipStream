@@ -67,12 +67,12 @@ func verify(accept Accept) func(tls.ConnectionState) error {
 // PeerKey is the raw Ed25519 key of the one certificate a peer presented.
 func PeerKey(cs tls.ConnectionState) (ed25519.PublicKey, error) {
 	if n := len(cs.PeerCertificates); n != 1 {
-		return nil, fmt.Errorf("peer presented %d certificates; the link pins exactly one", n)
+		return nil, fmt.Errorf("peer presented %d certificates, and the link pins exactly one", n)
 	}
 	pub := cs.PeerCertificates[0].PublicKey
 	key, ok := pub.(ed25519.PublicKey)
 	if !ok {
-		return nil, fmt.Errorf("peer certificate holds a %T; the link pins Ed25519 keys", pub)
+		return nil, fmt.Errorf("peer certificate holds a %T, and the link pins only Ed25519 keys", pub)
 	}
 	return key, nil
 }

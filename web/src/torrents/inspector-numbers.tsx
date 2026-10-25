@@ -50,8 +50,8 @@ function TrackerLine({ tracker, clock }: { tracker: DownloadclientsTrackerDetail
   const { status } = trackerLine({ host, ...tracker }, clock);
   const timing = [
     tracker.answeredAt === undefined
-      ? "No answer yet"
-      : `Answered at ${sinceWords(tracker.answeredAt, clock)}`,
+      ? "No response yet"
+      : `Responded at ${sinceWords(tracker.answeredAt, clock)}`,
     ...(tracker.nextAnnounce === undefined
       ? []
       : [`next announce at ${sinceWords(tracker.nextAnnounce, clock)}`]),
@@ -94,7 +94,7 @@ export function Trackers({
   return (
     <InspectorSection title="Trackers">
       {!detail.live && (
-        <p className="mb-2 text-ink-3">{`${node} isn't answering, so these are as it last reported.`}</p>
+        <p className="mb-2 text-ink-3">{`${node} isn't responding, so these are from its last report.`}</p>
       )}
       {detail.trackers.length === 0 ? (
         <p className="text-ink-3">Its metainfo names no tracker.</p>

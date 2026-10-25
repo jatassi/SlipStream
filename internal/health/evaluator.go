@@ -447,7 +447,7 @@ func (h *Health) answers(ctx context.Context, ids []ID) ([]Answer, []error) {
 			failed[i] = valid(c, answers[i])
 		}
 		if failed[i] != nil {
-			h.cfg.Log.Error("answer what is wrong", "category", id, "err", failed[i])
+			h.cfg.Log.Error("evaluate a Health category", "category", id, "err", failed[i])
 		}
 	}
 	return answers, failed

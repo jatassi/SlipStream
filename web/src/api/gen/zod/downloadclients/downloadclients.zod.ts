@@ -69,14 +69,14 @@ export const ListTorrentsQueryParams = zod.object({
 export const ListTorrentsResponse = DownloadclientsTorrentList;
 
 /**
- * @summary Pause, resume, announce, recheck, mark failed or remove Torrents, answering for each
+ * @summary Pause, resume, announce, recheck, mark failed or remove Torrents, and return the result for each
  */
 export const ActOnTorrentsBody = ActInputBody;
 
 export const ActOnTorrentsResponse = DownloadclientsActed;
 
 /**
- * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while it answers
+ * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds
  */
 export const GetTorrentParams = zod.object({
   id: zod.uuid(),

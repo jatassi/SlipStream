@@ -13,7 +13,7 @@ export interface HealthVolume {
    * @nullable
    */
   level: HealthVolumeLevel;
-  /** Its Node is in step, so its figures are current; else they read as of sampledAt */
+  /** Its Node is in step, so its figures are current. Otherwise they are from sampledAt */
   live: boolean;
   /** As its Node names it, such as D:\ or /mnt/media */
   mount: string;

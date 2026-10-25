@@ -422,7 +422,7 @@ export const getStartEmailChangeUrl = () => {
 };
 
 /**
- * @summary Change your email: a confirm link goes to the new address, and the email changes when it is followed
+ * @summary Change your email by sending a confirm link to the new address. The email changes when the link is followed
  */
 export const startEmailChange = async (
   emailChangeInputBody: EmailChangeInputBody,
@@ -513,7 +513,7 @@ export type StartEmailChangeMutationError = ErrorType<
 export type StartEmailChangeMutationVariables = { data: EmailChangeInputBody };
 
 /**
- * @summary Change your email: a confirm link goes to the new address, and the email changes when it is followed
+ * @summary Change your email by sending a confirm link to the new address. The email changes when the link is followed
  */
 export const useStartEmailChange = <
   TError = ErrorType<
@@ -1128,7 +1128,7 @@ export const getCreateResetLinkUrl = (id: string) => {
 };
 
 /**
- * @summary Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer
+ * @summary Issue a Reset link for an Account and end its sessions. Only this response shows the link
  */
 export const createResetLink = async (
   id: string,
@@ -1222,7 +1222,7 @@ export type CreateResetLinkMutationError = ErrorType<
 export type CreateResetLinkMutationVariables = { id: string; data: ResetLinkInputBody };
 
 /**
- * @summary Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer
+ * @summary Issue a Reset link for an Account and end its sessions. Only this response shows the link
  */
 export const useCreateResetLink = <
   TError = ErrorType<
@@ -1743,7 +1743,7 @@ export const getRegenerateAPIKeyUrl = () => {
 };
 
 /**
- * @summary Replace the API key, shown this once; the old one stops working
+ * @summary Replace the API key, shown this once. The old key stops working
  */
 export const regenerateAPIKey = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -1793,7 +1793,7 @@ export type RegenerateAPIKeyMutationError = ErrorType<
 >;
 
 /**
- * @summary Replace the API key, shown this once; the old one stops working
+ * @summary Replace the API key, shown this once. The old key stops working
  */
 export const useRegenerateAPIKey = <
   TError = ErrorType<
@@ -2697,7 +2697,7 @@ export const getFinishPasskeySignInUrl = (ceremony: string) => {
 };
 
 /**
- * @summary Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first
+ * @summary Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first
  */
 export const finishPasskeySignIn = async (
   ceremony: string,
@@ -2791,7 +2791,7 @@ export type FinishPasskeySignInMutationError = ErrorType<
 export type FinishPasskeySignInMutationVariables = { ceremony: string; data: unknown };
 
 /**
- * @summary Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first
+ * @summary Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first
  */
 export const useFinishPasskeySignIn = <
   TError = ErrorType<
@@ -2925,7 +2925,7 @@ export const getFinishPasskeyRegistrationUrl = (ceremony: string) => {
 };
 
 /**
- * @summary Finish adding a passkey with the browser's answer
+ * @summary Finish adding a passkey with the browser's response
  */
 export const finishPasskeyRegistration = async (
   ceremony: string,
@@ -3017,7 +3017,7 @@ export type FinishPasskeyRegistrationMutationError = ErrorType<
 export type FinishPasskeyRegistrationMutationVariables = { ceremony: string; data: unknown };
 
 /**
- * @summary Finish adding a passkey with the browser's answer
+ * @summary Finish adding a passkey with the browser's response
  */
 export const useFinishPasskeyRegistration = <
   TError = ErrorType<
@@ -4029,7 +4029,7 @@ export const getFinishPasskeyReconfirmUrl = (ceremony: string) => {
 };
 
 /**
- * @summary Confirm it's you with the browser's passkey answer
+ * @summary Confirm it's you with the browser's passkey response
  */
 export const finishPasskeyReconfirm = async (
   ceremony: string,
@@ -4123,7 +4123,7 @@ export type FinishPasskeyReconfirmMutationError = ErrorType<
 export type FinishPasskeyReconfirmMutationVariables = { ceremony: string; data: unknown };
 
 /**
- * @summary Confirm it's you with the browser's passkey answer
+ * @summary Confirm it's you with the browser's passkey response
  */
 export const useFinishPasskeyReconfirm = <
   TError = ErrorType<
@@ -4731,7 +4731,7 @@ export const getCreateSignupLinkUrl = () => {
 };
 
 /**
- * @summary Issue a Signup link for an email, email it, and answer it to copy
+ * @summary Issue a Signup link for an email, email it, and return it to copy
  */
 export const createSignupLink = async (
   newSignupLinkInputBody: NewSignupLinkInputBody,
@@ -4822,7 +4822,7 @@ export type CreateSignupLinkMutationError = ErrorType<
 export type CreateSignupLinkMutationVariables = { data: NewSignupLinkInputBody };
 
 /**
- * @summary Issue a Signup link for an email, email it, and answer it to copy
+ * @summary Issue a Signup link for an email, email it, and return it to copy
  */
 export const useCreateSignupLink = <
   TError = ErrorType<
@@ -5368,7 +5368,7 @@ export const getResendSignupLinkUrl = (id: string) => {
 };
 
 /**
- * @summary Send a pending Signup link again as a new link; the old one stops working
+ * @summary Send a pending Signup link again as a new link. The old link stops working
  */
 export const resendSignupLink = async (
   id: string,
@@ -5440,7 +5440,7 @@ export type ResendSignupLinkMutationError = ErrorType<
 export type ResendSignupLinkMutationVariables = { id: string };
 
 /**
- * @summary Send a pending Signup link again as a new link; the old one stops working
+ * @summary Send a pending Signup link again as a new link. The old link stops working
  */
 export const useResendSignupLink = <
   TError = ErrorType<

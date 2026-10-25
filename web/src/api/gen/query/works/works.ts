@@ -608,7 +608,7 @@ export const getSetContentTypeEnabledUrl = (contentType: string) => {
 };
 
 /**
- * @summary Turn a Content Type on or off; off only while it holds no Works
+ * @summary Turn a Content Type on or off. It can be off only while it holds no Works
  */
 export const setContentTypeEnabled = async (
   contentType: string,
@@ -702,7 +702,7 @@ export type SetContentTypeEnabledMutationError = ErrorType<
 export type SetContentTypeEnabledMutationVariables = { contentType: string; data: WorksEnabled };
 
 /**
- * @summary Turn a Content Type on or off; off only while it holds no Works
+ * @summary Turn a Content Type on or off. It can be off only while it holds no Works
  */
 export const useSetContentTypeEnabled = <
   TError = ErrorType<
@@ -904,7 +904,7 @@ export const getUpdateContentTypeSettingsUrl = (contentType: string) => {
 };
 
 /**
- * @summary Change a Content Type's own settings by key, all or none; every Work of the type may then read differently
+ * @summary Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently
  */
 export const updateContentTypeSettings = async (
   contentType: string,
@@ -1001,7 +1001,7 @@ export type UpdateContentTypeSettingsMutationVariables = {
 };
 
 /**
- * @summary Change a Content Type's own settings by key, all or none; every Work of the type may then read differently
+ * @summary Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently
  */
 export const useUpdateContentTypeSettings = <
   TError = ErrorType<

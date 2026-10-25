@@ -37,7 +37,7 @@ var (
 	ErrCeremony = errors.New("passkey: no such ceremony")
 	// ErrFailed is an authenticator answer that did not verify, or a sign
 	// count that went backwards (a cloned authenticator).
-	ErrFailed = errors.New("passkey: the passkey did not check out")
+	ErrFailed = errors.New("passkey: the passkey couldn't be verified")
 	// ErrNoCredential is a re-confirm for a user with no passkey here.
 	ErrNoCredential = errors.New("passkey: no passkey for this address")
 )

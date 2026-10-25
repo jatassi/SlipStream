@@ -34,7 +34,7 @@ function causeOf(row: Row, node: string, clock: Clock): Cause | undefined {
             key: `unregistered:${host}`,
             signal: "fail",
             chip: "Unregistered",
-            verdict: `Unregistered by ${host}: the tracker no longer knows the torrent.`,
+            verdict: `${host} reports that the torrent is no longer registered.`,
           };
     case "warning":
       return warningOf(row, host, node, clock);
@@ -57,7 +57,7 @@ function warningOf(row: Row, host: string, node: string, clock: Clock): Cause {
       key: `disk_full:${row.nodeId}`,
       signal: "warn",
       chip: "Disk full",
-      verdict: `${node} ran out of disk space. It carries on once there is space.`,
+      verdict: `${node} ran out of disk space. Downloads resume once there is space.`,
     };
   }
   if (row.hold === "disk_guard") {
@@ -74,8 +74,8 @@ function warningOf(row: Row, host: string, node: string, clock: Clock): Cause {
     key: `tracker:${host}:${said ?? ""}`,
     signal: "warn",
     chip: "Tracker error",
-    verdict: `${said === undefined ? `${host} is not answering.` : `${host} said: ${said}.`}${
-      retry === undefined ? "" : ` It tries again at ${sinceWords(retry, clock)}.`
+    verdict: `${said === undefined ? `${host} isn't responding.` : `${host} reported "${said}".`}${
+      retry === undefined ? "" : ` The client retries at ${sinceWords(retry, clock)}.`
     }`,
   };
 }

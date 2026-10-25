@@ -13,6 +13,6 @@ export const UpdateMailSettingsBody = MailSettingsPatch;
 export const UpdateMailSettingsResponse = MailSettings;
 
 /**
- * @summary Send a test email to your own address and answer the mail server's reply
+ * @summary Send a test email to your own address and return the mail server's reply
  */
 export const SendTestMailResponse = MailOutcome;

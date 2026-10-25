@@ -233,7 +233,7 @@ func TestClaimController(t *testing.T) {
 	expect(t, n.claim("0000-0000-0000", "1234"), 403, problem(403, "setup_code_wrong", "The Setup code is wrong"))
 
 	w := n.claim(n.code, "12a4")
-	expect(t, w, 422, `{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.pin","message":"expected string to match pattern ^[0-9]{4}$"}]}`+"\n")
+	expect(t, w, 422, `{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.pin","message":"expected string to match pattern ^[0-9]{4}$"}]}`+"\n")
 
 	typed := strings.ToLower(strings.ReplaceAll(n.code, "-", " "))
 	w = n.claim(typed, "1234")
@@ -399,7 +399,7 @@ func TestCrossSiteRequestsAreRefused(t *testing.T) {
 	crossSite := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}
 	body := `{"email":"admin@example.com","pin":"1235"}`
 	expect(t, n.do(call{method: http.MethodPost, target: "/api/v1/session", body: body, headers: crossSite}), 403,
-		problem(403, "cross_origin", "Another site cannot do this"))
+		problem(403, "cross_origin", "Another site can't make this request"))
 	crossSite["X-Api-Key"] = res.APIKey
 	expect(t, n.do(call{method: http.MethodPost, target: "/api/v1/session", body: body, headers: crossSite}), 401, pinWrong)
 	proxied := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://media.example.com"}

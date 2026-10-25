@@ -67,7 +67,7 @@ test("an Account shows its profile, PIN state, passkeys and sessions", async () 
     `${clock("2026-10-15T08:30:00Z")}Last sign-in`,
   ]);
   expect(listItems("PIN")).toEqual([
-    "Too many wrong PINs turned the PIN off. Send a Reset link to set a new one.Send a Reset link",
+    "The PIN was turned off after too many wrong PINs. Send a Reset link to set a new one.Send a Reset link",
   ]);
   expect(listItems("Passkeys")).toEqual([
     `iCloud Keychainmedia.example.test · Added ${clock("2026-10-02T12:00:00Z")}`,

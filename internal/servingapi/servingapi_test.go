@@ -41,5 +41,5 @@ func TestAWorkerSaysWhatItIsAndCountsWhatItHolds(t *testing.T) {
 
 func TestOnlyAWorkerAnswers(t *testing.T) {
 	serve(t, node{}).Expect(t, http.MethodGet, "/api/v1/serving", "", http.StatusConflict,
-		`{"status":409,"code":"not_a_worker","title":"This Node is not a Worker"}`)
+		`{"status":409,"code":"not_a_worker","title":"This Node isn't a Worker"}`)
 }

@@ -81,7 +81,7 @@ func (c Courier) Deliver(ctx context.Context, s mail.Server, m mail.Message) (ma
 	res, err := notifyv1connect.NotifyingService.On(c.Cluster, node).Send(ctx, &notifyv1.SendRequest{Server: serverToWire(s), Message: messageToWire(m)})
 	if err != nil {
 		v, _ := board.Node(node)
-		return mail.Outcome{Kind: mail.Failed, Reply: fmt.Sprintf("%s, which sends mail, didn't answer: %v", v.Name, err)}, nil
+		return mail.Outcome{Kind: mail.Failed, Reply: fmt.Sprintf("%s, which sends mail, didn't respond: %v", v.Name, err)}, nil
 	}
 	return mail.Outcome{Kind: mail.OutcomeKind(res.GetKind()), Reply: res.GetReply()}, nil
 }

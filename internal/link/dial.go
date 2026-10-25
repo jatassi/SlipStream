@@ -237,7 +237,7 @@ func (l *Link) pair(ctx context.Context, s *session, secret [joincode.SecretSize
 	case *linkv1.PairResponse_Refused:
 		return nil, &RefusedError{Reason: o.Refused.GetReason()}
 	}
-	return nil, errors.New("pair: the peer answered neither Paired nor Refused")
+	return nil, errors.New("pair: the peer responded with neither Paired nor Refused")
 }
 
 // hello says Hello on s and makes it live on a Welcome.
@@ -269,7 +269,7 @@ func (l *Link) hello(ctx context.Context, s *session) error {
 	case *linkv1.HelloResponse_Refused:
 		return &RefusedError{Reason: o.Refused.GetReason()}
 	}
-	return fmt.Errorf("hello: the peer answered %T, which this build does not follow", res.GetOutcome())
+	return fmt.Errorf("hello: the peer responded with %T, which this build doesn't support", res.GetOutcome())
 }
 
 // race dials every address, IPv6 at once and IPv4 after fallback_delay

@@ -39,7 +39,7 @@ function Choice({ value, onChange }: { value: Unwanted; onChange: (next: Unwante
         onValueChange={onChange}
       />
       <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-        A Kept file stays in the library, flagged, with &ldquo; (extra 1)&rdquo; after its name.
+        A Kept file stays in the library, flagged, with &quot; (extra 1)&quot; after its name.
       </p>
     </div>
   );

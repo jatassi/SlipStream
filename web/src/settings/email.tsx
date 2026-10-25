@@ -52,11 +52,12 @@ function patchOf(value: MailForm): MailSettingsPatch {
 }
 
 const testSentence: {
-  readonly [O in MailOutcome["outcome"]]: (to: string, detail: string) => string;
+  readonly [O in MailOutcome["outcome"]]: (to: string, detail: string | undefined) => string;
 } = {
   sent: (to) => `Sent a test email to ${to}.`,
-  failed: (_to, detail) => `The test email failed. The mail server said: ${detail}`,
-  "not-set-up": () => "Email is not set up. Save a server first.",
+  failed: (_to, detail) =>
+    detail === undefined ? "The test email failed." : `The test email failed: ${detail}`,
+  "not-set-up": () => "Email isn't set up. Save a server first.",
 };
 
 function TestEmail() {
@@ -74,7 +75,7 @@ function TestEmail() {
       </Button>
       {test.data === undefined ? null : (
         <output className="text-ink-2">
-          {testSentence[test.data.outcome](email, test.data.detail ?? "")}
+          {testSentence[test.data.outcome](email, test.data.detail)}
         </output>
       )}
       {test.error === null ? null : (
@@ -125,7 +126,7 @@ const fieldsOf = (passwordSet: boolean): readonly FieldSpec[] => [
   {
     name: "username",
     label: "Username",
-    description: "Leave empty when the server takes no sign-in.",
+    description: "Leave empty when the server doesn't require sign-in.",
   },
   {
     name: "password",

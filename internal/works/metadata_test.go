@@ -177,7 +177,7 @@ func TestARatingOrArtworkTheTypeCantHaveIsInvalid(t *testing.T) {
 		"thing c1: it has two TMDB ratings": func(r *contenttypetest.Record) {
 			r.Tree.Ratings = append(r.Tree.Ratings, works.Rating{Item: "c1", Source: "tmdb", Value: 5})
 		},
-		"shelf w1: it names thing c9, which it does not list": func(r *contenttypetest.Record) { r.Tree.Ratings[2].Item = "c9" },
+		"shelf w1: it names thing c9, which it doesn't list": func(r *contenttypetest.Record) { r.Tree.Ratings[2].Item = "c9" },
 		`shelf w1: it has "snap" artwork, a kind it can't have`: func(r *contenttypetest.Record) {
 			r.Tree.Artwork[0].Kind = "snap"
 		},

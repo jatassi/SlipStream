@@ -163,14 +163,14 @@ func checkHost(dir DataDir, kind install.Kind, cmd string) error {
 		if kind == install.Docker {
 			hint = fmt.Sprintf("docker exec -u %d <container> slipstream %s ...", owner.UID, cmd)
 		}
-		return fmt.Errorf("data dir %s belongs to %s; run: %s", dir, owner.Name, hint)
+		return fmt.Errorf("data dir %s belongs to %s. Run: %s", dir, owner.Name, hint)
 	}
 	remote, err := host.OnNetworkShare(dir.Path())
 	if err != nil {
 		return err
 	}
 	if remote {
-		return fmt.Errorf("data dir %s is on a network share; SQLite's WAL needs a local disk", dir)
+		return fmt.Errorf("data dir %s is on a network share, and SQLite's WAL needs a local disk", dir)
 	}
 	return nil
 }

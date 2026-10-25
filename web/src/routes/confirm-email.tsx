@@ -60,7 +60,7 @@ function Confirm({ token, link, linkDied }: LiveProps) {
     <>
       <p>
         Change your {link.serverName} email to <span className="text-ink-1">{link.email}</span>?
-        Your old address is told about the change.
+        SlipStream emails your old address about the change.
       </p>
       {failure !== undefined && <AlertLine text={failure} />}
       <Button look="primary" busy={busy} onClick={() => void run()}>

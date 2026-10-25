@@ -462,7 +462,7 @@ var because = map[storing.Reason]string{
 	storing.ReasonContainsData:      "it contains SlipStream's data folder",
 	storing.ReasonInsideDownloads:   "it's inside the downloads folder",
 	storing.ReasonContainsDownloads: "it contains the downloads folder",
-	storing.ReasonUnresponsive:      "the Node didn't answer in time",
+	storing.ReasonUnresponsive:      "the Node didn't respond in time",
 	storing.ReasonNetworkShare:      "it's on a network share",
 }
 

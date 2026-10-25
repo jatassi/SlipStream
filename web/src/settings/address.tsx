@@ -20,11 +20,11 @@ function refusesPasskeys(address: string): boolean {
 
 function describe(address: string, saved: string): string {
   if (refusesPasskeys(address)) {
-    return "A plain-HTTP address can't hold passkeys. Use https:// for passkeys to work.";
+    return "Passkeys don't work on a plain-HTTP address. Use an https:// address.";
   }
   return saved === ""
-    ? "Not set yet. Signup, Reset and email links can't go out until it is."
-    : "Signup, Reset and email links are built on this address.";
+    ? "Not set yet. SlipStream can't send Signup, Reset or email links until it is."
+    : "Signup, Reset and email links use this address.";
 }
 
 export function AddressSection() {

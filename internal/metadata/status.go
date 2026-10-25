@@ -344,14 +344,14 @@ func summary(s ProviderStatus) string {
 			return l + " refused your key. Check it and save it again, or remove it."
 		}
 	case StateRateLimited:
-		return l + " is rate limiting SlipStream. Calls go again once the limit ends."
+		return l + " is rate limiting SlipStream. SlipStream retries automatically when the limit ends."
 	case StateOutOfAllowance:
 		if s.Key == KeyBundled {
-			return l + " is out of today's allowance. It resets on its own, or add your own key to go on now."
+			return l + " is out of today's allowance. It resets automatically. Add your own key to continue now."
 		}
-		return l + " is out of today's allowance. It resets on its own."
+		return l + " is out of today's allowance. It resets automatically."
 	case StateUnreachable:
-		return "SlipStream can't reach " + l + ". It tries again on its own; check the network of each Node that can't reach it."
+		return "SlipStream can't reach " + l + ". SlipStream retries automatically. Check the network of each Node that can't reach it."
 	}
 	panic(fmt.Sprintf("metadata: %s stands as state %d with key %d", l, s.State, s.Key))
 }

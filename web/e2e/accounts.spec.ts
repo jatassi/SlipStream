@@ -76,7 +76,7 @@ async function join(page: Page, link: string, inviter: string, passkeyStep: "ski
       .getByRole("button", { name: passkeyStep === "add" ? "Add a passkey" : "Skip for now" })
       .click();
   }
-  await expect(page.getByText("You're all set, Lin Wei.")).toBeVisible();
+  await expect(page.getByText("Your Account is ready, Lin Wei.")).toBeVisible();
   await page.getByRole("button", { name: "Open SlipStream" }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
 }
@@ -109,7 +109,7 @@ test("a Signup link is emailed, and the person joins and signs in with a PIN", a
   await page.goto(pathOf(shown));
   await expect(
     page.getByText(
-      "This link was already used, and each link works once, so sign in or ask Ada Okafor for a new one.",
+      "This link was already used, and each link works only once. Sign in, or ask Ada Okafor for a new one.",
     ),
   ).toBeVisible();
   await page.getByRole("button", { name: "Sign in" }).click();

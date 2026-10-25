@@ -183,7 +183,7 @@ func TestARevokedKeyIsRefusedInTMDBsWords(t *testing.T) {
 func TestA404WithoutTMDBsBodyIsUnreachable(t *testing.T) {
 	inEachTier(t, singleMachine(t), func(t *testing.T, c *tmdb.Client, _ faketest.Served) {
 		_, err := c.Movie(t.Context(), english, 9000001)
-		if want := "GET /movie/9000001: TMDB: answered 404 Not Found without its not-found body"; err == nil || err.Error() != want || !errors.Is(err, works.ErrUnavailable) {
+		if want := "GET /movie/9000001: TMDB: responded with 404 Not Found but no not-found body"; err == nil || err.Error() != want || !errors.Is(err, works.ErrUnavailable) {
 			t.Errorf("Movie behind a stray 404 = %v, want %s", err, want)
 		}
 	}, faketest.WithFaults(fault.Rule{ID: "stray", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 404}, Times: 1}))

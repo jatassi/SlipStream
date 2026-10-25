@@ -157,7 +157,7 @@ func TestAddingAPasskeyNeedsARecentConfirmAndARealAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	passkeyFailed := problem(401, "passkey_failed", "The passkey did not check out")
+	passkeyFailed := problem(401, "passkey_failed", "The passkey couldn't be verified")
 	expect(t, n.do(call{method: http.MethodPost, target: home + "/api/v1/passkeys/registration/" + s.Ceremony, session: a, body: string(response)}), 401, passkeyFailed)
 	expect(t, n.do(call{method: http.MethodPost, target: home + "/api/v1/passkeys/registration/" + s.Ceremony, session: a, body: string(response)}), 401, passkeyFailed)
 	if got := n.passkeys(a); len(got) != 0 {
@@ -232,7 +232,7 @@ func TestTheSignupAndResetFlowsAddPasskeysOnTheirNewSession(t *testing.T) {
 	}
 }
 
-var passkeyFailed = problem(401, "passkey_failed", "The passkey did not check out")
+var passkeyFailed = problem(401, "passkey_failed", "The passkey couldn't be verified")
 
 func (n *node) passkeySignIn(origin, from string, key *passkeytest.Authenticator) *httptest.ResponseRecorder {
 	n.t.Helper()

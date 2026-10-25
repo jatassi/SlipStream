@@ -33,7 +33,7 @@ export class UnreachableError extends Error {
   override readonly name = "UnreachableError";
 
   constructor(options?: ErrorOptions) {
-    super("This Node didn't answer", options);
+    super("This Node didn't respond", options);
   }
 }
 

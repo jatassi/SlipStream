@@ -36,8 +36,8 @@ func (Library) policy() policy {
 		synchronous:     "FULL",
 		quickCheck:      false,
 		discardRefused:  false,
-		newerAdvice:     "; restore a Backup this version took, or update SlipStream",
-		corruptAdvice:   "; restore a Backup",
+		newerAdvice:     ". Restore a Backup this version took, or update SlipStream",
+		corruptAdvice:   ". Restore a Backup",
 		migrationAdvice: "",
 	}
 }
@@ -51,7 +51,7 @@ func (Local) policy() policy {
 		discardRefused:  true,
 		newerAdvice:     "",
 		corruptAdvice:   "",
-		migrationAdvice: "; " + LocalFile + " is safe to delete",
+		migrationAdvice: ". " + LocalFile + " is safe to delete",
 	}
 }
 

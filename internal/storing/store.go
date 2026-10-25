@@ -175,7 +175,7 @@ func (s *Store) Sample(ctx context.Context, _ *storagev1.SampleRequest) (*storag
 	select {
 	case s.asks <- reply:
 	case <-stopped:
-		return nil, rpc.ErrorWith(rpc.CodeFailedPrecondition, &nodev1.NotHolder{Role: string(role.Storage)}, "this Node does not hold the storage Role")
+		return nil, rpc.ErrorWith(rpc.CodeFailedPrecondition, &nodev1.NotHolder{Role: string(role.Storage)}, "this Node doesn't hold the storage Role")
 	case <-ctx.Done():
 		return nil, fmt.Errorf("ask for a sample: %w", ctx.Err())
 	}
@@ -532,7 +532,7 @@ func (s *Store) Volume(ctx context.Context, path string) (Volume, error) {
 
 // errUnresponsive is a Disk call that missed the stat deadline. The call
 // goes on in its goroutine until the kernel answers.
-var errUnresponsive = errors.New("the disk did not answer in time")
+var errUnresponsive = errors.New("the disk didn't respond in time")
 
 // timed runs fn under the stat deadline and answers errUnresponsive once it
 // passes, or ctx's error when ctx ends first. A filesystem call can't be
@@ -545,7 +545,7 @@ func timed[T any](ctx context.Context, s *Store, key string, fn func(context.Con
 	stuck := s.stuck[key] > 0
 	s.mu.Unlock()
 	if stuck {
-		return none, fmt.Errorf("%s is still not answering: %w", key, errUnresponsive)
+		return none, fmt.Errorf("%s is still not responding: %w", key, errUnresponsive)
 	}
 	type answer struct {
 		v   T
@@ -577,5 +577,5 @@ func timed[T any](ctx context.Context, s *Store, key string, fn func(context.Con
 			delete(s.stuck, key)
 		}
 	}()
-	return none, fmt.Errorf("%s hasn't answered within %s: %w", key, s.cfg.Timings.Stat, errUnresponsive)
+	return none, fmt.Errorf("%s hasn't responded within %s: %w", key, s.cfg.Timings.Stat, errUnresponsive)
 }

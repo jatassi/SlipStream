@@ -17,7 +17,7 @@
             "type": "string"
           },
           "email": {
-            "description": "Changed at once; the old address is told",
+            "description": "Changed at once. SlipStream emails the old address about the change",
             "format": "email",
             "maxLength": 254,
             "type": "string"
@@ -44,7 +44,7 @@
             "type": "boolean"
           },
           "dryRun": {
-            "description": "remove, mark-failed and recheck: say what it would do and change nothing",
+            "description": "remove, mark-failed and recheck: return what it would do and change nothing",
             "type": "boolean"
           },
           "ids": {
@@ -277,7 +277,7 @@
             "type": "string"
           },
           "reach": {
-            "description": "reachable once a peer from the internet connected in to where it listens now",
+            "description": "reachable once a peer from the internet has connected to the address it listens on now",
             "enum": [
               "reachable",
               "unproven"
@@ -285,7 +285,7 @@
             "type": "string"
           },
           "reachedAt": {
-            "description": "When the first such peer connected in",
+            "description": "When the first such peer connected",
             "format": "date-time",
             "type": "string"
           },
@@ -395,7 +395,7 @@
             "type": "string"
           },
           "sentence": {
-            "description": "What the guard says, as Health says it",
+            "description": "The guard's sentence, as Health shows it",
             "type": "string"
           },
           "volume": {
@@ -429,7 +429,7 @@
             "type": "string"
           },
           "sentence": {
-            "description": "Why the release looks bad, in plain words",
+            "description": "The fault, as a sentence",
             "type": "string"
           }
         },
@@ -629,7 +629,7 @@
             "type": "array"
           },
           "frees": {
-            "description": "Bytes deleting the download copies frees, null while a Node can't say",
+            "description": "Bytes deleting the download copies frees, null while a Node can't report it",
             "format": "int64",
             "minimum": 0,
             "type": [
@@ -917,12 +917,12 @@
             "type": "string"
           },
           "error": {
-            "description": "The engine's words for why it failed it",
+            "description": "The engine's error message for the failure",
             "type": "string"
           },
           "fault": {
             "$ref": "#/components/schemas/DownloadclientsFault",
-            "description": "Why the release itself looks bad, once it does"
+            "description": "The fault found in the release itself, once there is one"
           },
           "files": {
             "description": "In its metainfo's order",
@@ -966,11 +966,11 @@
             "type": "string"
           },
           "live": {
-            "description": "Its Node answered now, so trackers and files are live rather than its last report",
+            "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
           "name": {
-            "description": "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+            "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
             "type": "string"
           },
           "nodeId": {
@@ -978,7 +978,7 @@
             "type": "string"
           },
           "pending": {
-            "description": "An Admin's pause or resume its Node has yet to act on",
+            "description": "An Admin's pause or resume its Node hasn't applied yet",
             "enum": [
               "pause",
               "resume"
@@ -1215,12 +1215,12 @@
             "type": "string"
           },
           "error": {
-            "description": "The engine's words for why it failed it",
+            "description": "The engine's error message for the failure",
             "type": "string"
           },
           "fault": {
             "$ref": "#/components/schemas/DownloadclientsFault",
-            "description": "Why the release itself looks bad, once it does"
+            "description": "The fault found in the release itself, once there is one"
           },
           "hold": {
             "description": "Why its Node holds it back, as its Node last reported",
@@ -1246,7 +1246,7 @@
             "type": "string"
           },
           "name": {
-            "description": "The release's name in its metainfo, which a Torrent whose Work was deleted reads by",
+            "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
             "type": "string"
           },
           "nodeId": {
@@ -1254,7 +1254,7 @@
             "type": "string"
           },
           "pending": {
-            "description": "An Admin's pause or resume its Node has yet to act on",
+            "description": "An Admin's pause or resume its Node hasn't applied yet",
             "enum": [
               "pause",
               "resume"
@@ -1458,7 +1458,7 @@
             "type": "string"
           },
           "answeredAt": {
-            "description": "Its last answer, set while live",
+            "description": "When it last responded, set while live",
             "format": "date-time",
             "type": "string"
           },
@@ -2289,7 +2289,7 @@
         "additionalProperties": false,
         "properties": {
           "candidates": {
-            "description": "The releases the Indexer answered",
+            "description": "The releases in the Indexer's response",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -2482,7 +2482,7 @@
             "type": "string"
           },
           "unread": {
-            "description": "Why its last answer failed; its items then read as they last did. Absent while it answers",
+            "description": "Why its last check failed. Its items then show their last known state. Absent while checks succeed",
             "type": "string"
           }
         },
@@ -2614,7 +2614,7 @@
             "type": "string"
           },
           "unsure": {
-            "description": "Its owner can't judge it now, so it reads as it last did",
+            "description": "SlipStream couldn't check it, so it shows the last known state",
             "type": "boolean"
           }
         },
@@ -2826,7 +2826,7 @@
             ]
           },
           "live": {
-            "description": "Its Node is in step, so its figures are current; else they read as of sampledAt",
+            "description": "Its Node is in step, so its figures are current. Otherwise they are from sampledAt",
             "type": "boolean"
           },
           "mount": {
@@ -3232,7 +3232,7 @@
             "$ref": "#/components/schemas/MailOutcome"
           },
           "url": {
-            "description": "The link itself, shown only in this answer",
+            "description": "The link itself, shown only in this response",
             "format": "uri",
             "type": "string"
           }
@@ -4015,7 +4015,7 @@
         "additionalProperties": false,
         "properties": {
           "detail": {
-            "description": "The mail server's reply, or why none answered, when the email failed",
+            "description": "The mail server's reply, or why it didn't respond, when the email failed",
             "type": "string"
           },
           "outcome": {
@@ -6006,7 +6006,7 @@
             "type": "array"
           },
           "self": {
-            "description": "The Node answering, which is the Controller",
+            "description": "The Node that responded, which is the Controller",
             "type": "boolean"
           },
           "since": {
@@ -6368,7 +6368,7 @@
         "additionalProperties": false,
         "properties": {
           "forget": {
-            "description": "The missing file count the Admin confirmed from a rehome_missing answer: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again",
+            "description": "The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -6642,7 +6642,7 @@
         "additionalProperties": false,
         "properties": {
           "live": {
-            "description": "The Node is online, so its figures are current; else each volume reads as of its sampledAt",
+            "description": "The Node is online, so its figures are current. Otherwise each volume's figures are from its sampledAt",
             "type": "boolean"
           },
           "nodeId": {
@@ -8656,7 +8656,7 @@
         "additionalProperties": false,
         "properties": {
           "downloading": {
-            "description": "Downloads in flight for cells that go; their files follow the save's choice",
+            "description": "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -10856,7 +10856,7 @@
             "type": "array"
           },
           "goneUpstreamAt": {
-            "description": "When the metadata source last answered that it no longer has this Work; null while it has it",
+            "description": "When the metadata source last reported that it no longer has this Work; null while it has it",
             "format": "date-time",
             "type": [
               "string",
@@ -11178,7 +11178,7 @@
             "type": "array"
           },
           "goneUpstreamAt": {
-            "description": "When the metadata source last answered that it no longer has this Work; null while it has it",
+            "description": "When the metadata source last reported that it no longer has this Work; null while it has it",
             "format": "date-time",
             "type": [
               "string",
@@ -11650,7 +11650,7 @@
             ]
           }
         ],
-        "summary": "Change your email: a confirm link goes to the new address, and the email changes when it is followed",
+        "summary": "Change your email by sending a confirm link to the new address. The email changes when the link is followed",
         "tags": [
           "identity"
         ],
@@ -12768,7 +12768,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer",
+        "summary": "Issue a Reset link for an Account and end its sessions. Only this response shows the link",
         "tags": [
           "identity"
         ],
@@ -13619,7 +13619,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Replace the API key, shown this once; the old one stops working",
+        "summary": "Replace the API key, shown this once. The old key stops working",
         "tags": [
           "identity"
         ],
@@ -13631,12 +13631,12 @@
         "operationId": "getArtwork",
         "parameters": [
           {
-            "description": "From an artwork URL the API answered",
+            "description": "From an artwork URL in an API response",
             "in": "path",
             "name": "token",
             "required": true,
             "schema": {
-              "description": "From an artwork URL the API answered",
+              "description": "From an artwork URL in an API response",
               "type": "string"
             }
           },
@@ -13848,7 +13848,7 @@
             "session": []
           }
         ],
-        "summary": "Get an image SlipStream handed out, at a size; the address never changes what it answers",
+        "summary": "Get an image SlipStream handed out, at a size. The response at an address never changes",
         "tags": [
           "metadata"
         ],
@@ -14651,7 +14651,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Turn a Content Type on or off; off only while it holds no Works",
+        "summary": "Turn a Content Type on or off. It can be off only while it holds no Works",
         "tags": [
           "works"
         ],
@@ -15247,7 +15247,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change a Content Type's own settings by key, all or none; every Work of the type may then read differently",
+        "summary": "Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently",
         "tags": [
           "works"
         ],
@@ -15891,12 +15891,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -20783,7 +20783,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Send a test email to your own address and answer the mail server's reply",
+        "summary": "Send a test email to your own address and return the mail server's reply",
         "tags": [
           "mail"
         ],
@@ -21685,7 +21685,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Make one cheap call to a provider with the key in use, and answer its status after it",
+        "summary": "Make one cheap call to a provider with the key in use, and return the provider's status after it",
         "tags": [
           "metadata"
         ],
@@ -22453,7 +22453,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers",
+        "summary": "Apply a change of Roles. The Nodes in step it changes have their new Roles when this responds",
         "tags": [
           "nodes"
         ],
@@ -23087,7 +23087,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates",
+        "summary": "Get every Node, what it holds and the links between them, as the canvas draws them. The nodes.traffic event carries the rates",
         "tags": [
           "nodes"
         ],
@@ -23292,7 +23292,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history",
+        "summary": "Remove a Node. Its Roles fall back as if unticked, and its row stays as a tombstone for history",
         "tags": [
           "nodes"
         ],
@@ -23690,7 +23690,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Rename a Node; a Node in step has its new name when this answers",
+        "summary": "Rename a Node. A Node in step has its new name when this responds",
         "tags": [
           "nodes"
         ],
@@ -26025,7 +26025,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Restart a Node; it answers before it stops",
+        "summary": "Restart a Node. The response comes before it stops",
         "tags": [
           "system"
         ],
@@ -26458,7 +26458,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Give up the work a Node holds for Roles, live or offline; its files are kept",
+        "summary": "Give up the work a Node holds for Roles, live or offline, and keep its files",
         "tags": [
           "nodes"
         ],
@@ -26710,7 +26710,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "description": "The browser's PublicKeyCredential, as its toJSON() answers"
+                "description": "The browser's PublicKeyCredential, as its toJSON() returns it"
               }
             }
           },
@@ -26886,7 +26886,7 @@
           }
         },
         "security": [],
-        "summary": "Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first",
+        "summary": "Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first",
         "tags": [
           "identity"
         ],
@@ -27044,7 +27044,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "description": "The browser's PublicKeyCredential, as its toJSON() answers"
+                "description": "The browser's PublicKeyCredential, as its toJSON() returns it"
               }
             }
           },
@@ -27199,7 +27199,7 @@
             ]
           }
         ],
-        "summary": "Finish adding a passkey with the browser's answer",
+        "summary": "Finish adding a passkey with the browser's response",
         "tags": [
           "identity"
         ],
@@ -27909,7 +27909,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Create a Profile of Targets in Profile order; it is never the default",
+        "summary": "Create a Profile of Targets in Profile order. A new Profile is never the default",
         "tags": [
           "targets"
         ],
@@ -27942,12 +27942,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -28369,12 +28369,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -28790,7 +28790,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Make a Profile its Content Type's default; existing Works keep theirs",
+        "summary": "Make a Profile its Content Type's default. Existing Works keep theirs",
         "tags": [
           "targets"
         ],
@@ -30504,7 +30504,7 @@
           }
         },
         "security": [],
-        "summary": "Report this Worker's name, key and Controller, and what it holds and seeds; a Serving Worker answers it itself",
+        "summary": "Report this Worker's name, key and Controller, and what it holds and seeds. A Serving Worker responds to this itself",
         "tags": [
           "serving"
         ],
@@ -31288,7 +31288,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "description": "The browser's PublicKeyCredential, as its toJSON() answers"
+                "description": "The browser's PublicKeyCredential, as its toJSON() returns it"
               }
             }
           },
@@ -31458,7 +31458,7 @@
             "session": []
           }
         ],
-        "summary": "Confirm it's you with the browser's passkey answer",
+        "summary": "Confirm it's you with the browser's passkey response",
         "tags": [
           "identity"
         ],
@@ -32455,7 +32455,7 @@
             "setupCode": []
           }
         ],
-        "summary": "Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial",
+        "summary": "Join this Node to a Controller as a Worker with a Join Code. Returns 202 while it awaits the Controller's dial",
         "tags": [
           "pairing"
         ],
@@ -32760,7 +32760,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Issue a Signup link for an email, email it, and answer it to copy",
+        "summary": "Issue a Signup link for an email, email it, and return it to copy",
         "tags": [
           "identity"
         ],
@@ -33579,7 +33579,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Send a pending Signup link again as a new link; the old one stops working",
+        "summary": "Send a pending Signup link again as a new link. The old link stops working",
         "tags": [
           "identity"
         ],
@@ -35933,12 +35933,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },
@@ -37704,7 +37704,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Run a task now over every unit; its schedule stays as it was",
+        "summary": "Run a task now over every unit. Its schedule stays as it was",
         "tags": [
           "tasks"
         ],
@@ -38118,7 +38118,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Pause, resume, announce, recheck, mark failed or remove Torrents, answering for each",
+        "summary": "Pause, resume, announce, recheck, mark failed or remove Torrents, and return the result for each",
         "tags": [
           "downloadclients"
         ],
@@ -38313,7 +38313,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while it answers",
+        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
         "tags": [
           "downloadclients"
         ],
@@ -40295,12 +40295,12 @@
             }
           },
           {
-            "description": "Answer the change's Impact and save nothing",
+            "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
             "name": "preview",
             "schema": {
-              "description": "Answer the change's Impact and save nothing",
+              "description": "Return the change's Impact and save nothing",
               "type": "boolean"
             }
           },

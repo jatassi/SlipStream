@@ -91,7 +91,7 @@ test("a name another cut goes by is refused on the name", async () => {
   await userEvent.fill(dialog.getByRole("textbox", { name: "Name" }), "Extended");
   await userEvent.click(dialog.getByRole("button", { name: "Add cut" }));
   await expect
-    .element(dialog.getByText("Another cut already goes by this name or one of these phrases."))
+    .element(dialog.getByText("Another cut already uses this name or one of these phrases."))
     .toBeVisible();
 });
 

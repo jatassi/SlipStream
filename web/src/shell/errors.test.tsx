@@ -45,7 +45,7 @@ test("a page whose server doesn't answer says so", async () => {
   });
   await expect
     .element(page.getByRole("alert"), { timeout: 8000 })
-    .toHaveTextContent("SlipStream isn't answering. Check that it's running, then try again.");
+    .toHaveTextContent("SlipStream isn't responding. Check that it's running, then try again.");
   await expect.element(page.getByRole("button", { name: "Try again" })).toBeVisible();
   await expect.element(mainNav()).toBeVisible();
 });

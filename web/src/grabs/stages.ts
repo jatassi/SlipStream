@@ -62,11 +62,11 @@ const searchAgain = "Search again to pick another release.";
 
 export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   indexer_unavailable: {
-    cause: "The Indexer didn't answer when SlipStream asked for the release.",
+    cause: "The Indexer didn't respond to the request for the release.",
     recovery: "Search again once the Indexer is back.",
   },
   torrent_unreachable: {
-    cause: "The Indexer couldn't hand over the release's .torrent file.",
+    cause: "SlipStream couldn't download the release's .torrent file from the Indexer.",
     recovery: searchAgain,
   },
   torrent_invalid: {

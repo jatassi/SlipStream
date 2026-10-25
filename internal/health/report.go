@@ -113,7 +113,7 @@ func shownOf(c Category, rows map[Key]row, a Answer, failed error, last map[Key]
 			says, ok = last[k]
 		}
 		if !ok {
-			says = Says{Subject: c.Label, Text: "SlipStream can't tell what is wrong here now."}
+			says = Says{Subject: c.Label, Text: "SlipStream couldn't check this item. This shows the last known state. The Controller's log has the cause."}
 		}
 		out.Items = append(out.Items, Shown{Item: Item{Key: k, Level: r.Level, Says: says}, Since: r.Since, ChangedAt: r.ChangedAt, Unsure: unsure[k]})
 		out.Level = max(out.Level, r.Level)

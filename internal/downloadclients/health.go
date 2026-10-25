@@ -92,7 +92,7 @@ func (c *Clients) healthAnswer(ctx context.Context) (health.Answer, error) {
 		case f.GetBound() == "" && f.GetListenError() != "":
 			a.Items = append(a.Items, health.Item{Key: key, Level: health.Fail, Says: health.Says{
 				Subject: subject,
-				Text: fmt.Sprintf("The torrent client on %s can't listen on %s, so no peer can connect in. If another program holds the port, free it or choose another, then restart %s.",
+				Text: fmt.Sprintf("The torrent client on %s can't listen on %s, and no peer can connect to it until it does. If another program is using the port, free it or choose another, then restart %s.",
 					name, f.GetListen(), name),
 				Detail: []health.Fact{{Label: "Listen address", Text: f.GetListen()}, {Label: "Error", Text: f.GetListenError()}},
 				Action: clientLink(node),

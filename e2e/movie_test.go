@@ -285,7 +285,8 @@ func TestArtworkIsServedAtEachSizeAndNeverFromAHalfImage(t *testing.T) {
 	treatment := work.art(t, "title_treatment")
 	setFault(t, run, fault.Rule{ID: "half-image", Target: "image-cdn", Route: "image"}, "truncate")
 	if got := fetchArtwork(t, a, session, treatment, "small"); got.status != http.StatusNotFound || got.cache != "no-store" ||
-		!strings.HasPrefix(string(got.body), `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"the image couldn't be fetched; SlipStream tries again later: `) {
+		!strings.HasPrefix(string(got.body), `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"the image couldn't be fetched: `) ||
+		!strings.Contains(string(got.body), `. SlipStream tries again later."`) {
 		t.Fatalf("the title treatment cut off mid-answer = %d %q %s, want 404 no-store artwork_unavailable", got.status, got.cache, got.body)
 	}
 	if got := fetchArtwork(t, a, session, poster, "small"); got.status != http.StatusOK || !bytes.Equal(got.body, small.body) {
@@ -386,7 +387,7 @@ func provider(t *testing.T, a *worldtest.API, id string) providerView {
 	return list.Providers[i]
 }
 
-var rateLimited = regexp.MustCompile(`^\{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't answer. Try again later.","detail":"TMDB: is rate limited until (\S+)Z"\}\n$`)
+var rateLimited = regexp.MustCompile(`^\{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB: is rate limited until (\S+)Z"\}\n$`)
 
 func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	t.Parallel()
@@ -397,7 +398,7 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	}
 
 	setFault(t, run, fault.Rule{ID: "down", Target: "tmdb"}, "refuse")
-	if got := search("orchard"); got.Status != http.StatusBadGateway || !strings.Contains(got.Body, `"detail":"TMDB: didn't answer: `) {
+	if got := search("orchard"); got.Status != http.StatusBadGateway || !strings.Contains(got.Body, `"detail":"TMDB: didn't respond: `) {
 		t.Fatalf("searchCatalog with TMDB refusing connections = %d %s, want 502 metadata_unavailable", got.Status, got.Body)
 	}
 	if p := provider(t, a, "tmdb"); p.State != "unreachable" {
@@ -413,7 +414,7 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	cue(t, run, "omdb-cap", `{}`)
 	addSaltRoad(t, a)
 	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339)
-	if p := provider(t, a, "omdb"); p.State != "out_of_allowance" || p.Until == nil || *p.Until != midnight || p.Summary != "OMDb is out of today's allowance. It resets on its own." {
+	if p := provider(t, a, "omdb"); p.State != "out_of_allowance" || p.Until == nil || *p.Until != midnight || p.Summary != "OMDb is out of today's allowance. It resets automatically." {
 		t.Fatalf("OMDb once capped = %+v, want out_of_allowance until %s", p, midnight)
 	}
 

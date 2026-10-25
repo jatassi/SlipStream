@@ -61,7 +61,7 @@ var (
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	workGoneUpstream    = api.NewCode(http.StatusConflict, "work_gone_upstream", "The metadata source no longer has this Work")
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
-	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't answer. Try again later.")
+	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
 	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused SlipStream's key")
 	profileNotFound     = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
@@ -292,7 +292,7 @@ type Work struct {
 	SortLabel      string     `json:"sortLabel"`
 	AddedAt        time.Time  `json:"addedAt"`
 	RefreshedAt    time.Time  `json:"refreshedAt"`
-	GoneUpstreamAt *time.Time `json:"goneUpstreamAt" doc:"When the metadata source last answered that it no longer has this Work; null while it has it"`
+	GoneUpstreamAt *time.Time `json:"goneUpstreamAt" doc:"When the metadata source last reported that it no longer has this Work; null while it has it"`
 }
 
 func workOf(s works.Summary) Work {
@@ -535,7 +535,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		ID:      "setContentTypeEnabled",
 		Method:  http.MethodPut,
 		Path:    "/content-types/{contentType}/enabled",
-		Summary: "Turn a Content Type on or off; off only while it holds no Works",
+		Summary: "Turn a Content Type on or off. It can be off only while it holds no Works",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, contentTypeInUse},
 	}, h.setContentTypeEnabled)
@@ -553,7 +553,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		ID:      "updateContentTypeSettings",
 		Method:  http.MethodPatch,
 		Path:    "/content-types/{contentType}/settings",
-		Summary: "Change a Content Type's own settings by key, all or none; every Work of the type may then read differently",
+		Summary: "Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateContentTypeSettings)

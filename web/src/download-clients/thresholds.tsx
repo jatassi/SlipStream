@@ -17,8 +17,9 @@ export function Thresholds({ thresholds }: { thresholds: DownloadclientsThreshol
   return (
     <Section title="When a release counts as bad">
       <p className="mb-3 text-ink-3">
-        A download that gets no data at all for this long, or that its tracker calls unregistered
-        twice this far apart, counts as a bad release. Later automatic searches act on it.
+        A download that gets no data at all for this long, or that its tracker reports as
+        unregistered twice this far apart, counts as a bad release. Later automatic searches act on
+        it.
       </p>
       <SettingGroup>
         {thresholdKeys.map((key) => (

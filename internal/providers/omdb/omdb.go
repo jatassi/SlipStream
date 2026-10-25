@@ -103,7 +103,7 @@ func classify(status int, _ http.Header, body []byte, now time.Time) (metadata.O
 	case b.Error == errNotFound || b.Error == errIncorrect:
 		return metadata.Outcome{Kind: metadata.NotFound, Words: "has no such record"}, true
 	}
-	return metadata.Outcome{Kind: metadata.Unreachable, Words: "answered " + b.Error}, true
+	return metadata.Outcome{Kind: metadata.Unreachable, Words: "responded: " + b.Error}, true
 }
 
 // Title is what OMDb knows of one title: its ratings on the scales

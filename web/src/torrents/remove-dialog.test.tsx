@@ -112,7 +112,9 @@ test("with a Node that can't count, the choice stands without a size", async () 
     .toBeVisible();
   await expect
     .element(dialog)
-    .toMatchTextContent("Its Node can't say how much space that frees right now.");
+    .toMatchTextContent(
+      "The space this frees is unknown because a Node that holds it can't be reached.",
+    );
 });
 
 test("a torrent being imported refuses the remove in plain words", async () => {
@@ -122,7 +124,9 @@ test("a torrent being imported refuses the remove in plain words", async () => {
   const dialog = page.getByRole("dialog", { name: "Remove The Quiet Orchard?" });
   await expect
     .element(dialog)
-    .toMatchTextContent("Finishing the import of The Quiet Orchard, try again after.");
+    .toMatchTextContent(
+      "SlipStream is finishing the import of The Quiet Orchard. Try again once it's done.",
+    );
   await expect.element(dialog.getByRole("button", { name: "Remove" })).toBeDisabled();
 });
 

@@ -114,7 +114,7 @@ func TestPairWithACodeNamingAnotherKey(t *testing.T) {
 		if !errors.Is(err, link.ErrKeyMismatch) {
 			t.Fatalf("Pair with another Controller's code = %v", err)
 		}
-		if want := "handshake with 127.0.0.2:8485: the Controller's key does not match the Join Code: it holds key " + p.Controller.Key.Fingerprint(); err.Error() != want {
+		if want := "handshake with 127.0.0.2:8485: the Controller's key doesn't match the Join Code: it holds key " + p.Controller.Key.Fingerprint(); err.Error() != want {
 			t.Fatalf("Pair with another Controller's code = %q, want %q", err, want)
 		}
 		if len(calls) != 0 {

@@ -2,7 +2,7 @@ import type { UpdateTargetUnwanted } from "./updateTargetUnwanted.ts";
 
 export type UpdateTargetParams = {
   /**
-   * Answer the change's Impact and save nothing
+   * Return the change's Impact and save nothing
    */
   preview?: boolean;
   /**

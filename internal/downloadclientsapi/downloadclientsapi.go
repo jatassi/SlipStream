@@ -175,7 +175,7 @@ type clientCard struct {
 }
 
 type diskGuard struct {
-	Sentence   string    `json:"sentence" doc:"What the guard says, as Health says it"`
+	Sentence   string    `json:"sentence" doc:"The guard's sentence, as Health shows it"`
 	Hint       string    `json:"hint" doc:"What explains the sentence: the volume, its free space, its error level and what to do"`
 	Volume     string    `json:"volume" doc:"The downloads folder's volume, as the Node names it"`
 	Free       int64     `json:"free" minimum:"0" doc:"Bytes"`
@@ -190,8 +190,8 @@ type clientFacts struct {
 	Listen       string     `json:"listen" doc:"The listen address and port it is set to"`
 	Bound        string     `json:"bound,omitempty" doc:"The address and port it listens on, absent while it has no listener"`
 	ListenError  string     `json:"listenError,omitempty" doc:"Why it has no listener"`
-	Reach        string     `json:"reach" enum:"reachable,unproven" doc:"reachable once a peer from the internet connected in to where it listens now"`
-	ReachedAt    *time.Time `json:"reachedAt,omitempty" doc:"When the first such peer connected in"`
+	Reach        string     `json:"reach" enum:"reachable,unproven" doc:"reachable once a peer from the internet has connected to the address it listens on now"`
+	ReachedAt    *time.Time `json:"reachedAt,omitempty" doc:"When the first such peer connected"`
 }
 
 type limits struct {
@@ -321,7 +321,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "getTorrent",
 		Method:  http.MethodGet,
 		Path:    "/torrents/{id}",
-		Summary: "Get a Torrent with its trackers, files and Grabs, live from its Node while it answers",
+		Summary: "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{torrentNotFound},
 	}, h.getTorrent)
@@ -330,7 +330,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "actOnTorrents",
 		Method:  http.MethodPost,
 		Path:    "/torrents/actions",
-		Summary: "Pause, resume, announce, recheck, mark failed or remove Torrents, answering for each",
+		Summary: "Pause, resume, announce, recheck, mark failed or remove Torrents, and return the result for each",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{noPreview},
 	}, h.actOnTorrents)

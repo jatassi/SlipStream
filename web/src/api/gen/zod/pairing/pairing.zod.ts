@@ -6,7 +6,7 @@ import { PairingJoinBody, PairingWorkerClaim } from "../slipStream.schemas.zod.t
 export const GetWorkerClaimResponse = PairingWorkerClaim;
 
 /**
- * @summary Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial
+ * @summary Join this Node to a Controller as a Worker with a Join Code. Returns 202 while it awaits the Controller's dial
  */
 export const ClaimWorkerBody = PairingJoinBody;
 

@@ -39,7 +39,7 @@ type Guard struct {
 // both say it: a sentence, then the hint that explains it.
 func (g Guard) Words(node string) (sentence, hint string) {
 	return "New downloads on " + node + " wait for disk space.",
-		fmt.Sprintf("%s has %s left, below its error level of %s. Free up space there, or move the downloads folder to a volume with more room. Downloads already running carry on.",
+		fmt.Sprintf("%s has %s left, below its error level of %s. Free up space there, or move the downloads folder to a volume with more room. Downloads already running continue.",
 			g.Volume.Name, bytesWords(g.Volume.Free), bytesWords(g.ErrorBelow.Bytes))
 }
 

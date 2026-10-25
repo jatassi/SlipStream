@@ -260,7 +260,7 @@ func TestUserServiceIsForSelfInstalledKindsOnly(t *testing.T) {
 	}
 	noAppImage := Layout{GOOS: "linux", Executable: "/tmp/.mount_x/usr/bin/slipstream", Environ: []string{"HOME=/home/ana"}}
 	_, err = UserServiceInstall(AppImage, noAppImage, "/d", nil, Linger{})
-	if want := `APPIMAGE is "", not an absolute path: start service install --user from the AppImage`; err == nil || err.Error() != want {
+	if want := `APPIMAGE is "", not an absolute path. Start service install --user from the AppImage`; err == nil || err.Error() != want {
 		t.Fatalf("appimage without APPIMAGE: %v, want %s", err, want)
 	}
 }

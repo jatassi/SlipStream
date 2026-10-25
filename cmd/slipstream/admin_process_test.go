@@ -55,12 +55,12 @@ func TestAdminResetOffline(t *testing.T) {
 	stopNode(t, p, dir)
 
 	expectRefused(t, reset(t, dir, "admin@example.com"), node.ExitUsage,
-		"SlipStream has no address for links yet; pass --address <origin>, such as --address https://slipstream.example.com")
+		"SlipStream has no address for links yet. Pass --address <origin>, such as --address https://slipstream.example.com")
 	expectRefused(t, reset(t, dir, "--address", "http://10.0.0.1:8484", "admin@example.com"), node.ExitUsage,
 		"--address http://10.0.0.1:8484: the address must be a name, not an IP address")
 	first := printedToken(t, reset(t, dir, "admin@example.com", "--address", "http://HOME.localhost:8484/"))
 	expectRefused(t, reset(t, dir, "--address", "https://other.example", "admin@example.com"), node.ExitUsage,
-		"SlipStream's address is already http://home.localhost:8484; leave out --address, or change it in Settings > Address")
+		"SlipStream's address is already http://home.localhost:8484. Leave out --address, or change it in Settings > Address")
 	expectRefused(t, reset(t, dir, "nobody@example.com"), node.ExitFailed, "no Account has the email nobody@example.com")
 	second := printedToken(t, reset(t, dir, "Admin@Example.com"))
 
@@ -93,7 +93,7 @@ func TestAdminResetRunning(t *testing.T) {
 		t.Fatalf("the session the reset ended = %d %s, want 401", r.status, r.body)
 	}
 	expectRefused(t, reset(t, h.dir, "--address", "https://other.example", "admin@example.com"), node.ExitUsage,
-		"SlipStream's address is already http://home.localhost:8484; leave out --address, or change it in Settings > Address")
+		"SlipStream's address is already http://home.localhost:8484. Leave out --address, or change it in Settings > Address")
 	expectRefused(t, reset(t, h.dir, "nobody@example.com"), node.ExitFailed, "identity.reset: failed: no Account has the email nobody@example.com")
 	if r := newPIN(t, h.ready, token); r.status != http.StatusOK {
 		t.Fatalf("redeemResetLink = %d %s", r.status, r.body)

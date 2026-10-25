@@ -4,7 +4,7 @@ import type { GrabsSearchOutcome } from "./grabsSearchOutcome.ts";
 
 export interface GrabsSearch {
   /**
-   * The releases the Indexer answered
+   * The releases in the Indexer's response
    * @minimum 0
    */
   candidates: number;

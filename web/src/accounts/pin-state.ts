@@ -13,9 +13,10 @@ const sentences: { readonly [S in PinState]: (until: string | undefined) => stri
   fine: () => "The PIN works.",
   waiting: (until) =>
     until === undefined
-      ? "Too many wrong PINs. Sign-in waits before the next try."
-      : `Too many wrong PINs. Sign-in waits until ${clock(until)}.`,
-  off: () => "Too many wrong PINs turned the PIN off. Send a Reset link to set a new one.",
+      ? "After too many wrong PINs, sign-in is paused."
+      : `After too many wrong PINs, sign-in is paused until ${clock(until)}.`,
+  off: () =>
+    "The PIN was turned off after too many wrong PINs. Send a Reset link to set a new one.",
 };
 
 export const pinSentence = (pin: IdentityPinState): string => sentences[pin.state](pin.until);

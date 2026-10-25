@@ -3,7 +3,7 @@ import type { DownloadclientsTrackerDetailStatus } from "./downloadclientsTracke
 export interface DownloadclientsTrackerDetail {
   /** The earliest it accepts an announce, set while live */
   acceptsAt?: string;
-  /** Its last answer, set while live */
+  /** When it last responded, set while live */
   answeredAt?: string;
   /** The tracker's failure reason or warning, verbatim */
   message?: string;
