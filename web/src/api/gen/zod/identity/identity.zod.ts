@@ -45,7 +45,7 @@ export const UpdateOwnAccountBody = OwnPatchInputBody;
 export const UpdateOwnAccountResponse = IdentitySession;
 
 /**
- * @summary Change your email: a confirm link goes to the new address, and the email changes when it is followed
+ * @summary Change your email by sending a confirm link to the new address. The email changes when the link is followed
  */
 export const StartEmailChangeBody = EmailChangeInputBody;
 
@@ -93,7 +93,7 @@ export const UpdateAccountBody = AccountPatchInputBody;
 export const UpdateAccountResponse = IdentityAccountRow;
 
 /**
- * @summary Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer
+ * @summary Issue a Reset link for an Account and end its sessions. Only this response shows the link
  */
 export const CreateResetLinkParams = zod.object({
   id: zod.uuid(),
@@ -137,7 +137,7 @@ export const EndAccountSessionResponse = zod.void();
 export const GetAPIKeyResponse = IdentityApiKeyMade;
 
 /**
- * @summary Replace the API key, shown this once; the old one stops working
+ * @summary Replace the API key, shown this once. The old key stops working
  */
 export const RegenerateAPIKeyResponse = IdentityRegeneratedAPIKey;
 
@@ -198,7 +198,7 @@ export const ListPasskeysResponse = IdentityPasskeyRows;
 export const StartPasskeySignInResponse = IdentityCeremony;
 
 /**
- * @summary Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first
+ * @summary Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first
  */
 export const finishPasskeySignInPathCeremonyMax = 64;
 
@@ -208,7 +208,7 @@ export const FinishPasskeySignInParams = zod.object({
 
 export const FinishPasskeySignInBody = zod
   .unknown()
-  .describe("The browser's PublicKeyCredential, as its toJSON() answers");
+  .describe("The browser's PublicKeyCredential, as its toJSON() returns it");
 
 export const FinishPasskeySignInResponse = IdentitySignedIn;
 
@@ -218,7 +218,7 @@ export const FinishPasskeySignInResponse = IdentitySignedIn;
 export const StartPasskeyRegistrationResponse = IdentityCeremony;
 
 /**
- * @summary Finish adding a passkey with the browser's answer
+ * @summary Finish adding a passkey with the browser's response
  */
 export const finishPasskeyRegistrationPathCeremonyMax = 64;
 
@@ -228,7 +228,7 @@ export const FinishPasskeyRegistrationParams = zod.object({
 
 export const FinishPasskeyRegistrationBody = zod
   .unknown()
-  .describe("The browser's PublicKeyCredential, as its toJSON() answers");
+  .describe("The browser's PublicKeyCredential, as its toJSON() returns it");
 
 export const FinishPasskeyRegistrationResponse = IdentityPasskey;
 
@@ -306,7 +306,7 @@ export const ReconfirmSessionResponse = zod.void();
 export const StartPasskeyReconfirmResponse = IdentityCeremony;
 
 /**
- * @summary Confirm it's you with the browser's passkey answer
+ * @summary Confirm it's you with the browser's passkey response
  */
 export const finishPasskeyReconfirmPathCeremonyMax = 64;
 
@@ -316,7 +316,7 @@ export const FinishPasskeyReconfirmParams = zod.object({
 
 export const FinishPasskeyReconfirmBody = zod
   .unknown()
-  .describe("The browser's PublicKeyCredential, as its toJSON() answers");
+  .describe("The browser's PublicKeyCredential, as its toJSON() returns it");
 
 export const FinishPasskeyReconfirmResponse = zod.void();
 
@@ -356,7 +356,7 @@ export const ClaimControllerResponse = IdentityClaimed;
 export const ListSignupLinksResponse = IdentityPendingLinks;
 
 /**
- * @summary Issue a Signup link for an email, email it, and answer it to copy
+ * @summary Issue a Signup link for an email, email it, and return it to copy
  */
 export const CreateSignupLinkBody = NewSignupLinkInputBody;
 
@@ -405,7 +405,7 @@ export const GetSignupLinkParams = zod.object({
 export const GetSignupLinkResponse = IdentitySignupLinkURL;
 
 /**
- * @summary Send a pending Signup link again as a new link; the old one stops working
+ * @summary Send a pending Signup link again as a new link. The old link stops working
  */
 export const ResendSignupLinkParams = zod.object({
   id: zod.uuid(),

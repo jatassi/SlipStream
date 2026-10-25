@@ -940,7 +940,7 @@ export const getSetRolesUrl = () => {
 };
 
 /**
- * @summary Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers
+ * @summary Apply a change of Roles. The Nodes in step it changes have their new Roles when this responds
  */
 export const setRoles = async (
   nodesRolesChange: NodesRolesChange,
@@ -1021,7 +1021,7 @@ export type SetRolesMutationError = ErrorType<
 export type SetRolesMutationVariables = { data: NodesRolesChange };
 
 /**
- * @summary Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers
+ * @summary Apply a change of Roles. The Nodes in step it changes have their new Roles when this responds
  */
 export const useSetRoles = <
   TError = ErrorType<
@@ -1416,7 +1416,7 @@ export const getGetTopologyUrl = () => {
 };
 
 /**
- * @summary Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates
+ * @summary Get every Node, what it holds and the links between them, as the canvas draws them. The nodes.traffic event carries the rates
  */
 export const getTopology = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -1496,7 +1496,7 @@ export function useGetTopologySuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates
+ * @summary Get every Node, what it holds and the links between them, as the canvas draws them. The nodes.traffic event carries the rates
  */
 
 export function useGetTopologySuspense<
@@ -1538,7 +1538,7 @@ export const getRemoveNodeUrl = (id: string, params?: RemoveNodeParams) => {
 };
 
 /**
- * @summary Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history
+ * @summary Remove a Node. Its Roles fall back as if unticked, and its row stays as a tombstone for history
  */
 export const removeNode = async (
   id: string,
@@ -1599,7 +1599,7 @@ export type RemoveNodeMutationError = ErrorType<
 export type RemoveNodeMutationVariables = { id: string; params?: RemoveNodeParams };
 
 /**
- * @summary Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history
+ * @summary Remove a Node. Its Roles fall back as if unticked, and its row stays as a tombstone for history
  */
 export const useRemoveNode = <
   TError = ErrorType<
@@ -1742,7 +1742,7 @@ export const getRenameNodeUrl = (id: string) => {
 };
 
 /**
- * @summary Rename a Node; a Node in step has its new name when this answers
+ * @summary Rename a Node. A Node in step has its new name when this responds
  */
 export const renameNode = async (
   id: string,
@@ -1824,7 +1824,7 @@ export type RenameNodeMutationError = ErrorType<
 export type RenameNodeMutationVariables = { id: string; data: NodesRenameBody };
 
 /**
- * @summary Rename a Node; a Node in step has its new name when this answers
+ * @summary Rename a Node. A Node in step has its new name when this responds
  */
 export const useRenameNode = <
   TError = ErrorType<
@@ -1983,7 +1983,7 @@ export const getWriteOffUrl = (id: string) => {
 };
 
 /**
- * @summary Give up the work a Node holds for Roles, live or offline; its files are kept
+ * @summary Give up the work a Node holds for Roles, live or offline, and keep its files
  */
 export const writeOff = async (
   id: string,
@@ -2065,7 +2065,7 @@ export type WriteOffMutationError = ErrorType<
 export type WriteOffMutationVariables = { id: string; data: NodesWriteOffBody };
 
 /**
- * @summary Give up the work a Node holds for Roles, live or offline; its files are kept
+ * @summary Give up the work a Node holds for Roles, live or offline, and keep its files
  */
 export const useWriteOff = <
   TError = ErrorType<

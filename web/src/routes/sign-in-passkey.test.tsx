@@ -92,11 +92,14 @@ test("a passkey that fails says so and leaves the PIN to use", async () => {
   get.mockResolvedValue(credential);
   renderApp({
     path: "/sign-in",
-    handlers: passkeyServer(() => problem(401, "passkey_failed", "The passkey did not check out"))
-      .handlers,
+    handlers: passkeyServer(() =>
+      problem(401, "passkey_failed", "The passkey couldn't be verified"),
+    ).handlers,
   });
   await userEvent.click(page.getByRole("button", { name: "Sign in with a passkey" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("The passkey did not check out");
+  await expect
+    .element(page.getByRole("alert"))
+    .toHaveTextContent("The passkey couldn't be verified");
   await expect.element(page.getByRole("textbox", { name: "PIN", exact: true })).toBeVisible();
 });
 

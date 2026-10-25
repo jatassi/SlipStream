@@ -200,7 +200,7 @@ func retries5xx(t *testing.T, first, second time.Duration) {
 	})
 	ask, outcomes := metadata.Tallied(metadata.Ask{})
 	err := lines.Line(tmdb).Get(t.Context(), ask, metadata.Request{URL: at(base, "/movie/1", nil)}, &body{})
-	if se := sourceError(t, err, works.ErrUnavailable); se.Words != "answered 503 Service Unavailable" {
+	if se := sourceError(t, err, works.ErrUnavailable); se.Words != "responded with 503 Service Unavailable" {
 		t.Fatalf("words = %q", se.Words)
 	}
 	if s.count() != 3 || s.at[1].Sub(s.at[0]) != first || s.at[2].Sub(s.at[1]) != second {
@@ -292,7 +292,7 @@ func classifiesUnreachable(t *testing.T) {
 	ask, outcomes := metadata.Tallied(metadata.NewAsk(metadata.AskOptions{Keys: map[metadata.ProviderID]string{"tmdb": "secret-key"}}))
 	err := lines.Line(tmdb).Get(t.Context(), ask, metadata.Request{URL: &url.URL{Scheme: "http", Host: "tmdb.test", Path: "/x"}}, &struct{}{})
 	se := sourceError(t, err, works.ErrUnavailable)
-	if strings.Contains(err.Error(), "secret-key") || !strings.HasPrefix(se.Words, "didn't answer") {
+	if strings.Contains(err.Error(), "secret-key") || !strings.HasPrefix(se.Words, "didn't respond") {
 		t.Fatalf("err = %q, want unreachable words without the key", err)
 	}
 	if o := outcomes(); len(o) != 1 || o[0].Kind != metadata.Unreachable {
@@ -450,7 +450,7 @@ func TestLineRefusesAnAnswerOver16MiB(t *testing.T) {
 			_, _ = w.Write(make([]byte, metadata.MaxBody+1))
 		})
 		_, err := lines.Line(metadata.Provider{ID: "cdn", Label: "Images", Rate: 20, Burst: 20}).Bytes(t.Context(), metadata.Ask{}, at(base, "/a.png", nil))
-		if se := sourceError(t, err, works.ErrUnavailable); se.Words != "answered more than 16 MiB" {
+		if se := sourceError(t, err, works.ErrUnavailable); se.Words != "sent a response over 16 MiB" {
 			t.Fatalf("words = %q", se.Words)
 		}
 	})

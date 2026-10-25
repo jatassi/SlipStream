@@ -594,7 +594,7 @@ func TestOpenRefusesWorksOfAnUnregisteredType(t *testing.T) {
 	}
 	_, err := works.Open(t.Context(), works.Config{Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}})
 	var refused *storage.RefusedError
-	if want := "library.db holds Works of Content Type ghost, which this binary does not register"; !errors.As(err, &refused) || err.Error() != want {
+	if want := "library.db holds Works of Content Type ghost, which this binary doesn't register"; !errors.As(err, &refused) || err.Error() != want {
 		t.Fatalf("open = %v, want a *storage.RefusedError %q", err, want)
 	}
 }

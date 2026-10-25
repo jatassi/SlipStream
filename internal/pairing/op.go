@@ -28,5 +28,5 @@ var JoinOp = op.Op[JoinRequest, JoinReply]{Name: "join"}
 
 // String is the line slipstream join prints.
 func (j Joined) String() string {
-	return fmt.Sprintf("joined %s as %s (node %s); link up to %s", j.ControllerName, j.Name, j.NodeID, j.Link)
+	return fmt.Sprintf("joined %s as %s (node %s), linked to %s", j.ControllerName, j.Name, j.NodeID, j.Link)
 }

@@ -26,10 +26,10 @@ type Joiner interface {
 
 var (
 	joinCodeDamaged       = api.NewCode(http.StatusUnprocessableEntity, "join_code_damaged", "The Join Code is mistyped, cut short or not a SlipStream code")
-	joinCodeUnknown       = api.NewCode(http.StatusForbidden, "join_code_unknown", "The Controller does not know this Join Code")
+	joinCodeUnknown       = api.NewCode(http.StatusForbidden, "join_code_unknown", "The Controller has no such Join Code")
 	joinCodeExpired       = api.NewCode(http.StatusForbidden, "join_code_expired", "The Join Code has expired")
 	joinCodeUsed          = api.NewCode(http.StatusForbidden, "join_code_used", "The Join Code was already used")
-	controllerKeyMismatch = api.NewCode(http.StatusBadGateway, "controller_key_mismatch", "The Controller's key does not match the Join Code")
+	controllerKeyMismatch = api.NewCode(http.StatusBadGateway, "controller_key_mismatch", "The Controller's key doesn't match the Join Code")
 	restartRequired       = api.NewCode(http.StatusConflict, "restart_required", "A running Worker re-pairs only at start")
 	nodeUnaddressed       = api.NewCode(http.StatusConflict, "node_unaddressed", "The Controller is unreachable, and this Node's link has no address for it to dial")
 	noJoinPending         = api.NewCode(http.StatusNotFound, "no_join_pending", "No Join has awaited its Controller's dial")
@@ -116,7 +116,7 @@ func Routes(r *api.Router, j Joiner) {
 		ID:      "claimWorker",
 		Method:  http.MethodPost,
 		Path:    "/setup/worker",
-		Summary: "Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial",
+		Summary: "Join this Node to a Controller as a Worker with a Join Code. Returns 202 while it awaits the Controller's dial",
 		Status:  http.StatusCreated,
 		Also:    []int{http.StatusAccepted},
 		Errors:  []*api.Code{joinCodeDamaged, joinCodeUnknown, joinCodeExpired, joinCodeUsed, controllerKeyMismatch, restartRequired, api.JoinPending, nodeUnaddressed},

@@ -20,10 +20,10 @@ function sentence(email: string, { email: { outcome, detail } }: IdentityEmailCh
       return `We sent a confirm link to ${email}. Your email changes once you follow it.`;
     }
     case "failed": {
-      return `The confirm link to ${email} didn't send. The mail server said: ${detail ?? "nothing"}`;
+      return `The confirm link to ${email} didn't send. The mail server responded: ${detail ?? "nothing"}`;
     }
     case "not-set-up": {
-      return "SlipStream can't send email yet, so ask your Admin to change your email for you.";
+      return "SlipStream can't send email yet. Ask your Admin to change your email for you.";
     }
     default: {
       return outcome satisfies never;

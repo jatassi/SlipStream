@@ -31,7 +31,7 @@ var noRecipient = api.NewCode(http.StatusUnprocessableEntity, "no_recipient", "T
 // waited.
 type Outcome struct {
 	Outcome string `json:"outcome" enum:"sent,failed,not-set-up"`
-	Detail  string `json:"detail,omitempty" doc:"The mail server's reply, or why none answered, when the email failed"`
+	Detail  string `json:"detail,omitempty" doc:"The mail server's reply, or why it didn't respond, when the email failed"`
 }
 
 func OutcomeOf(o mail.Outcome) Outcome { return Outcome{Outcome: string(o.Kind), Detail: o.Reply} }
@@ -120,7 +120,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "sendTestMail",
 		Method:  http.MethodPost,
 		Path:    "/mail/test",
-		Summary: "Send a test email to your own address and answer the mail server's reply",
+		Summary: "Send a test email to your own address and return the mail server's reply",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{noRecipient},
 	}, func(ctx context.Context, a identity.Admin, _ *struct{}) (*testOutput, error) {

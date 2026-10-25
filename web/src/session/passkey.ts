@@ -85,7 +85,7 @@ export async function reconfirmWithPasskey(): Promise<boolean> {
     return true;
   } catch (error) {
     if (isProblem(error, "passkey_unavailable")) {
-      throw new PasskeyRefused("You have no passkey for this address, so enter your PIN.", {
+      throw new PasskeyRefused("You have no passkey for this address. Enter your PIN.", {
         cause: error,
       });
     }

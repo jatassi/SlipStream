@@ -175,7 +175,7 @@ func TestAnUnreachableHolderIsTriedOnceOnTheNext(t *testing.T) {
 
 	m, h = controller(roster{may: []role.NodeID{box, crate}}, nil, box, crate)
 	_, err := m.Search(t.Context(), "fixture", "attic")
-	if se, ok := errors.AsType[*works.SourceError](err); !ok || !errors.Is(err, works.ErrUnavailable) || !strings.Contains(se.Words, "didn't answer") {
+	if se, ok := errors.AsType[*works.SourceError](err); !ok || !errors.Is(err, works.ErrUnavailable) || !strings.Contains(se.Words, "didn't respond") {
 		t.Fatalf("Search with both holders down = %v, want ErrUnavailable saying no holder answered", err)
 	}
 	if want := []string{"box unreached", "crate unreached"}; !slices.Equal(h.calls, want) {

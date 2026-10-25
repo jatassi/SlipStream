@@ -50,7 +50,7 @@ func (p Pending) Lines() []string {
 		"Can't reach the Controller at " + strings.Join(tried, ", ") + ".",
 		"Paste this Node address into the Add a Node dialog on the Controller:",
 		"  " + p.Address.String(),
-		"Waiting for the Controller to dial until " + p.Until.Format("15:04") + ". Ctrl-C stops.",
+		"Waiting for the Controller to dial until " + p.Until.Format("15:04") + ". Press Ctrl-C to stop.",
 	}
 }
 

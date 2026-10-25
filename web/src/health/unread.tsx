@@ -8,7 +8,7 @@ export function Unread({ category }: { category: HealthCategory }) {
   return (
     <div className="mb-3">
       <Details
-        summary={`SlipStream couldn't read ${category.phrase} just now, so this reads as it last did.`}
+        summary={`SlipStream couldn't read ${category.phrase} just now. This shows the last known state.`}
       >
         {category.unread}
       </Details>

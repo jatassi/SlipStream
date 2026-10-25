@@ -108,8 +108,8 @@ export function FiltersSection({ draft, onChange }: SectionProps<TargetDraft>) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-ink-2">
-        A release or file that fails a filter never fills this Target. A fact SlipStream
-        doesn&apos;t know yet passes, and the file is checked again once it is probed.
+        A release or file that fails a filter never fills this Target. An unknown fact passes, and
+        the file is checked again once it is probed.
       </p>
       <ul
         aria-label="Filters"

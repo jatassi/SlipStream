@@ -25,7 +25,7 @@ func TestUnknownOpNamesTheNodeVersion(t *testing.T) {
 	startTest(t, env)
 	rename := op.Op[struct{}, struct{}]{Name: "rename"}
 	_, err := Call(t.Context(), env.Net, env.DataDir, rename, struct{}{})
-	want := &ControlError{Code: "unknown_op", Message: `unknown op "rename"; node version test`}
+	want := &ControlError{Code: "unknown_op", Message: `unknown op "rename" for node version test`}
 	if got, ok := errors.AsType[*ControlError](err); !ok || *got != *want {
 		t.Fatalf("err = %v, want %v", err, want)
 	}
@@ -34,7 +34,7 @@ func TestUnknownOpNamesTheNodeVersion(t *testing.T) {
 func TestOnlyStopIsServedBeforeReady(t *testing.T) {
 	n := &Node{env: Env{Version: "test"}}
 	_, err := n.dispatch("join")
-	want := ControlError{Code: "not_ready", Message: "node is starting; it serves only stop until ready"}
+	want := ControlError{Code: "not_ready", Message: "node is starting and serves only stop until ready"}
 	if got, ok := errors.AsType[*ControlError](err); !ok || *got != want {
 		t.Fatalf("join before ready: err = %v, want %v", err, want)
 	}

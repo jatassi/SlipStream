@@ -53,7 +53,7 @@ func TestAPatchMemberIsAbsentNullOrAValue(t *testing.T) {
 		{`{}`, `{"said":"span absent, count absent"}`},
 		{`{"span":null,"count":3}`, `{"said":"span null, count 3"}`},
 		{`{"span":{"start":"01:00","end":"03:00"},"count":null}`, `{"said":"span {01:00 03:00}, count null"}`},
-		{`{"count":"three"}`, `{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.count","message":"expected integer"}]}`},
+		{`{"count":"three"}`, `{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.count","message":"expected integer"}]}`},
 	} {
 		t.Run(tc.body, func(t *testing.T) {
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/fixture", strings.NewReader(tc.body))

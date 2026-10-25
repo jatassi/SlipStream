@@ -26,7 +26,7 @@ func DefaultTimings() Timings { return Timings{BusyTimeout: 5 * time.Second} }
 // maps it to ExitLibraryRefused. Its text is the wrapped error's, for an
 // unreadable file:
 //
-//	library.db is not a readable SQLite database; restore a Backup
+//	library.db is not a readable SQLite database. Restore a Backup
 type RefusedError struct{ Err error }
 
 func (e *RefusedError) Error() string { return e.Err.Error() }
@@ -48,7 +48,7 @@ func OpenLibrary(ctx context.Context, path string, schemas []Schema[Library], be
 // earlier one, and recreated empty, with one "local state discarded"
 // warning. A migration that fails is still an error:
 //
-//	local.db migration <set> <version> failed: <error>; local.db is safe to delete
+//	local.db migration <set> <version> failed: <error>. local.db is safe to delete
 func OpenLocal(ctx context.Context, path string, schemas []Schema[Local], t Timings, log *slog.Logger) (*DB[Local], error) {
 	return open(ctx, path, schemas, nil, t, log)
 }

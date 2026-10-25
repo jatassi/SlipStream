@@ -16,6 +16,6 @@ export interface HealthCategory {
   level: HealthCategoryLevel;
   /** The label inside a sentence, such as storage */
   phrase: string;
-  /** Why its last answer failed; its items then read as they last did. Absent while it answers */
+  /** Why its last check failed. Its items then show their last known state. Absent while checks succeed */
   unread?: string;
 }

@@ -58,7 +58,7 @@ Steps:
   $FW exec $RUN --proof reset-links/reset-link-redeem -- curl -sS -i -X POST -H 'Content-Type: application/json' -d '{"email":"grace@example.test","pin":"1357"}' '{nodes.home.url}/api/v1/session'
   ```
 
-- **From the host.** Run the command against the running Controller's data dir. It prints one Reset link and exits 0, and Grace's open tab signs out. Once used, the link's card reads `This Reset link was already used, and each link works once, so sign in or ask your Admin for a new one.`, naming no Admin since the host issued it. Setting `1357` again through it puts Grace back on the manifest's PIN.
+- **From the host.** Run the command against the running Controller's data dir. It prints one Reset link and exits 0, and Grace's open tab signs out. Once used, the link's card reads `This Reset link was already used, and each link works only once. Sign in, or ask your Admin for a new one.`, naming no Admin since the host issued it. Setting `1357` again through it puts Grace back on the manifest's PIN.
 
   ```sh
   $FW exec $RUN --proof reset-links/reset-host-command -- {runDir}/bin/slipstream admin reset --data-dir {nodes.home.dataDir} grace@example.test
@@ -71,5 +71,5 @@ Steps:
 - A Reset link is shown once and never kept: copy it from the dialog or the email before closing either.
 - Opening a Reset link while signed in reads `You're signed in as <name>. Sign out to use this link.` Sign out from that card first.
 - The host command and a running Node share `library.db`; against a running Node the command hands the session ending to it, so Grace's tabs sign out as they do for the dialog.
-- `--address` sets the address only while none is set. `home` sets it at launch, so a different `--address` exits 3 with `SlipStream's address is already <address>; leave out --address, or change it in Settings > Address`.
+- `--address` sets the address only while none is set. `home` sets it at launch, so a different `--address` exits 3 with `SlipStream's address is already <address>. Leave out --address, or change it in Settings > Address`.
 - Every Reset link ends Grace's sessions, and her new PIN isn't the manifest's, so `bin/sign-in.ts {runDir} member` fails afterwards. Sign her in by hand with the new PIN, or run reset recipes last.

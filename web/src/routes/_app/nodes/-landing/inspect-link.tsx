@@ -28,8 +28,8 @@ export function LinkWords({
           <>
             <p>
               {sample === undefined
-                ? "Up, with no traffic reported yet."
-                : `Carrying ${megabits(sample.baBps)} to ${landing.controller} and ${megabits(sample.abBps)} to ${worker.name}.`}
+                ? "The link is up. No traffic is reported yet."
+                : `The link carries ${megabits(sample.baBps)} to ${landing.controller} and ${megabits(sample.abBps)} to ${worker.name}.`}
             </p>
             {link.rttMs !== undefined && (
               <p className="mt-2 text-ink-3">Each round trip takes {link.rttMs} ms.</p>
@@ -38,8 +38,8 @@ export function LinkWords({
         ) : (
           <p>
             {link.state === "mismatched"
-              ? "Up, but the two are on different versions."
-              : "Down. Nothing is getting through."}
+              ? "The link is up, but the two Nodes run different versions."
+              : "The link is down."}
           </p>
         )}
       </InspectorSection>

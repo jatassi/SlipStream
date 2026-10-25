@@ -10,7 +10,7 @@ import { useWaiting } from "./waiting";
 const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
   grabbed: "Grabbed a release",
   nothing_acceptable: "Found nothing acceptable",
-  indexer_unavailable: "The Indexer didn't answer",
+  indexer_unavailable: "The Indexer didn't respond",
   indexer_refused: "The Indexer refused the search",
 };
 

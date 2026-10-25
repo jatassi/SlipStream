@@ -97,9 +97,7 @@ test("/settings opens on Address, which suggests the address in use while none i
   await expect.element(field("Address")).toHaveValue("http://media-pc:8484");
   await expect
     .element(
-      page.getByText(
-        "A plain-HTTP address can't hold passkeys. Use https:// for passkeys to work.",
-      ),
+      page.getByText("Passkeys don't work on a plain-HTTP address. Use an https:// address."),
     )
     .toBeVisible();
 });
@@ -111,14 +109,12 @@ test("a plain-HTTP address at a .localhost name holds passkeys, so it gets no wa
   });
   await expect.element(field("Address")).toHaveValue("http://home.localhost:8484");
   await expect
-    .element(page.getByText("Signup, Reset and email links are built on this address."))
+    .element(page.getByText("Signup, Reset and email links use this address."))
     .toBeVisible();
   await userEvent.fill(field("Address"), "http://media-pc:8484");
   await expect
     .element(
-      page.getByText(
-        "A plain-HTTP address can't hold passkeys. Use https:// for passkeys to work.",
-      ),
+      page.getByText("Passkeys don't work on a plain-HTTP address. Use an https:// address."),
     )
     .toBeVisible();
 });
@@ -218,7 +214,7 @@ test("a typed password is sent, and a failed test shows the mail server's reply"
   await expect
     .element(
       page.getByText(
-        "The test email failed. The mail server said: 535 5.7.8 Authentication failed",
+        "The test email failed. The mail server responded: 535 5.7.8 Authentication failed",
       ),
     )
     .toBeVisible();

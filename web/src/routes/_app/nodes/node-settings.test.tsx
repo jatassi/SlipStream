@@ -162,7 +162,7 @@ test("an offline Worker's settings say it is offline, on phone too", async () =>
   });
   await expect
     .element(
-      page.getByText("seedbox is offline. Its settings and logs come back when it reconnects."),
+      page.getByText("seedbox is offline. Its settings and logs show again when it reconnects."),
     )
     .toBeVisible();
 });

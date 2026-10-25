@@ -58,7 +58,7 @@ func TestADataDirAnotherUserOwnsExitsWithTheUsageCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := slipstream(t, childEnv(), "config", "--data-dir", dir)
-	want := "slipstream: config: data dir " + dir + " belongs to " + owner.Username + "; run: sudo -u " + owner.Username + " slipstream config ...\n"
+	want := "slipstream: config: data dir " + dir + " belongs to " + owner.Username + ". Run: sudo -u " + owner.Username + " slipstream config ...\n"
 	if res.code != node.ExitUsage || !strings.HasPrefix(res.stderr, want) {
 		t.Fatalf("foreign data dir: exit %d, stderr %q; want exit %d starting %q", res.code, res.stderr, node.ExitUsage, want)
 	}

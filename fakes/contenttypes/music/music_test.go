@@ -217,7 +217,7 @@ func TestFaultsMapOntoTheSourceErrors(t *testing.T) {
 			want string
 			is   error
 		}{
-			{marrowBay, "GET /artist/a1000000-0000-4000-8000-000000000002: MusicBrainz: answered 503 Service Unavailable", works.ErrUnavailable},
+			{marrowBay, "GET /artist/a1000000-0000-4000-8000-000000000002: MusicBrainz: responded with 503 Service Unavailable", works.ErrUnavailable},
 			{missing, "GET /artist/a1000000-0000-4000-8000-000000000003: MusicBrainz: has no such record", works.ErrNotFound},
 			{unknownArt, "GET /artist/ffffffff-0000-4000-8000-000000000000: MusicBrainz: has no such record", works.ErrNotFound},
 		} {

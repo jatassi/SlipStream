@@ -42,7 +42,7 @@ function CopiedUrl({ link }: { link: IdentityPendingLink }) {
       <ReadOnlyField
         label="Signup link"
         value={query.data.url}
-        description="Anyone with this link can use it, so send it only to them."
+        description="Anyone with this link can use it. Send it only to the person it's for."
       />
     );
   }

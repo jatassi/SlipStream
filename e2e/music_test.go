@@ -194,7 +194,7 @@ func TestMusic(t *testing.T) {
 	}
 
 	addBay := `{"contentType":"music","key":"` + marrowBay + `"}`
-	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't answer. Try again later.", "MusicBrainz: answered 503 Service Unavailable"))
+	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't respond. Try again later.", "MusicBrainz: responded with 503 Service Unavailable"))
 	bay := decode(t, "addWork for Marrow Bay again", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), &added{})
 	var bayTree tree
 	if err := json.Unmarshal(bay.Work, &bayTree); err != nil || !bay.Created {

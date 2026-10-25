@@ -82,7 +82,7 @@ func Stream[Req, Resp any](ctx context.Context, network link.Network, dir DataDi
 func dial(ctx context.Context, network link.Network, dir DataDir) (*control.Conn, error) {
 	c, err := control.Dial(ctx, network.DialContext, dir.ControlSocket())
 	if err != nil {
-		return nil, fmt.Errorf("no Node answered on %s: %w", dir, err)
+		return nil, fmt.Errorf("no Node responded on %s: %w", dir, err)
 	}
 	return c, nil
 }
@@ -124,7 +124,7 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 		return n.serveStop, nil
 	}
 	if !n.isReady.Load() {
-		return nil, &control.Error{Code: control.CodeNotReady, Message: fmt.Sprintf("node is starting; it serves only %s until ready", StopOp.Name)}
+		return nil, &control.Error{Code: control.CodeNotReady, Message: fmt.Sprintf("node is starting and serves only %s until ready", StopOp.Name)}
 	}
 	switch name {
 	case pairing.JoinOp.Name:
@@ -138,7 +138,7 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 	case identity.ResetOp.Name:
 		return n.serveAdminReset, nil
 	}
-	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q; node version %s", name, n.env.Version)}
+	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q for node version %s", name, n.env.Version)}
 }
 
 func (n *Node) serveStop(_ context.Context, body json.RawMessage, send func(any) error) error {

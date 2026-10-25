@@ -38,7 +38,7 @@ function MetadataSettings() {
   return (
     <Section title="Metadata">
       <Details
-        summary={`Titles and overviews read in ${optionLabel(language)}, and release dates and certifications come from ${optionLabel(region)}. Pick the language you read and the country you watch in; the rest suits most libraries.`}
+        summary={`Titles and overviews are in ${optionLabel(language)}, and release dates and certifications come from ${optionLabel(region)}. Pick the language you read and the country you watch in. The other settings suit most libraries.`}
         action={
           <div className="my-2 w-full">
             <SettingGroup>

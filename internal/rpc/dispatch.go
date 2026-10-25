@@ -67,7 +67,7 @@ func (d *Dispatch) gate(held role.Name) connect.ServerInterceptor {
 	return func(next connect.ServerFunc) connect.ServerFunc {
 		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
 			if !d.holds(held) {
-				return notHolder(held, "this Node does not hold the "+string(held)+" Role")
+				return notHolder(held, "this Node doesn't hold the "+string(held)+" Role")
 			}
 			return next(ctx, spec, stream)
 		}
@@ -165,7 +165,7 @@ func (c *Cluster) client(node role.NodeID, held role.Name) *connect.Client {
 	case !ok:
 		return connect.NewClient(refuse{notHolder(held, "node "+node.String()+" is not in the roster")})
 	case held != "" && !c.roster.Serves(held, node):
-		return connect.NewClient(refuse{notHolder(held, "node "+node.String()+" does not hold the "+string(held)+" Role")})
+		return connect.NewClient(refuse{notHolder(held, "node "+node.String()+" doesn't hold the "+string(held)+" Role")})
 	}
 	return c.d.client(key)
 }

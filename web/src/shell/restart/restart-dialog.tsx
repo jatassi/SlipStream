@@ -44,8 +44,8 @@ function Confirm({ target }: { target: RestartTarget }) {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-(length:--body-size) leading-(--body-line-height) text-ink-2">
-        The web app reconnects by itself. Downloads and imports pause and pick up where they left
-        off.
+        The web app reconnects automatically. Downloads and imports pause, then resume where they
+        stopped.
       </p>
       {error !== undefined && <Refusal error={error} />}
       <div className="flex flex-wrap justify-end gap-2">

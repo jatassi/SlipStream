@@ -33,5 +33,7 @@ export function NodeProblem(props: ErrorComponentProps) {
   if (!isProblem(props.error, "node_offline")) {
     return <RouteError {...props} />;
   }
-  return <Empty>{node.name} is offline. Its settings and logs come back when it reconnects.</Empty>;
+  return (
+    <Empty>{node.name} is offline. Its settings and logs show again when it reconnects.</Empty>
+  );
 }

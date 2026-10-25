@@ -24,7 +24,7 @@ type Card = { readonly sentence: string; readonly action?: "sign-in" | "try-agai
 function cardOf(dead: Dead, noun: string): Card {
   if (dead.reason === "unreached") {
     return {
-      sentence: "The server did not answer, so check your connection and try again.",
+      sentence: "SlipStream isn't responding. Check your connection and try again.",
       action: "try-again",
     };
   }
@@ -32,12 +32,12 @@ function cardOf(dead: Dead, noun: string): Card {
   switch (dead.reason) {
     case "unknown": {
       return {
-        sentence: `This ${noun} does not work, so check that you have all of it or ask the person who sent it for a new one.`,
+        sentence: `This ${noun} doesn't work. Check that you have all of it, or ask the person who sent it for a new one.`,
       };
     }
     case "withdrawn": {
       return {
-        sentence: `This ${noun} was replaced or cancelled, so ask ${admin} whether a new one is on its way.`,
+        sentence: `This ${noun} was replaced or cancelled. Ask ${admin} whether they sent a new one.`,
       };
     }
     case "expired": {
@@ -45,11 +45,11 @@ function cardOf(dead: Dead, noun: string): Card {
         dead.issuedAt === undefined || dead.expiresAt === undefined
           ? ""
           : ` on ${clock(dead.expiresAt)}, ${lifetime(dead.issuedAt, dead.expiresAt)} after it was sent`;
-      return { sentence: `This ${noun} expired${when}, so ask ${admin} for a new one.` };
+      return { sentence: `This ${noun} expired${when}. Ask ${admin} for a new one.` };
     }
     case "used": {
       return {
-        sentence: `This ${noun} was already used, and each link works once, so sign in or ask ${admin} for a new one.`,
+        sentence: `This ${noun} was already used, and each link works only once. Sign in, or ask ${admin} for a new one.`,
         action: "sign-in",
       };
     }

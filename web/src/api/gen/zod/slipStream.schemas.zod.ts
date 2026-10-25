@@ -12,7 +12,7 @@ export const AccountPatchInputBody = zod.object({
     .email()
     .max(accountPatchInputBodyEmailMax)
     .exactOptional()
-    .describe("Changed at once; the old address is told"),
+    .describe("Changed at once. SlipStream emails the old address about the change"),
 });
 
 export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
@@ -382,7 +382,10 @@ export type GrabsRefusalOutput = zod.output<typeof GrabsRefusal>;
 export const grabsSearchCandidatesMin = 0;
 
 export const GrabsSearch = zod.object({
-  candidates: zod.int().min(grabsSearchCandidatesMin).describe("The releases the Indexer answered"),
+  candidates: zod
+    .int()
+    .min(grabsSearchCandidatesMin)
+    .describe("The releases in the Indexer's response"),
   finishedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null while the run searches"),
   grabId: zod.uuid().nullable().describe("The Grab the run made, null when none"),
   id: zod.uuid(),
@@ -492,7 +495,7 @@ export const HealthCategory = zod.object({
     .string()
     .exactOptional()
     .describe(
-      "Why its last answer failed; its items then read as they last did. Absent while it answers",
+      "Why its last check failed. Its items then show their last known state. Absent while checks succeed",
     ),
 });
 
@@ -637,7 +640,7 @@ export const HealthVolume = zod.object({
     .describe("Its Storage item's level, null while it has none"),
   live: zod
     .boolean()
-    .describe("Its Node is in step, so its figures are current; else they read as of sampledAt"),
+    .describe("Its Node is in step, so its figures are current. Otherwise they are from sampledAt"),
   mount: zod.string().describe("As its Node names it, such as D:\\ or /mnt/media"),
   name: zod.string().describe("Such as D: (Media)"),
   nodeId: zod.uuid(),
@@ -860,7 +863,7 @@ export const MailOutcome = zod.object({
   detail: zod
     .string()
     .exactOptional()
-    .describe("The mail server's reply, or why none answered, when the email failed"),
+    .describe("The mail server's reply, or why it didn't respond, when the email failed"),
   outcome: zod.enum(["sent", "failed", "not-set-up"]),
 });
 
@@ -876,7 +879,7 @@ export type IdentityEmailChangeStartedOutput = zod.output<typeof IdentityEmailCh
 
 export const IdentityIssuedResetLink = zod.object({
   email: MailOutcome,
-  url: zod.url().describe("The link itself, shown only in this answer"),
+  url: zod.url().describe("The link itself, shown only in this response"),
 });
 
 export type IdentityIssuedResetLink = zod.input<typeof IdentityIssuedResetLink>;
@@ -2381,7 +2384,7 @@ export const NodesTopologyNode = zod.object({
     .describe("The last verdict of each probe the Node ran, kept while it is away"),
   resources: NodesResources,
   roles: zod.array(NodesRoleView).describe("Every Role the Node stands in, in table order"),
-  self: zod.boolean().describe("The Node answering, which is the Controller"),
+  self: zod.boolean().describe("The Node that responded, which is the Controller"),
   since: zod.iso
     .datetime({ offset: true })
     .describe("When it came in step; while away, its last Sync frame"),
@@ -2537,7 +2540,7 @@ export const RehomeRootInputBody = zod.object({
     .min(rehomeRootInputBodyForgetMin)
     .exactOptional()
     .describe(
-      "The missing file count the Admin confirmed from a rehome_missing answer: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again",
+      "The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again",
     ),
   nodeId: zod
     .uuid()
@@ -2731,7 +2734,7 @@ export const RootsNodeVolumes = zod.object({
   live: zod
     .boolean()
     .describe(
-      "The Node is online, so its figures are current; else each volume reads as of its sampledAt",
+      "The Node is online, so its figures are current. Otherwise each volume's figures are from its sampledAt",
     ),
   nodeId: zod.uuid(),
   volumes: zod.array(RootsRootVolume).describe("Its volumes that hold a root, by name"),
@@ -3122,7 +3125,9 @@ export const TargetsImpact = zod.object({
   downloading: zod
     .int()
     .min(targetsImpactDownloadingMin)
-    .describe("Downloads in flight for cells that go; their files follow the save's choice"),
+    .describe(
+      "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
+    ),
   newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
   ownList: zod
     .int()
@@ -4047,7 +4052,7 @@ export const WorksTree = zod.object({
     .datetime({ offset: true })
     .nullable()
     .describe(
-      "When the metadata source last answered that it no longer has this Work; null while it has it",
+      "When the metadata source last reported that it no longer has this Work; null while it has it",
     ),
   id: zod.uuid(),
   items: zod
@@ -4183,7 +4188,7 @@ export const WorksListedWork = zod.object({
     .datetime({ offset: true })
     .nullable()
     .describe(
-      "When the metadata source last answered that it no longer has this Work; null while it has it",
+      "When the metadata source last reported that it no longer has this Work; null while it has it",
     ),
   id: zod.uuid(),
   key: zod.string(),

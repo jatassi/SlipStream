@@ -52,7 +52,7 @@ export const PreviewCatalogRecordParams = zod.object({
 export const PreviewCatalogRecordResponse = WorksPreviewed;
 
 /**
- * @summary Turn a Content Type on or off; off only while it holds no Works
+ * @summary Turn a Content Type on or off. It can be off only while it holds no Works
  */
 export const setContentTypeEnabledPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
@@ -76,7 +76,7 @@ export const GetContentTypeSettingsParams = zod.object({
 export const GetContentTypeSettingsResponse = WorksTypeSettings;
 
 /**
- * @summary Change a Content Type's own settings by key, all or none; every Work of the type may then read differently
+ * @summary Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently
  */
 export const updateContentTypeSettingsPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 

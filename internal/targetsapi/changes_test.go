@@ -218,7 +218,7 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 		{http.MethodDelete, "/api/v1/profiles/@small?moveTo=@none", "", http.StatusUnprocessableEntity, `{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`},
 		{
 			http.MethodDelete, "/api/v1/profiles/@small?moveTo=@small", "", http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"query.moveTo","message":"a Profile's Works can't move to the Profile being deleted"}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.moveTo","message":"a Profile's Works can't move to the Profile being deleted"}]}`,
 		},
 		{http.MethodDelete, "/api/v1/profiles/@small", "", http.StatusUnprocessableEntity, `@invalid`},
 		{http.MethodPut, "/api/v1/works/@none/wants", `{"profileId":"@small","editions":null}`, http.StatusNotFound, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`},

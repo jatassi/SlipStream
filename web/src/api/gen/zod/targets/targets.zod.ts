@@ -78,7 +78,7 @@ export const UpdateCutResponse = TargetsCutChange;
 export const ListProfilesResponse = TargetsProfileList;
 
 /**
- * @summary Create a Profile of Targets in Profile order; it is never the default
+ * @summary Create a Profile of Targets in Profile order. A new Profile is never the default
  */
 export const CreateProfileBody = TargetsNewProfile;
 
@@ -155,7 +155,7 @@ export const UpdateProfileBody = TargetsNewProfile;
 export const UpdateProfileResponse = TargetsProfileChange;
 
 /**
- * @summary Make a Profile its Content Type's default; existing Works keep theirs
+ * @summary Make a Profile its Content Type's default. Existing Works keep theirs
  */
 export const MakeDefaultProfileParams = zod.object({
   profileId: zod.uuid(),

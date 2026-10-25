@@ -155,7 +155,7 @@ func TestAServingWorkerServesTheControllersApp(t *testing.T) {
 			r.body != `{"status":503,"code":"controller_unreachable","title":"The Controller can't be reached"}`+"\n" {
 			t.Fatalf("getSystem at seedbox's address with home stopped = %d %s", r.status, r.body)
 		}
-		if r := box.call(http.MethodGet, "/movies", "", ""); r.status != http.StatusNotFound || !strings.HasPrefix(r.body, "the web app is not embedded") {
+		if r := box.call(http.MethodGet, "/movies", "", ""); r.status != http.StatusNotFound || !strings.HasPrefix(r.body, "the web app isn't embedded") {
 			t.Fatalf("a navigation at seedbox's address with home stopped = %d %s, want seedbox's own app", r.status, r.body)
 		}
 		r := box.call(http.MethodGet, "/api/v1/serving", "", "")

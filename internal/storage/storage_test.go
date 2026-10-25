@@ -197,10 +197,10 @@ func TestNewerLibraryIsRefused(t *testing.T) {
 	migrated(t, path, both()...)
 
 	_, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{shelf.Schema(), clip.Schema().Through(1)}, nil, timings, slog.New(slog.DiscardHandler))
-	assertRefused(t, err, "library.db holds schema clip at version 2, but this binary knows only up to 1; restore a Backup this version took, or update SlipStream")
+	assertRefused(t, err, "library.db holds schema clip at version 2, but this binary supports only up to 1. Restore a Backup this version took, or update SlipStream")
 
 	_, err = storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{shelf.Schema()}, nil, timings, slog.New(slog.DiscardHandler))
-	assertRefused(t, err, "library.db holds schema clip, which this binary does not have")
+	assertRefused(t, err, "library.db holds schema clip, which this binary doesn't have")
 }
 
 func TestUnreadableLibraryIsRefused(t *testing.T) {
@@ -209,7 +209,7 @@ func TestUnreadableLibraryIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := storage.OpenLibrary(t.Context(), path, both(), nil, timings, slog.New(slog.DiscardHandler))
-	assertRefused(t, err, "library.db is not a readable SQLite database; restore a Backup")
+	assertRefused(t, err, "library.db is not a readable SQLite database. Restore a Backup")
 }
 
 func assertRefused(t *testing.T, err error, want string) {
@@ -261,7 +261,7 @@ func TestNewerLocalIsDiscarded(t *testing.T) {
 
 	log, records := newLog()
 	db = openLocal(t, path, []storage.Schema[storage.Local]{outbox().Through(1)}, log)
-	want := []string{`{"level":"WARN","msg":"local state discarded","file":"local.db","reason":"local.db holds schema outbox at version 2, but this binary knows only up to 1"}`,
+	want := []string{`{"level":"WARN","msg":"local state discarded","file":"local.db","reason":"local.db holds schema outbox at version 2, but this binary supports only up to 1"}`,
 		`{"level":"INFO","msg":"migrated","file":"local.db","sets":[{"set":"outbox","from":0,"to":1}]}`}
 	if got := records.lines(); !slices.Equal(got, want) {
 		t.Errorf("log = %q, want %q", got, want)
@@ -309,7 +309,7 @@ func TestFailedLocalMigrationStopsTheOpen(t *testing.T) {
 	if err == nil {
 		t.Fatal("open succeeded")
 	}
-	const prefix, suffix = "local.db migration outbox 2 failed: ", "; local.db is safe to delete"
+	const prefix, suffix = "local.db migration outbox 2 failed: ", ". local.db is safe to delete"
 	if msg := err.Error(); !strings.HasPrefix(msg, prefix) || !strings.HasSuffix(msg, suffix) || !strings.Contains(msg, "no such table: nowhere") {
 		t.Errorf("err = %q, want %q + the SQLite error + %q", msg, prefix, suffix)
 	}
@@ -585,11 +585,11 @@ func TestCompareRefusesWhatOpenRefuses(t *testing.T) {
 		t.Errorf("Compare = %v, %v", plan, err)
 	}
 	_, err = storage.Compare(storage.Versions{"shelf": 1, "clip": 3, "zebra": 1, "aardvark": 1}, schemas)
-	if want := "library.db holds schema clip at version 3, but this binary knows only up to 2; restore a Backup this version took, or update SlipStream"; err == nil || err.Error() != want {
+	if want := "library.db holds schema clip at version 3, but this binary supports only up to 2. Restore a Backup this version took, or update SlipStream"; err == nil || err.Error() != want {
 		t.Errorf("Compare = %v, want %q", err, want)
 	}
 	_, err = storage.Compare(storage.Versions{"zebra": 1, "aardvark": 1}, schemas)
-	if want := "library.db holds schema aardvark, which this binary does not have"; err == nil || err.Error() != want {
+	if want := "library.db holds schema aardvark, which this binary doesn't have"; err == nil || err.Error() != want {
 		t.Errorf("Compare = %v, want %q", err, want)
 	}
 }

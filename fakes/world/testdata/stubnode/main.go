@@ -177,7 +177,7 @@ func send(dir, op string) {
 	fail(err)
 	conn, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: d.ControlSocket(), Net: "unix"})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "slipstream "+os.Args[1]+": no Node answered on "+dir)
+		fmt.Fprintln(os.Stderr, "slipstream "+os.Args[1]+": no Node responded on "+dir)
 		os.Exit(node.ExitFailed)
 	}
 	_, err = io.WriteString(conn, op)

@@ -87,7 +87,7 @@ func (m *Metadata) SetKey(ctx context.Context, _ identity.Admin, p ProviderID, k
 	o, ok := lastOf(outcomes, p)
 	switch {
 	case !ok:
-		return ProviderStatus{}, &works.SourceError{Source: label, Words: "answered no test", Err: works.ErrUnavailable}
+		return ProviderStatus{}, &works.SourceError{Source: label, Words: "hasn't had a test call", Err: works.ErrUnavailable}
 	case o.Kind == Refused:
 		return ProviderStatus{}, &works.SourceError{Source: label, Words: o.Words, Err: ErrKeyRefused}
 	case o.Kind == Limited || o.Kind == Unreachable:

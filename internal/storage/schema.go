@@ -130,7 +130,7 @@ type SchemaError struct {
 
 func (e *SchemaError) Error() string {
 	if e.Known == 0 {
-		return fmt.Sprintf("%s holds schema %s, which this binary does not have", e.File, e.Set)
+		return fmt.Sprintf("%s holds schema %s, which this binary doesn't have", e.File, e.Set)
 	}
-	return fmt.Sprintf("%s holds schema %s at version %d, but this binary knows only up to %d%s", e.File, e.Set, e.Held, e.Known, e.advice)
+	return fmt.Sprintf("%s holds schema %s at version %d, but this binary supports only up to %d%s", e.File, e.Set, e.Held, e.Known, e.advice)
 }

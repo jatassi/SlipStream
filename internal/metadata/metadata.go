@@ -266,9 +266,9 @@ func call[R any](ctx context.Context, m *Metadata, via role.NodeID, do func(cont
 	case !unreached(err) && rpc.Answered(err) && ctx.Err() == nil:
 		return none, node, errors.New(rpc.MessageOf(err))
 	case ctx.Err() != nil:
-		return none, node, unavailable("the Node reading metadata didn't answer in time")
+		return none, node, unavailable("the Node reading metadata didn't respond in time")
 	}
-	return none, node, unavailable("the Node reading metadata didn't answer: " + err.Error())
+	return none, node, unavailable("the Node reading metadata didn't respond: " + err.Error())
 }
 
 func unreached(err error) bool {

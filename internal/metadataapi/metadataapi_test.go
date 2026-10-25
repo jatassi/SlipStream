@@ -205,7 +205,7 @@ func TestATestReadsTheProvidersStateWithItsTime(t *testing.T) {
 	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/metadata/providers/omdb/test", "")
 	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339)
 	if code != http.StatusOK || !strings.Contains(reply, `"state":"out_of_allowance","until":"`+midnight+`"`) ||
-		!strings.Contains(reply, `"summary":"OMDb is out of today's allowance. It resets on its own."`) {
+		!strings.Contains(reply, `"summary":"OMDb is out of today's allowance. It resets automatically."`) {
 		t.Fatalf("testMetadataProvider = %d %s, want OMDb out of its allowance until %s", code, reply, midnight)
 	}
 

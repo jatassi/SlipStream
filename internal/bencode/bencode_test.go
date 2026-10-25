@@ -72,10 +72,10 @@ func TestDecodeMetainfoRefusesV2Only(t *testing.T) {
 
 func TestDecodeRefusesMalformedData(t *testing.T) {
 	for _, tc := range []struct{ data, want string }{
-		{"i03e", `bencode: at byte 1: invalid integer "03"`},
-		{"i-0e", `bencode: at byte 1: invalid integer "-0"`},
-		{"i+1e", `bencode: at byte 1: invalid integer "+1"`},
-		{"ie", `bencode: at byte 1: invalid integer ""`},
+		{"i03e", `bencode: at byte 1: "03" is not a bencode integer`},
+		{"i-0e", `bencode: at byte 1: "-0" is not a bencode integer`},
+		{"i+1e", `bencode: at byte 1: "+1" is not a bencode integer`},
+		{"ie", `bencode: at byte 1: "" is not a bencode integer`},
 		{"i1", "bencode: at byte 1: unterminated integer"},
 		{"5:ab", "bencode: at byte 2: string length 5 runs past the end"},
 		{"di1ei2ee", "bencode: at byte 1: a dictionary key is not a string"},

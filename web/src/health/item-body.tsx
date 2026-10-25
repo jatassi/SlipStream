@@ -10,7 +10,7 @@ export function ItemBody({ category, item }: { category: HealthCategoryID; item:
     <div className="flex w-full flex-col items-start gap-3">
       {item.unsure && (
         <p className={dim}>
-          SlipStream can&apos;t tell how this is now, so it reads as it last did.
+          SlipStream can&apos;t check this right now. This shows its last known state.
         </p>
       )}
       {item.detail.length > 0 && <Facts facts={item.detail} labels={dim} />}

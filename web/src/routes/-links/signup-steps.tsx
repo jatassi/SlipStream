@@ -22,7 +22,7 @@ export function Welcome({ flow: { link }, next }: StepProps<Flow>) {
       <p className="text-ink-1">
         {link.adminName ?? "Your Admin"} invited you to {link.serverName}.
       </p>
-      <p>Choose your name and a PIN, and you&apos;re in.</p>
+      <p>Choose your name and a PIN to make your Account.</p>
       <Button
         look="primary"
         onClick={() => {
@@ -74,5 +74,5 @@ export function Name({ flow, next }: StepProps<Flow>) {
 }
 
 export function Done({ flow }: StepProps<Flow>) {
-  return <OpenSlipStream sentence={`You're all set, ${flow.displayName}.`} to="/portal" />;
+  return <OpenSlipStream sentence={`Your Account is ready, ${flow.displayName}.`} to="/portal" />;
 }

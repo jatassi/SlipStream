@@ -312,7 +312,7 @@ export const getSendTestMailUrl = () => {
 };
 
 /**
- * @summary Send a test email to your own address and answer the mail server's reply
+ * @summary Send a test email to your own address and return the mail server's reply
  */
 export const sendTestMail = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -355,7 +355,7 @@ export type SendTestMailMutationError = ErrorType<
 >;
 
 /**
- * @summary Send a test email to your own address and answer the mail server's reply
+ * @summary Send a test email to your own address and return the mail server's reply
  */
 export const useSendTestMail = <
   TError = ErrorType<

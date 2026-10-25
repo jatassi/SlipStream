@@ -8,7 +8,7 @@ import { OutcomeChip } from "./outcome-chip";
 import { unitsAnchor } from "./task-head";
 
 const causeOf = (unit: TasksUnit) =>
-  unit.dueOnReturn ? `${unit.cause ?? "Skipped"}. Runs when ${unit.node} returns.` : unit.cause;
+  unit.dueOnReturn ? `${unit.cause ?? "Skipped"}. Runs when ${unit.node} reconnects.` : unit.cause;
 
 function columnsOf(clock: Clock): readonly [Column<TasksUnit>, ...Column<TasksUnit>[]] {
   return [

@@ -5,7 +5,7 @@ Each movie Item carries the day it counts as out and the rule that chose it, in 
 ## Sub-features
 
 - `availability-on-the-work` `GET /api/v1/works/{id}` for The Quiet Orchard reads `"availability":{"date":"2021-04-16","basis":"Digital release in United States"}` on its one Item, from `home`'s fake-tmdb US digital date.
-- `movie-settings-read` `GET /api/v1/content-types/movie/settings` lists `Movies count as out on` (choice, `home`, options Home release and Cinema release) and `A cinema release counts as out after` (duration, 7776000 seconds, 0 to 365 days in days), both at their defaults.
+- `movie-settings-read` `GET /api/v1/content-types/movie/settings` lists `Movies count as released on` (choice, `home`, options Home release and Cinema release) and `Movies count as released this long after a cinema release` (duration, 7776000 seconds, 0 to 365 days in days), both at their defaults.
 - `announced-day` as `home` starts, its log carries one `announced released Items` line, `after` yesterday `through` today with `items` 0: a Controller with no announced day in its `local.db` reads it as yesterday. Adding The Quiet Orchard monitored adds no line (2021 is before the day announced), and after `home` stops and starts the log holds two `ready` lines and still one announcement, because `local.db` kept the day (P-031).
 - `movie-settings-change` `PATCH` with `{"values":{"movie.countsAs":"cinema","movie.cinemaDelay":2592000}}` answers both fields changed, and the live stream carries one `works.type-changed` with `{"contentType":"movie"}`. The same `PATCH` again sends none. A delay of 400 days answers 422 `setting_out_of_range` with `Between 0 s and 365 days.`, an unknown key 422 `unknown_setting`, and nulls reset both.
 

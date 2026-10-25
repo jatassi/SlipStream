@@ -32,7 +32,7 @@ function failureOf(error: unknown): Failure {
   return {
     sentence:
       error instanceof UnreachableError
-        ? "SlipStream isn't answering. Check that it's running, then try again."
+        ? "SlipStream isn't responding. Check that it's running, then try again."
         : "This page couldn't load.",
     facts: [{ label: "Message", value: error instanceof Error ? error.message : String(error) }],
     forAdmins: false,

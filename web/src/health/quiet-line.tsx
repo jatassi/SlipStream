@@ -24,7 +24,7 @@ export function QuietLine({ category, end }: { category: HealthCategory; end: Re
     >
       <div className="flex min-h-(--control-height) flex-wrap items-center gap-x-3 gap-y-1">
         <Icon icon={signals.ok.icon} className="size-4 shrink-0 text-ok" />
-        <p className="text-ink-2">{category.label}. All good.</p>
+        <p className="text-ink-2">Nothing is wrong with {category.phrase}.</p>
         {check.button}
       </div>
       {check.answer}

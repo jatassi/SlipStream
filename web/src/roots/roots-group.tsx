@@ -36,9 +36,7 @@ export function RootsGroup({
     <Section title={label} count={roots.length}>
       {roots.length === 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-glass px-4 py-3.5 ring-1 ring-hairline ring-inset">
-          <p className="text-ink-2">
-            Add a library root for {label} so SlipStream knows where to put them.
-          </p>
+          <p className="text-ink-2">Add a library root to hold {label}.</p>
           <Button
             icon={Add01Icon}
             onClick={() => {

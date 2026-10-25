@@ -34,7 +34,7 @@ type issuedSignupLink struct {
 }
 
 type issuedResetLink struct {
-	URL   string          `json:"url" format:"uri" doc:"The link itself, shown only in this answer"`
+	URL   string          `json:"url" format:"uri" doc:"The link itself, shown only in this response"`
 	Email mailapi.Outcome `json:"email"`
 }
 

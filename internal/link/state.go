@@ -117,7 +117,7 @@ var (
 	// runs another version.
 	ErrMismatched = errors.New("the peer runs another version, so lockstep services are closed")
 	// ErrKeyMismatch is a Pair whose peer's key is not the Join Code's.
-	ErrKeyMismatch = errors.New("the Controller's key does not match the Join Code")
+	ErrKeyMismatch = errors.New("the Controller's key doesn't match the Join Code")
 )
 
 // RefusedError is a peer's Refused answer to Pair or Hello.
@@ -135,5 +135,5 @@ type SupersededError struct {
 }
 
 func (e *SupersededError) Error() string {
-	return "the peer answered that key " + e.By.Fingerprint() + " superseded this Node"
+	return "the peer reported that key " + e.By.Fingerprint() + " superseded this Node"
 }

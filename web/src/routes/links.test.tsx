@@ -23,13 +23,13 @@ test.each<[string, string, IdentityLinkView, string]>([
       issuedAt: sent,
       expiresAt: expired,
     },
-    `This link expired on ${clock(expired)}, 7 days after it was sent, so ask Ada Okafor for a new one.`,
+    `This link expired on ${clock(expired)}, 7 days after it was sent. Ask Ada Okafor for a new one.`,
   ],
   [
     "an expired Reset link the host command printed",
     "/reset#token=tok-1",
     { state: "dead", reason: "expired", issuedAt: sent, expiresAt: "2026-10-02T10:00:00Z" },
-    `This Reset link expired on ${clock("2026-10-02T10:00:00Z")}, 24 hours after it was sent, so ask your Admin for a new one.`,
+    `This Reset link expired on ${clock("2026-10-02T10:00:00Z")}, 24 hours after it was sent. Ask your Admin for a new one.`,
   ],
   [
     "a withdrawn confirm link",
@@ -41,19 +41,19 @@ test.each<[string, string, IdentityLinkView, string]>([
       issuedAt: sent,
       expiresAt: expired,
     },
-    "This confirm link was replaced or cancelled, so ask Ada Okafor whether a new one is on its way.",
+    "This confirm link was replaced or cancelled. Ask Ada Okafor whether they sent a new one.",
   ],
   [
     "a made-up link",
     "/signup#token=nope",
     { state: "dead", reason: "unknown" },
-    "This link does not work, so check that you have all of it or ask the person who sent it for a new one.",
+    "This link doesn't work. Check that you have all of it, or ask the person who sent it for a new one.",
   ],
   [
     "a link with no token",
     "/reset",
     { state: "dead", reason: "unknown" },
-    "This Reset link does not work, so check that you have all of it or ask the person who sent it for a new one.",
+    "This Reset link doesn't work. Check that you have all of it, or ask the person who sent it for a new one.",
   ],
 ])("%s says why in one sentence", async (_case, path, view, sentence) => {
   const kind = path.startsWith("/signup")
@@ -77,7 +77,7 @@ test("a link the server didn't answer for offers Try again", async () => {
     ],
   });
   await expect
-    .element(page.getByText("The server did not answer, so check your connection and try again."))
+    .element(page.getByText("SlipStream isn't responding. Check your connection and try again."))
     .toBeVisible();
   answer = true;
   await userEvent.click(page.getByRole("button", { name: "Try again" }));
@@ -94,7 +94,7 @@ test("a second link opened in the same tab replaces the first", async () => {
   await expect
     .element(
       page.getByText(
-        "This link does not work, so check that you have all of it or ask the person who sent it for a new one.",
+        "This link doesn't work. Check that you have all of it, or ask the person who sent it for a new one.",
       ),
     )
     .toBeVisible();

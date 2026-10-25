@@ -661,7 +661,7 @@ export const getTestMetadataProviderUrl = (provider: string) => {
 };
 
 /**
- * @summary Make one cheap call to a provider with the key in use, and answer its status after it
+ * @summary Make one cheap call to a provider with the key in use, and return the provider's status after it
  */
 export const testMetadataProvider = async (
   provider: string,
@@ -735,7 +735,7 @@ export type TestMetadataProviderMutationError = ErrorType<
 export type TestMetadataProviderMutationVariables = { provider: string };
 
 /**
- * @summary Make one cheap call to a provider with the key in use, and answer its status after it
+ * @summary Make one cheap call to a provider with the key in use, and return the provider's status after it
  */
 export const useTestMetadataProvider = <
   TError = ErrorType<

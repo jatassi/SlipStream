@@ -147,7 +147,7 @@ func (n *Node) serveJoin(ctx context.Context, body json.RawMessage, send func(an
 		}
 		return send(pairing.JoinReply{Refused: &pairing.Error{
 			Kind:   pairing.RestartRequired,
-			Reason: fmt.Sprintf("the link listens on port %d until a restart binds link.listen %s: restart the Node, then run slipstream join again", n.linkBound.Port(), listen),
+			Reason: fmt.Sprintf("the link listens on port %d until a restart binds link.listen %s. Restart the Node, then run slipstream join again", n.linkBound.Port(), listen),
 		}})
 	}
 	ctx, cancel := context.WithCancel(ctx)
@@ -263,7 +263,7 @@ func NodeAddress(env Env) (joincode.NodeAddress, error) {
 	}
 	addrs, ok := link.Advertising(cfg.Link)
 	if !ok {
-		return joincode.NodeAddress{}, fmt.Errorf("link.listen %s covers no address another machine can dial: set link.advertise", cfg.Link.Listen)
+		return joincode.NodeAddress{}, fmt.Errorf("link.listen %s covers no address another machine can dial. Set link.advertise", cfg.Link.Listen)
 	}
 	pub := key.Public()
 	return joincode.NewNodeAddress(pub[:], addrs.All())

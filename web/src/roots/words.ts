@@ -25,7 +25,7 @@ export const stateWords: {
   unmounted: { tone: "warn", words: () => "The folder is there but looks unmounted" },
   foreign: { tone: "warn", words: () => "The folder holds another library root's marker" },
   unwritable: { tone: "warn", words: () => "SlipStream can't write to the folder" },
-  unresponsive: { tone: "warn", words: () => "The folder isn't answering" },
+  unresponsive: { tone: "warn", words: () => "The folder isn't responding" },
   offline: { tone: "warn", words: (node) => `${node} is offline` },
   written_off: { tone: "warn", words: () => "Node written off" },
 };
@@ -64,7 +64,7 @@ const because: {
   contains_data: () => "it contains SlipStream's data folder",
   inside_downloads: () => "it's inside the downloads folder",
   contains_downloads: () => "it contains the downloads folder",
-  unresponsive: (_refusal, { node }) => `${node} didn't answer in time`,
+  unresponsive: (_refusal, { node }) => `${node} didn't respond in time`,
   node_offline: (_refusal, { node }) => `${node} is offline`,
 };
 

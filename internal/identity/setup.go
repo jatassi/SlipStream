@@ -130,7 +130,7 @@ func (g *Gate) enter(typed string) error {
 func (g *Gate) leave(ctx context.Context) {
 	c, err := g.claim(ctx)
 	if err != nil {
-		g.log.Error("setup gate cannot tell whether the Node is claimed", "error", err)
+		g.log.Error("setup gate can't read whether the Node is claimed", "error", err)
 	}
 	if c != system.Unclaimed {
 		g.Close()

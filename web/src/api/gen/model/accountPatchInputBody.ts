@@ -8,7 +8,7 @@ export interface AccountPatchInputBody {
    */
   displayName?: string;
   /**
-   * Changed at once; the old address is told
+   * Changed at once. SlipStream emails the old address about the change
    * @maxLength 254
    */
   email?: string;

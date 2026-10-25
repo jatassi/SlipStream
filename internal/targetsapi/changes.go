@@ -31,7 +31,7 @@ type impact struct {
 	Unwanted    unwantedFiles `json:"unwanted" doc:"Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"`
 	Renamed     int           `json:"renamed" minimum:"0" doc:"Files that still fill a cell and change name"`
 	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"Cells that become wanted"`
-	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in flight for cells that go; their files follow the save's choice"`
+	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept"`
 }
 
 func impactOf(i files.Impact) impact {

@@ -69,7 +69,7 @@ var trouble = map[State]struct{ sentence, fix string }{
 	Unmounted:    {"The folder is there but looks unmounted.", "Plug in or mount the disk."},
 	Foreign:      {"The folder holds another library root's marker.", "Edit the root to a folder of its own."},
 	Unwritable:   {"SlipStream can't write to the folder.", "Let SlipStream write to it."},
-	Unresponsive: {"The folder isn't answering.", "Check the disk or share it is on."},
+	Unresponsive: {"The folder isn't responding.", "Check the disk or share it is on."},
 	WrittenOff:   {"Its Node was written off, so its files count as missing.", "Re-home the root to a Node that holds Storage."},
 }
 

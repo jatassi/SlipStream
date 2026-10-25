@@ -50,7 +50,7 @@ test.each([
   ["/srv/notes.txt", "This is a file, not a folder."],
   [
     "/srv/slow",
-    "Media server hasn't answered about this folder. A network share or a sleeping disk can be slow.",
+    "Media server took too long to read this folder. A network share or a sleeping disk can be slow.",
   ],
   ["/srv/broken", "Media server couldn't read this folder."],
 ])(

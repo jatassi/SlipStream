@@ -117,7 +117,7 @@ func TestPinCheckRefusals(t *testing.T) {
 			name:      "the server presents an RSA certificate",
 			client:    wire.ClientConfig(good, anyKey),
 			server:    wire.ServerConfig(rsaCert, anyKey),
-			clientErr: "peer certificate holds a *rsa.PublicKey; the link pins Ed25519 keys",
+			clientErr: "peer certificate holds a *rsa.PublicKey, and the link pins only Ed25519 keys",
 			servErr:   "remote error: tls: bad certificate",
 		},
 		{
@@ -125,13 +125,13 @@ func TestPinCheckRefusals(t *testing.T) {
 			client:    wire.ClientConfig(rsaCert, anyKey),
 			server:    wire.ServerConfig(good, anyKey),
 			clientErr: "remote error: tls: bad certificate",
-			servErr:   "peer certificate holds a *rsa.PublicKey; the link pins Ed25519 keys",
+			servErr:   "peer certificate holds a *rsa.PublicKey, and the link pins only Ed25519 keys",
 		},
 		{
 			name:      "the server presents two certificates",
 			client:    wire.ClientConfig(good, anyKey),
 			server:    wire.ServerConfig(two, anyKey),
-			clientErr: "peer presented 2 certificates; the link pins exactly one",
+			clientErr: "peer presented 2 certificates, and the link pins exactly one",
 			servErr:   "remote error: tls: bad certificate",
 		},
 		{

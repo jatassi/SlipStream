@@ -40,8 +40,8 @@ type Keys struct {
 }
 
 var (
-	errMissing   = errors.New("library.key is missing, but library.db was set up with one; restore library.key from the Backup that holds this library.db")
-	errForeign   = errors.New("library.key does not belong to this library.db; restore the library.key that does")
+	errMissing   = errors.New("library.key is missing, but library.db was set up with one. Restore library.key from the Backup that holds this library.db")
+	errForeign   = errors.New("library.key doesn't belong to this library.db. Restore the library.key that does")
 	errMalformed = errors.New("library.key is not 64 hex characters")
 )
 

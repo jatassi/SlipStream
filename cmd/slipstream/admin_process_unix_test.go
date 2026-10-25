@@ -25,7 +25,7 @@ func TestAdminResetRefusesADataDirAnotherUserOwns(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := reset(t, dir, "admin@example.com")
-	want := "slipstream: admin reset: data dir " + dir + " belongs to " + owner.Username + "; run: sudo -u " + owner.Username + " slipstream admin reset ...\n"
+	want := "slipstream: admin reset: data dir " + dir + " belongs to " + owner.Username + ". Run: sudo -u " + owner.Username + " slipstream admin reset ...\n"
 	if res.code != node.ExitUsage || res.stdout != "" || !strings.HasPrefix(res.stderr, want) {
 		t.Fatalf("foreign data dir: exit %d, stdout %q, stderr %q; want exit %d starting %q", res.code, res.stdout, res.stderr, node.ExitUsage, want)
 	}

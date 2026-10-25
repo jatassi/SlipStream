@@ -10,7 +10,7 @@ export interface WorksListedWork {
   /** The Work's own fields */
   fields: WorksFieldValue[];
   /**
-   * When the metadata source last answered that it no longer has this Work; null while it has it
+   * When the metadata source last reported that it no longer has this Work; null while it has it
    * @nullable
    */
   goneUpstreamAt: string | null;

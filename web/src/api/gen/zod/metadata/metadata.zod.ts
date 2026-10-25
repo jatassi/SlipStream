@@ -49,7 +49,7 @@ export const SetMetadataKeyBody = MetadataNewKey;
 export const SetMetadataKeyResponse = MetadataProvider;
 
 /**
- * @summary Make one cheap call to a provider with the key in use, and answer its status after it
+ * @summary Make one cheap call to a provider with the key in use, and return the provider's status after it
  */
 export const TestMetadataProviderParams = zod.object({
   provider: zod.string(),

@@ -53,7 +53,7 @@ test("a Signup link welcomes, takes a name and a PIN, offers a passkey and lands
   await expect.element(page.getByRole("button", { name: "Add a passkey" })).toBeVisible();
   expect(server.joined).toEqual([{ displayName: "Grace", pin: "2468" }]);
   await userEvent.click(page.getByRole("button", { name: "Skip for now" }));
-  await expect.element(page.getByText("You're all set, Grace.")).toBeVisible();
+  await expect.element(page.getByText("Your Account is ready, Grace.")).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Open SlipStream" }));
   await expect.poll(() => router.state.location.href).toBe("/portal");
 });
@@ -62,7 +62,7 @@ test("at an address that can't hold a passkey, signup leaves the passkey step ou
   renderApp({ path: "/signup#token=tok-1", handlers: joinServer().handlers });
   await expect.element(page.getByText("Step 1 of 4")).toBeVisible();
   await nameAndPin();
-  await expect.element(page.getByText("You're all set, Grace.")).toBeVisible();
+  await expect.element(page.getByText("Your Account is ready, Grace.")).toBeVisible();
 });
 
 test("a link used while the page was open shows its card", async () => {
@@ -89,7 +89,7 @@ test("a link used while the page was open shows its card", async () => {
   await expect
     .element(
       page.getByText(
-        "This link was already used, and each link works once, so sign in or ask Ada Okafor for a new one.",
+        "This link was already used, and each link works only once. Sign in, or ask Ada Okafor for a new one.",
       ),
     )
     .toBeVisible();

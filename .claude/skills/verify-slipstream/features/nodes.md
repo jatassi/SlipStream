@@ -263,12 +263,12 @@ Steps:
   $FW fault clear $RUN hold-link
   ```
 
-- **Take seedbox's port, then use the host CLI.** Stop seedbox and reload: its sections read `seedbox is offline. Its settings and logs come back when it reconnects.`, its Overview's System section reads `seedbox is offline. Its version and listeners show again when it reconnects.`, and its Roster row reads `Offline` or `Reconnecting` with `Last seen <time>`. Hold its HTTP port from a second shell for 150 seconds and start it: its Overview reads `Port <port> was taken, so SlipStream is on <next port>.` with `Change port`. Then `slipstream config set` and `unset` change seedbox's `log.level`, and once the holder exits `slipstream restart` brings it back on its own port.
+- **Take seedbox's port, then use the host CLI.** Stop seedbox and reload: its sections read `seedbox is offline. Its settings and logs show again when it reconnects.`, its Overview's System section reads `seedbox is offline. Its version and listeners show again when it reconnects.`, and its Roster row reads `Offline` or `Reconnecting` with `Last seen <time>`. Hold its HTTP port from a second shell for 150 seconds and start it: its Overview reads `Port <port> was taken, so SlipStream is on <next port>.` with `Change port`. Then `slipstream config set` and `unset` change seedbox's `log.level`, and once the holder exits `slipstream restart` brings it back on its own port.
 
   ```sh
   $FW node stop $RUN seedbox
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
-  $FW exec $RUN --proof nodes/nodes-picker -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("seedbox is offline. Its settings and logs come back when it reconnects.").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN --proof nodes/nodes-picker -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("seedbox is offline. Its settings and logs show again when it reconnects.").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof nodes/nodes-port-fallback -- timeout 150 python3 -c 'import socket,sys,time; h,p=sys.argv[1].rsplit(":",1); s=socket.socket(); s.bind((h,int(p))); s.listen(); time.sleep(150)' '{nodes.seedbox.listeners.http}'   # in a second shell
   $FW node start $RUN seedbox
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "seedbox" }).getByRole("link", { name: "Overview" })'
@@ -344,7 +344,7 @@ Steps:
 
 ## Gotchas
 
-- A Worker chosen in the picker shows its own facts and settings through the Controller; an offline Worker's sections read `<name> is offline. Its settings and logs come back when it reconnects.`, all but the Overview, which still lists what the Controller knows and reads `<name> is offline. Its version and listeners show again when it reconnects.` under System. On the seedbox's own URL a Worker shows only the Worker page.
+- A Worker chosen in the picker shows its own facts and settings through the Controller; an offline Worker's sections read `<name> is offline. Its settings and logs show again when it reconnects.`, all but the Overview, which still lists what the Controller knows and reads `<name> is offline. Its version and listeners show again when it reconnects.` under System. On the seedbox's own URL a Worker shows only the Worker page.
 - Ports are drawn at launch, so compare the page with the manifest, never with a remembered value. fakeworld pins each listen key to the port it bound, so `Port` reads that port with `Reset to default`, and a saved or reset port moves the Node off the manifest's port at its next restart. Put the port back before any restart, and restart last.
 - A choice such as `Level` saves as soon as it is chosen; a number field shows `Save` once it differs.
 - Nothing logs at Debug on an idle `home`, so a recipe makes a Debug line itself: bytes that aren't TLS on the link port log `link handshake failed`.

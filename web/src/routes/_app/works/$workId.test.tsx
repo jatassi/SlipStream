@@ -145,22 +145,22 @@ test("a search its Indexer couldn't answer says what the Indexer waits for, unti
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
   server.searchRuns(unavailable);
   const searches = page.getByRole("list", { name: "Searches" });
-  await expect.element(searches).toMatchTextContent(/^The Indexer didn't answerOct 12/u);
+  await expect.element(searches).toMatchTextContent(/^The Indexer didn't respondOct 12/u);
 
   const since = new Date();
   since.setHours(21, 31, 0, 0);
   server.indexerWaits({ standing: "offline", since: since.toISOString() });
   await expect
     .element(searches)
-    .toMatchTextContent(/^The Indexer didn't answerWaiting for seedbox · offline since 21:31/u);
+    .toMatchTextContent(/^The Indexer didn't respondWaiting for seedbox · offline since 21:31/u);
 
   server.indexerWaits({ standing: "reconnecting", since: since.toISOString() });
   await expect
     .element(searches)
-    .toMatchTextContent(/^The Indexer didn't answerWaiting for seedbox · reconnectingOct 12/u);
+    .toMatchTextContent(/^The Indexer didn't respondWaiting for seedbox · reconnectingOct 12/u);
 
   server.indexerWaits(null);
-  await expect.element(searches).toMatchTextContent(/^The Indexer didn't answerOct 12/u);
+  await expect.element(searches).toMatchTextContent(/^The Indexer didn't respondOct 12/u);
 });
 
 test("Search shows it is busy while its request is pending", async () => {

@@ -91,7 +91,7 @@ func TestARowWithoutItsFileIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := secret.Open(t.Context(), lib, path)
-	refused(t, err, "library.key is missing, but library.db was set up with one; restore library.key from the Backup that holds this library.db")
+	refused(t, err, "library.key is missing, but library.db was set up with one. Restore library.key from the Backup that holds this library.db")
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("a refused open wrote library.key: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestARowWithAForeignFileIsRefused(t *testing.T) {
 	}
 	write(t, path, otherKey)
 	_, err := secret.Open(t.Context(), lib, path)
-	refused(t, err, "library.key does not belong to this library.db; restore the library.key that does")
+	refused(t, err, "library.key doesn't belong to this library.db. Restore the library.key that does")
 }
 
 func TestOnlyTheExactKeyFormIsRead(t *testing.T) {
@@ -153,7 +153,7 @@ func TestARowWithATruncatedFileIsRefused(t *testing.T) {
 	}
 	write(t, path, fixedKey[:40])
 	_, err := secret.Open(t.Context(), lib, path)
-	refused(t, err, "library.key does not belong to this library.db; restore the library.key that does")
+	refused(t, err, "library.key doesn't belong to this library.db. Restore the library.key that does")
 }
 
 func write(t *testing.T, path, content string) {

@@ -171,7 +171,7 @@ func (l *Line) Bytes(ctx context.Context, ask Ask, u *url.URL) (Image, error) {
 
 func (l *Line) decode(body []byte, v any) error {
 	if err := json.Unmarshal(body, v); err != nil {
-		return &works.SourceError{Source: l.p.Label, Words: "sent an answer SlipStream can't read: " + err.Error(), Err: works.ErrInvalid}
+		return &works.SourceError{Source: l.p.Label, Words: "sent a response SlipStream can't read: " + err.Error(), Err: works.ErrInvalid}
 	}
 	return nil
 }
@@ -256,7 +256,7 @@ func (l *Line) try(ctx context.Context, ask Ask, u *url.URL, lookup bool) verdic
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, l.keyed(ask, u).String(), http.NoBody)
 	if err != nil {
-		return verdict{Outcome: l.outcome(Unreachable, "can't be asked for "+u.Redacted())}
+		return verdict{Outcome: l.outcome(Unreachable, "can't be requested at "+u.Redacted())}
 	}
 	req.Header.Set("User-Agent", l.lines.userAgent)
 	res, err := l.lines.client.Do(req)
@@ -264,15 +264,15 @@ func (l *Line) try(ctx context.Context, ask Ask, u *url.URL, lookup bool) verdic
 		if ue, ok := errors.AsType[*url.Error](err); ok {
 			err = ue.Err
 		}
-		return verdict{Outcome: l.outcome(Unreachable, "didn't answer: "+err.Error()), retry: true}
+		return verdict{Outcome: l.outcome(Unreachable, "didn't respond: "+err.Error()), retry: true}
 	}
 	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(res.Body, MaxBody+1))
 	if err != nil {
-		return verdict{Outcome: l.outcome(Unreachable, "broke off its answer: "+err.Error()), retry: true}
+		return verdict{Outcome: l.outcome(Unreachable, "ended its response early: "+err.Error()), retry: true}
 	}
 	if len(body) > MaxBody {
-		return verdict{Outcome: l.outcome(Unreachable, "answered more than 16 MiB")}
+		return verdict{Outcome: l.outcome(Unreachable, "sent a response over 16 MiB")}
 	}
 	now := time.Now()
 	if l.p.Classify != nil {
@@ -294,9 +294,9 @@ func (l *Line) try(ctx context.Context, ask Ask, u *url.URL, lookup bool) verdic
 	case res.StatusCode == http.StatusNotFound && lookup:
 		return verdict{Outcome: l.outcome(NotFound, "has no such record")}
 	case res.StatusCode >= http.StatusInternalServerError:
-		return verdict{Outcome: l.outcome(Unreachable, "answered "+res.Status), retry: true}
+		return verdict{Outcome: l.outcome(Unreachable, "responded with "+res.Status), retry: true}
 	}
-	return verdict{Outcome: l.outcome(Unreachable, "answered "+res.Status)}
+	return verdict{Outcome: l.outcome(Unreachable, "responded with "+res.Status)}
 }
 
 // retryAfter reads Retry-After as seconds or an HTTP date. Without one the

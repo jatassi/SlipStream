@@ -33,7 +33,7 @@ func TestTheHomeNodeKeepsToTheIndexersHostTimeAndSize(t *testing.T) {
 
 	patient := indexers.NewHome(&http.Client{}, indexers.Timings{Request: time.Minute})
 	_, err := patient.Caps(t.Context(), &searchv1.CapsRequest{Indexer: idx})
-	if want := "resource_exhausted: the Indexer's answer is over 8388608 bytes"; err == nil || err.Error() != want {
+	if want := "resource_exhausted: the Indexer's response is over 8388608 bytes"; err == nil || err.Error() != want {
 		t.Errorf("an oversized caps = %v, want %s", err, want)
 	}
 	_, err = home.Search(t.Context(), &searchv1.SearchRequest{Indexer: idx, Params: map[string]string{"t": "search"}})

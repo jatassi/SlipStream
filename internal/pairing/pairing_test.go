@@ -117,7 +117,7 @@ func TestARepairSupersedesTheOldController(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := joined.String(); got != "joined home as box (node "+joined.NodeID.String()+"); link up to 127.0.0.2:8485" {
+		if got := joined.String(); got != "joined home as box (node "+joined.NodeID.String()+"), linked to 127.0.0.2:8485" {
 			t.Fatalf("joined line %q", got)
 		}
 		if _, err := p.Claim(t.Context(), first.mint(t), ignore); kind(err) != pairing.AlreadyJoined || err.Error() != "already joined" {
@@ -218,7 +218,7 @@ func TestARepairReachesAControllerThroughItsAdvertisedAddress(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := joined.String(); got != "joined restored as box (node "+joined.NodeID.String()+"); link up to 127.0.0.9:443" {
+		if got := joined.String(); got != "joined restored as box (node "+joined.NodeID.String()+"), linked to 127.0.0.9:443" {
 			t.Fatalf("joined line %q", got)
 		}
 		synctest.Wait()
@@ -276,7 +276,7 @@ func checkAwaiting(t *testing.T, p *pairing.Pairing, pend pairing.Pending, start
 		"Can't reach the Controller at 127.0.0.9:8485.",
 		"Paste this Node address into the Add a Node dialog on the Controller:",
 		"  " + pend.Address.String(),
-		"Waiting for the Controller to dial until " + start.Add(10*time.Minute).Format("15:04") + ". Ctrl-C stops.",
+		"Waiting for the Controller to dial until " + start.Add(10*time.Minute).Format("15:04") + ". Press Ctrl-C to stop.",
 	}
 	if !slices.Equal(pend.Lines(), want) {
 		t.Fatalf("the pending claim reads %q, want %q", pend.Lines(), want)

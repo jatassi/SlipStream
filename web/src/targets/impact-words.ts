@@ -10,15 +10,15 @@ export function impactLines(impact: TargetsImpact): string[] {
   return [
     works > 0 && `${counted(works, "Work changes", "Works change")}.`,
     ownList > 0 &&
-      `${counted(ownList, "Work keeps its own Edition list", "Works keep their own Edition lists")}, so the new list doesn't reach ${ownList === 1 ? "it" : "them"}.`,
+      `${counted(ownList, "Work keeps its own Edition list", "Works keep their own Edition lists")}, so the new list doesn't apply to ${ownList === 1 ? "it" : "them"}.`,
     unwanted.files > 0 &&
       `${counted(unwanted.files, "file would fill nothing", "files would fill nothing")} (${bytes(unwanted.bytes)}).`,
     renamed > 0 && `${counted(renamed, "file is renamed", "files are renamed")}.`,
     newlyWanted > 0 && `${counted(newlyWanted, "cell becomes wanted", "cells become wanted")}.`,
     downloading > 0 &&
       (downloading === 1
-        ? "1 download in progress is for a cell that goes. Its file follows the choice below."
-        : `${String(downloading)} downloads in progress are for cells that go. Their files follow the choice below.`),
+        ? "1 download in progress is for a cell that is no longer wanted. Its file is deleted or kept, as chosen below."
+        : `${String(downloading)} downloads in progress are for cells that are no longer wanted. Their files are deleted or kept, as chosen below.`),
   ].filter((line) => line !== false);
 }
 

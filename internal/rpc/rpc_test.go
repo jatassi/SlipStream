@@ -228,7 +228,7 @@ func TestCallsThatNeverRan(t *testing.T) {
 		c.Connect(t)
 		c.roster.holders[role.Searching] = []role.NodeID{c.controllerID}
 		_, err = rpctestv1connect.SearchService.On(c.cluster, c.workerID).Search(t.Context(), &rpctestv1.SearchRequest{})
-		want := "failed_precondition: node " + c.workerID.String() + " does not hold the searching Role"
+		want := "failed_precondition: node " + c.workerID.String() + " doesn't hold the searching Role"
 		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != want || rpc.Unheld(err) != role.Searching {
 			t.Errorf("a Role call the roster refuses = %v, NotSent %v %v, Unheld %q", err, why, ok, rpc.Unheld(err))
 		}
@@ -236,7 +236,7 @@ func TestCallsThatNeverRan(t *testing.T) {
 		c.roster.holders[role.Searching] = []role.NodeID{c.controllerID, c.workerID}
 		c.workerHolds.Store(false)
 		_, err = rpctestv1connect.SearchService.On(c.cluster, c.workerID).Search(t.Context(), &rpctestv1.SearchRequest{})
-		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != "failed_precondition: this Node does not hold the searching Role" || rpc.Lost(err) || rpc.Unheld(err) != role.Searching {
+		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != "failed_precondition: this Node doesn't hold the searching Role" || rpc.Lost(err) || rpc.Unheld(err) != role.Searching {
 			t.Errorf("a Role call the target refuses = %v, NotSent %v %v, Unheld %q", err, why, ok, rpc.Unheld(err))
 		}
 		if got := c.searchers[c.workerID].calls.Load(); got != 0 {

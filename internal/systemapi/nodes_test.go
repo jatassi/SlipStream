@@ -145,7 +145,7 @@ func TestANodesConfigIsChangedEveryKeyOrNone(t *testing.T) {
 		expect(t, n.do(http.MethodPatch, boxPath+"/config", `{"log.level":"warn"}`, admin), tc.status, tc.want+"\n")
 	}
 	expect(t, n.do(http.MethodPatch, boxPath+"/config", `{"log.max_size_mb":1.5}`, admin), 422,
-		`{"status":422,"code":"invalid","title":"Some fields are invalid","detail":"A whole number.","errors":[{"location":"body.log.max_size_mb","message":"A whole number."}]}`+"\n")
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"A whole number.","errors":[{"location":"body.log.max_size_mb","message":"A whole number."}]}`+"\n")
 }
 
 func TestANodeRestartsOnceAndAnOfflineOneAnswers503(t *testing.T) {

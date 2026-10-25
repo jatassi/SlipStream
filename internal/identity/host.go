@@ -64,7 +64,7 @@ func (s *Service) ResetFromHost(ctx context.Context, req ResetRequest) (string, 
 			return err
 		}
 		if !row.DisabledAt.IsZero() {
-			return fmt.Errorf("the Account %s is turned off; an Admin can turn it back on", email)
+			return fmt.Errorf("the Account %s is turned off. An Admin can turn it back on", email)
 		}
 		if out, err = s.issue(ctx, q, fx, resetKind, linkTarget{email: email, account: row.ID}, AccountID{}); err != nil {
 			return err
@@ -88,11 +88,11 @@ func hostAddress(ctx context.Context, q *db.Queries, address Address) error {
 	}
 	switch {
 	case set.Address.IsZero() && address.IsZero():
-		return &HostRefusal{Text: "SlipStream has no address for links yet; pass --address <origin>, such as --address https://slipstream.example.com"}
+		return &HostRefusal{Text: "SlipStream has no address for links yet. Pass --address <origin>, such as --address https://slipstream.example.com"}
 	case set.Address.IsZero():
 		return q.SetAddress(ctx, address.origin)
 	case !address.IsZero() && address != set.Address:
-		return &HostRefusal{Text: fmt.Sprintf("SlipStream's address is already %s; leave out --address, or change it in Settings > Address", set.Address)}
+		return &HostRefusal{Text: fmt.Sprintf("SlipStream's address is already %s. Leave out --address, or change it in Settings > Address", set.Address)}
 	}
 	return nil
 }

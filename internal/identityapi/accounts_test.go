@@ -191,7 +191,7 @@ func TestSessionsAreListedAndEndedOneOrAllAtOnce(t *testing.T) {
 	p = sessionOf(t, n.signIn("grace@example.com", "1357"))
 	sub = n.stream(grace, p)
 	expect(t, n.as(g, http.MethodDelete, "/api/v1/sessions?others=false", ""), 422,
-		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"query.others","message":"expected true"}]}`+"\n")
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.others","message":"expected true"}]}`+"\n")
 	expect(t, n.as(g, http.MethodDelete, "/api/v1/sessions?others=true", ""), 204, "")
 	if got := ending(t, sub); got != "live.session-ended revoked" {
 		t.Fatalf("the other stream = %q, want ended revoked", got)
@@ -276,7 +276,7 @@ func TestTheAccountsListShowsEachAccountsState(t *testing.T) {
 	}
 	expect(t, n.as(a, http.MethodGet, "/api/v1/accounts/"+missing, ""), 404, accountNotFound)
 	expect(t, n.as(a, http.MethodGet, "/api/v1/accounts/not-an-id", ""), 422,
-		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"path.id","message":"expected string to be RFC 4122 uuid: invalid UUID length: 9"}]}`+"\n")
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"path.id","message":"expected string to be RFC 4122 uuid: invalid UUID length: 9"}]}`+"\n")
 }
 
 func TestAnAdminChangesAnEmailDirectlyAndTheOldAddressIsTold(t *testing.T) {

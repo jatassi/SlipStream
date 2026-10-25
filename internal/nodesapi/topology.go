@@ -22,7 +22,7 @@ type topologyOutput struct {
 type topologyNode struct {
 	ID         string     `json:"id" format:"uuid"`
 	Name       string     `json:"name"`
-	Self       bool       `json:"self" doc:"The Node answering, which is the Controller"`
+	Self       bool       `json:"self" doc:"The Node that responded, which is the Controller"`
 	Controller bool       `json:"controller"`
 	State      string     `json:"state" enum:"online,reconnecting,offline,lapsed,mismatched"`
 	Since      time.Time  `json:"since" doc:"When it came in step; while away, its last Sync frame"`

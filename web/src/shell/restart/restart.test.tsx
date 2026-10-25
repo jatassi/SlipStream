@@ -10,7 +10,7 @@ import { worker } from "../../test/worker";
 import { paletteShortcut } from "../palette-state";
 
 const said =
-  "The web app reconnects by itself. Downloads and imports pause and pick up where they left off.";
+  "The web app reconnects automatically. Downloads and imports pause, then resume where they stopped.";
 const confirm = (name: string) => page.getByRole("dialog", { name });
 
 test("the account menu asks before restarting SlipStream, and Cancel restarts nothing", async () => {

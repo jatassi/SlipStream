@@ -25,7 +25,7 @@ var (
 	sessionNotFound    = api.NewCode(http.StatusNotFound, "session_not_found", "The Account has no session with that id")
 	passkeyNotFound    = api.NewCode(http.StatusNotFound, "passkey_not_found", "You have no passkey with that id")
 	passkeyUnavailable = api.NewCode(http.StatusConflict, "passkey_unavailable", "A passkey can't be used at this address")
-	passkeyFailed      = api.NewCode(http.StatusUnauthorized, "passkey_failed", "The passkey did not check out")
+	passkeyFailed      = api.NewCode(http.StatusUnauthorized, "passkey_failed", "The passkey couldn't be verified")
 )
 
 var pinChecked = []*api.Code{pinWrong, pinWait, pinOff, tooManyAttempts}

@@ -69,7 +69,8 @@ export function SizesSection({ draft, onChange }: SectionProps<TargetDraft>) {
     <div className="flex flex-col gap-3">
       <p className="text-ink-2">
         In MiB per minute of runtime. A release outside its range isn&apos;t grabbed automatically.
-        When SlipStream doesn&apos;t know a Work&apos;s runtime, it skips the check and says so.
+        When a Work&apos;s runtime is unknown, SlipStream skips the check and notes that on the
+        release.
       </p>
       {accepted.length === 0 ? (
         <p className="text-ink-3">Accept a quality to set its size.</p>

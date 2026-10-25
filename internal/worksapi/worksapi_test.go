@@ -244,7 +244,7 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"ghost","key":"w1"}`, 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrUnavailable))
-	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't answer. Try again later."}`)
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later."}`)
 	s.fx.Fail("w1", nil)
 	bad := record()
 	bad.Tree.Children[0].Children = append(bad.Tree.Children[0].Children, works.Entry{Key: "c1", Label: "Again"})
@@ -274,7 +274,7 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "Invalid API key", Err: works.ErrRefused})
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused SlipStream's key","detail":"TMDB refused SlipStream's key"}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "is rate limited until 2026-10-19T21:04:00Z", Err: works.ErrUnavailable})
-	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't answer. Try again later.","detail":"TMDB: is rate limited until 2026-10-19T21:04:00Z"}`)
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB: is rate limited until 2026-10-19T21:04:00Z"}`)
 }
 
 func TestRefreshByHandAnswersGoneUpstream409(t *testing.T) {
@@ -386,7 +386,7 @@ func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {
 	s := serve(t)
 	s.fx.Fail("w1", errors.New("disk on fire"))
-	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 500, `{"status":500,"code":"internal","title":"Something went wrong"}`)
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 500, `{"status":500,"code":"internal","title":"SlipStream had an internal error. This Node's log has the details."}`)
 	if want := `level=ERROR msg="operation failed" method=POST path=/api/v1/works operation=addWork error="content type fixture: fetch w1: disk on fire"`; !strings.Contains(s.log.String(), want) {
 		t.Fatalf("log = %s, want %s", s.log, want)
 	}

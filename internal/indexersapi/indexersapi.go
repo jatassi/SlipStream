@@ -30,7 +30,7 @@ func open(r Registry) *indexers.Indexers {
 var (
 	indexerNameTaken   = api.NewCode(http.StatusConflict, "indexer_name_taken", "Another Indexer has that name")
 	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node holds Searching. Give one the Searching Role first.")
-	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Indexer didn't answer")
+	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Indexer didn't respond")
 	indexerRefused     = api.NewCode(http.StatusUnprocessableEntity, "indexer_refused", "The Indexer refused the request")
 	indexerNotFound    = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )

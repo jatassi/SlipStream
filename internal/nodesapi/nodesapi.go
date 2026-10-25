@@ -44,8 +44,8 @@ var (
 	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "A guardrail blocks this change", "outcome")
 	nothingHeld   = api.NewCarrying[outcome](http.StatusConflict, "nothing_held", "The Node holds nothing to write off for these Roles", "outcome")
 	keepsRole     = api.NewCarrying[outcome](http.StatusConflict, "keeps_role", "The Node is the last that can hold a Role it would write off", "outcome")
-	isController  = api.NewCarrying[outcome](http.StatusConflict, "node_is_controller", "The Controller can't be removed; hand it over instead", "outcome")
-	holdsWork     = api.NewCarrying[outcome](http.StatusConflict, "node_holds_work", "The Node holds work; remove it with writeOff to write the work off", "outcome")
+	isController  = api.NewCarrying[outcome](http.StatusConflict, "node_is_controller", "The Controller can't be removed. Hand it over instead.", "outcome")
+	holdsWork     = api.NewCarrying[outcome](http.StatusConflict, "node_holds_work", "The Node holds work. Remove it with writeOff to write the work off.", "outcome")
 	nameTaken     = api.NewCode(http.StatusConflict, "node_name_taken", "Another Node has this name")
 	nameInvalid   = api.NewCode(http.StatusUnprocessableEntity, "node_name_invalid", "A Node's name is 1 to 63 characters, with no space at either end")
 )
@@ -658,7 +658,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "renameNode",
 		Method:  http.MethodPatch,
 		Path:    "/nodes/{id}",
-		Summary: "Rename a Node; a Node in step has its new name when this answers",
+		Summary: "Rename a Node. A Node in step has its new name when this responds",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotFound, nameTaken, nameInvalid},
 	}, h.renameNode)
@@ -667,7 +667,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "removeNode",
 		Method:  http.MethodDelete,
 		Path:    "/nodes/{id}",
-		Summary: "Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history",
+		Summary: "Remove a Node. Its Roles fall back as if unticked, and its row stays as a tombstone for history",
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{nodeNotFound, isController.Code, holdsWork.Code},
 	}, h.removeNode)
@@ -684,7 +684,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "getTopology",
 		Method:  http.MethodGet,
 		Path:    "/nodes/topology",
-		Summary: "Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates",
+		Summary: "Get every Node, what it holds and the links between them, as the canvas draws them. The nodes.traffic event carries the rates",
 		Status:  http.StatusOK,
 	}, h.getTopology)
 
@@ -701,7 +701,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "setRoles",
 		Method:  http.MethodPut,
 		Path:    "/nodes/roles",
-		Summary: "Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers",
+		Summary: "Apply a change of Roles. The Nodes in step it changes have their new Roles when this responds",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotFound, rolesStale.Code, rolesBlocked.Code},
 	}, h.setRoles)
@@ -710,7 +710,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "writeOff",
 		Method:  http.MethodPost,
 		Path:    "/nodes/{id}/write-offs",
-		Summary: "Give up the work a Node holds for Roles, live or offline; its files are kept",
+		Summary: "Give up the work a Node holds for Roles, live or offline, and keep its files",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotFound, nothingHeld.Code, keepsRole.Code},
 	}, h.writeOff)

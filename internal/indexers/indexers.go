@@ -85,7 +85,7 @@ type Publisher interface {
 var (
 	ErrNameTaken       = errors.New("another Indexer has that name")
 	ErrNoSearchingNode = errors.New("no Node holds Searching")
-	ErrAPIKeyDropped   = errors.New("the Indexer's API key was dropped; enter it again")
+	ErrAPIKeyDropped   = errors.New("the Indexer's API key was dropped. Enter it again")
 	ErrNoIndexer       = errors.New("no such Indexer")
 )
 
@@ -358,7 +358,7 @@ func answered(body []byte, status int32) error {
 		return r
 	}
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return &UnavailableError{Err: fmt.Errorf("the Indexer answered status %d", status)}
+		return &UnavailableError{Err: fmt.Errorf("the Indexer responded with status %d", status)}
 	}
 	return nil
 }

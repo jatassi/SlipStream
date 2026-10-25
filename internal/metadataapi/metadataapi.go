@@ -46,7 +46,7 @@ func scheduler(r Registry) *tasks.Scheduler {
 var (
 	providerNotFound    = api.NewCode(http.StatusNotFound, "metadata_provider_not_found", "No metadata provider has that id")
 	keyRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_key_refused", "The metadata provider refused that key, so SlipStream didn't save it")
-	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't answer. Try again later.")
+	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
 	taskRunning         = api.NewCode(http.StatusConflict, "task_running", "The task has a run open")
@@ -68,7 +68,7 @@ func answer(err error) error {
 		return taskUnknown.Because("Metadata refresh is listed once the library holds a Work")
 	}
 	if running, ok := errors.AsType[*tasks.ErrRunning](err); ok {
-		return taskRunning.Because("Metadata refresh has been running since " + running.Since.UTC().Format(time.RFC3339) + "; the next run refreshes every Work")
+		return taskRunning.Because("Metadata refresh has been running since " + running.Since.UTC().Format(time.RFC3339) + ". The next run refreshes every Work.")
 	}
 	return err
 }
@@ -209,7 +209,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "testMetadataProvider",
 		Method:  http.MethodPost,
 		Path:    "/metadata/providers/{provider}/test",
-		Summary: "Make one cheap call to a provider with the key in use, and answer its status after it",
+		Summary: "Make one cheap call to a provider with the key in use, and return the provider's status after it",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{providerNotFound, metadataUnavailable},
 	}, h.test)
@@ -252,7 +252,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getArtwork",
 		Method:  http.MethodGet,
 		Path:    "/artwork/{token}",
-		Summary: "Get an image SlipStream handed out, at a size; the address never changes what it answers",
+		Summary: "Get an image SlipStream handed out, at a size. The response at an address never changes",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{artworkUnavailable},
 	}, h.artwork)
@@ -333,7 +333,7 @@ func (h handlers) clearCache(_ context.Context, by identity.Admin, _ *struct{}) 
 }
 
 type artworkInput struct {
-	Token string `path:"token" doc:"From an artwork URL the API answered"`
+	Token string `path:"token" doc:"From an artwork URL in an API response"`
 	Size  string `query:"size" required:"true" enum:"small,medium,large,original"`
 }
 

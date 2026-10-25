@@ -38,7 +38,7 @@ export const UpdateNodeConfigBody = zod
 export const UpdateNodeConfigResponse = SystemNodeConfig;
 
 /**
- * @summary Restart a Node; it answers before it stops
+ * @summary Restart a Node. The response comes before it stops
  */
 export const RestartNodeParams = zod.object({
   id: zod.uuid(),

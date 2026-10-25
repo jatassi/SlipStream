@@ -347,7 +347,7 @@ const (
 // only before its half starts.
 var ErrRestartRequired = &Error{
 	Kind:   RestartRequired,
-	Reason: "a running Worker re-pairs only at start: stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
+	Reason: "a running Worker re-pairs only at start. Stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
 }
 
 // Ignored is whether k left a pairing in place rather than refusing one:
@@ -364,7 +364,7 @@ func (e *Error) Error() string { return e.Reason }
 
 // refusedBy is each Pair refusal a Controller can answer a Join with.
 var refusedBy = map[linkv1.RefusedReason]Error{
-	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN: {Kind: CodeUnknown, Reason: "the Controller does not know the Join Code"},
+	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN: {Kind: CodeUnknown, Reason: "the Controller has no such Join Code"},
 	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED: {Kind: CodeExpired, Reason: "the Join Code has expired"},
 	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED:    {Kind: CodeUsed, Reason: "the Join Code was already used"},
 }

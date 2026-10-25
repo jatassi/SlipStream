@@ -292,7 +292,7 @@ func TestRefusedLibraryExitsWithItsOwnCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
-	want := "library.db holds schema shelf, which this binary does not have"
+	want := "library.db holds schema shelf, which this binary doesn't have"
 	if got := startFailed(res.stderr); res.code != node.ExitLibraryRefused || got != want {
 		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, got, node.ExitLibraryRefused, want, res.stderr)
 	}
@@ -308,7 +308,7 @@ func TestALibraryTheE2EBinaryClaimedRefusesTheReleaseBinary(t *testing.T) {
 	}
 	stopNode(t, p, dir)
 	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
-	want := "library.db holds schema music, which this binary does not have"
+	want := "library.db holds schema music, which this binary doesn't have"
 	if got := startFailed(res.stderr); res.code != node.ExitLibraryRefused || got != want {
 		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, got, node.ExitLibraryRefused, want, res.stderr)
 	}
@@ -486,7 +486,7 @@ func TestStopWithNoNodeFails(t *testing.T) {
 	t.Parallel()
 	dir := dataDir(t)
 	res := slipstream(t, childEnv(), "stop", "--data-dir", dir)
-	if want := "slipstream stop: no Node answered on " + dir + ": "; res.code != node.ExitFailed || !strings.HasPrefix(res.stderr, want) {
+	if want := "slipstream stop: no Node responded on " + dir + ": "; res.code != node.ExitFailed || !strings.HasPrefix(res.stderr, want) {
 		t.Fatalf("exit %d, stderr %q; want exit %d starting %q", res.code, res.stderr, node.ExitFailed, want)
 	}
 }

@@ -1,6 +1,6 @@
 export interface RehomeRootInputBody {
   /**
-   * The missing file count the Admin confirmed from a rehome_missing answer: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again
+   * The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again
    * @minimum 0
    */
   forget?: number;

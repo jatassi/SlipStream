@@ -110,8 +110,8 @@ var (
 	BodyTimeout          = NewCode(http.StatusRequestTimeout, "body_timeout", "The request body took too long to arrive")
 	TooLarge             = NewCode(http.StatusRequestEntityTooLarge, "too_large", "The request body is too large")
 	UnsupportedMediaType = NewCode(http.StatusUnsupportedMediaType, "unsupported_media_type", "Send the request body as JSON")
-	Invalid              = NewCode(http.StatusUnprocessableEntity, "invalid", "Some fields are invalid")
-	Internal             = NewCode(http.StatusInternalServerError, "internal", "Something went wrong")
+	Invalid              = NewCode(http.StatusUnprocessableEntity, "invalid", "Some fields have values SlipStream can't accept")
+	Internal             = NewCode(http.StatusInternalServerError, "internal", "SlipStream had an internal error. This Node's log has the details.")
 )
 
 var (
@@ -123,7 +123,7 @@ var (
 	SetupBusy      = NewCode(http.StatusConflict, "setup_busy", "Another setup is running")
 	AlreadyClaimed = NewCode(http.StatusConflict, "already_claimed", "This Node is already set up")
 	JoinPending    = NewCode(http.StatusConflict, "join_pending", "A Join waits for its Controller to dial this Node")
-	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "Another site cannot do this")
+	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "Another site can't make this request")
 	WorkerNode     = NewCode(http.StatusConflict, "worker_node", "This Node is a Worker. Manage it from its Controller.")
 	PINRequired    = NewCode(http.StatusForbidden, "pin_required", "Set a new PIN to continue")
 	NeedsReconfirm = NewCode(http.StatusForbidden, "needs_reconfirm", "Confirm it's you to continue")

@@ -223,9 +223,7 @@ test("a change planned on an old basis comes back as a fresh Review, and a faile
   await userEvent.click(dialog().getByRole("button", { name: "Apply" }));
   await expect
     .element(
-      dialog().getByText(
-        "Roles changed since you opened this. Here is the change as it stands now.",
-      ),
+      dialog().getByText("Roles changed since you opened this. Here is the change as it is now."),
     )
     .toBeVisible();
   await expect.element(dialog().getByText("home stops Notifying.")).toBeVisible();

@@ -55,8 +55,8 @@ const testSentence: {
   readonly [O in MailOutcome["outcome"]]: (to: string, detail: string) => string;
 } = {
   sent: (to) => `Sent a test email to ${to}.`,
-  failed: (_to, detail) => `The test email failed. The mail server said: ${detail}`,
-  "not-set-up": () => "Email is not set up. Save a server first.",
+  failed: (_to, detail) => `The test email failed. The mail server responded: ${detail}`,
+  "not-set-up": () => "Email isn't set up. Save a server first.",
 };
 
 function TestEmail() {
@@ -125,7 +125,7 @@ const fieldsOf = (passwordSet: boolean): readonly FieldSpec[] => [
   {
     name: "username",
     label: "Username",
-    description: "Leave empty when the server takes no sign-in.",
+    description: "Leave empty when the server doesn't require sign-in.",
   },
   {
     name: "password",

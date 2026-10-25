@@ -294,7 +294,5 @@ test("re-homing a root checks its files at the new place, and Save anyway forget
     `Deleted the ${moved} root. The folder is still on disk.`,
   );
   await expect(page.getByRole("button", { name: "Add a root for Movies" })).toBeVisible();
-  await expect(page.getByRole("main")).toContainText(
-    "Add a library root for Movies so SlipStream knows where to put them.",
-  );
+  await expect(page.getByRole("main")).toContainText("Add a library root to hold Movies.");
 });

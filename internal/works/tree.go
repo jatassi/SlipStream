@@ -80,7 +80,7 @@ func (p *parser) entries(parentName string, parent Key, depth int, es []Entry) e
 	}
 	for i, e := range es {
 		if len(e.Key) == 0 || len(e.Key) > maxKey {
-			return invalid("%s: %s %d has a key of %d bytes; a key is 1 to %d bytes", parentName, strings.ToLower(noun.One), i+1, len(e.Key), maxKey)
+			return invalid("%s: %s %d has a key of %d bytes, not 1 to %d", parentName, strings.ToLower(noun.One), i+1, len(e.Key), maxKey)
 		}
 		name := strings.ToLower(noun.One) + " " + string(e.Key)
 		switch {
@@ -110,7 +110,7 @@ func (p *parser) owner(work string, item Key) (string, error) {
 		return work, nil
 	}
 	if !p.items[item] {
-		return "", invalid("%s: it names %s %s, which it does not list", work, strings.ToLower(p.d.Item.One), item)
+		return "", invalid("%s: it names %s %s, which it doesn't list", work, strings.ToLower(p.d.Item.One), item)
 	}
 	return strings.ToLower(p.d.Item.One) + " " + string(item), nil
 }

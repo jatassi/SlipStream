@@ -105,7 +105,7 @@ test("New Signup link shows the link to copy and that email is not set up", asyn
     .element(dialog.getByRole("textbox", { name: "Signup link" }))
     .toHaveValue("https://media.example.test/signup#token=abc123");
   await expect
-    .element(dialog.getByText("Email is not set up, so copy the link and send it yourself."))
+    .element(dialog.getByText("Email isn't set up. Copy the link and send it yourself."))
     .toBeVisible();
   expect(sent).toEqual([{ email: "lin@example.test" }]);
 

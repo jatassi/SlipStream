@@ -79,11 +79,11 @@ type ffprobeOutput struct {
 func ParseFFprobe(out []byte) (Probe, error) {
 	var doc ffprobeOutput
 	if err := json.Unmarshal(out, &doc); err != nil {
-		return Probe{}, fmt.Errorf("read ffprobe's answer: %w", err)
+		return Probe{}, fmt.Errorf("read ffprobe's output: %w", err)
 	}
 	seconds, err := strconv.ParseFloat(doc.Format.Duration, 64)
 	if err != nil {
-		return Probe{}, fmt.Errorf("read ffprobe's answer: duration %q: %w", doc.Format.Duration, err)
+		return Probe{}, fmt.Errorf("read ffprobe's output: duration %q: %w", doc.Format.Duration, err)
 	}
 	p := Probe{Duration: time.Duration(seconds * float64(time.Second)).Round(time.Millisecond), Container: doc.Format.FormatName}
 	for _, s := range doc.Streams {

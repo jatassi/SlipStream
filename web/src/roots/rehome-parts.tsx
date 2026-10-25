@@ -43,8 +43,8 @@ export function MissingFiles({ missing, label }: { missing: RootsMissingFiles; l
       </ul>
       {more > 0 && <p className="text-warn-dim">And {counted.format(more)} more.</p>}
       <p className="text-warn-dim">
-        Check the folder, or save anyway: SlipStream forgets those files, so their {label} read
-        missing and it searches for them again.
+        Check the folder, or save anyway. If you save, SlipStream forgets those files, marks their{" "}
+        {label} missing and searches for them again.
       </p>
     </div>
   );

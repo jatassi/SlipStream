@@ -64,7 +64,7 @@ func openRunning(env Env) int {
 	reply, err := awaitStatus(env)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "slipstream app: %v\n", err)
-		desktop.Alert(install.ProductName, fmt.Sprintf("SlipStream is already running on %s and did not answer: %v", env.DataDir, err))
+		desktop.Alert(install.ProductName, fmt.Sprintf("SlipStream is already running on %s and didn't respond: %v", env.DataDir, err))
 		return ExitInUse
 	}
 	if err := desktop.Open(reply.URL); err != nil {

@@ -50,11 +50,11 @@ func TestClaimWorkerProblemCodes(t *testing.T) {
 		want string
 	}{
 		{golden[:len(golden)-1] + "H", "", problem(422, "join_code_damaged", "The Join Code is mistyped, cut short or not a SlipStream code")},
-		{golden, pairing.CodeUnknown, problem(403, "join_code_unknown", "The Controller does not know this Join Code")},
+		{golden, pairing.CodeUnknown, problem(403, "join_code_unknown", "The Controller has no such Join Code")},
 		{golden, pairing.CodeExpired, problem(403, "join_code_expired", "The Join Code has expired")},
 		{golden, pairing.CodeUsed, problem(403, "join_code_used", "The Join Code was already used")},
 		{golden, pairing.Unaddressed, problem(409, "node_unaddressed", "The Controller is unreachable, and this Node's link has no address for it to dial")},
-		{golden, pairing.KeyMismatch, problem(502, "controller_key_mismatch", "The Controller's key does not match the Join Code")},
+		{golden, pairing.KeyMismatch, problem(502, "controller_key_mismatch", "The Controller's key doesn't match the Join Code")},
 		{golden, pairing.IsController, problem(409, "already_claimed", "This Node is already set up")},
 		{golden, pairing.RestartRequired, problem(409, "restart_required", "A running Worker re-pairs only at start")},
 		{golden, pairing.JoinPending, problem(409, "join_pending", "A Join waits for its Controller to dial this Node")},

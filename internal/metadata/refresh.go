@@ -52,7 +52,7 @@ func RefreshTask(cfg RefreshConfig) tasks.Task {
 	return tasks.Task{
 		ID:      RefreshTaskID,
 		Name:    "Metadata refresh",
-		About:   "Refreshes the Works their metadata source reports changed, then each Work whose tier below says it is due.",
+		About:   "Refreshes the Works their metadata source reports changed, then each Work its tier below makes due.",
 		Group:   tasks.GroupOf(role.Metadata.Group()),
 		Cadence: tasks.InWindow{Days: refreshCadence, Spread: refreshSpread},
 		Overdue: tasks.Wait,

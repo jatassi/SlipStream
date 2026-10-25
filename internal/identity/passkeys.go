@@ -43,7 +43,7 @@ var PasskeysChangedEvent = live.AccountEvent[PasskeysChanged]("identity.passkeys
 
 var (
 	ErrPasskeyUnavailable = errors.New("identity: this address can't hold a passkey, or holds none of the Account's")
-	ErrPasskeyFailed      = errors.New("identity: the passkey did not check out")
+	ErrPasskeyFailed      = errors.New("identity: the passkey couldn't be verified")
 	ErrNoPasskey          = errors.New("identity: the Account has no passkey with that id")
 )
 

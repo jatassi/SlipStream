@@ -77,7 +77,7 @@ test("Use a passkey with no passkey for this address says to enter the PIN, whic
   await userEvent.click(dialog().getByRole("button", { name: "Use a passkey" }));
   await expect
     .element(dialog().getByRole("alert"))
-    .toHaveTextContent("You have no passkey for this address, so enter your PIN.");
+    .toHaveTextContent("You have no passkey for this address. Enter your PIN.");
 
   await userEvent.click(dialog().getByRole("textbox", { name: "PIN", exact: true }));
   await userEvent.keyboard("1234");

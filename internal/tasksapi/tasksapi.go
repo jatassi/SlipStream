@@ -437,7 +437,7 @@ func Routes(r *api.Router, c Clock) {
 		ID:      "runTask",
 		Method:  http.MethodPost,
 		Path:    "/tasks/{taskId}/runs",
-		Summary: "Run a task now over every unit; its schedule stays as it was",
+		Summary: "Run a task now over every unit. Its schedule stays as it was",
 		Status:  http.StatusAccepted,
 		Errors:  []*api.Code{taskUnknown, taskRunning, taskWaiting},
 	}, h.runTask)

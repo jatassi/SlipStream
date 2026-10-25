@@ -35,7 +35,7 @@ func service(args []string) int {
 		return usage(fmt.Errorf("service %s: unexpected argument %q", action, flags.Arg(0)))
 	}
 	if !*user {
-		return usage(fmt.Errorf("service %s takes --user; the deb and rpm install the system service", action))
+		return usage(fmt.Errorf("service %s takes --user, because the deb and rpm install the system service", action))
 	}
 	env, err := ProcessEnv("service "+action, *dataDir)
 	if err != nil {
@@ -85,7 +85,7 @@ func uninstallUserService(env Env, layout install.Layout) int {
 		fmt.Println("no slipstream user service is installed")
 		return ExitOK
 	}
-	fmt.Println("slipstream service removed; linger stays on, and loginctl disable-linger turns it off")
+	fmt.Println("slipstream service removed. Linger stays on. Run loginctl disable-linger to turn it off.")
 	return ExitOK
 }
 
@@ -154,7 +154,7 @@ func awaitStatus(env Env) (StatusReply, error) {
 		}
 		select {
 		case <-ctx.Done():
-			return StatusReply{}, fmt.Errorf("the service did not answer status within %s: %w", serviceStartWait, err)
+			return StatusReply{}, fmt.Errorf("the service didn't respond to status within %s: %w", serviceStartWait, err)
 		case <-tick.C:
 		}
 	}

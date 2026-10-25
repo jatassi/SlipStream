@@ -32,7 +32,7 @@ test("saving a Profile's Targets shows the Works that keep their own Edition lis
   await expect
     .element(sheet.getByRole("list", { name: "What changes" }))
     .toHaveTextContent(
-      "3 Works change.1 Work keeps its own Edition list, so the new list doesn't reach it.2 files are renamed.",
+      "3 Works change.1 Work keeps its own Edition list, so the new list doesn't apply to it.2 files are renamed.",
     );
   expect(sheet.getByRole("radiogroup").query()).toBeNull();
   await userEvent.click(sheet.getByRole("button", { name: "Save", exact: true }));

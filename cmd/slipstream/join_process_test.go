@@ -191,7 +191,7 @@ func TestJoinOffline(t *testing.T) {
 	dir := dataDir(t)
 	res := slipstream(t, childEnv(boxEnv...), "join", "--data-dir", dir, code)
 	id := h.boxID(t)
-	if want := fmt.Sprintf("joined home as box (node %s); link up to %s\n", id, h.ready.Listeners.Link); res.code != node.ExitOK || res.stdout != want {
+	if want := fmt.Sprintf("joined home as box (node %s), linked to %s\n", id, h.ready.Listeners.Link); res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("join: exit %d, stdout %q, stderr %q; want exit 0, stdout %q", res.code, res.stdout, res.stderr, want)
 	}
 	if runtime.GOOS != "windows" {
@@ -230,7 +230,7 @@ func TestJoinRunning(t *testing.T) {
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 	res := slipstream(t, childEnv(), "join", h.mint(t), "--data-dir", dir)
 	id := h.boxID(t)
-	if want := fmt.Sprintf("joined home as box (node %s); link up to %s\n", id, h.ready.Listeners.Link); res.code != node.ExitOK || res.stdout != want {
+	if want := fmt.Sprintf("joined home as box (node %s), linked to %s\n", id, h.ready.Listeners.Link); res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("join: exit %d, stdout %q, stderr %q; want exit 0, stdout %q", res.code, res.stdout, res.stderr, want)
 	}
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
