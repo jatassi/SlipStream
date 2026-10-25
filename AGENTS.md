@@ -12,6 +12,10 @@ The five default triage roles, each label named after its role. See `docs/agents
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+## Writing
+
+Every string a person reads (UI copy, API problems, Health items, logs, CLI output, Go error strings, email) follows [WRITING.md](WRITING.md). Any review of a diff that adds or changes such a string, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms, puts WRITING.md in the reviewer's brief and reports each violation with the string, the rule number and a rewrite.
+
 ## Third-party code
 
 Adopt a library for standards, file formats and accessibility, and build the durable core and external clients ([ADR 0021](docs/adr/0021-slipstream-builds-its-durable-core-and-clients-and-adopts-libraries-for-standards.md)). Never port code from Jackett, which is GPL-2.0-only. Port Cardigann behaviour from Prowlarr instead.
