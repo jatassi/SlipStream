@@ -13,6 +13,8 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 func defaultView(t *testing.T, kind install.Kind) view {
@@ -21,7 +23,21 @@ func defaultView(t *testing.T, kind install.Kind) view {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return view{saved: &cfg, running: &cfg, defaults: &cfg, keys: keysByName(keys)}
+	return view{saved: &cfg, running: &cfg, defaults: &cfg, keys: keysByName(keys), dir: DataDir{path: testDataPath}, self: testNodeID}
+}
+
+var (
+	testDataPath = filepath.Join(string(filepath.Separator)+"srv", "slipstream")
+	testNodeID   = role.NodeID{UUID: storage.NewUUID()}
+)
+
+func jsonText(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
@@ -43,6 +59,7 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	downloads := jsonText(t, filepath.Join(testDataPath, "downloads"))
 	want := `[` +
 		`{"key":"http.listen","label":"Port","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"port","value":8484,"running":8484,"default":8484},` +
 		`{"key":"http.ports_to_try","label":"Ports to try","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"count","value":1,"running":1,"default":1,"min":1,"max":100,"unit":{"one":"port","many":"ports"}},` +
@@ -51,7 +68,9 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 		`{"key":"log.max_files","label":"Files kept","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":5,"running":5,"default":5,"min":0,"max":100,"unit":{"one":"file","many":"files"},"zero":"No limit"},` +
 		`{"key":"log.max_age_days","label":"Days kept","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":30,"running":30,"default":30,"min":0,"max":3650,"unit":{"one":"day","many":"days"},"zero":"No limit"},` +
 		`{"key":"log.compress","label":"Compress rotated files","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true},` +
-		`{"key":"log.viewer_lines","label":"Lines kept for the viewer","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":2000,"running":2000,"default":2000,"min":100,"max":50000,"unit":{"one":"line","many":"lines"}}` +
+		`{"key":"log.viewer_lines","label":"Lines kept for the viewer","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":2000,"running":2000,"default":2000,"min":100,"max":50000,"unit":{"one":"line","many":"lines"}},` +
+		`{"key":"torrent.listen","label":"Listen address","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"address","value":"0.0.0.0:6881","running":"0.0.0.0:6881","default":"0.0.0.0:6881"},` +
+		`{"key":"torrent.downloads","label":"Downloads folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + downloads + `,"running":` + downloads + `,"default":` + downloads + `,"nodeId":"` + testNodeID.String() + `","purpose":"downloads"}` +
 		`]`
 	if string(got) != want {
 		t.Fatalf("fields =\n%s\nwant\n%s", got, want)
@@ -104,7 +123,7 @@ func readConfigYAML(t *testing.T, f configFile) string {
 
 func TestSetWritesAKeyAndUnsetReturnsItToItsDefault(t *testing.T) {
 	f := testConfigFile(t, "# kept\nname: media\n", "")
-	saved, keys, err := f.set([]nodesystem.Change{{Key: "log.level", Value: nodesystem.Text("debug")}})
+	saved, keys, err := f.set(t.Context(), nil, []nodesystem.Change{{Key: "log.level", Value: nodesystem.Text("debug")}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +134,7 @@ func TestSetWritesAKeyAndUnsetReturnsItToItsDefault(t *testing.T) {
 		t.Fatalf("log.level = %s from %s, want debug from config.yaml", saved.Log.Level, k.Source)
 	}
 
-	saved, keys, err = f.set([]nodesystem.Change{{Key: "log.level", Value: nodesystem.Reset()}})
+	saved, keys, err = f.set(t.Context(), nil, []nodesystem.Change{{Key: "log.level", Value: nodesystem.Reset()}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +149,7 @@ func TestSetWritesAKeyAndUnsetReturnsItToItsDefault(t *testing.T) {
 func TestSetWithNoChangesLeavesConfigYAMLAsWritten(t *testing.T) {
 	const yaml = "name: media\n\n# the log\nlog:\n  max_files: 3\n"
 	f := testConfigFile(t, yaml, "")
-	saved, _, err := f.set(nil)
+	saved, _, err := f.set(t.Context(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +192,7 @@ func TestSetRefusesAndChangesNothing(t *testing.T) {
 	}} {
 		t.Run(c.name, func(t *testing.T) {
 			f := testConfigFile(t, yaml, c.dotEnv)
-			_, _, err := f.set(c.changes)
+			_, _, err := f.set(t.Context(), nil, c.changes)
 			if refused, ok := errors.AsType[*nodesystem.Refusal](err); !ok || *refused != c.want {
 				t.Fatalf("err = %#v, want %#v", err, c.want)
 			}
@@ -191,7 +210,7 @@ func TestSetRefusesALinkedConfigFile(t *testing.T) {
 	if err := os.Symlink(target, filepath.Join(f.dir.Path(), "config.yaml")); err != nil {
 		t.Skipf("no symlinks here: %v", err)
 	}
-	_, _, err := f.set([]nodesystem.Change{{Key: "log.level", Value: nodesystem.Text("debug")}})
+	_, _, err := f.set(t.Context(), nil, []nodesystem.Change{{Key: "log.level", Value: nodesystem.Text("debug")}})
 	want := nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "SlipStream can't rewrite config.yaml, a link or a mounted file. Edit it by hand."}
 	if refused, ok := errors.AsType[*nodesystem.Refusal](err); !ok || *refused != want {
 		t.Fatalf("err = %#v, want %#v", err, want)

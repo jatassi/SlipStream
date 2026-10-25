@@ -14,18 +14,17 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -63,6 +62,7 @@ const (
 	TorrentV2Only      Code = "torrent_v2_only"
 	NoDownloadClient   Code = "no_download_client"
 	DownloadFailed     Code = "download_failed"
+	Removed            Code = "removed"
 	NoVideoFile        Code = "no_video_file"
 	ProbeFailed        Code = "probe_failed"
 	FillsNothing       Code = "fills_nothing"
@@ -73,7 +73,7 @@ const (
 	NeedsTransfer      Code = "needs_transfer"
 )
 
-const needsTransferWords = "the Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
+const needsTransferWords = "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
 
 const (
 	Grabbed                  Outcome = "grabbed"
@@ -143,7 +143,11 @@ type Roster interface {
 // Downloads is the Downloading Role's Controller half.
 type Downloads interface {
 	Touch(nodes ...role.NodeID)
-	Facts(node role.NodeID) (*dlv1.Facts, bool)
+	// Moved is closed once a Node's reports that may move a Torrent's
+	// outcome commit.
+	Moved() <-chan struct{}
+	// Sample is a Torrent's live sample, false while it has none.
+	Sample(id downloadclients.ID) (downloadclients.Sample, bool)
 }
 
 // Roots is the library roots as a Grab reaches them: bytes go into a
@@ -166,14 +170,13 @@ type Staging interface {
 }
 
 type Config struct {
-	Library  *storage.DB[file]
-	Works    *works.Works
-	Targets  *targets.Targets
-	Files    *files.Files
-	Indexers *indexers.Indexers
-	Terms    map[works.TypeID]indexers.Facet
-	Roster   Roster
-	// Downloads is the Downloading Role's *role.Control.
+	Library    *storage.DB[file]
+	Works      *works.Works
+	Targets    *targets.Targets
+	Files      *files.Files
+	Indexers   *indexers.Indexers
+	Terms      map[works.TypeID]indexers.Facet
+	Roster     Roster
 	Downloads  Downloads
 	Media      media.Remote
 	Roots      Roots
@@ -209,17 +212,10 @@ type Release struct {
 	InfoHash *bencode.InfoHash
 }
 
-// Torrent is the fetched .torrent: its v1 info hash and the metainfo.
+// Torrent is the Torrent a Grab downloads, as the Grab reads it.
 type Torrent struct {
-	InfoHash bencode.InfoHash
-	Metainfo []byte
-}
-
-// Download is how the downloading Node's client ended the download: its
-// files, or the error it failed with.
-type Download struct {
-	Files []engine.File
-	Error string
+	ID downloadclients.ID
+	downloadclients.Attached
 }
 
 // Plan is placement, decided at probing before any Transfer (ADR 0004):
@@ -262,26 +258,39 @@ type Grab struct {
 	// until it did.
 	FetchNode role.NodeID
 	Stage     Stage
-	Torrent   *Torrent
-	Download  *Download
-	Plan      *Plan
-	Failed    *Failure
-	History   []Entered
-	Created   time.Time
+	// Torrent is nil until the fetch attached one.
+	Torrent *Torrent
+	Plan    *Plan
+	Failed  *Failure
+	History []Entered
+	Created time.Time
 }
 
 // Done reports whether the Grab has no step left.
 func (g Grab) Done() bool { return g.Stage == Imported || g.Stage == Failed }
 
-// related is every Grab's targets, fills and history, by Grab.
+// related is every Grab's targets, fills and history, by Grab, and the
+// Torrents of the Grabs read.
 type related struct {
-	targets map[GrabID][]targets.TargetID
-	fills   map[GrabID][]targets.TargetID
-	history map[GrabID][]Entered
+	targets  map[GrabID][]targets.TargetID
+	fills    map[GrabID][]targets.TargetID
+	history  map[GrabID][]Entered
+	torrents map[downloadclients.ID]downloadclients.Attached
 }
 
-func readRelated(ctx context.Context, q *db.Queries) (related, error) {
+func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (related, error) {
+	q := db.New(r)
 	rel := related{targets: map[GrabID][]targets.TargetID{}, fills: map[GrabID][]targets.TargetID{}, history: map[GrabID][]Entered{}}
+	var ids []downloadclients.ID
+	for _, row := range rows {
+		if !row.TorrentID.IsZero() {
+			ids = append(ids, row.TorrentID)
+		}
+	}
+	var err error
+	if rel.torrents, err = downloadclients.Outcomes(ctx, r, ids); err != nil {
+		return related{}, err
+	}
 	ts, err := q.ListTargets(ctx)
 	if err != nil {
 		return related{}, err
@@ -318,17 +327,8 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		h := bencode.InfoHash(row.ReleaseInfoHash)
 		g.Release.InfoHash = &h
 	}
-	if row.InfoHash != nil {
-		g.Torrent = &Torrent{InfoHash: bencode.InfoHash(row.InfoHash), Metainfo: row.Metainfo}
-	}
-	switch {
-	case row.DownloadFiles != nil:
-		g.Download = &Download{}
-		if err := json.Unmarshal([]byte(*row.DownloadFiles), &g.Download.Files); err != nil {
-			return Grab{}, fmt.Errorf("grab %s: download files: %w", row.ID, err)
-		}
-	case row.DownloadError != nil:
-		g.Download = &Download{Error: *row.DownloadError}
+	if !row.TorrentID.IsZero() {
+		g.Torrent = &Torrent{ID: row.TorrentID, Attached: rel.torrents[row.TorrentID]}
 	}
 	if row.Path != nil {
 		g.Plan = &Plan{FileIndex: int(*row.FileIndex), Path: *row.Path, Fills: rel.fills[row.ID]}
@@ -350,7 +350,7 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 }
 
 func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) ([]Grab, error) {
-	rel, err := readRelated(ctx, db.New(r))
+	rel, err := readRelated(ctx, r, rows)
 	if err != nil {
 		return nil, err
 	}

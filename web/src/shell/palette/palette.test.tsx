@@ -8,6 +8,7 @@ import {
   getListWorksMockHandler,
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchard, orchardId } from "../../test/library";
+import { nodeSystems } from "../../test/node-system";
 import { homeId } from "../../test/nodes";
 import { asPhone } from "../../test/viewport";
 import { paletteShortcut } from "../palette-state";
@@ -95,6 +96,7 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
       "Go to Overviewhome",
       "Go to Roleshome",
       "Go to Web and APIhome",
+      "Go to Torrent clienthome",
       "Go to Logshome",
       "Go to Log settingshome",
       "Add a Film",
@@ -169,7 +171,10 @@ test("Add a Film opens the Add page for its Content Type", async () => {
 });
 
 test("Go to Log settings opens that section of the browser's own Node", async () => {
-  const { router } = renderApp({ path: "/library", handlers: library() });
+  const { router } = renderApp({
+    path: "/library",
+    handlers: [...library(), ...nodeSystems().handlers],
+  });
   await openFromCapsule();
   await userEvent.keyboard("log set");
   await expect.poll(() => optionTexts("Commands")).toEqual(["Go to Log settingshome"]);

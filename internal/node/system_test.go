@@ -249,6 +249,65 @@ func TestTheConfigHoldsARestartRowAndRefusesAsAWhole(t *testing.T) {
 	})
 }
 
+// settingRefused is a 422 refusing key's value with sentence.
+func settingRefused(code, title, key, sentence string) string {
+	return fmt.Sprintf(`{"status":422,"code":%q,"title":%q,"detail":%q,"errors":[{"location":"body.%s","message":%q}]}`, code, title, sentence, key, sentence) + "\n"
+}
+
+func TestTheTorrentRowsTakeAnAddressAndRefuseAFolderTheyCantUse(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		env := fallbackEnv(t, "1")
+		env.Environ = []string{"SLIPSTREAM_LINK_LISTEN=127.0.0.1:8485"}
+		env, host := inMemory(env)
+		n, c := startOn(t, env, host)
+		key := claimKey(t, n, c)
+		path := "/api/v1/nodes/" + selfID(t, c, key) + "/config"
+
+		var torrent []string
+		for _, s := range decode[struct {
+			Sections []struct {
+				ID     string           `json:"id"`
+				Fields []map[string]any `json:"fields"`
+			} `json:"sections"`
+		}](t, c.admin(key, http.MethodGet, path, ""), http.StatusOK).Sections {
+			if s.ID == "torrent" {
+				for _, f := range s.Fields {
+					torrent = append(torrent, fmt.Sprint(f["key"], " ", f["kind"]))
+				}
+			}
+		}
+		if want := []string{"torrent.listen address", "torrent.downloads folder"}; !slices.Equal(torrent, want) {
+			t.Fatalf("the torrent section holds %v, want %v", torrent, want)
+		}
+
+		f := fieldOf(t, c.admin(key, http.MethodPatch, path, `{"torrent.listen":"[::]:51413"}`), "torrent.listen")
+		if got := fieldLine(f); got != "[::]:51413 0.0.0.0:6881 true restart" {
+			t.Fatalf("torrent.listen = %s, want [::]:51413 saved, 0.0.0.0:6881 running, pending a restart", got)
+		}
+		saved := readConfigYAML(t, env.configFile())
+		if !strings.Contains(saved, "[::]:51413") {
+			t.Fatalf("config.yaml = %q, want the new listen address", saved)
+		}
+
+		const outOfRange, portUsed = "setting_out_of_range", "port_used_by_node"
+		const outOfRangeTitle, portUsedTitle = "The value is outside the setting's range", "The Node uses this port already"
+		for _, c2 := range []struct{ value, code, title, sentence string }{
+			{"51413", outOfRange, outOfRangeTitle, "An address and port, such as 0.0.0.0:6881."},
+			{"[::]:0", outOfRange, outOfRangeTitle, "A port between 1 and 65535."},
+			{"127.0.0.1:8485", portUsed, portUsedTitle, "The Node link already uses port 8485."},
+			{"127.0.0.1:8484", portUsed, portUsedTitle, "The web server already uses port 8484."},
+		} {
+			expect(t, c.admin(key, http.MethodPatch, path, `{"torrent.listen":"`+c2.value+`"}`), 422,
+				settingRefused(c2.code, c2.title, "torrent.listen", c2.sentence))
+		}
+		expect(t, c.admin(key, http.MethodPatch, path, `{"torrent.downloads":"downloads"}`), 422,
+			settingRefused("folder_unusable", "SlipStream can't use this folder", "torrent.downloads", "Can't use this folder because it isn't a full path."))
+		if got := readConfigYAML(t, env.configFile()); got != saved {
+			t.Fatalf("config.yaml = %q after refused changes, want %q", got, saved)
+		}
+	})
+}
+
 func TestRestartThroughTheAPIAnswersBeforeTheNodeStops(t *testing.T) {
 	env, _ := testEnv(t)
 	env, next := restartable(t, env)

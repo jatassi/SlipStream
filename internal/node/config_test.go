@@ -29,7 +29,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		paths = append(paths, leaf.Path)
 	}
 	want := []string{
-		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.outgoing_utp", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
+		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
 		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines",
 		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
@@ -37,7 +37,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
 		"timings.link.join_dial", "timings.link.await_dial",
 		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.role.probe", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.nodes.reach", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
-		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
+		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.downloading.announce_floor", "timings.downloading.resume_save", "timings.downloading.shutdown_save", "timings.downloading.start_spread", "timings.downloading.announce_jitter", "timings.downloading.totals_report", "timings.downloading.live_sample", "timings.downloading.route_check", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 		"timings.storing.stat",
 		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max", "timings.metadata.artwork_retry", "timings.metadata.changes_pages",
 		"timings.tmdb.interval", "timings.tmdb.burst", "timings.omdb.interval", "timings.omdb.burst",

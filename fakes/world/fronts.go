@@ -21,13 +21,14 @@ import (
 
 // bindFronts binds every front before any fake is built, since the
 // release catalog and every address a Node sees name one: each fake as
-// each Node and the world reach it, each seeded release's seeder as each
-// Node reaches it, and each Node's link as every peer reaches it.
+// each Node and the world reach it, each seeded release's seeder and each
+// bad peer as each Node reaches it, each Node's link as every peer
+// reaches it, and the leecher's Node as the leecher reaches it.
 func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
 		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
 	})
-	planned := planFronts(specs, r.nodeNames(), r.scenario.Releases)
+	planned := planFronts(specs, r.nodeNames(), r.scenario.Releases, r.scenario.Leecher)
 	r.faults = fault.NewPlan(planned, r.fired)
 	r.fronts = front.NewSet(r.faults, r.appendRecord, r.log)
 	undo.push(r.fronts.Close)
@@ -47,8 +48,8 @@ func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) e
 }
 
 // planFronts is every front a world of the fakes specs and the Nodes
-// nodes binds for releases.
-func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release) []fault.Front {
+// nodes binds for releases and the leecher.
+func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release, leecher *scenario.Leecher) []fault.Front {
 	var planned []fault.Front
 	for _, spec := range specs {
 		layers := fault.Conn | fault.HTTP
@@ -60,15 +61,20 @@ func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release) 
 		}
 	}
 	for _, rel := range releases {
-		if !rel.Seeded {
-			continue
-		}
 		for _, origin := range nodes {
-			planned = append(planned, fault.Front{Target: tracker.SeedersTarget(rel.Name), Origin: origin, Layers: fault.Conn})
+			if rel.Seeded {
+				planned = append(planned, fault.Front{Target: tracker.SeedersTarget(rel.Name), Origin: origin, Layers: fault.Conn})
+			}
+			if rel.BadPeer != "" {
+				planned = append(planned, fault.Front{Target: tracker.BadPeerTarget(rel.Name), Origin: origin, Layers: fault.Conn})
+			}
 		}
 	}
 	for _, name := range nodes {
 		planned = append(planned, fault.Front{Target: LinkTarget(name), Layers: fault.Conn})
+	}
+	if leecher != nil {
+		planned = append(planned, fault.Front{Target: LeecherTarget(leecher.Node), Origin: events.World, Layers: fault.Conn})
 	}
 	return planned
 }
@@ -169,12 +175,16 @@ func (r *Run) linkFront(name string) *front.Front {
 	return r.listeners[i]
 }
 
-// serveSeederFronts forwards each seeder front to its release's seeder.
+// serveSeederFronts forwards each seeder front to its release's seeder,
+// and each bad peer front to its release's bad peer.
 func (r *Run) serveSeederFronts() {
 	for _, l := range r.listeners {
 		for _, rel := range r.releases.Releases {
-			if rel.Seeded && l.Fault().Target == tracker.SeedersTarget(rel.Name) {
+			switch target := l.Fault().Target; {
+			case rel.Seeded && target == tracker.SeedersTarget(rel.Name):
 				l.Serve(front.Forward(func() (netip.AddrPort, error) { return r.seeders.Addr(rel.Name) }))
+			case rel.BadPeer != "" && target == tracker.BadPeerTarget(rel.Name):
+				l.Serve(front.Forward(func() (netip.AddrPort, error) { return r.seeders.BadPeerAddr(rel.Name) }))
 			}
 		}
 	}

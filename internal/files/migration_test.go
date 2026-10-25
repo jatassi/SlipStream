@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -85,7 +86,7 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	checked := checkQualities(t, lib, want)
 	if checked != len(want) {
@@ -125,7 +126,7 @@ func TestExistingFilesKeepTheVideoCodecTheirGrabProbed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	for path, video := range want {
 		var p files.Probe
@@ -304,7 +305,7 @@ func TestExistingFilesTakeTheFirstTargetTheyFillInProfileOrderAsTheirLabel(t *te
 		t.Fatal(err)
 	}
 
-	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	got := map[string]string{}
 	rows, err := lib.QueryContext(ctx, `SELECT path, label, extra FROM files_file ORDER BY path`)

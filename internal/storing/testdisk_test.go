@@ -22,6 +22,8 @@ var styleHere = map[bool]PathStyle{false: Unix, true: Windows}[runtime.GOOS == "
 // path and a count of the calls made.
 type testDisk struct {
 	host Host
+	// downloads is the Node's downloads folders, which no root may overlap.
+	downloads []string
 
 	mu sync.Mutex
 	// hung paths make every call on them wait until the channel closes.
@@ -41,7 +43,8 @@ type testDisk struct {
 func newTestDisk(t *testing.T) *testDisk {
 	t.Helper()
 	return &testDisk{
-		host:       Host{Style: styleHere, Account: "media", Data: t.TempDir(), Downloads: t.TempDir()},
+		host:       Host{Style: styleHere, Account: "media", Data: t.TempDir()},
+		downloads:  []string{t.TempDir()},
 		hung:       map[string]chan struct{}{},
 		denied:     map[string]bool{},
 		broken:     map[string]bool{},

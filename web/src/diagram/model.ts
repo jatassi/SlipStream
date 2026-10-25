@@ -150,8 +150,8 @@ function flowsOf(landing: Landing, [before, latest]: TrafficPair, share: number)
 
 const doneOf = (
   sample: NodesTraffic["nodes"][number] | undefined,
-  grabId: string,
-): number | undefined => sample?.torrents.find((torrent) => torrent.grabId === grabId)?.done;
+  torrentId: string,
+): number | undefined => sample?.torrents.find((torrent) => torrent.torrentId === torrentId)?.done;
 
 function boardOf(node: NodeRow, samples: TrafficPair, share: number): Board {
   const [before, latest] = samples;
@@ -159,8 +159,8 @@ function boardOf(node: NodeRow, samples: TrafficPair, share: number): Board {
   const was = before?.nodes.find(({ id }) => id === node.id);
   const panels = node.torrents.slice(0, PANELS).map((torrent) => {
     const done = mix(
-      doneOf(was, torrent.grabId),
-      doneOf(now, torrent.grabId) ?? torrent.done,
+      doneOf(was, torrent.torrentId),
+      doneOf(now, torrent.torrentId) ?? torrent.done,
       share,
     );
     return torrent.wanted > 0 ? clamp(done / torrent.wanted, 0, 1) : 0;

@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
@@ -35,6 +37,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		targets.Schema(),
 		roots.Schema(),
 		indexers.Schema(),
+		downloadclients.Schema(),
 		grabs.Schema(),
 		files.Schema(),
 		tasks.Schema(),
@@ -47,6 +50,7 @@ func localSchemas() []storage.Schema[storage.Local] {
 	return []storage.Schema[storage.Local]{
 		role.LocalSchema(),
 		transfers.Schema(),
+		downloading.Schema(),
 		metadata.LocalSchema(),
 		artwork.Schema(),
 	}

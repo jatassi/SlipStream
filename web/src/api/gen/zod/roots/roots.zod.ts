@@ -1,7 +1,7 @@
 import * as zod from "zod";
 
 import {
-  CheckRootInputBody,
+  CheckFolderInputBody,
   MakeFolderInputBody,
   RehomeRootInputBody,
   RootSettingsInputBody,
@@ -19,7 +19,7 @@ import {
 } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary List a folder on a Storage Node, or its places
+ * @summary List a folder on a Node, or its places
  */
 export const BrowseFoldersParams = zod.object({
   id: zod.uuid(),
@@ -39,7 +39,7 @@ export const BrowseFoldersQueryParams = zod.object({
 export const BrowseFoldersResponse = RootsListing;
 
 /**
- * @summary Make a folder in an existing folder on a Storage Node
+ * @summary Make a folder in an existing folder on a Node
  */
 export const MakeFolderParams = zod.object({
   id: zod.uuid(),
@@ -50,7 +50,18 @@ export const MakeFolderBody = MakeFolderInputBody;
 export const MakeFolderResponse = RootsMadeFolder;
 
 /**
- * @summary List the folders on a Storage Node that complete a typed path
+ * @summary Judge a folder on a Node for a purpose without saving it
+ */
+export const CheckFolderParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const CheckFolderBody = CheckFolderInputBody;
+
+export const CheckFolderResponse = RootsVerdict;
+
+/**
+ * @summary List the folders on a Node that complete a typed path
  */
 export const SuggestFoldersParams = zod.object({
   id: zod.uuid(),
@@ -79,13 +90,6 @@ export const ListRootsResponse = RootsRootList;
 export const CreateRootBody = RootsNewRoot;
 
 export const CreateRootResponse = RootsRoot;
-
-/**
- * @summary Judge a folder on a Storage Node as a library root without saving it
- */
-export const CheckRootBody = CheckRootInputBody;
-
-export const CheckRootResponse = RootsVerdict;
 
 /**
  * @summary Get the library roots settings

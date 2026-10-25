@@ -1,6 +1,6 @@
 import type { NodesTorrentView } from "./nodesTorrentView.ts";
 
 export interface NodesDownloadingResource {
-  /** Each Grab whose torrent the client keeps */
+  /** Each Torrent the client keeps, in added order */
   torrents: NodesTorrentView[];
 }

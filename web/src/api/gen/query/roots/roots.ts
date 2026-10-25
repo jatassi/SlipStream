@@ -18,17 +18,19 @@ import type {
 import type {
   BrowseFolders401,
   BrowseFolders403,
+  BrowseFolders404,
   BrowseFolders409,
   BrowseFolders422,
   BrowseFolders500,
   BrowseFolders503,
   BrowseFoldersParams,
-  CheckRoot401,
-  CheckRoot403,
-  CheckRoot409,
-  CheckRoot422,
-  CheckRoot500,
-  CheckRootInputBody,
+  CheckFolder401,
+  CheckFolder403,
+  CheckFolder404,
+  CheckFolder409,
+  CheckFolder422,
+  CheckFolder500,
+  CheckFolderInputBody,
   CreateRoot401,
   CreateRoot403,
   CreateRoot404,
@@ -62,6 +64,7 @@ import type {
   MakeDefaultRoot500,
   MakeFolder401,
   MakeFolder403,
+  MakeFolder404,
   MakeFolder409,
   MakeFolder422,
   MakeFolder500,
@@ -95,6 +98,7 @@ import type {
   SetWorkRootInputBody,
   SuggestFolders401,
   SuggestFolders403,
+  SuggestFolders404,
   SuggestFolders409,
   SuggestFolders422,
   SuggestFolders500,
@@ -144,7 +148,7 @@ export const getBrowseFoldersUrl = (id: string, params?: BrowseFoldersParams) =>
 };
 
 /**
- * @summary List a folder on a Storage Node, or its places
+ * @summary List a folder on a Node, or its places
  */
 export const browseFolders = async (
   id: string,
@@ -166,6 +170,7 @@ export const getBrowseFoldersSuspenseQueryOptions = <
   TError = ErrorType<
     | BrowseFolders401
     | BrowseFolders403
+    | BrowseFolders404
     | BrowseFolders409
     | BrowseFolders422
     | BrowseFolders500
@@ -205,6 +210,7 @@ export type BrowseFoldersSuspenseQueryResult = NonNullable<
 export type BrowseFoldersSuspenseQueryError = ErrorType<
   | BrowseFolders401
   | BrowseFolders403
+  | BrowseFolders404
   | BrowseFolders409
   | BrowseFolders422
   | BrowseFolders500
@@ -216,6 +222,7 @@ export function useBrowseFoldersSuspense<
   TError = ErrorType<
     | BrowseFolders401
     | BrowseFolders403
+    | BrowseFolders404
     | BrowseFolders409
     | BrowseFolders422
     | BrowseFolders500
@@ -237,6 +244,7 @@ export function useBrowseFoldersSuspense<
   TError = ErrorType<
     | BrowseFolders401
     | BrowseFolders403
+    | BrowseFolders404
     | BrowseFolders409
     | BrowseFolders422
     | BrowseFolders500
@@ -258,6 +266,7 @@ export function useBrowseFoldersSuspense<
   TError = ErrorType<
     | BrowseFolders401
     | BrowseFolders403
+    | BrowseFolders404
     | BrowseFolders409
     | BrowseFolders422
     | BrowseFolders500
@@ -275,7 +284,7 @@ export function useBrowseFoldersSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List a folder on a Storage Node, or its places
+ * @summary List a folder on a Node, or its places
  */
 
 export function useBrowseFoldersSuspense<
@@ -283,6 +292,7 @@ export function useBrowseFoldersSuspense<
   TError = ErrorType<
     | BrowseFolders401
     | BrowseFolders403
+    | BrowseFolders404
     | BrowseFolders409
     | BrowseFolders422
     | BrowseFolders500
@@ -314,7 +324,7 @@ export const getMakeFolderUrl = (id: string) => {
 };
 
 /**
- * @summary Make a folder in an existing folder on a Storage Node
+ * @summary Make a folder in an existing folder on a Node
  */
 export const makeFolder = async (
   id: string,
@@ -352,7 +362,13 @@ export const getMakeFolderMutationKey = () => ["makeFolder"] as const;
 
 export const getMakeFolderMutationOptions = <
   TError = ErrorType<
-    MakeFolder401 | MakeFolder403 | MakeFolder409 | MakeFolder422 | MakeFolder500 | MakeFolder503
+    | MakeFolder401
+    | MakeFolder403
+    | MakeFolder404
+    | MakeFolder409
+    | MakeFolder422
+    | MakeFolder500
+    | MakeFolder503
   >,
   TContext = unknown,
 >(options?: {
@@ -391,16 +407,28 @@ export const getMakeFolderMutationOptions = <
 export type MakeFolderMutationResult = NonNullable<Awaited<ReturnType<typeof makeFolder>>>;
 export type MakeFolderMutationBody = MakeFolderInputBody;
 export type MakeFolderMutationError = ErrorType<
-  MakeFolder401 | MakeFolder403 | MakeFolder409 | MakeFolder422 | MakeFolder500 | MakeFolder503
+  | MakeFolder401
+  | MakeFolder403
+  | MakeFolder404
+  | MakeFolder409
+  | MakeFolder422
+  | MakeFolder500
+  | MakeFolder503
 >;
 export type MakeFolderMutationVariables = { id: string; data: MakeFolderInputBody };
 
 /**
- * @summary Make a folder in an existing folder on a Storage Node
+ * @summary Make a folder in an existing folder on a Node
  */
 export const useMakeFolder = <
   TError = ErrorType<
-    MakeFolder401 | MakeFolder403 | MakeFolder409 | MakeFolder422 | MakeFolder500 | MakeFolder503
+    | MakeFolder401
+    | MakeFolder403
+    | MakeFolder404
+    | MakeFolder409
+    | MakeFolder422
+    | MakeFolder500
+    | MakeFolder503
   >,
   TContext = unknown,
 >(
@@ -422,6 +450,134 @@ export const useMakeFolder = <
 > => {
   return useMutation(getMakeFolderMutationOptions(options), queryClient);
 };
+export const getCheckFolderUrl = (id: string) => {
+  return `/api/v1/nodes/${id}/folders/check`;
+};
+
+/**
+ * @summary Judge a folder on a Node for a purpose without saving it
+ */
+export const checkFolder = async (
+  id: string,
+  checkFolderInputBody: CheckFolderInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RootsVerdict> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<RootsVerdict>(getCheckFolderUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(checkFolderInputBody),
+  });
+};
+
+export const getCheckFolderMutationKey = () => ["checkFolder"] as const;
+
+export const getCheckFolderMutationOptions = <
+  TError = ErrorType<
+    | CheckFolder401
+    | CheckFolder403
+    | CheckFolder404
+    | CheckFolder409
+    | CheckFolder422
+    | CheckFolder500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkFolder>>,
+    TError,
+    CheckFolderMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkFolder>>,
+  TError,
+  CheckFolderMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCheckFolderMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkFolder>>,
+    CheckFolderMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return checkFolder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckFolderMutationResult = NonNullable<Awaited<ReturnType<typeof checkFolder>>>;
+export type CheckFolderMutationBody = CheckFolderInputBody;
+export type CheckFolderMutationError = ErrorType<
+  | CheckFolder401
+  | CheckFolder403
+  | CheckFolder404
+  | CheckFolder409
+  | CheckFolder422
+  | CheckFolder500
+>;
+export type CheckFolderMutationVariables = { id: string; data: CheckFolderInputBody };
+
+/**
+ * @summary Judge a folder on a Node for a purpose without saving it
+ */
+export const useCheckFolder = <
+  TError = ErrorType<
+    | CheckFolder401
+    | CheckFolder403
+    | CheckFolder404
+    | CheckFolder409
+    | CheckFolder422
+    | CheckFolder500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof checkFolder>>,
+      TError,
+      CheckFolderMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof checkFolder>>,
+  TError,
+  CheckFolderMutationVariables,
+  TContext
+> => {
+  return useMutation(getCheckFolderMutationOptions(options), queryClient);
+};
 export const getSuggestFoldersUrl = (id: string, params?: SuggestFoldersParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -439,7 +595,7 @@ export const getSuggestFoldersUrl = (id: string, params?: SuggestFoldersParams) 
 };
 
 /**
- * @summary List the folders on a Storage Node that complete a typed path
+ * @summary List the folders on a Node that complete a typed path
  */
 export const suggestFolders = async (
   id: string,
@@ -461,6 +617,7 @@ export const getSuggestFoldersSuspenseQueryOptions = <
   TError = ErrorType<
     | SuggestFolders401
     | SuggestFolders403
+    | SuggestFolders404
     | SuggestFolders409
     | SuggestFolders422
     | SuggestFolders500
@@ -500,6 +657,7 @@ export type SuggestFoldersSuspenseQueryResult = NonNullable<
 export type SuggestFoldersSuspenseQueryError = ErrorType<
   | SuggestFolders401
   | SuggestFolders403
+  | SuggestFolders404
   | SuggestFolders409
   | SuggestFolders422
   | SuggestFolders500
@@ -511,6 +669,7 @@ export function useSuggestFoldersSuspense<
   TError = ErrorType<
     | SuggestFolders401
     | SuggestFolders403
+    | SuggestFolders404
     | SuggestFolders409
     | SuggestFolders422
     | SuggestFolders500
@@ -532,6 +691,7 @@ export function useSuggestFoldersSuspense<
   TError = ErrorType<
     | SuggestFolders401
     | SuggestFolders403
+    | SuggestFolders404
     | SuggestFolders409
     | SuggestFolders422
     | SuggestFolders500
@@ -553,6 +713,7 @@ export function useSuggestFoldersSuspense<
   TError = ErrorType<
     | SuggestFolders401
     | SuggestFolders403
+    | SuggestFolders404
     | SuggestFolders409
     | SuggestFolders422
     | SuggestFolders500
@@ -570,7 +731,7 @@ export function useSuggestFoldersSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the folders on a Storage Node that complete a typed path
+ * @summary List the folders on a Node that complete a typed path
  */
 
 export function useSuggestFoldersSuspense<
@@ -578,6 +739,7 @@ export function useSuggestFoldersSuspense<
   TError = ErrorType<
     | SuggestFolders401
     | SuggestFolders403
+    | SuggestFolders404
     | SuggestFolders409
     | SuggestFolders422
     | SuggestFolders500
@@ -819,114 +981,6 @@ export const useCreateRoot = <
   TContext
 > => {
   return useMutation(getCreateRootMutationOptions(options), queryClient);
-};
-export const getCheckRootUrl = () => {
-  return `/api/v1/roots/check`;
-};
-
-/**
- * @summary Judge a folder on a Storage Node as a library root without saving it
- */
-export const checkRoot = async (
-  checkRootInputBody: CheckRootInputBody,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<RootsVerdict> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return apiFetch<RootsVerdict>(getCheckRootUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(checkRootInputBody),
-  });
-};
-
-export const getCheckRootMutationKey = () => ["checkRoot"] as const;
-
-export const getCheckRootMutationOptions = <
-  TError = ErrorType<CheckRoot401 | CheckRoot403 | CheckRoot409 | CheckRoot422 | CheckRoot500>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof checkRoot>>,
-    TError,
-    CheckRootMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof checkRoot>>,
-  TError,
-  CheckRootMutationVariables,
-  TContext
-> => {
-  const mutationKey = getCheckRootMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof checkRoot>>,
-    CheckRootMutationVariables
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return checkRoot(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CheckRootMutationResult = NonNullable<Awaited<ReturnType<typeof checkRoot>>>;
-export type CheckRootMutationBody = CheckRootInputBody;
-export type CheckRootMutationError = ErrorType<
-  CheckRoot401 | CheckRoot403 | CheckRoot409 | CheckRoot422 | CheckRoot500
->;
-export type CheckRootMutationVariables = { data: CheckRootInputBody };
-
-/**
- * @summary Judge a folder on a Storage Node as a library root without saving it
- */
-export const useCheckRoot = <
-  TError = ErrorType<CheckRoot401 | CheckRoot403 | CheckRoot409 | CheckRoot422 | CheckRoot500>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof checkRoot>>,
-      TError,
-      CheckRootMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof checkRoot>>,
-  TError,
-  CheckRootMutationVariables,
-  TContext
-> => {
-  return useMutation(getCheckRootMutationOptions(options), queryClient);
 };
 export const getGetRootSettingsUrl = () => {
   return `/api/v1/roots/settings`;

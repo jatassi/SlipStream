@@ -386,6 +386,16 @@ jobs:
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      # TestTheListenerFollowsTheDefaultRoute moves a listener to 127.0.0.2,
+      # which macOS answers only once aliased.
+      - name: Alias a second loopback address
+        if: matrix.goos == 'darwin'
+        run: sudo ifconfig lo0 alias 127.0.0.2 up
+      # With one address besides loopback a host announces once whatever the
+      # engine does, so TestEachTorrentAnnouncesStartedOnce needs a second.
+      - name: Add a second IPv4 address to the default interface
+        if: matrix.goos == 'linux'
+        run: sudo ip addr add 198.51.100.7/32 dev "$(ip -4 route show default | awk '{print $5; exit}')"
       - name: Run Go test shard
         run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json"
       - name: Upload this shard's test timings

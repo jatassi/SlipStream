@@ -1,5 +1,5 @@
 /**
- * Why the folder can't be a root
+ * Why the folder can't serve its purpose
  */
 export type RootsRefusalReason =
   | "not_absolute"
@@ -13,4 +13,5 @@ export type RootsRefusalReason =
   | "inside_downloads"
   | "contains_downloads"
   | "unresponsive"
+  | "network_share"
   | "node_offline";

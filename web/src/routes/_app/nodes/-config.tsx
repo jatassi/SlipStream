@@ -16,9 +16,10 @@ import { toast } from "../../../ui/toast";
 const savedToast: { readonly [S in SystemConfigSectionId]: string } = {
   web: "Web and API settings saved",
   log: "Log settings saved",
+  torrent: "Torrent client settings saved",
 };
 
-function fieldsOf(config: SystemNodeConfig, id: SystemConfigSectionId): readonly Field[] {
+export function fieldsOf(config: SystemNodeConfig, id: SystemConfigSectionId): readonly Field[] {
   const section = config.sections.find((candidate) => candidate.id === id);
   if (section === undefined) {
     throw new Error(`getNodeConfig has no ${id} section`);

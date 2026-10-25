@@ -1,51 +1,183 @@
-// The Downloading Role's messages: the torrents a Node's built-in client
-// keeps, their progress, and how each Grab's download ended.
+// The Downloading Role's messages: what each Node's built-in client holds
+// and how, what it reports of each torrent, and what it asks the
+// Controller for a torrent it holds no data for.
 syntax = "proto3";
 
 package slipstream.downloading.v1;
 
-// Intent is every torrent the Node keeps, ordered by info hash, then Grab
-// id, so its version is stable.
+import "slipstream/node/v1/options.proto";
+
+// Intent is what the Node acts on every pass and nothing more: a pause
+// changes a few bytes of it, and it carries no metainfo and no totals.
 message Intent {
+  // torrents are in added order.
   repeated Torrent torrents = 1;
+  // discards are the removed Torrents the Node has not yet confirmed, in
+  // added order.
+  repeated Discard discards = 2;
+  Settings settings = 3;
+  // hold_downloads is the disk guard holding new downloads.
+  bool hold_downloads = 4;
+  Thresholds thresholds = 5;
+  // sample_every_seconds is how often the Node samples its downloads
+  // volume: Storage's cadence.
+  int64 sample_every_seconds = 6;
 }
 
 message Torrent {
-  bytes info_hash = 1;
-  bytes metainfo = 2;
-  bytes grab_id = 3;
+  bytes id = 1;
+  bytes info_hash = 2;
+  Wanted wanted = 3;
+  int64 order = 4;
 }
 
-// Facts are each kept torrent's progress, ordered by info hash.
+enum Wanted {
+  WANTED_UNSPECIFIED = 0;
+  WANTED_STARTED = 1;
+  WANTED_PAUSED = 2;
+}
+
+message Discard {
+  bytes id = 1;
+  bytes info_hash = 2;
+  bool delete_files = 3;
+}
+
+// Settings are the Node's client settings with every default applied.
+message Settings {
+  // download_limit and upload_limit are bytes a second, 0 for none.
+  int64 download_limit = 1;
+  int64 upload_limit = 2;
+  // active_downloads is 0 for no limit.
+  int32 active_downloads = 3;
+  int32 active_checks = 4;
+  int32 connections = 5;
+  bool utp = 6;
+  int64 stalled_after_seconds = 7;
+}
+
+// Thresholds decide when a release counts as bad.
+message Thresholds {
+  int64 fault_stall_seconds = 1;
+  int64 unregistered_gap_seconds = 2;
+}
+
+// Facts are the Node's client itself. They change rarely.
 message Facts {
-  repeated TorrentFacts torrents = 1;
+  string libtorrent = 1;
+  string peer_id_prefix = 2;
+  string user_agent = 3;
+  // listen is the configured address and port.
+  string listen = 4;
+  reserved 5;
+  // listen_error is why the client has no listener, empty while it has one.
+  string listen_error = 6;
+  // incoming_at_unix_ms is when a peer that proves the listen port
+  // reachable first connected in to where the client listens now, 0 while
+  // none has.
+  int64 incoming_at_unix_ms = 7;
+  // bound is the address and port the client listens on, empty while it
+  // has no listener. An unspecified listen address binds the address the
+  // host's default route leaves from, which can move.
+  string bound = 10;
+  // downloads is the downloads folder's volume as last sampled, absent
+  // until the first sample.
+  Volume downloads = 8;
 }
 
-message TorrentFacts {
-  bytes info_hash = 1;
-  string state = 2;
-  int64 done = 3;
-  int64 wanted = 4;
-  int32 peers = 5;
-  // uploaded is every byte of payload the Node sent for the torrent since
-  // its client added it.
-  int64 uploaded = 6;
+message Volume {
+  // mount is as the Node names it, as Storage names the same volume.
+  string mount = 1;
+  string name = 2;
+  int64 total = 3;
+  // free is what SlipStream may write.
+  int64 free = 4;
+  int64 sampled_at_unix_ms = 5;
 }
 
-// Result is how one Grab's download ended. It names the Grab, because two
-// Grabs can share a torrent.
-message Result {
-  bytes grab_id = 1;
-  oneof outcome {
-    Completed completed = 2;
-    Failed failed = 3;
+// Report is one outbox entry: the torrents whose report changed, a totals
+// batch, or a removal's confirmation.
+message Report {
+  oneof kind {
+    Torrents torrents = 1;
+    Totals totals = 2;
+    Parted parted = 3;
   }
 }
 
-// Completed lists the torrent's files as they lie under its save path.
-message Completed {
-  bytes info_hash = 1;
-  repeated File files = 2;
+message Torrents {
+  repeated TorrentReport reports = 1;
+}
+
+// TorrentReport is the Node's whole word on one torrent: each one replaces
+// the last.
+message TorrentReport {
+  bytes id = 1;
+  int64 at_unix_ms = 2;
+  EngineState engine = 3;
+  Hold hold = 4;
+  // until_unix_ms is when a window hold starts the torrent, 0 for none.
+  int64 until_unix_ms = 5;
+  bool complete = 6;
+  bool stalled = 7;
+  // error is the engine's error text while engine is failed.
+  string error = 8;
+  repeated TrackerLine trackers = 9;
+  // completion is the files as they lie, once complete.
+  Completion completion = 10;
+  // fault is the release fault the Node recorded on the torrent, once it
+  // has.
+  Fault fault = 11;
+  // save_folder is where the Node keeps the torrent, opaque to the
+  // Controller.
+  string save_folder = 12;
+  int64 done = 13;
+  int64 wanted = 14;
+  TotalsRow totals = 15;
+}
+
+enum EngineState {
+  ENGINE_STATE_UNSPECIFIED = 0;
+  ENGINE_STATE_CHECKING = 1;
+  ENGINE_STATE_DOWNLOADING = 2;
+  ENGINE_STATE_SEEDING = 3;
+  ENGINE_STATE_FAILED = 4;
+}
+
+// Hold is why a torrent the Node could run doesn't.
+enum Hold {
+  HOLD_UNSPECIFIED = 0;
+  HOLD_WANTED = 1;
+  HOLD_WINDOW = 2;
+  HOLD_DISK_FULL = 3;
+  HOLD_SLOT = 4;
+  HOLD_CHECK_SLOT = 5;
+  HOLD_DISK_GUARD = 6;
+  HOLD_DRAINING = 7;
+  HOLD_CONTROLLER = 8;
+}
+
+message TrackerLine {
+  // index is into the metainfo's tracker list.
+  int32 index = 1;
+  TrackerStatus status = 2;
+  // message is the tracker's failure reason or warning, verbatim.
+  string message = 3;
+  // retry_at_unix_ms is set while status is error or unregistered.
+  int64 retry_at_unix_ms = 4;
+}
+
+enum TrackerStatus {
+  TRACKER_STATUS_UNSPECIFIED = 0;
+  TRACKER_STATUS_WORKING = 1;
+  TRACKER_STATUS_UPDATING = 2;
+  TRACKER_STATUS_ERROR = 3;
+  TRACKER_STATUS_UNREGISTERED = 4;
+  TRACKER_STATUS_NOT_CONTACTED = 5;
+}
+
+message Completion {
+  repeated File files = 1;
 }
 
 message File {
@@ -54,7 +186,222 @@ message File {
   int64 size = 3;
 }
 
-message Failed {
-  bytes info_hash = 1;
-  string error = 2;
+// Fault is a release fault: the release itself looks bad.
+message Fault {
+  FaultKind kind = 1;
+  // at_unix_ms is when the Node recorded it.
+  int64 at_unix_ms = 2;
+}
+
+enum FaultKind {
+  FAULT_KIND_UNSPECIFIED = 0;
+  // FAULT_KIND_ENGINE_ERROR is an engine error the client blames on the
+  // torrent rather than on the Node.
+  FAULT_KIND_ENGINE_ERROR = 1;
+  // FAULT_KIND_UNREGISTERED is a tracker calling the torrent unregistered
+  // on two answers at least the unregistered gap apart.
+  FAULT_KIND_UNREGISTERED = 2;
+  // FAULT_KIND_NO_PAYLOAD is a download that received no payload in the
+  // fault stall time it ran.
+  FAULT_KIND_NO_PAYLOAD = 3;
+}
+
+message Totals {
+  repeated TotalsRow rows = 1;
+}
+
+// TotalsRow is a torrent's all-time counters, which never go down.
+message TotalsRow {
+  bytes id = 1;
+  int64 uploaded = 2;
+  int64 downloaded = 3;
+  int64 active_seconds = 4;
+  int64 seeding_seconds = 5;
+  // done is the bytes done, sent only while incomplete.
+  int64 done = 6;
+}
+
+// Parted confirms a discard: the Node no longer holds the torrent.
+message Parted {
+  bytes id = 1;
+  // freed is the bytes the delete freed.
+  int64 freed = 2;
+}
+
+// DownloadingService is each downloading Node's client, as the Controller
+// calls it.
+service DownloadingService {
+  option (slipstream.node.v1.served_by) = {role: "downloading"};
+  // Watch answers after the Node's next live sample with the torrents whose
+  // rates, progress or peers moved since sample after, or with every
+  // torrent that moves when after is not the Node's last answer.
+  rpc Watch(WatchRequest) returns (WatchResponse);
+  // Inspect is one torrent's files with their progress and its trackers
+  // as the announce policy sees them.
+  rpc Inspect(InspectRequest) returns (InspectResponse);
+  // Act announces or rechecks torrents, each through the announce policy.
+  rpc Act(ActRequest) returns (ActResponse);
+  // Frees is the bytes deleting each torrent's download copy would free:
+  // its files that have no other link.
+  rpc Frees(FreesRequest) returns (FreesResponse);
+  // Sample samples the downloads volume now and answers once the Node has
+  // set its facts with the sample.
+  rpc Sample(SampleRequest) returns (SampleResponse);
+}
+
+message SampleRequest {}
+
+message SampleResponse {
+  int64 sampled_at_unix_ms = 1;
+}
+
+message WatchRequest {
+  uint64 after = 1;
+}
+
+message WatchResponse {
+  // sample is one past after when the rows are what moved since after;
+  // any other number starts afresh.
+  uint64 sample = 1;
+  int64 at_unix_ms = 2;
+  // down_bps and up_bps are the Node's payload bytes a second since its
+  // previous sample.
+  int64 down_bps = 3;
+  int64 up_bps = 4;
+  repeated Live rows = 5;
+  // gone are the torrents the Node let go since sample after.
+  repeated bytes gone = 6;
+}
+
+// Live is one torrent as the Node sampled it.
+message Live {
+  bytes id = 1;
+  int64 down_bps = 2;
+  int64 up_bps = 3;
+  int64 done = 4;
+  int64 wanted = 5;
+  int32 peers = 6;
+  int32 seeds = 7;
+}
+
+message InspectRequest {
+  bytes id = 1;
+}
+
+message InspectResponse {
+  // files are the torrent's files in its file order, empty until the
+  // Node holds it in its engine.
+  repeated FileProgress files = 1;
+  repeated TrackerDetail trackers = 2;
+  // announce_at_unix_ms is the earliest every tracker would accept an
+  // announce.
+  int64 announce_at_unix_ms = 3;
+}
+
+message FileProgress {
+  int32 index = 1;
+  int64 done = 2;
+}
+
+message TrackerDetail {
+  int32 index = 1;
+  TrackerStatus status = 2;
+  // message is the tracker's failure reason or warning, verbatim.
+  string message = 3;
+  // answered_at_unix_ms is the tracker's last answer, 0 before one.
+  int64 answered_at_unix_ms = 4;
+  // next_announce_unix_ms is when the next announce to it is due, 0 while
+  // none is.
+  int64 next_announce_unix_ms = 5;
+  // min_interval_seconds is the tracker's min interval as the announce
+  // policy holds to it.
+  int64 min_interval_seconds = 6;
+  // accepts_at_unix_ms is the earliest the tracker would accept an
+  // announce.
+  int64 accepts_at_unix_ms = 7;
+}
+
+message ActRequest {
+  Act act = 1;
+  repeated bytes ids = 2;
+}
+
+enum Act {
+  ACT_UNSPECIFIED = 0;
+  // ACT_ANNOUNCE announces a running torrent to every tracker now.
+  ACT_ANNOUNCE = 1;
+  // ACT_RECHECK checks a torrent's files, pausing it first and starting it
+  // again through the announce policy once checked.
+  ACT_RECHECK = 2;
+}
+
+message ActResponse {
+  // results are one for each id asked, in the order asked.
+  repeated ActResult results = 1;
+}
+
+message ActResult {
+  bytes id = 1;
+  Refusal refused = 2;
+  // accepts_at_unix_ms is when an announce would be accepted, set when
+  // refused for a window.
+  int64 accepts_at_unix_ms = 3;
+}
+
+// Refusal is why the Node didn't act on a torrent.
+enum Refusal {
+  // REFUSAL_UNSPECIFIED is no refusal: the Node acted.
+  REFUSAL_UNSPECIFIED = 0;
+  // REFUSAL_NOT_HELD is a torrent the Node doesn't hold, or is letting go.
+  REFUSAL_NOT_HELD = 1;
+  // REFUSAL_NOT_RUNNING is an announce of a torrent that isn't running.
+  REFUSAL_NOT_RUNNING = 2;
+  // REFUSAL_WINDOW is an announce some tracker would reject until
+  // accepts_at_unix_ms.
+  REFUSAL_WINDOW = 3;
+  // REFUSAL_FAILED is a recheck of a torrent the engine failed.
+  REFUSAL_FAILED = 4;
+}
+
+message FreesRequest {
+  repeated bytes ids = 1;
+}
+
+message FreesResponse {
+  // freed are one for each id asked, in the order asked.
+  repeated Freed freed = 1;
+}
+
+message Freed {
+  bytes id = 1;
+  // bytes are the bytes downloaded into its files that have no other link.
+  int64 bytes = 2;
+  // linked is some file also having another link, such as a library file
+  // imported by hard link.
+  bool linked = 3;
+}
+
+// DownloadingControlService is the Controller, as a downloading Node calls
+// it.
+service DownloadingControlService {
+  option (slipstream.node.v1.served_by) = {controller: true};
+  // Torrent is what a Node needs to add a torrent of its intent it holds
+  // no data for. It answers only the Torrent's own Node, and NotFound for
+  // a removed one.
+  rpc Torrent(TorrentRequest) returns (TorrentResponse);
+}
+
+message TorrentRequest {
+  bytes id = 1;
+}
+
+message TorrentResponse {
+  bytes metainfo = 1;
+  // baseline is the totals the Controller recorded, which the Node's
+  // counters start from.
+  TotalsRow baseline = 2;
+  // save_folder is the folder the Node reported, empty for a new torrent.
+  string save_folder = 3;
+  // content_type is the Content Type's name, for a new torrent's folder.
+  string content_type = 4;
 }

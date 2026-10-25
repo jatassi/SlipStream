@@ -40,6 +40,7 @@ var (
 	alreadyRestarting = api.NewCode(http.StatusConflict, "already_restarting", "The Node is already restarting")
 	setByEnvironment  = api.NewCode(http.StatusConflict, "set_by_environment", "An environment variable sets this setting")
 	portUsedByNode    = api.NewCode(http.StatusUnprocessableEntity, "port_used_by_node", "The Node uses this port already")
+	folderUnusable    = api.NewCode(http.StatusUnprocessableEntity, "folder_unusable", "SlipStream can't use this folder")
 	configNotWritable = api.NewCode(http.StatusConflict, "config_not_writable", "SlipStream can't rewrite config.yaml")
 )
 
@@ -79,6 +80,8 @@ func refused(r *nodesystem.Refusal) error {
 		return settingapi.ErrUnknown.On(r.Key, r.Sentence)
 	case nodesystem.NotWritable:
 		return configNotWritable.Because(r.Sentence)
+	case nodesystem.UnusableFolder:
+		return folderUnusable.On(r.Key, r.Sentence)
 	case nodesystem.Invalid:
 	}
 	return api.Invalid.On(r.Key, r.Sentence)
@@ -101,7 +104,7 @@ type nodeConfig struct {
 }
 
 type configSection struct {
-	ID     string                        `json:"id" enum:"web,log"`
+	ID     string                        `json:"id" enum:"web,log,torrent"`
 	Fields []api.OneOf[settingapi.Field] `json:"fields" nullable:"false"`
 }
 

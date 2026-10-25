@@ -6,6 +6,8 @@ package setting
 
 import (
 	"fmt"
+	"net/netip"
+
 	"math"
 	"slices"
 	"strconv"
@@ -388,6 +390,14 @@ func (s Switch) Value(override *bool) bool {
 	return *override
 }
 
+// Parse accepts either value; nil resets.
+func (s Switch) Parse(v *bool) Stored[bool] {
+	if v == nil {
+		return Stored[bool]{}
+	}
+	return override(*v)
+}
+
 func (s Switch) Field(override *bool) SwitchField {
 	return SwitchField{
 		About:   about(s.Key, s.Label, override == nil),
@@ -395,6 +405,153 @@ func (s Switch) Field(override *bool) SwitchField {
 		Value:   s.Value(override),
 		Running: s.Value(override),
 		Default: s.Default,
+	}
+}
+
+// Rate is bytes a second up to Max, set in whole KB/s. Zero, when set, is
+// the words for 0, such as No limit.
+type Rate struct {
+	Key, Label   string
+	Default, Max int64
+	Zero         string
+}
+
+const (
+	kb = 1024
+	mb = 1024 * kb
+)
+
+func (r Rate) Value(override *int64) int64 {
+	if override == nil {
+		return r.Default
+	}
+	return *override
+}
+
+// Parse accepts whole KB/s up to Max; nil resets.
+func (r Rate) Parse(n *int64) (Stored[int64], error) {
+	if n == nil {
+		return Stored[int64]{}, nil
+	}
+	switch {
+	case *n < 0 || *n > r.Max:
+		return Stored[int64]{}, refuse(r.Key, "Up to %s.", RateWords(r.Max))
+	case *n%kb != 0:
+		return Stored[int64]{}, refuse(r.Key, "In whole KB/s.")
+	}
+	return override(*n), nil
+}
+
+func (r Rate) Field(override *int64) RateField {
+	return RateField{
+		About:   about(r.Key, r.Label, override == nil),
+		Kind:    "rate",
+		Value:   r.Value(override),
+		Running: r.Value(override),
+		Default: r.Default,
+		Max:     r.Max,
+		Zero:    r.Zero,
+	}
+}
+
+func (r Rate) Check() error { return checkRange(r.Key, r.Default, 0, r.Max, kb) }
+
+// RateWords writes bytes a second in MB/s when whole, else KB/s.
+func RateWords(n int64) string {
+	if n > 0 && n%mb == 0 {
+		return fmt.Sprintf("%d MB/s", n/mb)
+	}
+	return fmt.Sprintf("%d KB/s", n/kb)
+}
+
+// Address is an IP address and a port, 1 to 65535, kept as text such as
+// 0.0.0.0:6881.
+type Address struct {
+	Key, Label string
+	Default    netip.AddrPort
+}
+
+func (a Address) Value(override *netip.AddrPort) netip.AddrPort {
+	if override == nil {
+		return a.Default
+	}
+	return *override
+}
+
+// Parse accepts an address and port; nil resets.
+func (a Address) Parse(text *string) (Stored[netip.AddrPort], error) {
+	if text == nil {
+		return Stored[netip.AddrPort]{}, nil
+	}
+	v, err := netip.ParseAddrPort(*text)
+	switch {
+	case err != nil:
+		return Stored[netip.AddrPort]{}, refuse(a.Key, "An address and port, such as %s.", a.Default)
+	case v.Port() == 0:
+		return Stored[netip.AddrPort]{}, refuse(a.Key, "A port between 1 and 65535.")
+	}
+	return override(v), nil
+}
+
+func (a Address) Field(override *netip.AddrPort) AddressField {
+	return AddressField{
+		About:   about(a.Key, a.Label, override == nil),
+		Kind:    "address",
+		Value:   a.Value(override).String(),
+		Running: a.Value(override).String(),
+		Default: a.Default.String(),
+	}
+}
+
+func (a Address) Check() error {
+	if !a.Default.IsValid() || a.Default.Port() == 0 {
+		return fmt.Errorf("setting %s: default %s is not an address and port", a.Key, a.Default)
+	}
+	return nil
+}
+
+// FolderPurpose names the rules a folder's Node judges it by, in the words
+// the Node's folder check uses.
+type FolderPurpose string
+
+const FolderDownloads FolderPurpose = "downloads"
+
+// Folder is a path on one Node, which judges it for Purpose.
+type Folder struct {
+	Key, Label string
+	Default    string
+	Purpose    FolderPurpose
+}
+
+func (f Folder) Value(override *string) string {
+	if override == nil {
+		return f.Default
+	}
+	return *override
+}
+
+// Parse accepts any path, which only the folder's Node can judge; nil
+// resets.
+func (f Folder) Parse(path *string) (Stored[string], error) {
+	if path == nil {
+		return Stored[string]{}, nil
+	}
+	if strings.TrimSpace(*path) == "" {
+		return Stored[string]{}, refuse(f.Key, "Choose a folder.")
+	}
+	return override(*path), nil
+}
+
+// Field reports the folder on node, the id of the Node it is a path on.
+func (f Folder) Field(override *string, node string) FolderField {
+	return FolderField{
+		About:   about(f.Key, f.Label, override == nil),
+		Kind:    "folder",
+		Value:   f.Value(override),
+		Running: f.Value(override),
+		Default: f.Default,
+		NodeID:  node,
+		Purpose: string(f.Purpose),
 	}
 }
 

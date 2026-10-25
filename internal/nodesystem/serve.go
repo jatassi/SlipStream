@@ -72,12 +72,12 @@ func (s *server) GetConfig(context.Context, *systemv1.GetConfigRequest) (*system
 	return &systemv1.GetConfigResponse{Config: configToWire(c)}, nil
 }
 
-func (s *server) SetConfig(_ context.Context, req *systemv1.SetConfigRequest) (*systemv1.SetConfigResponse, error) {
+func (s *server) SetConfig(ctx context.Context, req *systemv1.SetConfigRequest) (*systemv1.SetConfigResponse, error) {
 	changes := make([]Change, len(req.GetChanges()))
 	for i, c := range req.GetChanges() {
 		changes[i] = changeFromWire(c)
 	}
-	c, err := s.host.SetConfig(changes)
+	c, err := s.host.SetConfig(ctx, changes)
 	if refused, ok := errors.AsType[*Refusal](err); ok {
 		return &systemv1.SetConfigResponse{Result: &systemv1.SetConfigResponse_Refused{Refused: refusalToWire(refused)}}, nil
 	}

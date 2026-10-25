@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -176,6 +177,18 @@ func TestFieldReportsIsDefault(t *testing.T) {
 			`{"key":"log.compress","label":"Compress rotated files","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true}`,
 		},
 		{
+			"a rate with words for zero", downloadLimit.Field(ptr[int64](0)),
+			`{"key":"downloading.downloadLimit","label":"Download limit","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"rate","value":0,"running":0,"default":0,"max":10737418240,"zero":"No limit"}`,
+		},
+		{
+			"an address", listen.Field(nil),
+			`{"key":"torrent.listen","label":"Listen address","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"address","value":"0.0.0.0:6881","running":"0.0.0.0:6881","default":"0.0.0.0:6881"}`,
+		},
+		{
+			"a folder on a Node", downloads.Field(ptr("/srv/torrents"), "0199f0a1-1111-7000-8000-000000000001"),
+			`{"key":"torrent.downloads","label":"Downloads folder","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"folder","value":"/srv/torrents","running":"/srv/torrents","default":"/var/lib/slipstream/downloads","nodeId":"0199f0a1-1111-7000-8000-000000000001","purpose":"downloads"}`,
+		},
+		{
 			"a space following another setting, overridden", warnBelow.Field(&setting.Amount{N: 10, Unit: setting.PercentUnit}),
 			`{"key":"health.storageWarnBelow","label":"Warn when free space is below","defaultFrom":"Storage levels","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"space","value":{"amount":10,"unit":"percent"},"running":{"amount":10,"unit":"percent"},"default":{"amount":107374182400,"unit":"bytes"},"maxBytes":1125899906842624}`,
 		},
@@ -236,6 +249,8 @@ func TestCheckRefusesADefaultOutsideItsRange(t *testing.T) {
 		{"count", setting.Count{Key: "c", Default: 0, Min: 1, Max: 3}.Check(), "setting c: default 0 is outside 1 to 3"},
 		{"choice", setting.Choice[overdue]{Key: "o", Default: "later", Options: rule.Options}.Check(), `setting o: default "later" is not an option`},
 		{"window", setting.Window{Key: "w", Default: setting.Span{Start: 60, End: 60}}.Check(), "setting w: default {Start:60 End:60} is not a non-empty daily span"},
+		{"rate", setting.Rate{Key: "r", Default: 1000, Max: 1 << 20}.Check(), "setting r: default and range are not whole steps of 1024"},
+		{"address", setting.Address{Key: "a", Default: netip.MustParseAddrPort("0.0.0.0:0")}.Check(), "setting a: default 0.0.0.0:0 is not an address and port"},
 		{"space", setting.Space{Key: "s", Default: setting.Amount{N: 101, Unit: setting.PercentUnit}}.Check(), "setting s: default {N:101 Unit:percent} is not a space: s: Between 0 and 100%."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -293,6 +308,92 @@ func TestParseJSONReadsEachKindsWireValue(t *testing.T) {
 				t.Fatalf("ParseJSON(%s) = %q, %v, want %q", tc.raw, got, err, tc.want)
 			}
 		})
+	}
+}
+
+var downloadLimit = setting.Rate{Key: "downloading.downloadLimit", Label: "Download limit", Max: 10 << 30, Zero: "No limit"}
+
+func TestRateParse(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		n       *int64
+		want    *int64
+		refusal string
+	}{
+		{"null resets", nil, nil, ""},
+		{"zero", ptr[int64](0), ptr[int64](0), ""},
+		{"whole KB/s", ptr[int64](1536 << 10), ptr[int64](1536 << 10), ""},
+		{"the maximum", ptr[int64](10 << 30), ptr[int64](10 << 30), ""},
+		{"above the maximum", ptr[int64](10<<30 + 1024), nil, "Up to 10240 MB/s."},
+		{"below zero", ptr[int64](-1024), nil, "Up to 10240 MB/s."},
+		{"off a whole KB/s", ptr[int64](1500), nil, "In whole KB/s."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := downloadLimit.Parse(tc.n)
+			if tc.refusal != "" {
+				if s := sentence(err); s != tc.refusal {
+					t.Fatalf("refusal = %q, want %q", s, tc.refusal)
+				}
+				return
+			}
+			if o := got.Override(); err != nil || (o == nil) != (tc.want == nil) || (o != nil && *o != *tc.want) {
+				t.Fatalf("Parse = %v, %v; want %v", o, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestRateWords(t *testing.T) {
+	for n, want := range map[int64]string{0: "0 KB/s", 512 << 10: "512 KB/s", 1536 << 10: "1536 KB/s", 2 << 20: "2 MB/s"} {
+		if got := setting.RateWords(n); got != want {
+			t.Errorf("RateWords(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+var listen = setting.Address{Key: "torrent.listen", Label: "Listen address", Default: netip.MustParseAddrPort("0.0.0.0:6881")}
+
+func TestAddressParse(t *testing.T) {
+	for _, tc := range []struct {
+		text    *string
+		want    string
+		refusal string
+	}{
+		{nil, "", ""},
+		{ptr("192.168.1.20:51413"), "192.168.1.20:51413", ""},
+		{ptr("[::]:6881"), "[::]:6881", ""},
+		{ptr("seedbox:6881"), "", "An address and port, such as 0.0.0.0:6881."},
+		{ptr("0.0.0.0"), "", "An address and port, such as 0.0.0.0:6881."},
+		{ptr("0.0.0.0:0"), "", "A port between 1 and 65535."},
+	} {
+		got, err := listen.Parse(tc.text)
+		if tc.refusal != "" {
+			if s := sentence(err); s != tc.refusal {
+				t.Errorf("Parse(%s) refusal = %q, want %q", *tc.text, s, tc.refusal)
+			}
+			continue
+		}
+		o := got.Override()
+		if err != nil || (o == nil) != (tc.want == "") || (o != nil && o.String() != tc.want) {
+			t.Errorf("Parse = %v, %v; want %q", o, err, tc.want)
+		}
+	}
+	if got := listen.Value(nil); got.String() != "0.0.0.0:6881" {
+		t.Errorf("Value(nil) = %s, want the default", got)
+	}
+}
+
+var downloads = setting.Folder{Key: "torrent.downloads", Label: "Downloads folder", Default: "/var/lib/slipstream/downloads", Purpose: setting.FolderDownloads}
+
+func TestFolderParse(t *testing.T) {
+	if got, err := downloads.Parse(ptr(`D:\Torrents`)); err != nil || *got.Override() != `D:\Torrents` {
+		t.Errorf("Parse(D:\\Torrents) = %v, %v", got.Override(), err)
+	}
+	if _, err := downloads.Parse(ptr("  ")); sentence(err) != "Choose a folder." {
+		t.Errorf("Parse(blank) = %v, want Choose a folder.", err)
+	}
+	if got, err := downloads.Parse(nil); err != nil || got.Override() != nil {
+		t.Errorf("Parse(nil) = %v, %v, want a reset", got.Override(), err)
 	}
 }
 

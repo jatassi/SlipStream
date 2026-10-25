@@ -14,7 +14,11 @@ function alerting(first: ShellAlertsNodes) {
   let nodes = first;
   return {
     handler: http.get("*/api/v1/counts", () =>
-      HttpResponse.json({ activity: 0, alerts: { nodes } }),
+      HttpResponse.json({
+        activity: 0,
+        downloads: { done: 0, wanted: 0, allPaused: false },
+        alerts: { nodes },
+      }),
     ),
     set(next: ShellAlertsNodes) {
       nodes = next;
@@ -65,7 +69,13 @@ test("the Health row sits between Nodes and Accounts, and its dot and the Tasks 
     path: "/library",
     handlers: [
       ...server.handlers,
-      http.get("*/api/v1/counts", () => HttpResponse.json({ activity: 0, alerts })),
+      http.get("*/api/v1/counts", () =>
+        HttpResponse.json({
+          activity: 0,
+          downloads: { done: 0, wanted: 0, allPaused: false },
+          alerts,
+        }),
+      ),
     ],
   });
   const health = mainNav().getByRole("link", { name: /^Health/u });

@@ -4,56 +4,18 @@ import (
 	"bufio"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"testing/synctest"
-	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/node"
-	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/bencode"
 )
 
-// uploadRate is how many bytes a second an uploading engine's torrents
-// send.
+// uploadRate is how many payload bytes a second seedbox's swarm takes.
 const uploadRate = 1 << 20
-
-// uploading is an engine whose every torrent has uploaded uploadRate
-// bytes for each whole second since it was added.
-type uploading struct {
-	engine.Engine
-	mu    sync.Mutex
-	added map[engine.Handle]time.Time
-}
-
-func upload(open func(engine.Config) (engine.Engine, error)) func(engine.Config) (engine.Engine, error) {
-	return func(cfg engine.Config) (engine.Engine, error) {
-		e, err := open(cfg)
-		return &uploading{Engine: e, added: map[engine.Handle]time.Time{}}, err
-	}
-}
-
-func (u *uploading) Add(p engine.AddParams) (engine.Handle, error) {
-	h, err := u.Engine.Add(p)
-	if err == nil {
-		u.mu.Lock()
-		u.added[h] = time.Now()
-		u.mu.Unlock()
-	}
-	return h, err
-}
-
-func (u *uploading) Status(h engine.Handle) (engine.Status, error) {
-	st, err := u.Engine.Status(h)
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if at, ok := u.added[h]; ok {
-		st.Uploaded = int64(time.Since(at)/time.Second) * uploadRate
-	}
-	return st, err
-}
 
 type topologyView struct {
 	Sentence string `json:"sentence"`
@@ -65,10 +27,10 @@ type topologyView struct {
 		Resources struct {
 			Downloading *struct {
 				Torrents []struct {
-					GrabID string `json:"grabId"`
-					Title  string `json:"title"`
-					Done   int64  `json:"done"`
-					Wanted int64  `json:"wanted"`
+					TorrentID string `json:"torrentId"`
+					Title     string `json:"title"`
+					Done      int64  `json:"done"`
+					Wanted    int64  `json:"wanted"`
 				} `json:"torrents"`
 			} `json:"downloading"`
 		} `json:"resources"`
@@ -81,14 +43,17 @@ type topologyView struct {
 	} `json:"links"`
 }
 
+type torrentTraffic struct {
+	TorrentID string `json:"torrentId"`
+	Done      int64  `json:"done"`
+	Wanted    int64  `json:"wanted"`
+}
+
 type trafficView struct {
 	Nodes []struct {
-		ID       string `json:"id"`
-		UpBps    int64  `json:"upBps"`
-		Torrents []struct {
-			GrabID string `json:"grabId"`
-			Done   int64  `json:"done"`
-		} `json:"torrents"`
+		ID       string           `json:"id"`
+		UpBps    int64            `json:"upBps"`
+		Torrents []torrentTraffic `json:"torrents"`
 	} `json:"nodes"`
 }
 
@@ -124,13 +89,13 @@ func nextTraffic(t *testing.T, r *bufio.Reader, id string) trafficView {
 }
 
 // TestTheTopologyDrawsSeedboxsTorrentAndTrafficCarriesItsUpload walks a
-// Grab to imported on seedbox, whose engine then uploads 1 MiB a second.
-// The topology lists the torrent under seedbox's Downloading with the
-// release's title, and the link seedbox dialed; nodes.traffic carries the
-// upload rate and the torrent's progress to an Admin's live stream.
+// Grab to imported on seedbox, whose swarm then takes 1 MiB a second. The
+// topology lists the torrent under seedbox's Downloading with the
+// release's title, done, and the link seedbox dialed; once an Admin
+// listens, nodes.traffic carries seedbox's upload and the torrent.
 func TestTheTopologyDrawsSeedboxsTorrentAndTrafficCarriesItsUpload(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = upload(e.Engine) }))
+		w := sim.Launch(t, home(t), sim.WithWalk())
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
 		expectImported(t, g)
@@ -142,7 +107,7 @@ func TestTheTopologyDrawsSeedboxsTorrentAndTrafficCarriesItsUpload(t *testing.T)
 			t.Fatalf("the topology reads %+v, want home and seedbox online", topo)
 		}
 		dl := topo.Nodes[1].Resources.Downloading
-		if dl == nil || len(dl.Torrents) != 1 || dl.Torrents[0].GrabID != g.ID || dl.Torrents[0].Title != release ||
+		if dl == nil || len(dl.Torrents) != 1 || dl.Torrents[0].TorrentID == "" || dl.Torrents[0].Title != release ||
 			dl.Torrents[0].Wanted == 0 || dl.Torrents[0].Done != dl.Torrents[0].Wanted {
 			t.Fatalf("seedbox's Downloading reads %+v, want the Grab's torrent, titled %s and done", dl, release)
 		}
@@ -150,17 +115,20 @@ func TestTheTopologyDrawsSeedboxsTorrentAndTrafficCarriesItsUpload(t *testing.T)
 			t.Fatalf("the topology's links are %+v, want home's link to seedbox, up and dialed by seedbox", l)
 		}
 
+		hash, err := bencode.ParseInfoHash(g.InfoHash)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Node("seedbox").Swarm().Transfer(hash, 0, uploadRate)
 		home := entryOf(t, w, "home")
 		signedIn := home.signIn()
 		stream := home.send(http.MethodGet, "/api/v1/events", "", signedIn.session, "")
 		defer func() { _ = stream.Body.Close() }()
 		sample := nextTraffic(t, bufio.NewReader(stream.Body), box.ID)
+		torrent := torrentTraffic{TorrentID: dl.Torrents[0].TorrentID, Done: dl.Torrents[0].Wanted, Wanted: dl.Torrents[0].Wanted}
 		for _, n := range sample.Nodes {
-			if n.ID != box.ID {
-				continue
-			}
-			if n.UpBps != uploadRate || len(n.Torrents) != 1 || n.Torrents[0].GrabID != g.ID || n.Torrents[0].Done != dl.Torrents[0].Done {
-				t.Fatalf("nodes.traffic reads seedbox as %+v, want %d bytes a second up and the Grab's torrent done", n, uploadRate)
+			if n.ID == box.ID && (n.UpBps != uploadRate || !slices.Equal(n.Torrents, []torrentTraffic{torrent})) {
+				t.Fatalf("nodes.traffic reads seedbox as %+v, want %d bytes a second up and the torrent %+v", n, uploadRate, torrent)
 			}
 		}
 	})

@@ -235,6 +235,16 @@ var SampleEvery = setting.Duration{
 	Step:    time.Minute,
 }
 
+// SampleEveryIn is how often Nodes sample their volumes: Storage's
+// cadence, which the downloads volume follows too.
+func SampleEveryIn(ctx context.Context, rd storage.Reader[file]) (time.Duration, error) {
+	every, err := db.New(rd).GetSampleEvery(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("read how often storage is checked: %w", err)
+	}
+	return SampleEvery.Value(every), nil
+}
+
 func (r *Roots) SampleEveryField(ctx context.Context) (setting.DurationField, error) {
 	var every *int64
 	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
@@ -248,9 +258,9 @@ func (r *Roots) SampleEveryField(ctx context.Context) (setting.DurationField, er
 	return SampleEvery.Field(every), nil
 }
 
-// SetSampleEvery stores how often Storage Nodes sample their roots'
-// volumes, and Touches each Node that holds a root so its intent carries
-// it.
+// SetSampleEvery stores how often Nodes sample their volumes, and Touches
+// each Node that holds a root so its intent carries it, and tells
+// Cadence.
 func (r *Roots) SetSampleEvery(ctx context.Context, v setting.Stored[int64]) error {
 	var holders []role.NodeID
 	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -266,5 +276,6 @@ func (r *Roots) SetSampleEvery(ctx context.Context, v setting.Stored[int64]) err
 		return fmt.Errorf("set how often storage is checked: %w", err)
 	}
 	r.cfg.Storage.Touch(holders...)
+	r.cfg.Cadence()
 	return nil
 }

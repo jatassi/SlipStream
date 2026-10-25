@@ -14,7 +14,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, TMDB: &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}}, Tracker: Tracker{Interval: -time.Second}, Releases: []Release{
 		good,
 		good,
-		{Name: "a b.mkv", TMDBID: 0, Video: Video{Width: 1919, Height: 1080, Seconds: 0}, Seeders: -1},
+		{Name: "a b.mkv", TMDBID: 0, Video: Video{Width: 1919, Height: 1080, Seconds: 0}, Seeders: -1, BadPeer: "evil"},
 		{Name: "B.2021.720p", TMDBID: 2, Video: Video{Width: 1280, Height: 720, Seconds: 6}},
 	}}
 	want := []string{
@@ -24,6 +24,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		"scenario x: release a b.mkv video is 1919x1080; width and height are even, up to 7680x4320",
 		"scenario x: release a b.mkv video lasts 0 seconds; it lasts 1 to 60",
 		"scenario x: release a b.mkv has -1 seeders",
+		`scenario x: release a b.mkv bad_peer "evil" is not corrupt, stall, choke or drop`,
 		"scenario x: release B.2021.720p names tmdb movie 2, which tmdb does not list",
 		"scenario x: tracker interval -1s is negative",
 	}
@@ -33,6 +34,25 @@ func TestValidateChecksTheReleases(t *testing.T) {
 	}
 	if got := strings.Split(err.Error(), "\n"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Validate =\n%s\nwant\n%s", err, strings.Join(want, "\n"))
+	}
+}
+
+func TestValidateChecksTheTracker(t *testing.T) {
+	for tracker, want := range map[*Tracker]string{
+		{Interval: time.Minute, MinInterval: -time.Second}:    "tracker min_interval -1s is negative",
+		{Interval: time.Minute, MinInterval: 2 * time.Minute}: "tracker min_interval 2m0s is above its interval 1m0s",
+		{Mode: "ocelot"}: `tracker mode "ocelot" is not plain, unit3d or gazelle`,
+		{Mode: UNIT3D, AllowPeerIDs: []string{"-qB"}}:      `tracker allow_peer_ids is for gazelle mode, not "unit3d"`,
+		{Mode: Gazelle, AllowPeerIDs: []string{"-LT", ""}}: "tracker allow_peer_ids lists an empty prefix, which allows every peer ID",
+	} {
+		s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Tracker: *tracker}
+		if err := s.Validate(); err == nil || err.Error() != "scenario x: "+want {
+			t.Errorf("Validate(%+v) = %v, want %q", *tracker, err, want)
+		}
+	}
+	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Tracker: Tracker{Interval: time.Hour, MinInterval: 30 * time.Minute, Mode: Gazelle, AllowPeerIDs: []string{"-LT", "-qB"}, FailWithoutInterval: true}}
+	if err := s.Validate(); err != nil {
+		t.Errorf("Validate(%+v) = %v", s.Tracker, err)
 	}
 }
 
@@ -53,5 +73,24 @@ func TestBytesReadBackAsWritten(t *testing.T) {
 	var b Bytes
 	if err := yaml.Unmarshal([]byte("8.2GiB"), &b); err != nil || b != 8804682957 {
 		t.Fatalf("8.2GiB = %d bytes, %v; want 8804682957", b, err)
+	}
+}
+
+func TestValidateChecksTheLeecher(t *testing.T) {
+	movies := &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}}
+	releases := []Release{
+		{Name: "A.2021.1080p", TMDBID: 1, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeded: true},
+		{Name: "A.2021.720p", TMDBID: 1, Video: Video{Width: 1280, Height: 720, Seconds: 6}},
+	}
+	for leecher, want := range map[Leecher]string{
+		{Node: "home", Release: "A.2021.1080p"}:     "",
+		{Node: "seedbox", Release: "A.2021.1080p"}:  "scenario x: leecher names node seedbox, which nodes does not list",
+		{Node: "home", Release: "A.2021.720p"}:      "scenario x: leecher names release A.2021.720p, which releases does not list as seeded",
+		{Node: "home", Release: "B.2021.1080p.WEB"}: "scenario x: leecher names release B.2021.1080p.WEB, which releases does not list as seeded",
+	} {
+		s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, TMDB: movies, Releases: releases, Leecher: &leecher}
+		if err := s.Validate(); want == "" && err != nil || want != "" && (err == nil || err.Error() != want) {
+			t.Errorf("Validate(leecher %+v) = %v, want %q", leecher, err, want)
+		}
 	}
 }

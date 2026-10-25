@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +19,18 @@ const payloadSize = 8 << 20
 
 func open(t *testing.T) engine.Engine {
 	t.Helper()
-	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), Rand: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}) //nolint:gosec // picks listen ports
+	return openWith(t, engine.Config{})
+}
+
+// openWith opens a session as cfg says, on loopback's any port unless it
+// names a listen interface.
+func openWith(t *testing.T, cfg engine.Config) engine.Engine {
+	t.Helper()
+	if !cfg.ListenInterface.IsValid() {
+		cfg.ListenInterface = netip.MustParseAddrPort("127.0.0.1:0")
+	}
+	cfg.Rand = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())) //nolint:gosec // picks listen ports
+	e, err := libtorrent.Open(cfg)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -30,6 +40,19 @@ func open(t *testing.T) engine.Engine {
 		}
 	})
 	return e
+}
+
+// started adds a torrent and resumes it.
+func started(t *testing.T, e engine.Engine, p engine.AddParams) engine.Handle {
+	t.Helper()
+	h, err := e.Add(p)
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if err := e.Resume(h); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	return h
 }
 
 func waitFor[E engine.Event](t *testing.T, events <-chan engine.Event, match func(E) bool) E {
@@ -48,6 +71,21 @@ func waitFor[E engine.Event](t *testing.T, events <-chan engine.Event, match fun
 	}
 }
 
+// updated is h's status from the Updates that a PostUpdates sends, false
+// when h didn't change since the last. It skips the events before.
+func updated(t *testing.T, e engine.Engine, h engine.Handle) (engine.Status, bool) {
+	t.Helper()
+	if err := e.PostUpdates(); err != nil {
+		t.Fatalf("post updates: %v", err)
+	}
+	for _, s := range waitFor(t, e.Events(), func(engine.Updates) bool { return true }).Statuses {
+		if s.Torrent == h {
+			return s, true
+		}
+	}
+	return engine.Status{}, false
+}
+
 func TestEngineRoundTrip(t *testing.T) {
 	payload := make([]byte, payloadSize)
 	_, _ = rand.NewChaCha8([32]byte{'s', 'l', 'i', 'p'}).Read(payload)
@@ -61,14 +99,8 @@ func TestEngineRoundTrip(t *testing.T) {
 	seeder := open(t)
 	leecher := open(t)
 
-	seedHandle, err := seeder.Add(engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
-	if err != nil {
-		t.Fatalf("seeder add: %v", err)
-	}
-	leechHandle, err := leecher.Add(engine.AddParams{Metainfo: meta, SavePath: leechDir})
-	if err != nil {
-		t.Fatalf("leecher add: %v", err)
-	}
+	seedHandle := started(t, seeder, engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
+	leechHandle := started(t, leecher, engine.AddParams{Metainfo: meta, SavePath: leechDir})
 	seederAddr, err := seeder.ListenAddr()
 	if err != nil {
 		t.Fatalf("seeder listen addr: %v", err)
@@ -86,10 +118,7 @@ func TestEngineRoundTrip(t *testing.T) {
 	if sha256.Sum256(got) != sha256.Sum256(payload) {
 		t.Fatal("downloaded payload differs from the seeded payload")
 	}
-	st, err := leecher.Status(leechHandle)
-	if err != nil {
-		t.Fatalf("status: %v", err)
-	}
+	st, _ := updated(t, leecher, leechHandle)
 	if st.State != engine.StateSeeding || st.Done != payloadSize || st.Wanted != payloadSize {
 		t.Fatalf("status = %+v, want seeding with %d of %d bytes done", st, payloadSize, payloadSize)
 	}
@@ -100,7 +129,7 @@ func TestEngineRoundTrip(t *testing.T) {
 		e    engine.Engine
 		h    engine.Handle
 	}{{"leecher", leecher, leechHandle}, {"seeder", seeder, seedHandle}} {
-		if err := side.e.Remove(side.h); err != nil {
+		if err := side.e.Remove(side.h, false); err != nil {
 			t.Fatalf("%s remove: %v", side.name, err)
 		}
 		waitFor(t, side.e.Events(), func(e engine.Removed) bool { return e.Torrent == side.h })
@@ -113,12 +142,12 @@ func TestEngineRoundTrip(t *testing.T) {
 // awaitUploaded waits until torrent h on e has uploaded at least n bytes.
 func awaitUploaded(t *testing.T, e engine.Engine, h engine.Handle, n int64) {
 	t.Helper()
+	var st engine.Status
 	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(100 * time.Millisecond) {
-		st, err := e.Status(h)
-		if err != nil {
-			t.Fatalf("status: %v", err)
+		if s, ok := updated(t, e, h); ok {
+			st = s
 		}
-		if st.Uploaded >= n {
+		if st.Totals.Uploaded >= n {
 			return
 		}
 		if time.Now().After(deadline) {
@@ -128,10 +157,13 @@ func awaitUploaded(t *testing.T, e engine.Engine, h engine.Handle, n int64) {
 }
 
 func TestEngineSaysWhyAFixedPortDoesNotListen(t *testing.T) {
-	_, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("192.0.2.1:6881")})
-	const want = "shim error 3: not listening on 192.0.2.1:6881: system error "
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Fatalf("open on an address the host does not have: err = %v, want it to start %q", err, want)
+	e := openWith(t, engine.Config{ListenInterface: netip.MustParseAddrPort("192.0.2.1:6881")})
+	if _, err := e.ListenAddr(); !errors.Is(err, engine.ErrNotListening) {
+		t.Fatalf("on an address the host does not have, ListenAddr err = %v, want %v", err, engine.ErrNotListening)
+	}
+	failed := waitFor(t, e.Events(), func(engine.ListenFailed) bool { return true })
+	if !errors.Is(failed.Err, engine.CategorySystem) {
+		t.Fatalf("on an address the host does not have, the engine failed to listen with %v, want a system error", failed.Err)
 	}
 }
 
@@ -144,10 +176,10 @@ func TestEngineRejectsBadInput(t *testing.T) {
 	}
 
 	unknown := engine.Handle(4242)
-	if _, err := e.Status(unknown); !errors.Is(err, engine.ErrUnknownTorrent) {
-		t.Fatalf("status of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
+	if _, err := e.Files(unknown); !errors.Is(err, engine.ErrUnknownTorrent) {
+		t.Fatalf("files of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
 	}
-	if err := e.Remove(unknown); !errors.Is(err, engine.ErrUnknownTorrent) {
+	if err := e.Remove(unknown, false); !errors.Is(err, engine.ErrUnknownTorrent) {
 		t.Fatalf("remove of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
 	}
 	if err := e.ConnectPeer(unknown, netip.MustParseAddrPort("127.0.0.1:1")); !errors.Is(err, engine.ErrUnknownTorrent) {
@@ -163,8 +195,8 @@ func TestEngineRejectsBadInput(t *testing.T) {
 	if err := e.Close(); !errors.Is(err, engine.ErrClosed) {
 		t.Fatalf("second close: err = %v, want %v", err, engine.ErrClosed)
 	}
-	if _, err := e.Status(unknown); !errors.Is(err, engine.ErrClosed) {
-		t.Fatalf("status after close: err = %v, want %v", err, engine.ErrClosed)
+	if _, err := e.Files(unknown); !errors.Is(err, engine.ErrClosed) {
+		t.Fatalf("files after close: err = %v, want %v", err, engine.ErrClosed)
 	}
 	drained := make(chan struct{})
 	go func() {

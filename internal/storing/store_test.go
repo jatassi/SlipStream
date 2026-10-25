@@ -82,7 +82,7 @@ func rootAt(id storage.UUID, path string, adopt bool, proof ...string) *storagev
 }
 
 func newStore(d *testDisk) *Store {
-	return NewStore(Config{Disk: d, Payloads: payloads{}, Timings: Timings{Stat: 10 * time.Second}})
+	return NewStore(Config{Disk: d, Payloads: payloads{}, Downloads: func() []string { return d.downloads }, Timings: Timings{Stat: 10 * time.Second}})
 }
 
 func dir(t *testing.T, parts ...string) string {

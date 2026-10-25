@@ -64,7 +64,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 	}
 	want := Scenario{
 		Name:        "home",
-		Description: "Two Nodes. The Controller home holds every Role but Acquire and Relaying. The Worker seedbox pairs by Join Code and holds Searching and Downloading. Grace joins as a Member by Signup link, and fakes/smtp is the email setting.",
+		Description: "Two Nodes. The Controller home holds every Role but Acquire and Relaying. The Worker seedbox pairs by Join Code and holds Searching and Downloading. A leecher from outside connects in to the seedbox once it runs the 1080p release, so the seedbox's listen port reads reachable. Grace joins as a Member by Signup link, and fakes/smtp is the email setting.",
 		Seed:        "home",
 		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
 		Members:     []Member{{Email: "grace@example.test", DisplayName: "Grace Hopper", PIN: "1357"}},
@@ -77,6 +77,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 		TMDB:     quietOrchard(),
 		Releases: quietOrchardReleases(),
 		Tracker:  Tracker{Interval: 5 * time.Second},
+		Leecher:  &Leecher{Node: "seedbox", Release: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW"},
 		Library:  movieLibrary(),
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -86,7 +87,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (cgnat-home, first-run, home, low-space, movies, music, serving, single-machine, sizes, targets)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (cgnat-home, first-run, home, low-space, movies, music, serving, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }

@@ -49,6 +49,9 @@ type Scenario struct {
 	// fake-tracker answers their announces.
 	Releases []Release `yaml:"releases,omitempty"`
 	Tracker  Tracker   `yaml:"tracker,omitempty"`
+	// Leecher is a peer from outside that connects in to a Node's listen
+	// port once that Node runs a release's torrent, which proves the port.
+	Leecher *Leecher `yaml:"leecher,omitempty"`
 	// Library is what the world creates on the controller Node after
 	// setting it up.
 	Library *Library `yaml:"library,omitempty"`
@@ -163,6 +166,9 @@ func (s Scenario) Validate() error {
 		s.OMDb.check(add)
 	}
 	checkReleases(add, s.Releases, s.TMDB)
+	if s.Leecher != nil {
+		s.Leecher.check(add, s)
+	}
 	s.Tracker.check(add)
 	if s.Library != nil {
 		if len(controllers) == 0 {

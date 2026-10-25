@@ -78,7 +78,7 @@ type cued struct {
 
 func newCued(t *testing.T) *cued {
 	t.Helper()
-	base, err := storing.NewOSDisk(t.TempDir(), t.TempDir())
+	base, err := storing.NewOSDisk(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

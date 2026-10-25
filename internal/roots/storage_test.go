@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -93,7 +94,7 @@ type storageRig struct {
 
 func rig(t *testing.T, offline bool) *storageRig {
 	t.Helper()
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	r := &storageRig{lib: lib, storage: &control{facts: map[role.NodeID]*storagev1.Facts{}}, changed: make(changes, 8), volumeEvents: make(volumeChanges, 8), node: role.NodeID{UUID: storage.NewUUID()}, passed: time.Now()}
 	cfg := rootstest.Config(t, lib, alpha)
 	reach := cfg.Remote

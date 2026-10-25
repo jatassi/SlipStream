@@ -67,6 +67,7 @@ export const noPasskeys: SystemPasskeys = { available: false, reason: "plain_htt
 const controller = getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys });
 const nothingMoving = getGetCountsMockHandler({
   activity: 0,
+  downloads: { done: 0, wanted: 0, allPaused: false },
   alerts: { nodes: null, health: null, tasks: null },
 });
 const signedInAsAda = getGetSessionMockHandler({

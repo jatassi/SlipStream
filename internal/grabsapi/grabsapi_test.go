@@ -13,13 +13,13 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/release"
@@ -67,7 +67,10 @@ func (alone) InStep(role.NodeID) bool                             { return true 
 func (alone) WrittenOff(role.Name, role.NodeID) bool              { return false }
 func (alone) Changed() <-chan struct{}                            { return nil }
 func (alone) Touch(...role.NodeID)                                {}
-func (alone) Facts(role.NodeID) (*dlv1.Facts, bool)               { return nil, false }
+func (alone) Moved() <-chan struct{}                              { return nil }
+func (alone) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
+	return downloadclients.Sample{}, false
+}
 
 type lapsing struct{ lapsed atomic.Bool }
 
@@ -114,7 +117,7 @@ func expect(t *testing.T, s *ownertest.Owner, method, path string, status int, w
 func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -240,7 +243,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
 			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
-		`"releaseTitle":"The.Attic.1080p.WEB","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"infoHash":null,` +
+		`"releaseTitle":"The.Attic.1080p.WEB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"infoHash":null,` +
 		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"bencode: the metainfo is not a dictionary"},` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)

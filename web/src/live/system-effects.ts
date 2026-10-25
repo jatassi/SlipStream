@@ -40,14 +40,19 @@ export const systemEffects = {
   "nodes.traffic": (data) => {
     takeTraffic(data);
   },
-  "node.settings-changed": (data, { refresh }) => {
-    refresh({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
-    refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+  "roots.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListRootsQueryKey() });
+    refresh({ queryKey: getListVolumesQueryKey() });
+    refresh({ queryKey: getGetTopologyQueryKey() });
   },
   "volumes.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListVolumesQueryKey() });
     refresh({ queryKey: getListHealthVolumesQueryKey() });
     refresh({ queryKey: getGetTopologyQueryKey() });
+  },
+  "node.settings-changed": (data, { refresh }) => {
+    refresh({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
+    refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
   },
   "tasks.changed": (_data, { refresh }) => {
     refresh(everyTasksQuery);
@@ -76,8 +81,9 @@ export const systemEffects = {
   LiveEffects,
   | "nodes.changed"
   | "nodes.traffic"
-  | "node.settings-changed"
+  | "roots.changed"
   | "volumes.changed"
+  | "node.settings-changed"
   | "tasks.changed"
   | "health.changed"
   | "tasks.progress"

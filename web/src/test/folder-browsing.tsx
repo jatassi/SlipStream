@@ -72,15 +72,18 @@ const windows = (): FakeNode => ({
 
 const nameOf = (path: string) => path.split(/[/\\]/u).findLast(Boolean) ?? path;
 
-const libraryRootCheck: FolderCheck = ({ path }) =>
-  Promise.resolve(
-    path.startsWith("/srv/media/Movies")
-      ? {
-          usable: false,
-          sentence: "Can't use this folder because it's inside the Movies library root.",
-        }
-      : { usable: true, sentence: `${nameOf(path)} is on /, 1.2 TB free.` },
-  );
+const libraryRootCheck: FolderCheck = {
+  rules: ["root"],
+  judge: ({ path }) =>
+    Promise.resolve(
+      path.startsWith("/srv/media/Movies")
+        ? {
+            usable: false,
+            sentence: "Can't use this folder because it's inside the Movies library root.",
+          }
+        : { usable: true, sentence: `${nameOf(path)} is on /, 1.2 TB free.` },
+    ),
+};
 
 export function Picker({
   nodeId = "media",
