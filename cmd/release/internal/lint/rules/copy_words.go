@@ -38,7 +38,7 @@ type bannedCopy struct {
 }
 
 func (b bannedCopy) in(s string) bool {
-	return b.re.MatchString(s) && !(b.Alone && b.whole.MatchString(strings.TrimSpace(s)))
+	return b.re.MatchString(s) && (!b.Alone || !b.whole.MatchString(strings.TrimSpace(s)))
 }
 
 func loadBannedCopy(repo *lint.Repo) ([]bannedCopy, error) {
@@ -98,23 +98,29 @@ func copyLiterals(file *ast.File, skipFunc string) []copyLiteral {
 			continue
 		}
 		ast.Inspect(decl, func(n ast.Node) bool {
-			switch n := n.(type) {
-			case *ast.Field:
-				if n.Tag != nil {
-					tags[n.Tag] = true
-					tag, _ := strconv.Unquote(n.Tag.Value)
-					if doc := reflect.StructTag(tag).Get("doc"); doc != "" {
-						lits = append(lits, copyLiteral{doc, n.Tag.Pos()})
-					}
-				}
-			case *ast.BasicLit:
-				if n.Kind == token.STRING && !tags[n] {
-					s, _ := strconv.Unquote(n.Value)
-					lits = append(lits, copyLiteral{s, n.Pos()})
-				}
-			}
+			lits = appendCopyLiteral(lits, tags, n)
 			return true
 		})
+	}
+	return lits
+}
+
+func appendCopyLiteral(lits []copyLiteral, tags map[*ast.BasicLit]bool, n ast.Node) []copyLiteral {
+	switch n := n.(type) {
+	case *ast.Field:
+		if n.Tag == nil {
+			return lits
+		}
+		tags[n.Tag] = true
+		tag, _ := strconv.Unquote(n.Tag.Value)
+		if doc := reflect.StructTag(tag).Get("doc"); doc != "" {
+			return append(lits, copyLiteral{doc, n.Tag.Pos()})
+		}
+	case *ast.BasicLit:
+		if n.Kind == token.STRING && !tags[n] {
+			s, _ := strconv.Unquote(n.Value)
+			return append(lits, copyLiteral{s, n.Pos()})
+		}
 	}
 	return lits
 }
