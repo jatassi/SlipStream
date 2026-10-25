@@ -711,8 +711,15 @@ int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char
 
 int lts_listen_on(lts_session* s, char const* address, uint16_t port, lts_error* err) {
 	return guard(err, [&] {
+		std::string const at = listen_interface(address, port);
+		if (s->ses.get_settings().get_str(sp::listen_interfaces) == at) {
+			// libtorrent applies only a changed setting, so a listen that
+			// failed on this same interface is retried by reopening.
+			s->ses.reopen_network_sockets();
+			return;
+		}
 		sp p;
-		p.set_str(sp::listen_interfaces, listen_interface(address, port));
+		p.set_str(sp::listen_interfaces, at);
 		s->ses.apply_settings(std::move(p));
 	});
 }

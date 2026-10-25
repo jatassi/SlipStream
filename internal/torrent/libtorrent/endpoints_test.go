@@ -303,6 +303,35 @@ func TestTheListenerFollowsTheDefaultRoute(t *testing.T) {
 	}
 }
 
+// TestAMoveThatCannotListenIsTriedAgain moves the default route to an
+// address whose port another program holds: the engine stops listening, and
+// once the port is free again it listens there at its next route check.
+func TestAMoveThatCannotListenIsTriedAgain(t *testing.T) {
+	first, moved := netip.MustParseAddr("127.0.0.1"), netip.MustParseAddr("127.0.0.2")
+	var mu sync.Mutex
+	at := first
+	route := func() (netip.Addr, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return at, nil
+	}
+	e := openRouted(t, route)
+	before, err := e.ListenAddr()
+	if err != nil {
+		t.Fatalf("on a route from %s the engine listens on %s, %v", first, before, err)
+	}
+	held, err := new(net.ListenConfig).Listen(t.Context(), "tcp", netip.AddrPortFrom(moved, before.Port()).String())
+	if err != nil {
+		t.Fatalf(`%s is not usable on this machine; on macOS run "sudo fakeworld setup-loopback" once: %v`, moved, err)
+	}
+	mu.Lock()
+	at = moved
+	mu.Unlock()
+	waitFor(t, e.Events(), func(engine.ListenFailed) bool { return true })
+	_ = held.Close()
+	listensOn(t, e, func(ap netip.AddrPort) bool { return ap == netip.AddrPortFrom(moved, before.Port()) })
+}
+
 func openRouted(t *testing.T, route func() (netip.Addr, error)) engine.Engine {
 	t.Helper()
 	cfg := engine.Config{

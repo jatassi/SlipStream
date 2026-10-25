@@ -47,9 +47,12 @@ type Session struct {
 	// session on an unspecified address; nil for one on a named address.
 	route      func() (netip.Addr, error)
 	routeCheck time.Duration
-	events     chan engine.Event
-	stop       chan struct{}
-	done       chan struct{}
+	// rand draws the ports follow tries for a session that opened without
+	// a route on port 0.
+	rand   *rand.Rand
+	events chan engine.Event
+	stop   chan struct{}
+	done   chan struct{}
 
 	mu     sync.RWMutex
 	closed bool
@@ -101,7 +104,7 @@ func openRouted(cfg engine.Config, route func() (netip.Addr, error)) (*Session, 
 	if err != nil {
 		return nil, err
 	}
-	s.route, s.routeCheck = route, cfg.RouteCheck
+	s.route, s.routeCheck, s.rand = route, cfg.RouteCheck, cfg.Rand
 	if unrouted != nil {
 		s.events <- engine.ListenFailed{Err: noRoute(unrouted)}
 	}
@@ -250,21 +253,42 @@ func (s *Session) ListenAddr() (netip.AddrPort, error) {
 }
 
 // follow moves the listener to the address the default route leaves from
-// once the route moved, on the port the session opened on. A host that
-// lost its route keeps the listener where it is.
+// once the route moved, on the port the session opened on. A session that
+// opened without a route has no port yet and tries ports as Open does. A
+// host that lost its route keeps the listener where it is, and a move whose
+// listen failed is tried again at the next check.
 func (s *Session) follow() {
 	to, err := s.route()
 	if err != nil || to == *s.listen.Load() {
 		return
 	}
-	addr := C.CString(to.String())
-	defer C.free(unsafe.Pointer(addr))
-	var cerr C.lts_error
-	if C.lts_listen_on(s.ses, addr, C.uint16_t(s.port), &cerr) != 0 {
-		s.send(engine.ListenFailed{Err: goError(&cerr)})
+	ports := []uint16{s.port}
+	if s.port == 0 {
+		ports = dynamicPorts(s.rand, anyPortTries)
+	}
+	port, err := firstListening(ports, func(port uint16) (uint16, error) { return port, s.listenOn(to, port) })
+	if err != nil {
+		var failed *engine.Error
+		if !errors.Is(err, engine.ErrNotListening) && errors.As(err, &failed) {
+			s.send(engine.ListenFailed{Err: failed})
+		}
 		return
 	}
+	s.port = port
 	s.listen.Store(&to)
+}
+
+// listenOn moves the listener to at and port, and is ErrNotListening when
+// libtorrent could not bind there. Its listen_failed alert says why.
+func (s *Session) listenOn(at netip.Addr, port uint16) error {
+	addr := C.CString(at.String())
+	defer C.free(unsafe.Pointer(addr))
+	var cerr C.lts_error
+	if C.lts_listen_on(s.ses, addr, C.uint16_t(port), &cerr) != 0 {
+		return goError(&cerr)
+	}
+	_, err := s.ListenAddr()
+	return err
 }
 
 func (s *Session) Add(p engine.AddParams) (engine.Handle, error) {

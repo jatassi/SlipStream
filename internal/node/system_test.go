@@ -411,6 +411,7 @@ func TestALappedReadResetsToTheRingAndAJoinCodeStreamsMasked(t *testing.T) {
 			t.Fatal(err)
 		}
 		fieldOf(t, c.admin(key, http.MethodPatch, self+"/config", `{"log.viewer_lines":100}`), "log.viewer_lines")
+		synctest.Wait()
 		after := ringHead(t, n)
 		for i := range 150 {
 			n.rootLog.Info("probe", "n", i+1, "code", code)
