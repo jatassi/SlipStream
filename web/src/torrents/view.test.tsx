@@ -1,10 +1,20 @@
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { DownloadclientsTorrentRow } from "../api/gen/model";
+import { getListWorksMockHandler } from "../api/gen/query/works/works.msw";
+import { orchardListed } from "../test/library";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
-import { harvestId, orchardId, seedboxId, torrent, torrentsServer } from "../test/torrents";
+import {
+  harvestId,
+  orchardId,
+  orchardPoster,
+  seedboxId,
+  torrent,
+  torrentsServer,
+} from "../test/torrents";
 import { asPhone } from "../test/viewport";
 
 const downloading: DownloadclientsTorrentRow = torrent({
@@ -43,6 +53,9 @@ const sentence = () => page.getByRole("paragraph").filter({ hasText: "seeding" }
 const table = () => page.getByRole("table", { name: "Torrents" });
 const tabs = () => page.getByRole("radiogroup", { name: "Show" });
 
+const posterOf = (name: RegExp) =>
+  table().getByRole("row", { name }).element().querySelector<HTMLElement>("[data-poster]");
+
 function open(rows: readonly DownloadclientsTorrentRow[], path = "/activity/torrents") {
   const live = liveServer();
   const server = torrentsServer(rows);
@@ -74,6 +87,36 @@ test("Torrents leads with its sentence and problems, then the downloads by defau
       "The Quiet OrchardDirector's Cut · WEBDL-1080pDownloading25%0.00↓ —↑ —beacon.exampleWorkinghomeBuilt-in",
     );
   expect(table().getByRole("row").all()).toHaveLength(2);
+});
+
+test("each row leads with its Work's poster, and a placeholder where there is none", async () => {
+  open([downloading, seeding, unregistered], "/activity/torrents?tab=all");
+  await expect.element(table().getByRole("row", { name: /^The Quiet Orchard/u })).toBeVisible();
+
+  const art = () => posterOf(/^The Quiet Orchard/u)?.querySelector("img");
+  await expect.poll(() => art()?.getAttribute("src")).toBe(`${orchardPoster}?size=small`);
+  await expect.poll(() => art()?.naturalWidth ?? 0).toBeGreaterThan(0);
+  expect(posterOf(/^Orchard Harvest/u)?.querySelector("img")).toBeNull();
+  expect(posterOf(/^Gone\.Release/u)?.querySelector("img")).toBeNull();
+  expect(posterOf(/^Gone\.Release/u)).not.toBeNull();
+});
+
+test("a poster the Node can't fetch leaves the placeholder", async () => {
+  const gone = "/artwork/gone.png";
+  renderApp({
+    path: "/activity/torrents",
+    handlers: [
+      getListWorksMockHandler({
+        works: [{ ...orchardListed, artwork: [{ kind: "poster", url: gone }] }],
+      }),
+      http.get(gone, () => HttpResponse.json({}, { status: 404 })),
+      ...liveServer().handlers,
+      ...torrentsServer([downloading]).handlers,
+    ],
+  });
+  await expect.element(table().getByRole("row", { name: /^The Quiet Orchard/u })).toBeVisible();
+  await expect.poll(() => posterOf(/^The Quiet Orchard/u)?.querySelector("img")).toBeNull();
+  expect(posterOf(/^The Quiet Orchard/u)?.dataset["poster"]).toBe("art");
 });
 
 test("a tab, a Node and a search narrow the table", async () => {

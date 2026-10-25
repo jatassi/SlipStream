@@ -69,13 +69,23 @@ async function expectColumns(page: Page, shown: readonly string[], hidden: reado
   }
 }
 
+async function expectPoster(page: Page) {
+  const art = row(page).locator('[data-poster="art"] img');
+  await expect(art, "its poster shows").toBeVisible();
+  await expect
+    .poll(() => art.evaluate((image: HTMLImageElement) => image.naturalWidth), {
+      message: "its poster loads",
+    })
+    .toBeGreaterThan(0);
+}
+
 async function expectCards(page: Page) {
   await expect(header(page, "Work")).toBeHidden();
   await expect(row(page).getByRole("cell", { name: /^Speed Down /u })).toBeVisible();
   await expect(row(page).getByRole("cell", { name: /^Tracker 127\.0\.0\.1/u })).toBeVisible();
 }
 
-test("the table shows eight columns at 1280 px, four at 980 px and stacked cards at 620 px", async ({
+test("the table shows eight columns at 1280 px, four at 980 px and stacked cards at 620 px, each led by its poster", async ({
   adminPage: page,
   world,
 }, testInfo) => {
@@ -84,20 +94,24 @@ test("the table shows eight columns at 1280 px, four at 980 px and stacked cards
   await expect(row(page)).toContainText("Downloading");
   if (isPhone(page)) {
     await expectCards(page);
+    await expectPoster(page);
     await page.screenshot({ path: testInfo.outputPath("cards.png") });
     return;
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await expectColumns(page, ["Work", "State", "Progress", ...wide], []);
   await expect(row(page).getByRole("button", { name: `${work} actions` })).toBeVisible();
+  await expectPoster(page);
   await page.screenshot({ path: testInfo.outputPath("1280.png") });
 
   await page.setViewportSize({ width: 980, height: 900 });
   await expectColumns(page, ["Work", "State", "Progress"], wide);
+  await expectPoster(page);
   await page.screenshot({ path: testInfo.outputPath("980.png") });
 
   await page.setViewportSize({ width: 620, height: 900 });
   await expectCards(page);
+  await expectPoster(page);
   await page.screenshot({ path: testInfo.outputPath("620.png") });
 });
 

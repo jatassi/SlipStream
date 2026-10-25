@@ -7,6 +7,7 @@ import type {
   DownloadclientsTorrentDetail,
   DownloadclientsTorrentList,
   DownloadclientsTorrentRow,
+  WorksContentType,
   WorksListedWork,
 } from "../api/gen/model";
 import { getListTorrentsMockHandler } from "../api/gen/query/downloadclients/downloadclients.msw";
@@ -15,6 +16,7 @@ import {
   getListContentTypesMockHandler,
   getListWorksMockHandler,
 } from "../api/gen/query/works/works.msw";
+import { artworkHandlers, artworkUrl } from "./ambient/fixtures";
 import { cinema, orchardId, orchardListed } from "./library";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "./nodes";
 import { targetHandlers } from "./targets";
@@ -50,6 +52,18 @@ const harvest: WorksListedWork = {
 };
 
 const zines = { ...cinema, id: "zines", name: "Zines" };
+
+const posteredCinema: WorksContentType = {
+  ...cinema,
+  artwork: [{ key: "poster", label: "Poster", shape: "poster", tier: "work" }],
+};
+
+export const orchardPoster = artworkUrl("red");
+
+const posteredOrchard: WorksListedWork = {
+  ...orchardListed,
+  artwork: [{ kind: "poster", url: orchardPoster }],
+};
 
 let serial = 0;
 
@@ -180,10 +194,11 @@ export function torrentsServer(
         return { ...listOf(rows), rows: rows.filter((row) => named.includes(row.id)) };
       }),
       getListWorksMockHandler({
-        works: [harvest, orchardListed],
+        works: [harvest, posteredOrchard],
       }),
       nodesAre(home, seedbox),
-      getListContentTypesMockHandler({ contentTypes: [cinema, zines] }),
+      getListContentTypesMockHandler({ contentTypes: [posteredCinema, zines] }),
+      ...artworkHandlers,
       getListCutsMockHandler({
         cuts: [
           { key: "standard", name: "Standard", aliases: [], origin: "builtin" },

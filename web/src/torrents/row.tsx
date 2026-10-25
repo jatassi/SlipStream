@@ -5,6 +5,7 @@ import type { LiveRow } from "../live/torrents";
 import { Data } from "../ui/data";
 import { LiveBar } from "../ui/live-bar";
 import { Meter } from "../ui/meter";
+import { Poster } from "../ui/poster";
 import { SignalChip } from "../ui/signal-chip";
 import {
   type Row,
@@ -35,7 +36,7 @@ function Lines({ first, second }: { first: ReactNode; second: ReactNode }) {
   );
 }
 
-export function WorkCell({ row, names }: CellProps) {
+function WorkLines({ row, names }: CellProps) {
   const work = names.work(row.workId);
   if (work === undefined) {
     return <Lines first={<Data>{row.name}</Data>} second="Not in the Library" />;
@@ -49,6 +50,15 @@ export function WorkCell({ row, names }: CellProps) {
       first={<span className="font-semibold">{work}</span>}
       second={facts.length === 0 ? <Data>{row.name}</Data> : facts.join(" · ")}
     />
+  );
+}
+
+export function WorkCell(props: CellProps) {
+  return (
+    <span className="flex min-w-0 items-center gap-3">
+      <Poster url={props.names.poster(props.row.workId)} />
+      <WorkLines {...props} />
+    </span>
   );
 }
 

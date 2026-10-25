@@ -5,8 +5,8 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 ## Sub-features
 
 - `torrents-queue` with `Downloads at once` 1, a second and third Grab read `Queued` with `1st in line` and `2nd in line`, and start once the limit is 3 again.
-- `torrents-view` `/activity/torrents` leads with the sentence (`1 downloading · 1 failure · 1 warning`), then `Needs you` with a signal row per failure and warning (`Unregistered` Harbor Lights, `Stalled` Salt Meadow), the `Show` tabs `Downloading`, `Seeding`, `Problems` and `All` with counts, the search box and the table; each row names its Work with its quality, a state word over a line (`Downloading` over `1 peer`), the live bar with percent, time left and speed, ratio, speeds, the tracker host over its status, and the Node over `Built-in` (P-164).
-- `torrents-columns` the table shows Work, State, Progress, Ratio, Speed, Tracker and Node · client at 1280 px, drops to Work, State and Progress at 980 px, and stacks each row as a card at 620 px and on a phone.
+- `torrents-view` `/activity/torrents` leads with the sentence (`1 downloading · 1 failure · 1 warning`), then `Needs you` with a signal row per failure and warning (`Unregistered` Harbor Lights, `Stalled` Salt Meadow), the `Show` tabs `Downloading`, `Seeding`, `Problems` and `All` with counts, the search box and the table; each row leads with its Work's poster (a blank raised tile for Harbor Lights, which has none, and for a torrent with no Work) and names its Work with its quality, a state word over a line (`Downloading` over `1 peer`), the live bar with percent, time left and speed, ratio, speeds, the tracker host over its status, and the Node over `Built-in` (P-164).
+- `torrents-columns` the table shows Work, State, Progress, Ratio, Speed, Tracker and Node · client at 1280 px, drops to Work, State and Progress at 980 px, and stacks each row as a card at 620 px and on a phone, each row led by its Work's 32 × 48 poster at every width.
 - `torrents-live` the Admin's stream carries `torrents.live` each second while a torrent moves, and the row's percent and the Activity count follow without a reload (P-167).
 - `torrents-filters` a tab, `?type=movie` (the `Content Type` select, shown once set) and a search narrow the table, and the URL keeps them (P-165).
 - `torrents-inspector` a row opens the Inspector at `/activity/torrents/<id>` with `Downloading from 1 peer, <n> min left at 16 KB/s.`, `Pause`, `Remove` and `More actions for <Work>`, then Numbers, Trackers with the passkey hidden as `/announce/•••`, Files, Grabs and Details, whose save folder is `<downloads>/Movies/<info hash>` (P-146); ArrowDown steps to the next row with the Inspector following; on a phone it is a pushed page with the back link `Torrents`.
@@ -84,12 +84,13 @@ Steps:
   $FW exec $RUN --proof torrents/torrents-view -- $PW cli $P screenshot --full-page --filename={runDir}/proof/torrents/torrents-view/phone.png
   ```
 
-- **Narrow the window.** At 1280 px all seven named columns show; at 980 px only Work, State and Progress; at 620 px the header goes and each row is a card whose cells carry their labels.
+- **Narrow the window.** At 1280 px all seven named columns show; at 980 px only Work, State and Progress; at 620 px the header goes and each row is a card whose cells carry their labels. At every width The Quiet Orchard and Salt Meadow lead with their loaded posters and Harbor Lights, which has no poster, with a blank tile.
 
   ```sh
   for w in 1280 980 620; do
     $FW exec $RUN -- $PW cli $D resize $w 900
     $FW exec $RUN --proof torrents/torrents-columns -- $PW cli $D run-code 'async page => { const headers = page.getByRole("table", { name: "Torrents" }).getByRole("columnheader"); const shown = []; for (const h of await headers.all()) { if (await h.isVisible()) shown.push((await h.textContent()).trim()); } return shown; }'
+    $FW exec $RUN --proof torrents/torrents-columns -- $PW cli $D run-code 'async page => page.getByRole("table", { name: "Torrents" }).locator("[data-torrent-id]").evaluateAll(rows => rows.map(row => { const img = row.querySelector("[data-poster] img"); return [row.querySelector("[data-col=work]").textContent, img === null ? "blank" : img.naturalWidth > 0 ? "poster" : "loading"]; }))'
     $FW exec $RUN --proof torrents/torrents-columns -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-columns/$w.png
   done
   $FW exec $RUN -- $PW cli $D resize 1440 900

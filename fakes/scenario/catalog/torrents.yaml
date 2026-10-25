@@ -4,7 +4,7 @@ description: >-
   UNIT3D's announce rules with a 2 minute min interval. The Quiet Orchard's
   release downloads from its seeders, Harbor Lights' release is unregistered
   at the tracker, and Salt Meadow's comes only from a bad peer that sends
-  corrupt pieces.
+  corrupt pieces. Harbor Lights has a backdrop and no poster.
 seed: torrents
 admin:
   email: ada@example.test
@@ -28,6 +28,8 @@ tmdb:
       title: Harbor Lights
       released: 2019-09-06
       runtime: 98m
+      images:
+        - {shape: backdrop, votes: 4}
     - id: 9000003
       imdb_id: tt9000003
       title: Salt Meadow
