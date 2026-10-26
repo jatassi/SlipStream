@@ -2,7 +2,6 @@ package grabs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"slices"
@@ -82,16 +81,13 @@ func (gr *Grabs) transferFailed(ctx context.Context, tx *storage.Tx[file], t tra
 }
 
 // moveJob moves the Grab job names by o in tx, when it still transfers.
-// A job no Grab has, or a Grab that left transferring, is nothing to do.
+// A Grab that left transferring is nothing to do.
 func (gr *Grabs) moveJob(ctx context.Context, tx *storage.Tx[file], job string, o outcome) error {
 	id, err := storage.ParseUUID(job)
 	if err != nil {
-		return nil //nolint:nilerr // a job this purpose never wrote is nothing to do
+		return err
 	}
 	row, err := db.New(tx).GetGrab(ctx, GrabID{UUID: id})
-	if errors.Is(err, storage.ErrNoRows) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}
@@ -134,18 +130,15 @@ func (gr *Grabs) transfersCommitted(jobs []string) {
 }
 
 // transferNames is the Names hook: each job's Grab named by its Work's
-// label, read in r. A job no Grab has goes unnamed.
+// label, read in r.
 func transferNames(ctx context.Context, r storage.Reader[file], jobs []string) (map[string]string, error) {
 	out := make(map[string]string, len(jobs))
 	for _, job := range jobs {
 		id, err := storage.ParseUUID(job)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		row, err := db.New(r).GetGrab(ctx, GrabID{UUID: id})
-		if errors.Is(err, storage.ErrNoRows) {
-			continue
-		}
 		if err != nil {
 			return nil, err
 		}
