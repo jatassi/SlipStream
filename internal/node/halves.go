@@ -370,7 +370,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Now: n.today, Released: metadata.NoBacklog, Log: n.rootLog.With("subsystem", "availability"),
 	}).Run)
 	n.claimed.Go("health", h.health.Run)
-	n.claimed.Go("first run", h.firstRun.Run)
+	n.claimed.Go("first setup", h.firstRun.Run)
 	n.env.Test.started(started)
 	return nil
 }

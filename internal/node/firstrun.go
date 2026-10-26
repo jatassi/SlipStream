@@ -22,6 +22,6 @@ func (n *Node) openFirstRun(lib *library, h *half) *firstrun.FirstRun {
 		Steps:   firstRunSteps(lib, h),
 		Hub:     n.hub,
 		Changed: firstrun.ChangedEvent.Bind(n.hub),
-		Log:     n.rootLog.With("subsystem", "first run"),
+		Log:     n.rootLog.With("subsystem", "firstrun"),
 	})
 }

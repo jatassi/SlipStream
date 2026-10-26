@@ -1,5 +1,5 @@
-// Package firstrunapi is first run's operations: the Setup code check and
-// first setup's steps.
+// Package firstrunapi serves the Setup code check and first setup's
+// steps.
 package firstrunapi
 
 import (
