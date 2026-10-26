@@ -1,5 +1,6 @@
-// Package roletest holds the test-only Probe Role and CheckFresh. The
-// composition root never wires the Probe, so production never links it.
+// Package roletest holds the test-only Probe, as a Role and as a Node-wide
+// channel, and CheckFresh. The composition root never wires the Probe, so
+// production never links it.
 package roletest
 
 import (
@@ -22,18 +23,28 @@ const Name role.Name = "probe"
 
 var Def = role.Def[*probev1.Intent, *probev1.Facts, *probev1.Result]{Name: Name}
 
+// WideName is the wide Probe's name, a Node-wide channel outside role's.
+const WideName role.Wide = "wide-probe"
+
+var WideDef = role.WideDef[*probev1.Intent, *probev1.Facts, *probev1.Result]{Name: WideName}
+
 type file = storage.Library
 
 //go:embed schema/*.sql
 var schemaFiles embed.FS
 
-// Schema is the probe library set: each Node's intent value and the
-// results applied from it, in order.
+// Schema is the probe library set: each Node's intent value for the Role
+// and for the wide Probe, and the results applied from it, in order.
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("probe", schemaFiles) }
 
 // SetIntent changes node's Probe intent, as Controller logic would.
 func SetIntent(ctx context.Context, tx *storage.Tx[file], node role.NodeID, value string) error {
 	return db.New(tx).SetIntent(ctx, db.SetIntentParams{NodeID: node, Value: value})
+}
+
+// SetWide changes node's wide Probe intent, as Controller logic would.
+func SetWide(ctx context.Context, tx *storage.Tx[file], node role.NodeID, value string) error {
+	return db.New(tx).SetWide(ctx, db.SetWideParams{NodeID: node, Value: value})
 }
 
 // Applied is every result applied from node, in order.
@@ -66,6 +77,14 @@ func Serve() *Control {
 	return c
 }
 
+// ServeWide derives a Node's wide intent from its probe_wide row and
+// applies a result as Serve does.
+func ServeWide() *Control {
+	c := &Control{}
+	c.Control = WideDef.Serve(deriveWide, c.apply)
+	return c
+}
+
 // PauseAt holds the apply of result n, inside its library Write, until
 // resume.
 func (c *Control) PauseAt(n uint64) (resume func()) {
@@ -82,7 +101,14 @@ func (c *Control) PauseAt(n uint64) (resume func()) {
 }
 
 func derive(ctx context.Context, r storage.Reader[file], node role.NodeID) (*probev1.Intent, error) {
-	value, err := db.New(r).GetIntent(ctx, node)
+	return intent(db.New(r).GetIntent(ctx, node))
+}
+
+func deriveWide(ctx context.Context, r storage.Reader[file], node role.NodeID) (*probev1.Intent, error) {
+	return intent(db.New(r).GetWide(ctx, node))
+}
+
+func intent(value string, err error) (*probev1.Intent, error) {
 	if errors.Is(err, storage.ErrNoRows) {
 		return &probev1.Intent{}, nil
 	}
@@ -120,6 +146,9 @@ func NewProbe(local *storage.DB[storage.Local]) *Probe {
 }
 
 func (p *Probe) Held() role.Held { return Def.Hold(p.run, p.release) }
+
+// HeldWide holds p as the wide Probe.
+func (p *Probe) HeldWide() role.Held { return WideDef.Hold(p.run, p.release) }
 
 func (p *Probe) release(context.Context) error {
 	p.mu.Lock()

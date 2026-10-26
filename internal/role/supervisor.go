@@ -23,10 +23,10 @@ type run struct {
 
 var errReturned = errors.New("returned while the Role was still held")
 
-// supervise runs each Role while the Node holds or drains it and, for a
-// scoped Role, its intent is cached, releases each one it lets go, and
-// reports the node scope's facts, until ctx ends. It starts once the
-// holder settled, so no Role acts on an intent the Controller superseded.
+// supervise runs each Held while wants says so, releases each one it lets
+// go, and reports the node scope's facts, until ctx ends. It starts once
+// the holder settled, so no Role acts on an intent the Controller
+// superseded.
 func (h *Holding) supervise(ctx context.Context) {
 	select {
 	case <-h.settled:
@@ -59,8 +59,7 @@ func (h *Holding) supervise(ctx context.Context) {
 func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 	for _, held := range h.cfg.Held {
 		r := h.runs[held.name]
-		_, cached := h.cache[string(held.name)]
-		want := (cached || !held.scoped) && (slices.Contains(h.assigned, held.name) || slices.Contains(h.draining, held.name))
+		want := h.wants(held)
 		switch {
 		case want && r == nil:
 			rctx, cancel := context.WithCancel(ctx)
@@ -82,6 +81,17 @@ func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 	}
 }
 
+// wants reports whether held runs now: a Node-wide channel while its
+// intent is cached, so from claim until Reset, and a Role while the Node
+// holds or drains it and, when scoped, its intent is cached. The caller
+// holds h.mu.
+func (h *Holding) wants(held Held) bool {
+	if _, cached := h.cache[held.name]; held.scoped && !cached {
+		return false
+	}
+	return held.wide || slices.Contains(h.assigned, Name(held.name)) || slices.Contains(h.draining, Name(held.name))
+}
+
 // release lets held go once its run returned. Its run returns only once
 // canceled, so with ctx alive the Node let the Role go; a shutdown ends
 // ctx and keeps what the Role holds.
@@ -90,23 +100,27 @@ func (h *Holding) release(ctx context.Context, held Held) {
 		return
 	}
 	if err := held.release(ctx); err != nil {
-		h.cfg.Log.Error("release a Role", "role", string(held.name), "err", err)
+		h.cfg.Log.Error("release a Role", "role", held.name, "err", err)
 	}
 }
 
-// nodeFacts is the node scope's facts. The caller holds h.mu.
+// nodeFacts is the node scope's facts, which name Roles only. The caller
+// holds h.mu.
 func (h *Holding) nodeFacts() *nodev1.NodeFacts {
 	f := &nodev1.NodeFacts{Assigned: roleStrings(h.assigned), AppliedVersion: h.cache[nodeScope].version, SettingsRevision: h.host.SettingsRevision, Probes: ProbeFacts(h.host.Probes)}
 	if h.host.HTTPAddress.IsValid() {
 		f.HttpAddress = h.host.HTTPAddress.String()
 	}
 	for _, held := range h.cfg.Held {
+		if held.wide {
+			continue
+		}
 		switch r := h.runs[held.name]; {
 		case r == nil:
 		case r.restarting:
-			f.Restarting = append(f.Restarting, string(held.name))
+			f.Restarting = append(f.Restarting, held.name)
 		default:
-			f.Running = append(f.Running, string(held.name))
+			f.Running = append(f.Running, held.name)
 		}
 	}
 	return f
@@ -124,9 +138,9 @@ func (h *Holding) keep(ctx context.Context, held Held, r *run) {
 			return
 		}
 		if pe, ok := errors.AsType[*panicError](err); ok {
-			h.cfg.Log.Error("role failed", "role", string(held.name), "err", err, "stack", string(pe.stack))
+			h.cfg.Log.Error("role failed", "role", held.name, "err", err, "stack", string(pe.stack))
 		} else {
-			h.cfg.Log.Error("role failed", "role", string(held.name), "err", err)
+			h.cfg.Log.Error("role failed", "role", held.name, "err", err)
 		}
 		if time.Since(started) >= h.cfg.Timings.RestartMax {
 			n = 0
