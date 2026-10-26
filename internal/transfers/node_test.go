@@ -434,6 +434,42 @@ func TestTheSendLimitPacesChunks(t *testing.T) {
 	})
 }
 
+func TestASendLimitTooSlowForAChunkPerLaneWithinTheChunkTimeoutStillArrives(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		w[0].start()
+		w[1].start()
+		const limit = 64 << 10
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, limit)
+		tr.expectArrived()
+		for k, n := range tr.sent.counts() {
+			if n > 1 {
+				t.Fatalf("chunk %d of file %d was sent %d times, want once: a slow lane that keeps moving isn't stalled", k[1], k[0], n)
+			}
+		}
+	})
+}
+
+func TestALaneStalledPastTheChunkTimeoutIsRedialed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		tr.sent.setHold(func(position, index int) {
+			if position == 0 && index == 1 && tr.sent.count(0, 1) == 1 {
+				time.Sleep(w[1].timings.Chunk + 15*time.Second)
+			}
+		})
+		w[0].start()
+		w[1].start()
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
+		tr.expectArrived()
+		if n := tr.sent.count(0, 1); n != 2 {
+			t.Fatalf("the stalled chunk was sent %d times, want twice: once on the stalled lane, once after the redial", n)
+		}
+	})
+}
+
 func TestARouteOneEndCantDialIsGivenUp(t *testing.T) {
 	for _, c := range []struct {
 		name   string
