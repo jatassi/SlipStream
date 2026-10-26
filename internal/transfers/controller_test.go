@@ -52,6 +52,8 @@ type cluster struct {
 	homeEnd       *nodeEnd
 	seedboxEnd    *nodeEnd
 	published     *published
+	// stop stops the Controller's loop.
+	stop func()
 
 	mu      sync.Mutex
 	touched []role.NodeID
@@ -273,17 +275,25 @@ func newCluster(t *testing.T) *cluster {
 	r.hold(t, r.homeEnd, role.InProcess(r.controls))
 	r.hold(t, r.seedboxEnd, role.OverLink(r.pair.Worker.Link, r.pair.Controller.Key, linktest.Timings))
 	r.pair.Connect(t)
+	r.stop = r.run(t)
+	synctest.Wait()
+	return r
+}
+
+// run starts the Controller's loop and returns what stops it.
+func (r *cluster) run(t *testing.T) (stop func()) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- r.tr.Run(ctx) }()
-	t.Cleanup(func() {
+	stop = sync.OnceFunc(func() {
 		cancel()
 		if err := <-done; err != nil {
 			t.Error(err)
 		}
 	})
-	synctest.Wait()
-	return r
+	t.Cleanup(stop)
+	return stop
 }
 
 func (r *cluster) exec(t *testing.T, query string, args ...any) {
@@ -480,6 +490,28 @@ func TestCancelDeletesTheRecordAndBothEndsLetGo(t *testing.T) {
 		if in, _ := r.homeEnd.now(); len(in.GetKeep()) != 0 {
 			t.Errorf("home keeps %x, want nothing", in.GetKeep())
 		}
+	})
+}
+
+// TestALoopStartedAfterACancelLetsGo cancels a Transfer while the loop is
+// down, as when the Controller restarts after its Nodes' sessions derived
+// their intents: the loop's first pass lets both ends go.
+func TestALoopStartedAfterACancelLetsGo(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		id := r.start(t, "heat", "")
+		r.stop()
+		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, id) }); err != nil {
+			t.Fatal(err)
+		}
+		r.tr.Touch()
+		r.run(t)
+		synctest.Wait()
+		check(t, "seedbox runs", r.seedboxEnd.actives(), nil)
+		if in, _ := r.homeEnd.now(); len(in.GetKeep()) != 0 {
+			t.Errorf("home keeps %x, want nothing", in.GetKeep())
+		}
+		r.fresh(t)
 	})
 }
 
