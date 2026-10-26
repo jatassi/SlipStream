@@ -178,3 +178,23 @@ func TestAJobWaitingOnTheRosterDoesNotWakeTheReconciler(t *testing.T) {
 		t.Fatalf("with a job not running due in a minute, the reconciler sleeps %s, want a minute", got)
 	}
 }
+
+func TestAJobWhoseGrabVanishedLeavesTheReconcilerIdle(t *testing.T) {
+	now := time.Now()
+	vanished, open := storage.NewUUID(), storage.NewUUID()
+	s := schedule{
+		inflight: map[storage.UUID]bool{}, attempts: map[storage.UUID]int{vanished: 3, open: 1},
+		retryAt: map[storage.UUID]time.Time{vanished: now.Add(-time.Second), open: now.Add(time.Minute)},
+		shown:   map[GrabID]Progress{{UUID: vanished}: {Done: 1, Total: 2}},
+	}
+	s.keep(nil, []Grab{{ID: GrabID{UUID: open}}})
+	if got := s.next(now, nil, false, DefaultTimings()); got != time.Minute {
+		t.Fatalf("after a waiting Grab vanished with its Work, the reconciler sleeps %s, want a minute until the open one's retry", got)
+	}
+	if _, ok := s.attempts[vanished]; ok {
+		t.Errorf("the vanished Grab keeps %d attempts, want none", s.attempts[vanished])
+	}
+	if len(s.shown) != 0 {
+		t.Errorf("the vanished Grab's progress stays shown: %v", s.shown)
+	}
+}
