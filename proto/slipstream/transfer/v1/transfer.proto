@@ -1,10 +1,14 @@
-// The Transfer chunk protocol (internal/transfers). Each frame rides a
-// kind-2 link stream as a uvarint length and then one Frame. The receiver
-// drives: Open, then Want; the source answers Manifest or Absent, then a
-// Chunk for each index wanted.
+// The Transfer chunk protocol (internal/transfers). Each frame rides a lane,
+// or a kind-2 stream on the Node link for route 3, as a uvarint length and
+// then one Frame. Lockstep: both ends run one build. The side that opened
+// the lane sends Lane first. The receiver then drives on every lane: Open,
+// then Want; the sender answers Manifest or Absent, then a Chunk for each
+// index wanted.
 syntax = "proto3";
 
 package slipstream.transfer.v1;
+
+import "slipstream/transfer/v1/sync.proto";
 
 message Frame {
   oneof frame {
@@ -13,30 +17,62 @@ message Frame {
     Absent absent = 3;
     Want want = 4;
     Chunk chunk = 5;
+    Lane lane = 6;
   }
 }
 
-// Open names the file a receiver wants: one file of a torrent.
-message Open {
-  bytes info_hash = 1;
-  uint32 file_index = 2;
+// Lane is a lane's first frame, from the side that opened it. route is the
+// route it was opened on, never BOTH_DIAL. The other side resets the lane
+// unless that Transfer is active with that peer on a route that takes it.
+message Lane {
+  bytes transfer_id = 1;
+  Route route = 2;
 }
 
-// Manifest is the file's size and the BLAKE3-256 of each chunk, in order.
+// Open names the file of the lane's Transfer at position.
+message Open {
+  uint32 position = 1;
+  Source source = 2;
+}
+
+// Identity is what a receiver resumes against. file_id is empty where the
+// volume doesn't keep a stable one.
+message Identity {
+  int64 size = 1;
+  int64 mtime_unix_ns = 2;
+  bytes file_id = 3;
+}
+
 message Manifest {
   int64 size = 1;
   int64 chunk_size = 2;
-  repeated bytes chunk_hashes = 3;
+  Identity identity = 3;
 }
 
-// Absent answers an Open for a file the source doesn't hold.
-message Absent {}
+// Absent answers an Open for a file the sender can't read now.
+message Absent {
+  Reason reason = 1;
+  // detail is the holder's own text.
+  string detail = 2;
 
+  enum Reason {
+    REASON_UNSPECIFIED = 0;
+    REASON_GONE = 1;
+    REASON_FAILED = 2;
+    REASON_NOT_READY = 3;
+  }
+}
+
+// Want asks for chunks of the open file, by index.
 message Want {
   repeated uint32 chunks = 1;
 }
 
+// Chunk is one chunk of the open file and the BLAKE3-256 the sender took
+// of it as it read it. binding: the send limit held it back.
 message Chunk {
   uint32 index = 1;
-  bytes data = 2;
+  bytes hash = 2;
+  bool binding = 3;
+  bytes data = 4;
 }

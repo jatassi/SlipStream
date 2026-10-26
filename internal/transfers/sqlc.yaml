@@ -19,6 +19,12 @@ sql:
           - column: transfers_chunk.transfer_id
             go_type:
               type: TransferID
+          - column: transfers_staging.transfer_id
+            go_type:
+              type: TransferID
+          - column: transfers_resume.transfer_id
+            go_type:
+              type: TransferID
           - column: transfers_transfer.source_node
             go_type:
               import: github.com/jatassi/slipstream/internal/role

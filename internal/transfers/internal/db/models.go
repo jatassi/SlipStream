@@ -14,6 +14,22 @@ type TransfersChunk struct {
 	Idx        int64
 }
 
+type TransfersResume struct {
+	TransferID TransferID
+	Position   int64
+	Place      int64
+	Size       int64
+	MtimeNs    int64
+	FileKey    []byte
+	Verified   []byte
+	Done       int64
+}
+
+type TransfersStaging struct {
+	TransferID TransferID
+	Folder     string
+}
+
 type TransfersTransfer struct {
 	ID          TransferID
 	SourceNode  role.NodeID
