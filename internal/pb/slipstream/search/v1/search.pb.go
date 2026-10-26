@@ -333,8 +333,12 @@ func (x *FetchTorrentRequest) GetUrl() string {
 }
 
 type FetchTorrentResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Torrent       []byte                 `protobuf:"bytes,1,opt,name=torrent,proto3" json:"torrent,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Got:
+	//
+	//	*FetchTorrentResponse_Torrent
+	//	*FetchTorrentResponse_Magnet
+	Got           isFetchTorrentResponse_Got `protobuf_oneof:"got"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -369,12 +373,48 @@ func (*FetchTorrentResponse) Descriptor() ([]byte, []int) {
 	return file_slipstream_search_v1_search_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *FetchTorrentResponse) GetTorrent() []byte {
+func (x *FetchTorrentResponse) GetGot() isFetchTorrentResponse_Got {
 	if x != nil {
-		return x.Torrent
+		return x.Got
 	}
 	return nil
 }
+
+func (x *FetchTorrentResponse) GetTorrent() []byte {
+	if x != nil {
+		if x, ok := x.Got.(*FetchTorrentResponse_Torrent); ok {
+			return x.Torrent
+		}
+	}
+	return nil
+}
+
+func (x *FetchTorrentResponse) GetMagnet() string {
+	if x != nil {
+		if x, ok := x.Got.(*FetchTorrentResponse_Magnet); ok {
+			return x.Magnet
+		}
+	}
+	return ""
+}
+
+type isFetchTorrentResponse_Got interface {
+	isFetchTorrentResponse_Got()
+}
+
+type FetchTorrentResponse_Torrent struct {
+	// torrent is the .torrent's bytes.
+	Torrent []byte `protobuf:"bytes,1,opt,name=torrent,proto3,oneof"`
+}
+
+type FetchTorrentResponse_Magnet struct {
+	// magnet is the magnet link the Indexer's link redirected to, verbatim.
+	Magnet string `protobuf:"bytes,2,opt,name=magnet,proto3,oneof"`
+}
+
+func (*FetchTorrentResponse_Torrent) isFetchTorrentResponse_Got() {}
+
+func (*FetchTorrentResponse_Magnet) isFetchTorrentResponse_Got() {}
 
 var File_slipstream_search_v1_search_proto protoreflect.FileDescriptor
 
@@ -400,9 +440,11 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\"`\n" +
 	"\x13FetchTorrentRequest\x127\n" +
 	"\aindexer\x18\x01 \x01(\v2\x1d.slipstream.search.v1.IndexerR\aindexer\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\"0\n" +
-	"\x14FetchTorrentResponse\x12\x18\n" +
-	"\atorrent\x18\x01 \x01(\fR\atorrent2\xae\x02\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\"S\n" +
+	"\x14FetchTorrentResponse\x12\x1a\n" +
+	"\atorrent\x18\x01 \x01(\fH\x00R\atorrent\x12\x18\n" +
+	"\x06magnet\x18\x02 \x01(\tH\x00R\x06magnetB\x05\n" +
+	"\x03got2\xae\x02\n" +
 	"\x10SearchingService\x12M\n" +
 	"\x04Caps\x12!.slipstream.search.v1.CapsRequest\x1a\".slipstream.search.v1.CapsResponse\x12S\n" +
 	"\x06Search\x12#.slipstream.search.v1.SearchRequest\x1a$.slipstream.search.v1.SearchResponse\x12e\n" +
@@ -454,6 +496,10 @@ func init() { file_slipstream_search_v1_search_proto_init() }
 func file_slipstream_search_v1_search_proto_init() {
 	if File_slipstream_search_v1_search_proto != nil {
 		return
+	}
+	file_slipstream_search_v1_search_proto_msgTypes[6].OneofWrappers = []any{
+		(*FetchTorrentResponse_Torrent)(nil),
+		(*FetchTorrentResponse_Magnet)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

@@ -934,6 +934,7 @@ export * from "./grabsGrab.ts";
 export * from "./grabsGrabList.ts";
 export * from "./grabsGrabQuality.ts";
 export * from "./grabsGrabStage.ts";
+export * from "./grabsMetadataSearch.ts";
 export * from "./grabsProgress.ts";
 export * from "./grabsReason.ts";
 export * from "./grabsReasonAttribute.ts";

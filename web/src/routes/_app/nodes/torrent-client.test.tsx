@@ -65,11 +65,13 @@ test("a limit saves on its own, as the one field it changed", async () => {
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect.element(page.getByText("Torrent client settings saved")).toBeVisible();
   await userEvent.click(page.getByRole("switch", { name: "uTP, incoming and outgoing" }));
+  await userEvent.click(page.getByRole("switch", { name: "DHT for public torrents" }));
   await expect
     .poll(() => clients.writes)
     .toEqual([
       { path: `${homeId}/settings`, body: { activeDownloads: 5 } },
       { path: `${homeId}/settings`, body: { utp: false } },
+      { path: `${homeId}/settings`, body: { dht: false } },
     ]);
 });
 

@@ -7,14 +7,13 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/magnet"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/rpc"
 )
 
-const (
-	searchLimit  = 8 << 20
-	torrentLimit = 10 << 20
-)
+const searchLimit = 8 << 20
 
 // Home is the Searching service an Indexer's home Node serves. It sends
 // each request and returns the answer unparsed, within the request
@@ -30,7 +29,12 @@ func NewHome(client *http.Client, t Timings) *Home {
 	return &Home{client: &own, timings: t}
 }
 
+// sameHost follows a redirect on the Indexer's own host, and stops at one
+// to a magnet link, which FetchTorrent returns as it is.
 func sameHost(req *http.Request, via []*http.Request) error {
+	if magnet.Is(req.URL.String()) {
+		return http.ErrUseLastResponse
+	}
 	if !onHost(req.URL, via[0].URL) {
 		return errors.New("the Indexer redirected off its own host")
 	}
@@ -43,19 +47,19 @@ func sameHost(req *http.Request, via []*http.Request) error {
 func onHost(u, home *url.URL) bool { return u.Scheme == home.Scheme && u.Host == home.Host }
 
 func (h *Home) Caps(ctx context.Context, req *searchv1.CapsRequest) (*searchv1.CapsResponse, error) {
-	body, status, err := h.api(ctx, req.GetIndexer(), map[string]string{"t": "caps"})
+	res, err := h.api(ctx, req.GetIndexer(), map[string]string{"t": "caps"})
 	if err != nil {
 		return nil, err
 	}
-	return &searchv1.CapsResponse{Body: body, Status: status}, nil
+	return &searchv1.CapsResponse{Body: res.body, Status: res.status}, nil
 }
 
 func (h *Home) Search(ctx context.Context, req *searchv1.SearchRequest) (*searchv1.SearchResponse, error) {
-	body, status, err := h.api(ctx, req.GetIndexer(), req.GetParams())
+	res, err := h.api(ctx, req.GetIndexer(), req.GetParams())
 	if err != nil {
 		return nil, err
 	}
-	return &searchv1.SearchResponse{Body: body, Status: status}, nil
+	return &searchv1.SearchResponse{Body: res.body, Status: res.status}, nil
 }
 
 func (h *Home) FetchTorrent(ctx context.Context, req *searchv1.FetchTorrentRequest) (*searchv1.FetchTorrentResponse, error) {
@@ -67,14 +71,21 @@ func (h *Home) FetchTorrent(ctx context.Context, req *searchv1.FetchTorrentReque
 	if err != nil || !onHost(link, home) {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "the torrent's URL is not on the Indexer's host")
 	}
-	body, status, err := h.get(ctx, link, torrentLimit)
+	res, err := h.get(ctx, link, bencode.MaxTorrent)
 	if err != nil {
 		return nil, err
 	}
-	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return nil, rpc.Errorf(rpc.CodeAborted, "the Indexer responded with status %d", status)
+	if to := res.location; isRedirect(res.status) && magnet.Is(to) {
+		return &searchv1.FetchTorrentResponse{Got: &searchv1.FetchTorrentResponse_Magnet{Magnet: to}}, nil
 	}
-	return &searchv1.FetchTorrentResponse{Torrent: body}, nil
+	if res.status < http.StatusOK || res.status >= http.StatusMultipleChoices {
+		return nil, rpc.Errorf(rpc.CodeAborted, "the Indexer responded with status %d", res.status)
+	}
+	return &searchv1.FetchTorrentResponse{Got: &searchv1.FetchTorrentResponse_Torrent{Torrent: res.body}}, nil
+}
+
+func isRedirect(status int32) bool {
+	return status >= http.StatusMultipleChoices && status < http.StatusBadRequest
 }
 
 func indexerURL(idx *searchv1.Indexer) (*url.URL, error) {
@@ -86,10 +97,10 @@ func indexerURL(idx *searchv1.Indexer) (*url.URL, error) {
 }
 
 // api sends params, with the Indexer's API key, to its Torznab api path.
-func (h *Home) api(ctx context.Context, idx *searchv1.Indexer, params map[string]string) (body []byte, status int32, err error) {
+func (h *Home) api(ctx context.Context, idx *searchv1.Indexer, params map[string]string) (response, error) {
 	base, err := indexerURL(idx)
 	if err != nil {
-		return nil, 0, err
+		return response{}, err
 	}
 	u := base.JoinPath("api")
 	q := url.Values{}
@@ -101,26 +112,32 @@ func (h *Home) api(ctx context.Context, idx *searchv1.Indexer, params map[string
 	return h.get(ctx, u, searchLimit)
 }
 
-func (h *Home) get(ctx context.Context, u *url.URL, limit int64) (body []byte, status int32, err error) {
+type response struct {
+	body     []byte
+	status   int32
+	location string
+}
+
+func (h *Home) get(ctx context.Context, u *url.URL, limit int64) (response, error) {
 	ctx, cancel := context.WithTimeout(ctx, h.timings.Request)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
-		return nil, 0, rpc.Errorf(rpc.CodeInvalidArgument, "build the request: %v", err)
+		return response{}, rpc.Errorf(rpc.CodeInvalidArgument, "build the request: %v", err)
 	}
 	res, err := h.client.Do(req)
 	if err != nil {
-		return nil, 0, rpc.Errorf(rpc.CodeAborted, "reach the Indexer: %v", withoutURL(err))
+		return response{}, rpc.Errorf(rpc.CodeAborted, "reach the Indexer: %v", withoutURL(err))
 	}
 	defer func() { _ = res.Body.Close() }()
-	body, err = io.ReadAll(io.LimitReader(res.Body, limit+1))
+	body, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
 	if err != nil {
-		return nil, 0, rpc.Errorf(rpc.CodeAborted, "read the Indexer's response: %v", err)
+		return response{}, rpc.Errorf(rpc.CodeAborted, "read the Indexer's response: %v", err)
 	}
 	if int64(len(body)) > limit {
-		return nil, 0, rpc.Errorf(rpc.CodeResourceExhausted, "the Indexer's response is over %d bytes", limit)
+		return response{}, rpc.Errorf(rpc.CodeResourceExhausted, "the Indexer's response is over %d bytes", limit)
 	}
-	return body, int32(res.StatusCode), nil //nolint:gosec // an HTTP status fits
+	return response{body: body, status: int32(res.StatusCode), location: res.Header.Get("Location")}, nil //nolint:gosec // an HTTP status fits
 }
 
 // withoutURL drops the request URL from err, since it carries the API key.

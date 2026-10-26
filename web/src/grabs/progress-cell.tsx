@@ -1,7 +1,8 @@
-import type { GrabsGrab } from "../api/gen/model";
+import type { GrabsGrab, GrabsMetadataSearch } from "../api/gen/model";
 import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
-import { bytes } from "../format";
+import { bytes, countWords, sinceWords } from "../format";
 import { useLiveRow } from "../live/torrents";
+import { useNow } from "../tasks/use-now";
 import { paceOf } from "../torrents/model";
 import { Data } from "../ui/data";
 import { LiveBar } from "../ui/live-bar";
@@ -61,7 +62,28 @@ function ReportedProgress({ grab }: { grab: GrabsGrab }) {
   );
 }
 
+const peer = { one: "peer", many: "peers" };
+
+function MetadataCell({ search }: { search: GrabsMetadataSearch }) {
+  const reading = { now: useNow(60_000), zone: undefined };
+  return (
+    <span className="flex max-w-[240px] flex-col gap-0.5">
+      <span>
+        {search.peers === 0
+          ? "Looking for peers"
+          : `Getting metadata from ${countWords(search.peers, peer)}`}
+      </span>
+      <span className="text-meta text-ink-3">
+        Fails at <Data>{sinceWords(search.endsAt, reading)}</Data> if no peer sends the metadata
+      </span>
+    </span>
+  );
+}
+
 export function ProgressCell({ grab }: { grab: GrabsGrab }) {
+  if (grab.metadata !== undefined) {
+    return <MetadataCell search={grab.metadata} />;
+  }
   if (!movesBytes(grab)) {
     return null;
   }

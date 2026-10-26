@@ -19,12 +19,14 @@ type DownloadclientsNode struct {
 	Connections         *int64
 	Utp                 *bool
 	StalledAfterSeconds *int64
+	Dht                 *bool
 }
 
 type DownloadclientsSetting struct {
 	ID                     Singleton
 	FaultStallSeconds      *int64
 	UnregisteredGapSeconds *int64
+	MetadataWaitSeconds    *int64
 }
 
 type DownloadclientsTorrent struct {

@@ -110,6 +110,23 @@ test("when a release counts as bad saves each threshold on its own, in seconds",
   expect(clients.writes).toEqual([{ path: "thresholds", body: { unregisteredGap: 2700 } }]);
 });
 
+test("the metadata wait of a magnet link saves in seconds", async () => {
+  const clients = downloadClients();
+  renderApp({ path, handlers: clients.handlers });
+  await expect
+    .element(
+      page.getByText("A Grab of a magnet link fails when no peer sends its metadata in this long."),
+    )
+    .toBeVisible();
+  await userEvent.fill(
+    page.getByRole("textbox", { name: "A magnet link with no metadata fails after" }),
+    "10",
+  );
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await expect.element(page.getByText("Download Clients settings saved")).toBeVisible();
+  expect(clients.writes).toEqual([{ path: "thresholds", body: { metadataWait: 600 } }]);
+});
+
 test("with no Node downloading, the section says how to get a client", async () => {
   renderApp({ path, handlers: downloadClients({ cards: [], thresholds }).handlers });
   await expect

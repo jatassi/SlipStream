@@ -211,6 +211,7 @@ export const DownloadclientsLimits = zod.object({
     .min(downloadclientsLimitsActiveDownloadsMin)
     .describe("0 for no limit"),
   connections: zod.int().min(1),
+  dht: zod.boolean(),
   downloadLimit: zod
     .int()
     .min(downloadclientsLimitsDownloadLimitMin)
@@ -316,6 +317,7 @@ export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>
 
 export const DownloadclientsThresholds = zod.object({
   faultStall: SettingDurationField,
+  metadataWait: SettingDurationField,
   unregisteredGap: SettingDurationField,
 });
 
@@ -479,6 +481,34 @@ export const SettingCountField = zod.object({
 export type SettingCountField = zod.input<typeof SettingCountField>;
 export type SettingCountFieldOutput = zod.output<typeof SettingCountField>;
 
+export const SettingSwitchField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.boolean(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["switch"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.boolean(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.boolean(),
+});
+
+export type SettingSwitchField = zod.input<typeof SettingSwitchField>;
+export type SettingSwitchFieldOutput = zod.output<typeof SettingSwitchField>;
+
 export const SettingRateField = zod.object({
   applies: zod.enum(["live", "restart"]),
   default: zod.int().describe("Bytes a second"),
@@ -509,38 +539,11 @@ export const SettingRateField = zod.object({
 export type SettingRateField = zod.input<typeof SettingRateField>;
 export type SettingRateFieldOutput = zod.output<typeof SettingRateField>;
 
-export const SettingSwitchField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.boolean(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["switch"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.boolean(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.boolean(),
-});
-
-export type SettingSwitchField = zod.input<typeof SettingSwitchField>;
-export type SettingSwitchFieldOutput = zod.output<typeof SettingSwitchField>;
-
 export const DownloadclientsSettings = zod.object({
   activeChecks: SettingCountField,
   activeDownloads: SettingCountField,
   connections: SettingCountField,
+  dht: SettingSwitchField,
   downloadLimit: SettingRateField,
   stalledAfter: SettingDurationField,
   uploadLimit: SettingRateField,
@@ -554,6 +557,12 @@ export const DownloadclientsSettingsPatch = zod.object({
   activeChecks: zod.int().nullish().describe("null resets it to its default"),
   activeDownloads: zod.int().nullish().describe("0 for no limit; null resets it to its default"),
   connections: zod.int().nullish().describe("null resets it to its default"),
+  dht: zod
+    .boolean()
+    .nullish()
+    .describe(
+      "Whether the client runs the DHT, which public torrents use to find peers; null resets it to its default",
+    ),
   downloadLimit: zod
     .int()
     .nullish()
@@ -571,6 +580,12 @@ export type DownloadclientsSettingsPatchOutput = zod.output<typeof Downloadclien
 
 export const DownloadclientsThresholdsPatch = zod.object({
   faultStall: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  metadataWait: zod
+    .int()
+    .nullish()
+    .describe(
+      "Seconds a magnet link's metadata search runs before its Grab fails; null resets it to its default",
+    ),
   unregisteredGap: zod.int().nullish().describe("Seconds; null resets it to its default"),
 });
 
@@ -1176,6 +1191,9 @@ export const GrabsFailure = zod.object({
   code: zod.enum([
     "indexer_unavailable",
     "torrent_unreachable",
+    "magnet_invalid",
+    "no_metadata",
+    "no_peer_source",
     "torrent_invalid",
     "infohash_mismatch",
     "torrent_v2_only",
@@ -1197,6 +1215,21 @@ export const GrabsFailure = zod.object({
 
 export type GrabsFailure = zod.input<typeof GrabsFailure>;
 export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
+
+export const grabsMetadataSearchPeersMin = 0;
+
+export const GrabsMetadataSearch = zod.object({
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .describe("When the Grab fails unless a peer has sent the metadata"),
+  peers: zod
+    .int()
+    .min(grabsMetadataSearchPeersMin)
+    .describe("Peers connected at the Downloading Node's last response"),
+});
+
+export type GrabsMetadataSearch = zod.input<typeof GrabsMetadataSearch>;
+export type GrabsMetadataSearchOutput = zod.output<typeof GrabsMetadataSearch>;
 
 export const grabsProgressDoneMin = 0;
 
@@ -1224,7 +1257,9 @@ export const GrabsGrab = zod.object({
   fetchNodeId: zod
     .uuid()
     .nullable()
-    .describe("The Searching Node that fetched the .torrent, null until it did"),
+    .describe(
+      "The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did",
+    ),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
   indexerId: zod.uuid(),
@@ -1233,6 +1268,9 @@ export const GrabsGrab = zod.object({
     .nullable()
     .describe("The v1 info hash in hex, null until the .torrent is fetched"),
   itemId: zod.uuid(),
+  metadata: GrabsMetadataSearch.exactOptional().describe(
+    "The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node",
+  ),
   nodeId: zod
     .uuid()
     .describe(

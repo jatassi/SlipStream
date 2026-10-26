@@ -12,7 +12,8 @@ service SearchingService {
   rpc Caps(CapsRequest) returns (CapsResponse);
   // Search sends one Torznab query.
   rpc Search(SearchRequest) returns (SearchResponse);
-  // FetchTorrent downloads a .torrent from the Indexer's own host.
+  // FetchTorrent downloads a .torrent from the Indexer's own host, or
+  // returns the magnet link the Indexer redirected to.
   rpc FetchTorrent(FetchTorrentRequest) returns (FetchTorrentResponse);
 }
 
@@ -49,5 +50,10 @@ message FetchTorrentRequest {
 }
 
 message FetchTorrentResponse {
-  bytes torrent = 1;
+  oneof got {
+    // torrent is the .torrent's bytes.
+    bytes torrent = 1;
+    // magnet is the magnet link the Indexer's link redirected to, verbatim.
+    string magnet = 2;
+  }
 }

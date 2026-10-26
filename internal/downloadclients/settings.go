@@ -21,9 +21,11 @@ var (
 	ActiveChecks    = setting.Count{Key: "downloading.activeChecks", Label: "File checks at once", Default: 1, Min: 1, Max: 50, Unit: setting.Noun{One: "check", Many: "checks"}}
 	Connections     = setting.Count{Key: "downloading.connections", Label: "Peer connections", Default: 8000, Min: 50, Max: 65535, Unit: setting.Noun{One: "connection", Many: "connections"}}
 	UTP             = setting.Switch{Key: "downloading.utp", Label: "uTP, incoming and outgoing", Default: true}
+	DHT             = setting.Switch{Key: "downloading.dht", Label: "DHT for public torrents", Default: true}
 	StalledAfter    = setting.Duration{Key: "downloading.stalledAfter", Label: "Stalled after", Default: 10 * time.Minute, Min: time.Minute, Max: 24 * time.Hour, Step: time.Minute}
 	FaultStall      = setting.Duration{Key: "downloading.faultStall", Label: "A download with no data at all is bad after", Default: 12 * time.Hour, Min: time.Hour, Max: 30 * 24 * time.Hour, Step: time.Hour}
 	UnregisteredGap = setting.Duration{Key: "downloading.unregisteredGap", Label: "Unregistered twice, this far apart", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
+	MetadataWait    = setting.Duration{Key: "downloading.metadataWait", Label: "A magnet link with no metadata fails after", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
 )
 
 // NodeSettings is one Node's client settings with every default applied.
@@ -33,20 +35,20 @@ type NodeSettings struct {
 	// ActiveDownloads is 0 for none.
 	ActiveDownloads           int64
 	ActiveChecks, Connections int64
-	UTP                       bool
+	UTP, DHT                  bool
 	StalledAfter              time.Duration
 }
 
 // NodeOverrides is one Node's stored overrides, each nil at its default.
 type NodeOverrides struct {
 	DownloadLimit, UploadLimit, ActiveDownloads, ActiveChecks, Connections, StalledAfter *int64
-	UTP                                                                                  *bool
+	UTP, DHT                                                                             *bool
 }
 
 // NodeChange is the per-Node settings to store, each nil to leave.
 type NodeChange struct {
 	DownloadLimit, UploadLimit, ActiveDownloads, ActiveChecks, Connections, StalledAfter *setting.Stored[int64]
-	UTP                                                                                  *setting.Stored[bool]
+	UTP, DHT                                                                             *setting.Stored[bool]
 }
 
 func (o NodeOverrides) Settings() NodeSettings {
@@ -57,6 +59,7 @@ func (o NodeOverrides) Settings() NodeSettings {
 		ActiveChecks:    ActiveChecks.Value(o.ActiveChecks),
 		Connections:     Connections.Value(o.Connections),
 		UTP:             UTP.Value(o.UTP),
+		DHT:             DHT.Value(o.DHT),
 		StalledAfter:    StalledAfter.Value(o.StalledAfter),
 	}
 }
@@ -72,7 +75,7 @@ func nodeOverridesOf(ctx context.Context, r storage.Reader[file], node role.Node
 	}
 	return NodeOverrides{
 		DownloadLimit: row.DownloadLimit, UploadLimit: row.UploadLimit, ActiveDownloads: row.ActiveDownloads,
-		ActiveChecks: row.ActiveChecks, Connections: row.Connections, StalledAfter: row.StalledAfterSeconds, UTP: row.Utp,
+		ActiveChecks: row.ActiveChecks, Connections: row.Connections, StalledAfter: row.StalledAfterSeconds, UTP: row.Utp, DHT: row.Dht,
 	}, nil
 }
 
@@ -121,28 +124,42 @@ func setNodeSettings(ctx context.Context, tx *storage.Tx[file], node role.NodeID
 	if c.UTP != nil {
 		o.UTP = c.UTP.Override()
 	}
+	if c.DHT != nil {
+		o.DHT = c.DHT.Override()
+	}
 	return o, db.New(tx).SetNodeSettings(ctx, db.SetNodeSettingsParams{
 		NodeID: node, DownloadLimit: o.DownloadLimit, UploadLimit: o.UploadLimit, ActiveDownloads: o.ActiveDownloads,
-		ActiveChecks: o.ActiveChecks, Connections: o.Connections, Utp: o.UTP, StalledAfterSeconds: o.StalledAfter,
+		ActiveChecks: o.ActiveChecks, Connections: o.Connections, Utp: o.UTP, StalledAfterSeconds: o.StalledAfter, Dht: o.DHT,
 	})
 }
 
-// Thresholds decide when a release counts as bad, on every Node.
-type Thresholds struct{ FaultStall, UnregisteredGap time.Duration }
+// Thresholds decide when a release counts as bad: FaultStall and
+// UnregisteredGap on every Node, MetadataWait on the Controller, which
+// fails a magnet link's Grab once its metadata search ran this long.
+type Thresholds struct{ FaultStall, UnregisteredGap, MetadataWait time.Duration }
 
 // ThresholdOverrides is the stored thresholds, each nil at its default.
-type ThresholdOverrides struct{ FaultStall, UnregisteredGap *int64 }
+type ThresholdOverrides struct{ FaultStall, UnregisteredGap, MetadataWait *int64 }
 
 // ThresholdChange is the thresholds to store, each nil to leave.
-type ThresholdChange struct{ FaultStall, UnregisteredGap *setting.Stored[int64] }
+type ThresholdChange struct{ FaultStall, UnregisteredGap, MetadataWait *setting.Stored[int64] }
 
 func (o ThresholdOverrides) Thresholds() Thresholds {
-	return Thresholds{FaultStall: FaultStall.Value(o.FaultStall), UnregisteredGap: UnregisteredGap.Value(o.UnregisteredGap)}
+	return Thresholds{
+		FaultStall: FaultStall.Value(o.FaultStall), UnregisteredGap: UnregisteredGap.Value(o.UnregisteredGap),
+		MetadataWait: MetadataWait.Value(o.MetadataWait),
+	}
 }
 
 func thresholdOverridesOf(ctx context.Context, r storage.Reader[file]) (ThresholdOverrides, error) {
 	row, err := db.New(r).GetThresholds(ctx)
-	return ThresholdOverrides{FaultStall: row.FaultStallSeconds, UnregisteredGap: row.UnregisteredGapSeconds}, err
+	return ThresholdOverrides{FaultStall: row.FaultStallSeconds, UnregisteredGap: row.UnregisteredGapSeconds, MetadataWait: row.MetadataWaitSeconds}, err
+}
+
+// ThresholdsIn is the thresholds with every default applied, read in r.
+func ThresholdsIn(ctx context.Context, r storage.Reader[file]) (Thresholds, error) {
+	o, err := thresholdOverridesOf(ctx, r)
+	return o.Thresholds(), err
 }
 
 // Thresholds is the stored thresholds.
@@ -179,5 +196,10 @@ func setThresholds(ctx context.Context, tx *storage.Tx[file], c ThresholdChange)
 	if c.UnregisteredGap != nil {
 		o.UnregisteredGap = c.UnregisteredGap.Override()
 	}
-	return o, db.New(tx).SetThresholds(ctx, db.SetThresholdsParams{FaultStallSeconds: o.FaultStall, UnregisteredGapSeconds: o.UnregisteredGap})
+	if c.MetadataWait != nil {
+		o.MetadataWait = c.MetadataWait.Override()
+	}
+	return o, db.New(tx).SetThresholds(ctx, db.SetThresholdsParams{
+		FaultStallSeconds: o.FaultStall, UnregisteredGapSeconds: o.UnregisteredGap, MetadataWaitSeconds: o.MetadataWait,
+	})
 }

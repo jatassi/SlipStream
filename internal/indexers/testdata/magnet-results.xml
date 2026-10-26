@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:torznab="http://torznab.com/schemas/2015/feed">
+  <channel>
+    <title>Example Tracker</title>
+    <item>
+      <title>Night Harbor 2019 1080p Magnet Enclosure</title>
+      <size>1000</size>
+      <link>magnet:?xt=urn:btih:0123456789ABCDEF0123456789ABCDEF01234567&amp;dn=Night+Harbor</link>
+      <enclosure url="magnet:?xt=urn:btih:0123456789ABCDEF0123456789ABCDEF01234567&amp;dn=Night+Harbor" type="application/x-bittorrent;x-scheme-handler/magnet" />
+      <torznab:attr name="seeders" value="4" />
+    </item>
+    <item>
+      <title>Night Harbor 2019 720p Magnet Link</title>
+      <size>2000</size>
+      <link>magnet:?xt=urn:btih:AERUKZ4JVPG66AJDIVSYTK6N54ASGRLH</link>
+    </item>
+    <item>
+      <title>Night Harbor 2019 480p Magnet Attr</title>
+      <size>3000</size>
+      <torznab:attr name="magneturl" value="magnet:?xt=urn:btih:fedcba9876543210fedcba9876543210fedcba98&amp;tr=udp%3A%2F%2Fopen.example.test%3A6969" />
+    </item>
+    <item>
+      <title>Night Harbor 2019 2160p Torrent And Magnet</title>
+      <size>4000</size>
+      <link>https://prowlarr.example.test/1/download?apikey=k&amp;id=43</link>
+      <enclosure url="https://prowlarr.example.test/1/download?apikey=k&amp;id=43" type="application/x-bittorrent" />
+      <torznab:attr name="magneturl" value="magnet:?xt=urn:btih:00112233445566778899aabbccddeeff00112233" />
+    </item>
+    <item>
+      <title>Night Harbor 2019 Remux Hash Attr</title>
+      <size>5000</size>
+      <enclosure url="magnet:?xt=urn:btih:00112233445566778899aabbccddeeff00112233" type="application/x-bittorrent;x-scheme-handler/magnet" />
+      <torznab:attr name="infohash" value="AAAABBBBCCCCDDDDEEEEFFFF0000111122223333" />
+    </item>
+  </channel>
+</rss>

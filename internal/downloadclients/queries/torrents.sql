@@ -12,10 +12,10 @@ SELECT * FROM downloadclients_node WHERE node_id = ?;
 
 -- name: SetNodeSettings :exec
 INSERT INTO downloadclients_node (
-    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds
+    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht
 ) VALUES (
     sqlc.arg(node_id), sqlc.narg(download_limit), sqlc.narg(upload_limit), sqlc.narg(active_downloads),
-    sqlc.narg(active_checks), sqlc.narg(connections), sqlc.narg(utp), sqlc.narg(stalled_after_seconds)
+    sqlc.narg(active_checks), sqlc.narg(connections), sqlc.narg(utp), sqlc.narg(stalled_after_seconds), sqlc.narg(dht)
 )
 ON CONFLICT (node_id) DO UPDATE SET
     download_limit = excluded.download_limit,
@@ -24,16 +24,23 @@ ON CONFLICT (node_id) DO UPDATE SET
     active_checks = excluded.active_checks,
     connections = excluded.connections,
     utp = excluded.utp,
-    stalled_after_seconds = excluded.stalled_after_seconds;
+    stalled_after_seconds = excluded.stalled_after_seconds,
+    dht = excluded.dht;
 
 -- name: GetThresholds :one
-SELECT fault_stall_seconds, unregistered_gap_seconds FROM downloadclients_settings WHERE id = 1;
+SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds FROM downloadclients_settings WHERE id = 1;
 
 -- name: SetThresholds :exec
 UPDATE downloadclients_settings SET
     fault_stall_seconds = sqlc.narg(fault_stall_seconds),
-    unregistered_gap_seconds = sqlc.narg(unregistered_gap_seconds)
+    unregistered_gap_seconds = sqlc.narg(unregistered_gap_seconds),
+    metadata_wait_seconds = sqlc.narg(metadata_wait_seconds)
 WHERE id = 1;
+
+-- name: GetMetainfoOfHash :one
+-- The metainfo of the newest Torrent of a hash on any Node, live or
+-- removed.
+SELECT metainfo FROM downloadclients_torrent WHERE info_hash = sqlc.arg(info_hash) ORDER BY added_order DESC LIMIT 1;
 
 -- name: ListHeldOfHash :many
 SELECT id, node_id, removed_at FROM downloadclients_torrent

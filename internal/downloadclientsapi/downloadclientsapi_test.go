@@ -145,6 +145,7 @@ type settings struct {
 	UploadLimit field[int64] `json:"uploadLimit"`
 	Connections field[int64] `json:"connections"`
 	UTP         field[bool]  `json:"utp"`
+	DHT         field[bool]  `json:"dht"`
 }
 
 func call(t *testing.T, o *ownertest.Owner, method, path, body string) settings {
@@ -161,12 +162,12 @@ func TestANodesClientSettingsChangeAndReachItsIntent(t *testing.T) {
 	o, home, touched := serve(t)
 	path := "/api/v1/download-clients/" + home.String() + "/settings"
 
-	if got := call(t, o, http.MethodGet, path, ""); !got.UTP.Value || !got.UTP.IsDefault || got.Connections.Value != 8000 || got.UploadLimit.Value != 0 {
+	if got := call(t, o, http.MethodGet, path, ""); !got.UTP.Value || !got.UTP.IsDefault || !got.DHT.Value || !got.DHT.IsDefault || got.Connections.Value != 8000 || got.UploadLimit.Value != 0 {
 		t.Fatalf("a Node's settings before any change = %+v, want the defaults", got)
 	}
-	got := call(t, o, http.MethodPatch, path, `{"utp":false,"uploadLimit":524288}`)
-	if got.UTP.Value || got.UTP.IsDefault || got.UploadLimit.Value != 524288 || got.Connections.Value != 8000 {
-		t.Fatalf("after setting uTP off and a 512 KB/s upload limit = %+v", got)
+	got := call(t, o, http.MethodPatch, path, `{"utp":false,"dht":false,"uploadLimit":524288}`)
+	if got.UTP.Value || got.UTP.IsDefault || got.DHT.Value || got.DHT.IsDefault || got.UploadLimit.Value != 524288 || got.Connections.Value != 8000 {
+		t.Fatalf("after setting uTP and the DHT off and a 512 KB/s upload limit = %+v", got)
 	}
 	if again := call(t, o, http.MethodGet, path, ""); again != got {
 		t.Fatalf("read back = %+v, want %+v", again, got)

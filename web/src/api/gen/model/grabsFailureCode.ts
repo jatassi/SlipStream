@@ -1,6 +1,9 @@
 export type GrabsFailureCode =
   | "indexer_unavailable"
   | "torrent_unreachable"
+  | "magnet_invalid"
+  | "no_metadata"
+  | "no_peer_source"
   | "torrent_invalid"
   | "infohash_mismatch"
   | "torrent_v2_only"

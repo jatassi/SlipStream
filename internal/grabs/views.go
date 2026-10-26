@@ -3,27 +3,35 @@ package grabs
 import (
 	"context"
 	"errors"
+	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// View is a Grab with its live download progress, nil when none.
+// View is a Grab with its live download progress, nil when none, and
+// its metadata search, nil unless it fetches from a magnet link.
 type View struct {
 	Grab
 	Progress *Progress
+	Metadata *MetadataSearch
 }
 
 // List lists every Grab, newest first.
 func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 	var grabs []Grab
+	var wait time.Duration
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		rows, err := db.New(r).ListGrabs(ctx)
 		if err != nil {
 			return err
 		}
-		grabs, err = loadAll(ctx, r, rows)
+		if grabs, err = loadAll(ctx, r, rows); err != nil {
+			return err
+		}
+		wait, err = metadataWaitIn(ctx, r)
 		return err
 	})
 	if err != nil {
@@ -31,7 +39,7 @@ func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 	}
 	out := make([]View, len(grabs))
 	for i, g := range grabs {
-		out[i] = View{g, gr.progress(g)}
+		out[i] = gr.view(g, wait)
 	}
 	return out, nil
 }
@@ -50,6 +58,7 @@ func (gr *Grabs) Moving(ctx context.Context, _ identity.Admin) (int, error) {
 // Get reads Grab id, ErrNoGrab when none has it.
 func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, error) {
 	var g Grab
+	var wait time.Duration
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		row, err := db.New(r).GetGrab(ctx, id)
 		if errors.Is(err, storage.ErrNoRows) {
@@ -62,11 +71,23 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 		if err != nil {
 			return err
 		}
-		g, err = load(ctx, r, row, rel)
+		if g, err = load(ctx, r, row, rel); err != nil {
+			return err
+		}
+		wait, err = metadataWaitIn(ctx, r)
 		return err
 	})
 	if err != nil {
 		return View{}, err
 	}
-	return View{g, gr.progress(g)}, nil
+	return gr.view(g, wait), nil
+}
+
+func (gr *Grabs) view(g Grab, wait time.Duration) View {
+	return View{Grab: g, Progress: gr.progress(g), Metadata: gr.metadataSearch(g, wait)}
+}
+
+func metadataWaitIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
+	th, err := downloadclients.ThresholdsIn(ctx, r)
+	return th.MetadataWait, err
 }
