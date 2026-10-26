@@ -1,0 +1,50 @@
+name: lanes-measure
+
+# Spec S31's first-build fact: Transfer lanes against one stream on the
+# Node link, between two network namespaces. Each job measures one path
+# (round trip, loss, line rate and socket buffers) on its own runner, so
+# every arm in a cell shares one machine. Run it by hand.
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-osqbr4-lanes-measure]
+    paths: [internal/link/internal/mux/**, .github/workflows/lanes-measure.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: Measure lanes at ${{ matrix.rtt }}, ${{ matrix.loss }} loss, ${{ matrix.path }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        rtt: [30ms, 100ms, 300ms]
+        loss: ["0%", "0.1%"]
+        path: [1gbit/64MiB, uncapped/64MiB, 1gbit/stock]
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
+        with:
+          cache: go-link-measure
+      - name: Load netem and install ethtool
+        run: |
+          sudo modprobe sch_netem || { sudo apt-get install -y "linux-modules-extra-$(uname -r)" && sudo modprobe sch_netem; }
+          command -v ethtool || sudo apt-get install -y ethtool
+      - name: Record the runner
+        run: |
+          nproc
+          lscpu | grep -E 'Model name|^CPU\(s\)|Thread'
+          uname -r
+          sysctl net.ipv4.tcp_congestion_control net.ipv4.tcp_rmem net.ipv4.tcp_wmem
+      - name: Measure lanes
+        env:
+          CELL: ${{ matrix.rtt }}/${{ matrix.loss }}/${{ matrix.path }}
+        run: |
+          go test -c -o "$RUNNER_TEMP/mux.test" ./internal/link/internal/mux
+          sudo env TEST_LINK_MEASURE_LANES=1 TEST_LINK_LANES_CELLS="^${CELL//./\\.}\$" GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" \
+            "$RUNNER_TEMP/mux.test" -test.run '^TestMeasureLanes$' -test.v -test.timeout 40m
