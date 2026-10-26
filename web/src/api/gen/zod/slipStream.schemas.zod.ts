@@ -1112,7 +1112,9 @@ export type FilesUpgradeNeed = zod.input<typeof FilesUpgradeNeed>;
 export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
 export const FilesWaitingNeed = zod.object({
-  code: zod.string().describe("Why the Grab waits, such as needs_transfer"),
+  code: zod
+    .enum(["node_away"])
+    .describe("Why the Grab waits: node_away while its Node is out of step"),
   grabId: zod.uuid(),
   kind: zod.enum(["waiting"]),
 });

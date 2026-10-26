@@ -2300,7 +2300,10 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "description": "Why the Grab waits, such as needs_transfer",
+            "description": "Why the Grab waits: node_away while its Node is out of step",
+            "enum": [
+              "node_away"
+            ],
             "type": "string"
           },
           "grabId": {

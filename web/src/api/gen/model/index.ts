@@ -537,6 +537,7 @@ export * from "./filesUpgradableCellState.ts";
 export * from "./filesUpgradeNeed.ts";
 export * from "./filesUpgradeNeedKind.ts";
 export * from "./filesWaitingNeed.ts";
+export * from "./filesWaitingNeedCode.ts";
 export * from "./filesWaitingNeedKind.ts";
 export * from "./finishPasskeyReconfirm401.ts";
 export * from "./finishPasskeyReconfirm401Code.ts";
