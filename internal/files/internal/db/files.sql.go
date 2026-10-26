@@ -289,6 +289,78 @@ func (q *Queries) ListDoomed(ctx context.Context) ([]FilesDoomed, error) {
 	return items, nil
 }
 
+const listEveryFile = `-- name: ListEveryFile :many
+SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file
+`
+
+func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilesFile
+	for rows.Next() {
+		var i FilesFile
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Cut,
+			&i.RootID,
+			&i.Path,
+			&i.Size,
+			&i.Probe,
+			&i.GrabID,
+			&i.Quality,
+			&i.Label,
+			&i.Extra,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryFill = `-- name: ListEveryFill :many
+SELECT file_id, target_id, item_id, edition FROM files_fill
+`
+
+func (q *Queries) ListEveryFill(ctx context.Context) ([]FilesFill, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryFill)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilesFill
+	for rows.Next() {
+		var i FilesFill
+		if err := rows.Scan(
+			&i.FileID,
+			&i.TargetID,
+			&i.ItemID,
+			&i.Edition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFileIDs = `-- name: ListFileIDs :many
 SELECT id FROM files_file ORDER BY id
 `

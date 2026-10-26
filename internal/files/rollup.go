@@ -44,17 +44,18 @@ type Rollup struct {
 	Root roots.ID
 }
 
-// Rollups reads the Rollup of each of ws in r, loading each kind of row
-// once for them all. It binds one variable per Work, so ws holds at most
-// works.Batch.
-func (f *Files) Rollups(ctx context.Context, r storage.Reader[file], ws []works.Bare) (map[works.WorkID]Rollup, error) {
-	worlds, err := f.worlds(ctx, r, ws)
+// Rollups reads the Rollup of each of ws, the Works among names, in r,
+// loading each kind of row once for them all.
+func (f *Files) Rollups(ctx context.Context, r storage.Reader[file], ws []works.Bare, among works.Among[works.WorkID]) (map[works.WorkID]Rollup, error) {
+	worlds, err := f.worlds(ctx, r, ws, among)
 	if err != nil {
 		return nil, err
 	}
 	out := make(map[works.WorkID]Rollup, len(worlds))
+	var cs []Cell
 	for _, w := range worlds {
-		out[w.tree.ID] = rollup(w, cells(w))
+		cs = appendCells(cs[:0], w)
+		out[w.tree.ID] = rollup(w, cs)
 	}
 	return out, nil
 }

@@ -219,6 +219,33 @@ func (q *Queries) InsertVolume(ctx context.Context, arg InsertVolumeParams) erro
 	return err
 }
 
+const listEveryHome = `-- name: ListEveryHome :many
+SELECT work_id, root_id FROM roots_work
+`
+
+func (q *Queries) ListEveryHome(ctx context.Context) ([]RootsWork, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryHome)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RootsWork
+	for rows.Next() {
+		var i RootsWork
+		if err := rows.Scan(&i.WorkID, &i.RootID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHomedWorks = `-- name: ListHomedWorks :many
 SELECT work_id FROM roots_work ORDER BY work_id
 `

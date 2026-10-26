@@ -52,7 +52,7 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 	if err != nil {
 		return world{}, err
 	}
-	ws, err := f.worlds(ctx, r, []works.Bare{tree})
+	ws, err := f.worlds(ctx, r, []works.Bare{tree}, works.Only([]works.WorkID{work}))
 	if err != nil {
 		return world{}, err
 	}
@@ -60,16 +60,15 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 }
 
 // worlds loads the world of each Work of trees in r, in trees' order,
-// reading each kind of row once for them all. It binds one variable per
-// Work, so trees holds at most works.Batch.
-func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare) ([]world, error) {
+// reading each kind of row once for them all. among names trees' Works.
+func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID]) ([]world, error) {
 	ids := make([]works.WorkID, len(trees))
 	byType := map[works.TypeID][]works.WorkID{}
 	for i, t := range trees {
 		ids[i] = t.ID
 		byType[t.ContentType] = append(byType[t.ContentType], t.ID)
 	}
-	goals, err := targets.GoalsOf(ctx, r, ids)
+	goals, err := targets.GoalsOf(ctx, r, among)
 	if err != nil {
 		return nil, err
 	}
@@ -79,23 +78,29 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	}
 	timing := map[works.ItemID]targets.Timing{}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
-		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, byType[typ])
-		if err != nil {
-			return nil, err
+		for chunk := range slices.Chunk(byType[typ], works.Batch) {
+			of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, chunk)
+			if err != nil {
+				return nil, err
+			}
+			maps.Copy(timing, of)
 		}
-		maps.Copy(timing, of)
 	}
-	var items []works.ItemID
-	for _, t := range trees {
-		for _, it := range t.Items {
-			items = append(items, it.ID)
+	items := works.Every[works.ItemID]()
+	if !among.Every() {
+		var listed []works.ItemID
+		for _, t := range trees {
+			for _, it := range t.Items {
+				listed = append(listed, it.ID)
+			}
 		}
+		items = works.Only(listed)
 	}
 	seen, err := targets.SeenIn(ctx, r, items)
 	if err != nil {
 		return nil, err
 	}
-	grabs, err := f.cfg.Grabs.GrabCells(ctx, r, ids)
+	grabs, err := f.cfg.Grabs.GrabCells(ctx, r, among)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +108,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	if err != nil {
 		return nil, err
 	}
-	homes, err := roots.HomesOf(ctx, r, ids)
+	homes, err := roots.HomesOf(ctx, r, among)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +119,9 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		at[t.ID] = &out[i]
 	}
 	q := db.New(r)
-	rows, err := q.ListFilesOfWorks(ctx, ids)
+	rows, err := works.Read(among, func() ([]db.FilesFile, error) { return q.ListEveryFile(ctx) }, func(ids []works.WorkID) ([]db.FilesFile, error) {
+		return q.ListFilesOfWorks(ctx, ids)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +134,12 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 			seen[row.ItemID] = append(seen[row.ItemID], row.Cut)
 		}
 	}
-	fills, err := q.ListFillsOfWorks(ctx, ids)
+	for i := range out {
+		slices.SortFunc(out[i].files, func(a, b File) int { return a.ID.Compare(b.ID.UUID) })
+	}
+	fills, err := works.Read(among, func() ([]db.FilesFill, error) { return q.ListEveryFill(ctx) }, func(ids []works.WorkID) ([]db.FilesFill, error) {
+		return q.ListFillsOfWorks(ctx, ids)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -187,9 +199,10 @@ func (w world) byID() map[ID]*File {
 // from its latest Grab, unreleased until the Item is out, else missing; a
 // file in a lost root leaves its cell empty. A cut not seen for the Item
 // makes no cell, so it never counts.
-func cells(w world) []Cell {
+func cells(w world) []Cell { return appendCells(nil, w) }
+
+func appendCells(out []Cell, w world) []Cell {
 	files := w.byID()
-	var out []Cell
 	for _, it := range w.tree.Items {
 		timing := w.timing[it.ID]
 		released := timing.ReleasedBy(w.today)

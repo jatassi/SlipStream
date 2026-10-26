@@ -2,7 +2,6 @@ package library
 
 import (
 	"context"
-	"slices"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -32,19 +31,22 @@ func (l *Library) rowsIn(ctx context.Context, r storage.Reader[storage.Library],
 	if err != nil {
 		return nil, err
 	}
-	out := make([]Row, 0, len(ws))
-	for chunk := range slices.Chunk(ws, works.Batch) {
-		bares := make([]works.Bare, len(chunk))
-		for i, w := range chunk {
-			bares[i] = w.Bare
-		}
-		rolled, err := l.cfg.Files.Rollups(ctx, r, bares)
-		if err != nil {
-			return nil, err
-		}
-		for _, w := range chunk {
-			out = append(out, Row{Work: w, Rollup: rolled[w.ID]})
-		}
+	bares := make([]works.Bare, len(ws))
+	ids := make([]works.WorkID, len(ws))
+	for i, w := range ws {
+		bares[i], ids[i] = w.Bare, w.ID
+	}
+	among := works.Every[works.WorkID]()
+	if !s.Whole() {
+		among = works.Only(ids)
+	}
+	rolled, err := l.cfg.Files.Rollups(ctx, r, bares, among)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Row, len(ws))
+	for i, w := range ws {
+		out[i] = Row{Work: w, Rollup: rolled[w.ID]}
 	}
 	return out, nil
 }

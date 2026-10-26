@@ -81,3 +81,6 @@ UPDATE roots_settings SET sample_every = sqlc.arg(sample_every) WHERE id = 1;
 
 -- name: ListHomesOf :many
 SELECT work_id, root_id FROM roots_work WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListEveryHome :many
+SELECT work_id, root_id FROM roots_work;

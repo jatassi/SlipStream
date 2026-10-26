@@ -572,6 +572,92 @@ func (q *Queries) ListCutsOfProfile(ctx context.Context, profileID ProfileID) ([
 	return items, nil
 }
 
+const listEverySighting = `-- name: ListEverySighting :many
+SELECT DISTINCT item_id, cut FROM targets_sighting ORDER BY item_id, cut
+`
+
+type ListEverySightingRow struct {
+	ItemID works.ItemID
+	Cut    release.CutKey
+}
+
+func (q *Queries) ListEverySighting(ctx context.Context) ([]ListEverySightingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEverySighting)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEverySightingRow
+	for rows.Next() {
+		var i ListEverySightingRow
+		if err := rows.Scan(&i.ItemID, &i.Cut); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryWants = `-- name: ListEveryWants :many
+SELECT work_id, profile_id, editions FROM targets_wants
+`
+
+func (q *Queries) ListEveryWants(ctx context.Context) ([]TargetsWant, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryWants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsWant
+	for rows.Next() {
+		var i TargetsWant
+		if err := rows.Scan(&i.WorkID, &i.ProfileID, &i.Editions); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryWantsCut = `-- name: ListEveryWantsCut :many
+SELECT work_id, position, cut FROM targets_wants_cut ORDER BY work_id, position
+`
+
+func (q *Queries) ListEveryWantsCut(ctx context.Context) ([]TargetsWantsCut, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryWantsCut)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsWantsCut
+	for rows.Next() {
+		var i TargetsWantsCut
+		if err := rows.Scan(&i.WorkID, &i.Position, &i.Cut); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFilterValues = `-- name: ListFilterValues :many
 SELECT target_id, attribute, position, value FROM targets_filter_value ORDER BY target_id, attribute, position
 `

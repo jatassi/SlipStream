@@ -12,8 +12,154 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const listEveryItem = `-- name: ListEveryItem :many
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item
+`
+
+func (q *Queries) ListEveryItem(ctx context.Context) ([]WorksItem, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryItem)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorksItem
+	for rows.Next() {
+		var i WorksItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.LevelID,
+			&i.Key,
+			&i.Label,
+			&i.Position,
+			&i.WithdrawnAt,
+			&i.Monitored,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryLevel = `-- name: ListEveryLevel :many
+SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level
+`
+
+func (q *Queries) ListEveryLevel(ctx context.Context) ([]WorksLevel, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryLevel)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorksLevel
+	for rows.Next() {
+		var i WorksLevel
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ParentID,
+			&i.Depth,
+			&i.Key,
+			&i.Label,
+			&i.Position,
+			&i.WithdrawnAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryWorkArt = `-- name: ListEveryWorkArt :many
+SELECT work_id, source, path FROM works_artwork WHERE kind = ?1 AND ifnull(item_id, x'') = x''
+`
+
+type ListEveryWorkArtRow struct {
+	WorkID WorkID
+	Source string
+	Path   string
+}
+
+func (q *Queries) ListEveryWorkArt(ctx context.Context, kind string) ([]ListEveryWorkArtRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryWorkArt, kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryWorkArtRow
+	for rows.Next() {
+		var i ListEveryWorkArtRow
+		if err := rows.Scan(&i.WorkID, &i.Source, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryWorkRating = `-- name: ListEveryWorkRating :many
+SELECT work_id, source, value, votes, fetched_at FROM works_rating WHERE ifnull(item_id, x'') = x''
+`
+
+type ListEveryWorkRatingRow struct {
+	WorkID    WorkID
+	Source    string
+	Value     float64
+	Votes     *int64
+	FetchedAt storage.Time
+}
+
+func (q *Queries) ListEveryWorkRating(ctx context.Context) ([]ListEveryWorkRatingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryWorkRating)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryWorkRatingRow
+	for rows.Next() {
+		var i ListEveryWorkRatingRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.Source,
+			&i.Value,
+			&i.Votes,
+			&i.FetchedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLevelsOfWorks = `-- name: ListLevelsOfWorks :many
-SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id, depth, withdrawn_at IS NOT NULL, position, id
+SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level WHERE work_id IN (/*SLICE:work_ids*/?)
 `
 
 func (q *Queries) ListLevelsOfWorks(ctx context.Context, workIds []WorkID) ([]WorksLevel, error) {
@@ -61,7 +207,6 @@ func (q *Queries) ListLevelsOfWorks(ctx context.Context, workIds []WorkID) ([]Wo
 const listWorkArtOfWorks = `-- name: ListWorkArtOfWorks :many
 SELECT work_id, source, path FROM works_artwork
 WHERE kind = ?1 AND ifnull(item_id, x'') = x'' AND work_id IN (/*SLICE:work_ids*/?)
-ORDER BY work_id
 `
 
 type ListWorkArtOfWorksParams struct {
@@ -112,7 +257,6 @@ func (q *Queries) ListWorkArtOfWorks(ctx context.Context, arg ListWorkArtOfWorks
 const listWorkRatingsOfWorks = `-- name: ListWorkRatingsOfWorks :many
 SELECT work_id, source, value, votes, fetched_at FROM works_rating
 WHERE ifnull(item_id, x'') = x'' AND work_id IN (/*SLICE:work_ids*/?)
-ORDER BY work_id, source
 `
 
 type ListWorkRatingsOfWorksRow struct {

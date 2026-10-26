@@ -266,8 +266,12 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 	if got := s.needsYou(t, w); got != want {
 		t.Fatalf("Needs you is\n%s\nwant\n%s", got, want)
 	}
-	if r := s.rows(t, "?workIds="+w.ID.String()); len(r) != 1 || r[0].NeedsYou != 5 || r[0].Failed != 2 || *r[0].Status != "missing" {
+	r := s.rows(t, "?workIds="+w.ID.String())
+	if len(r) != 1 || r[0].NeedsYou != 5 || r[0].Failed != 2 || *r[0].Status != "missing" {
 		t.Fatalf("the row is %+v, want 5 Needs you, 2 failed, missing", r)
+	}
+	if all := s.rows(t, ""); !reflect.DeepEqual(all, r) {
+		t.Fatalf("the whole Library is %+v, want the one row read by id, %+v", all, r)
 	}
 
 	rootless := stock(t, false)
