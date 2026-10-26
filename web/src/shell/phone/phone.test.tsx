@@ -8,7 +8,7 @@ import {
   getListLibraryMockHandler,
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchardId, orchardRow } from "../../test/library";
-import { orchards } from "../../test/library-page";
+import { cinemaLibrary, orchards } from "../../test/library-page";
 import { asPhone } from "../../test/viewport";
 import { renderApp } from "../../test/render-app";
 import { workServer } from "../../test/work-server";
@@ -179,7 +179,7 @@ test("on a phone a menu opens as an action sheet", async () => {
 
 test("the large title hands its words to the nav bar once it scrolls away", async () => {
   await asPhone();
-  renderApp({ path: "/library", handlers: [getListLibraryMockHandler({ rows: orchards(40) })] });
+  renderApp({ path: "/library", handlers: cinemaLibrary(orchards(40)).handlers });
   const barTitle = page.getByRole("banner").getByText("Library");
   await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
   await expect.poll(() => getComputedStyle(barTitle.element()).opacity).toBe("0");
