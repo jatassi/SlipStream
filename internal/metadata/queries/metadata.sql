@@ -49,3 +49,6 @@ ON CONFLICT (work_id) DO UPDATE SET
 
 -- name: DeleteDue :exec
 DELETE FROM metadata_due WHERE work_id = sqlc.arg(work_id) AND since = sqlc.arg(since);
+
+-- name: GetRefreshAll :one
+SELECT refresh_all_at FROM metadata_type WHERE content_type = sqlc.arg(content_type);
