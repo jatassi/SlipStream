@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -70,6 +71,12 @@ func (worker) DownloadClients() (*downloadclients.Clients, bool) { return nil, f
 func (worker) Transfers() (*transfers.Transfers, bool)           { return nil, false }
 
 func (worker) Health() (*health.Health, bool) { return nil, false }
+
+func (worker) FirstRun() (*firstrun.FirstRun, bool) { return nil, false }
+
+func (worker) FirstRunOpen(context.Context) (bool, error) {
+	panic("a Worker read first setup")
+}
 
 func (worker) Worker() (servingapi.Facts, bool) {
 	return servingapi.Facts{Name: "seedbox", Fingerprint: "AAAA-BBBB-CCCC-DDDD", Controller: "home"}, true

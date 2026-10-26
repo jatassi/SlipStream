@@ -50,13 +50,10 @@ func startHomeWith(t *testing.T, env []string) home {
 	p := startNode(t, dir, env...)
 	ready := p.ready()
 	claimed := claimController(t, ready, ready.SetupCode)
-	var res struct {
-		APIKey string `json:"apiKey"`
-	}
-	if err := json.Unmarshal([]byte(claimed.body), &res); err != nil || claimed.status != http.StatusCreated {
+	if claimed.status != http.StatusCreated {
 		t.Fatalf("claimController = %d %s", claimed.status, claimed.body)
 	}
-	return home{dir: dir, ready: ready, apiKey: res.APIKey}
+	return home{dir: dir, ready: ready, apiKey: keyOf(t, ready, claimed)}
 }
 
 func (h home) admin(t *testing.T, method, path string, out any) {

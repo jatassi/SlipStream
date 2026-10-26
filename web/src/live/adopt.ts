@@ -13,6 +13,8 @@ import type {
   TasksOverview,
   TasksSchedule,
   TransfersSettings,
+  WorksContentType,
+  WorksContentTypeList,
 } from "../api/gen/model";
 import {
   getGetDownloadClientSettingsQueryKey,
@@ -27,6 +29,7 @@ import { getGetRootSettingsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
 import { getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
 import { getGetTransferSettingsQueryKey } from "../api/gen/query/transfers/transfers";
+import { getListContentTypesQueryKey } from "../api/gen/query/works/works";
 
 // A save answers with the settings as written, so the page shows them at once
 // rather than after the live event's refetch.
@@ -105,6 +108,16 @@ export function dropVolumeLevels(
       list && {
         ...list,
         notReporting: list.notReporting.filter((shown) => !sameVolume(shown, removed)),
+      },
+  );
+}
+
+export function adoptContentType(queryClient: QueryClient, saved: WorksContentType) {
+  queryClient.setQueryData(
+    getListContentTypesQueryKey(),
+    (list: WorksContentTypeList | undefined) =>
+      list && {
+        contentTypes: list.contentTypes.map((type) => (type.id === saved.id ? saved : type)),
       },
   );
 }

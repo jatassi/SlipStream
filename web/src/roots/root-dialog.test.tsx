@@ -23,9 +23,7 @@ test("Add a library root picks a folder through the browser, checks it on its No
   await expect
     .element(dialog.getByRole("combobox", { name: "Content Type" }))
     .toHaveTextContent("Zines");
-  await expect
-    .element(dialog.getByRole("combobox", { name: "Node" }))
-    .toHaveTextContent("onlinehome");
+  await expect.element(dialog.getByRole("combobox", { name: "Node" })).not.toBeInTheDocument();
   await expect
     .element(dialog.getByRole("link", { name: "its Roles" }))
     .toHaveAttribute("href", `/nodes/${notStorage.id}/roles`);

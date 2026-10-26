@@ -1,5 +1,3 @@
-import { useNavigate } from "@tanstack/react-router";
-
 import type { TargetsQualityList, TargetsTarget } from "../api/gen/model";
 import { updateTarget } from "../api/gen/query/targets/targets";
 import { toast } from "../ui/toast";
@@ -19,14 +17,16 @@ export function TargetEditor({ initial, save }: { initial: TargetDraft; save: Sa
   );
 }
 
+/** Edits a saved Target, through the Impact sheet when the change reaches Works. */
 export function SavedTargetEditor({
   target,
   qualities,
+  onSaved,
 }: {
   target: TargetsTarget;
   qualities: TargetsQualityList;
+  onSaved: () => Promise<void> | void;
 }) {
-  const navigate = useNavigate();
   const impact = useImpactSheet();
   return (
     <>
@@ -41,7 +41,7 @@ export function SavedTargetEditor({
               run: (changing) => updateTarget(target.id, bodyOf(draft), changing),
               done: async () => {
                 toast(`Saved ${draft.name.trim()}.`);
-                await navigate({ to: "/settings/$section", params: { section: "targets" } });
+                await onSaved();
               },
             }),
         }}

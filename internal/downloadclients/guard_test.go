@@ -140,8 +140,9 @@ func TestTheGuardLiftsOnTheFirstSampleAbove(t *testing.T) {
 	start := time.Now()
 	g.sample(5*setting.GB, start)
 	cards, err := g.c.Cards(t.Context())
-	if err != nil || len(cards) != 1 || cards[0].Guard == nil || cards[0].Guard.Volume.Free != 5*setting.GB || cards[0].Guard.ErrorBelow.Bytes != 20*setting.GB {
-		t.Fatalf("cards = %+v, %v; want seedbox's guard on /data with 5 GB free below 20 GB", cards, err)
+	if err != nil || len(cards) != 1 || cards[0].Guard == nil || cards[0].Guard.Volume.Free != 5*setting.GB || cards[0].Guard.ErrorBelow.Bytes != 20*setting.GB ||
+		cards[0].Volume == nil || cards[0].Volume.Mount != "/data" || cards[0].Volume.Free != 5*setting.GB {
+		t.Fatalf("cards = %+v, %v; want seedbox's /data volume with 5 GB free and its guard below 20 GB", cards, err)
 	}
 	g.sample(19*setting.GB, start.Add(time.Minute))
 	if touched, _ := g.told(); !g.holds(t) || touched != 1 {

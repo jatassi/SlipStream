@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,16 +24,43 @@ type Admin struct {
 }
 
 // ClaimController creates the first Admin through the Setup code and
-// returns its API key.
-func ClaimController(ctx context.Context, c *http.Client, baseURL, setupCode string, admin Admin) (string, error) {
-	var claimed struct {
+// returns the session cookie the claim signed in with.
+func ClaimController(ctx context.Context, c *http.Client, baseURL, setupCode string, admin Admin) (*http.Cookie, error) {
+	var cookies []*http.Cookie
+	err := call(ctx, c, request{
+		what: "claim the Controller", method: http.MethodPost, url: baseURL + "/api/v1/setup/controller",
+		header: http.Header{"X-Setup-Code": {setupCode}}, body: admin, want: http.StatusCreated, cookies: &cookies,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, ck := range cookies {
+		if ck.Name == identity.CookieName {
+			return ck, nil
+		}
+	}
+	return nil, errors.New("claim the Controller: no session cookie")
+}
+
+// RegenerateAPIKey replaces the API key as the signed-in Admin of session
+// and returns the new key, the one way a script sees a key.
+func RegenerateAPIKey(ctx context.Context, c *http.Client, baseURL string, session *http.Cookie) (string, error) {
+	var regenerated struct {
 		APIKey string `json:"apiKey"`
 	}
 	err := call(ctx, c, request{
-		what: "claim the Controller", method: http.MethodPost, url: baseURL + "/api/v1/setup/controller",
-		header: http.Header{"X-Setup-Code": {setupCode}}, body: admin, want: http.StatusCreated,
-	}, &claimed)
-	return claimed.APIKey, err
+		what: "regenerate the API key", method: http.MethodPost, url: baseURL + "/api/v1/api-key",
+		header: http.Header{"Cookie": {session.String()}}, want: http.StatusOK,
+	}, &regenerated)
+	return regenerated.APIKey, err
+}
+
+// FinishFirstRun ends first setup, so the web lands in the app.
+func FinishFirstRun(ctx context.Context, c *http.Client, baseURL, apiKey string) error {
+	return call(ctx, c, request{
+		what: "finish first setup", method: http.MethodPost, url: baseURL + "/api/v1/first-run/finish",
+		header: apiKeyHeader(apiKey), want: http.StatusNoContent,
+	}, nil)
 }
 
 func CreateJoinCode(ctx context.Context, c *http.Client, baseURL, apiKey string) (string, error) {

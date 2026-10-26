@@ -106,7 +106,7 @@ func TestTheGateOpensBusiesAndCloses(t *testing.T) {
 	if !regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$`).MatchString(code) {
 		t.Fatalf("setup code %q is not XXXX-XXXX-XXXX in Crockford base32", code)
 	}
-	if want := `level=INFO msg="setup code" code=` + code + ` hint="open this Node in a browser to start a new SlipStream, join one or restore a Backup"` + "\n"; log.String() != want {
+	if want := `level=INFO msg="setup code" code=` + code + ` hint="open this Node in a browser to start a new SlipStream or join one"` + "\n"; log.String() != want {
 		t.Fatalf("log = %q, want %q", log.String(), want)
 	}
 	var c Caller

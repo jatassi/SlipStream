@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/housekeeping"
@@ -78,6 +79,7 @@ type half struct {
 	clients  *downloadclients.Clients
 	tasks    *tasks.Scheduler
 	health   *health.Health
+	firstRun *firstrun.FirstRun
 	// transfers judges every Transfer, on a Controller, and copier sends
 	// and receives this Node's, on every Node.
 	transfers *transfers.Transfers
@@ -375,6 +377,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
 	}
+	h.firstRun = n.openFirstRun(lib, h)
 	n.setHalf(h)
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("roots", library.Run)
@@ -389,6 +392,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Now: n.today, Released: metadata.NoBacklog, Log: n.rootLog.With("subsystem", "availability"),
 	}).Run)
 	n.claimed.Go("health", h.health.Run)
+	n.claimed.Go("first setup", h.firstRun.Run)
 	n.env.Test.started(started)
 	return nil
 }

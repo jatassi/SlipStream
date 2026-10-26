@@ -7,7 +7,7 @@ import {
 import { ensureQuery } from "../../../../api/query-client";
 import { sectionOf } from "../../../../shell/node-sections";
 import { Skeleton } from "../../../../ui/skeleton";
-import { settingOf } from "../-config";
+import { settingOf } from "../../../../nodes/node-setting";
 import { LogViewer } from "../-logs/log-viewer";
 import { NodeProblem } from "../-node-problem";
 

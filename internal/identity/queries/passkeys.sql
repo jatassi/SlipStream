@@ -8,6 +8,12 @@ ORDER BY created_at, id;
 SELECT COUNT(*) FROM identity_passkey
 WHERE account_id = sqlc.arg(account_id) AND relying_party = sqlc.arg(relying_party);
 
+-- name: AnyAdminHasPasskey :one
+SELECT EXISTS (
+    SELECT 1 FROM identity_passkey p JOIN identity_account a ON a.id = p.account_id
+    WHERE a.admin = 1 AND a.disabled_at IS NULL
+);
+
 -- name: DeletePasskeys :exec
 DELETE FROM identity_passkey WHERE account_id = sqlc.arg(account_id);
 

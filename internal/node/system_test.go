@@ -32,9 +32,7 @@ import (
 // claimKey claims n through c and returns the Admin's API key.
 func claimKey(t *testing.T, n *Node, c client) string {
 	t.Helper()
-	return decode[struct {
-		APIKey string `json:"apiKey"`
-	}](t, c.claim(n.Ready().SetupCode, "1234"), http.StatusCreated).APIKey
+	return keyOf(t, c, c.claim(n.Ready().SetupCode, "1234"))
 }
 
 // selfID is the Controller's own row's id.

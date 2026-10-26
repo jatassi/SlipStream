@@ -1,40 +1,9 @@
 import type { NodesNode } from "../../../api/gen/model";
-import { useGetNodeConfigSuspense } from "../../../api/gen/query/system/system";
+import { PendingRestart } from "../../../nodes/node-setting";
 import { Empty } from "../../../shell/empty";
-import { askRestart } from "../../../shell/restart/restart-state";
 import { Details } from "../../../ui/details";
 import { Section } from "../../../ui/section";
-import { WarningLine } from "../../../ui/warning-line";
-import { NodeSettings, fieldsOf } from "./-config";
-
-function PendingRestart({ node }: { node: NodesNode }) {
-  const pending = fieldsOf(useGetNodeConfigSuspense(node.id).data, "torrent").filter(
-    (field) => field.pendingRestart,
-  );
-  if (pending.length === 0) {
-    return null;
-  }
-  return (
-    <WarningLine
-      signal="warn"
-      chip="Restart needed"
-      subject={`Restart ${node.name} to use the new ${pending.map((field) => field.label.toLowerCase()).join(" and ")}`}
-      detail={pending
-        .map((field) =>
-          field.kind === "address"
-            ? `It listens on ${field.running} until then.`
-            : "Torrents already added stay where they are.",
-        )
-        .join(" ")}
-      action={{
-        label: "Restart now",
-        onClick: () => {
-          askRestart(node);
-        },
-      }}
-    />
-  );
-}
+import { NodeSettings } from "./-config";
 
 const adapterNote =
   "Trackers reachable only through another network adapter, such as a VPN or a second network card, can't be reached from that address. To reach them, set the listen address to that adapter's address.";

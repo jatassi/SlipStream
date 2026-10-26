@@ -2,7 +2,7 @@ import type { NodesNode } from "../../../api/gen/model";
 import { useGetNodeConfigSuspense } from "../../../api/gen/query/system/system";
 import { askRestart } from "../../../shell/restart/restart-state";
 import { WarningLine } from "../../../ui/warning-line";
-import { settingOf } from "./-config";
+import { settingOf } from "../../../nodes/node-setting";
 
 // A Docker container publishes only the ports its mapping names, so a new
 // port needs the mapping changed before the restart.
