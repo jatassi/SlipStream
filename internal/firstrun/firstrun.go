@@ -124,8 +124,11 @@ func New(cfg Config) *FirstRun {
 }
 
 // Run publishes Changed after any step's Events until first setup is
-// finished or ctx ends. It returns at once on a finished Controller.
+// finished or ctx ends, then stops watching. It returns at once on a
+// finished Controller.
 func (f *FirstRun) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	open, err := f.IsOpen(ctx)
 	if err != nil || !open {
 		return err
