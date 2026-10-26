@@ -118,6 +118,7 @@ async function doneScreen(page: Page, world: World): Promise<void> {
     "DownloadsSet",
     "What SlipStream grabsSet",
   ]);
+  await expect(page.getByText("Email isn't set up.")).toBeVisible();
 }
 
 test("a new Admin walks first setup step by step, resumes it after a reload and lands in the Library @cdp", async ({

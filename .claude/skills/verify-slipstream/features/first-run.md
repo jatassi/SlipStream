@@ -8,12 +8,12 @@ After the claim, the new Admin lands on first setup at `/setup/<step>`: a short 
 - `first-setup-resume` a reload, a second browser or any app URL such as `/settings/address` opens the step the Admin is on, and a step completed elsewhere reads done (P-106).
 - `first-setup-address` the address step suggests the address in use, warns that a plain-HTTP address can't hold a passkey, and `Continue` saves it (P-106).
 - `first-setup-passkey` the passkey step shows only where the browser and address can hold a passkey, its `Add a passkey` runs registration, and the frame's `Skip` is its only Skip (P-106).
-- `first-setup-media` the kinds of media step shows only when the binary registers more than one Content Type, turns one off, keeps the last one on, and shows `content_type_in_use` on its switch. The same switches lead Settings > Library roots (P-106).
+- `first-setup-media` the kinds of media step shows only when the binary registers more than one Content Type, turns one off, keeps the last one on, and shows `content_type_in_use` on its switch. The API refuses turning off the only type on with 409 `content_type_last`, which the switch shows as `At least one kind of media stays on. Turn on another before turning this one off.` The same switches lead Settings > Library roots (P-106).
 - `first-setup-language` the language and region step fills in both from the browser's languages while they hold the defaults, says file names keep the English title, and `Continue` saves both at once (P-106).
 - `first-setup-roots` the library roots step lists one row per enabled Content Type, `Add a folder` opens `Add a library root` with the type chosen and no Node picker while one Node holds Storage, and says Works wait for a root while one is missing (P-106).
-- `first-setup-downloads` the downloads step lists each Downloading Node with its `torrent.downloads` folder, its free space, the different-drive recommendation when the Node's roots sit on another volume, and the restart notice after a change (P-106).
+- `first-setup-downloads` the downloads step lists each Downloading Node with its `torrent.downloads` folder, its free space, the different-drive recommendation when the Node's roots sit on another volume, and the restart notice after a change. A Node whose settings don't load says so in its own row with `Try again`, and the step keeps `Back`, `Skip` and `Finish setup` (P-106).
 - `first-setup-targets` the Targets step says in one sentence what each enabled type's default Profile grabs, holds the Profile, qualities, cutoff and sizes under `Details`, and `Edit` opens the Target editor in place (P-106).
-- `first-setup-done` the last screen lists each shown step as `Set` or `Skipped`, a skipped step's `Set it in Settings` finishes and opens its place in Settings, and after `Go to Library` no URL opens first setup again (P-106).
+- `first-setup-done` the last screen lists each shown step as `Set` or `Skipped`, a skipped step's `Set it in Settings` finishes and opens its place in Settings, while email isn't set up `Email isn't set up.` links `/settings/email` the same way, and after `Go to Library` no URL opens first setup again (P-106).
 
 ## How to get to it (user POV)
 
@@ -77,7 +77,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```
 
-- **Finish.** The last screen at `/setup/done` lists `Library roots` as `Skipped` with `Set it in Settings` and every other step as `Set`. `Go to Library` opens `/library`, a later `/setup/roots` lands on the Library too, and `GET /api/v1/first-run` reads `"open":false`.
+- **Finish.** The last screen at `/setup/done` lists `Library roots` as `Skipped` with `Set it in Settings` and every other step as `Set`, then `Email isn't set up.` with its own `Set it in Settings`. `Go to Library` opens `/library`, a later `/setup/roots` lands on the Library too, and `GET /api/v1/first-run` reads `"open":false`.
 
   ```sh
   $FW exec $RUN --proof first-run/first-setup-done -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/first-run/first-setup-done/summary.aria.yml
