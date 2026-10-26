@@ -13,7 +13,7 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 - `targets-editor` a new Target filled from `Upgrade for disc or resolution` ticks and ranks its qualities with ties, moves its cutoff, says what its order means in a sentence and `Sample moves`, and keeps `CAM` apart under `Cinema sources`, off, with its warning (P-065, P-066, P-067).
 - `targets-filters-sizes` `Filters` sets `Any`, `Only these` or `Not these` per attribute with a value picker, and `Sizes` takes a minimum and a maximum in MiB per minute per accepted quality with what each means for a two-hour film (P-069).
 - `profiles-editor` Profiles lists each Content Type's Profiles with the default and the Works counted; a Profile's Targets show a disk estimate and a line naming a Target that contains another; a new Profile ranks its Targets by keyboard, its Editions sentence follows `Choose cuts` and warns `No Standard`, and `Make default` moves the default (P-064, P-201, P-044).
-- `work-wants-sheet` the Work page reads `Profile Films. Editions from the Profile.`, and `Profile and Editions` opens a sheet with the `Profile` picker, the Editions it takes from the Profile or `set for this Work` with `Reset to Profile`; the Work page's cells table sits under each wanted cut's heading (P-208).
+- `work-profile-edit` the Work page's matrix row reads `From Profile Films`, and `Edit…` in the hero's `More actions for The Quiet Orchard` menu opens `Edit The Quiet Orchard` with the `Profile` picker and the `Library root` select, fixed while the Work has files. A Work's own Editions are the Work page's (`work-page.md`) (P-208).
 - `impact-keep` moving the Work to `UHD` opens the Impact, `1 Work changes.`, `1 file would fill nothing`, `1 cell becomes wanted.`, with `Delete` chosen; `Keep as Kept files` and `Save and keep 1 file` leave the file as `The Quiet Orchard (2021) - 1080p (extra 1).mkv`, its old label plus ` (extra 1)` (P-205, P-202, P-207).
 - `profiles-delete-move` deleting `UHD` asks where its Works go; the Work moves to `Films` and the Kept file fills again under `The Quiet Orchard (2021) - 1080p.mkv` (P-064).
 - `impact-delete` taking both Targets out of `Films` opens the Impact with `Delete` chosen and `Save and delete 1 file`, which removes the file from the media root and leaves the Work with no cells (P-199, P-204, P-206).
@@ -27,7 +27,7 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 
 - Desktop shell: the sidebar's `Settings`, then `Targets`, `Profiles` or `Editions` in the `Settings` navigation (`/settings/targets`, `/settings/profiles`, `/settings/editions`). A Target's name opens `/settings/targets/<id>` and `New Target` opens `/settings/targets/new`; Profiles likewise.
 - Phone shell: `More`, then `Settings`, then the section in the `Settings` list; each section and editor is a pushed page. A ranked row's `Actions for <name>` opens a sheet of that name holding `Move up`, `Move down` and, where a tie can change, `Tie with the one above` or `Untie from the one above`.
-- Both shells: the Work page's `Profile and Editions`, above its cells; the add sheet that `Add <title>` opens on `/add`.
+- Both shells: the Work page's `Edit…`, in the hero's `More actions for <title>` menu (an action sheet on phone); the add sheet that `Add <title>` opens on `/add`.
 - API (Admin): `GET /api/v1/qualities`; `GET`, `POST /api/v1/targets`, `GET`, `PUT`, `DELETE /api/v1/targets/{targetId}`, `POST /api/v1/targets/{targetId}/duplicate`; `GET`, `POST /api/v1/profiles`, `GET`, `PUT /api/v1/profiles/{profileId}`, `DELETE /api/v1/profiles/{profileId}?moveTo=<profileId>`, `POST /api/v1/profiles/{profileId}/default`; `GET`, `POST /api/v1/cuts`, `PUT`, `DELETE /api/v1/cuts/{cutKey}`; `GET`, `PUT /api/v1/works/{workId}/wants`; `GET /api/v1/works/{workId}/cells` and `/searches`. Every change takes `?preview=true` for its Impact alone, `?unwanted=delete|keep` and `?confirm=<n>`, and publishes `targets.changed`.
 - Host CLI: none.
 
@@ -84,7 +84,7 @@ Steps on `home`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Delete 1080p copy?" }).getByRole("button", { name: "Delete" })'
   ```
 
-- **Add with the default.** Open `/add?contentType=movie&query=quiet+orchard` and choose `Add The Quiet Orchard`. The sheet `Add The Quiet Orchard` reads `Movies (default)` in `Profile`. Choose `Add Movie`. The Work page reads `Profile Movies. Editions from the Profile.`, and the `Any cut cells` table reads `Movie`, `Status`, `1080p` with `Missing` and `Missing`.
+- **Add with the default.** Open `/add?contentType=movie&query=quiet+orchard` and choose `Add The Quiet Orchard`. The sheet `Add The Quiet Orchard` reads `Movies (default)` in `Profile`. Choose `Add Movie`. The Work page's `Editions and Targets` table has the columns `Edition` and `1080p Downloaded`, and its `Any cut` row reads `From Profile Movies` with `Missing`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
@@ -103,7 +103,7 @@ Steps on `targets`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Any cut cells" }).getByText("Upgradable").first().waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Editions and Targets" }).getByText("Upgrade available").first().waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof targets-and-profiles/targets-one-file -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/targets-and-profiles/targets-one-file/work.png
   WORK=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[0].id')
   $FW exec $RUN --proof targets-and-profiles/targets-one-file -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/cells"
@@ -115,7 +115,7 @@ Steps on `targets`:
   ```sh
   $FW cue $RUN fixture-site-list '{"release": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW"}'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Any cut cells" }).getByText("Met").first().waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Editions and Targets" }).getByText("Met").first().waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof targets-and-profiles/targets-upgrade -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/searches"
   $FW exec $RUN --proof targets-and-profiles/targets-upgrade -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   $FW exec $RUN --proof targets-and-profiles/targets-upgrade -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
@@ -193,31 +193,22 @@ Steps on `targets`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Make default" })'
   ```
 
-- **Move the Work to UHD and keep its file.** On the Work page choose `Profile and Editions`, pick `UHD` in `Profile`, and the sheet's heading reads `Editions from Profile UHD`. Choose `Save`. The Impact `Save The Quiet Orchard` lists `1 Work changes.`, `1 file would fill nothing (<size>).` and `1 cell becomes wanted.`, with `Delete` chosen. Choose `Keep as Kept files`, then `Save and keep 1 file`. The toast reads `Saved what The Quiet Orchard wants.`, the page reads `Profile UHD. Editions from the Profile.`, and the Bluray now sits under its old label plus ` (extra 1)`.
+- **Move the Work to UHD and keep its file.** On the Work page open `More actions for The Quiet Orchard`, choose `Edit…`, and pick `UHD` in `Profile`. `Library root` is disabled, with `This movie has files, so it stays in its library root.` Choose `Save`. The Impact `Give The Quiet Orchard the Profile UHD` lists `1 Work changes.`, `1 file would fill nothing (<size>).` and `1 cell becomes wanted.`, with `Delete` chosen. Choose `Keep as Kept files`, then `Save and keep 1 file`. The toast reads `Changed the Profile of The Quiet Orchard.`, the `Any cut` row reads `From Profile UHD`, `Kept files` lists the Bluray, and it sits on disk under its old label plus ` (extra 1)`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Profile and Editions" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Profile and Editions" }).getByRole("combobox", { name: "Profile" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "More actions for The Quiet Orchard" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Edit…" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Edit The Quiet Orchard" }).getByRole("combobox", { name: "Profile" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("option", { name: "UHD" })'
-  $FW exec $RUN --proof targets-and-profiles/work-wants-sheet -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/targets-and-profiles/work-wants-sheet/sheet.png
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Profile and Editions" }).getByRole("button", { name: "Save", exact: true })'
+  $FW exec $RUN --proof targets-and-profiles/work-profile-edit -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/targets-and-profiles/work-profile-edit/edit.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Edit The Quiet Orchard" }).getByRole("button", { name: "Save", exact: true })'
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/targets-and-profiles/impact-keep/impact.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Save The Quiet Orchard" }).getByRole("radio", { name: "Keep as Kept files" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Give The Quiet Orchard the Profile UHD" }).getByRole("radio", { name: "Keep as Kept files" })'
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/targets-and-profiles/impact-keep/keep.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Save and keep 1 file" })'
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p (extra 1).mkv' --release The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/wants"
-  ```
-
-- **A Work's own Editions.** Open `Profile and Editions` again and choose `Choose cuts`. The heading reads `Editions set for this Work` beside `Reset to Profile`. Choose `Reset to Profile`, then close the sheet without saving.
-
-  ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Profile and Editions" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Profile and Editions" }).getByRole("radio", { name: "Choose cuts" })'
-  $FW exec $RUN --proof targets-and-profiles/work-wants-sheet -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/targets-and-profiles/work-wants-sheet/own-list.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Reset to Profile" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
   ```
 
 - **Delete UHD.** On `/settings/profiles` choose `Actions for UHD`, then `Delete`. The dialog `Delete UHD?` reads `Its 1 Work moves to the Profile you pick.` with `Films` in `Move its Works to`. Choose `Delete UHD`, and `Delete UHD` again on its Impact, which lists `1 Work changes.` and `1 file is renamed.` The toast reads `Deleted UHD. Its Works now take Films.`, and the Kept file fills again under the plain label.
@@ -282,7 +273,7 @@ Steps on `sizes`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("option", { name: "Encodes" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Copper Bell" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Any cut cells" }).getByText("Failed").first().waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Editions and Targets" }).getByText("Failed").first().waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/targets-and-profiles/sizes-probed-codec/work.png
   $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
@@ -360,10 +351,10 @@ Steps on a second fresh `targets` run:
 - `fakeworld exec` reads `{word}` as a manifest token, so a cut's tag in a path or a locator is written `{{edition-Superfan}`, which reaches the command as `{edition-Superfan}`.
 - A cut's key is fixed when it is made, so `Superfan Edition` is still `superfan` on the API's paths.
 - The Work page's Searches list shows each search's outcome but not its refusals. Read the reasons from `GET /api/v1/works/{workId}/searches`, whose `refused` lists each refused release with a `code` and `targetId` per Target, and whose `notes` hold the grabbed release's `size_not_checked`.
-- No page or API list shows Kept files yet. The Work page's Files come from the cells, and a Kept file fills none. Prove one on disk with `fs match` or `fs stat`.
-- Every scenario Profile wants Any cut, so a Work's cells sit under one heading, `Any cut`, in the table `Any cut cells`. A named list makes one table per wanted cut.
+- The Work page lists a Kept file under `Kept files`, from `GET /api/v1/works/{workId}/files`. Prove its name on disk with `fs match` or `fs stat`.
+- Every scenario Profile wants Any cut, so a Work's cells sit in one row, `Any cut`, of the table `Editions and Targets` (one card per Edition on phone). A named list makes one row per wanted cut.
 - `DELETE /api/v1/profiles/{profileId}` without `moveTo` answers 422 `invalid` before any Profile check.
-- In `Any cut cells` the `Status` column and each Target's column read the same state, so `getByText("Failed")` or `getByText("Met")` matches more than one cell; add `.first()`.
+- With two Targets the row holds two cells, so `getByText("Failed")` or `getByText("Met")` can match more than one; add `.first()`.
 - The second `Delete UHD` is the Impact's button, in the dialog named `Delete UHD` without the question mark.
 - The payloads are a few seconds of video, so the Profile editor's estimates are tiny. Read their wording, not their numbers.
 - The add sheet keeps `Monitor` on; an unmonitored Work has no Wants and its Search finds nothing to do.
