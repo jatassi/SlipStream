@@ -5,9 +5,19 @@ import {
   MetadataProvider,
   MetadataProviderList,
   MetadataRefreshStarted,
+  MetadataRefreshState,
   MetadataSettings,
   MetadataSettingsChange,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary Get when every Work of a Content Type was last asked to refresh, and whether the run refreshing them is open
+ */
+export const GetContentTypeRefreshParams = zod.object({
+  contentType: zod.string(),
+});
+
+export const GetContentTypeRefreshResponse = MetadataRefreshState;
 
 /**
  * @summary Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open

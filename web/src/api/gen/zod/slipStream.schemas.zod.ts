@@ -2315,6 +2315,14 @@ export const MakeFolderInputBody = zod.object({
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
 
+export const MetadataAttribution = zod.object({
+  logo: zod.string().describe("The key of the provider's logo the web app bundles, such as tmdb"),
+  text: zod.string().describe("The words to show, exactly"),
+});
+
+export type MetadataAttribution = zod.input<typeof MetadataAttribution>;
+export type MetadataAttributionOutput = zod.output<typeof MetadataAttribution>;
+
 export const MetadataChanged = zod.object({
   provider: zod.string().describe("The provider whose status changed"),
 });
@@ -2362,11 +2370,19 @@ export type MetadataNewKey = zod.input<typeof MetadataNewKey>;
 export type MetadataNewKeyOutput = zod.output<typeof MetadataNewKey>;
 
 export const MetadataProvider = zod.object({
+  attribution: zod
+    .union([MetadataAttribution, zod.null()])
+    .describe("The credit the provider's terms require beside it; null when they require none"),
   details: MetadataDetails,
   id: zod.string().describe("The provider, such as tmdb"),
   key: zod
     .enum(["none", "bundled", "yours"])
     .describe("Whose key calls carry: none in this build, SlipStream's, or the Admin's"),
+  keyPage: zod.url().describe("The provider's page where an Admin gets a key, for the browser"),
+  keySetAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Admin set their key; null unless key is yours"),
   label: zod.string(),
   state: zod
     .enum(["unused", "working", "key_refused", "rate_limited", "out_of_allowance", "unreachable"])
@@ -2398,6 +2414,19 @@ export const MetadataRefreshStarted = zod.object({
 
 export type MetadataRefreshStarted = zod.input<typeof MetadataRefreshStarted>;
 export type MetadataRefreshStartedOutput = zod.output<typeof MetadataRefreshStarted>;
+
+export const MetadataRefreshState = zod.object({
+  requestedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When every Work of the type was last asked to refresh, by Refresh all or a new language or region; null if never. The first Metadata refresh run started at or after it refreshes them all",
+    ),
+  running: zod.boolean().describe("Whether that run is open now"),
+});
+
+export type MetadataRefreshState = zod.input<typeof MetadataRefreshState>;
+export type MetadataRefreshStateOutput = zod.output<typeof MetadataRefreshState>;
 
 export const SettingChoiceOption = zod.object({
   label: zod.string(),

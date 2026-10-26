@@ -7,6 +7,7 @@ import type {
   MetadataProvider,
   MetadataProviderList,
   MetadataRefreshStarted,
+  MetadataRefreshState,
   MetadataSettings,
   SettingAddressField,
   SettingChoiceField,
@@ -20,6 +21,17 @@ import type {
   SettingWindowField,
 } from "../../model";
 
+export const getGetContentTypeRefreshResponseMock = (
+  overrideResponse: Partial<Extract<MetadataRefreshState, object>> = {},
+): MetadataRefreshState => ({
+  requestedAt: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  running: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
 export const getRefreshContentTypeResponseMock = (
   overrideResponse: Partial<Extract<MetadataRefreshStarted, object>> = {},
 ): MetadataRefreshStarted => ({ runId: faker.number.int(), ...overrideResponse });
@@ -29,6 +41,13 @@ export const getListMetadataProvidersResponseMock = (
 ): MetadataProviderList => ({
   providers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
+      attribution: faker.helpers.arrayElement([
+        {
+          logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        null,
+      ]),
       details: {
         lastError: faker.helpers.arrayElement([
           {
@@ -51,6 +70,11 @@ export const getListMetadataProvidersResponseMock = (
       },
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       key: faker.helpers.arrayElement(["none", "bundled", "yours"] as const),
+      keyPage: faker.internet.url(),
+      keySetAt: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
       state: faker.helpers.arrayElement([
         "unused",
@@ -70,6 +94,13 @@ export const getListMetadataProvidersResponseMock = (
 export const getClearMetadataKeyResponseMock = (
   overrideResponse: Partial<Extract<MetadataProvider, object>> = {},
 ): MetadataProvider => ({
+  attribution: faker.helpers.arrayElement([
+    {
+      logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   details: {
     lastError: faker.helpers.arrayElement([
       {
@@ -92,6 +123,8 @@ export const getClearMetadataKeyResponseMock = (
   },
   id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   key: faker.helpers.arrayElement(["none", "bundled", "yours"] as const),
+  keyPage: faker.internet.url(),
+  keySetAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   label: faker.string.alpha({ length: { min: 10, max: 20 } }),
   state: faker.helpers.arrayElement([
     "unused",
@@ -109,6 +142,13 @@ export const getClearMetadataKeyResponseMock = (
 export const getSetMetadataKeyResponseMock = (
   overrideResponse: Partial<Extract<MetadataProvider, object>> = {},
 ): MetadataProvider => ({
+  attribution: faker.helpers.arrayElement([
+    {
+      logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   details: {
     lastError: faker.helpers.arrayElement([
       {
@@ -131,6 +171,8 @@ export const getSetMetadataKeyResponseMock = (
   },
   id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   key: faker.helpers.arrayElement(["none", "bundled", "yours"] as const),
+  keyPage: faker.internet.url(),
+  keySetAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   label: faker.string.alpha({ length: { min: 10, max: 20 } }),
   state: faker.helpers.arrayElement([
     "unused",
@@ -148,6 +190,13 @@ export const getSetMetadataKeyResponseMock = (
 export const getTestMetadataProviderResponseMock = (
   overrideResponse: Partial<Extract<MetadataProvider, object>> = {},
 ): MetadataProvider => ({
+  attribution: faker.helpers.arrayElement([
+    {
+      logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   details: {
     lastError: faker.helpers.arrayElement([
       {
@@ -170,6 +219,8 @@ export const getTestMetadataProviderResponseMock = (
   },
   id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   key: faker.helpers.arrayElement(["none", "bundled", "yours"] as const),
+  keyPage: faker.internet.url(),
+  keySetAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   label: faker.string.alpha({ length: { min: 10, max: 20 } }),
   state: faker.helpers.arrayElement([
     "unused",
@@ -924,6 +975,30 @@ export const getUpdateMetadataSettingsResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetContentTypeRefreshMockHandler = (
+  overrideResponse?:
+    | MetadataRefreshState
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<MetadataRefreshState> | MetadataRefreshState),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/content-types/:contentType/refresh",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetContentTypeRefreshResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getRefreshContentTypeMockHandler = (
   overrideResponse?:
     | MetadataRefreshStarted
@@ -1111,6 +1186,7 @@ export const getUpdateMetadataSettingsMockHandler = (
   );
 };
 export const getMetadataMock = () => [
+  getGetContentTypeRefreshMockHandler(),
   getRefreshContentTypeMockHandler(),
   getClearMetadataCacheMockHandler(),
   getListMetadataProvidersMockHandler(),

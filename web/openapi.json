@@ -4511,6 +4511,24 @@
         ],
         "type": "object"
       },
+      "MetadataAttribution": {
+        "additionalProperties": false,
+        "properties": {
+          "logo": {
+            "description": "The key of the provider's logo the web app bundles, such as tmdb",
+            "type": "string"
+          },
+          "text": {
+            "description": "The words to show, exactly",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "logo"
+        ],
+        "type": "object"
+      },
       "MetadataChanged": {
         "additionalProperties": false,
         "properties": {
@@ -4594,6 +4612,17 @@
       "MetadataProvider": {
         "additionalProperties": false,
         "properties": {
+          "attribution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetadataAttribution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The credit the provider's terms require beside it; null when they require none"
+          },
           "details": {
             "$ref": "#/components/schemas/MetadataDetails"
           },
@@ -4609,6 +4638,19 @@
               "yours"
             ],
             "type": "string"
+          },
+          "keyPage": {
+            "description": "The provider's page where an Admin gets a key, for the browser",
+            "format": "uri",
+            "type": "string"
+          },
+          "keySetAt": {
+            "description": "When the Admin set their key; null unless key is yours",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "label": {
             "type": "string"
@@ -4643,6 +4685,9 @@
           "label",
           "summary",
           "key",
+          "keySetAt",
+          "keyPage",
+          "attribution",
           "state",
           "until",
           "details"
@@ -4699,6 +4744,28 @@
         },
         "required": [
           "runId"
+        ],
+        "type": "object"
+      },
+      "MetadataRefreshState": {
+        "additionalProperties": false,
+        "properties": {
+          "requestedAt": {
+            "description": "When every Work of the type was last asked to refresh, by Refresh all or a new language or region; null if never. The first Metadata refresh run started at or after it refreshes them all",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "running": {
+            "description": "Whether that run is open now",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requestedAt",
+          "running"
         ],
         "type": "object"
       },
@@ -15944,6 +16011,198 @@
       }
     },
     "/content-types/{contentType}/refresh": {
+      "get": {
+        "operationId": "getContentTypeRefresh",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentType",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataRefreshState"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get when every Work of a Content Type was last asked to refresh, and whether the run refreshing them is open",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      },
       "post": {
         "operationId": "refreshContentType",
         "parameters": [
