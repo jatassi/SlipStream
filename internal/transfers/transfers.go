@@ -1,22 +1,19 @@
-// Package transfers copies one file of a torrent from the Node that holds
-// it to the Node that receives it, over a kind-2 link stream. The receiver
-// drives: it asks for every chunk it hasn't verified, checks each against
-// the source's BLAKE3 hash, and records it in local.db, so a broken stream
-// resumes from the last verified chunk.
+// Package transfers copies files between Nodes for the jobs that ask:
+// the Controller records each Transfer a purpose starts and judges its
+// live state, and every Node sends and receives the Transfers its intent
+// makes active, chunk by verified chunk, resuming from what it verified.
 package transfers
 
 import (
 	"embed"
-	"errors"
 	"io"
 	"net"
-	"slices"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/bencode"
 	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers/internal/db"
+	"github.com/jatassi/slipstream/internal/transfers/internal/engine"
 )
 
 type file = storage.Local
@@ -24,25 +21,14 @@ type file = storage.Local
 //go:embed schema/*.sql
 var schemaFiles embed.FS
 
+// Schema is the transfers local set: what a receiver staged and verified.
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("transfers", schemaFiles) }
 
-// ID is a Transfer's: the Grab's it serves, one Transfer per Grab.
+// ID is a Transfer's own id, never its job's.
 type ID = db.TransferID
 
-const ChunkSize = 4 << 20
-
-var (
-	// ErrBroken is a stream that ended or stalled mid-Transfer. Receive
-	// again resumes from the verified chunks.
-	ErrBroken = errors.New("transfers: the stream broke")
-	// ErrNotPresent is a source that doesn't hold the file yet.
-	ErrNotPresent = errors.New("transfers: the source doesn't hold the file")
-)
-
-// FailedError is a Transfer that retrying can't finish.
-type FailedError struct{ Reason string }
-
-func (e *FailedError) Error() string { return "transfers: " + e.Reason }
+// ChunkSize is every chunk's size but a file's last.
+const ChunkSize = engine.ChunkSize
 
 // Timings are protocol internals, config only.
 type Timings struct {
@@ -109,52 +95,16 @@ func DefaultTimings() Timings {
 	}
 }
 
-// Payloads finds a torrent's file on this Node.
-type Payloads interface {
-	Path(hash bencode.InfoHash, index int) (string, error)
-}
-
-// Hooks are the simulation tier's view into a Source and a Node.
-// Production leaves them zero.
+// Hooks are the simulation tier's view into a Node's sender. Production
+// leaves them zero.
 type Hooks struct {
-	// Read wraps the file each chunk is read from, so a test can change
-	// the bytes or fail a read.
+	// Read wraps the file each chunk is read from, so a test can fail a
+	// read.
 	Read func(io.ReaderAt) io.ReaderAt
-	// Wanted sees each Want the Source answers.
-	Wanted func(hash bencode.InfoHash, index int, chunks []int)
 	// Sent sees each chunk a Node sends after it hashed it, and may change
 	// it.
 	Sent func(transfer ID, position, index int, data []byte)
 	// Lane wraps each lane a Node engine's run holds, to cut, stall or
 	// throttle it.
 	Lane func(transfer ID, route transferv1.Route, c net.Conn) net.Conn
-}
-
-// Hash is a chunk's BLAKE3-256.
-type Hash [32]byte
-
-// Manifest is a file's size and the hash of each ChunkSize chunk, the
-// last one short.
-type Manifest struct {
-	Size   int64
-	Hashes []Hash
-}
-
-func chunkCount(size int64) int { return int((size + ChunkSize - 1) / ChunkSize) }
-
-func (m Manifest) offset(i int) int64 { return int64(i) * ChunkSize }
-
-func (m Manifest) chunkLen(i int) int64 { return min(ChunkSize, m.Size-m.offset(i)) }
-
-func (m Manifest) equal(o Manifest) bool { return m.Size == o.Size && slices.Equal(m.Hashes, o.Hashes) }
-
-// plan is the chunks to ask for: every one not verified, in order.
-func plan(chunks int, verified map[int]bool) []int {
-	var want []int
-	for i := range chunks {
-		if !verified[i] {
-			want = append(want, i)
-		}
-	}
-	return want
 }

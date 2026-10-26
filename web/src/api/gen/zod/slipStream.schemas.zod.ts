@@ -1133,7 +1133,6 @@ export const GrabsFailure = zod.object({
     "import_failed",
     "node_written_off",
     "root_changed",
-    "needs_transfer",
   ]),
   message: zod.string(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
@@ -1141,6 +1140,47 @@ export const GrabsFailure = zod.object({
 
 export type GrabsFailure = zod.input<typeof GrabsFailure>;
 export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
+
+export const GrabsWait = zod.object({
+  kind: zod.enum([
+    "node_away",
+    "node_other_build",
+    "connecting",
+    "no_route",
+    "root_not_ready",
+    "storage_draining",
+    "source_checking",
+    "source_not_ready",
+  ]),
+  nodeId: zod.uuid().describe("The Node it waits for"),
+});
+
+export type GrabsWait = zod.input<typeof GrabsWait>;
+export type GrabsWaitOutput = zod.output<typeof GrabsWait>;
+
+export const grabsTransferEstimateSecondsMin = 0;
+
+export const grabsTransferRateMin = 0;
+
+export const GrabsTransfer = zod.object({
+  estimateSeconds: zod
+    .int()
+    .min(grabsTransferEstimateSecondsMin)
+    .describe("Seconds until its file is verified; 0 while unknown"),
+  rate: zod
+    .int()
+    .min(grabsTransferRateMin)
+    .describe(
+      "Bytes a second it copies at, else the last speed between its two Nodes; 0 while unknown",
+    ),
+  state: zod
+    .enum(["queued", "waiting", "needs_space", "copying", "failed"])
+    .describe("copying also covers a file that is verified and waits to be imported"),
+  wait: GrabsWait.exactOptional().describe("What it waits for; absent unless its state is waiting"),
+});
+
+export type GrabsTransfer = zod.input<typeof GrabsTransfer>;
+export type GrabsTransferOutput = zod.output<typeof GrabsTransfer>;
 
 export const grabsProgressDoneMin = 0;
 
@@ -1152,6 +1192,9 @@ export const GrabsProgress = zod.object({
     .min(grabsProgressDoneMin)
     .describe("Bytes downloaded, or received and verified while transferring"),
   total: zod.int().min(grabsProgressTotalMin).describe("Bytes wanted"),
+  transfer: GrabsTransfer.exactOptional().describe(
+    "How the Transfer stands, absent unless it is transferring",
+  ),
 });
 
 export type GrabsProgress = zod.input<typeof GrabsProgress>;
@@ -1169,7 +1212,9 @@ export const GrabsGrab = zod.object({
     .uuid()
     .nullable()
     .describe("The Searching Node that fetched the .torrent, null until it did"),
-  history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
+  history: zod
+    .array(GrabsEntered)
+    .describe("Each stage it entered, when it last entered it, oldest first"),
   id: zod.uuid(),
   indexerId: zod.uuid(),
   infoHash: zod

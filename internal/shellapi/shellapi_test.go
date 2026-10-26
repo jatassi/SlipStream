@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -93,7 +94,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	}
 	watch := openHealth(t, lib, roster)
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch})
 	})
 
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null}}`)
@@ -171,7 +172,7 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch})
 	})
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn"}}`)
 }

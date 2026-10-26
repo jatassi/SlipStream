@@ -4,16 +4,6 @@
 
 package db
 
-import (
-	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/storage"
-)
-
-type TransfersChunk struct {
-	TransferID TransferID
-	Idx        int64
-}
-
 type TransfersResume struct {
 	TransferID TransferID
 	Position   int64
@@ -28,16 +18,4 @@ type TransfersResume struct {
 type TransfersStaging struct {
 	TransferID TransferID
 	Folder     string
-}
-
-type TransfersTransfer struct {
-	ID          TransferID
-	SourceNode  role.NodeID
-	InfoHash    []byte
-	FileIndex   int64
-	Size        *int64
-	ChunkSize   *int64
-	ChunkHashes []byte
-	StagingPath string
-	CreatedAt   storage.Time
 }

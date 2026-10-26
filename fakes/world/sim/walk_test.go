@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -59,6 +60,12 @@ type grabView struct {
 	History []struct {
 		Stage string `json:"stage"`
 	} `json:"history"`
+	Progress *struct {
+		Total    int64 `json:"total"`
+		Transfer *struct {
+			State string `json:"state"`
+		} `json:"transfer"`
+	} `json:"progress"`
 }
 
 func (g grabView) stages() []string {
@@ -211,30 +218,59 @@ func onSeedbox(edit func(e *node.Env)) sim.Option {
 	})
 }
 
+// stageHold stops a walk once at stage: before home runs its step, or,
+// for transferring, at the first chunk seedbox sends, which waits until
+// restarted closes.
+type stageHold struct {
+	stage              grabs.Stage
+	reached, restarted chan struct{}
+	held               atomic.Bool
+}
+
+func newStageHold(stage grabs.Stage) *stageHold {
+	return &stageHold{stage: stage, reached: make(chan struct{}), restarted: make(chan struct{})}
+}
+
+func (h *stageHold) hold() bool {
+	if !h.held.CompareAndSwap(false, true) {
+		return false
+	}
+	close(h.reached)
+	return true
+}
+
+func (h *stageHold) edit(name string, e *node.Env) {
+	e.Test.BeforeStep = func(ctx context.Context, s grabs.Stage) {
+		if s == h.stage && h.hold() {
+			<-ctx.Done()
+		}
+	}
+	if name == "seedbox" && h.stage == grabs.Transferring {
+		e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) {
+			if h.hold() {
+				<-h.restarted
+			}
+		}
+	}
+}
+
 // TestAControllerRestartedAtEachStageImportsOnce stops home just before
-// each step of the walk and starts it again on its link port, as a
-// Controller on the default port restarts: the Grab resumes and ends
-// imported with one file.
+// each step of the walk, or mid-Transfer once seedbox sends its first
+// chunk, and starts it again on its link port, as a Controller on the
+// default port restarts: the Grab resumes and ends imported with one file.
 func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 	for _, stage := range []grabs.Stage{grabs.Fetching, grabs.Downloading, grabs.Probing, grabs.Transferring, grabs.Importing} {
 		t.Run(string(stage), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				reached := make(chan struct{})
-				var held atomic.Bool
-				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(_ string, e *node.Env) {
-					e.Test.BeforeStep = func(ctx context.Context, s grabs.Stage) {
-						if s == stage && held.CompareAndSwap(false, true) {
-							close(reached)
-							<-ctx.Done()
-						}
-					}
-				}))
+				held := newStageHold(stage)
+				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(held.edit))
 				search(t, w, addOrchard(t, w))
-				<-reached
+				<-held.reached
 				h := w.Node("home")
 				link := h.Ready().Listeners.Link
 				h.Stop()
 				h.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_LINK_LISTEN="+link.String()) })
+				close(held.restarted)
 				expectImported(t, await(t, w))
 				expectPlaced(t, w)
 			})
@@ -378,63 +414,71 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 	})
 }
 
-// faultyChunks fails the first read of chunk cut and flips a byte in the
-// first read of chunk flip, by index from 0; -1 is none.
-type faultyChunks struct {
+// failedRead fails the first read of chunk cut, by index from 0, as a
+// disk going away under the sender does.
+type failedRead struct {
 	io.ReaderAt
-	cut, flip int
-	cutDone   *atomic.Bool
-	flipDone  *atomic.Bool
+	cut  int
+	done *atomic.Bool
 }
 
-func (f faultyChunks) ReadAt(b []byte, off int64) (int, error) {
-	chunk := int(off / transfers.ChunkSize)
-	if chunk == f.cut && f.cutDone.CompareAndSwap(false, true) {
+func (f failedRead) ReadAt(b []byte, off int64) (int, error) {
+	if int(off/transfers.ChunkSize) == f.cut && f.done.CompareAndSwap(false, true) {
 		return 0, errors.New("the disk went away")
 	}
-	n, err := f.ReaderAt.ReadAt(b, off)
-	if chunk == f.flip && f.flipDone.CompareAndSwap(false, true) {
-		b[0] ^= 1
-	}
-	return n, err //nolint:wrapcheck // the source wraps the read error
+	return f.ReaderAt.ReadAt(b, off) //nolint:wrapcheck // the sender wraps the read error
 }
 
-// TestATransferResumes breaks a Transfer's stream and corrupts a chunk on
-// the source: the receiver asks again only for what it has not verified,
-// and the placed file's BLAKE3 is the payload's.
+// sends counts the chunks a sender sent, by index, and flips a byte in
+// the first send of chunk flip after the sender hashed it; -1 is none.
+type sends struct {
+	mu   sync.Mutex
+	by   map[int]int
+	flip int
+}
+
+func (s *sends) sent(_ transfers.ID, _, index int, data []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.by[index]++
+	if index == s.flip && s.by[index] == 1 {
+		data[0] ^= 1
+	}
+}
+
+func (s *sends) counts() map[int]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return maps.Clone(s.by)
+}
+
+// TestATransferResumes breaks the Transfer's lane and damages a chunk in
+// flight after seedbox hashed it: the receiver asks again only for what
+// it hasn't verified, and the placed file's BLAKE3 is the payload's.
 func TestATransferResumes(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		cut, flip int
-		wants     [][]int
+		sent      map[int]int
 	}{
-		{name: "after a break at chunk 3 of 5", cut: 2, flip: -1, wants: [][]int{{0, 1, 2, 3, 4}, {2, 3, 4}}},
-		{name: "after a flipped byte in chunk 2", cut: -1, flip: 1, wants: [][]int{{0, 1, 2, 3, 4}, {1}}},
+		{name: "after its lane breaks at chunk 3 of 5", cut: 2, flip: -1, sent: map[int]int{0: 1, 1: 1, 2: 1, 3: 1, 4: 1}},
+		{name: "after chunk 2 arrives damaged", cut: -1, flip: 1, sent: map[int]int{0: 1, 1: 2, 2: 1, 3: 1, 4: 1}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				var mu sync.Mutex
-				var wants [][]int
-				var cut, flip atomic.Bool
+				var cut atomic.Bool
+				counted := &sends{by: map[int]int{}, flip: tc.flip}
 				w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
 					e.Test.Transfers = transfers.Hooks{
-						Read: func(r io.ReaderAt) io.ReaderAt {
-							return faultyChunks{ReaderAt: r, cut: tc.cut, flip: tc.flip, cutDone: &cut, flipDone: &flip}
-						},
-						Wanted: func(_ bencode.InfoHash, _ int, chunks []int) {
-							mu.Lock()
-							defer mu.Unlock()
-							wants = append(wants, chunks)
-						},
+						Read: func(r io.ReaderAt) io.ReaderAt { return failedRead{ReaderAt: r, cut: tc.cut, done: &cut} },
+						Sent: counted.sent,
 					}
 				}))
 				search(t, w, addOrchard(t, w))
 				expectImported(t, await(t, w))
-				mu.Lock()
-				if !slices.EqualFunc(wants, tc.wants, slices.Equal[[]int]) {
-					t.Fatalf("seedbox was asked for chunks %v, want %v", wants, tc.wants)
+				if got := counted.counts(); !maps.Equal(got, tc.sent) {
+					t.Fatalf("seedbox sent chunks %v times, want %v", got, tc.sent)
 				}
-				mu.Unlock()
 				expectPlaced(t, w)
 			})
 		})
@@ -498,14 +542,14 @@ func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) 
 
 // TestAPayloadProbedAt480pFillsNothing probes the 1080p release's file at
 // 480p on seedbox, which the starter Target doesn't accept: probing fails
-// fills_nothing, no Transfer stream opens, and seedbox keeps the torrent
-// in its intent.
+// fills_nothing, no Transfer starts, and seedbox keeps the torrent in its
+// intent.
 func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var asked atomic.Bool
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
 			e.Media = mediatest.Prober{Of: map[string]media.Probe{release + ".mkv": {Container: "matroska", Codec: "h264", Width: 640, Height: 480}}}
-			e.Test.Transfers.Wanted = func(bencode.InfoHash, int, []int) { asked.Store(true) }
+			e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) { asked.Store(true) }
 		}))
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
@@ -514,11 +558,11 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 			t.Fatalf("the Grab's history is %v, want [fetching downloading probing failed]", got)
 		}
 		if asked.Load() {
-			t.Fatal("seedbox's source was asked for chunks")
+			t.Fatal("seedbox sent a chunk")
 		}
-		var opened int64
-		if err := w.Node("home").Half().Local.QueryRowContext(t.Context(), "SELECT count(*) FROM transfers_transfer").Scan(&opened); err != nil || opened != 0 {
-			t.Fatalf("home recorded %d Transfers (%v), want none: no stream of kind 2 opened", opened, err)
+		var started int64
+		if err := w.Node("home").Half().Library.QueryRowContext(t.Context(), "SELECT count(*) FROM transfers_record").Scan(&started); err != nil || started != 0 {
+			t.Fatalf("home recorded %d Transfers (%v), want none", started, err)
 		}
 		var intent []string
 		err := w.Node("home").Half().Library.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {

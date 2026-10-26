@@ -7,6 +7,7 @@ package downloading
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -26,7 +27,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
-	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/transfers/source"
 )
 
@@ -90,7 +90,7 @@ func DefaultTimings() Timings {
 }
 
 // ErrNotPresent is a torrent this Node's client hasn't finished.
-var ErrNotPresent = transfers.ErrNotPresent
+var ErrNotPresent = errors.New("the torrent client hasn't finished the torrent")
 
 type Config struct {
 	Engine engine.Engine

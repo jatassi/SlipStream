@@ -19,11 +19,13 @@ import (
 
 // Disk is the file IO the disk queue does, on the Node that holds each
 // root. Move converges on a repeat; Remove of a missing file is an error
-// wrapping fs.ErrNotExist. Watch is closed at the next change of a root's
-// report, as a re-home off a lost root makes. *roots.Roots is one.
+// wrapping fs.ErrNotExist, and RemoveAll of a missing folder is none.
+// Watch is closed at the next change of a root's report, as a re-home off
+// a lost root makes. *roots.Roots is one.
 type Disk interface {
 	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error)
 	Remove(ctx context.Context, root roots.ID, rel storing.Rel) error
+	RemoveAll(ctx context.Context, root roots.ID, rel storing.Rel) error
 	ListHeld(ctx context.Context, root roots.ID, folder storing.HeldFolder) ([]string, error)
 	Watch() <-chan struct{}
 }
@@ -248,14 +250,16 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 	})
 }
 
-// sweep removes each file in the held folders of roots ids whose name
-// is no live file's or unfinished Grab's: what a Grab that failed after
-// its import placed the bytes or its Transfer staged them, or a crash
-// between two steps, leaves. It lists the folders, on each root's Node,
-// before reading the library, so a file placed meanwhile belongs to a
-// Grab or file the read sees. It answers the roots left to sweep: those
-// whose Node didn't answer or didn't remove a file, and the lost ones,
-// which it doesn't ask.
+// sweep removes what the held folders of roots ids hold that nothing
+// claims: a holding file whose name is no live file's or unfinished
+// Grab's, and a staging folder whose name is no live Transfer's. A Grab
+// that failed after its import placed the bytes, a Transfer canceled
+// while its Node was away, or a crash between two steps leaves them. It
+// lists the folders, on each root's Node, before reading the library, so
+// what is placed or staged meanwhile belongs to a Grab, file or Transfer
+// the read sees. It answers the roots left to sweep: those whose Node
+// didn't answer or didn't remove an entry, and the lost ones, which it
+// doesn't ask.
 func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []roots.ID) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -276,15 +280,13 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []r
 		f.logSweep(ctx, err)
 		return asked, lost
 	}
-	for root, paths := range found {
+	for root, entries := range found {
 		removed := true
-		for _, p := range paths {
-			stem, _, _ := strings.Cut(path.Base(p), ".")
-			id, err := storage.ParseUUID(stem)
-			if err == nil && live[id] || moving.holds(root, p) {
+		for _, e := range entries {
+			if live.keeps(e) || moving.holds(root, e.path()) {
 				continue
 			}
-			if err := f.removeAt(ctx, root, p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			if err := f.removeHeld(ctx, root, e); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				f.logSweep(ctx, err)
 				removed = false
 			}
@@ -294,6 +296,23 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []r
 		}
 	}
 	return unanswered, lost
+}
+
+// held is one entry of a root's held folder: a file in holding, named by
+// its file's or Grab's id, or a folder in staging, named by its
+// Transfer's.
+type held struct {
+	folder storing.HeldFolder
+	name   string
+}
+
+func (e held) path() string { return e.folder.String() + "/" + e.name }
+
+// owner is the id e's name starts with, false when it starts with none.
+func (e held) owner() (storage.UUID, bool) {
+	stem, _, _ := strings.Cut(e.name, ".")
+	id, err := storage.ParseUUID(stem)
+	return id, err == nil
 }
 
 func (f *Files) lostOf(ctx context.Context, ids []roots.ID) (lost, others []roots.ID, err error) {
@@ -323,34 +342,34 @@ func (f *Files) rootIDs(ctx context.Context) ([]roots.ID, error) {
 	return ids, err
 }
 
-// held is the root-relative path of each file in the holding and staging
-// folders of each of ids, and the roots whose Node didn't list both.
-func (f *Files) held(ctx context.Context, ids []roots.ID) (found map[roots.ID][]string, unanswered []roots.ID) {
-	found = map[roots.ID][]string{}
+// held is every entry of the holding and staging folders of each of ids,
+// and the roots whose Node didn't list both.
+func (f *Files) held(ctx context.Context, ids []roots.ID) (found map[roots.ID][]held, unanswered []roots.ID) {
+	found = map[roots.ID][]held{}
 	for _, root := range ids {
-		paths, err := f.heldIn(ctx, root)
+		entries, err := f.heldIn(ctx, root)
 		if err != nil {
 			f.cfg.Log.Warn("sweep a root's held folders later", "root", root.String(), "err", err.Error())
 			unanswered = append(unanswered, root)
 			continue
 		}
-		found[root] = paths
+		found[root] = entries
 	}
 	return found, unanswered
 }
 
-func (f *Files) heldIn(ctx context.Context, root roots.ID) ([]string, error) {
-	var paths []string
+func (f *Files) heldIn(ctx context.Context, root roots.ID) ([]held, error) {
+	var entries []held
 	for _, folder := range []storing.HeldFolder{storing.Holding, storing.Staging} {
 		names, err := f.cfg.Disk.ListHeld(ctx, root, folder)
 		if err != nil {
 			return nil, err
 		}
 		for _, n := range names {
-			paths = append(paths, folder.String()+"/"+n)
+			entries = append(entries, held{folder, n})
 		}
 	}
-	return paths, nil
+	return entries, nil
 }
 
 func (f *Files) move(ctx context.Context, root roots.ID, from, to string) error {
@@ -374,24 +393,60 @@ func (f *Files) removeAt(ctx context.Context, root roots.ID, p string) error {
 	return f.cfg.Disk.Remove(ctx, root, rel)
 }
 
-// claimed is every live file's id and unfinished Grab's.
-func (f *Files) claimed(ctx context.Context) (map[storage.UUID]bool, error) {
-	live := map[storage.UUID]bool{}
+// removeHeld removes a holding file, or a staging folder and everything
+// in it.
+func (f *Files) removeHeld(ctx context.Context, root roots.ID, e held) error {
+	if e.folder == storing.Holding {
+		return f.removeAt(ctx, root, e.path())
+	}
+	rel, err := storing.ParseRel(e.path())
+	if err != nil {
+		return err
+	}
+	return f.cfg.Disk.RemoveAll(ctx, root, rel)
+}
+
+// claims is what the held folders may keep: every live file's id and
+// unfinished Grab's in holding, and every live Transfer's in staging.
+type claims struct {
+	holding, staging map[storage.UUID]bool
+}
+
+func (c claims) keeps(e held) bool {
+	id, ok := e.owner()
+	if !ok {
+		return false
+	}
+	if e.folder == storing.Holding {
+		return c.holding[id]
+	}
+	return c.staging[id]
+}
+
+func (f *Files) claimed(ctx context.Context) (claims, error) {
+	c := claims{holding: map[storage.UUID]bool{}, staging: map[storage.UUID]bool{}}
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		ids, err := db.New(r).ListFileIDs(ctx)
 		if err != nil {
 			return err
 		}
 		for _, id := range ids {
-			live[id.UUID] = true
+			c.holding[id.UUID] = true
 		}
 		grabs, err := f.cfg.Grabs.Unfinished(ctx, r)
+		if err != nil {
+			return err
+		}
 		for _, id := range grabs {
-			live[id] = true
+			c.holding[id] = true
+		}
+		live, err := f.cfg.Transfers(ctx, r)
+		for id := range live {
+			c.staging[id.UUID] = true
 		}
 		return err
 	})
-	return live, err
+	return c, err
 }
 
 // holds reports whether a live file's bytes are recorded at p in root.

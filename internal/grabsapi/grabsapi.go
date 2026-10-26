@@ -135,7 +135,7 @@ func searchOf(s grabs.Search) search {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
+	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
 	Message string `json:"message"`
 }
 
@@ -145,8 +145,21 @@ type entered struct {
 }
 
 type progress struct {
-	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded, or received and verified while transferring"`
-	Total int64 `json:"total" minimum:"0" doc:"Bytes wanted"`
+	Done     int64     `json:"done" minimum:"0" doc:"Bytes downloaded, or received and verified while transferring"`
+	Total    int64     `json:"total" minimum:"0" doc:"Bytes wanted"`
+	Transfer *transfer `json:"transfer,omitempty" doc:"How the Transfer stands, absent unless it is transferring"`
+}
+
+type transfer struct {
+	State           string `json:"state" enum:"queued,waiting,needs_space,copying,failed" doc:"copying also covers a file that is verified and waits to be imported"`
+	Wait            *wait  `json:"wait,omitempty" doc:"What it waits for; absent unless its state is waiting"`
+	Rate            int64  `json:"rate" minimum:"0" doc:"Bytes a second it copies at, else the last speed between its two Nodes; 0 while unknown"`
+	EstimateSeconds int64  `json:"estimateSeconds" minimum:"0" doc:"Seconds until its file is verified; 0 while unknown"`
+}
+
+type wait struct {
+	Kind   string `json:"kind" enum:"node_away,node_other_build,connecting,no_route,root_not_ready,storage_draining,source_checking,source_not_ready"`
+	NodeID string `json:"nodeId" format:"uuid" doc:"The Node it waits for"`
 }
 
 type grab struct {
@@ -165,7 +178,7 @@ type grab struct {
 	InfoHash     *string   `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
 	Stage        string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
 	Failure      *failure  `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
-	History      []entered `json:"history" nullable:"false" doc:"Each stage it entered, oldest first"`
+	History      []entered `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
 	Progress     *progress `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
@@ -198,6 +211,12 @@ func grabOf(v grabs.View) grab {
 	}
 	if v.Progress != nil {
 		out.Progress = &progress{Done: v.Progress.Done, Total: v.Progress.Total}
+		if p := v.Progress.Transfer; p.State != 0 {
+			out.Progress.Transfer = &transfer{State: p.State.String(), Rate: p.Rate, EstimateSeconds: int64(p.Estimate.Seconds())}
+			if p.Wait != 0 {
+				out.Progress.Transfer.Wait = &wait{Kind: p.Wait.String(), NodeID: p.WaitNode.String()}
+			}
+		}
 	}
 	return out
 }

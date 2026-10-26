@@ -117,7 +117,7 @@ func expect(t *testing.T, s *ownertest.Owner, method, path string, status int, w
 func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), transfers.LibrarySchema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -169,7 +169,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 			Changed: discard[indexers.Changed]{},
 		}),
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
-		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
+		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
 	})

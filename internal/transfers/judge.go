@@ -39,8 +39,7 @@ func (j *judgment) view(id ID) (View, bool) {
 	return j.views[i], true
 }
 
-// intents is every Node a Transfer or a send limit names. A Node missing
-// from it has the empty intent.
+// intents is every paired Node's intent.
 type intents map[role.NodeID]*tv1.Intent
 
 func (in intents) of(node role.NodeID) *tv1.Intent {
@@ -69,7 +68,7 @@ type candidate struct {
 // IO and reads no clock but s.now.
 func judge(s snapshot) judgment {
 	j := judgment{views: make([]View, len(s.transfers)), intents: intents{}}
-	for node := range s.limits {
+	for node := range s.peers {
 		j.intent(s, node)
 	}
 	var lines []*line

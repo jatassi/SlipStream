@@ -291,6 +291,7 @@ func (q *Queries) InsertSearch(ctx context.Context, arg InsertSearchParams) erro
 
 const insertStage = `-- name: InsertStage :exec
 INSERT INTO grabs_stage (grab_id, stage, entered_at) VALUES (?1, ?2, ?3)
+ON CONFLICT (grab_id, stage) DO UPDATE SET entered_at = excluded.entered_at
 `
 
 type InsertStageParams struct {

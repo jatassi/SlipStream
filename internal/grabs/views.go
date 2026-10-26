@@ -9,7 +9,8 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// View is a Grab with its live download progress, nil when none.
+// View is a Grab with its live download or Transfer progress, nil when
+// none.
 type View struct {
 	Grab
 	Progress *Progress
@@ -29,9 +30,13 @@ func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 	if err != nil {
 		return nil, err
 	}
+	progress, err := gr.progress(ctx, grabs)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]View, len(grabs))
 	for i, g := range grabs {
-		out[i] = View{g, gr.progress(g)}
+		out[i] = View{g, progress[g.ID]}
 	}
 	return out, nil
 }
@@ -68,5 +73,9 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 	if err != nil {
 		return View{}, err
 	}
-	return View{g, gr.progress(g)}, nil
+	progress, err := gr.progress(ctx, []Grab{g})
+	if err != nil {
+		return View{}, err
+	}
+	return View{g, progress[g.ID]}, nil
 }

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
-	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/role"
 )
@@ -40,20 +39,18 @@ func TestAWorkerRootThatDownloadsImportsByHardLinkThere(t *testing.T) {
 	}
 }
 
-func TestAGrabIntoAWorkerRootFromAnotherNodeFailsNeedsTransfer(t *testing.T) {
+func TestAGrabIntoAWorkerRootFromAnotherNodeTransfersThere(t *testing.T) {
 	t.Parallel()
 	s := workerRoot(t, role.Searching, role.Storage)
-	w := beginIn(t, s, worldtest.LaunchScenario(t, s))
-	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
-	search := w.search(t)
-	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
-	w.ended(t, grabChanged(t, stream, w.work))
-	const words = "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
-	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "needs_transfer" || w.grab.Failure.Message != words {
-		t.Fatalf("the Grab ended %s with %+v after %v, want failed needs_transfer: %s", w.grab.Stage, w.grab.Failure, w.grab.stages(), words)
+	w := walkFrom(t, beginIn(t, s, worldtest.LaunchScenario(t, s)))
+	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
+		t.Fatalf("the Grab's history is %v, want %v", w.grab.stages(), want)
 	}
 	if home := w.m.Nodes[0]; w.grab.NodeID != home.NodeID {
 		t.Fatalf("the Grab's Node is %s, want home %s, which downloads", w.grab.NodeID, home.NodeID)
 	}
-	holdsOnly(t, w.m)
+	checkPlaced(t, w.m, 1)
+	if entries, err := os.ReadDir(filepath.Join(w.m.MediaDir, "movies", ".slipstream-staging")); err != nil || len(entries) != 0 {
+		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
+	}
 }

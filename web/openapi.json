@@ -2018,8 +2018,7 @@
               "transfer_failed",
               "import_failed",
               "node_written_off",
-              "root_changed",
-              "needs_transfer"
+              "root_changed"
             ],
             "type": "string"
           },
@@ -2068,7 +2067,7 @@
             ]
           },
           "history": {
-            "description": "Each stage it entered, oldest first",
+            "description": "Each stage it entered, when it last entered it, oldest first",
             "items": {
               "$ref": "#/components/schemas/GrabsEntered"
             },
@@ -2215,6 +2214,10 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "transfer": {
+            "$ref": "#/components/schemas/GrabsTransfer",
+            "description": "How the Transfer stands, absent unless it is transferring"
           }
         },
         "required": [
@@ -2415,6 +2418,72 @@
         },
         "required": [
           "searchIds"
+        ],
+        "type": "object"
+      },
+      "GrabsTransfer": {
+        "additionalProperties": false,
+        "properties": {
+          "estimateSeconds": {
+            "description": "Seconds until its file is verified; 0 while unknown",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rate": {
+            "description": "Bytes a second it copies at, else the last speed between its two Nodes; 0 while unknown",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "description": "copying also covers a file that is verified and waits to be imported",
+            "enum": [
+              "queued",
+              "waiting",
+              "needs_space",
+              "copying",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "wait": {
+            "$ref": "#/components/schemas/GrabsWait",
+            "description": "What it waits for; absent unless its state is waiting"
+          }
+        },
+        "required": [
+          "state",
+          "rate",
+          "estimateSeconds"
+        ],
+        "type": "object"
+      },
+      "GrabsWait": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "node_away",
+              "node_other_build",
+              "connecting",
+              "no_route",
+              "root_not_ready",
+              "storage_draining",
+              "source_checking",
+              "source_not_ready"
+            ],
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node it waits for",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "nodeId"
         ],
         "type": "object"
       },
