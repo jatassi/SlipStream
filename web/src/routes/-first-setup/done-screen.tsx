@@ -1,11 +1,42 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import type { FirstrunStepState } from "../../api/gen/model";
+import type { FirstrunStepID, FirstrunStepState } from "../../api/gen/model";
+import {
+  getGetMailSettingsSuspenseQueryOptions,
+  useGetMailSettingsSuspense,
+} from "../../api/gen/query/mail/mail";
+import { freshQuery } from "../../api/query-client";
 import { refusalOf } from "../../targets/attempt";
 import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { Chip } from "../../ui/chip";
 import { screens } from "./screens";
+
+/** Reads what the place shows: its step's settings, or the done screen's email settings. */
+export async function loadPlace(queryClient: QueryClient, at: FirstrunStepID | "done") {
+  await (at === "done"
+    ? freshQuery(queryClient, getGetMailSettingsSuspenseQueryOptions())
+    : screens[at].load(queryClient));
+}
+
+const link =
+  "text-meta text-ink-2 underline hover:text-ink-1 in-data-[density=touch]:text-body-touch";
+
+function SettingsLink({ href, onSettings }: { href: string; onSettings: (href: string) => void }) {
+  return (
+    <a
+      href={href}
+      className={link}
+      onClick={(event) => {
+        event.preventDefault();
+        onSettings(href);
+      }}
+    >
+      Set it in Settings
+    </a>
+  );
+}
 
 function Row({
   step,
@@ -19,21 +50,25 @@ function Row({
     <li aria-label={screen.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
       <span className="min-w-0 flex-[1_1_12ch] text-ink-1">{screen.name}</span>
       {step.state === "skipped" && (
-        <a
-          href={screen.settings}
-          className="text-meta text-ink-2 underline hover:text-ink-1 in-data-[density=touch]:text-body-touch"
-          onClick={(event) => {
-            event.preventDefault();
-            onSettings(screen.settings);
-          }}
-        >
-          Set it in Settings
-        </a>
+        <SettingsLink href={screen.settings} onSettings={onSettings} />
       )}
       <Chip look={step.state === "skipped" ? "outline" : "fill"}>
         {step.state === "skipped" ? "Skipped" : "Set"}
       </Chip>
     </li>
+  );
+}
+
+// Email has no step of its own, so the done screen links its settings while it isn't set up.
+function EmailLine({ onSettings }: { onSettings: (href: string) => void }) {
+  if (useGetMailSettingsSuspense().data.host !== "") {
+    return null;
+  }
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-3">
+      <span>Email isn&apos;t set up.</span>
+      <SettingsLink href="/settings/email" onSettings={onSettings} />
+    </p>
   );
 }
 
@@ -80,6 +115,7 @@ export function DoneScreen({
     <>
       <p>Each step you skipped can be set later in Settings.</p>
       <Summary shown={shown} onSettings={leave} />
+      <EmailLine onSettings={leave} />
       {failure !== undefined && <AlertLine text={failure} />}
       <div className="flex flex-wrap items-center gap-2">
         {back !== undefined && (

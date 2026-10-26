@@ -1,7 +1,12 @@
 import { HttpResponse, http, sse } from "msw";
 import { page } from "vitest/browser";
 
-import type { FirstrunFirstRun, FirstrunStepID, FirstrunStepState } from "../api/gen/model";
+import type {
+  FirstrunFirstRun,
+  FirstrunStepID,
+  FirstrunStepState,
+  MailSettings,
+} from "../api/gen/model";
 import { SetFirstRunStepBody } from "../api/gen/zod/firstrun/firstrun.zod";
 import { type LiveMap, ada } from "./handlers";
 
@@ -10,6 +15,16 @@ type Client = Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"];
 export const todo = (id: FirstrunStepID): FirstrunStepState => ({ id, state: "todo" });
 export const done = (id: FirstrunStepID): FirstrunStepState => ({ id, state: "done" });
 export const skipped = (id: FirstrunStepID): FirstrunStepState => ({ id, state: "skipped" });
+
+const mailSet: MailSettings = {
+  fromAddress: "slipstream@example.test",
+  fromName: "SlipStream",
+  host: "smtp.example.test",
+  passwordSet: true,
+  port: 587,
+  security: "starttls",
+  username: "slipstream",
+};
 
 /**
  * An Admin's open first setup on the Controller: the session says so, each
@@ -31,6 +46,7 @@ export function firstSetup(steps: readonly FirstrunStepState[]) {
       }),
     ),
     http.get("*/api/v1/first-run", () => HttpResponse.json(state)),
+    http.get("*/api/v1/mail/settings", () => HttpResponse.json(mailSet)),
     http.put("*/api/v1/first-run/steps/:id", async ({ params, request }) => {
       const id = String(params["id"]);
       const { outcome } = SetFirstRunStepBody.parse(await request.json());

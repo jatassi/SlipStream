@@ -1,4 +1,4 @@
-import { HttpResponse, http } from "msw";
+import { type HttpHandler, HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -16,9 +16,13 @@ const world = [
   http.get("*/api/v1/roots", () => HttpResponse.json({ roots: [] })),
 ];
 
-function open(path: string, steps = [done("address"), todo("media"), todo("roots")]) {
+function open(
+  path: string,
+  steps = [done("address"), todo("media"), todo("roots")],
+  handlers: readonly HttpHandler[] = [],
+) {
   const server = firstSetup(steps);
-  const app = renderApp({ path, handlers: [...server.handlers, ...world] });
+  const app = renderApp({ path, handlers: [...handlers, ...server.handlers, ...world] });
   return { app, server };
 }
 
@@ -99,6 +103,31 @@ test("a skipped step's link finishes first setup and opens its place in Settings
   await userEvent.click(page.getByRole("link", { name: "Set it in Settings" }));
   await expect.poll(() => pathname(app)).toBe("/settings/library-roots");
   expect(server.finishes).toHaveLength(1);
+});
+
+test("with email not set up, the done screen links its settings, and the link finishes first setup", async () => {
+  const unset = http.get("*/api/v1/mail/settings", () =>
+    HttpResponse.json({
+      fromAddress: "",
+      fromName: "",
+      host: "",
+      passwordSet: false,
+      port: 587,
+      security: "starttls",
+      username: "",
+    }),
+  );
+  const { app, server } = open("/setup/done", [done("address"), done("roots")], [unset]);
+  await expect.element(page.getByText("Email isn't set up.")).toBeVisible();
+  await userEvent.click(page.getByRole("link", { name: "Set it in Settings" }));
+  await expect.poll(() => pathname(app)).toBe("/settings/email");
+  expect(server.finishes).toHaveLength(1);
+});
+
+test("with email set up, the done screen leaves it out", async () => {
+  open("/setup/done", [done("address"), done("roots")]);
+  await expect.element(stepHeading("First setup")).toBeVisible();
+  await expect.element(page.getByText("Email isn't set up.")).not.toBeInTheDocument();
 });
 
 test("a tab follows another browser's finish into the Library", async () => {

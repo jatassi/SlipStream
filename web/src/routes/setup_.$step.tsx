@@ -12,8 +12,8 @@ import {
   statusQuery,
 } from "../session/session";
 import { FrameOverlays } from "./-first-setup/frame";
+import { loadPlace } from "./-first-setup/done-screen";
 import { DonePage, StepPage } from "./-first-setup/pages";
-import { screens } from "./-first-setup/screens";
 
 export const Route = createFileRoute("/setup_/$step")({
   staticData: { title: "Set up SlipStream" },
@@ -30,11 +30,7 @@ export const Route = createFileRoute("/setup_/$step")({
     }
     return { at };
   },
-  loader: async ({ context: { queryClient, at } }) => {
-    if (at !== "done") {
-      await screens[at].load(queryClient);
-    }
-  },
+  loader: ({ context: { queryClient, at } }) => loadPlace(queryClient, at),
   component: FirstSetup,
 });
 
