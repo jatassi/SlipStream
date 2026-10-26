@@ -12,41 +12,32 @@ import { liveServer } from "../../../test/live-server";
 // oxlint-disable-next-line import/max-dependencies -- the Work page's Grabs read the Torrents and the live stream too
 import { renderApp } from "../../../test/render-app";
 import { listOf, torrent } from "../../../test/torrents";
-import {
-  filled,
-  grabbed,
-  searching,
-  unavailable,
-  upgradable,
-  workServer,
-} from "../../../test/work-server";
+import { failedCells, filled, upgradable } from "../../../test/work-cells";
+import { grabbed, searching, unavailable, workServer } from "../../../test/work-server";
 
-const row = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
+const cutRow = () =>
+  page.getByRole("table", { name: "Editions and Targets" }).getByRole("row", { name: /^Any cut/u });
 const searchButton = () => page.getByRole("button", { name: "Search", exact: true });
 const notifications = () => page.getByRole("region", { name: "Notifications" });
+const missingRow = "Any cutFrom Profile UltraMissingSearchMissingSearch";
 
-test("the Work page shows its fields and one cell per Target", async () => {
+test("the Work page shows its facts, its cells and one column per Target", async () => {
   renderApp({ path: `/works/${orchardId}`, handlers: workServer().handlers });
-  await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "The Quiet Orchard", level: 1 }))
+    .toBeVisible();
+  await expect.element(page.getByText("2021 · Film · 1h 52m")).toBeVisible();
+  await expect
+    .element(page.getByRole("list", { name: "Cells" }))
+    .toHaveTextContent("0 of 2 met2 missing");
   expect(
     page
-      .getByRole("term")
-      .all()
-      .map((term) => term.element().textContent),
-  ).toEqual(["Year", "Released", "Runtime"]);
-  expect(
-    page
-      .getByRole("definition")
-      .all()
-      .map((value) => value.element().textContent),
-  ).toEqual(["2021", "2021-04-09", "1h 52m"]);
-  expect(
-    page
+      .getByRole("table", { name: "Editions and Targets" })
       .getByRole("columnheader")
       .all()
       .map((header) => header.element().textContent),
-  ).toEqual(["Film", "Status", "1080p", "2160p"]);
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
+  ).toEqual(["Edition", "2160p HDR Downloaded", "1080p Downloaded"]);
+  await expect.element(cutRow()).toHaveTextContent(missingRow);
   await expect
     .element(page.getByText("No files yet. A Grab that imports puts its file here."))
     .toBeVisible();
@@ -61,38 +52,32 @@ test("the Work page shows its fields and one cell per Target", async () => {
 test("files.changed shows the new file without a reload", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
+  await expect.element(cutRow()).toHaveTextContent(missingRow);
 
   server.fileArrives(filled);
 
+  await expect.element(cutRow()).toMatchTextContent(/^Any cutFrom Profile UltraDownloading.*Met/u);
   await expect
-    .element(row())
-    .toHaveTextContent(
-      "The Quiet OrchardDownloadingMetThe Quiet Orchard (2021) - 1080p.mkvDownloading",
-    );
+    .element(page.getByRole("list", { name: "Cells" }))
+    .toHaveTextContent("1 of 2 met1 in flight");
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
     .toHaveTextContent(
-      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021)1920×1080 · 700 MB",
+      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021) · Fills 1080pWEBDL-1080p · 1920×1080 · 700 MB",
     );
 });
 
 test("a cell below its Target's cutoff shows upgradable with its file", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
+  await expect.element(cutRow()).toHaveTextContent(missingRow);
 
   server.fileArrives(upgradable);
 
   await expect
-    .element(row())
+    .element(cutRow())
     .toHaveTextContent(
-      "The Quiet OrchardMissingUpgradableThe Quiet Orchard (2021) - 1080p.mkvMissing",
-    );
-  await expect
-    .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
-    .toHaveTextContent(
-      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021)1920×1080 · 500 MB",
+      "Any cutFrom Profile UltraMissingSearchUpgrade availableHDTV-1080p · 1920×1080 · 500 MBSearch",
     );
 });
 
@@ -138,11 +123,7 @@ test("Search starts a search and says so, and the run and its Grab show without 
 
   server.grabMoves(imported, filled);
   await expect.element(grabs).toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLImported");
-  await expect
-    .element(row())
-    .toHaveTextContent(
-      "The Quiet OrchardDownloadingMetThe Quiet Orchard (2021) - 1080p.mkvDownloading",
-    );
+  await expect.element(cutRow()).toMatchTextContent(/Met/u);
 });
 
 test("a search its Indexer couldn't answer says what the Indexer waits for, until it stops waiting", async () => {
@@ -218,15 +199,17 @@ const failedImport: GrabsGrab = {
   },
 };
 
-test("a failed Grab shows under Needs you with its stage, cause and a way to search again", async () => {
+test("a failed Grab shows under Needs you with the cells it holds back and a way to search again", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
+  await expect.element(cutRow()).toHaveTextContent(missingRow);
 
-  server.grabMoves(failedImport);
+  server.grabMoves(failedImport, failedCells(failedImport.id));
 
   const needsYou = page.getByRole("region", { name: "Needs you" });
-  const card = needsYou.getByRole("article", { name: "The Quiet Orchard" });
+  const card = needsYou.getByRole("article", {
+    name: "2160p HDR failed at Import · 1080p waits on it",
+  });
   await expect.element(card).toMatchTextContent(/^Failed at Import/u);
   await expect
     .element(card)
@@ -236,8 +219,8 @@ test("a failed Grab shows under Needs you with its stage, cause and a way to sea
         "Detailplace movies/The Quiet Orchard (2021): permission denied",
     );
   await expect
-    .element(page.getByText("No Grabs yet. A search that finds a release grabs it."))
-    .toBeVisible();
+    .element(page.getByRole("list", { name: "Cells" }))
+    .toHaveTextContent("0 of 2 met1 failed1 missing");
 
   await userEvent.click(card.getByRole("button", { name: "Search again" }));
   await expect.poll(() => server.searched).toEqual([orchardId]);
