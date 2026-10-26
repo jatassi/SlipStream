@@ -183,7 +183,7 @@ func (l *loop) end(s *search, end *dlv1.ResolveResponse) {
 func (l *loop) searchEvent(s *search, ev engine.Event) {
 	switch ev := ev.(type) {
 	case engine.MetadataReceived:
-		l.c.cfg.Log.Info("A magnet link's metadata arrived", "info_hash", s.link.InfoHash.String(), "peers", s.peers)
+		l.c.cfg.Log.Info("A magnet link's metadata arrived", "info_hash", s.link.InfoHash.String())
 		l.end(s, &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_Info{Info: ev.Info}})
 	case engine.TrackerFailed:
 		if ev.Reason != "" {
