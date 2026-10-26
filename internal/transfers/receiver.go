@@ -15,7 +15,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/link"
-	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
+	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transferlegacy/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers/internal/db"

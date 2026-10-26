@@ -49,8 +49,8 @@ type cluster struct {
 	root          roots.ID
 	names         map[role.NodeID]string
 	purpose       *purpose
-	homeEnd       *end
-	seedboxEnd    *end
+	homeEnd       *nodeEnd
+	seedboxEnd    *nodeEnd
 	published     *published
 
 	mu      sync.Mutex
@@ -132,9 +132,9 @@ func (p *purpose) seen() (verified, failed, after []string) {
 	return slices.Clone(p.verified), slices.Clone(p.failed), slices.Clone(p.after)
 }
 
-// end is one Node's transfers holder: it keeps its last intent, and the
+// nodeEnd is one Node's transfers holder: it keeps its last intent, and the
 // test sets its facts and reports its Results.
-type end struct {
+type nodeEnd struct {
 	local *storage.DB[storage.Local]
 
 	mu     sync.Mutex
@@ -142,7 +142,7 @@ type end struct {
 	intent *tv1.Intent
 }
 
-func (e *end) run(ctx context.Context, h role.Holder[*tv1.Intent, *tv1.Facts, *tv1.Result]) error {
+func (e *nodeEnd) run(ctx context.Context, h role.Holder[*tv1.Intent, *tv1.Facts, *tv1.Result]) error {
 	e.mu.Lock()
 	e.holder = h
 	e.mu.Unlock()
@@ -154,18 +154,18 @@ func (e *end) run(ctx context.Context, h role.Holder[*tv1.Intent, *tv1.Facts, *t
 	return nil
 }
 
-func (e *end) held() role.Held {
+func (e *nodeEnd) held() role.Held {
 	return transfers.Def.Hold(e.run, func(context.Context) error { return nil })
 }
 
-func (e *end) now() (*tv1.Intent, role.Holder[*tv1.Intent, *tv1.Facts, *tv1.Result]) {
+func (e *nodeEnd) now() (*tv1.Intent, role.Holder[*tv1.Intent, *tv1.Facts, *tv1.Result]) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.intent, e.holder
 }
 
 // actives is the Transfers it runs, "send 0 1 2" naming the files.
-func (e *end) actives() []string {
+func (e *nodeEnd) actives() []string {
 	in, _ := e.now()
 	var out []string
 	for _, a := range in.GetActive() {
@@ -178,7 +178,7 @@ func (e *end) actives() []string {
 	return out
 }
 
-func (e *end) report(t *testing.T, r *tv1.Result) {
+func (e *nodeEnd) report(t *testing.T, r *tv1.Result) {
 	t.Helper()
 	_, h := e.now()
 	if err := e.local.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
@@ -189,7 +189,7 @@ func (e *end) report(t *testing.T, r *tv1.Result) {
 	synctest.Wait()
 }
 
-func (e *end) facts(f *tv1.Facts) {
+func (e *nodeEnd) facts(f *tv1.Facts) {
 	_, h := e.now()
 	h.SetFacts(f)
 	synctest.Wait()
@@ -205,8 +205,8 @@ func newCluster(t *testing.T) *cluster {
 		seedbox:    role.NodeID{UUID: storage.NewUUID()},
 		root:       roots.ID{UUID: storage.NewUUID()},
 		purpose:    &purpose{},
-		homeEnd:    &end{local: storagetest.Local(t, role.LocalSchema())},
-		seedboxEnd: &end{local: storagetest.Local(t, role.LocalSchema())},
+		homeEnd:    &nodeEnd{local: storagetest.Local(t, role.LocalSchema())},
+		seedboxEnd: &nodeEnd{local: storagetest.Local(t, role.LocalSchema())},
 		published:  &published{},
 	}
 	r.names = map[role.NodeID]string{r.home: "home", r.seedbox: "seedbox"}
@@ -289,7 +289,7 @@ func (r *cluster) exec(t *testing.T, query string, args ...any) {
 	}
 }
 
-func (r *cluster) hold(t *testing.T, e *end, upstream role.Upstream) {
+func (r *cluster) hold(t *testing.T, e *nodeEnd, upstream role.Upstream) {
 	t.Helper()
 	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
 		Local:    e.local,
@@ -370,7 +370,7 @@ func (r *cluster) view(t *testing.T, id transfers.ID) transfers.View {
 	return v
 }
 
-func verified(id transfers.ID, position uint32, place int64) *tv1.Result {
+func verifiedResult(id transfers.ID, position uint32, place int64) *tv1.Result {
 	return &tv1.Result{Result: &tv1.Result_Verified{Verified: &tv1.FileVerified{TransferId: id.Bytes(), Position: position, Place: place}}}
 }
 
@@ -417,12 +417,12 @@ func TestVerifiedFiresOncePerGroupInTheOrderGroupsComplete(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		id := r.start(t, "heat", "a", "b", "a")
-		r.homeEnd.report(t, verified(id, 1, 1))
-		r.homeEnd.report(t, verified(id, 0, 1))
-		r.homeEnd.report(t, verified(id, 1, 1))
+		r.homeEnd.report(t, verifiedResult(id, 1, 1))
+		r.homeEnd.report(t, verifiedResult(id, 0, 1))
+		r.homeEnd.report(t, verifiedResult(id, 1, 1))
 		r.fresh(t)
 		check(t, "home runs", r.homeEnd.actives(), []string{"receive 2"})
-		r.homeEnd.report(t, verified(id, 2, 1))
+		r.homeEnd.report(t, verifiedResult(id, 2, 1))
 		r.fresh(t)
 		v, _, after := r.purpose.seen()
 		check(t, "Verified", v, []string{"heat b", "heat a"})
@@ -438,8 +438,8 @@ func TestPlacedRemovesTheRecordWithItsLastFile(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		id := r.start(t, "heat", "", "")
-		r.homeEnd.report(t, verified(id, 0, 1))
-		r.homeEnd.report(t, verified(id, 1, 1))
+		r.homeEnd.report(t, verifiedResult(id, 0, 1))
+		r.homeEnd.report(t, verifiedResult(id, 1, 1))
 		placed := func(position int) {
 			r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 				return r.tr.Placed(ctx, tx, id, position)
@@ -502,18 +502,18 @@ func TestAStaleOrForeignResultAppliesAsNothing(t *testing.T) {
 		id := r.start(t, "heat", "")
 		gone := r.start(t, "ronin", "")
 		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, gone) })
-		r.seedboxEnd.report(t, verified(id, 0, 1))
+		r.seedboxEnd.report(t, verifiedResult(id, 0, 1))
 		r.seedboxEnd.report(t, failed(id, tv1.Failed_CODE_SOURCE_GONE, ""))
-		r.homeEnd.report(t, verified(id, 0, 2))
-		r.homeEnd.report(t, verified(id, 5, 1))
-		r.homeEnd.report(t, verified(gone, 0, 1))
+		r.homeEnd.report(t, verifiedResult(id, 0, 2))
+		r.homeEnd.report(t, verifiedResult(id, 5, 1))
+		r.homeEnd.report(t, verifiedResult(gone, 0, 1))
 		r.homeEnd.report(t, failed(gone, tv1.Failed_CODE_DAMAGED, ""))
 		r.homeEnd.report(t, &tv1.Result{Result: &tv1.Result_Verified{Verified: &tv1.FileVerified{TransferId: []byte("not an id"), Place: 1}}})
 		v, f, after := r.purpose.seen()
 		if len(v)+len(f)+len(after) != 0 {
 			t.Fatalf("stale Results fired Verified %q, Failed %q, After %q; want nothing", v, f, after)
 		}
-		r.homeEnd.report(t, verified(id, 0, 1))
+		r.homeEnd.report(t, verifiedResult(id, 0, 1))
 		v, _, _ = r.purpose.seen()
 		check(t, "Verified after the stale Results", v, []string{"heat "})
 		r.fresh(t)

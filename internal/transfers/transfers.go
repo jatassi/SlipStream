@@ -71,7 +71,6 @@ type Timings struct {
 	// RouteRetry is how long a pair starts on a higher route that moved
 	// bytes before it tries the first route again.
 	RouteRetry time.Duration `yaml:"route_retry"`
-	Unlink     time.Duration `yaml:"unlink"`
 	// PairWrite is how often the Controller records a pair's speed.
 	PairWrite time.Duration `yaml:"pair_write"`
 	// Changed is how often the Controller publishes transfers.changed.
@@ -92,7 +91,6 @@ func DefaultTimings() Timings {
 		Damaged:    4,
 		Piece:      64 << 10,
 		RouteRetry: time.Hour,
-		Unlink:     30 * time.Second,
 		PairWrite:  time.Minute,
 		Changed:    time.Second,
 	}
@@ -103,14 +101,17 @@ type Payloads interface {
 	Path(hash bencode.InfoHash, index int) (string, error)
 }
 
-// Hooks are the simulation tier's view into a Source. Production leaves
-// them zero.
+// Hooks are the simulation tier's view into a Source and a Node.
+// Production leaves them zero.
 type Hooks struct {
 	// Read wraps the file each chunk is read from, so a test can change
 	// the bytes or fail a read.
 	Read func(io.ReaderAt) io.ReaderAt
 	// Wanted sees each Want the Source answers.
 	Wanted func(hash bencode.InfoHash, index int, chunks []int)
+	// Sent sees each chunk a Node sends after it hashed it, and may change
+	// it.
+	Sent func(transfer ID, position, index int, data []byte)
 }
 
 // Hash is a chunk's BLAKE3-256.

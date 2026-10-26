@@ -576,7 +576,6 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.transfers.damaged", Value: "4", Default: "4", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_DAMAGED"},
 			{Key: "timings.transfers.piece", Value: "65536", Default: "65536", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_PIECE"},
 			{Key: "timings.transfers.route_retry", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_ROUTE_RETRY"},
-			{Key: "timings.transfers.unlink", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_UNLINK"},
 			{Key: "timings.transfers.pair_write", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_PAIR_WRITE"},
 			{Key: "timings.transfers.changed", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_CHANGED"},
 			{Key: "timings.grabs.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_RETRY_MIN"},
