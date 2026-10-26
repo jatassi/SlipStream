@@ -135,6 +135,9 @@ type Purpose struct {
 	// After runs once that Write commits, with the jobs whose hooks fired.
 	// It must not block.
 	After func(jobs []string)
+	// Names is each of jobs' name in words, such as "Heat (1995)", read
+	// in rd. A job it leaves out has no name.
+	Names func(ctx context.Context, rd storage.Reader[storage.Library], jobs []string) (map[string]string, error)
 }
 
 // Publisher publishes transfers.changed.
@@ -207,11 +210,14 @@ func New(cfg ControllerConfig) *Transfers {
 	}
 }
 
-// Register adds a purpose. Call it before Run. A kind registered twice
-// panics.
+// Register adds a purpose. Call it before Run. A kind registered twice,
+// or with a hook missing, panics.
 func (t *Transfers) Register(p Purpose) {
 	if _, dup := t.purposes[p.Kind]; dup {
 		panic("transfers: purpose " + string(p.Kind) + " is registered twice")
+	}
+	if p.Verified == nil || p.Failed == nil || p.After == nil || p.Names == nil {
+		panic("transfers: purpose " + string(p.Kind) + " is missing a hook")
 	}
 	t.purposes[p.Kind] = p
 }

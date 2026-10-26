@@ -123,6 +123,13 @@ func (p *purpose) register(tr *transfers.Transfers) {
 			defer p.mu.Unlock()
 			p.after = append(p.after, jobs...)
 		},
+		Names: func(_ context.Context, _ storage.Reader[storage.Library], jobs []string) (map[string]string, error) {
+			out := map[string]string{}
+			for _, j := range jobs {
+				out[j] = "the " + j + " job"
+			}
+			return out, nil
+		},
 	})
 }
 

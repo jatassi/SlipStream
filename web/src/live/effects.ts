@@ -18,6 +18,7 @@ import { downloadEffects } from "./download-effects";
 import { libraryEffects } from "./library-effects";
 import { everyPath } from "./refresh";
 import { systemEffects } from "./system-effects";
+import { transferEffects } from "./transfer-effects";
 import type { LiveEffects } from "./types";
 
 const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
@@ -31,6 +32,7 @@ export const effects = {
   ...systemEffects,
   ...libraryEffects,
   ...downloadEffects,
+  ...transferEffects,
   "identity.sessions-changed": (data, { refresh }) => {
     refresh({ queryKey: getGetSessionQueryKey() });
     refresh({ queryKey: getListSessionsQueryKey() });
@@ -65,6 +67,4 @@ export const effects = {
   "metadata.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListMetadataProvidersQueryKey() });
   },
-  // Nothing in the app reads Transfers yet.
-  "transfers.changed": () => {},
 } satisfies LiveEffects;
