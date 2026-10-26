@@ -1,6 +1,6 @@
 # Torrents
 
-Activity's Torrents view lists every torrent the downloading Nodes' built-in clients hold, live, problems first: a status sentence, the signal rows of what needs the Admin, tabs by state, filters, search and a table that drops from eight columns to four and then to cards as the window narrows. Selecting a row opens the Inspector beside the table on a desktop and as a pushed page on a phone: what the torrent is doing in a sentence, its numbers, trackers, files, Grabs and details. The Admin pauses, resumes, rechecks, marks failed or removes one torrent or a picked set, from the row menu, the Inspector, the picked toolbar or a Job's menu. A resume that a private tracker would reject waits and says when it starts. Removing asks first, says library files stay, lists what it cancels and can delete the download copy. Each Node runs a set number of downloads at once and queues the rest, and a restart resumes every torrent without losing its totals.
+Activity's Torrents view lists every torrent the downloading Nodes' built-in clients hold, live, problems first: a status sentence, the signal rows of what needs the Admin, tabs by state, filters, search and a table that drops from eight columns to four and then to cards as the window narrows. Selecting a row opens the Inspector beside the table on a desktop and as a pushed page on a phone: what the torrent is doing in a sentence, its numbers, trackers, files, Grabs and details. The Admin pauses, resumes, rechecks, marks failed or removes one torrent or a picked set, from the row menu, the Inspector, the picked toolbar or a Job's menu. A resume that a private tracker would reject waits and says when it starts. Removing asks first, says library files stay, lists what it cancels and can delete the download copy. Each Node runs a set number of downloads at once and queues the rest, and a restart resumes every torrent without losing its totals. A Grab of a magnet link gets the torrent's metadata from peers while it is fetching, and its Torrent appears only once the metadata arrives.
 
 ## Sub-features
 
@@ -17,6 +17,10 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - `torrents-jobs` Jobs shows each Grab's quality and Target chips and its live percent, with time left and speed only while its torrent downloads (a paused one reads `<done> of <size>` as its speed winds down, as on the Work page's Grabs); its menu offers `Open its torrent`, which opens the Inspector (P-164).
 - `torrents-disk-guard` on a `home` run while the disk guard holds seedbox (see [download-clients.md](./download-clients.md)), a new grab reads `Queued` over `Waiting for disk space on seedbox` with `hold` `disk_guard`, `Needs you` holds `Waiting for disk` with `New downloads on seedbox wait for disk space.`, and the sentence counts it as a warning; once the guard lifts the torrent downloads and the signal row goes. A download already running keeps running.
 - `torrents-restart` restarting home stops each torrent with `stopped`, and the seeding torrent comes back `Seeding` with a `started` that reports nothing left and the same totals.
+- `torrents-magnet-search` on a `magnets` run, a Grab of a magnet link reads `Fetching` with `Getting metadata from 1 peer` (or `Looking for peers`) over `Fails at <HH:MM> if no peer sends the metadata` in its Progress cell, on Jobs and on the Work page, and the API's Grab carries `metadata` with `peers` and `endsAt`.
+- `torrents-magnet-torrent` a magnet link that names the tracker, and a .torrent URL that redirects to one, each import, and their Torrent appears on Torrents named for its file at the release's real size (`100% of 3.0 MB`), not the Indexer's advertised one.
+- `torrents-magnet-no-metadata` with `A magnet link with no metadata fails after` at 2 min under Settings > Download Clients > `Magnet links`, Cedar Hollow's private magnet link fails 2 minutes after its grab: `Needs you` holds its card with `No peer sent the magnet link's metadata in time.`, `Search again to pick another release.` and the detail `No peer sent the metadata in 2 min, and 1 peer connected`, Torrents never lists it, and fake-dht never sees its info hash.
+- `torrents-dht-switch` home's Torrent client lists `DHT for public torrents` under `Peers`, on by default. Off, a Grab of the trackerless Quiet Orchard fails at once with `no_peer_source` and the recovery `Turn on DHT for public torrents in that Node's torrent client settings, or search again.` Back on, `Search again` imports it through fake-dht alone: `lookups` holds home's `get_peers` for its hash and `announces` none from home.
 - `torrents-remove` `Remove` asks `Remove The Quiet Orchard?`, says `Files in your library stay.` and lists the Work that stops seeding; with `Also delete the download copy` the download copy goes, the library file still matches the release, the tracker gets `stopped`, and the row leaves once home confirms (P-166).
 
 ## How to get to it (user POV)
@@ -24,6 +28,7 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - Desktop shell: the sidebar's `Activity`, then the page tab `Torrents` at `/activity/torrents`, or `?tab=all|seeding|problems`. A Node's `Torrent client` section links `Torrents` filtered to that Node (`?node=<id>&tab=all`).
 - Phone shell: the `Activity` tab, then `Torrents` in the segmented control; the tabs list All first, the filters sit behind `Filter`, a row is a card, and the Inspector is a pushed page.
 - Jobs: `/activity`, a Job's `<Work> actions` menu, `Open its torrent`.
+- Magnet links: a Grab's Progress cell on Jobs or the Work page while it is fetching, its card under `Needs you` once it fails, the `DHT for public torrents` switch under `Peers` on a Node's `Torrent client` page, and `A magnet link with no metadata fails after` under `Magnet links` on Settings > Download Clients.
 - API: `GET /api/v1/torrents` (`?tab=&nodeId=&contentType=&q=&ids=`), `GET /api/v1/torrents/{id}`, `POST /api/v1/torrents/actions` with `{action, ids, deleteFiles?, dryRun?}`, and the events `torrents.changed` and `torrents.live`.
 
 ## Driving it with fakeworld and playwright cli
@@ -39,6 +44,13 @@ Preconditions:
   API="$(jq -r '.nodes[] | select(.name == "home").url' $RUN/manifest.json)/api/v1"
   KEY="X-Api-Key: $(jq -r .apiKey $RUN/manifest.json)"
   idOf() { curl -sS -H "$KEY" "$API/torrents" | jq -r --arg n "$1" '.rows[] | select(.name | startswith($n)) | .id'; }
+  ```
+
+- For the magnet steps, a `magnets` run (`--scenario magnets`) instead: home is the Controller and the only Node, its Indexer lists most releases by magnet link, and every release is seeded. The Quiet Orchard's release is public and its magnet link names no tracker, so home finds its seeders only through fake-dht. Harbor Lights' magnet link names the tracker, Salt Meadow's .torrent URL redirects to its magnet link, Cedar Hollow's is a private magnet link whose seeders never send the metadata, and Juniper Falls' is a private .torrent. The same session and handles, plus:
+
+  ```sh
+  grab() { id=$(curl -sS -X POST -H "$KEY" -H 'Content-Type: application/json' -d "{\"contentType\":\"movie\",\"key\":\"$1\",\"monitor\":true}" "$API/works" | jq -r .work.id); curl -sS -X POST -H "$KEY" "$API/works/$id/search"; echo "$id"; }
+  hashOf() { jq -r --arg n "$1" '.releases[] | select(.name | startswith($n)) | .infoHash' $RUN/manifest.json; }
   ```
 
 Steps:
@@ -252,6 +264,73 @@ Steps:
   $FW exec $RUN --proof torrents/torrents-remove -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   ```
 
+- **Turn DHT off and grab the trackerless release.** On home's Torrent client, `DHT for public torrents` under `Peers` reads on. Turn it off, then grab The Quiet Orchard: its Grab fails at once, with no metadata search, and `Needs you` holds its card with `The magnet link names no tracker, and DHT is off on the Node that downloads it.`
+
+  ```sh
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/nodes/{nodes.home.nodeId}/torrent-client'
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- $PW cli $D snapshot 'getByRole("region", { name: "Peers" })' --filename={runDir}/proof/torrents/torrents-dht-switch/on.aria.yml
+  $FW exec $RUN -- $PW cli $D click 'getByRole("switch", { name: "DHT for public torrents" })'
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-dht-switch/off.png
+  grab 9000001
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity'
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- $PW cli $D run-code 'async page => { await page.getByText("Turn on DHT for public torrents").waitFor({ timeout: 15000 }); }'
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-dht-switch/no-peer-source.png
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs' | jq -c '.grabs[] | {releaseTitle, stage, failure}'"
+  ```
+
+- **Turn DHT on and search again.** Turn the switch back on, then choose the card's `Search again`. The Grab imports through fake-dht: `lookups` holds home's `get_peers` for The Quiet Orchard's hash, the tracker saw no announce of it from home, and its Torrent reads `No tracker`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/nodes/{nodes.home.nodeId}/torrent-client'
+  $FW exec $RUN -- $PW cli $D click 'getByRole("switch", { name: "DHT for public torrents" })'
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity'
+  $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("button", { name: "Search again" })'
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- $PW cli $D run-code 'async page => { await page.getByRole("table", { name: "Grabs" }).getByRole("row").filter({ hasText: "The Quiet Orchard" }).getByText("Imported").waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- $FW lookups list {runDir} --node home --where method=get_peers --where infoHash=$(hashOf The.Quiet)
+  $FW exec $RUN --proof torrents/torrents-dht-switch -- $FW announces list {runDir} --node home --where infoHash=$(hashOf The.Quiet)
+  ```
+
+- **Shorten the metadata wait and watch a search.** On Settings > Download Clients, save `A magnet link with no metadata fails after` 2 (min) under `Magnet links`, then grab Cedar Hollow. Its Jobs row reads `Fetching` with `Getting metadata from 1 peer` over `Fails at <HH:MM> if no peer sends the metadata`, 2 minutes after the grab, and the Work page's Grab reads the same.
+
+  ```sh
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/settings/download-clients'
+  $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "A magnet link with no metadata fails after" })' 2
+  $FW exec $RUN -- $PW cli $D press Enter
+  $FW exec $RUN --proof torrents/torrents-magnet-no-metadata -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-magnet-no-metadata/wait.png
+  CEDAR=$(grab 9000004 | tail -1)
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity'
+  $FW exec $RUN --proof torrents/torrents-magnet-search -- $PW cli $D run-code 'async page => { const row = page.getByRole("table", { name: "Grabs" }).getByRole("row").filter({ hasText: "Cedar Hollow" }); await row.getByText(/^Getting metadata from|^Looking for peers/).waitFor({ timeout: 30000 }); return row.textContent(); }'
+  $FW exec $RUN --proof torrents/torrents-magnet-search -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-magnet-search/jobs.png
+  $FW exec $RUN --proof torrents/torrents-magnet-search -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs' | jq -c '.grabs[] | select(.releaseTitle | startswith(\"Cedar\")) | {stage, metadata}'"
+  $FW exec $RUN -- $PW cli $D goto "{nodes.home.browserUrl}/works/$CEDAR"
+  $FW exec $RUN --proof torrents/torrents-magnet-search -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-magnet-search/work.png
+  ```
+
+- **Read the no_metadata card.** 2 minutes after the grab, Cedar Hollow's Grab fails at fetching, and `Needs you` holds its card. Torrents never lists it, and fake-dht never saw its hash.
+
+  ```sh
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity'
+  $FW exec $RUN --proof torrents/torrents-magnet-no-metadata -- $PW cli $D run-code 'async page => { await page.getByText(/^No peer sent the magnet link.s metadata in time\.$/).waitFor({ timeout: 180000 }); }'
+  $FW exec $RUN --proof torrents/torrents-magnet-no-metadata -- $PW cli $D snapshot 'getByRole("main")' --filename={runDir}/proof/torrents/torrents-magnet-no-metadata/card.aria.yml
+  $FW exec $RUN --proof torrents/torrents-magnet-no-metadata -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-magnet-no-metadata/card.png
+  $FW exec $RUN --proof torrents/torrents-magnet-no-metadata -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs' | jq -c '.grabs[] | select(.releaseTitle | startswith(\"Cedar\")) | {stage, failure, history}'"
+  $FW exec $RUN --proof torrents/torrents-magnet-no-metadata -- $FW lookups list {runDir} --where infoHash=$(hashOf Cedar)
+  ```
+
+- **Grab the magnet links that name a tracker.** Grab Harbor Lights, Salt Meadow and Juniper Falls. All three import, and Torrents lists each at 3.0 MB, the payload's size, while the Indexer advertised about 7 GB. Harbor Lights' Inspector lists the tracker and `Private` `No`, and fake-dht never saw Juniper Falls' private hash.
+
+  ```sh
+  for key in 9000002 9000003 9000005; do grab $key; done
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity/torrents?tab=all'
+  $FW exec $RUN --proof torrents/torrents-magnet-torrent -- $PW cli $D run-code 'async page => { await page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "Salt Meadow" }).waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN --proof torrents/torrents-magnet-torrent -- $PW cli $D screenshot --filename={runDir}/proof/torrents/torrents-magnet-torrent/torrents.png
+  $FW exec $RUN -- $PW cli $D click 'getByRole("table", { name: "Torrents" }).getByRole("button", { name: /^Harbor Lights(?! actions)/ })'
+  $FW exec $RUN --proof torrents/torrents-magnet-torrent -- $PW cli $D snapshot 'getByRole("complementary", { name: "Harbor Lights" })' --filename={runDir}/proof/torrents/torrents-magnet-torrent/inspector.aria.yml
+  $FW exec $RUN --proof torrents/torrents-magnet-torrent -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents?tab=all' | jq -c '.rows[] | {name, size, state}'"
+  $FW exec $RUN --proof torrents/torrents-magnet-torrent -- $FW fs match {runDir} '{mediaDir}/movies/Salt Meadow (2020)/Salt Meadow (2020) - 1080p.mkv' --release Salt.Meadow.2020.1080p.WEB-DL.H264-FKW
+  $FW exec $RUN --proof torrents/torrents-magnet-torrent -- $FW lookups list {runDir} --where infoHash=$(hashOf Juniper)
+  ```
+
 ## Gotchas
 
 - Each setting on the Torrent client page saves on its own, with the Save that appears beside it once changed or with Enter in its field. `Download limit` shows its unit only once it holds a number, and starts at MB/s; pick `KB/s` before saving.
@@ -262,3 +341,7 @@ Steps:
 - The torrents Scenario has one Node, so the Node select never shows; the Node filter is in [download clients](./download-clients.md) on `home`. Only Movies exist in a release build, so `Content Type` narrows nothing it shows.
 - `Pick <name>` checkboxes sit in each row's pick column; on a phone the card has no pick-all.
 - `fs stat` reads only regular files. Before the remove the download copy shows `links` 2; after it, `fs stat` exits non-zero with `no such file`, which is the proof.
+- A public magnet link's metadata arrives within a second or two, so its search is seldom on screen. Cedar Hollow's private magnet link is the one to watch, since its seeders never send the metadata.
+- A Grab that failed `no_peer_source` searches again from the card's `Search again`, which picks the same release once DHT is back on.
+- `lookups` also lists libtorrent's own DHT lookups when the DHT starts, `get_peers` for hashes no release has. Match on `infoHash` to read a torrent's.
+- A change to the metadata wait moves the deadline of a search already running, which still counts from when that search started. Save the wait before the grab, as the recipe does, so the `Fails at` time is the one to expect.
