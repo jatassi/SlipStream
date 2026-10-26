@@ -58,11 +58,18 @@ type Store struct {
 	draining bool
 	// sampled is each root's volume as the last pass read it.
 	sampled map[storage.UUID]Volume
+	// judged is each root's state as the last pass found it.
+	judged map[storage.UUID]judgment
 	// stuck counts the bounded calls per key still in the kernel past
 	// their deadline.
 	stuck map[string]int
 	// resampled is when a placement last asked for a sample, by volume id.
 	resampled map[string]time.Time
+}
+
+type judgment struct {
+	place int64
+	state RootState
 }
 
 type intentRoot struct {
@@ -83,6 +90,7 @@ func NewStore(cfg Config) *Store {
 		asks:      make(chan chan<- int64),
 		stopped:   stopped,
 		sampled:   map[storage.UUID]Volume{},
+		judged:    map[storage.UUID]judgment{},
 		stuck:     map[string]int{},
 		resampled: map[string]time.Time{},
 	}
@@ -240,6 +248,7 @@ func (s *Store) Release(context.Context) error {
 	defer s.mu.Unlock()
 	s.roots, s.draining = nil, false
 	clear(s.sampled)
+	clear(s.judged)
 	return nil
 }
 
@@ -277,6 +286,10 @@ func (s *Store) pass(ctx context.Context) *storagev1.Facts {
 	clear(s.sampled)
 	for _, smp := range samples {
 		s.sampled[smp.root] = smp.volume
+	}
+	clear(s.judged)
+	for i, r := range roots {
+		s.judged[r.id] = judgment{r.place, verdicts[i].state}
 	}
 	s.mu.Unlock()
 	facts := &storagev1.Facts{}
@@ -497,6 +510,35 @@ func (s *Store) Local(ctx context.Context, root storage.UUID, rel Rel) (string, 
 		return "", err
 	}
 	return s.host.Style.Under(dir, rel), nil
+}
+
+// Staging is the folder a Transfer stages its files in on root at place,
+// <root>/.slipstream-staging/<transfer>/, made when missing. It is
+// *NotReady while the Store doesn't hold root at place, its last pass
+// didn't find root ready, or the Node drains Storage.
+func (s *Store) Staging(ctx context.Context, root storage.UUID, place int64, transfer storage.UUID) (string, error) {
+	s.mu.Lock()
+	r, known := s.rootLocked(root)
+	j, judged := s.judged[root]
+	s.mu.Unlock()
+	switch {
+	case !known || r.place != place || !judged || j.place != place:
+		return "", &NotReady{Unknown: true}
+	case j.state != Ready:
+		return "", &NotReady{State: j.state}
+	}
+	dir, err := s.resolve(ctx, root, true)
+	if err != nil {
+		return "", err
+	}
+	staging := s.host.Style.Join(dir, StagingDir)
+	folder := s.host.Style.Join(staging, transfer.String())
+	for _, p := range []string{staging, folder} {
+		if err := s.cfg.Disk.Mkdir(ctx, p); err != nil && !errors.Is(err, fs.ErrExist) {
+			return "", s.refused(ctx, dir, fmt.Errorf("make the staging folder: %w", err))
+		}
+	}
+	return folder, nil
 }
 
 func (s *Store) wake() {

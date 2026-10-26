@@ -21,8 +21,15 @@ type Disk interface {
 	ReadDir(ctx context.Context, dir string) ([]Entry, error)
 	Mkdir(ctx context.Context, path string) error
 	Open(ctx context.Context, path string) (io.ReadCloser, error)
+	OpenAt(ctx context.Context, path string) (ReadAtCloser, error)
 	Create(ctx context.Context, path string) (File, error)
+	// OpenWrite opens path to write at offsets, creating it when missing
+	// and keeping what it holds.
+	OpenWrite(ctx context.Context, path string) (WriteAtFile, error)
 	Remove(ctx context.Context, path string) error
+	// RemoveAll removes path and everything beneath it; a missing path is
+	// already removed.
+	RemoveAll(ctx context.Context, path string) error
 	Rename(ctx context.Context, from, to string) error
 	Link(ctx context.Context, from, to string) error
 	// Writable writes nothing: access(W_OK) and the volume's read-only flag.
@@ -35,12 +42,28 @@ type Disk interface {
 type Info interface {
 	Dir() bool
 	Size() int64
+	ModTime() time.Time
 	// Same compares file identity, as os.SameFile does.
 	Same(o Info) bool
+	// FileID is the file's id on its volume, nil where the volume doesn't
+	// keep ids across mounts: vfat, exFAT and network filesystems.
+	FileID() []byte
 }
 
 type File interface {
 	io.Writer
+	Sync() error
+	io.Closer
+}
+
+type ReadAtCloser interface {
+	io.ReaderAt
+	io.Closer
+}
+
+type WriteAtFile interface {
+	io.WriterAt
+	Truncate(size int64) error
 	Sync() error
 	io.Closer
 }
