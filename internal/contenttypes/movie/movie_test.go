@@ -322,8 +322,12 @@ func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
 	inEachTier(t, func(t *testing.T, m metadata.Source) {
 		preview := metadata.NewAsk(metadata.AskOptions{Language: metadata.DefaultLanguage, Region: metadata.DefaultRegion})
 		got, err := m.Fetch(t.Context(), preview, "9000001")
-		if err != nil || got.Label != "The Quiet Orchard" || !reflect.DeepEqual(got.Children, []works.Entry{{Key: "movie", Label: "The Quiet Orchard"}}) || got.RatingsRead {
-			t.Fatalf("Fetch = %+v, %v; want The Quiet Orchard with one Item movie and no ratings read", got, err)
+		if err != nil || got.Label != "The Quiet Orchard" || got.SortLabel != "Quiet Orchard, The" || !reflect.DeepEqual(got.Children, []works.Entry{{Key: "movie", Label: "The Quiet Orchard"}}) || got.RatingsRead {
+			t.Fatalf("Fetch = %+v, %v; want The Quiet Orchard sorting as Quiet Orchard, The, with one Item movie and no ratings read", got, err)
+		}
+		french := metadata.NewAsk(metadata.AskOptions{Language: "fr-FR", Region: metadata.DefaultRegion})
+		if got, err := m.Fetch(t.Context(), french, "9000001"); err != nil || got.SortLabel != "" {
+			t.Fatalf("Fetch in French = sort label %q, %v; want none, since only English articles move", got.SortLabel, err)
 		}
 		_, err = m.Fetch(t.Context(), preview, "9000003")
 		if want := "GET /movie/9000003: TMDB: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
