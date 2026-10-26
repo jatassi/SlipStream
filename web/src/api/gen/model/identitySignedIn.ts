@@ -8,7 +8,7 @@ export interface IdentitySignedIn {
   firstRun?: IdentitySignedInFirstRun;
   /** Whether the prompt to add a passkey may show after sign-in */
   keyPrompt: IdentitySignedInKeyPrompt;
-  /** Show the prompt to add a passkey for this address, once in this session. False while first setup is open, so its passkey step is the only ask */
+  /** Show the prompt to add a passkey for this address, once in this session. False while first setup is open, because its passkey step asks instead. */
   passkeyPrompt: boolean;
   /** The session must set a new PIN before anything but reading the session and signing out */
   pinRequired: boolean;

@@ -101,7 +101,7 @@ type signedInOutput struct {
 
 type signedIn struct {
 	Session
-	PasskeyPrompt bool `json:"passkeyPrompt" doc:"Show the prompt to add a passkey for this address, once in this session. False while first setup is open, so its passkey step is the only ask"`
+	PasskeyPrompt bool `json:"passkeyPrompt" doc:"Show the prompt to add a passkey for this address, once in this session. False while first setup is open, because its passkey step asks instead."`
 }
 
 func signedInOf(ctx context.Context, lib Library, s identity.SignedIn) (*signedInOutput, error) {

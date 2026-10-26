@@ -124,7 +124,7 @@ func Routes(r *api.Router, g Guide) {
 		ID:      "finishFirstRun",
 		Method:  http.MethodPost,
 		Path:    "/first-run/finish",
-		Summary: "Finish first setup. It never reopens",
+		Summary: "Finish first setup for good",
 		Status:  http.StatusNoContent,
 	}, func(ctx context.Context, _ identity.Admin, _ *struct{}) (*struct{}, error) {
 		return nil, open(g).Finish(ctx)

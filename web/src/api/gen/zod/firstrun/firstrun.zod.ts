@@ -8,7 +8,7 @@ import { FirstRunStepInputBody, FirstrunFirstRun } from "../slipStream.schemas.z
 export const GetFirstRunResponse = FirstrunFirstRun;
 
 /**
- * @summary Finish first setup. It never reopens
+ * @summary Finish first setup for good
  */
 export const FinishFirstRunResponse = zod.void();
 

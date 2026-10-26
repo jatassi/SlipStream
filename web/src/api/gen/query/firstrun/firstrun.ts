@@ -173,7 +173,7 @@ export const getFinishFirstRunUrl = () => {
 };
 
 /**
- * @summary Finish first setup. It never reopens
+ * @summary Finish first setup for good
  */
 export const finishFirstRun = async (options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
   return apiFetch<void>(getFinishFirstRunUrl(), {
@@ -212,7 +212,7 @@ export type FinishFirstRunMutationError = ErrorType<
 >;
 
 /**
- * @summary Finish first setup. It never reopens
+ * @summary Finish first setup for good
  */
 export const useFinishFirstRun = <
   TError = ErrorType<FinishFirstRun401 | FinishFirstRun403 | FinishFirstRun409 | FinishFirstRun500>,

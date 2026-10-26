@@ -2035,7 +2035,7 @@ export const IdentitySignedIn = zod.object({
   passkeyPrompt: zod
     .boolean()
     .describe(
-      "Show the prompt to add a passkey for this address, once in this session. False while first setup is open, so its passkey step is the only ask",
+      "Show the prompt to add a passkey for this address, once in this session. False while first setup is open, because its passkey step asks instead.",
     ),
   pinRequired: zod
     .boolean()
