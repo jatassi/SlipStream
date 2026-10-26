@@ -19,12 +19,16 @@ type Engine interface {
 	// Add adds a torrent paused: nothing connects or announces until Resume.
 	// It takes Resume when the caller has resume data, else Metainfo, and sets
 	// each counter to the larger of the resume data's value and Baseline's.
+	// A torrent an Add made whose removal waits is taken back under its
+	// handle. A FetchMetadata torrent whose removal waits fails it with
+	// ErrRemoving.
 	Add(AddParams) (Handle, error)
 	// FetchMetadata adds a running torrent of a magnet link that gets its
 	// info dictionary from peers and downloads no file. MetadataReceived
 	// follows once a peer sent it, and the torrent stays, downloading
 	// nothing, until Remove. Its tracker list is the link's trackers, each
-	// its own tier.
+	// its own tier. Any torrent of the hash whose removal waits fails it
+	// with ErrRemoving.
 	FetchMetadata(MetadataParams) (Handle, error)
 	// Pause stops the torrent gracefully. A tracker gets stopped only where it
 	// answered started and awaits no answer, so until each announce is
@@ -46,7 +50,8 @@ type Engine interface {
 	// PostTrackers sends TrackerList for h.
 	PostTrackers(Handle) error
 	// PostUpdates sends Updates with the torrents whose status changed since
-	// the last call, or with every torrent once the engine sent Dropped.
+	// the last call, or with every torrent once the engine sent Dropped. A
+	// torrent whose removal waits is among them until Removed.
 	PostUpdates() error
 	// PostStats sends Stats.
 	PostStats() error
@@ -439,6 +444,7 @@ const (
 	CodeDiskFull       = 4
 	CodeNoRoute        = 5
 	CodeNoMetadata     = 6
+	CodeRemoving       = 7
 )
 
 var (
@@ -452,6 +458,10 @@ var (
 	ErrNoRoute = &Error{Category: CategoryShim, Code: CodeNoRoute, Text: "no route to the internet"}
 	// ErrNoMetadata is a torrent whose metadata hasn't arrived.
 	ErrNoMetadata = &Error{Category: CategoryShim, Code: CodeNoMetadata, Text: "no metadata yet"}
+	// ErrRemoving is an Add or FetchMetadata of a hash whose torrent is
+	// still being removed, which only an Add of a torrent an Add made takes
+	// back.
+	ErrRemoving = &Error{Category: CategoryShim, Code: CodeRemoving, Text: "a torrent of this hash is still being removed"}
 )
 
 // Error compares by Category and Code. Text is for logs.

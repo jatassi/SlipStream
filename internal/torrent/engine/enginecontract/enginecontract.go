@@ -80,6 +80,7 @@ func Run(t *testing.T, h Harness) {
 		{"RemoveWithFilesDeletesTheDownloadCopyAndItsFolder", removeWithFilesDeletesTheDownloadCopyAndItsFolder},
 		{"UpdatesCarryOnlyChangedTorrents", updatesCarryOnlyChangedTorrents},
 		{"UpdatesCarryEveryTorrentAfterDropped", updatesCarryEveryTorrentAfterDropped},
+		{"UpdatesCarryATorrentWhoseRemovalWaits", updatesCarryATorrentWhoseRemovalWaits},
 		{"TrackerListCarriesNextAndMinAnnounce", trackerListCarriesNextAndMinAnnounce},
 		{"TheAnnounceFloorLengthensAShortInterval", theAnnounceFloorLengthensAShortInterval},
 		{"AWarningIsReportedAndListed", aWarningIsReportedAndListed},
@@ -101,6 +102,7 @@ func Run(t *testing.T, h Harness) {
 		{"PrivateMetadataNeverComes", privateMetadataNeverComes},
 		{"FilesNeedMetadata", filesNeedMetadata},
 		{"RemoveAMetadataFetch", removeAMetadataFetch},
+		{"OnlyAnAddTakesBackATorrentWhoseRemovalWaits", onlyAnAddTakesBackATorrentWhoseRemovalWaits},
 		{"MetadataFetchTrackers", metadataFetchTrackers},
 		{"DiscoveryOffSendsNoLookup", discoveryOffSendsNoLookup},
 		{"TurningTheDHTOnLooksUpEachTorrentThatMayDiscover", turningTheDHTOnLooksUpEachTorrentThatMayDiscover},
@@ -311,6 +313,49 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 		}
 		return false
 	})
+}
+
+func updatesCarryATorrentWhoseRemovalWaits(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	a, b := settled(t, h, e, r)
+	parting := running(t, e, "Parting", tr.URL)
+	h.Until(t, "the tracker hears started", func() bool { return len(tr.Announces()) > 0 })
+	if err := e.Remove(parting, false); err != nil {
+		t.Fatal(err)
+	}
+	for range 50000 {
+		if err := e.PostUpdates(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	from := r.next
+	h.Until(t, "Updates carry every torrent after Dropped", func() bool {
+		r.poll()
+		dropped := false
+		for _, ev := range r.seen[from:] {
+			switch ev := ev.(type) {
+			case engine.Dropped:
+				dropped = true
+			case engine.Updates:
+				_, hasA := statusOf(ev, a)
+				_, hasB := statusOf(ev, b)
+				if dropped && hasA && hasB {
+					if _, ok := statusOf(ev, parting); !ok {
+						t.Fatalf("after Dropped, Updates carried %d and %d but not %d, whose removal waits for its tracker", a, b, parting)
+					}
+					return true
+				}
+			}
+		}
+		if err := e.PostUpdates(); err != nil {
+			t.Fatal(err)
+		}
+		return false
+	})
+	tr.Answer()
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == parting })
 }
 
 func trackerListCarriesNextAndMinAnnounce(t *testing.T, h Harness) {
@@ -783,6 +828,38 @@ func removeAMetadataFetch(t *testing.T, h Harness) {
 		t.Fatal(err)
 	}
 	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == th })
+}
+
+func onlyAnAddTakesBackATorrentWhoseRemovalWaits(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	fetched, added := release(t, "Fetched", ""), release(t, "Added", tr.URL)
+	fetch := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: fetched.hash, Trackers: []string{tr.URL}}, SavePath: t.TempDir()})
+	download := add(t, e, engine.AddParams{Metainfo: added.meta, SavePath: added.dir, SeedMode: true})
+	if err := e.Resume(download); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears both started", func() bool { return len(tr.Announces()) == 2 })
+	for _, th := range []engine.Handle{fetch, download} {
+		if err := e.Remove(th, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if th, err := e.Add(engine.AddParams{Metainfo: fetched.meta, SavePath: fetched.dir}); !errors.Is(err, engine.ErrRemoving) {
+		t.Errorf("Add of a hash whose metadata fetch is being removed = %d, %v; want ErrRemoving", th, err)
+	}
+	if th, err := e.FetchMetadata(engine.MetadataParams{Link: magnet.Link{InfoHash: fetched.hash}, SavePath: t.TempDir()}); !errors.Is(err, engine.ErrRemoving) {
+		t.Errorf("FetchMetadata of a hash whose metadata fetch is being removed = %d, %v; want ErrRemoving", th, err)
+	}
+	if th, err := e.FetchMetadata(engine.MetadataParams{Link: magnet.Link{InfoHash: added.hash}, SavePath: t.TempDir()}); !errors.Is(err, engine.ErrRemoving) {
+		t.Errorf("FetchMetadata of a hash whose download is being removed = %d, %v; want ErrRemoving", th, err)
+	}
+	tr.Answer()
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == fetch })
+	if th := add(t, e, engine.AddParams{Metainfo: fetched.meta, SavePath: fetched.dir}); th == fetch {
+		t.Fatalf("the download added once the metadata fetch was Removed took its handle %d", fetch)
+	}
 }
 
 func metadataFetchTrackers(t *testing.T, h Harness) {

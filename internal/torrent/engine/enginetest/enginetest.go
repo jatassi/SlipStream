@@ -302,7 +302,7 @@ func (e *Engine) Add(p engine.AddParams) (engine.Handle, error) {
 	if err != nil {
 		return 0, err
 	}
-	return e.hold(t), nil
+	return e.hold(t)
 }
 
 // FetchMetadata adds a running torrent with no metadata, whose tracker
@@ -325,27 +325,35 @@ func (e *Engine) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
 	t.trackers = &announcing{t: t}
 	e.w.adds++
 	t.peerID = fmt.Sprintf("%s%012d", version.PeerIDPrefix, e.w.adds)
-	h := e.hold(t)
+	h, err := e.hold(t)
+	if err != nil {
+		return 0, err
+	}
 	t.trackers.start()
 	t.lookUp()
 	return h, nil
 }
 
-func (e *Engine) hold(t *torrent) engine.Handle {
+// hold holds t under a new handle. An Add of a torrent an Add made whose
+// removal waits takes it back, and it stays, as libtorrent hands it back.
+// No other torrent of a hash being removed is held.
+func (e *Engine) hold(t *torrent) (engine.Handle, error) {
 	if was, ok := e.parting[t.meta.InfoHash]; ok {
-		// libtorrent hands back a torrent whose removal waits, and it stays.
+		if t.fetch != nil || was.fetch != nil {
+			return 0, engine.ErrRemoving
+		}
 		delete(e.parting, was.meta.InfoHash)
 		was.removing = false
 		e.torrents[was.handle] = was
 		was.pause()
-		return was.handle
+		return was.handle, nil
 	}
 	e.next++
 	t.handle = e.next
 	e.torrents[t.handle] = t
 	e.emit(engine.Added{Torrent: t.handle})
 	e.emit(engine.StateChanged{Torrent: t.handle, State: t.state})
-	return t.handle
+	return t.handle, nil
 }
 
 // reach has a FetchMetadata torrent reach the swarm, which sends it the
@@ -795,9 +803,13 @@ func (e *Engine) PostUpdates() error {
 	if e.closed {
 		return engine.ErrClosed
 	}
+	held := maps.Clone(e.torrents)
+	for _, t := range e.parting {
+		held[t.handle] = t
+	}
 	var changed []engine.Status
-	for _, h := range slices.Sorted(maps.Keys(e.torrents)) {
-		s := e.torrents[h].status()
+	for _, h := range slices.Sorted(maps.Keys(held)) {
+		s := held[h].status()
 		moved := s
 		moved.Totals.Active, moved.Totals.Seeding = 0, 0
 		if last, ok := e.posted[h]; e.resync || !ok || last != moved {
@@ -879,7 +891,6 @@ func (e *Engine) Remove(h engine.Handle, deleteFiles bool) error {
 		t.fold()
 		t.stopTransfer()
 		delete(e.torrents, h)
-		delete(e.posted, h)
 		t.turning, t.removing, t.deleteFiles = noTurn, true, deleteFiles
 		e.parting[t.meta.InfoHash] = t
 		t.settle()
@@ -888,6 +899,7 @@ func (e *Engine) Remove(h engine.Handle, deleteFiles bool) error {
 }
 
 func (t *torrent) remove() {
+	delete(t.e.posted, t.handle)
 	t.trackers.stop()
 	t.e.emit(engine.Removed{Torrent: t.handle})
 	if t.deleteFiles {

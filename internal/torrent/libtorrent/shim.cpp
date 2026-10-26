@@ -89,6 +89,9 @@ struct lts_session {
 	std::unordered_map<lt::torrent_handle, int64_t> by_handle;
 	std::unordered_set<int64_t> finishing;
 	std::unordered_map<lt::torrent_handle, parting_torrent> parting;
+	// fetches holds the id of each torrent lts_fetch_metadata added, until
+	// it is removed.
+	std::unordered_set<int64_t> fetches;
 	// turning holds each torrent's pause or resume that waits for its
 	// trackers to answer, as awaits_answer says.
 	std::unordered_map<lt::torrent_handle, turn> turning;
@@ -301,7 +304,8 @@ void fill(lts_status* out, int64_t id, lt::torrent_status const& st) {
 }
 
 // updates is an UPDATES alert of the statuses of the torrents the caller
-// holds. Called with s->mu held.
+// holds, a parting torrent among them until it is removed. Called with
+// s->mu held.
 lts_alert updates(lts_session* s, std::vector<lt::torrent_status> const& sts) {
 	lts_alert o{};
 	o.kind = LTS_ALERT_UPDATES;
@@ -309,9 +313,11 @@ lts_alert updates(lts_session* s, std::vector<lt::torrent_status> const& sts) {
 	if (out == nullptr) throw std::bad_alloc();
 	int64_t n = 0;
 	for (lt::torrent_status const& st : sts) {
-		auto it = s->by_handle.find(st.handle);
-		if (it == s->by_handle.end()) continue;
-		fill(&out[n++], it->second, st);
+		if (auto it = s->by_handle.find(st.handle); it != s->by_handle.end()) {
+			fill(&out[n++], it->second, st);
+		} else if (auto p = s->parting.find(st.handle); p != s->parting.end()) {
+			fill(&out[n++], p->second.id, st);
+		}
 	}
 	o.payload = out;
 	o.payload_len = n;
@@ -455,6 +461,7 @@ void convert(lts_session* s, lt::alert* a) {
 		o.kind = LTS_ALERT_REMOVED;
 		o.torrent = id_of(ra->userdata);
 		s->finishing.erase(o.torrent);
+		s->fetches.erase(o.torrent);
 		s->pending.push_back(o);
 		auto it = s->deleting.find(ra->info_hashes);
 		if (it == s->deleting.end()) return;
@@ -679,10 +686,11 @@ void discover(lt::add_torrent_params& atp, bool on) {
 	else atp.flags |= both;
 }
 
-// hold adds atp under a new id and returns its id. Adding a parting torrent
-// again returns its handle: it stays, under the id it had, and pauses as
-// any add does.
-int64_t hold(lts_session* s, lt::add_torrent_params atp) {
+// hold adds atp under a new id and returns its id. lts_add of a parting
+// torrent lts_add made returns its handle: it stays, under the id it had,
+// and pauses as any add does. A metadata fetch's torrent holds no file
+// and runs, so no add takes one back, and a fetch takes back nothing.
+int64_t hold(lts_session* s, lt::add_torrent_params atp, bool fetch) {
 	std::lock_guard<std::mutex> l(s->mu);
 	int64_t id = s->next++;
 	atp.userdata = lt::client_data_t(reinterpret_cast<lts_id*>(intptr_t(id)));
@@ -690,10 +698,12 @@ int64_t hold(lts_session* s, lt::add_torrent_params atp) {
 	lt::torrent_handle h = s->ses.add_torrent(std::move(atp), ec);
 	check(ec);
 	if (auto pt = s->parting.find(h); pt != s->parting.end()) {
+		if (fetch || s->fetches.count(pt->second.id) != 0) throw shim_error(LTS_SHIM_REMOVING, "a torrent of this hash is still being removed");
 		id = pt->second.id;
 		s->parting.erase(pt);
 		turn_to(s, h, turn::pause);
 	}
+	if (fetch) s->fetches.insert(id);
 	s->by_id[id] = h;
 	s->by_handle[h] = id;
 	return id;
@@ -813,7 +823,7 @@ int lts_add(lts_session* s, lts_add_params const* p, int64_t* torrent, lts_error
 		atp.total_downloaded = std::max(atp.total_downloaded, p->base_downloaded);
 		atp.active_time = std::max(atp.active_time, int(p->base_active_s));
 		atp.seeding_time = std::max(atp.seeding_time, int(p->base_seeding_s));
-		*torrent = hold(s, std::move(atp));
+		*torrent = hold(s, std::move(atp), false);
 	});
 }
 
@@ -826,7 +836,7 @@ int lts_fetch_metadata(lts_session* s, char const* uri, char const* save_path, i
 		atp.flags &= ~(lt::torrent_flags::auto_managed | lt::torrent_flags::paused);
 		atp.flags |= lt::torrent_flags::default_dont_download;
 		discover(atp, discover_peers != 0);
-		*torrent = hold(s, std::move(atp));
+		*torrent = hold(s, std::move(atp), true);
 	});
 }
 

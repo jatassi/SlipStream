@@ -29,7 +29,9 @@ enum {
 	/* Out of space, whatever the OS calls it. */
 	LTS_SHIM_DISK_FULL = 4,
 	/* The torrent has no metadata yet. */
-	LTS_SHIM_NO_METADATA = 6
+	LTS_SHIM_NO_METADATA = 6,
+	/* A torrent of the hash is still being removed. */
+	LTS_SHIM_REMOVING = 7
 };
 
 enum {
@@ -187,7 +189,11 @@ int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char
    again with the same address and port, it retries a listen that failed. */
 int lts_listen_on(lts_session* s, const char* address, uint16_t port, lts_error* err);
 int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
-/* Adds the torrent paused and not auto-managed, whatever resume data says. */
+/* Adds the torrent paused and not auto-managed, whatever resume data says.
+   Adding a torrent lts_add added again while its removal waits takes it
+   back under its id. Adding one of a hash whose metadata fetch is being
+   removed fails with LTS_SHIM_REMOVING, as lts_fetch_metadata does for any
+   hash being removed. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
 /* Adds the torrent of the magnet link uri running, not auto-managed and
    with default_dont_download, so it downloads its info dictionary, posts
@@ -205,7 +211,7 @@ int lts_save_resume(lts_session* s, int64_t torrent, lts_error* err);
 /* Posts TRACKER_LIST. */
 int lts_post_trackers(lts_session* s, int64_t torrent, lts_error* err);
 /* Posts UPDATES with the torrents that changed, or with every torrent after
-   DROPPED. */
+   DROPPED, a torrent whose removal waits among them until REMOVED. */
 int lts_post_updates(lts_session* s, lts_error* err);
 int lts_post_stats(lts_session* s, lts_error* err);
 /* Removes once no tracker awaits an answer. With delete_files it

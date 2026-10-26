@@ -324,3 +324,41 @@ func TestACallWhoseLinkNamesATrackerNeverRidesATrackerlessSearch(t *testing.T) {
 		}
 	})
 }
+
+func TestASearchWhoseRemovalWaitsOutlastsDroppedEvents(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: time.Minute, HoldRegular: true})
+		f := newFile(t, "Orchard.mkv")
+		n.world.Payload(f.hash, f.payload)
+		c := n.start()
+		c.send(live())
+
+		link := linkOf(f, trackerURL)
+		searchingOf(t, await(t, resolveAfterHold(c, link, time.Now().Add(wait))))
+		time.Sleep(time.Minute - timings.ResolveHold + time.Second)
+		c.engine.onRemove(func() {
+			for range 100 {
+				if err := c.engine.Engine.PostUpdates(); err != nil {
+					t.Error(err)
+				}
+			}
+		})
+		call := resolve(c, link, time.Now().Add(wait))
+		pending(t, call, "while no peer sent the metadata")
+		n.serve(f)
+		pending(t, call, "while the tracker holds its answer and the search's torrent stays")
+		n.world.Answer(trackerURL)
+		infoOf(t, await(t, call))
+
+		id := storage.NewUUID()
+		n.ctl.answer(id, &dlv1.TorrentResponse{Metainfo: f.meta, ContentType: "Movies"})
+		c.send(live(f.started(id, 1)))
+		path, err := c.Path(f.hash, 0)
+		if err != nil {
+			t.Fatalf("the download added after the search = %v", err)
+		}
+		if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, f.payload) {
+			t.Fatalf("the download holds %d bytes, %v; want its %d", len(got), err, len(f.payload))
+		}
+	})
+}
