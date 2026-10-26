@@ -12,7 +12,7 @@ export async function act<K extends ActionKind>(
   action: WorkAction<K>,
 ): Promise<AnswerOf<K>> {
   const answer = await entryOf(action).post([...new Set(subjects.map(({ id }) => id))], action);
-  const { done, failed } = outcomeWords(action, answer.outcomes, subjects);
+  const { done, failed } = outcomeWords(action, answer, subjects);
   if (done !== undefined) {
     toast(done);
   }
