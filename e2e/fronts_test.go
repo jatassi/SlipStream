@@ -144,7 +144,7 @@ func TestA429FromTheIndexerFailsOneSearch(t *testing.T) {
 func TestALinkCutMidTransferResumes(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
-	link := string(world.LinkTarget("home"))
+	link := string(world.LinkTarget("seedbox"))
 	completed := &events.Query{Kind: tracker.Announces.Kind, Match: map[string]string{"event": "completed"}}
 	w.setFault(t, fault.Rule{ID: "link-cut", Target: fault.Target(link), Times: 1, After: completed}, "cut=256KiB")
 	s := w.searched(t, w.search(t))
@@ -159,20 +159,20 @@ func TestALinkCutMidTransferResumes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fired) != 1 || string(fired[0].Data) != `{"rule":"link-cut","target":"link/home","fault":"cut=256KiB","match":1}` {
+	if len(fired) != 1 || string(fired[0].Data) != `{"rule":"link-cut","target":"link/seedbox","fault":"cut=256KiB","match":1}` {
 		t.Fatalf("fault.fired records = %+v, want link-cut once", fired)
 	}
 	onLink := map[string]string{"target": link}
 	cut, err := events.Select(w.m.RunDir, events.Query{Kind: "front.close", Match: map[string]string{"target": link, "cause": "cut"}, After: fired[0].Seq})
 	if err != nil || len(cut) != 1 {
-		t.Fatalf("link/home closed by the cut %+v, %v; want once", cut, err)
+		t.Fatalf("link/seedbox closed by the cut %+v, %v; want once", cut, err)
 	}
-	var carried struct{ In int64 }
-	if err := json.Unmarshal(cut[0].Data, &carried); err != nil || carried.In < 256<<10 {
+	var carried struct{ Out int64 }
+	if err := json.Unmarshal(cut[0].Data, &carried); err != nil || carried.Out < 256<<10 {
 		t.Fatalf("the cut connection carried %s, want the Transfer's 256 KiB from seedbox", cut[0].Data)
 	}
 	if _, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: "front.open", Match: onLink, After: cut[0].Seq}); err != nil {
-		t.Fatalf("no front.open on link/home after the cut: %v", err)
+		t.Fatalf("no front.open on link/seedbox after the cut: %v", err)
 	}
 	checkPlaced(t, w.m, 1)
 }
