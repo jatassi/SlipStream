@@ -4515,11 +4515,14 @@
         "additionalProperties": false,
         "properties": {
           "logo": {
-            "description": "The key of the provider's logo the web app bundles, such as tmdb",
+            "description": "The logo the web app bundles to show beside it",
+            "enum": [
+              "tmdb"
+            ],
             "type": "string"
           },
           "text": {
-            "description": "The words to show, exactly",
+            "description": "The sentence to show, word for word",
             "type": "string"
           }
         },
@@ -4621,7 +4624,7 @@
                 "type": "null"
               }
             ],
-            "description": "The credit the provider's terms require beside it; null when they require none"
+            "description": "What the provider's terms require SlipStream to show; null when they require nothing"
           },
           "details": {
             "$ref": "#/components/schemas/MetadataDetails"
@@ -4640,12 +4643,12 @@
             "type": "string"
           },
           "keyPage": {
-            "description": "The provider's page where an Admin gets a key, for the browser",
+            "description": "Where an Admin gets a key, opened in the browser",
             "format": "uri",
             "type": "string"
           },
           "keySetAt": {
-            "description": "When the Admin set their key; null unless key is yours",
+            "description": "When the Admin set the key in use; null unless it is theirs",
             "format": "date-time",
             "type": [
               "string",
@@ -4685,11 +4688,11 @@
           "label",
           "summary",
           "key",
+          "state",
+          "until",
           "keySetAt",
           "keyPage",
           "attribution",
-          "state",
-          "until",
           "details"
         ],
         "type": "object"
@@ -4733,6 +4736,28 @@
         ],
         "type": "object"
       },
+      "MetadataRefreshAllRun": {
+        "additionalProperties": false,
+        "properties": {
+          "lastRunAt": {
+            "description": "When the latest Refresh all of the type ran; null until one has",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "running": {
+            "description": "Whether a run that refreshes every Work of the type is open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "lastRunAt",
+          "running"
+        ],
+        "type": "object"
+      },
       "MetadataRefreshStarted": {
         "additionalProperties": false,
         "properties": {
@@ -4744,28 +4769,6 @@
         },
         "required": [
           "runId"
-        ],
-        "type": "object"
-      },
-      "MetadataRefreshState": {
-        "additionalProperties": false,
-        "properties": {
-          "requestedAt": {
-            "description": "When every Work of the type was last asked to refresh, by Refresh all or a new language or region; null if never. The first Metadata refresh run started at or after it refreshes them all",
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "running": {
-            "description": "Whether that run is open now",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "requestedAt",
-          "running"
         ],
         "type": "object"
       },
@@ -16028,7 +16031,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MetadataRefreshState"
+                  "$ref": "#/components/schemas/MetadataRefreshAllRun"
                 }
               }
             },
@@ -16197,7 +16200,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get when every Work of a Content Type was last asked to refresh, and whether the run refreshing them is open",
+        "summary": "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open",
         "tags": [
           "metadata"
         ],

@@ -4,17 +4,17 @@ import type { MetadataProviderKey } from "./metadataProviderKey.ts";
 import type { MetadataProviderState } from "./metadataProviderState.ts";
 
 export interface MetadataProvider {
-  /** The credit the provider's terms require beside it; null when they require none */
+  /** What the provider's terms require SlipStream to show; null when they require nothing */
   attribution: MetadataAttribution | null;
   details: MetadataDetails;
   /** The provider, such as tmdb */
   id: string;
   /** Whose key calls carry: none in this build, SlipStream's, or the Admin's */
   key: MetadataProviderKey;
-  /** The provider's page where an Admin gets a key, for the browser */
+  /** Where an Admin gets a key, opened in the browser */
   keyPage: string;
   /**
-   * When the Admin set their key; null unless key is yours
+   * When the Admin set the key in use; null unless it is theirs
    * @nullable
    */
   keySetAt: string | null;

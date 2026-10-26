@@ -10,7 +10,7 @@ The Metadata refresh task keeps every Work's record current. Each run first read
 - `refresh-changes` after the `tmdb-change` cue, Run now ends `Succeeded` with `1 Work` on `home`, its unit `The Quiet Orchard` `Succeeded`, and the Work's `overview` field reads `Revision 1.` (P-231).
 - `refresh-all` `POST /api/v1/content-types/movie/refresh` answers 202 with `{"runId":n}`, and run n lists `The Quiet Orchard` refreshed on `home` (P-038).
 - `refresh-all-running` with TMDB slowed, a second refresh all while the first run is open answers 409 `task_running` with `Metadata refresh has been running since <time>. The next run refreshes every Work.`, and the capsule's `Running tasks` lists `Metadata refresh` with `Cancel` (P-038).
-- `refresh-state` `GET /api/v1/content-types/movie/refresh` answers `{"requestedAt":null,"running":false}` before any refresh all, then the time the refresh all was asked with `running` true while its run is open and false once it ends; an unknown Content Type answers 404 `content_type_not_found` (P-038).
+- `refresh-state` `GET /api/v1/content-types/movie/refresh` answers `{"lastRunAt":null,"running":false}` before any refresh all, then the start of the run doing the refresh all with `running` true while it is open and false once it ends; an unknown Content Type answers 404 `content_type_not_found` (P-038).
 - `refresh-gone` after the `tmdb-delete` cue, Run now ends `Failed` with `1 of 1 Work failed`, the unit's cause reads `the metadata source no longer has this Work`, the Work's `goneUpstreamAt` is set, and Tasks opens with `Metadata refresh failed at <time>.` (P-231).
 - `refresh-tuning` saving `Every other Work refresh every` 14 on the detail page stores `metadata.refresh.others` as 1209600 in the task's `tuning`; a cadence of one hour answers 422 with the floor and eight days with `Between 1 day and 7 days.` (P-231).
 
@@ -19,7 +19,7 @@ The Metadata refresh task keeps every Work's record current. Each run first read
 - Desktop shell: the sidebar's `Tasks`, then `Metadata refresh` in the `Connect` table, which opens `/tasks/metadata-refresh`; Run now sits on the row and in the detail page's top bar.
 - Phone shell: the `More` tab, then `Tasks`, then `Metadata refresh` in the `Connect` list.
 - Both shells: the palette's `Go to Tasks`.
-- API (Admin): `POST /api/v1/content-types/{contentType}/refresh` (refresh all), `GET /api/v1/content-types/{contentType}/refresh` (when refresh all was last asked and whether its run is open), `GET /api/v1/tasks/metadata-refresh`, `POST /api/v1/tasks/metadata-refresh/runs`, `PATCH /api/v1/tasks/metadata-refresh`.
+- API (Admin): `POST /api/v1/content-types/{contentType}/refresh` (refresh all), `GET /api/v1/content-types/{contentType}/refresh` (when the latest refresh all ran and whether its run is open), `GET /api/v1/tasks/metadata-refresh`, `POST /api/v1/tasks/metadata-refresh/runs`, `PATCH /api/v1/tasks/metadata-refresh`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -70,7 +70,7 @@ Steps:
   $FW exec $RUN --proof metadata-refresh/refresh-changes -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works/<id>'
   ```
 
-- **Refresh all.** Before it, the refresh state reads `{"requestedAt":null,"running":false}`. The route answers 202 with the run's id, and that run lists the Work.
+- **Refresh all.** Before it, the refresh state reads `{"lastRunAt":null,"running":false}`. The route answers 202 with the run's id, and that run lists the Work.
 
   ```sh
   $FW exec $RUN --proof metadata-refresh/refresh-state -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/refresh'
@@ -91,7 +91,7 @@ Steps:
   $FW fault clear $RUN slow-tmdb
   ```
 
-  Once the run ends, the refresh state reads the first request's time with `"running":false`, and an unknown type answers 404.
+  Once the run ends, the refresh state reads that run's start with `"running":false`, and an unknown type answers 404.
 
   ```sh
   $FW exec $RUN --proof metadata-refresh/refresh-state -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/refresh'

@@ -43,8 +43,8 @@ import type {
   MetadataNewKey,
   MetadataProvider,
   MetadataProviderList,
+  MetadataRefreshAllRun,
   MetadataRefreshStarted,
-  MetadataRefreshState,
   MetadataSettings,
   MetadataSettingsChange,
   RefreshContentType401,
@@ -99,13 +99,13 @@ export const getGetContentTypeRefreshUrl = (contentType: string) => {
 };
 
 /**
- * @summary Get when every Work of a Content Type was last asked to refresh, and whether the run refreshing them is open
+ * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open
  */
 export const getContentTypeRefresh = async (
   contentType: string,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<MetadataRefreshState> => {
-  return apiFetch<MetadataRefreshState>(getGetContentTypeRefreshUrl(contentType), {
+): Promise<MetadataRefreshAllRun> => {
+  return apiFetch<MetadataRefreshAllRun>(getGetContentTypeRefreshUrl(contentType), {
     ...options,
     method: "GET",
   });
@@ -227,7 +227,7 @@ export function useGetContentTypeRefreshSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get when every Work of a Content Type was last asked to refresh, and whether the run refreshing them is open
+ * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open
  */
 
 export function useGetContentTypeRefreshSuspense<

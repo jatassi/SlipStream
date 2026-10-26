@@ -232,33 +232,33 @@ func TestARefreshAllRunsOnTheWorkerHoldingMetadata(t *testing.T) {
 	})
 }
 
-func TestTheRefreshStateNamesTheLastAskAndWhetherItsRunIsOpen(t *testing.T) {
+func TestTheRefreshAllRunNamesWhenItRanAndWhetherItIsOpen(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startMetadataCluster(t)
 		c.add(t, "w1")
 		time.Sleep(time.Minute)
 		type state struct {
-			RequestedAt *time.Time `json:"requestedAt"`
-			Running     bool       `json:"running"`
+			LastRunAt *time.Time `json:"lastRunAt"`
+			Running   bool       `json:"running"`
 		}
 		read := func() state {
 			t.Helper()
 			return decode[state](t, c.hc.admin(c.apiKey, http.MethodGet, "/api/v1/content-types/fixture/refresh", ""), http.StatusOK)
 		}
-		if s := read(); s.RequestedAt != nil || s.Running {
-			t.Fatalf("getContentTypeRefresh before any Refresh all = %+v, want never asked and no run", s)
+		if s := read(); s.LastRunAt != nil || s.Running {
+			t.Fatalf("getContentTypeRefresh before any Refresh all = %+v, want none run and none open", s)
 		}
 		letGo := c.fx.Hold(1)
 		asked := time.Now()
 		decode[struct{}](t, c.refreshAll(t), http.StatusAccepted)
 		synctest.Wait()
-		if s := read(); s.RequestedAt == nil || !s.RequestedAt.Equal(asked) || !s.Running {
-			t.Fatalf("getContentTypeRefresh during the run = %+v, want asked at %v and running", s, asked)
+		if s := read(); s.LastRunAt == nil || !s.LastRunAt.Equal(asked) || !s.Running {
+			t.Fatalf("getContentTypeRefresh during the run = %+v, want run at %v and running", s, asked)
 		}
 		letGo()
 		synctest.Wait()
-		if s := read(); s.RequestedAt == nil || !s.RequestedAt.Equal(asked) || s.Running {
-			t.Fatalf("getContentTypeRefresh after the run = %+v, want asked at %v and not running", s, asked)
+		if s := read(); s.LastRunAt == nil || !s.LastRunAt.Equal(asked) || s.Running {
+			t.Fatalf("getContentTypeRefresh after the run = %+v, want run at %v and not running", s, asked)
 		}
 		if r := c.hc.admin(c.apiKey, http.MethodGet, "/api/v1/content-types/nothing/refresh", ""); r.status != http.StatusNotFound || !strings.Contains(r.body, `"code":"content_type_not_found"`) {
 			t.Fatalf("getContentTypeRefresh of an unknown Content Type = %d %s, want 404 content_type_not_found", r.status, r.body)

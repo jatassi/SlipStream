@@ -1,6 +1,8 @@
+import type { MetadataAttributionLogo } from "./metadataAttributionLogo.ts";
+
 export interface MetadataAttribution {
-  /** The key of the provider's logo the web app bundles, such as tmdb */
-  logo: string;
-  /** The words to show, exactly */
+  /** The logo the web app bundles to show beside it */
+  logo: MetadataAttributionLogo;
+  /** The sentence to show, word for word */
   text: string;
 }

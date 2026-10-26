@@ -6,8 +6,8 @@ import type { RequestHandlerOptions } from "msw";
 import type {
   MetadataProvider,
   MetadataProviderList,
+  MetadataRefreshAllRun,
   MetadataRefreshStarted,
-  MetadataRefreshState,
   MetadataSettings,
   SettingAddressField,
   SettingChoiceField,
@@ -22,12 +22,9 @@ import type {
 } from "../../model";
 
 export const getGetContentTypeRefreshResponseMock = (
-  overrideResponse: Partial<Extract<MetadataRefreshState, object>> = {},
-): MetadataRefreshState => ({
-  requestedAt: faker.helpers.arrayElement([
-    faker.date.past().toISOString().slice(0, 19) + "Z",
-    null,
-  ]),
+  overrideResponse: Partial<Extract<MetadataRefreshAllRun, object>> = {},
+): MetadataRefreshAllRun => ({
+  lastRunAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   running: faker.datatype.boolean(),
   ...overrideResponse,
 });
@@ -43,7 +40,7 @@ export const getListMetadataProvidersResponseMock = (
     () => ({
       attribution: faker.helpers.arrayElement([
         {
-          logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          logo: faker.helpers.arrayElement(["tmdb"] as const),
           text: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         null,
@@ -96,7 +93,7 @@ export const getClearMetadataKeyResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      logo: faker.helpers.arrayElement(["tmdb"] as const),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -144,7 +141,7 @@ export const getSetMetadataKeyResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      logo: faker.helpers.arrayElement(["tmdb"] as const),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -192,7 +189,7 @@ export const getTestMetadataProviderResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      logo: faker.helpers.arrayElement(["tmdb"] as const),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -977,10 +974,10 @@ export const getUpdateMetadataSettingsResponseMock = (
 
 export const getGetContentTypeRefreshMockHandler = (
   overrideResponse?:
-    | MetadataRefreshState
+    | MetadataRefreshAllRun
     | ((
         info: Parameters<Parameters<typeof http.get>[1]>[0],
-      ) => Promise<MetadataRefreshState> | MetadataRefreshState),
+      ) => Promise<MetadataRefreshAllRun> | MetadataRefreshAllRun),
   options?: RequestHandlerOptions,
 ) => {
   return http.get(
