@@ -32,7 +32,6 @@ import type {
   GetContentTypeRefresh409,
   GetContentTypeRefresh422,
   GetContentTypeRefresh500,
-  GetContentTypeRefresh501,
   GetMetadataSettings401,
   GetMetadataSettings403,
   GetMetadataSettings409,
@@ -125,7 +124,6 @@ export const getGetContentTypeRefreshSuspenseQueryOptions = <
     | GetContentTypeRefresh409
     | GetContentTypeRefresh422
     | GetContentTypeRefresh500
-    | GetContentTypeRefresh501
   >,
 >(
   contentType: string,
@@ -166,7 +164,6 @@ export type GetContentTypeRefreshSuspenseQueryError = ErrorType<
   | GetContentTypeRefresh409
   | GetContentTypeRefresh422
   | GetContentTypeRefresh500
-  | GetContentTypeRefresh501
 >;
 
 export function useGetContentTypeRefreshSuspense<
@@ -178,7 +175,6 @@ export function useGetContentTypeRefreshSuspense<
     | GetContentTypeRefresh409
     | GetContentTypeRefresh422
     | GetContentTypeRefresh500
-    | GetContentTypeRefresh501
   >,
 >(
   contentType: string,
@@ -199,7 +195,6 @@ export function useGetContentTypeRefreshSuspense<
     | GetContentTypeRefresh409
     | GetContentTypeRefresh422
     | GetContentTypeRefresh500
-    | GetContentTypeRefresh501
   >,
 >(
   contentType: string,
@@ -220,7 +215,6 @@ export function useGetContentTypeRefreshSuspense<
     | GetContentTypeRefresh409
     | GetContentTypeRefresh422
     | GetContentTypeRefresh500
-    | GetContentTypeRefresh501
   >,
 >(
   contentType: string,
@@ -245,7 +239,6 @@ export function useGetContentTypeRefreshSuspense<
     | GetContentTypeRefresh409
     | GetContentTypeRefresh422
     | GetContentTypeRefresh500
-    | GetContentTypeRefresh501
   >,
 >(
   contentType: string,

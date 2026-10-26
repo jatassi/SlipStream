@@ -39,8 +39,13 @@ func (h handlers) deleteWorks(ctx context.Context, by identity.Admin, in *delete
 		return nil, err
 	}
 	d := library.Deleting{Files: library.FilesChoice(in.Body.Files), Preview: in.Body.Preview}
-	if _, _, err := composer(h.shelf).Delete(ctx, by, ws, d); err != nil {
+	plan, os, err := composer(h.shelf).Delete(ctx, by, ws, d)
+	if err != nil {
 		return nil, answer(err)
 	}
-	return nil, notImplemented
+	out, err := outcomesOf(os)
+	if err != nil {
+		return nil, err
+	}
+	return &deletedOutput{Body: deleted{Plan: deletePlan(plan), Outcomes: out}}, nil
 }

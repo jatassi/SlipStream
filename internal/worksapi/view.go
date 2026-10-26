@@ -5,6 +5,8 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/library"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -40,27 +42,28 @@ func (h handlers) getWork(ctx context.Context, by identity.Admin, in *workInput)
 	if err != nil {
 		return nil, err
 	}
-	t, err := open(h.shelf).Get(ctx, by, id)
-	if err != nil {
-		return nil, answer(err)
-	}
-	out, err := h.viewOf(ctx, by, t)
+	out, err := h.view(ctx, by, id)
 	if err != nil {
 		return nil, err
 	}
 	return &viewOutput{Body: out}, nil
 }
 
-// viewOf is t's view with its Profile, and no links or root until the
-// Library's Work read fills them.
-func (h handlers) viewOf(ctx context.Context, by identity.Admin, t works.Tree) (workView, error) {
-	tree, err := h.treeOf(ctx, by, t)
+func (h handlers) view(ctx context.Context, by identity.Admin, id works.WorkID) (workView, error) {
+	w, err := composer(h.shelf).Work(ctx, by, id)
 	if err != nil {
-		return workView{}, err
+		return workView{}, answer(err)
 	}
-	g, err := goals(h.shelf).Goals(ctx, by, t.ID)
-	if err != nil {
-		return workView{}, err
+	return viewOf(minter(h.shelf), w), nil
+}
+
+func viewOf(m artwork.Minter, w library.Work) workView {
+	out := workView{Tree: treeOf(m, w.Tree, w.Timings), Links: make([]webLink, len(w.Links)), Profile: workProfile{ID: w.Profile.ID.String(), Name: w.Profile.Name}}
+	for i, l := range w.Links {
+		out.Links[i] = webLink{Key: l.Key, Label: l.Label, URL: l.URL, Kind: l.Kind.String()}
 	}
-	return workView{Tree: tree, Links: []webLink{}, Profile: workProfile{ID: g.Profile.ID.String(), Name: g.Profile.Name}}, nil
+	if r := w.Root; r != nil {
+		out.Root = api.Some(workRoot{ID: r.ID.String(), NodeID: r.Node.String(), Path: r.Path})
+	}
+	return out
 }

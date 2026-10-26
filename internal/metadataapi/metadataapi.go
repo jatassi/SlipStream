@@ -51,7 +51,6 @@ var (
 	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
 	taskRunning         = api.NewCode(http.StatusConflict, "task_running", "The task has a run open")
 	artworkUnavailable  = api.NewCode(http.StatusNotFound, "artwork_unavailable", "SlipStream has no such image to show")
-	notImplemented      = api.NewCode(http.StatusNotImplemented, "not_implemented", "This route isn't built yet")
 )
 
 func answer(err error) error {
@@ -125,7 +124,13 @@ type reach struct {
 }
 
 func providerOf(s metadata.ProviderStatus) provider {
-	out := provider{ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], State: states[s.State], Details: details{Nodes: []reach{}}}
+	out := provider{ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], KeyPage: s.KeyPage, State: states[s.State], Details: details{Nodes: []reach{}}}
+	if !s.KeySetAt.IsZero() {
+		out.KeySetAt = api.Some(s.KeySetAt)
+	}
+	if a := s.Attribution; a != nil {
+		out.Attribution = api.Some(attribution{Text: a.Text, Logo: a.Logo})
+	}
 	if !s.Until.IsZero() {
 		out.Until = api.Some(s.Until)
 	}
@@ -270,7 +275,7 @@ func Routes(r *api.Router, registry Registry) {
 		Path:    "/content-types/{contentType}/refresh",
 		Summary: "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+		Errors:  []*api.Code{contentTypeNotFound},
 	}, h.getRefreshAll)
 
 	api.RegisterImage(o, api.Account, api.Op{
@@ -352,8 +357,32 @@ func (h handlers) refreshAll(ctx context.Context, by identity.Admin, in *refresh
 	return &refreshStartedOutput{Body: refreshStarted{RunID: int64(id)}}, nil
 }
 
-func (handlers) getRefreshAll(context.Context, identity.Admin, *refreshInput) (*refreshAllRunOutput, error) {
-	return nil, notImplemented
+// getRefreshAll reads the run that does the latest Refresh all: the first
+// Metadata refresh run started at or after it was asked. Until that run
+// starts, none has run since the ask, which is the only one kept.
+func (h handlers) getRefreshAll(ctx context.Context, by identity.Admin, in *refreshInput) (*refreshAllRunOutput, error) {
+	asked, err := open(h.registry).RefreshAllAt(ctx, by, works.TypeID(in.ContentType))
+	if err != nil {
+		return nil, answer(err)
+	}
+	var out refreshAllRun
+	if asked.IsZero() {
+		return &refreshAllRunOutput{Body: out}, nil
+	}
+	task, err := scheduler(h.registry).Task(ctx, metadata.RefreshTaskID)
+	if errors.Is(err, tasks.ErrUnknownTask) {
+		return &refreshAllRunOutput{Body: out}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, run := range task.Runs {
+		if run.Started.Before(asked) {
+			break
+		}
+		out = refreshAllRun{LastRunAt: api.Some(run.Started), Running: run.Ended.IsZero()}
+	}
+	return &refreshAllRunOutput{Body: out}, nil
 }
 
 func (h handlers) clearCache(_ context.Context, by identity.Admin, _ *struct{}) (*struct{}, error) {

@@ -4,12 +4,11 @@ Each metadata provider, TMDB and OMDb, says how it stands in one plain sentence,
 
 ## Sub-features
 
-- `providers-status` `GET /api/v1/metadata/providers` lists TMDB then OMDb, each with its summary, key in use, state and Details, `unused` until a call or test (P-061).
+- `providers-status` `GET /api/v1/metadata/providers` lists TMDB then OMDb, each with its summary, key in use, state and Details, `unused` until a call or test, `keySetAt` null, its `keyPage` (`https://www.tmdb.invalid/settings/api` and `https://www.omdb.invalid/apikey.aspx` in the Fake world), and TMDB's `attribution` `This product uses the TMDB API but is not endorsed or certified by TMDB.` with logo `tmdb`, OMDb's null (P-061).
 - `key-refused` a key the provider refuses answers 422 `metadata_key_refused` with the provider's words, and nothing is kept (P-063).
-- `key-saved` a key the provider takes is kept and in use at once: the provider reads `yours` and `working`, and `metadata.changed` fires (P-063).
+- `key-saved` a key the provider takes is kept and in use at once: the provider reads `yours` and `working` with `keySetAt` the time it was saved, and `metadata.changed` fires (P-063).
 - `provider-test` `Test` makes one cheap call with the key in use and answers the state it found, such as OMDb out of today's allowance until UTC midnight (P-061).
-- `key-cleared` removing the key goes back to SlipStream's, or none in a build without one, and starts the status afresh (P-063).
-- `providers-wire` each provider also carries `keySetAt` (null unless the key is the Admin's), `keyPage` (TMDB's and OMDb's key pages, under `.invalid` hosts in a Fake world) and `attribution`, which is TMDB's sentence "This product uses the TMDB API but is not endorsed or certified by TMDB" with logo `tmdb`, and null for OMDb.
+- `key-cleared` removing the key goes back to SlipStream's, or none in a build without one, with `keySetAt` null, and starts the status afresh (P-063).
 - `providers-screen` Settings > Metadata on desktop and phone shows a Providers block above the Metadata settings: one card per provider with its summary sentence, "No key", "SlipStream's key" or "Your key, set <day month>", Set key (Change key while the key is the Admin's), Remove key only then, Test, and "Get a TMDB key" linking to `keyPage` in a new tab. TMDB's card ends with the attribution sentence beside TMDB's logo, bundled with the web app (P-061).
 - `key-dialog` Set key opens "Set your TMDB key". Test and save with a key the provider refuses keeps the dialog open with "The metadata provider refused that key, so SlipStream didn't save it" and nothing is kept; a key it takes closes the dialog, toasts "SlipStream now calls TMDB with your key." and the card reads "Your key, set <today>". Remove key asks "Remove your TMDB key?" first. Test toasts the provider's summary after the call (P-063).
 - `bundled-key` a release built with `-bundle-keys` reads `bundled` for both providers and sends that key: revoking it at the fake turns TMDB to `key_refused` with "TMDB refused SlipStream's key. Add your own." (P-063).
@@ -28,7 +27,7 @@ Preconditions:
 
 Steps:
 
-- **Read the status.** Both read `"key":"none"`, `"state":"unused"` and "This build has no TMDB key. Add your own."
+- **Read the status.** Both read `"key":"none"`, `"keySetAt":null`, `"state":"unused"` and "This build has no TMDB key. Add your own.", with each `keyPage` and TMDB's `attribution`.
 
   ```sh
   $FW exec $RUN --proof metadata-providers/providers-status -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/providers'
@@ -41,7 +40,7 @@ Steps:
   $FW exec $RUN --proof metadata-providers/key-refused -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"key":"typo"}' '{nodes.home.url}/api/v1/metadata/providers/tmdb/key'
   ```
 
-- **A good key.** 200 with `"key":"yours","state":"working"` and home in Details' nodes; the stream carries one `metadata.changed` for `tmdb`.
+- **A good key.** 200 with `"key":"yours"`, `keySetAt` now, `"state":"working"` and home in Details' nodes; the stream carries one `metadata.changed` for `tmdb`.
 
   ```sh
   $FW exec $RUN --proof metadata-providers/key-saved -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"key":"mine"}' '{nodes.home.url}/api/v1/metadata/providers/tmdb/key'
@@ -55,7 +54,7 @@ Steps:
   $FW exec $RUN --proof metadata-providers/provider-test -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/providers/omdb/test'
   ```
 
-- **Remove the key.** TMDB reads `"key":"none","state":"unused"` again.
+- **Remove the key.** TMDB reads `"key":"none","keySetAt":null` and `"state":"unused"` again.
 
   ```sh
   $FW exec $RUN --proof metadata-providers/key-cleared -- curl -sS -X DELETE -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/providers/tmdb/key'

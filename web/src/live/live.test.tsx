@@ -7,6 +7,7 @@ import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import {
   getGetWorkQueryKey,
   getListContentTypesQueryKey,
+  getListLibraryQueryKey,
   getListWorksQueryKey,
   getSearchCatalogQueryKey,
 } from "../api/gen/query/works/works";
@@ -56,7 +57,7 @@ test("identity.sessions-changed refetches the session once", async () => {
 const orchard = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";
 const harvest = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
-test("works.changed invalidates the Works, that Work, its cells and every catalog search", async () => {
+test("works.changed invalidates the Works, that Work and its cells, and no catalog search", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await synced(app);
@@ -74,16 +75,17 @@ test("works.changed invalidates the Works, that Work, its cells and every catalo
     work: true,
     cells: true,
     otherCells: false,
-    search: true,
+    search: false,
   });
 });
 
-test("works.type-changed invalidates the Works, every Work, their cells and every catalog search", async () => {
+test("works.type-changed invalidates the Library, every Work and their cells, and no catalog search", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListWorksQueryKey(),
+    library: getListLibraryQueryKey(),
     orchard: getGetWorkQueryKey(orchard),
     harvest: getGetWorkQueryKey(harvest),
     cells: getGetWorkCellsQueryKey(harvest),
@@ -94,10 +96,11 @@ test("works.type-changed invalidates the Works, every Work, their cells and ever
   server.clients[0]?.send({ event: "works.type-changed", data: { contentType: "cinema" } });
   await expect.poll(invalidated).toEqual({
     list: true,
+    library: true,
     orchard: true,
     harvest: true,
     cells: true,
-    search: true,
+    search: false,
     types: false,
   });
 });

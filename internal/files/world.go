@@ -19,11 +19,13 @@ import (
 // in one Read or Write. The pure functions take it, so nothing in it is
 // read twice.
 type world struct {
-	tree   works.Tree
-	goals  targets.Goals
+	tree  works.Bare
+	goals targets.Goals
+	// root is the root the Work lives in, zero while it has none.
+	root   roots.ID
 	files  []File // oldest first: ids are UUIDv7
 	fills  map[CellKey]ID
-	grabs  map[CellKey]GrabState
+	grabs  map[CellKey]GrabCell
 	lost   map[roots.ID]bool
 	timing map[works.ItemID]targets.Timing
 	// seen is each Item's sighted cuts and its files' cuts; cuts is every
@@ -46,11 +48,11 @@ type world struct {
 }
 
 func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.WorkID) (world, error) {
-	tree, err := f.cfg.Works.TreeIn(ctx, r, work)
+	tree, err := works.BareIn(ctx, r, work)
 	if err != nil {
 		return world{}, err
 	}
-	ws, err := f.worlds(ctx, r, []works.Tree{tree})
+	ws, err := f.worlds(ctx, r, []works.Bare{tree})
 	if err != nil {
 		return world{}, err
 	}
@@ -58,8 +60,9 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 }
 
 // worlds loads the world of each Work of trees in r, in trees' order,
-// reading each kind of row once for them all.
-func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Tree) ([]world, error) {
+// reading each kind of row once for them all. It binds one variable per
+// Work, so trees holds at most works.Batch.
+func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare) ([]world, error) {
 	ids := make([]works.WorkID, len(trees))
 	byType := map[works.TypeID][]works.WorkID{}
 	for i, t := range trees {
@@ -100,10 +103,14 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	if err != nil {
 		return nil, err
 	}
+	homes, err := roots.HomesOf(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]world, len(trees))
 	at := make(map[works.WorkID]*world, len(trees))
 	for i, t := range trees {
-		out[i] = world{tree: t, goals: goals[t.ID], fills: map[CellKey]ID{}, grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: f.cfg.Today()}
+		out[i] = world{tree: t, goals: goals[t.ID], root: homes[t.ID], fills: map[CellKey]ID{}, grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: f.cfg.Today()}
 		at[t.ID] = &out[i]
 	}
 	q := db.New(r)
@@ -198,9 +205,9 @@ func cells(w world) []Cell {
 					c.State = Met
 				case c.File != nil:
 					c.State = Upgradable
-				case w.grabs[key] == GrabDownloading:
+				case w.grabs[key].State == GrabDownloading:
 					c.State = Downloading
-				case w.grabs[key] == GrabFailed:
+				case w.grabs[key].State == GrabFailed:
 					c.State = Failed
 				case !released:
 					c.State = Unreleased

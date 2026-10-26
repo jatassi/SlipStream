@@ -56,7 +56,7 @@ const (
 )
 
 type server struct {
-	movies []scenario.TMDBMovie
+	catalog scenario.TMDB
 
 	mu       sync.Mutex
 	seen     map[string]bool
@@ -74,9 +74,12 @@ type change struct {
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	srv := &server{seen: map[string]bool{}, revoked: map[string]bool{}, revision: map[int64]int{}, deleted: map[int64]bool{}}
 	if s.TMDB != nil {
-		srv.movies = slices.SortedFunc(slices.Values(s.TMDB.Movies), func(a, b scenario.TMDBMovie) int { return cmp.Compare(a.ID, b.ID) })
+		srv.catalog = scenario.TMDB{
+			Movies:    slices.SortedFunc(slices.Values(s.TMDB.Movies), func(a, b scenario.TMDBMovie) int { return cmp.Compare(a.ID, b.ID) }),
+			Generated: s.TMDB.Generated,
+		}
 	}
-	for _, m := range srv.movies {
+	for _, m := range srv.catalog.Movies {
 		srv.deleted[m.ID] = m.Deleted
 	}
 	if err := fake.OnCue(env, RevokeKey.Name, srv.revoke); err != nil {
@@ -130,7 +133,7 @@ type changed struct {
 }
 
 func (s *server) change(id int64, del bool) (any, error) {
-	if !slices.ContainsFunc(s.movies, func(m scenario.TMDBMovie) bool { return m.ID == id }) {
+	if _, ok := s.catalog.Movie(id); !ok {
 		return nil, fmt.Errorf("tmdb lists no movie %d", id)
 	}
 	s.mu.Lock()
@@ -166,13 +169,20 @@ func (s *server) keyed(h http.HandlerFunc) http.HandlerFunc {
 
 // live is the movie TMDB holds as id now, with its revision.
 func (s *server) live(id int64) (scenario.TMDBMovie, int, bool) {
-	i := slices.IndexFunc(s.movies, func(m scenario.TMDBMovie) bool { return m.ID == id })
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if i < 0 || s.deleted[id] {
+	m, ok := s.catalog.Movie(id)
+	if !ok {
 		return scenario.TMDBMovie{}, 0, false
 	}
-	return s.movies[i], s.revision[id], true
+	rev, ok := s.revisionOf(id)
+	return m, rev, ok
+}
+
+// revisionOf is the revision of the movie whose id is id, and false once
+// TMDB has dropped it.
+func (s *server) revisionOf(id int64) (int, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.revision[id], !s.deleted[id]
 }
 
 type resultJSON struct {
@@ -198,8 +208,8 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	query, year, lang := strings.ToLower(q.Get("query")), q.Get("primary_release_year"), q.Get("language")
 	var found []resultJSON
-	for _, m := range s.movies {
-		m, rev, ok := s.live(m.ID)
+	for m := range s.catalog.All() {
+		rev, ok := s.revisionOf(m.ID)
 		if !ok || query == "" || !matches(m, query) || (year != "" && !strings.HasPrefix(primary(m), year+"-")) {
 			continue
 		}

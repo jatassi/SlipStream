@@ -3909,14 +3909,6 @@ export const RootsVolumesChanged = zod.object({
 export type RootsVolumesChanged = zod.input<typeof RootsVolumesChanged>;
 export type RootsVolumesChangedOutput = zod.output<typeof RootsVolumesChanged>;
 
-export const RootsWorkRoot = zod.object({
-  rootId: zod.uuid(),
-  workId: zod.uuid(),
-});
-
-export type RootsWorkRoot = zod.input<typeof RootsWorkRoot>;
-export type RootsWorkRootOutput = zod.output<typeof RootsWorkRoot>;
-
 export const ServingWorker = zod.object({
   controller: zod.string().describe("Its Controller's name"),
   fingerprint: zod.string().describe("This Worker's key fingerprint, as its Controller lists it"),
@@ -3933,13 +3925,6 @@ export const ServingWorker = zod.object({
 
 export type ServingWorker = zod.input<typeof ServingWorker>;
 export type ServingWorkerOutput = zod.output<typeof ServingWorker>;
-
-export const SetWorkRootInputBody = zod.object({
-  rootId: zod.uuid(),
-});
-
-export type SetWorkRootInputBody = zod.input<typeof SetWorkRootInputBody>;
-export type SetWorkRootInputBodyOutput = zod.output<typeof SetWorkRootInputBody>;
 
 export const ShellAlerts = zod.object({
   health: zod

@@ -26,8 +26,13 @@ func (h handlers) searchWorks(ctx context.Context, by identity.Admin, in *search
 		t := works.TypeID(in.ContentType)
 		only = &t
 	}
-	if _, _, err := composer(h.shelf).Search(ctx, by, in.Q, in.Limit, only); err != nil {
+	ids, rows, err := composer(h.shelf).Search(ctx, by, in.Q, in.Limit, only)
+	if err != nil {
 		return nil, answer(err)
 	}
-	return nil, notImplemented
+	out := searchResult{WorkIDs: make([]string, len(ids)), Rows: rowsOf(minter(h.shelf), rows)}
+	for i, id := range ids {
+		out.WorkIDs[i] = id.String()
+	}
+	return &searchResultOutput{Body: out}, nil
 }

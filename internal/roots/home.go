@@ -15,49 +15,77 @@ import (
 // file, ErrWrongType when root is another Content Type's. A Work already
 // in root stays.
 func (r *Roots) Home(ctx context.Context, tx *storage.Tx[file], work works.WorkID, root ID) error {
-	w, err := works.SummaryOf(ctx, tx, work)
-	if err != nil {
-		return err
-	}
 	to, err := Get(ctx, tx, root)
 	if err != nil {
 		return err
 	}
-	if to.ContentType != w.ContentType {
-		return ErrWrongType
+	_, _, err = r.home(ctx, tx, work, to)
+	return err
+}
+
+// home is Home into to. It answers whether work moved and the root it
+// left, zero when it was rootless.
+func (r *Roots) home(ctx context.Context, tx *storage.Tx[file], work works.WorkID, to Root) (moved bool, left ID, err error) {
+	w, err := works.SummaryOf(ctx, tx, work)
+	if err != nil {
+		return false, ID{}, err
 	}
-	if now, err := OfWork(ctx, tx, work); err == nil && now.ID == root {
-		return nil
-	} else if err != nil && !errors.Is(err, ErrNoRoot) {
-		return err
+	if to.ContentType != w.ContentType {
+		return false, ID{}, ErrWrongType
+	}
+	switch now, err := OfWork(ctx, tx, work); {
+	case err == nil && now.ID == to.ID:
+		return false, ID{}, nil
+	case err == nil:
+		left = now.ID
+	case !errors.Is(err, ErrNoRoot):
+		return false, ID{}, err
 	}
 	switch has, err := r.cfg.Contents.HasFiles(ctx, tx, work); {
 	case err != nil:
-		return err
+		return false, ID{}, err
 	case has:
-		return ErrHasFiles
+		return false, ID{}, ErrHasFiles
 	}
-	return db.New(tx).HomeWork(ctx, db.HomeWorkParams{WorkID: work, RootID: root})
+	return true, left, db.New(tx).HomeWork(ctx, db.HomeWorkParams{WorkID: work, RootID: to.ID})
 }
 
-// SetWorkRoot moves work, which has no files, into root.
-func (r *Roots) SetWorkRoot(ctx context.Context, _ identity.Admin, work works.WorkID, root ID) error {
-	changed := []ID{root}
-	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		changed = changed[:1]
-		switch was, err := OfWork(ctx, tx, work); {
-		case err == nil && was.ID != root:
-			changed = append(changed, was.ID)
-		case err != nil && !errors.Is(err, ErrNoRoot):
+// HomeAll homes each of ws in root in one Write, ErrNotFound when no root
+// has id root, and publishes one roots.changed naming root and each root
+// a Work left. moved is each Work that changed root. refused holds each
+// Work Home refuses, which stays where it is: works.ErrNoWork,
+// ErrHasFiles or ErrWrongType. A Work already in root is in neither.
+func (r *Roots) HomeAll(ctx context.Context, _ identity.Admin, ws []works.WorkID, root ID) (moved []works.WorkID, refused map[works.WorkID]error, err error) {
+	var changed []ID
+	err = r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		moved, refused, changed = nil, map[works.WorkID]error{}, []ID{root}
+		to, err := Get(ctx, tx, root)
+		if err != nil {
 			return err
 		}
-		return r.Home(ctx, tx, work, root)
+		for _, w := range ws {
+			went, left, err := r.home(ctx, tx, w, to)
+			switch {
+			case errors.Is(err, works.ErrNoWork), errors.Is(err, ErrHasFiles), errors.Is(err, ErrWrongType):
+				refused[w] = err
+			case err != nil:
+				return err
+			case went:
+				moved = append(moved, w)
+				if !left.IsZero() && !slices.Contains(changed, left) {
+					changed = append(changed, left)
+				}
+			}
+		}
+		return nil
 	})
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	r.cfg.Changed.Publish(ctx, changedOf(changed))
-	return nil
+	if len(moved) > 0 {
+		r.Publish(ctx, changed)
+	}
+	return moved, refused, nil
 }
 
 // Assign homes w, a Work being added, in root, or in its type's default

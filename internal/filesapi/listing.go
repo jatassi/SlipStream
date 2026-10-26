@@ -2,8 +2,12 @@ package filesapi
 
 import (
 	"context"
+	"errors"
+	"path"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 type listedFile struct {
@@ -26,6 +30,25 @@ type fileList struct {
 
 type fileListOutput struct{ Body fileList }
 
-func (h handlers) listWorkFiles(context.Context, identity.Admin, *cellsInput) (*fileListOutput, error) {
-	return nil, notImplemented
+func (h handlers) listWorkFiles(ctx context.Context, by identity.Admin, in *cellsInput) (*fileListOutput, error) {
+	u, err := storage.ParseUUID(in.WorkID)
+	if err != nil {
+		return nil, workNotFound
+	}
+	l, err := open(h.lib).WorkFiles(ctx, by, works.WorkID{UUID: u})
+	if errors.Is(err, works.ErrNoWork) {
+		return nil, workNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := fileList{Folder: l.Folder, Files: make([]listedFile, len(l.Files))}
+	for i, f := range l.Files {
+		fills := make([]fill, len(f.Fills))
+		for j, k := range f.Fills {
+			fills[j] = fill{ItemID: k.Item.String(), Edition: string(k.Edition), TargetID: k.Target.String()}
+		}
+		out.Files[i] = listedFile{LibraryFile: fileOf(f.File), Folder: path.Dir(f.Path), Kept: f.Kept(), Fills: fills}
+	}
+	return &fileListOutput{Body: out}, nil
 }

@@ -1,5 +1,6 @@
 import { useListGrabsSuspense } from "../api/gen/query/grabs/grabs";
-import { useListContentTypesSuspense, useListWorksSuspense } from "../api/gen/query/works/works";
+import { useListContentTypesSuspense } from "../api/gen/query/works/works";
+import { useLibrary } from "../library/projection";
 import { Empty } from "../shell/empty";
 import { RunningList } from "../tasks/running";
 import { Button } from "../ui/button";
@@ -37,9 +38,9 @@ function TypeFilter({
 /** Every Job, narrowed to one Content Type when more than one has Jobs. */
 export function Jobs({ type, onTypeChange }: Choice) {
   const { grabs } = useListGrabsSuspense().data;
-  const { works } = useListWorksSuspense().data;
+  const works = useLibrary();
   const labels = new Map(works.map((work) => [work.id, work.label]));
-  const typeOf = new Map(works.map((work) => [work.id, work.contentType]));
+  const typeOf = new Map(works.map((work) => [work.id, work.type.id]));
   const held = new Set(grabs.map((grab) => typeOf.get(grab.workId)));
   const types = useListContentTypesSuspense().data.contentTypes.filter(
     ({ id }) => held.has(id) || id === type,

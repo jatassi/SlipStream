@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
+	"sync"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -98,4 +100,43 @@ func StorageLevels(ctx context.Context, c *http.Client, s scenario.Scenario, rea
 func controllerURL(s scenario.Scenario, ready []node.Ready) string {
 	i := slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Setup == scenario.SetupController })
 	return url(ready[i])
+}
+
+const addsAtOnce = 8
+
+// Works adds a Work for every movie fake-tmdb serves that TMDB still
+// holds, as the Scenario's library works says, on its controller Node,
+// and returns how many it added.
+func Works(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims) (int, error) {
+	w := s.Library.Works
+	controller := controllerURL(s, ready)
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	slots := make(chan struct{}, addsAtOnce)
+	var wg sync.WaitGroup
+	added := 0
+	for m := range s.TMDB.All() {
+		if m.Deleted {
+			continue
+		}
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		added++
+		wg.Go(func() {
+			defer func() { <-slots }()
+			if err := nodeapi.AddWork(ctx, c, controller, claims.APIKey, w.ContentType, strconv.FormatInt(m.ID, 10), w.Monitor); err != nil {
+				cancel(err)
+			}
+		})
+	}
+	wg.Wait()
+	if err := context.Cause(ctx); err != nil {
+		return 0, fmt.Errorf("add the library's Works: %w", err)
+	}
+	return added, nil
 }

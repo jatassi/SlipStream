@@ -92,7 +92,7 @@ type Metadata struct {
 	generation uint64
 	settings   stored
 	// yours are the Admin keys, opened.
-	yours    map[ProviderID]string
+	yours    map[ProviderID]yourKey
 	statuses map[ProviderID]*status
 	retests  map[reach]*retest
 
@@ -104,7 +104,7 @@ type Metadata struct {
 func New(cfg Config) *Metadata {
 	m := &Metadata{
 		cfg: cfg, generation: cfg.Rand.Uint64(), bundled: parseBundled(bundled), wake: make(chan struct{}, 1),
-		yours: map[ProviderID]string{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{}, gallery: newGallery(),
+		yours: map[ProviderID]yourKey{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{}, gallery: newGallery(),
 	}
 	for _, p := range cfg.Providers {
 		m.statuses[p.ID] = newStatus(p)
@@ -135,7 +135,7 @@ func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 		if err != nil {
 			return nil, fmt.Errorf("open the %s key: %w", row.Provider, err)
 		}
-		m.yours[ProviderID(row.Provider)] = string(key)
+		m.yours[ProviderID(row.Provider)] = yourKey{key: string(key), setAt: row.SetAt.Time()}
 	}
 	return m, nil
 }

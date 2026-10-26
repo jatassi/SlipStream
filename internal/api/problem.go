@@ -86,6 +86,21 @@ type explained struct {
 
 func (e *explained) Error() string { return e.code.name + ": " + e.detail }
 
+// ProblemOf is the problem err answers when it is a code, or a code with
+// its detail, and false for any other error.
+func ProblemOf(err error) (*Problem, bool) {
+	code, isCode := err.(*Code) //nolint:errorlint // a handler returns its code itself, never wrapped
+	var e *explained
+	if x, ok := err.(*explained); ok { //nolint:errorlint // as for a bare code
+		code, isCode, e = x.code, true, x
+	}
+	if !isCode {
+		return nil, false
+	}
+	p, _ := e.answer(code).(*Problem) //nolint:errorlint // answer returns a *Problem
+	return p, true
+}
+
 func (e *explained) answer(code *Code) error {
 	p := code.problem()
 	if e == nil {
