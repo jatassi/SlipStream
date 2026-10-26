@@ -15,8 +15,8 @@ import (
 
 type (
 	// Full fills the folder's volume: free reads 0, and new folders and
-	// file writes fail with ENOSPC, positional writes on a file opened
-	// before the rule too.
+	// file writes fail with the OS's own disk-full error, positional
+	// writes on a file opened before the rule too.
 	Full struct{}
 	// Unmounted makes the folder a mount point with nothing mounted: it
 	// lists empty, and everything beneath it, its marker too, is absent.
@@ -196,7 +196,7 @@ func (d *disk) ReadDir(ctx context.Context, dir string) ([]storing.Entry, error)
 func (d *disk) Mkdir(ctx context.Context, path string) error {
 	pl, err := d.write(ctx, "mkdir", path)
 	if err == nil && pl.full {
-		err = failed("mkdir", path, syscall.ENOSPC)
+		err = failed("mkdir", path, storing.ErrNoSpace)
 	}
 	if err != nil {
 		return err
@@ -256,7 +256,7 @@ type fullFile struct {
 	path string
 }
 
-func (f fullFile) Write([]byte) (int, error) { return 0, failed("write", f.path, syscall.ENOSPC) }
+func (f fullFile) Write([]byte) (int, error) { return 0, failed("write", f.path, storing.ErrNoSpace) }
 
 // OpenWrite plays the plan on each write, truncate and sync as well as on
 // the open, so a folder that fills, turns read-only, hangs or unmounts
@@ -283,7 +283,7 @@ type writeAtFile struct {
 func (f writeAtFile) WriteAt(p []byte, off int64) (int, error) {
 	pl, err := f.d.write(f.ctx, "write", f.path)
 	if err == nil && pl.full {
-		err = failed("write", f.path, syscall.ENOSPC)
+		err = failed("write", f.path, storing.ErrNoSpace)
 	}
 	if err != nil {
 		return 0, err

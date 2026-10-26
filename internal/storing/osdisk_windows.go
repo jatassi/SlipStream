@@ -250,3 +250,11 @@ func longPath(p string) string {
 	}
 	return `\\?\` + p
 }
+
+// ErrNoSpace is the error a write on a full volume fails with.
+var ErrNoSpace error = windows.ERROR_DISK_FULL
+
+// NoSpace reports whether err is a write that ran out of space.
+func NoSpace(err error) bool {
+	return errors.Is(err, windows.ERROR_DISK_FULL) || errors.Is(err, windows.ERROR_HANDLE_DISK_FULL)
+}

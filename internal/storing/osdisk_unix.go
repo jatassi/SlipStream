@@ -61,3 +61,9 @@ func fileID(path string, info fs.FileInfo) ([]byte, error) {
 	}
 	return binary.BigEndian.AppendUint64(nil, info.Sys().(*syscall.Stat_t).Ino), nil //nolint:errcheck,forcetypeassert // os.Stat answers a *syscall.Stat_t on Unix
 }
+
+// ErrNoSpace is the error a write on a full volume fails with.
+var ErrNoSpace error = syscall.ENOSPC
+
+// NoSpace reports whether err is a write that ran out of space.
+func NoSpace(err error) bool { return errors.Is(err, syscall.ENOSPC) }
