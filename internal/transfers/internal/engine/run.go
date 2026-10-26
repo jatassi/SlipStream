@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/link"
@@ -35,11 +36,19 @@ type run struct {
 	gaveUp  map[tv1.Route]bool
 	// binding: the send limit held a chunk back since the last facts.
 	binding bool
+	// carried counts the bytes this end's lanes carried either way, and
+	// win is the growth window over it.
+	carried atomic.Int64
+	win     window
+	// lanesWanted is the lanes the receiver wants. wantChanged pokes a
+	// sender that dials when its receiver wants another count.
+	lanesWanted atomic.Int32
+	wantChanged chan struct{}
 }
 
 func newRun(e *Engine, h Holder, sp spec) *run {
 	return &run{
-		e: e, h: h, spec: sp, r: sp.route, moved: make(chan struct{}), lanes: map[*lane]bool{},
+		e: e, h: h, spec: sp, r: sp.route, moved: make(chan struct{}), lanes: map[*lane]bool{}, wantChanged: make(chan struct{}, 1),
 		failing: map[tv1.Route]time.Time{}, tries: map[tv1.Route]int{}, gaveUp: map[tv1.Route]bool{},
 	}
 }
@@ -84,6 +93,10 @@ func (r *run) hold(l *lane) bool {
 		return false
 	}
 	r.lanes[l] = true
+	l.carried = &r.carried
+	if r.e.cfg.Hooks.Lane != nil {
+		l.c = r.e.cfg.Hooks.Lane(r.spec.id, l.route, l.c)
+	}
 	l.unwatch = context.AfterFunc(r.ctx, func() { _ = l.c.Close() })
 	return true
 }
@@ -91,6 +104,9 @@ func (r *run) hold(l *lane) bool {
 func (r *run) drop(l *lane) {
 	r.mu.Lock()
 	delete(r.lanes, l)
+	if r.rx != nil && len(r.lanes) == 0 {
+		r.rx.moving = tv1.Route_ROUTE_UNSPECIFIED
+	}
 	r.mu.Unlock()
 	l.unwatch()
 	_ = l.c.Close()

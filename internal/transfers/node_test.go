@@ -156,6 +156,12 @@ type transfer struct {
 
 func newTransfer(t *testing.T, sender, receiver *end) *transfer {
 	t.Helper()
+	return newTransferOf(t, sender, receiver, sizes)
+}
+
+// newTransferOf is a Transfer of two files of the sizes given.
+func newTransferOf(t *testing.T, sender, receiver *end, sizes []int) *transfer {
+	t.Helper()
 	tr := &transfer{t: t, id: storage.NewUUID(), sender: sender, receiver: receiver, sent: &sent{n: map[[2]int]int{}}}
 	for i, n := range sizes {
 		tr.files = append(tr.files, sender.payload(i, n, seeds[i]))
@@ -367,6 +373,8 @@ func TestAStaleRouteLaneIsReset(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		_, w, _ := trio(t)
 		tr := newTransfer(t, w[0], w[1])
+		lanes := [2]*laneLog{newLaneLog(0), newLaneLog(0)}
+		w[0].hooks.Lane, w[1].hooks.Lane = lanes[0].wrap, lanes[1].wrap
 		held, reached := make(chan struct{}), make(chan struct{})
 		var once sync.Once
 		tr.sent.setHold(func(position, index int) {
@@ -383,8 +391,16 @@ func TestAStaleRouteLaneIsReset(t *testing.T) {
 		if moved := w[1].h.moving(tr.id); !slices.Equal(moved, []tv1.Route{tv1.Route_ROUTE_RECEIVER_DIALS}) {
 			t.Fatalf("bytes moved on %v before the route changed, want route 1", moved)
 		}
+		if n := lanes[1].openOn(tv1.Route_ROUTE_RECEIVER_DIALS); n < 2 {
+			t.Fatalf("the receiver had %d lanes open on route 1, want several before the route changed", n)
+		}
 		tr.route(tv1.Route_ROUTE_SENDER_DIALS, 0)
 		synctest.Wait()
+		for i, l := range lanes {
+			if n := l.openOn(tv1.Route_ROUTE_RECEIVER_DIALS); n != 0 {
+				t.Fatalf("%s had %d route 1 lanes open after the route changed, want none", w[i].name, n)
+			}
+		}
 		tr.sent.setHold(nil)
 		close(held)
 		tr.expectArrived()
