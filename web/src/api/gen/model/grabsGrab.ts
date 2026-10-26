@@ -2,6 +2,7 @@ import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
 import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
+import type { GrabsMetadataSearch } from "./grabsMetadataSearch.ts";
 import type { GrabsProgress } from "./grabsProgress.ts";
 
 export interface GrabsGrab {
@@ -11,7 +12,7 @@ export interface GrabsGrab {
   /** Why it failed, absent unless it did */
   failure?: GrabsFailure;
   /**
-   * The Searching Node that fetched the .torrent, null until it did
+   * The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did
    * @nullable
    */
   fetchNodeId: string | null;
@@ -25,6 +26,8 @@ export interface GrabsGrab {
    */
   infoHash: string | null;
   itemId: string;
+  /** The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node */
+  metadata?: GrabsMetadataSearch;
   /** The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to */
   nodeId: string;
   /** The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring */

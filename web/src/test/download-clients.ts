@@ -55,6 +55,12 @@ export const thresholds: DownloadclientsThresholds = {
     1800,
     [60, 604_800, 60],
   ),
+  metadataWait: duration(
+    "downloading.metadataWait",
+    "A magnet link with no metadata fails after",
+    1800,
+    [60, 604_800, 60],
+  ),
 };
 
 const mib = 1024 * 1024;
@@ -128,6 +134,15 @@ export const clientSettings: DownloadclientsSettings = {
     running: true,
     default: true,
   },
+  dht: {
+    ...about,
+    kind: "switch",
+    key: "downloading.dht",
+    label: "DHT for public torrents",
+    value: true,
+    running: true,
+    default: true,
+  },
   stalledAfter: duration("downloading.stalledAfter", "Stalled after", 600, [60, 86_400, 60]),
 };
 
@@ -138,6 +153,7 @@ const limits = {
   activeChecks: 1,
   connections: 8000,
   utp: true,
+  dht: true,
   stalledAfterSeconds: 600,
 };
 

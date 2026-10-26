@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/jatassi/slipstream/internal/magnet"
 )
 
 // Caps are an Indexer's search modes, keyed by their t= value, each with
@@ -18,11 +20,13 @@ type Caps struct {
 type Item struct {
 	Title string
 	Size  int64
-	// Link is the .torrent's URL: the enclosure's, else the item's link.
+	// Link is the release's .torrent URL or magnet link: the first of the
+	// enclosure, the item's link and the magneturl attr that is a .torrent
+	// URL, else the first that is a magnet link.
 	Link    string
 	Seeders int64
-	// InfoHash is the v1 info hash in lowercase hex, empty when the
-	// Indexer sent none.
+	// InfoHash is the v1 info hash in lowercase hex: the infohash attr,
+	// else a magnet link's the item offers, else empty.
 	InfoHash string
 	// IDs are the Torznab id attributes the item carries, such as tmdbid.
 	IDs map[string]string
@@ -130,10 +134,8 @@ func ParseItems(body []byte) ([]Item, error) {
 	}
 	items := make([]Item, len(f.Items))
 	for i, it := range f.Items {
-		items[i] = Item{Title: it.Title, Size: it.Size, Link: it.Enclosure.URL, IDs: map[string]string{}}
-		if items[i].Link == "" {
-			items[i].Link = it.Link
-		}
+		items[i] = Item{Title: it.Title, Size: it.Size, IDs: map[string]string{}}
+		links := []string{it.Enclosure.URL, it.Link}
 		for _, a := range it.Attrs {
 			switch {
 			case a.Name == "seeders":
@@ -144,12 +146,41 @@ func ParseItems(body []byte) ([]Item, error) {
 				items[i].Seeders = n
 			case a.Name == "infohash":
 				items[i].InfoHash = strings.ToLower(a.Value)
+			case a.Name == "magneturl":
+				links = append(links, a.Value)
 			case slices.Contains(idAttrs, a.Name):
 				items[i].IDs[a.Name] = a.Value
 			}
 		}
+		items[i].Link, items[i].InfoHash = offered(links, items[i].InfoHash)
 	}
 	return items, nil
+}
+
+// offered is the link to take of those an item offers, in order of
+// preference, and its info hash: hash, else the first readable magnet
+// link's. A .torrent URL comes before any magnet link, since its info
+// dictionary needs no peer.
+func offered(links []string, hash string) (link, infoHash string) {
+	var magnets []string
+	for _, l := range links {
+		switch {
+		case l == "":
+		case magnet.Is(l):
+			magnets = append(magnets, l)
+		case link == "":
+			link = l
+		}
+	}
+	for _, m := range magnets {
+		if l, err := magnet.Parse(m); err == nil && hash == "" {
+			hash = l.InfoHash.String()
+		}
+	}
+	if link == "" && len(magnets) > 0 {
+		link = magnets[0]
+	}
+	return link, hash
 }
 
 // Query is the Torznab query for terms under caps: terms' mode with the

@@ -605,7 +605,7 @@ func TestTheE2EBinaryCensusListsItsEndpointsAtTheirDefaults(t *testing.T) {
 	if err := json.Unmarshal(out, &resolved); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := fmt.Sprint(resolved.ContentTypes, resolved.Census), "[movie music] [endpoints.tmdb.api endpoints.tmdb.images endpoints.omdb.api endpoints.content_types.music.metadata endpoints.content_types.music.coverart]"; got != want {
+	if got, want := fmt.Sprint(resolved.ContentTypes, resolved.Census), "[movie music] [endpoints.tmdb.api endpoints.tmdb.images endpoints.omdb.api endpoints.torrent.dht_routers endpoints.content_types.music.metadata endpoints.content_types.music.coverart]"; got != want {
 		t.Fatalf("contentTypes and census = %s, want %s", got, want)
 	}
 }

@@ -481,6 +481,7 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) er
 		ListenInterface:   cfg.Torrent.Listen,
 		AnnounceFloor:     cfg.Timings.Downloading.AnnounceFloor,
 		RouteCheck:        cfg.Timings.Downloading.RouteCheck,
+		DHTRouters:        cfg.Endpoints.Torrent.DHTRouters,
 		Rand:              torrentRand,
 		PeersShareAddress: cfg.Torrent.LoopbackPeers,
 	})

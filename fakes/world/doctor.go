@@ -27,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/worktree"
 )
@@ -427,6 +428,9 @@ func (d *doctor) fakesAnswer(c *CheckResult) {
 }
 
 func (d *doctor) answers(rawURL string) error {
+	if addr, ok := strings.CutPrefix(rawURL, "udp://"); ok {
+		return d.pingKRPC(addr)
+	}
 	addr, ok := strings.CutPrefix(rawURL, "smtp://")
 	if !ok {
 		_, _, err := d.get(rawURL+"/", "")
@@ -451,9 +455,43 @@ func (d *doctor) answers(rawURL string) error {
 	return nil
 }
 
+// pingKRPC sends a KRPC ping to the UDP fake at addr, since the one UDP
+// boundary is the DHT, and reads its response.
+func (d *doctor) pingKRPC(addr string) error {
+	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
+	defer cancel()
+	conn, err := new(net.Dialer).DialContext(ctx, "udp", addr)
+	if err != nil {
+		return fmt.Errorf("dial %s: %w", addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+	deadline, _ := ctx.Deadline()
+	_ = conn.SetDeadline(deadline)
+	query, err := bencode.Encode(map[string]any{"t": "dr", "y": "q", "q": "ping", "a": map[string]any{"id": "fakeworld-doctor-000"}})
+	if err != nil {
+		return fmt.Errorf("encode a ping: %w", err)
+	}
+	if _, err := conn.Write(query); err != nil {
+		return fmt.Errorf("ping %s: %w", addr, err)
+	}
+	buf := make([]byte, 1500)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return fmt.Errorf("read the ping response of %s: %w", addr, err)
+	}
+	res, _ := bencode.Decode(buf[:n])
+	if m, ok := res.(map[string]any); !ok || m["y"] != "r" {
+		return fmt.Errorf("%s responds to a ping with %q", addr, buf[:n])
+	}
+	return nil
+}
+
 // handshake dials the front f, and completes a TLS handshake with the run
-// CA when f serves HTTPS.
+// CA when f serves HTTPS, or pings it when f is a UDP fake's socket.
 func (d *doctor) handshake(f Front) error {
+	if strings.HasPrefix(f.URL, "udp:") {
+		return d.pingKRPC(f.Address)
+	}
 	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
 	defer cancel()
 	var dial interface {

@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -19,6 +20,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/magnet"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
@@ -44,6 +47,15 @@ type Harness interface {
 	// Until waits for cond on the harness's clock, failing t when it takes
 	// too long: what says what it waited for.
 	Until(t *testing.T, what string, cond func() bool)
+	// DHT runs a DHT that engines opened with its Routers join, for as long
+	// as t runs.
+	DHT(t *testing.T) DHT
+}
+
+type DHT struct {
+	Routers []endpoint.HostPort
+	// Lookups is how many get_peers queries for h the DHT received.
+	Lookups func(h bencode.InfoHash) int
 }
 
 type Tracker struct {
@@ -69,6 +81,7 @@ func Run(t *testing.T, h Harness) {
 		{"RemoveWithFilesDeletesTheDownloadCopyAndItsFolder", removeWithFilesDeletesTheDownloadCopyAndItsFolder},
 		{"UpdatesCarryOnlyChangedTorrents", updatesCarryOnlyChangedTorrents},
 		{"UpdatesCarryEveryTorrentAfterDropped", updatesCarryEveryTorrentAfterDropped},
+		{"UpdatesCarryATorrentWhoseRemovalWaits", updatesCarryATorrentWhoseRemovalWaits},
 		{"TrackerListCarriesNextAndMinAnnounce", trackerListCarriesNextAndMinAnnounce},
 		{"TheAnnounceFloorLengthensAShortInterval", theAnnounceFloorLengthensAShortInterval},
 		{"AWarningIsReportedAndListed", aWarningIsReportedAndListed},
@@ -86,6 +99,15 @@ func Run(t *testing.T, h Harness) {
 		{"CloseSendsStoppedOnceAnOutstandingAnnounceIsAnswered", closeSendsStoppedOnceAnOutstandingAnnounceIsAnswered},
 		{"AResumeBeforeStoppedIsAnsweredAnnouncesStartedOnceItIs", aResumeBeforeStoppedIsAnsweredAnnouncesStartedOnceItIs},
 		{"AResumedDownloadReachesThePeerItsPauseDropped", aResumedDownloadReachesThePeerItsPauseDropped},
+		{"MetadataComesFromAPeer", metadataComesFromAPeer},
+		{"PrivateMetadataNeverComes", privateMetadataNeverComes},
+		{"MetadataOverTheTorrentCapIsReported", metadataOverTheTorrentCapIsReported},
+		{"FilesNeedMetadata", filesNeedMetadata},
+		{"RemoveAMetadataFetch", removeAMetadataFetch},
+		{"OnlyAnAddTakesBackATorrentWhoseRemovalWaits", onlyAnAddTakesBackATorrentWhoseRemovalWaits},
+		{"MetadataFetchTrackers", metadataFetchTrackers},
+		{"DiscoveryOffSendsNoLookup", discoveryOffSendsNoLookup},
+		{"TurningTheDHTOnLooksUpEachTorrentThatMayDiscover", turningTheDHTOnLooksUpEachTorrentThatMayDiscover},
 	} {
 		t.Run(tc.name, func(t *testing.T) { h.Within(t, func(t *testing.T) { tc.test(t, h) }) })
 	}
@@ -262,6 +284,31 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 	e := h.Open(t, engine.Config{})
 	r := record(e)
 	a, b := settled(t, h, e, r)
+	afterDropped(t, h, e, r, a, b)
+}
+
+func updatesCarryATorrentWhoseRemovalWaits(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	a, b := settled(t, h, e, r)
+	parting := running(t, e, "Parting", tr.URL)
+	h.Until(t, "the tracker hears started", func() bool { return len(tr.Announces()) > 0 })
+	if err := e.Remove(parting, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := statusOf(afterDropped(t, h, e, r, a, b), parting); !ok {
+		t.Fatalf("after Dropped, Updates carried %d and %d but not %d, whose removal waits for its tracker", a, b, parting)
+	}
+	tr.Answer()
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == parting })
+}
+
+// afterDropped posts updates until e drops events, and returns the first
+// Updates that carries a and b, which changed nothing, failing t when one
+// comes before any Dropped.
+func afterDropped(t *testing.T, h Harness, e engine.Engine, r *recorder, a, b engine.Handle) engine.Updates {
+	t.Helper()
 	// More than libtorrent's alert queue holds: high_performance_seed's 10000,
 	// doubled for state_update's priority, with every buffer after it full.
 	for range 50000 {
@@ -270,6 +317,7 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 		}
 	}
 	from := r.next
+	var got engine.Updates
 	h.Until(t, "Updates carry both torrents after Dropped", func() bool {
 		r.poll()
 		dropped := false
@@ -284,6 +332,7 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 					if !dropped {
 						t.Fatalf("Updates carried the unchanged %d and %d before any Dropped", a, b)
 					}
+					got = ev
 					return true
 				}
 			}
@@ -293,6 +342,7 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 		}
 		return false
 	})
+	return got
 }
 
 func trackerListCarriesNextAndMinAnnounce(t *testing.T, h Harness) {
@@ -699,6 +749,192 @@ func aResumedDownloadReachesThePeerItsPauseDropped(t *testing.T, h Harness) {
 	}
 }
 
+func metadataComesFromAPeer(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Public", "", file{[]string{"feature.mkv"}, 96 << 10}, file{[]string{"Extras", "trailer.mkv"}, 20 << 10})
+	reach := h.Seed(t, rel.meta, rel.dir)
+	dir := t.TempDir()
+	th := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: rel.hash, Name: "Public"}, SavePath: dir})
+	reach(e, th)
+	got := await(t, h, r, func(m engine.MetadataReceived) bool { return m.Torrent == th })
+	if sha1.Sum(got.Info) != rel.hash { //nolint:gosec // the v1 info hash
+		t.Fatalf("the metadata that arrived hashes to %x, want the torrent's info hash %s", sha1.Sum(got.Info), rel.hash) //nolint:gosec // the v1 info hash
+	}
+	files, err := e.Files(th)
+	if err != nil || len(files) != len(rel.files) {
+		t.Fatalf("once its metadata arrived the torrent lists %+v, %v; want its %d files", files, err, len(rel.files))
+	}
+	if left, err := os.ReadDir(dir); err != nil || len(left) != 0 {
+		t.Fatalf("the metadata fetch left %v, %v in its save path, want nothing", left, err)
+	}
+}
+
+func privateMetadataNeverComes(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	pub := release(t, "Public", "")
+	priv := privateRelease(t, "Private", "")
+	var fetched []engine.Handle
+	for _, rel := range []released{priv, pub} {
+		reach := h.Seed(t, rel.meta, rel.dir)
+		th := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: rel.hash}, SavePath: t.TempDir()})
+		reach(e, th)
+		fetched = append(fetched, th)
+	}
+	await(t, h, r, func(m engine.MetadataReceived) bool { return m.Torrent == fetched[1] })
+	since := time.Now()
+	h.Until(t, "three seconds pass", func() bool { return time.Since(since) >= 3*time.Second })
+	r.poll()
+	if i := slices.IndexFunc(r.seen, func(ev engine.Event) bool { return isMetadataOf(ev, fetched[0]) }); i >= 0 {
+		t.Fatalf("a private torrent's seeder sent its metadata: %+v", r.seen[i])
+	}
+}
+
+func metadataOverTheTorrentCapIsReported(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := build(t, "Oversized", "", map[string]any{"x-padding": strings.Repeat("x", bencode.MaxTorrent)}, nil)
+	m, err := bencode.DecodeMetainfo(rel.meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reach := h.Seed(t, rel.meta, rel.dir)
+	th := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: rel.hash, Name: "Oversized"}, SavePath: t.TempDir()})
+	reach(e, th)
+	got := await(t, h, r, func(m engine.MetadataTooLarge) bool { return m.Torrent == th })
+	if got.Size != int64(len(m.RawInfo)) {
+		t.Fatalf("the engine reported %d bytes of metadata, want the seeder's %d", got.Size, len(m.RawInfo))
+	}
+	r.poll()
+	if i := slices.IndexFunc(r.seen, func(ev engine.Event) bool { return isMetadataOf(ev, th) }); i >= 0 {
+		t.Fatalf("the engine took an info dictionary over the cap: %+v", r.seen[i])
+	}
+}
+
+func isMetadataOf(ev engine.Event, th engine.Handle) bool {
+	m, ok := ev.(engine.MetadataReceived)
+	return ok && m.Torrent == th
+}
+
+func filesNeedMetadata(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	th := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: bencode.InfoHash{0xfe}}, SavePath: t.TempDir()})
+	if files, err := e.Files(th); !errors.Is(err, engine.ErrNoMetadata) {
+		t.Errorf("Files of a torrent with no metadata = %+v, %v; want ErrNoMetadata", files, err)
+	}
+	if done, err := e.FileProgress(th); !errors.Is(err, engine.ErrNoMetadata) {
+		t.Errorf("FileProgress of a torrent with no metadata = %v, %v; want ErrNoMetadata", done, err)
+	}
+}
+
+func removeAMetadataFetch(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: bencode.InfoHash{0xfd}}, SavePath: t.TempDir()})
+	if err := e.Remove(th, false); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == th })
+}
+
+func onlyAnAddTakesBackATorrentWhoseRemovalWaits(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	fetched, added := release(t, "Fetched", ""), release(t, "Added", tr.URL)
+	fetch := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: fetched.hash, Trackers: []string{tr.URL}}, SavePath: t.TempDir()})
+	download := add(t, e, engine.AddParams{Metainfo: added.meta, SavePath: added.dir, SeedMode: true})
+	if err := e.Resume(download); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears both started", func() bool { return len(tr.Announces()) == 2 })
+	for _, th := range []engine.Handle{fetch, download} {
+		if err := e.Remove(th, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if th, err := e.Add(engine.AddParams{Metainfo: fetched.meta, SavePath: fetched.dir}); !errors.Is(err, engine.ErrRemoving) {
+		t.Errorf("Add of a hash whose metadata fetch is being removed = %d, %v; want ErrRemoving", th, err)
+	}
+	if th, err := e.FetchMetadata(engine.MetadataParams{Link: magnet.Link{InfoHash: fetched.hash}, SavePath: t.TempDir()}); !errors.Is(err, engine.ErrRemoving) {
+		t.Errorf("FetchMetadata of a hash whose metadata fetch is being removed = %d, %v; want ErrRemoving", th, err)
+	}
+	if th, err := e.FetchMetadata(engine.MetadataParams{Link: magnet.Link{InfoHash: added.hash}, SavePath: t.TempDir()}); !errors.Is(err, engine.ErrRemoving) {
+		t.Errorf("FetchMetadata of a hash whose download is being removed = %d, %v; want ErrRemoving", th, err)
+	}
+	tr.Answer()
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == fetch })
+	if th := add(t, e, engine.AddParams{Metainfo: fetched.meta, SavePath: fetched.dir}); th == fetch {
+		t.Fatalf("the download added once the metadata fetch was Removed took its handle %d", fetch)
+	}
+}
+
+func metadataFetchTrackers(t *testing.T, h Harness) {
+	first := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	second := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	hash := bencode.InfoHash{0xfc}
+	th := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: hash, Trackers: []string{first.URL, second.URL}}, SavePath: t.TempDir()})
+	h.Until(t, "the first tracker hears from the metadata fetch", func() bool { return len(first.Announces()) > 0 })
+	if a := first.Announces()[0]; a.Event != "started" || a.InfoHash != hash {
+		t.Fatalf("the first tracker first received %+v, want started for %s", a, hash)
+	}
+	l := trackerList(t, h, e, r, th)
+	var got []string
+	for _, tr := range l.Trackers {
+		got = append(got, fmt.Sprintf("%d %s", tr.Tier, tr.URL))
+	}
+	if want := []string{"0 " + first.URL, "1 " + second.URL}; !slices.Equal(got, want) {
+		t.Fatalf("the metadata fetch lists trackers %q, want %q", got, want)
+	}
+}
+
+func discoveryOffSendsNoLookup(t *testing.T, h Harness) {
+	d := h.DHT(t)
+	e := h.Open(t, engine.Config{DHTRouters: d.Routers})
+	if err := e.Configure(engine.Limits{Connections: 50, UTP: true, DHT: true}); err != nil {
+		t.Fatal(err)
+	}
+	hidden, found := release(t, "Hidden", ""), release(t, "Found", "")
+	for _, rel := range []struct {
+		released
+		discover bool
+	}{{hidden, false}, {found, true}} {
+		th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true, Discover: rel.discover})
+		if err := e.Resume(th); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hiddenLink, foundLink := bencode.InfoHash{0xfb}, bencode.InfoHash{0xfa}
+	fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: hiddenLink}, SavePath: t.TempDir()})
+	fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: foundLink}, SavePath: t.TempDir(), Discover: true})
+	h.Until(t, "the DHT is asked for the torrent and the metadata fetch that may discover", func() bool {
+		return d.Lookups(found.hash) > 0 && d.Lookups(foundLink) > 0
+	})
+	if n, m := d.Lookups(hidden.hash), d.Lookups(hiddenLink); n != 0 || m != 0 {
+		t.Fatalf("the DHT received %d get_peers for a torrent and %d for a metadata fetch added without Discover, want none", n, m)
+	}
+}
+
+func turningTheDHTOnLooksUpEachTorrentThatMayDiscover(t *testing.T, h Harness) {
+	d := h.DHT(t)
+	e := h.Open(t, engine.Config{DHTRouters: d.Routers})
+	rel := release(t, "Waiting", "")
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true, Discover: true})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	if n := d.Lookups(rel.hash); n != 0 {
+		t.Fatalf("with the DHT off the DHT received %d get_peers for the torrent, want none", n)
+	}
+	if err := e.Configure(engine.Limits{Connections: 50, UTP: true, DHT: true}); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the DHT turned on is asked for the torrent", func() bool { return d.Lookups(rel.hash) > 0 })
+}
+
 // errTrackerFailure is libtorrent's tracker_failure, a reply with a
 // failure reason.
 var errTrackerFailure = &engine.Error{Category: engine.CategoryLibtorrent, Code: 173}
@@ -777,6 +1013,15 @@ func resumeData(t *testing.T, h Harness, e engine.Engine, r *recorder, baseline 
 	}
 	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == th })
 	return rel, saved.Data
+}
+
+func fetchMetadata(t *testing.T, e engine.Engine, p engine.MetadataParams) engine.Handle {
+	t.Helper()
+	th, err := e.FetchMetadata(p)
+	if err != nil {
+		t.Fatalf("fetch metadata: %v", err)
+	}
+	return th
 }
 
 func add(t *testing.T, e engine.Engine, p engine.AddParams) engine.Handle {
@@ -937,6 +1182,18 @@ const pieceLen = 16 << 10
 
 func release(t *testing.T, name, announce string, files ...file) released {
 	t.Helper()
+	return build(t, name, announce, nil, files)
+}
+
+// privateRelease is release with the private flag set.
+func privateRelease(t *testing.T, name, announce string, files ...file) released {
+	t.Helper()
+	return build(t, name, announce, map[string]any{"private": 1}, files)
+}
+
+// build is release with extra's keys in its info dictionary.
+func build(t *testing.T, name, announce string, extra map[string]any, files []file) released {
+	t.Helper()
 	dir := filepath.Join(t.TempDir(), name)
 	single := len(files) == 0
 	if single {
@@ -971,6 +1228,7 @@ func release(t *testing.T, name, announce string, files ...file) released {
 		pieces = append(pieces, sum[:]...)
 	}
 	info := map[string]any{"name": name, "piece length": pieceLen, "pieces": pieces}
+	maps.Copy(info, extra)
 	if single {
 		info["length"] = len(rel.payload)
 	} else {

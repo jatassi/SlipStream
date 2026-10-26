@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloading/internal/announce"
 	"github.com/jatassi/slipstream/internal/downloading/internal/db"
 	"github.com/jatassi/slipstream/internal/downloading/internal/plan"
+	"github.com/jatassi/slipstream/internal/magnet"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -40,6 +41,8 @@ type loop struct {
 	ledger   *announce.Ledger
 	torrents map[bencode.InfoHash]*torrent
 	byHandle map[engine.Handle]*torrent
+	searches map[bencode.InfoHash]*search
+	searchOf map[engine.Handle]*search
 
 	run   *attached
 	local *storage.DB[storage.Local]
@@ -141,6 +144,7 @@ func (c *Client) Loop(ctx context.Context) error {
 	l := &loop{
 		c: c, eng: c.cfg.Engine, ledger: announce.New(c.cfg.Rand, t.AnnounceJitter, t.AnnounceFloor),
 		torrents: map[bencode.InfoHash]*torrent{}, byHandle: map[engine.Handle]*torrent{},
+		searches: map[bencode.InfoHash]*search{}, searchOf: map[engine.Handle]*search{},
 		wake: time.NewTimer(time.Hour), version: c.cfg.Engine.Version(), watching: newWatching(),
 	}
 	l.listened()
@@ -361,7 +365,8 @@ func (l *loop) configure() {
 	s := l.intent.Intent.GetSettings()
 	limits := engine.Limits{
 		DownloadLimit: s.GetDownloadLimit(), UploadLimit: s.GetUploadLimit(),
-		Connections: int(s.GetConnections()), UTP: s.GetUtp(), WatchIncoming: l.listen.incomingAt.IsZero(),
+		Connections: int(s.GetConnections()), UTP: s.GetUtp(), DHT: s.GetDht() && l.discovering(),
+		WatchIncoming: l.listen.incomingAt.IsZero(),
 	}
 	if l.limits != nil && *l.limits == limits {
 		return
@@ -371,6 +376,50 @@ func (l *loop) configure() {
 		return
 	}
 	l.limits = &limits
+}
+
+// discovering reports whether the engine holds a torrent or a search
+// that may use the DHT, which runs only then.
+func (l *loop) discovering() bool {
+	for _, t := range l.torrents {
+		if t.handle != 0 && mayDiscover(withInfo{private: t.Private}) {
+			return true
+		}
+	}
+	for _, s := range l.searches {
+		if s.handle != 0 && s.discover {
+			return true
+		}
+	}
+	return false
+}
+
+// privacy is what the client knows of whether a torrent is private.
+type privacy interface{ privacy() }
+
+type (
+	// withInfo is a torrent whose info dictionary the client has.
+	withInfo struct{ private bool }
+	// fromLink is a magnet link's torrent before its metadata arrives.
+	fromLink struct{ link magnet.Link }
+)
+
+func (withInfo) privacy() {}
+func (fromLink) privacy() {}
+
+// mayDiscover is the one privacy rule: whether a torrent may find peers
+// through the DHT and peer exchange. A torrent whose info dictionary the
+// client has may unless it's private. A magnet link's torrent before its
+// metadata arrives may only when the link names no tracker, as a private
+// tracker's magnet link names its tracker.
+func mayDiscover(p privacy) bool {
+	switch p := p.(type) {
+	case withInfo:
+		return !p.private
+	case fromLink:
+		return len(p.link.Trackers) == 0
+	}
+	panic("downloading: unknown privacy")
 }
 
 func (l *loop) list(id, hash []byte) *torrent {
@@ -395,7 +444,7 @@ func (l *loop) addFromResume(t *torrent) {
 	if !ok || row.Resume == nil {
 		return
 	}
-	handle, err := l.eng.Add(engine.AddParams{Resume: row.Resume, SavePath: row.SaveFolder})
+	handle, err := l.eng.Add(engine.AddParams{Resume: row.Resume, SavePath: row.SaveFolder, Discover: mayDiscover(withInfo{private: row.Private})})
 	if err != nil {
 		l.c.cfg.Log.Warn("can't add a torrent from its resume data, so the Node fetches it again", "info_hash", t.Hash.String(), "err", err.Error())
 		return
@@ -441,7 +490,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	}
 	b := res.GetBaseline()
 	handle, err := l.eng.Add(engine.AddParams{
-		Metainfo: res.GetMetainfo(), SavePath: t.folder,
+		Metainfo: res.GetMetainfo(), SavePath: t.folder, Discover: mayDiscover(withInfo{private: t.Private}),
 		Baseline: engine.Totals{
 			Uploaded: b.GetUploaded(), Downloaded: b.GetDownloaded(),
 			Active: time.Duration(b.GetActiveSeconds()) * time.Second, Seeding: time.Duration(b.GetSeedingSeconds()) * time.Second,
@@ -469,6 +518,8 @@ func (l *loop) settle(now time.Time) {
 	if l.intent.Intent != nil {
 		l.decide(now)
 		l.noPayload(now)
+		l.settleSearches(now)
+		l.configure()
 	}
 	l.report(now)
 	l.publish()
@@ -539,7 +590,7 @@ func (l *loop) do(cmd plan.Command, now time.Time) time.Time {
 }
 
 func (l *loop) fetch(t *torrent, now time.Time) time.Time {
-	if t.fetching || l.run == nil {
+	if t.fetching || l.run == nil || l.yield(t.Hash) {
 		return time.Time{}
 	}
 	if now.Before(t.retryAt) {
@@ -582,6 +633,7 @@ func (l *loop) release() error {
 	clear(l.byHandle)
 	clear(l.rows)
 	l.parted, l.intent = nil, role.Snapshot[*dlv1.Intent]{}
+	l.releaseSearches()
 	l.stopSampling()
 	l.publish()
 	for _, t := range held {
@@ -678,8 +730,11 @@ func (l *loop) event(ev engine.Event) {
 	case engine.Stats:
 		l.stats(ev)
 	default:
-		if t := l.byHandle[handleOf(ev)]; t != nil {
+		h := handleOf(ev)
+		if t := l.byHandle[h]; t != nil {
 			l.torrentEvent(t, ev)
+		} else if s := l.searchOf[h]; s != nil {
+			l.searchEvent(s, ev)
 		}
 	}
 }
@@ -795,11 +850,15 @@ func (l *loop) updates(statuses []engine.Status) {
 	now := time.Now()
 	seen := map[engine.Handle]bool{}
 	for _, s := range statuses {
+		seen[s.Torrent] = true
+		if r := l.searchOf[s.Torrent]; r != nil {
+			r.peers, r.most = s.Peers, max(r.most, s.Peers)
+			continue
+		}
 		t := l.byHandle[s.Torrent]
 		if t == nil {
 			continue
 		}
-		seen[s.Torrent] = true
 		t.status, t.statusAt = s, now
 		t.observe(s.State)
 		if s.LastPayload.After(t.LastPayload) {
@@ -815,6 +874,7 @@ func (l *loop) updates(statuses []engine.Status) {
 				l.part(t)
 			}
 		}
+		l.resyncSearches(seen, now)
 		l.resync = false
 	}
 }
@@ -873,6 +933,10 @@ func handleOf(ev engine.Event) engine.Handle {
 	case engine.Checked:
 		return ev.Torrent
 	case engine.FileError:
+		return ev.Torrent
+	case engine.MetadataReceived:
+		return ev.Torrent
+	case engine.MetadataTooLarge:
 		return ev.Torrent
 	}
 	return 0

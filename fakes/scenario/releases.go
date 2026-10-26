@@ -32,6 +32,46 @@ type Release struct {
 	// BadPeer adds a peer that misbehaves this way, which fake-tracker
 	// lists beside the seeders.
 	BadPeer BadPeer `jsonschema:"enum=corrupt,enum=stall,enum=choke,enum=drop" yaml:"bad_peer,omitempty"`
+	// Public leaves private out of the info dictionary, so the release is
+	// a public torrent: fake-dht hands Nodes its seeders, and they send
+	// its metadata to a magnet link.
+	Public bool `yaml:"public,omitempty"`
+	// Link is how fixture-site's feeds link the release.
+	Link Link `jsonschema:"enum=torrent,enum=magnet,enum=redirect" yaml:"link,omitempty"`
+	// Trackerless leaves tr out of the release's magnet link, so a Node
+	// finds its peers only through fake-dht.
+	Trackerless bool `yaml:"trackerless,omitempty"`
+}
+
+// Link is how fixture-site's feeds link a release.
+type Link string
+
+const (
+	// TorrentLink is a .torrent download, the default.
+	TorrentLink Link = "torrent"
+	// MagnetLink is a magnet link in the item's link and enclosure, as
+	// Jackett lists a magnet-only site.
+	MagnetLink Link = "magnet"
+	// RedirectLink is a .torrent URL on the site that redirects to the
+	// magnet link, as Prowlarr's download proxy does.
+	RedirectLink Link = "redirect"
+)
+
+// Magnet reports whether the feeds lead to the release's magnet link.
+func (l Link) Magnet() bool { return l == MagnetLink || l == RedirectLink }
+
+func (r Release) checkLink(add func(format string, args ...any)) {
+	switch r.Link {
+	case "", TorrentLink, MagnetLink, RedirectLink:
+	default:
+		add("release %s link %q is not torrent, magnet or redirect", r.Name, r.Link)
+	}
+	if r.Trackerless && !r.Link.Magnet() {
+		add("release %s is trackerless, which is for link magnet or redirect", r.Name)
+	}
+	if r.Trackerless && !r.Public {
+		add("release %s is trackerless and private; a trackerless release is public", r.Name)
+	}
 }
 
 // BadPeer is how a release's bad peer misbehaves once a leecher asks it
@@ -181,6 +221,7 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 			add("release %s advertises %d bytes", r.Name, r.AdvertisedSize)
 		}
 		r.BadPeer.check(add, r.Name)
+		r.checkLink(add)
 	}
 }
 

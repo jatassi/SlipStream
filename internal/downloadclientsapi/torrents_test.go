@@ -230,16 +230,18 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 	thresholds := `"thresholds":{"faultStall":{"key":"downloading.faultStall","label":"A download with no data at all is bad after","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":43200,"running":43200,"default":43200,"min":3600,"max":2592000,"step":3600},` +
 		`"unregisteredGap":{"key":"downloading.unregisteredGap","label":"Unregistered twice, this far apart","source":"database","applies":"live",` +
+		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60},` +
+		`"metadataWait":{"key":"downloading.metadataWait","label":"A magnet link with no metadata fails after","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60}}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/download-clients", "", http.StatusOK,
 		`{"cards":[{"nodeId":"id1","nodeName":"home","inStep":true,"client":{"libtorrent":"2.0.11.0","peerIdPrefix":"-LT20B0-","userAgent":"libtorrent/2.0.11.0",`+
 			`"listen":"0.0.0.0:6881","bound":"192.0.2.4:6881","reach":"reachable","reachedAt":"T"},`+
-			`"limits":{"downloadLimit":0,"uploadLimit":0,"activeDownloads":3,"activeChecks":1,"connections":8000,"utp":true,"stalledAfterSeconds":600},`+
+			`"limits":{"downloadLimit":0,"uploadLimit":0,"activeDownloads":3,"activeChecks":1,"connections":8000,"utp":true,"dht":true,"stalledAfterSeconds":600},`+
 			`"totals":{"uploaded":0,"downloaded":0,"seedingSeconds":0,"activeSeconds":0},"torrents":1}],`+thresholds+`}`)
 
-	_, reply := w.o.Call(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"unregisteredGap":3600}`)
-	if want := `"value":3600`; !strings.Contains(reply, want) {
-		t.Errorf("setDownloadClientThresholds = %s, want the gap at an hour", reply)
+	_, reply := w.o.Call(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"unregisteredGap":3600,"metadataWait":300}`)
+	if want := `"value":3600`; !strings.Contains(reply, want) || !strings.Contains(reply, `"value":300,`) {
+		t.Errorf("setDownloadClientThresholds = %s, want the gap at an hour and the metadata wait at 5 minutes", reply)
 	}
 	if !slices.Equal(w.heard.touched, []role.NodeID{w.self}) || len(w.heard.cards) != 1 || !slices.Equal(w.heard.cards[0], []string{w.self.String()}) {
 		t.Errorf("a threshold change touched %v and told %v, want the downloading Node's intent and download-clients.changed for it", w.heard.touched, w.heard.cards)

@@ -242,25 +242,24 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 	}
 }
 
-// heldFinish is an engine whose Finished events wait for release.
-type heldFinish struct {
+type holding struct {
 	engine.Engine
 	events chan engine.Event
 	closed chan struct{}
 }
 
-func holdFinished(open func(engine.Config) (engine.Engine, error), finished chan<- struct{}, release <-chan struct{}) func(engine.Config) (engine.Engine, error) {
+func holdAt[E engine.Event](open func(engine.Config) (engine.Engine, error), reached chan<- struct{}, release <-chan struct{}) func(engine.Config) (engine.Engine, error) {
 	return func(cfg engine.Config) (engine.Engine, error) {
 		e, err := open(cfg)
 		if err != nil {
 			return nil, err
 		}
-		h := &heldFinish{Engine: e, events: make(chan engine.Event), closed: make(chan struct{})}
+		h := &holding{Engine: e, events: make(chan engine.Event), closed: make(chan struct{})}
 		go func() {
 			defer close(h.events)
 			for ev := range e.Events() {
-				if _, ok := ev.(engine.Finished); ok {
-					finished <- struct{}{}
+				if _, ok := ev.(E); ok {
+					reached <- struct{}{}
 					<-release
 				}
 				select {
@@ -274,9 +273,9 @@ func holdFinished(open func(engine.Config) (engine.Engine, error), finished chan
 	}
 }
 
-func (h *heldFinish) Events() <-chan engine.Event { return h.events }
+func (h *holding) Events() <-chan engine.Event { return h.events }
 
-func (h *heldFinish) Close() error {
+func (h *holding) Close() error {
 	close(h.closed)
 	return h.Engine.Close()
 }
@@ -287,7 +286,7 @@ func (h *heldFinish) Close() error {
 func TestAResultMadeWhileTheWorkersLinkIsDownLandsOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		finished, release := make(chan struct{}), make(chan struct{})
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = holdFinished(e.Engine, finished, release) }))
+		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = holdAt[engine.Finished](e.Engine, finished, release) }))
 		search(t, w, addOrchard(t, w))
 		<-finished
 		path := w.Path("home", "seedbox")

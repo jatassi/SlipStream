@@ -49,6 +49,9 @@ type World struct {
 	payloads  map[bencode.InfoHash][]byte
 	transfers map[bencode.InfoHash]rates
 	trackers  map[string]*tracker
+	lookups   map[bencode.InfoHash]int
+	// served are the metainfos whose info dictionary the swarm sends.
+	served map[bencode.InfoHash]bencode.Metainfo
 	// engines are the open engines.
 	engines []*Engine
 	// taken are ports something other than an engine holds.
@@ -64,8 +67,30 @@ type rates struct{ down, up int64 }
 func NewWorld() *World {
 	return &World{
 		payloads: map[bencode.InfoHash][]byte{}, transfers: map[bencode.InfoHash]rates{},
-		trackers: map[string]*tracker{}, taken: map[netip.AddrPort]bool{},
+		trackers: map[string]*tracker{}, taken: map[netip.AddrPort]bool{}, lookups: map[bencode.InfoHash]int{},
+		served: map[bencode.InfoHash]bencode.Metainfo{},
 	}
+}
+
+// Serve has the swarm send m's info dictionary to each FetchMetadata
+// torrent of its hash that reaches the swarm, unless m is private, as
+// libtorrent's peers never send a private torrent's. A torrent reaches the
+// swarm through ConnectPeer, a tracker the World runs answering its
+// announce, or a lookup in the World's DHT.
+func (w *World) Serve(m bencode.Metainfo) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.served[m.InfoHash] = m
+	w.each(func(t *torrent) bool { return t.meta.InfoHash == m.InfoHash }, (*torrent).receive)
+}
+
+// Lookups is how many times an engine looked h up in the World's DHT. A
+// torrent looks itself up when it starts running and when its engine's
+// DHT turns on, if it may discover and isn't private, as libtorrent does.
+func (w *World) Lookups(h bencode.InfoHash) int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.lookups[h]
 }
 
 // Open builds an engine listening on cfg's interface, or on its address's
@@ -239,6 +264,9 @@ type torrent struct {
 	files    []engine.File
 	state    engine.State
 	paused   bool
+	discover bool
+	// fetch is set for a FetchMetadata torrent.
+	fetch *fetch
 	// turning is a pause or resume waiting for no tracker to await an
 	// answer.
 	turning turn
@@ -258,6 +286,12 @@ type torrent struct {
 	transfer *time.Timer
 }
 
+// fetch is a FetchMetadata torrent's search for its info dictionary.
+type fetch struct {
+	reached  bool
+	received bool
+}
+
 func (e *Engine) Add(p engine.AddParams) (engine.Handle, error) {
 	e.w.mu.Lock()
 	defer e.w.mu.Unlock()
@@ -268,8 +302,46 @@ func (e *Engine) Add(p engine.AddParams) (engine.Handle, error) {
 	if err != nil {
 		return 0, err
 	}
+	return e.hold(t)
+}
+
+// FetchMetadata adds a running torrent with no metadata, whose tracker
+// list is the link's, each tracker its own tier. Once the metadata
+// arrives it finishes, downloading nothing.
+func (e *Engine) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
+	e.w.mu.Lock()
+	defer e.w.mu.Unlock()
+	if e.closed {
+		return 0, engine.ErrClosed
+	}
+	meta := bencode.Metainfo{InfoHash: p.Link.InfoHash, Info: bencode.Info{Name: p.Link.Name}}
+	for _, tr := range p.Link.Trackers {
+		meta.AnnounceList = append(meta.AnnounceList, []string{tr})
+	}
+	if len(p.Link.Trackers) > 0 {
+		meta.Announce = p.Link.Trackers[0]
+	}
+	t := &torrent{e: e, meta: meta, savePath: p.SavePath, state: engine.StateDownloadingMetadata, discover: p.Discover, fetch: &fetch{}, since: time.Now()}
+	t.trackers = &announcing{t: t}
+	e.w.adds++
+	t.peerID = fmt.Sprintf("%s%012d", version.PeerIDPrefix, e.w.adds)
+	h, err := e.hold(t)
+	if err != nil {
+		return 0, err
+	}
+	t.trackers.start()
+	t.lookUp()
+	return h, nil
+}
+
+// hold holds t under a new handle. An Add of a torrent an Add made whose
+// removal waits takes it back, and it stays, as libtorrent hands it back.
+// No other torrent of a hash being removed is held.
+func (e *Engine) hold(t *torrent) (engine.Handle, error) {
 	if was, ok := e.parting[t.meta.InfoHash]; ok {
-		// libtorrent hands back a torrent whose removal waits, and it stays.
+		if t.fetch != nil || was.fetch != nil {
+			return 0, engine.ErrRemoving
+		}
 		delete(e.parting, was.meta.InfoHash)
 		was.removing = false
 		e.torrents[was.handle] = was
@@ -282,6 +354,43 @@ func (e *Engine) Add(p engine.AddParams) (engine.Handle, error) {
 	e.emit(engine.Added{Torrent: t.handle})
 	e.emit(engine.StateChanged{Torrent: t.handle, State: t.state})
 	return t.handle, nil
+}
+
+// reach has a FetchMetadata torrent reach the swarm, which sends it the
+// info dictionary the World serves.
+func (t *torrent) reach() {
+	if t.fetch != nil {
+		t.fetch.reached = true
+		t.receive()
+	}
+}
+
+// receive takes in the info dictionary the World serves for t once t
+// reached the swarm.
+func (t *torrent) receive() {
+	m, served := t.e.w.served[t.meta.InfoHash]
+	if t.fetch == nil || !t.fetch.reached || t.fetch.received || !served || m.Info.Private {
+		return
+	}
+	if len(m.RawInfo) > bencode.MaxTorrent {
+		t.e.emit(engine.MetadataTooLarge{Torrent: t.handle, Size: int64(len(m.RawInfo))})
+		return
+	}
+	t.fetch.received = true
+	t.meta.Info, t.meta.RawInfo = m.Info, m.RawInfo
+	t.files = files(m.Info)
+	t.e.emit(engine.MetadataReceived{Torrent: t.handle, Info: slices.Clone(m.RawInfo)})
+	// Wanting no file, the torrent has all it wants, as libtorrent's does.
+	t.setState(engine.StateFinished)
+	t.e.emit(engine.Finished{Torrent: t.handle})
+}
+
+// metadata is ErrNoMetadata while t awaits its metadata.
+func (t *torrent) metadata() error {
+	if t.fetch != nil && !t.fetch.received {
+		return engine.ErrNoMetadata
+	}
+	return nil
 }
 
 // torrent is the paused torrent p adds.
@@ -298,7 +407,7 @@ func (e *Engine) torrent(p engine.AddParams) (*torrent, error) {
 		return nil, &engine.Error{Category: engine.CategoryBdecode, Text: err.Error()}
 	}
 	t := &torrent{
-		e: e, meta: m, raw: r.Metainfo, savePath: p.SavePath, files: files(m.Info), paused: true, needSave: true,
+		e: e, meta: m, raw: r.Metainfo, savePath: p.SavePath, files: files(m.Info), paused: true, needSave: true, discover: p.Discover,
 		totals: engine.Totals{
 			Uploaded:   max(r.Totals.Uploaded, p.Baseline.Uploaded),
 			Downloaded: max(r.Totals.Downloaded, p.Baseline.Downloaded),
@@ -393,6 +502,7 @@ func (t *torrent) settle() {
 				t.check()
 			}
 			t.trackers.start()
+			t.lookUp()
 			t.reschedule()
 		}
 	case noTurn:
@@ -439,11 +549,22 @@ func (e *Engine) Configure(l engine.Limits) error {
 	for _, t := range e.torrents {
 		t.fold()
 	}
+	dhtWas := e.limits.DHT
 	e.limits = l
 	for _, h := range slices.Sorted(maps.Keys(e.torrents)) {
+		if l.DHT && !dhtWas {
+			e.torrents[h].lookUp()
+		}
 		e.torrents[h].reschedule()
 	}
 	return nil
+}
+
+func (t *torrent) lookUp() {
+	if t.e.limits.DHT && t.discover && !t.meta.Info.Private && !t.paused {
+		t.e.w.lookups[t.meta.InfoHash]++
+		t.reach()
+	}
 }
 
 func (e *Engine) PostStats() error {
@@ -686,9 +807,13 @@ func (e *Engine) PostUpdates() error {
 	if e.closed {
 		return engine.ErrClosed
 	}
+	held := maps.Clone(e.torrents)
+	for _, t := range e.parting {
+		held[t.handle] = t
+	}
 	var changed []engine.Status
-	for _, h := range slices.Sorted(maps.Keys(e.torrents)) {
-		s := e.torrents[h].status()
+	for _, h := range slices.Sorted(maps.Keys(held)) {
+		s := held[h].status()
 		moved := s
 		moved.Totals.Active, moved.Totals.Seeding = 0, 0
 		if last, ok := e.posted[h]; e.resync || !ok || last != moved {
@@ -711,7 +836,10 @@ func (t *torrent) status() engine.Status {
 }
 
 func (e *Engine) ConnectPeer(h engine.Handle, _ netip.AddrPort) error {
-	return e.with(h, func(*torrent) error { return nil })
+	return e.with(h, func(t *torrent) error {
+		t.reach()
+		return nil
+	})
 }
 
 // Status is h's status now, for a test to look into the fake: the port
@@ -729,7 +857,7 @@ func (e *Engine) Files(h engine.Handle) ([]engine.File, error) {
 	var out []engine.File
 	err := e.with(h, func(t *torrent) error {
 		out = slices.Clone(t.files)
-		return nil
+		return t.metadata()
 	})
 	return out, err
 }
@@ -738,6 +866,9 @@ func (e *Engine) Files(h engine.Handle) ([]engine.File, error) {
 func (e *Engine) FileProgress(h engine.Handle) ([]int64, error) {
 	var out []int64
 	err := e.with(h, func(t *torrent) error {
+		if err := t.metadata(); err != nil {
+			return err
+		}
 		left := t.done
 		for _, f := range t.files {
 			done := min(left, f.Size)
@@ -764,7 +895,6 @@ func (e *Engine) Remove(h engine.Handle, deleteFiles bool) error {
 		t.fold()
 		t.stopTransfer()
 		delete(e.torrents, h)
-		delete(e.posted, h)
 		t.turning, t.removing, t.deleteFiles = noTurn, true, deleteFiles
 		e.parting[t.meta.InfoHash] = t
 		t.settle()
@@ -773,6 +903,7 @@ func (e *Engine) Remove(h engine.Handle, deleteFiles bool) error {
 }
 
 func (t *torrent) remove() {
+	delete(t.e.posted, t.handle)
 	t.trackers.stop()
 	t.e.emit(engine.Removed{Torrent: t.handle})
 	if t.deleteFiles {

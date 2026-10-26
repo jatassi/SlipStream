@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
@@ -296,25 +297,54 @@ func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Item
 	return items, nil
 }
 
-// Fetched is a .torrent and the Node that fetched it.
-type Fetched struct {
-	Torrent []byte
-	Node    role.NodeID
+// Got is what a release's link leads to: a Torrent or a Magnet.
+type Got interface{ got() }
+
+// Torrent is a .torrent's bytes as the Indexer sent them, and the
+// Searching Node that fetched them.
+type Torrent struct {
+	Raw  []byte
+	Node role.NodeID
 }
 
-// FetchTorrent asks the Node idx routes through for the .torrent at link,
-// which must be on the Indexer's own host. It fails with
-// *UnavailableError.
-func (x *Indexers) FetchTorrent(ctx context.Context, idx Indexer, link string) (Fetched, error) {
+// Magnet is a magnet link: the release's own, or the one its link
+// redirected to.
+type Magnet struct{ Link magnet.Link }
+
+func (Torrent) got() {}
+func (Magnet) got()  {}
+
+// Fetch is what link leads to. A magnet link needs no Node. Any other
+// link goes to the Node idx routes through, must be on the Indexer's own
+// host, and may redirect to a magnet link. It fails with
+// *UnavailableError, *magnet.InvalidError or bencode.ErrV2Only.
+func (x *Indexers) Fetch(ctx context.Context, idx Indexer, link string) (Got, error) {
+	if magnet.Is(link) {
+		return parseMagnet(link)
+	}
 	node, w, err := x.call(idx)
 	if err != nil {
-		return Fetched{}, err
+		return nil, err
 	}
 	res, err := x.cfg.Searching(node).FetchTorrent(ctx, &searchv1.FetchTorrentRequest{Indexer: w, Url: link})
 	if err != nil {
-		return Fetched{}, unavailable(err)
+		return nil, unavailable(err)
 	}
-	return Fetched{Torrent: res.GetTorrent(), Node: node}, nil
+	switch got := res.GetGot().(type) {
+	case *searchv1.FetchTorrentResponse_Torrent:
+		return Torrent{Raw: got.Torrent, Node: node}, nil
+	case *searchv1.FetchTorrentResponse_Magnet:
+		return parseMagnet(got.Magnet)
+	}
+	return nil, &UnavailableError{Err: errors.New("the Searching Node's response holds neither a .torrent nor a magnet link")}
+}
+
+func parseMagnet(link string) (Got, error) {
+	l, err := magnet.Parse(link)
+	if err != nil {
+		return nil, err
+	}
+	return Magnet{Link: l}, nil
 }
 
 // Waiting is the absence of idx's home Node while idx's calls wait for it:

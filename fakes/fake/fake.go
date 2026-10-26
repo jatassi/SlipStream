@@ -45,6 +45,10 @@ type Spec struct {
 	ContentType string
 	// New builds the fake from the whole Scenario. It does no IO.
 	New func(scenario.Scenario, Env) (Server, error)
+	// NewUDP builds, in place of New, a fake that speaks UDP. The world
+	// binds it one socket on 127.0.0.1 for each origin and no front,
+	// since a front forwards TCP, so no fault rule plays on it.
+	NewUDP func(scenario.Scenario, Env) (UDPServer, error)
 	// Endpoints points every Endpoints entry the fake's boundary owns at
 	// the fake. It is the only place a fake touches Node config.
 	Endpoints func(*node.EndpointsBlock, Address)
@@ -109,6 +113,12 @@ func (s Spec) Check() error {
 // Server serves a boundary's real protocol on l until ctx ends.
 type Server interface {
 	Serve(ctx context.Context, l net.Listener) error
+}
+
+// UDPServer serves a boundary's real protocol on sockets, each origin's
+// by its name, until ctx ends, and closes them.
+type UDPServer interface {
+	ServeUDP(ctx context.Context, sockets map[string]*net.UDPConn) error
 }
 
 type Env struct {
@@ -224,7 +234,13 @@ type originKey struct{}
 // which OriginOf reads and a capture records.
 func ConnContext(ctx context.Context, c net.Conn) context.Context {
 	front, _ := fault.FrontOf(c)
-	return context.WithValue(ctx, originKey{}, front.Origin)
+	return WithOrigin(ctx, front.Origin)
+}
+
+// WithOrigin is ctx carrying origin, for a fake that knows the origin
+// from the socket a datagram arrived on.
+func WithOrigin(ctx context.Context, origin string) context.Context {
+	return context.WithValue(ctx, originKey{}, origin)
 }
 
 // OriginOf is the Node whose front a request arrived through, "world" for
