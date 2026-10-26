@@ -35,7 +35,7 @@ test("the palette opens a Work by its name", async ({ adminPage: page, world }) 
 
   await page.keyboard.type("quiet orch");
   await expect(palette.getByRole("group", { name: "Works" }).getByRole("option")).toHaveText([
-    "The Quiet OrchardMovie",
+    "The Quiet Orchard2021 · Movie · Missing",
   ]);
   await expectAccessible(page);
 
