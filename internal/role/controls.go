@@ -502,7 +502,7 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		if srv == nil || !all && !dirty[string(name)] {
 			continue
 		}
-		msg, err := srv.deriveAny(ctx, c.cfg.Library, node)
+		msg, err := c.deriveIn(ctx, srv, node)
 		if err != nil {
 			return nil, fmt.Errorf("derive %s intent: %w", name, err)
 		}
@@ -516,6 +516,18 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		}
 	}
 	return intents, nil
+}
+
+// deriveIn derives srv's intent for node from one library snapshot, so
+// every table it reads agrees.
+func (c *Controls) deriveIn(ctx context.Context, srv Served, node NodeID) (proto.Message, error) {
+	var msg proto.Message
+	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		msg, err = srv.deriveAny(ctx, r, node)
+		return err
+	})
+	return msg, err
 }
 
 func nodeIntent(s NodeScope) *nodev1.NodeIntent {
