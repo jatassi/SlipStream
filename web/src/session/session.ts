@@ -3,8 +3,8 @@ import { type QueryClient, queryOptions, useSuspenseQuery } from "@tanstack/reac
 import { isProblem } from "../api/errors";
 import type {
   IdentityAccount,
-  IdentityClaimed,
   IdentitySession,
+  IdentitySignedIn,
   SystemStatus,
 } from "../api/gen/model";
 import { getGetSessionQueryKey, getSession } from "../api/gen/query/identity/identity";
@@ -51,15 +51,10 @@ export function markSignedOut(queryClient: QueryClient): void {
 export const refreshSession = (queryClient: QueryClient): Promise<IdentitySession | null> =>
   queryClient.query({ ...sessionQuery, staleTime: 0 });
 
-export function markClaimed(queryClient: QueryClient, claimed: IdentityClaimed): void {
+export function markClaimed(queryClient: QueryClient, signedIn: IdentitySignedIn): void {
   queryClient.setQueryData(
     statusQuery.queryKey,
     (status): SystemStatus | undefined => status && { ...status, claim: "controller" },
   );
-  const session: IdentitySession = {
-    account: claimed.account,
-    pinRequired: false,
-    keyPrompt: "ask",
-  };
-  queryClient.setQueryData(sessionQuery.queryKey, session);
+  markSignedIn(queryClient, signedIn);
 }

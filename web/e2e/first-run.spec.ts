@@ -34,12 +34,6 @@ test("a fresh Node takes a person from the Setup code to the first Admin", async
   await setupCode.clear();
   await setupCode.pressSequentially((await world.setupCode()).toLowerCase().replaceAll("-", " "));
   await page.getByRole("button", { name: "Create Admin" }).click();
-  await expect(page.getByRole("textbox", { name: "API key" })).toHaveValue(
-    /^ssk_[A-Za-z0-9_-]{43}$/u,
-  );
-  await expectAccessible(page);
-
-  await page.getByRole("button", { name: "Continue" }).click();
   const signedIn = page.getByRole("heading", { name: "Library" });
   await expect(signedIn).toBeVisible();
   if (isPhone(page)) {
@@ -74,8 +68,6 @@ test("a setup link fills in the Setup code and drops it from the address bar", a
   await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially("1357");
   await page.getByRole("textbox", { name: "PIN again", exact: true }).pressSequentially("1357");
   await page.getByRole("button", { name: "Create Admin" }).click();
-  await expect(page.getByRole("textbox", { name: "API key" })).toHaveValue(
-    /^ssk_[A-Za-z0-9_-]{43}$/u,
-  );
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(await world.api("GET", "/api/v1/status")).toEqual(claimed);
 });

@@ -10,7 +10,13 @@ const unclaimed = [
   signedOut,
   getGetStatusMockHandler({ claim: "unclaimed", passkeys: noPasskeys }),
 ];
-const apiKey = `ssk_${"A".repeat(43)}`;
+const signedIn = {
+  account: ada,
+  pinRequired: false,
+  keyPrompt: "ask",
+  firstRun: "open",
+  passkeyPrompt: false,
+};
 
 function claimServer(answer: () => Response) {
   const claims: unknown[] = [];
@@ -58,7 +64,7 @@ test("the Setup code shows grouped as it is typed", async () => {
 });
 
 test("a setup link fills in the Setup code and leaves the address bar", async () => {
-  const server = claimServer(() => HttpResponse.json({ account: ada, apiKey }, { status: 201 }));
+  const server = claimServer(() => HttpResponse.json(signedIn, { status: 201 }));
   const { router } = renderApp({ path: "/setup#code=7K2M-Q9XD-4HBT", handlers: server.handlers });
   await expect.element(page.getByLabelText("Setup code")).toHaveValue("7K2M-Q9XD-4HBT");
   await expect
@@ -74,7 +80,7 @@ test("a setup link fills in the Setup code and leaves the address bar", async ()
   await userEvent.click(page.getByRole("textbox", { name: "PIN again", exact: true }));
   await userEvent.keyboard("1234");
   await userEvent.click(page.getByRole("button", { name: "Create Admin" }));
-  await expect.element(page.getByLabelText("API key")).toHaveValue(apiKey);
+  await expect.poll(() => router.state.location.href).toBe("/library");
   expect(server.claims).toEqual([
     {
       code: "7K2MQ9XD4HBT",
@@ -94,27 +100,24 @@ test("a typed Setup code says nothing was filled in", async () => {
 });
 
 test("mismatched PINs never reach the server", async () => {
-  const server = claimServer(() => HttpResponse.json({ account: ada, apiKey }, { status: 201 }));
+  const server = claimServer(() => HttpResponse.json(signedIn, { status: 201 }));
   renderApp({ path: "/setup", handlers: server.handlers });
   await fillSetup("4321");
   await expect.element(page.getByText("The PINs don't match")).toBeVisible();
   expect(server.claims).toEqual([]);
 });
 
-test("a claim shows the API key once and Continue enters the app", async () => {
-  const server = claimServer(() => HttpResponse.json({ account: ada, apiKey }, { status: 201 }));
+test("a claim signs the first Admin in and enters the app", async () => {
+  const server = claimServer(() => HttpResponse.json(signedIn, { status: 201 }));
   const { router } = renderApp({ path: "/setup", handlers: server.handlers });
   await fillSetup("1234");
-  await expect.element(page.getByLabelText("API key")).toHaveValue(apiKey);
+  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(server.claims).toEqual([
     {
       code: "7K2MQ9XD4HBT",
       body: { email: "ada@example.test", displayName: "Ada Okafor", pin: "1234" },
     },
   ]);
-
-  await userEvent.click(page.getByRole("button", { name: "Continue" }));
-  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(router.state.location.href).toBe("/library");
 });
 

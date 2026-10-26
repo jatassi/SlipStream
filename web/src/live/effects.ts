@@ -1,5 +1,7 @@
+import { getGetFirstRunQueryKey } from "../api/gen/query/firstrun/firstrun";
 import {
   getGetAccountQueryKey,
+  getGetAddressQueryKey,
   getGetSessionQueryKey,
   getListAccountSessionsQueryKey,
   getListAccountsQueryKey,
@@ -45,6 +47,12 @@ export const effects = {
   },
   "identity.passkeys-changed": (_data, { refresh }) => {
     refresh({ queryKey: getListPasskeysQueryKey() });
+  },
+  "identity.address-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getGetAddressQueryKey() });
+  },
+  "firstrun.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getGetFirstRunQueryKey() });
   },
   "identity.links-changed": (_data, { refresh }) => {
     refresh({ queryKey: getListSignupLinksQueryKey() });

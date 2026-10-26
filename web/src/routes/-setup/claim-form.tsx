@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { isProblem } from "../../api/errors";
-import type { IdentityClaimed } from "../../api/gen/model";
+import type { IdentitySignedIn } from "../../api/gen/model";
 import { claimController } from "../../api/gen/query/identity/identity";
 import { ClaimControllerBody } from "../../api/gen/zod/identity/identity.zod";
 import { formatSetupCode, normalizeSetupCode } from "../../session/setup-code";
@@ -20,7 +20,7 @@ const setupForm = ClaimControllerBody.extend({
 
 const displaySetupCode = (typed: string) => formatSetupCode(normalizeSetupCode(typed));
 
-type Outcome = { onClaimed: (claimed: IdentityClaimed) => void; onAlreadyClaimed: () => void };
+type Outcome = { onClaimed: (signedIn: IdentitySignedIn) => void; onAlreadyClaimed: () => void };
 
 type Props = Outcome & { linkedSetupCode: string | undefined };
 
