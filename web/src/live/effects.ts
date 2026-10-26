@@ -65,4 +65,6 @@ export const effects = {
   "metadata.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListMetadataProvidersQueryKey() });
   },
+  // Nothing in the app reads Transfers yet.
+  "transfers.changed": () => {},
 } satisfies LiveEffects;

@@ -4732,6 +4732,14 @@ export const TasksTaskPatch = zod.object({
 export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
 export type TasksTaskPatchOutput = zod.output<typeof TasksTaskPatch>;
 
+export const TransfersChanged = zod.object({
+  nodeIds: zod.array(zod.string()),
+  transferIds: zod.array(zod.string()),
+});
+
+export type TransfersChanged = zod.input<typeof TransfersChanged>;
+export type TransfersChangedOutput = zod.output<typeof TransfersChanged>;
+
 export const WorksArt = zod.object({
   kind: zod.string().describe("An artwork kind of the Content Type"),
   url: zod.string().describe("The artwork route for the image, without a size"),
@@ -5340,6 +5348,14 @@ export const LiveEventTorrentsLive = zod.object({
 export type LiveEventTorrentsLive = zod.input<typeof LiveEventTorrentsLive>;
 export type LiveEventTorrentsLiveOutput = zod.output<typeof LiveEventTorrentsLive>;
 
+export const LiveEventTransfersChanged = zod.object({
+  event: zod.enum(["transfers.changed"]),
+  data: TransfersChanged,
+});
+
+export type LiveEventTransfersChanged = zod.input<typeof LiveEventTransfersChanged>;
+export type LiveEventTransfersChangedOutput = zod.output<typeof LiveEventTransfersChanged>;
+
 export const LiveEventVolumesChanged = zod.object({
   event: zod.enum(["volumes.changed"]),
   data: RootsVolumesChanged,
@@ -5398,6 +5414,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventTasksProgress,
   LiveEventTorrentsChanged,
   LiveEventTorrentsLive,
+  LiveEventTransfersChanged,
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,

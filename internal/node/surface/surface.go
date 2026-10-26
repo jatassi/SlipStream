@@ -38,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/targetsapi"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/tasksapi"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -66,6 +67,7 @@ var Events = []live.Event{
 	downloadclients.ChangedEvent,
 	downloadclients.LiveEvent,
 	downloadclients.ClientsChangedEvent,
+	transfers.ChangedEvent,
 	tasks.ChangedEvent,
 	tasks.ProgressEvent,
 	health.ChangedEvent,
