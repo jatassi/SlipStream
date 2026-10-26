@@ -38,6 +38,7 @@ func (unlinked) Keep(link.Target)                             {}
 func (unlinked) Drop(link.Key)                                {}
 func (unlinked) Invite(context.Context, link.Target) error    { return nil }
 func (unlinked) Stats(link.Key) (link.Stats, bool)            { return link.Stats{}, false }
+func (unlinked) LaneBytes(link.Key) link.Stats                { return link.Stats{} }
 
 type changes struct{}
 

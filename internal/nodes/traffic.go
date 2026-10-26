@@ -129,7 +129,8 @@ func (m *meter) linkDown(id ID) {
 
 func perSecond(bytes int64, d time.Duration) int64 { return int64(float64(bytes) / d.Seconds()) }
 
-// sample reads every link's counters and, while an Admin listens, each
+// sample reads every link's counters, with the Transfer lanes to each
+// Worker counted on its link, and, while an Admin listens, each
 // Node's live client, and publishes them while bytes move and once more
 // after they stop.
 func (s *Service) sample(ctx context.Context) {
@@ -149,6 +150,8 @@ func (s *Service) sample(ctx context.Context) {
 			s.meter.linkDown(v.ID)
 			continue
 		}
+		lanes := s.cfg.Link.LaneBytes(key)
+		st.Sent, st.Received = st.Sent+lanes.Sent, st.Received+lanes.Received
 		sent, received := s.meter.link(v.ID, now, st)
 		t.Links = append(t.Links, LinkTraffic{A: s.self.String(), B: v.ID.String(), ABBps: sent, BABps: received, RTTMs: st.RTT.Milliseconds()})
 	}

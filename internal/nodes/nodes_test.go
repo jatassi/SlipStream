@@ -8,8 +8,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/netip"
 	"path/filepath"
@@ -114,13 +116,21 @@ func (s *side) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ServeHTTP(w, r)
 }
 
+// echoLanes admits every lane and sends back what it reads, as a Transfer
+// lane carries bytes both ways.
+type echoLanes struct{}
+
+func (echoLanes) Admit(link.Key) bool { return true }
+
+func (echoLanes) Serve(_ context.Context, _ link.Key, c net.Conn) { _, _ = io.Copy(c, c) }
+
 func startController(t *testing.T, edit ...func(*nodes.Config)) *controller {
 	t.Helper()
-	net := fault.NewNetwork()
+	nw := fault.NewNetwork()
 	s := &side{}
-	node := linktest.Start(t, net, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Lockstep: s})
+	node := linktest.Start(t, nw, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Lockstep: s, LaneHandler: echoLanes{}})
 	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema())
-	c := &controller{net: net, node: node, lib: lib, edit: edit}
+	c := &controller{net: nw, node: node, lib: lib, edit: edit}
 	c.open(t, s)
 	return c
 }
@@ -594,6 +604,7 @@ func (unlinked) Drop(link.Key) {}
 
 func (unlinked) Invite(context.Context, link.Target) error { return nil }
 func (unlinked) Stats(link.Key) (link.Stats, bool)         { return link.Stats{}, false }
+func (unlinked) LaneBytes(link.Key) link.Stats             { return link.Stats{} }
 
 // TestTheRosterMigrationKeepsEveryNode migrates a library holding two
 // Nodes with Roles, an address and a used Join Code: every row and

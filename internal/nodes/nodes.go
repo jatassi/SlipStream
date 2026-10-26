@@ -76,6 +76,9 @@ type Link interface {
 	Drop(key link.Key)
 	Invite(ctx context.Context, t link.Target) error
 	Stats(key link.Key) (link.Stats, bool)
+	// LaneBytes is every byte on this Node's Transfer lanes with key,
+	// closed lanes included.
+	LaneBytes(key link.Key) link.Stats
 }
 
 type Config struct {
