@@ -54,6 +54,13 @@ type Timings struct {
 	Dial time.Duration `yaml:"dial"`
 	// Estimate is the window of a receiver's speed average.
 	Estimate time.Duration `yaml:"estimate"`
+	// LanesStart is the lanes a route opens first. Each LanesGrow the
+	// receiver adds one while the last one added raised the rate by at
+	// least LanesGain percent, up to LanesMax.
+	LanesStart int           `yaml:"lanes_start"`
+	LanesGrow  time.Duration `yaml:"lanes_grow"`
+	LanesGain  int           `yaml:"lanes_gain"`
+	LanesMax   int           `yaml:"lanes_max"`
 	// Ahead is the chunks each lane keeps asked for ahead.
 	Ahead int `yaml:"ahead"`
 	// SyncBytes and SyncEvery bound a receiver's batch: it syncs, reads
@@ -72,17 +79,21 @@ type Timings struct {
 
 func DefaultTimings() Timings {
 	return Timings{
-		Chunk:     30 * time.Second,
-		Report:    time.Second,
-		Dial:      30 * time.Second,
-		Estimate:  20 * time.Second,
-		Ahead:     2,
-		SyncBytes: 64 << 20,
-		SyncEvery: time.Second,
-		RetryMin:  time.Second,
-		RetryMax:  time.Minute,
-		Damaged:   4,
-		Piece:     64 << 10,
+		Chunk:      30 * time.Second,
+		Report:     time.Second,
+		Dial:       30 * time.Second,
+		Estimate:   20 * time.Second,
+		LanesStart: 4,
+		LanesGrow:  10 * time.Second,
+		LanesGain:  10,
+		LanesMax:   16,
+		Ahead:      2,
+		SyncBytes:  64 << 20,
+		SyncEvery:  time.Second,
+		RetryMin:   time.Second,
+		RetryMax:   time.Minute,
+		Damaged:    4,
+		Piece:      64 << 10,
 	}
 }
 
