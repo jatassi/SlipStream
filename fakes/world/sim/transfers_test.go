@@ -30,17 +30,18 @@ func seedboxNAS(t *testing.T) scenario.Scenario {
 	return s
 }
 
-// parked holds seedbox's sender at the first chunk it sends until
-// release closes, so a test can act while the Transfer is mid-copy.
+// parked holds seedbox's sender at the second chunk it sends until
+// release closes, so a test can act while the Transfer is mid-copy, with
+// the first chunk free to arrive.
 type parked struct {
 	reached, release chan struct{}
-	held             atomic.Bool
+	sends            atomic.Int32
 }
 
 func newParked() *parked { return &parked{reached: make(chan struct{}), release: make(chan struct{})} }
 
 func (p *parked) sent(transfers.ID, int, int, []byte) {
-	if p.held.CompareAndSwap(false, true) {
+	if p.sends.Add(1) == 2 {
 		close(p.reached)
 		<-p.release
 	}
@@ -148,15 +149,21 @@ func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
 }
 
 // TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer writes off
-// Downloading on seedbox while it sends: the Grab fails node_written_off
-// at transferring, the Transfer's record goes in the same Write, and nas
-// deletes what it staged.
+// Downloading on seedbox while it sends and the Grab reads its Transfer
+// copying: the Grab fails node_written_off at transferring, the
+// Transfer's record goes in the same Write, and nas deletes what it
+// staged.
 func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
 		search(t, w, addOrchard(t, w))
 		<-p.reached
+		eventually(t, "the transferring Grab reads its Transfer copying", func() bool {
+			gs := grabsListed(t, w)
+			return len(gs) == 1 && gs[0].Stage == "transferring" && gs[0].Progress != nil &&
+				gs[0].Progress.Total == int64(len(sim.Payload(release))) && gs[0].Progress.Transfer != nil && gs[0].Progress.Transfer.State == "copying"
+		})
 		a := w.API()
 		writeOff(t, a, seedbox(t, a).ID)
 		g := await(t, w)

@@ -145,8 +145,21 @@ type entered struct {
 }
 
 type progress struct {
-	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded, or received and verified while transferring"`
-	Total int64 `json:"total" minimum:"0" doc:"Bytes wanted"`
+	Done     int64     `json:"done" minimum:"0" doc:"Bytes downloaded, or received and verified while transferring"`
+	Total    int64     `json:"total" minimum:"0" doc:"Bytes wanted"`
+	Transfer *transfer `json:"transfer,omitempty" doc:"How the Transfer stands, absent unless it is transferring"`
+}
+
+type transfer struct {
+	State           string `json:"state" enum:"queued,waiting,needs_space,copying,failed" doc:"copying also covers a file that is verified and waits to be imported"`
+	Wait            *wait  `json:"wait,omitempty" doc:"What it waits for; absent unless its state is waiting"`
+	Rate            int64  `json:"rate" minimum:"0" doc:"Bytes a second it copies at, else the last speed between its two Nodes; 0 while unknown"`
+	EstimateSeconds int64  `json:"estimateSeconds" minimum:"0" doc:"Seconds until its file is verified; 0 while unknown"`
+}
+
+type wait struct {
+	Kind   string `json:"kind" enum:"node_away,node_other_build,connecting,no_route,root_not_ready,storage_draining,source_checking,source_not_ready"`
+	NodeID string `json:"nodeId" format:"uuid" doc:"The Node it waits for"`
 }
 
 type grab struct {
@@ -198,6 +211,12 @@ func grabOf(v grabs.View) grab {
 	}
 	if v.Progress != nil {
 		out.Progress = &progress{Done: v.Progress.Done, Total: v.Progress.Total}
+		if p := v.Progress.Transfer; p.State != 0 {
+			out.Progress.Transfer = &transfer{State: p.State.String(), Rate: p.Rate, EstimateSeconds: int64(p.Estimate.Seconds())}
+			if p.Wait != 0 {
+				out.Progress.Transfer.Wait = &wait{Kind: p.Wait.String(), NodeID: p.WaitNode.String()}
+			}
+		}
 	}
 	return out
 }

@@ -60,6 +60,12 @@ type grabView struct {
 	History []struct {
 		Stage string `json:"stage"`
 	} `json:"history"`
+	Progress *struct {
+		Total    int64 `json:"total"`
+		Transfer *struct {
+			State string `json:"state"`
+		} `json:"transfer"`
+	} `json:"progress"`
 }
 
 func (g grabView) stages() []string {

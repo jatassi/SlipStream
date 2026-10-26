@@ -66,7 +66,44 @@ export const getListGrabsResponseMock = (
     itemId: faker.string.uuid(),
     nodeId: faker.string.uuid(),
     ...(faker.datatype.boolean()
-      ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
+      ? {
+          progress: {
+            done: faker.number.int({ min: 0 }),
+            total: faker.number.int({ min: 0 }),
+            ...(faker.datatype.boolean()
+              ? {
+                  transfer: {
+                    estimateSeconds: faker.number.int({ min: 0 }),
+                    rate: faker.number.int({ min: 0 }),
+                    state: faker.helpers.arrayElement([
+                      "queued",
+                      "waiting",
+                      "needs_space",
+                      "copying",
+                      "failed",
+                    ] as const),
+                    ...(faker.datatype.boolean()
+                      ? {
+                          wait: {
+                            kind: faker.helpers.arrayElement([
+                              "node_away",
+                              "node_other_build",
+                              "connecting",
+                              "no_route",
+                              "root_not_ready",
+                              "storage_draining",
+                              "source_checking",
+                              "source_not_ready",
+                            ] as const),
+                            nodeId: faker.string.uuid(),
+                          },
+                        }
+                      : {}),
+                  },
+                }
+              : {}),
+          },
+        }
       : {}),
     ...(faker.datatype.boolean()
       ? {
@@ -172,7 +209,44 @@ export const getGetGrabResponseMock = (
   itemId: faker.string.uuid(),
   nodeId: faker.string.uuid(),
   ...(faker.datatype.boolean()
-    ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
+    ? {
+        progress: {
+          done: faker.number.int({ min: 0 }),
+          total: faker.number.int({ min: 0 }),
+          ...(faker.datatype.boolean()
+            ? {
+                transfer: {
+                  estimateSeconds: faker.number.int({ min: 0 }),
+                  rate: faker.number.int({ min: 0 }),
+                  state: faker.helpers.arrayElement([
+                    "queued",
+                    "waiting",
+                    "needs_space",
+                    "copying",
+                    "failed",
+                  ] as const),
+                  ...(faker.datatype.boolean()
+                    ? {
+                        wait: {
+                          kind: faker.helpers.arrayElement([
+                            "node_away",
+                            "node_other_build",
+                            "connecting",
+                            "no_route",
+                            "root_not_ready",
+                            "storage_draining",
+                            "source_checking",
+                            "source_not_ready",
+                          ] as const),
+                          nodeId: faker.string.uuid(),
+                        },
+                      }
+                    : {}),
+                },
+              }
+            : {}),
+        },
+      }
     : {}),
   ...(faker.datatype.boolean()
     ? {
