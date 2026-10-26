@@ -10,6 +10,7 @@ import {
   getListContentTypesSuspenseQueryOptions,
   getListWorksSuspenseQueryOptions,
 } from "../../../api/gen/query/works/works";
+import { getListTransfersSuspenseQueryOptions } from "../../../api/gen/query/transfers/transfers";
 import { ensureQuery } from "../../../api/query-client";
 import { Jobs } from "../../../grabs/jobs";
 import { Skeleton } from "../../../ui/skeleton";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_app/activity/")({
       ensureQuery(queryClient, getListTorrentsSuspenseQueryOptions()),
       ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
       ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListTransfersSuspenseQueryOptions()),
     ]),
   pendingComponent: () => <Skeleton label="Loading Jobs" />,
   component: JobsPage,

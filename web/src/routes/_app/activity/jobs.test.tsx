@@ -12,6 +12,7 @@ import { renderApp } from "../../../test/render-app";
 // oxlint-disable-next-line import/max-dependencies -- Jobs read Grabs, Works, Targets, Torrents and the live stream
 import { starter, targetHandlers } from "../../../test/targets";
 import { actionsServer, torrent, torrentsServer } from "../../../test/torrents";
+import { copying, transfersApi, waiting } from "../../../test/transfers";
 
 const harvestId = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
@@ -287,4 +288,35 @@ test("the Content Type filter narrows Jobs and its failures", async () => {
   await expect.element(sentence()).toHaveTextContent("Nothing moving · 1 failure");
   await expect.element(quietOrchard()).not.toBeInTheDocument();
   expect(router.state.location.search).toEqual({ type: "zines" });
+});
+
+test("a transferring Job reads its Transfer: where it copies from and how fast, or why it waits", async () => {
+  const transferring: GrabsGrab = {
+    ...downloading,
+    stage: "transferring",
+    history: [...downloading.history, { stage: "transferring", at: "2026-10-12T09:02:00Z" }],
+  };
+  const server = activityServer();
+  const transfers = transfersApi({ transfers: [{ ...copying, job: transferring.id }] });
+  const { clients, handlers: liveHandlers } = liveServer();
+  renderApp({
+    path: "/activity",
+    handlers: [
+      getListGrabsMockHandler({ grabs: [transferring] }),
+      ...transfers.handlers,
+      ...liveHandlers,
+      ...server.handlers,
+    ],
+  });
+  await expect
+    .element(quietOrchard())
+    .toMatchTextContent("Transferring from seedbox25%2.1 GB of 8.4 GB · 48 MB/s · 2 min left");
+
+  transfers.state.transfers = [
+    { ...waiting, job: transferring.id, verified: copying.verified, total: copying.total },
+  ];
+  clients[0]?.send({ event: "transfers.changed", data: { transferIds: [], nodeIds: [] } });
+  await expect
+    .element(quietOrchard())
+    .toMatchTextContent("Waiting for seedbox to come back.25%2.1 GB of 8.4 GB");
 });
