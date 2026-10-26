@@ -214,13 +214,16 @@ func (c *control) fetched() []storage.UUID {
 
 // checks is an engine that counts the checks it is asked for, keeps the
 // limits it runs with, and calls removing as it is asked to remove a
-// torrent.
+// torrent. While holding, it starts no check it is asked for until
+// finishChecks.
 type checks struct {
 	engine.Engine
 	mu       sync.Mutex
 	n        int
 	limits   engine.Limits
 	removing func()
+	holding  bool
+	held     []engine.Handle
 }
 
 func (c *checks) Remove(h engine.Handle, deleteFiles bool) error {
@@ -255,8 +258,32 @@ func (c *checks) running() engine.Limits {
 func (c *checks) Recheck(h engine.Handle) error {
 	c.mu.Lock()
 	c.n++
+	if c.holding {
+		c.held = append(c.held, h)
+		c.mu.Unlock()
+		return nil
+	}
 	c.mu.Unlock()
 	return c.Engine.Recheck(h)
+}
+
+func (c *checks) holdChecks() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.holding = true
+}
+
+func (c *checks) finishChecks() error {
+	c.mu.Lock()
+	held := c.held
+	c.holding, c.held = false, nil
+	c.mu.Unlock()
+	for _, h := range held {
+		if err := c.Engine.Recheck(h); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *checks) count() int {
