@@ -12,12 +12,16 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/library"
@@ -25,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -37,9 +42,31 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
+// recorder keeps every event published to it.
+type recorder[T any] struct {
+	mu   sync.Mutex
+	sent []T
+}
+
+func (r *recorder[T]) Publish(_ context.Context, v T) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.sent = append(r.sent, v)
+}
+
+// take is what was published since the last take.
+func (r *recorder[T]) take() []T {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := r.sent
+	r.sent = nil
+	return out
+}
+
 type shelf struct {
 	w *works.Works
 	t *targets.Targets
+	l *library.Library
 }
 
 func (s shelf) Works() (*works.Works, bool)       { return s.w, true }
@@ -47,9 +74,7 @@ func (s shelf) Targets() (*targets.Targets, bool) { return s.t, true }
 
 func (shelf) Minter() (artwork.Minter, bool) { return minter, true }
 
-func (s shelf) Library() (*library.Library, bool) {
-	return library.New(library.Config{Works: s.w, Targets: s.t}), true
-}
+func (s shelf) Library() (*library.Library, bool) { return s.l, true }
 
 var minter = artwork.NewMinter([]byte("worksapi"))
 
@@ -62,11 +87,17 @@ func (named) Describe(t works.TypeID) (works.Description, bool) {
 
 type server struct {
 	handler http.Handler
+	lib     *storage.DB[storage.Library]
 	fx      *contenttypetest.Fixture
 	goals   *targets.Targets
-	apiKey  string
-	session string
-	log     *bytes.Buffer
+	homes   *roots.Roots
+	// targetsChanged and rootsChanged record targets.changed and
+	// roots.changed.
+	targetsChanged *recorder[targets.Changed]
+	rootsChanged   *recorder[roots.Changed]
+	apiKey         string
+	session        string
+	log            *bytes.Buffer
 }
 
 func serve(t *testing.T) *server {
@@ -78,7 +109,7 @@ func serve(t *testing.T) *server {
 		}
 		return a
 	}}))
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	keys, err := secret.Open(t.Context(), lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -117,15 +148,23 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
+	targetsChanged, rootsChanged := &recorder[targets.Changed]{}, &recorder[roots.Changed]{}
 	goals, err := targets.Open(t.Context(), targets.Config{
-		Library: lib, Works: named{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx, "other": fx}, Changed: discard[targets.Changed]{},
+		Library: lib, Works: named{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx, "other": fx}, Changed: targetsChanged,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	rootsCfg := rootstest.Config(t, lib, contenttypetest.ID)
+	rootsCfg.Changed = rootsChanged
+	homes, err := roots.Open(t.Context(), rootsCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	composer := library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes})
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
-	worksapi.Routes(r, shelf{w, goals})
-	return &server{handler: r.Handler(), fx: fx, goals: goals, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
+	worksapi.Routes(r, shelf{w, goals, composer})
+	return &server{handler: r.Handler(), lib: lib, fx: fx, goals: goals, homes: homes, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {
@@ -216,7 +255,7 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog/w2", "", 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 
-	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":false}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork = %d %s", code, body)
 	}
@@ -377,21 +416,30 @@ func TestTheWorkAPIShowsDateAndBasis(t *testing.T) {
 
 func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 	s := serve(t)
-	depth := func(value int, isDefault bool) string {
-		return fmt.Sprintf(`{"settings":[{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,`+
-			`"kind":"count","value":%d,"running":%d,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`, isDefault, value, value)
+	settings := func(monitor string, depth int, isDefault bool) string {
+		return `{"settings":[` + monitor + fmt.Sprintf(`,{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,`+
+			`"kind":"count","value":%d,"running":%d,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`, isDefault, depth, depth)
 	}
-	settings := "/api/v1/content-types/fixture/settings"
-	expect(t, s, http.MethodGet, settings, "", 200, depth(3, true))
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":5}}`, 200, depth(5, false))
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":12}}`, 422,
+	on, off := addMonitorField(true, true), addMonitorField(false, false)
+	path := "/api/v1/content-types/fixture/settings"
+	expect(t, s, http.MethodGet, path, "", 200, settings(on, 3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.depth":5}}`, 200, settings(on, 5, false))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.depth":12}}`, 422,
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 and 9 boxes."}`)
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.width":2}}`, 422,
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.width":2}}`, 422,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
-	expect(t, s, http.MethodGet, settings, "", 200, depth(5, false))
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":null}}`, 200, depth(3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.width":2}}`, 422,
+		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
+	expect(t, s, http.MethodGet, path, "", 200, settings(on, 5, false))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.depth":null}}`, 200, settings(off, 3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":null}}`, 200, settings(on, 3, true))
 	expect(t, s, http.MethodGet, "/api/v1/content-types/ghost/settings", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodPatch, "/api/v1/content-types/ghost/settings", `{"values":{}}`, 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
+}
+
+// addMonitorField is fixture.add.monitor on the wire.
+func addMonitorField(value, isDefault bool) string {
+	return fmt.Sprintf(`{"key":"fixture.add.monitor","label":"New shelves are monitored","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"switch","value":%t,"running":%t,"default":true}`, isDefault, value, value)
 }
 
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {
