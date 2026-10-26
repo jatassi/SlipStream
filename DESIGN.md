@@ -620,19 +620,41 @@ Lists and tables are glass sheets with radius 14, a hairline ring and hairlines 
 
 A list too long to draw whole, such as a Node's log, draws only the rows near its view (`VirtualRows`). It follows the tail while scrolled to the end, stops following once scrolled up, and follows again when scrolled back down.
 
+### Poster card
+
+One Work in the Library grid. Its poster is 2:3 on `glass-raised` with radius 14, a hairline ring and the `poster` shadow, loaded at the medium size once its row is drawn. A Work with no poster, or whose image fails to load, keeps the empty frame. Under the poster sit the label in Body at 600 in `ink-1`, the type's first facts field in Meta at `ink-3` (the year for a movie) and the Work's status marks, each on one truncated line. A Work with none of its Items monitored dims its poster to 55% and says "Not monitored". A pick checkbox sits on a `popover` patch at the top left, hidden until hover or focus and shown on every card once picking starts. A picked card rings its poster with a 2px `glow` ring. The poster and label are one link to the Work page, with the focus outline 4px out.
+
+### Library grid
+
+Posters fill the width in equal columns at least 120px (small), 160px (medium, the default) or 240px (large) wide, 16px apart both ways, so a phone shows two to a row. Each section of the sort opens on its name in Heading, with its count in Label at `ink-3` and tabular numerals. The grid draws only the rows near the window's view, so 20,000 Works scroll as smoothly as 20, and a change to one Work redraws only its card. The arrow keys move between posters, up and down keep the column across section headings, Home and End go to the first and last, Enter opens a Work and Space picks it. The table view is a table from Lists and tables with one row per Work and the same marks. The Library is a screen with no Work, so its tint is neutral.
+
+### Status marks
+
+A Work's status is a mark of a word and an icon, so colour never carries it alone. Marks are Meta with 14px icons.
+- **Unreleased:** A calendar, in `ink-3`.
+- **Missing:** A dashed circle, in `ink-2`.
+- **Downloading:** A download arrow in `glow`, with the word in `ink-1`.
+- **Failed:** The fail signal chip.
+- **Upgrade available:** An up arrow, in `ink-2`.
+- **Met:** A check, in `ink-1`.
+- **Not monitored:** A silenced bell in `ink-3`, after the status.
+- **Gone from TMDB:** The warn signal chip, naming the Work's metadata source.
+
+A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Whenever any wanted cell failed, a fail chip with the count of failed cells leads, whatever the status, and the status mark never repeats it. The status is the first state any of the Work's Items holds in the glossary's rollup order: unreleased, held, missing, downloading, converting, failed, upgradable, met. Needs you and the matrix use the display rank instead, failed first, because they lead with what a person must fix. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
+
 ### Edition × Target matrix and state squares
 
-The Work page's grid of wanted cuts and versions. Every cell is in one of seven states, ranked failed, upgrade, missing, downloading, converting, Met and not aired. Each state has a chip and a square.
+The Work page's grid of wanted cuts and versions. Every cell is in one of seven states, ranked failed, upgrade, missing, downloading, converting, Met and unreleased. Each state has a chip and a square. This display rank, failed first, orders the matrix and Needs you. A Work's status uses the glossary's rollup order instead (see Status marks).
 - **Met:** Solid white.
 - **Upgrade:** A white ring with a centre dot.
 - **Missing:** A hatch.
 - **Live:** A fill rising from the bottom with the glow.
 - **Failed:** Solid `fail`.
-- **Not aired:** A hairline ring.
+- **Unreleased:** A hairline ring.
 
 There are three layouts.
 - **One Item.** A full table with a 168px first column. Each cell shows its state chip, its facts and its one action. Each Target header names its sourcing.
-- **Many Items.** One collapsible glass section per level. The header holds the level name, a stacked state bar (180 × 8px), a tally and a level search. A section opens when anything in it is not Met or not aired. Rows are 36px, with 16px squares in 42 × 30 buttons grouped by Edition. Runs of not-aired Items fold into one line.
+- **Many Items.** One collapsible glass section per level. The header holds the level name, a stacked state bar (180 × 8px), a tally and a level search. A section opens when anything in it is not Met or unreleased. Rows are 36px, with 16px squares in 42 × 30 buttons grouped by Edition. Runs of unreleased Items fold into one line.
 - **Needs you.** A list above the matrix with compact failure cards first, then upgrades and Not found rows. Consecutive identical Items merge into ranges.
 
 Hovering or focusing a square opens a Popover with its detail, and clicking pins it. On phone, one Item becomes one card per Edition, and many Items keep their rows, with each row opening a sheet.
@@ -657,7 +679,7 @@ The phone's bottom sheet. It is glass at `sheet` with a 24px top edge, a 38 × 5
 
 ### Command palette
 
-⌘K on Apple platforms and Ctrl+K elsewhere toggles it, and the top bar's search capsule and the phone's Search open it. In the desktop shell it is 640px wide at 12vh from the top and at most `min(600px, 80vh)` tall, glass with float large and radius 20, over a .5 black scrim. It fades in from 98% scale over 220ms. Its 60px input row sets 17px text and turns `fill-hover` with a glow underline while focused. Results are grouped (Works, then Commands), with 44px options, each led by an 18px icon with its meta in Meta at `ink-3` on the right. Works show 5 at rest and 8 while typing. A 40px footer shows the ↑↓, ↵ and Esc hints. On phone it is full screen inside the safe areas, with 56px options and a Cancel in `glow`.
+⌘K on Apple platforms and Ctrl+K elsewhere toggles it, and the top bar's search capsule and the phone's Search open it. In the desktop shell it is 640px wide at 12vh from the top and at most `min(600px, 80vh)` tall, glass with float large and radius 20, over a .5 black scrim. It fades in from 98% scale over 220ms. Its 60px input row sets 17px text and turns `fill-hover` with a glow underline while focused. Results are grouped (Works, then an Add group for each enabled Content Type, then Commands), with 44px options, each led by an 18px icon or a small poster with its meta in Meta at `ink-3` on the right. With no query it lists only Commands. Works show up to 8 library matches by any title a Work is known by, with the Work's first fact, type and status as meta. An Add group asks its type's catalog once typing pauses for 400ms with at least two characters, shows the first 5 results, marks one already added "In the library", and ends with "See all results" to the add page. A 40px footer shows the ↑↓, ↵ and Esc hints. On phone it is full screen inside the safe areas, with 56px options and a Cancel in `glow`.
 
 ### Toast
 
