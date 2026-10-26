@@ -117,8 +117,9 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	}
 	out := make([]world, len(trees))
 	at := make(map[works.WorkID]*world, len(trees))
+	today := f.cfg.Today()
 	for i, t := range trees {
-		out[i] = world{tree: t, goals: goals[t.ID], root: homes[t.ID], fills: map[CellKey]ID{}, grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: f.cfg.Today()}
+		out[i] = world{tree: t, goals: goals[t.ID], root: homes[t.ID], grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: today}
 		at[t.ID] = &out[i]
 	}
 	q := db.New(r)
@@ -145,7 +146,11 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		return nil, err
 	}
 	for _, fill := range fills {
-		of[fill.FileID].fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
+		w := of[fill.FileID]
+		if w.fills == nil {
+			w.fills = map[CellKey]ID{}
+		}
+		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
 	}
 	return out, nil
 }
