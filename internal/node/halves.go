@@ -443,7 +443,7 @@ func (n *Node) openLibraries() map[works.TypeID]contenttype.Library {
 		libraries[t.ID()] = t.OpenLibrary(contenttype.LibraryDeps{
 			Region: metadata.Region,
 			Log:    n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
-		})
+		}, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
 	return libraries
 }

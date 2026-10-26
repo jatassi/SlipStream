@@ -41,9 +41,22 @@ var Fake = fake.Spec{
 	New:  newServer,
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.TMDB.API = endpoint.MustParseURL(at.URL(root))
+		browserOnly(e)
 	},
 	Online: fake.OnlineSuite("tmdb"),
 	Cues:   []fake.CueSpec{RevokeKey, Change, Delete},
+}
+
+// browserOnly points the hosts a browser opens from TMDB's data, which no
+// fake serves, under .invalid: TMDB's key page and every host a movie's
+// links name. The end-to-end suite asserts each href and never follows it.
+func browserOnly(e *node.EndpointsBlock) {
+	e.TMDB.KeyPage = endpoint.MustParseURL("https://www.tmdb.invalid/settings/api")
+	for key, host := range map[string]string{
+		"imdb": "https://www.imdb.invalid", "tmdb_site": "https://www.tmdb.invalid", "trakt": "https://trakt.invalid", "youtube": "https://www.youtube.invalid",
+	} {
+		e.ContentTypes.Set("movie", key, host)
+	}
 }
 
 const (

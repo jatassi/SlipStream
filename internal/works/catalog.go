@@ -30,6 +30,18 @@ type Catalog interface {
 	// Fields reads the type's own rows for one Work: values keyed by node,
 	// each of the kind its FieldSpec declares.
 	Fields(ctx context.Context, r storage.Reader[storage.Library], w WorkID) (FieldSet, error)
+	// ListFields reads, for each of ws in one call, the Work-tier fields
+	// whose spec has a List flag, and only those. works hands it at most
+	// 2,000 ids.
+	ListFields(ctx context.Context, r storage.Reader[storage.Library], ws []WorkID) (map[WorkID][]FieldValue, error)
+	// Titles is every title w is known by beyond its label and sort label,
+	// in any language, for search. The core calls it inside the Write that
+	// stores w.
+	Titles(ctx context.Context, r storage.Reader[storage.Library], w WorkID) ([]string, error)
+	// Links is w's outbound links from its key and its stored Work-tier
+	// fields, in the order the Work page shows them. It does no IO, so a
+	// changed host needs no refresh.
+	Links(key Key, fields []FieldValue) []WebLink
 	Settings
 }
 
@@ -73,13 +85,44 @@ type Fetching struct {
 type Description struct {
 	Name string
 	Icon Icon
-	Work Noun
+	// Source names the type's metadata source in words, such as TMDB.
+	Source string
+	Work   Noun
 	// Levels are outermost first, empty when Items hang off the Work.
 	Levels []Noun
 	Item   Noun
+	// Items is how many Items a Work of the type holds, which picks the
+	// Work page's layout.
+	Items  ItemsShape
 	Fields []FieldSpec
 	// Artwork is the kinds of image the type's Works and Items carry.
 	Artwork []artwork.Kind
+	// Art names the Work-tier artwork kinds the Library and the Work page
+	// show.
+	Art ArtRoles
+	// Ratings is the order a Work's ratings show in. The first source a
+	// Work holds is its hero rating and the Library's rating column. A
+	// source missing here is never shown.
+	Ratings []RatingSource
+}
+
+type ItemsShape uint8
+
+const (
+	ItemsOne ItemsShape = iota + 1
+	ItemsMany
+)
+
+var itemsNames = map[ItemsShape]string{ItemsOne: "one", ItemsMany: "many"}
+
+func (s ItemsShape) String() string { return itemsNames[s] }
+
+// ArtRoles are the keys of Work-tier artwork kinds, each empty when the
+// type has none: Poster of shape poster for the Library and the hero,
+// Backdrop of shape backdrop behind the hero, and Title of shape logo, the
+// title treatment.
+type ArtRoles struct {
+	Poster, Backdrop, Title string
 }
 
 // Icon names the glyph that stands for a Content Type in navigation.
@@ -114,7 +157,58 @@ type FieldSpec struct {
 	Label string
 	Tier  Tier
 	Kind  FieldKind
+	// In is every place the Work page shows the field, at least one.
+	In []Place
+	// List puts a Work-tier field in the Library projection.
+	List Listing
+	// With names a text field of the same tier shown in brackets after
+	// this one, such as a certification's country.
+	With string
+	// Art names a Work-tier artwork kind shown beside the value, such as a
+	// studio's logo.
+	Art string
 }
+
+// Place is where the Work page shows a field.
+type Place uint8
+
+const (
+	// PlaceFacts is the hero's facts line, in declared order. It takes no
+	// people field.
+	PlaceFacts Place = iota + 1
+	// PlaceTagline and PlaceOverview each take at most one text field.
+	PlaceTagline
+	PlaceOverview
+	// PlaceAbout is About's list of keys and values.
+	PlaceAbout
+	// PlaceCredits takes people fields only.
+	PlaceCredits
+	// PlaceDetails is under About's Details.
+	PlaceDetails
+)
+
+var placeNames = map[Place]string{
+	PlaceFacts: "facts", PlaceTagline: "tagline", PlaceOverview: "overview", PlaceAbout: "about", PlaceCredits: "credits", PlaceDetails: "details",
+}
+
+func (p Place) String() string { return placeNames[p] }
+
+// Listing is a set of flags.
+type Listing uint8
+
+const (
+	// ListColumn is a column of the Library's table.
+	ListColumn Listing = 1 << iota
+	// ListSort is a sort, with sections by its value.
+	ListSort
+	// ListFilter is a filter: picked values for text and texts, a range for
+	// number, date and duration.
+	ListFilter
+
+	listAll = ListColumn | ListSort | ListFilter
+)
+
+func (l Listing) Has(f Listing) bool { return l&f != 0 }
 
 type Tier int
 
@@ -185,6 +279,29 @@ type Link struct {
 	Label string
 	URL   string
 }
+
+// WebLink is one outbound link a browser opens in a new tab. No Node ever
+// calls its URL.
+type WebLink struct {
+	// Key is stable across releases, such as imdb.
+	Key   string
+	Label string
+	URL   string
+	Kind  LinkKind
+}
+
+type LinkKind uint8
+
+const (
+	// LinkPage is a button in About.
+	LinkPage LinkKind = iota + 1
+	// LinkTrailer is the Trailer link.
+	LinkTrailer
+)
+
+var linkKindNames = map[LinkKind]string{LinkPage: "page", LinkTrailer: "trailer"}
+
+func (k LinkKind) String() string { return linkKindNames[k] }
 
 func TextField(key, v string) FieldValue { return FieldValue{Key: key, Kind: KindText, Text: v} }
 

@@ -93,7 +93,7 @@ func open(f faketest.Served) metadata.Source {
 }
 
 func library() contenttype.Library {
-	return music.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)})
+	return music.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, music.Def.Endpoints())
 }
 
 func added(t *testing.T, s scenario.Scenario, artist works.Key) (contenttype.Library, *storage.DB[storage.Library], works.Tree) {

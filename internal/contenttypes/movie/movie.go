@@ -26,42 +26,53 @@ type file = storage.Library
 //go:embed schema/*.sql
 var schemaFiles embed.FS
 
-var Def = contenttype.Define("movie", schemaFiles, nil, contenttype.Halves[struct{}]{
-	Provider: func(d contenttype.ProviderDeps, _ struct{}) metadata.Source {
+var Def = contenttype.Define("movie", schemaFiles, DefaultEndpoints, contenttype.Halves[Endpoints]{
+	Provider: func(d contenttype.ProviderDeps, _ Endpoints) metadata.Source {
 		return &Source{tmdb: d.TMDB, omdb: d.OMDb}
 	},
-	Library: func(d contenttype.LibraryDeps) contenttype.Library { return &Movie{region: d.Region} },
+	Library: func(d contenttype.LibraryDeps, e Endpoints) contenttype.Library {
+		return &Movie{region: d.Region, web: e}
+	},
 })
 
 var Description = works.Description{
-	Name: "Movies",
-	Icon: works.IconFilm,
-	Work: works.Noun{One: "Movie", Many: "Movies"},
-	Item: works.Noun{One: "Movie", Many: "Movies"},
+	Name:   "Movies",
+	Icon:   works.IconFilm,
+	Source: "TMDB",
+	Work:   works.Noun{One: "Movie", Many: "Movies"},
+	Item:   works.Noun{One: "Movie", Many: "Movies"},
+	Items:  works.ItemsOne,
 	Fields: []works.FieldSpec{
-		{Key: "english_title", Label: "English title", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "original_title", Label: "Original title", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "original_language", Label: "Original language", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "year", Label: "Year", Tier: works.TierWork, Kind: works.KindNumber},
-		{Key: "release_date", Label: "Release date", Tier: works.TierWork, Kind: works.KindDate},
-		{Key: "runtime", Label: "Runtime", Tier: works.TierWork, Kind: works.KindDuration},
-		{Key: "status", Label: "Status", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "certification", Label: "Certification", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "certification_country", Label: "Certification country", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "genres", Label: "Genres", Tier: works.TierWork, Kind: works.KindTexts},
-		{Key: "tagline", Label: "Tagline", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "overview", Label: "Overview", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "studio", Label: "Studio", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "collection", Label: "Collection", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "credits", Label: "Cast and crew", Tier: works.TierWork, Kind: works.KindPeople},
-		{Key: "alternative_titles", Label: "Alternative titles", Tier: works.TierWork, Kind: works.KindTexts},
-		{Key: "imdb_id", Label: "IMDb id", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "trailer_site", Label: "Trailer site", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "trailer_key", Label: "Trailer key", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "awards", Label: "Awards", Tier: works.TierWork, Kind: works.KindText},
+		{Key: "english_title", Label: "English title", Kind: works.KindText, In: in(works.PlaceDetails)},
+		{Key: "original_title", Label: "Original title", Kind: works.KindText, In: in(works.PlaceAbout)},
+		{Key: "original_language", Label: "Original language", Kind: works.KindText, In: in(works.PlaceAbout)},
+		{Key: "year", Label: "Year", Kind: works.KindNumber, In: in(works.PlaceFacts), List: works.ListColumn | works.ListSort | works.ListFilter},
+		{Key: "release_date", Label: "Release date", Kind: works.KindDate, In: in(works.PlaceAbout)},
+		{Key: "runtime", Label: "Runtime", Kind: works.KindDuration, In: in(works.PlaceFacts), List: works.ListColumn | works.ListSort},
+		{Key: "status", Label: "Status", Kind: works.KindText, In: in(works.PlaceDetails)},
+		{
+			Key: "certification", Label: "Certification", Kind: works.KindText, In: in(works.PlaceFacts, works.PlaceAbout),
+			With: "certification_country", List: works.ListColumn | works.ListSort | works.ListFilter,
+		},
+		{Key: "certification_country", Label: "Certification country", Kind: works.KindText, In: in(works.PlaceDetails)},
+		{Key: "genres", Label: "Genres", Kind: works.KindTexts, In: in(works.PlaceFacts, works.PlaceAbout), List: works.ListFilter},
+		{Key: "tagline", Label: "Tagline", Kind: works.KindText, In: in(works.PlaceTagline)},
+		{Key: "overview", Label: "Overview", Kind: works.KindText, In: in(works.PlaceOverview)},
+		{Key: "studio", Label: "Studio", Kind: works.KindText, In: in(works.PlaceAbout), Art: studioLogoKind.Key},
+		{Key: "collection", Label: "Collection", Kind: works.KindText, In: in(works.PlaceAbout)},
+		{Key: "credits", Label: "Cast and crew", Kind: works.KindPeople, In: in(works.PlaceCredits)},
+		{Key: "alternative_titles", Label: "Alternative titles", Kind: works.KindTexts, In: in(works.PlaceDetails)},
+		{Key: "imdb_id", Label: "IMDb id", Kind: works.KindText, In: in(works.PlaceDetails)},
+		{Key: "trailer_site", Label: "Trailer site", Kind: works.KindText, In: in(works.PlaceDetails)},
+		{Key: "trailer_key", Label: "Trailer key", Kind: works.KindText, In: in(works.PlaceDetails)},
+		{Key: "awards", Label: "Awards", Kind: works.KindText, In: in(works.PlaceAbout)},
 	},
 	Artwork: []artwork.Kind{posterKind, backdropKind, titleTreatmentKind, studioLogoKind},
+	Art:     works.ArtRoles{Poster: posterKind.Key, Backdrop: backdropKind.Key, Title: titleTreatmentKind.Key},
+	Ratings: []works.RatingSource{"imdb", "tmdb", "rottentomatoes", "metacritic"},
 }
+
+func in(places ...works.Place) []works.Place { return places }
 
 // textFields are rec's text fields that hold a value.
 func textFields(rec record) []works.FieldValue {
@@ -102,6 +113,7 @@ const itemKey works.Key = "movie"
 // Movie is the library half.
 type Movie struct {
 	region func(context.Context, storage.Reader[file]) (string, error)
+	web    Endpoints
 }
 
 func (*Movie) Describe() works.Description { return Description }

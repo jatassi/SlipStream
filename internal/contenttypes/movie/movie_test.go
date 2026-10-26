@@ -214,7 +214,7 @@ func (sv sources) tmdbOf(t *testing.T, ask metadata.Ask, id int64) tmdb.Movie {
 }
 
 func library() contenttype.Library {
-	return movie.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)})
+	return movie.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, movie.Def.Endpoints())
 }
 
 func ask(language, region string) metadata.Ask {

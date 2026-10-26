@@ -632,6 +632,86 @@ func TestOpenPanicsOnADescriptionThatBreaksARule(t *testing.T) {
 		"works: content type fixture: noun {One:Box Many:} needs both One and Many": bad(func(d *works.Description) {
 			d.Levels = []works.Noun{{One: "Box"}}
 		}),
+		"works: content type fixture: it names no source": bad(func(d *works.Description) {
+			d.Source = ""
+		}),
+		"works: content type fixture: it has no Items shape": bad(func(d *works.Description) {
+			d.Items = 0
+		}),
+		"works: content type fixture: it holds one Item and declares levels": bad(func(d *works.Description) {
+			d.Items = works.ItemsOne
+		}),
+		"works: content type fixture: field origin is in no place": bad(func(d *works.Description) {
+			d.Fields[0].In = nil
+		}),
+		"works: content type fixture: field origin is in place 9, which doesn't exist": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{9}
+		}),
+		"works: content type fixture: field origin is in about twice": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{works.PlaceAbout, works.PlaceAbout}
+		}),
+		"works: content type fixture: field tags is texts, and tagline takes text only": bad(func(d *works.Description) {
+			d.Fields[4].In = []works.Place{works.PlaceTagline}
+		}),
+		"works: content type fixture: fields origin and blurb are both in overview, which takes one": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{works.PlaceOverview}
+			d.Fields = append(d.Fields, works.FieldSpec{Key: "blurb", Label: "Blurb", Kind: works.KindText, In: []works.Place{works.PlaceOverview}})
+		}),
+		"works: content type fixture: field origin is text, and credits takes people only": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{works.PlaceCredits}
+		}),
+		"works: content type fixture: field makers is people, which facts doesn't take": bad(func(d *works.Description) {
+			d.Fields[5].In = []works.Place{works.PlaceFacts}
+		}),
+		"works: content type fixture: field origin has list flags 1000, which aren't all flags": bad(func(d *works.Description) {
+			d.Fields[0].List = 8
+		}),
+		"works: content type fixture: field count sits at the Items and is listed, and only Work-tier fields are": bad(func(d *works.Description) {
+			d.Fields[2].List = works.ListColumn
+		}),
+		"works: content type fixture: field makers is people, which the Library can't list": bad(func(d *works.Description) {
+			d.Fields[5].List = works.ListColumn
+		}),
+		"works: content type fixture: field page is link, which the Library can't list": bad(func(d *works.Description) {
+			d.Fields[6].List = works.ListFilter
+		}),
+		"works: content type fixture: field tags is texts, which the Library can't sort by": bad(func(d *works.Description) {
+			d.Fields[4].List = works.ListSort
+		}),
+		"works: content type fixture: field origin is shown with nowhere, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[0].With = "nowhere"
+		}),
+		"works: content type fixture: field origin is shown with tags, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[0].With = "tags"
+		}),
+		"works: content type fixture: field origin is shown with origin, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[0].With = "origin"
+		}),
+		"works: content type fixture: field origin is shown with packed, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[1].Kind = works.KindText
+			d.Fields[0].With = "packed"
+		}),
+		"works: content type fixture: field origin shows art nope, which is no Work-tier artwork kind": bad(func(d *works.Description) {
+			d.Fields[0].Art = "nope"
+		}),
+		"works: content type fixture: field origin shows art snap, which is no Work-tier artwork kind": bad(func(d *works.Description) {
+			d.Fields[0].Art = "snap"
+		}),
+		"works: content type fixture: its poster art nope is no Work-tier artwork kind of shape poster": bad(func(d *works.Description) {
+			d.Art.Poster = "nope"
+		}),
+		"works: content type fixture: its backdrop art photo is no Work-tier artwork kind of shape backdrop": bad(func(d *works.Description) {
+			d.Art.Backdrop = "photo"
+		}),
+		"works: content type fixture: its title art snap is no Work-tier artwork kind of shape logo": bad(func(d *works.Description) {
+			d.Art.Title = "snap"
+		}),
+		"works: content type fixture: it shows ratings from letterboxd, which RatingSources doesn't list": bad(func(d *works.Description) {
+			d.Ratings = []works.RatingSource{"letterboxd"}
+		}),
+		"works: content type fixture: it shows ratings from imdb twice": bad(func(d *works.Description) {
+			d.Ratings = []works.RatingSource{"imdb", "tmdb", "imdb"}
+		}),
 	} {
 		func() {
 			defer func() {
