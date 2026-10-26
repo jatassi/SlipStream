@@ -16,10 +16,10 @@ SELECT * FROM transfers_resume
 WHERE transfer_id = sqlc.arg(transfer_id) AND position = sqlc.arg(position) AND place = sqlc.arg(place);
 
 -- name: PutResume :exec
-INSERT INTO transfers_resume (transfer_id, position, place, size, mtime_ns, file_id, verified)
-VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(place), sqlc.arg(size), sqlc.arg(mtime_ns), sqlc.arg(file_id), sqlc.arg(verified))
+INSERT INTO transfers_resume (transfer_id, position, place, size, mtime_ns, file_key, verified)
+VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(place), sqlc.arg(size), sqlc.arg(mtime_ns), sqlc.arg(file_key), sqlc.arg(verified))
 ON CONFLICT (transfer_id, position, place) DO UPDATE
-SET size = excluded.size, mtime_ns = excluded.mtime_ns, file_id = excluded.file_id, verified = excluded.verified, done = 0;
+SET size = excluded.size, mtime_ns = excluded.mtime_ns, file_key = excluded.file_key, verified = excluded.verified, done = 0;
 
 -- name: DeleteResumeElsewhere :exec
 DELETE FROM transfers_resume

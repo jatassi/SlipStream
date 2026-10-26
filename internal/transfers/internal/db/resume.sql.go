@@ -62,10 +62,10 @@ func (q *Queries) ListStaging(ctx context.Context) ([]TransfersStaging, error) {
 }
 
 const putResume = `-- name: PutResume :exec
-INSERT INTO transfers_resume (transfer_id, position, place, size, mtime_ns, file_id, verified)
+INSERT INTO transfers_resume (transfer_id, position, place, size, mtime_ns, file_key, verified)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 ON CONFLICT (transfer_id, position, place) DO UPDATE
-SET size = excluded.size, mtime_ns = excluded.mtime_ns, file_id = excluded.file_id, verified = excluded.verified, done = 0
+SET size = excluded.size, mtime_ns = excluded.mtime_ns, file_key = excluded.file_key, verified = excluded.verified, done = 0
 `
 
 type PutResumeParams struct {
@@ -74,7 +74,7 @@ type PutResumeParams struct {
 	Place      int64
 	Size       int64
 	MtimeNs    int64
-	FileID     []byte
+	FileKey    []byte
 	Verified   []byte
 }
 
@@ -85,7 +85,7 @@ func (q *Queries) PutResume(ctx context.Context, arg PutResumeParams) error {
 		arg.Place,
 		arg.Size,
 		arg.MtimeNs,
-		arg.FileID,
+		arg.FileKey,
 		arg.Verified,
 	)
 	return err
@@ -107,7 +107,7 @@ func (q *Queries) PutStaging(ctx context.Context, arg PutStagingParams) error {
 }
 
 const resume = `-- name: Resume :one
-SELECT transfer_id, position, place, size, mtime_ns, file_id, verified, done FROM transfers_resume
+SELECT transfer_id, position, place, size, mtime_ns, file_key, verified, done FROM transfers_resume
 WHERE transfer_id = ?1 AND position = ?2 AND place = ?3
 `
 
@@ -126,7 +126,7 @@ func (q *Queries) Resume(ctx context.Context, arg ResumeParams) (TransfersResume
 		&i.Place,
 		&i.Size,
 		&i.MtimeNs,
-		&i.FileID,
+		&i.FileKey,
 		&i.Verified,
 		&i.Done,
 	)

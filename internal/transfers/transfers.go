@@ -42,26 +42,66 @@ type FailedError struct{ Reason string }
 
 func (e *FailedError) Error() string { return "transfers: " + e.Reason }
 
+// Timings are protocol internals, config only.
 type Timings struct {
-	// Chunk bounds the wait for each frame from the source.
+	// Chunk bounds the wait for each frame from the source, and each
+	// write to a lane.
 	Chunk time.Duration `yaml:"chunk"`
+	// Report is the most often a Node sends facts while bytes move.
+	Report time.Duration `yaml:"report"`
+	// Dial is how long a route this end dials may fail before it gives
+	// the route up.
+	Dial time.Duration `yaml:"dial"`
+	// Estimate is the window of a receiver's speed average.
+	Estimate time.Duration `yaml:"estimate"`
+	// Ahead is the chunks each lane keeps asked for ahead.
+	Ahead int `yaml:"ahead"`
+	// SyncBytes and SyncEvery bound a receiver's batch: it syncs, reads
+	// back and records its chunks at whichever comes first.
+	SyncBytes int64         `yaml:"sync_bytes"`
+	SyncEvery time.Duration `yaml:"sync_every"`
+	// RetryMin and RetryMax bound the backoff of a chunk, a dial or a
+	// source that isn't ready.
+	RetryMin time.Duration `yaml:"retry_min"`
+	RetryMax time.Duration `yaml:"retry_max"`
+	// Damaged is how many failed checks of one chunk fail the Transfer.
+	Damaged int `yaml:"damaged"`
+	// Piece is the largest write the send limit paces at once, in bytes.
+	Piece int64 `yaml:"piece"`
 }
 
-func DefaultTimings() Timings { return Timings{Chunk: 30 * time.Second} }
+func DefaultTimings() Timings {
+	return Timings{
+		Chunk:     30 * time.Second,
+		Report:    time.Second,
+		Dial:      30 * time.Second,
+		Estimate:  20 * time.Second,
+		Ahead:     2,
+		SyncBytes: 64 << 20,
+		SyncEvery: time.Second,
+		RetryMin:  time.Second,
+		RetryMax:  time.Minute,
+		Damaged:   4,
+		Piece:     64 << 10,
+	}
+}
 
 // Payloads finds a torrent's file on this Node.
 type Payloads interface {
 	Path(hash bencode.InfoHash, index int) (string, error)
 }
 
-// Hooks are the simulation tier's view into a Source. Production leaves
-// them zero.
+// Hooks are the simulation tier's view into a Source and a Node.
+// Production leaves them zero.
 type Hooks struct {
 	// Read wraps the file each chunk is read from, so a test can change
 	// the bytes or fail a read.
 	Read func(io.ReaderAt) io.ReaderAt
 	// Wanted sees each Want the Source answers.
 	Wanted func(hash bencode.InfoHash, index int, chunks []int)
+	// Sent sees each chunk a Node sends after it hashed it, and may change
+	// it.
+	Sent func(transfer ID, position, index int, data []byte)
 }
 
 // Hash is a chunk's BLAKE3-256.

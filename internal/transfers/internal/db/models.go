@@ -20,7 +20,7 @@ type TransfersResume struct {
 	Place      int64
 	Size       int64
 	MtimeNs    int64
-	FileID     []byte
+	FileKey    []byte
 	Verified   []byte
 	Done       int64
 }

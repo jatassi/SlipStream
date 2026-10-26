@@ -16,7 +16,8 @@ CREATE TABLE transfers_resume (
     place INTEGER NOT NULL,
     size INTEGER NOT NULL CHECK (size >= 0),
     mtime_ns INTEGER NOT NULL,
-    file_id BLOB,
+    -- file_key is the volume's id of the source file, NULL where it keeps none.
+    file_key BLOB,
     -- verified holds one bit per chunk, chunk i at bit i % 8 of byte i / 8.
     verified BLOB NOT NULL,
     -- done: synced, closed and FileVerified queued in the same write.
