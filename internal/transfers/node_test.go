@@ -332,6 +332,43 @@ func TestATornStagedFileRestartsFromZero(t *testing.T) {
 	})
 }
 
+func TestASourceChangedWhileStoppedRestartsItsFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tr, w := interrupt(t)
+		changed := make([]byte, sizes[0])
+		_, _ = rand.NewChaCha8([32]byte{9}).Read(changed)
+		if err := os.WriteFile(w[0].source(0), changed, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		later := time.Now().Add(time.Hour)
+		if err := os.Chtimes(w[0].source(0), later, later); err != nil {
+			t.Fatal(err)
+		}
+		w[1].start()
+		tr.expectArrived()
+		if n := tr.sent.count(0, 0); n != 2 {
+			t.Fatalf("chunk 0 of a changed source was sent %d times, want again: a file of two versions must not arrive", n)
+		}
+	})
+}
+
+func TestALostResumeRecordRestartsItsFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tr, w := interrupt(t)
+		if err := w[1].local.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+			_, err := tx.ExecContext(ctx, "DELETE FROM transfers_resume")
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		w[1].start()
+		tr.expectArrived()
+		if n := tr.sent.count(0, 0); n != 2 {
+			t.Fatalf("chunk 0 was sent %d times after its record was lost, want again: nothing unverified is trusted", n)
+		}
+	})
+}
+
 func TestAChunkDamagedAfterHashingIsAskedAgain(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		_, w, _ := trio(t)
