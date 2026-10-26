@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -85,11 +86,18 @@ func TestMagnetLinksGetTheirMetadataFromTheSwarm(t *testing.T) {
 		works[rel.name] = grabbed(t, a, rel)
 	}
 
-	for _, rel := range []magnetRelease{trackerlessOrchard, harborMagnet, meadowRedirect, privateFalls} {
+	imported := []magnetRelease{trackerlessOrchard, harborMagnet, meadowRedirect, privateFalls}
+	var placed []string
+	for _, rel := range imported {
 		g := endedGrab(t, a, works[rel.name])
 		if g.Stage != "imported" || g.InfoHash != infoHashOf(t, m, rel.name) {
 			t.Fatalf("the Grab of %s ended %s with %+v after %v, want %s imported", rel.name, g.Stage, g.Failure, g.stages(), g.InfoHash)
 		}
+		placed = append(placed, rel.placed)
+	}
+	slices.Sort(placed)
+	holdsOnly(t, m, placed...)
+	for _, rel := range imported {
 		if _, err := world.MatchRelease(m, filepath.Join(m.MediaDir, filepath.FromSlash(rel.placed)), rel.name); err != nil {
 			t.Fatalf("%s: %v", rel.name, err)
 		}
