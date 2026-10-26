@@ -1,0 +1,45 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: transfers_transfer.id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/transfers/internal/db
+              package: local
+              type: TransferID
+          - column: transfers_file.transfer_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/transfers/internal/db
+              package: local
+              type: TransferID
+          - column: transfers_transfer.destination_root
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+              pointer: true
+          - column: "*.source_node"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.destination_node"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: transfers_file.placed
+            go_type:
+              type: bool
