@@ -80,7 +80,7 @@ func (s *server) ServeUDP(ctx context.Context, sockets map[string]*net.UDPConn) 
 		n.Serve(origin, conn)
 	}
 	<-ctx.Done()
-	return n.Close() //nolint:wrapcheck // closing the sockets has nothing to add
+	return n.Close()
 }
 
 // peers is origin's seeder front of the public seeded release of h.

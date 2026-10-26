@@ -259,7 +259,7 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 		}
 		link := origin + "/download/" + rel.InfoHash + ".torrent"
 		var magnetAttr string
-		if rel.Link == scenario.MagnetLink || rel.Link == scenario.RedirectLink {
+		if rel.Link.Magnet() {
 			magnet, err := s.magnet(rel, fake.OriginOf(r.Context()))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -268,7 +268,7 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 			if rel.Link == scenario.MagnetLink {
 				link = magnet
 			}
-			magnetAttr = fmt.Sprintf("      <torznab:attr name=\"magneturl\" value=\"%s\" />\n", esc(magnet))
+			magnetAttr = fmt.Sprintf(`      <torznab:attr name="magneturl" value="%s" />`+"\n", esc(magnet))
 		}
 		fmt.Fprintf(&b, `    <item>
       <title>%s</title>

@@ -13,8 +13,6 @@ import (
 	"testing/synctest"
 	"time"
 
-	"connectrpc.com/connect/v2"
-
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
@@ -28,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -362,7 +361,7 @@ func TestAGrabFailsAtItsDeadlineAfterAnyRestart(t *testing.T) {
 func TestAResolveCallCutShortAsksAgain(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		rel := newRelease(t)
-		cut := connect.NewError(connect.CodeUnimplemented, "unary stream has zero messages")
+		cut := rpc.Errorf(rpc.CodeUnimplemented, "unary stream has zero messages")
 		p := newPipeline(t, answer{err: cut}, answer{res: downloadclients.Resolved{Info: rel.info}})
 		id := p.grab(rel.link.String(), nil)
 		p.running()

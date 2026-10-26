@@ -58,7 +58,21 @@ const (
 )
 
 // Magnet reports whether the feeds lead to the release's magnet link.
-func (r Release) Magnet() bool { return r.Link == MagnetLink || r.Link == RedirectLink }
+func (l Link) Magnet() bool { return l == MagnetLink || l == RedirectLink }
+
+func (r Release) checkLink(add func(format string, args ...any)) {
+	switch r.Link {
+	case "", TorrentLink, MagnetLink, RedirectLink:
+	default:
+		add("release %s link %q is not torrent, magnet or redirect", r.Name, r.Link)
+	}
+	if r.Trackerless && !r.Link.Magnet() {
+		add("release %s is trackerless, which is for link magnet or redirect", r.Name)
+	}
+	if r.Trackerless && !r.Public {
+		add("release %s is trackerless and private; a trackerless release is public", r.Name)
+	}
+}
 
 // BadPeer is how a release's bad peer misbehaves once a leecher asks it
 // for pieces. It always claims to hold every piece.
@@ -207,17 +221,7 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 			add("release %s advertises %d bytes", r.Name, r.AdvertisedSize)
 		}
 		r.BadPeer.check(add, r.Name)
-		switch r.Link {
-		case "", TorrentLink, MagnetLink, RedirectLink:
-		default:
-			add("release %s link %q is not torrent, magnet or redirect", r.Name, r.Link)
-		}
-		if r.Trackerless && !r.Magnet() {
-			add("release %s is trackerless, which is for link magnet or redirect", r.Name)
-		}
-		if r.Trackerless && !r.Public {
-			add("release %s is trackerless and private; a trackerless release is public", r.Name)
-		}
+		r.checkLink(add)
 	}
 }
 
