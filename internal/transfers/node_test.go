@@ -332,6 +332,43 @@ func TestATornStagedFileRestartsFromZero(t *testing.T) {
 	})
 }
 
+func TestASourceChangedWhileStoppedRestartsItsFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tr, w := interrupt(t)
+		changed := make([]byte, sizes[0])
+		_, _ = rand.NewChaCha8([32]byte{9}).Read(changed)
+		if err := os.WriteFile(w[0].source(0), changed, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		later := time.Now().Add(time.Hour)
+		if err := os.Chtimes(w[0].source(0), later, later); err != nil {
+			t.Fatal(err)
+		}
+		w[1].start()
+		tr.expectArrived()
+		if n := tr.sent.count(0, 0); n != 2 {
+			t.Fatalf("chunk 0 of a changed source was sent %d times, want again: a file of two versions must not arrive", n)
+		}
+	})
+}
+
+func TestALostResumeRecordRestartsItsFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tr, w := interrupt(t)
+		if err := w[1].local.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+			_, err := tx.ExecContext(ctx, "DELETE FROM transfers_resume")
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		w[1].start()
+		tr.expectArrived()
+		if n := tr.sent.count(0, 0); n != 2 {
+			t.Fatalf("chunk 0 was sent %d times after its record was lost, want again: nothing unverified is trusted", n)
+		}
+	})
+}
+
 func TestAChunkDamagedAfterHashingIsAskedAgain(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		_, w, _ := trio(t)
@@ -430,6 +467,42 @@ func TestTheSendLimitPacesChunks(t *testing.T) {
 		}
 		if !slices.ContainsFunc(w[0].h.facts(), func(f *tv1.Facts) bool { return sending(f, tr.id).GetBinding() }) {
 			t.Fatal("the sender's facts never said the send limit held a chunk back")
+		}
+	})
+}
+
+func TestASendLimitTooSlowForAChunkPerLaneWithinTheChunkTimeoutStillArrives(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		w[0].start()
+		w[1].start()
+		const limit = 64 << 10
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, limit)
+		tr.expectArrived()
+		for k, n := range tr.sent.counts() {
+			if n > 1 {
+				t.Fatalf("chunk %d of file %d was sent %d times, want once: a slow lane that keeps moving isn't stalled", k[1], k[0], n)
+			}
+		}
+	})
+}
+
+func TestALaneStalledPastTheChunkTimeoutIsRedialed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		tr.sent.setHold(func(position, index int) {
+			if position == 0 && index == 1 && tr.sent.count(0, 1) == 1 {
+				time.Sleep(w[1].timings.Chunk + 15*time.Second)
+			}
+		})
+		w[0].start()
+		w[1].start()
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
+		tr.expectArrived()
+		if n := tr.sent.count(0, 1); n != 2 {
+			t.Fatalf("the stalled chunk was sent %d times, want twice: once on the stalled lane, once after the redial", n)
 		}
 	})
 }

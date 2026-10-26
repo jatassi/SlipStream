@@ -28,6 +28,9 @@ type lane struct {
 	route tv1.Route
 	// write bounds each write. A write that times out breaks the lane.
 	write time.Duration
+	// stall bounds the wait for each next byte of the frame being read, so
+	// a lane slower than a chunk per stall still moves; 0 waits for ever.
+	stall time.Duration
 	// dialed: this Node opened the lane, so its first frame from the peer
 	// is what proves the route works.
 	dialed bool
@@ -54,6 +57,13 @@ func newLane(c net.Conn, route tv1.Route, write time.Duration) *lane {
 }
 
 func (l *lane) Read(b []byte) (int, error) {
+	var deadline time.Time
+	if l.stall > 0 {
+		deadline = time.Now().Add(l.stall)
+	}
+	if err := l.c.SetReadDeadline(deadline); err != nil {
+		return 0, fmt.Errorf("read a frame: %w", err)
+	}
 	n, err := l.c.Read(b)
 	l.count(n)
 	return n, err //nolint:wrapcheck // a Reader's errors pass through, io.EOF included
@@ -65,16 +75,10 @@ func (l *lane) count(n int) {
 	}
 }
 
-// read returns the next frame, waiting at most wait, or for as long as it
-// takes when wait is 0.
+// read returns the next frame, waiting at most wait for each of its
+// bytes, or for as long as it takes when wait is 0.
 func (l *lane) read(wait time.Duration) (*tv1.Frame, error) {
-	var deadline time.Time
-	if wait > 0 {
-		deadline = time.Now().Add(wait)
-	}
-	if err := l.c.SetReadDeadline(deadline); err != nil {
-		return nil, fmt.Errorf("read a frame: %w", err)
-	}
+	l.stall = wait
 	n, err := binary.ReadUvarint(l.r)
 	if err != nil {
 		return nil, fmt.Errorf("read a frame: %w", err)

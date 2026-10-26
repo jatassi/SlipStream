@@ -32,8 +32,9 @@ const ChunkSize = engine.ChunkSize
 
 // Timings are protocol internals, config only.
 type Timings struct {
-	// Chunk bounds the wait for each frame from the source, and each
-	// write to a lane.
+	// Chunk bounds the wait for each next byte from a lane, so a lane
+	// that stops moving is redialed however slow it is, and each write
+	// to a lane.
 	Chunk time.Duration `yaml:"chunk"`
 	// Report is the most often a Node sends facts while bytes move.
 	Report time.Duration `yaml:"report"`

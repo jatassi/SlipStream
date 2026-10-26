@@ -4,7 +4,9 @@ description: >-
   The Worker seedbox pairs by Join Code and holds Searching and Downloading.
   The Worker nas pairs by Join Code and holds Storage with the Movies root,
   so a Grab downloaded on seedbox reaches nas's root through a Transfer
-  between the two Workers.
+  between the two Workers. The release is a 60 second video of about
+  36 MB, so its Transfer spans nine chunks and reads copying between
+  them.
 seed: seedbox-nas
 admin:
   email: ada@example.test
@@ -33,7 +35,7 @@ tmdb:
 releases:
   - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
     tmdb_id: 9000001
-    video: {width: 1920, height: 1080, seconds: 6}
+    video: {width: 1920, height: 1080, seconds: 60}
     seeders: 12
     seeded: true
     advertised_size: 8.2GiB

@@ -195,18 +195,19 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
 		search(t, w, addOrchard(t, w))
 		<-p.reached
-		eventually(t, "the transferring Grab reads its Transfer copying", func() bool {
+		eventually(t, "the transferring Grab reads its Transfer's bytes", func() bool {
 			gs := grabsListed(t, w)
 			return len(gs) == 1 && gs[0].Stage == "transferring" && gs[0].Progress != nil &&
-				gs[0].Progress.Total == int64(len(sim.Payload(release))) && gs[0].Progress.Transfer != nil && gs[0].Progress.Transfer.State == "copying"
+				gs[0].Progress.Total == int64(len(sim.Payload(release)))
 		})
 		listed := decode[struct {
 			Transfers []struct {
 				JobName string `json:"jobName"`
+				State   string `json:"state"`
 			} `json:"transfers"`
 		}](t, "listTransfers", w.API().Admin("home", http.MethodGet, "/api/v1/transfers", "")).Transfers
-		if len(listed) != 1 || listed[0].JobName != "The Quiet Orchard" {
-			t.Fatalf("listTransfers = %+v, want the Grab's Transfer named The Quiet Orchard", listed)
+		if len(listed) != 1 || listed[0].JobName != "The Quiet Orchard" || listed[0].State != "copying" {
+			t.Fatalf("listTransfers = %+v, want the Grab's Transfer named The Quiet Orchard, copying", listed)
 		}
 		a := w.API()
 		writeOff(t, a, seedbox(t, a).ID)
