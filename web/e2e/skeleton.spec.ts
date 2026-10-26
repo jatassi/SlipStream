@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures.ts";
-import { navigate, pageAction } from "./shell.ts";
+import { workSearch } from "./cells.ts";
+import { navigate } from "./shell.ts";
 
 test.use({ scenario: "home" });
 test.describe.configure({ timeout: 120_000 });
@@ -18,7 +19,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
     .click();
   await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
 
-  await pageAction(page, "Search").click();
+  await workSearch(page).click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Search started");
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
     "Grabbed a release2 releases found",
@@ -37,7 +38,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
   await page.getByRole("link", { name: "The Quiet Orchard", exact: true }).click();
   const file = page.getByRole("list", { name: "Files" }).getByRole("listitem");
   await expect(file).toContainText(
-    "The Quiet Orchard (2021) - 1080p.mkvThe Quiet Orchard (2021)1920×1080",
+    "The Quiet Orchard (2021) - 1080p.mkvThe Quiet Orchard (2021) · Fills 1080pWEBDL-1080p · 1920×1080",
   );
 
   const completed = await world.fw.capture("announces").list({ where: { event: "completed" } });

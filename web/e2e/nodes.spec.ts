@@ -1,7 +1,8 @@
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures.ts";
-import { isPhone, pageAction } from "./shell.ts";
+import { workSearch } from "./cells.ts";
+import { isPhone } from "./shell.ts";
 
 test.use({ scenario: "home" });
 test.describe.configure({ timeout: 300_000 });
@@ -51,7 +52,7 @@ test("an offline seedbox lights the Nodes dot, its Indexer's search says what it
   await world.fw.node("stop", "seedbox");
   await expectNodesRow(page, " needs attention", 90_000);
 
-  await pageAction(page, "Search").click();
+  await workSearch(page).click();
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
     /^The Indexer didn't respondWaiting for seedbox · offline since /u,
   );
