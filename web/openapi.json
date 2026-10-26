@@ -14679,6 +14679,7 @@
                         "code": {
                           "enum": [
                             "content_type_in_use",
+                            "content_type_last",
                             "worker_node"
                           ],
                           "type": "string"

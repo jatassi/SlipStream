@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { sentenceOf } from "../api/errors";
+import { isProblem, sentenceOf } from "../api/errors";
 import type { WorksContentType } from "../api/gen/model";
 import { setContentTypeEnabled, useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { adoptContentType } from "../live/adopt";
@@ -18,7 +18,11 @@ function TypeSwitch({ type, last }: { type: WorksContentType; last: boolean }) {
     try {
       adoptContentType(queryClient, await setContentTypeEnabled(type.id, { enabled }));
     } catch (error) {
-      setRefusal(sentenceOf(error));
+      setRefusal(
+        isProblem(error, "content_type_last")
+          ? "At least one kind of media stays on. Turn on another before turning this one off."
+          : sentenceOf(error),
+      );
     } finally {
       setBusy(false);
     }
