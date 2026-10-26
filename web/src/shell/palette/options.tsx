@@ -1,12 +1,7 @@
 import { Add01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 
-import type {
-  Bare,
-  FilesState,
-  WorksContentType,
-  WorksFieldSpec,
-  WorksLibraryRow,
-} from "../../api/gen/model";
+import type { Bare, WorksContentType, WorksFieldSpec, WorksLibraryRow } from "../../api/gen/model";
+import { statusMarks } from "../../library/status";
 import type { PaletteGroup, PaletteOption } from "../../ui/command-palette";
 import { Poster } from "../../ui/poster";
 import { factTexts } from "../../works/page/facts";
@@ -14,22 +9,13 @@ import { openAddSheet } from "../../works/add/sheet-state";
 import { addLabel, fieldText } from "../../works/fields";
 import type { CommandContext } from "../commands";
 import { contentTypeIcons } from "../icons";
-import { closePalette } from "../palette-state";
 // oxlint-disable-next-line import/max-dependencies -- an option leads with a poster and opens a Work, the add sheet or the add page
+import { closePalette } from "../palette-state";
 import type { CatalogResults } from "./provider";
 
 export const closingThen = (run: () => void) => () => {
   closePalette();
   run();
-};
-
-const statusWords: { readonly [S in FilesState]: string } = {
-  unreleased: "Unreleased",
-  missing: "Missing",
-  downloading: "Downloading",
-  failed: "Failed",
-  upgradable: "Upgradable",
-  met: "Met",
 };
 
 function valueText(spec: WorksFieldSpec, value: Bare): string {
@@ -61,7 +47,7 @@ export function workOptions(
     const meta = [
       ...firstFact(type, work),
       type.work.one,
-      ...(work.status === null ? [] : [statusWords[work.status]]),
+      ...(work.status === null ? [] : [statusMarks[work.status].word]),
     ];
     return [
       {

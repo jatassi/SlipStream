@@ -49,6 +49,8 @@ export type World = {
 
 type Fixtures = {
   scenario: Scenario;
+  /** How long fakeworld may take to bring the Scenario up, and to stop it. */
+  launchSeconds: number;
   at: string;
   startupSequence: boolean;
   runDir: string;
@@ -67,7 +69,8 @@ declare global {
   }
 }
 
-const launchTimeout = 60;
+// The scale Scenario adds 20,000 Works before it is up.
+const slowestLaunch = 1800;
 
 function binary(variable: "TEST_SLIPSTREAM_BINARY" | "TEST_FAKEWORLD_BINARY"): string {
   const path = env[variable];
@@ -141,6 +144,8 @@ async function guard(context: BrowserContext, origin: string): Promise<() => Pro
 export const test = base.extend<Fixtures, WorkerFixtures>({
   scenario: ["single-machine", { option: true }],
 
+  launchSeconds: [60, { option: true }],
+
   // Each test opens a new tab, which plays the startup sequence over the
   // page, so only tests that use it ask for it.
   startupSequence: [false, { option: true }],
@@ -148,7 +153,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
   at: ["home", { option: true }],
 
   runDir: [
-    async ({ scenario }, use, testInfo) => {
+    async ({ scenario, launchSeconds }, use, testInfo) => {
       const runDir = testInfo.outputPath("run");
       const start = await fakeworld([
         "start",
@@ -159,7 +164,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         "--run-dir",
         runDir,
         "--timeout",
-        `${launchTimeout}s`,
+        `${launchSeconds}s`,
         "--test-command",
         testCommand(testInfo),
       ]);
@@ -167,7 +172,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         throw new Error(`fakeworld start: ${start.stderr}`);
       }
       await use(runDir);
-      const stop = await fakeworld(["stop", runDir, "--timeout", `${launchTimeout}s`]);
+      const stop = await fakeworld(["stop", runDir, "--timeout", `${launchSeconds}s`]);
       await testInfo.attach("fakeworld stop", {
         body: stop.stdout,
         contentType: "application/json",
@@ -180,7 +185,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         await rm(runDir, { recursive: true });
       }
     },
-    { timeout: (launchTimeout + 10) * 1000 },
+    { timeout: (2 * slowestLaunch + 10) * 1000 },
   ],
 
   world: async ({ runDir, browserName, at }, use) => {
