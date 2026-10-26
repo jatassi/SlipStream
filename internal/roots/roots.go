@@ -427,31 +427,43 @@ func reached(err error) error {
 	return err
 }
 
+// MakeDefault makes root id its Content Type's default.
 func (r *Roots) MakeDefault(ctx context.Context, _ identity.Admin, id ID) error {
-	changed := []ID{id}
+	var changed []ID
 	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		root, err := Get(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		q := db.New(tx)
-		was, err := found(q.GetDefaultRoot(ctx, root.ContentType))
-		switch {
-		case err == nil && was.ID != id:
-			changed = append(changed, was.ID)
-		case err != nil && !errors.Is(err, ErrNotFound):
-			return err
-		}
-		if err := q.ClearDefaultRoot(ctx, root.ContentType); err != nil {
-			return err
-		}
-		return q.SetDefaultRoot(ctx, id)
+		var err error
+		changed, err = MakeDefaultIn(ctx, tx, id)
+		return err
 	})
 	if err != nil {
 		return err
 	}
-	r.cfg.Changed.Publish(ctx, changedOf(changed))
+	r.Publish(ctx, changed)
 	return nil
+}
+
+// MakeDefaultIn makes root id its Content Type's default in tx, writing
+// only when it isn't already. changed is the roots whose default mark
+// moved, none when it was the default. Its caller publishes them after
+// commit.
+func MakeDefaultIn(ctx context.Context, tx *storage.Tx[file], id ID) (changed []ID, err error) {
+	root, err := Get(ctx, tx, id)
+	if err != nil || root.Default {
+		return nil, err
+	}
+	q := db.New(tx)
+	changed = []ID{id}
+	was, err := found(q.GetDefaultRoot(ctx, root.ContentType))
+	switch {
+	case err == nil:
+		changed = append(changed, was.ID)
+	case !errors.Is(err, ErrNotFound):
+		return nil, err
+	}
+	if err := q.ClearDefaultRoot(ctx, root.ContentType); err != nil {
+		return nil, err
+	}
+	return changed, q.SetDefaultRoot(ctx, id)
 }
 
 // Publish sends roots.changed naming ids, for a change committed in

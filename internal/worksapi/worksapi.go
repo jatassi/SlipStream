@@ -76,7 +76,6 @@ var (
 	profileWrongType    = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
 	rootWrongType       = api.NewCode(http.StatusUnprocessableEntity, "root_wrong_type", "The root holds another Content Type's Works")
-	notImplemented      = api.NewCode(http.StatusNotImplemented, "not_implemented", "This route isn't built yet")
 )
 
 var codes = []struct {
@@ -96,7 +95,6 @@ var codes = []struct {
 	{targets.ErrProfileWrongType, profileWrongType},
 	{roots.ErrNotFound, rootNotFound},
 	{roots.ErrWrongType, rootWrongType},
-	{library.ErrNotBuilt, notImplemented},
 }
 
 func answer(err error) error {

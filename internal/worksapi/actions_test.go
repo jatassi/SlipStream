@@ -246,7 +246,7 @@ func (s *shelves) profile(t *testing.T, name string, of ...targets.Target) targe
 	return p.ID
 }
 
-// add adds the Work key of typ, of one Item, through the API, into root
+// add adds the Work key of typ, of one Item and unmonitored, through the API, into root
 // and wanting from profile when they are set.
 func (s *shelves) add(t *testing.T, typ works.TypeID, key string, root *roots.Root, profile *targets.ProfileID) string {
 	t.Helper()
@@ -260,7 +260,7 @@ func (s *shelves) add(t *testing.T, typ works.TypeID, key string, root *roots.Ro
 	if profile != nil {
 		body += `,"profileId":"` + profile.String() + `"`
 	}
-	code, reply := s.Call(t, http.MethodPost, "/api/v1/works", body+"}")
+	code, reply := s.Call(t, http.MethodPost, "/api/v1/works", body+`,"monitor":false}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork %s = %d %s", key, code, reply)
 	}
