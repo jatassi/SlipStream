@@ -8,19 +8,42 @@ type Values = {
   startupPlayed: boolean;
   lastEmail: string;
   showHiddenFolders: boolean;
+  /** Each Library's last view, by Content Type id or "all", in its address form; the Library parses it. */
+  libraryViews: Readonly<Record<string, unknown>>;
 };
 
 export type Pref = keyof Values;
 
-type Kind<T> = { area: Area; fallback: T; parse: (raw: string) => T };
+type Kind<T> = {
+  area: Area;
+  fallback: T;
+  parse: (raw: string) => T;
+  serialize: (value: T) => string;
+};
 
 const flag = (area: Area): Kind<boolean> => ({
   area,
   fallback: false,
   parse: (raw) => raw === "true",
+  serialize: String,
 });
 
-const text = (area: Area): Kind<string> => ({ area, fallback: "", parse: (raw) => raw });
+const text = (area: Area): Kind<string> => ({
+  area,
+  fallback: "",
+  parse: (raw) => raw,
+  serialize: (value) => value,
+});
+
+const views: Kind<Values["libraryViews"]> = {
+  area: "browser",
+  fallback: {},
+  parse: (raw) => {
+    const stored: unknown = JSON.parse(raw);
+    return typeof stored === "object" && stored !== null ? { ...stored } : {};
+  },
+  serialize: (value) => JSON.stringify(value),
+};
 
 const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   sidebarCollapsed: flag("browser"),
@@ -28,6 +51,7 @@ const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   startupPlayed: flag("tab"),
   lastEmail: text("browser"),
   showHiddenFolders: flag("browser"),
+  libraryViews: views,
 };
 
 export const prefKey = (pref: Pref): string => `slipstream.${pref}`;
@@ -61,8 +85,9 @@ export function readPref<P extends Pref>(pref: P): Values[P] {
 
 export function writePref<P extends Pref>(pref: P, value: Values[P]): void {
   values[pref] = value;
+  const kind: Kind<Values[P]> = kinds[pref];
   try {
-    storageOf(pref).setItem(prefKey(pref), String(value));
+    storageOf(pref).setItem(prefKey(pref), kind.serialize(value));
   } catch {
     // The value holds for this page.
   }
