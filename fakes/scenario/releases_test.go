@@ -16,6 +16,9 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		good,
 		{Name: "a b.mkv", TMDBID: 0, Video: Video{Width: 1919, Height: 1080, Seconds: 0}, Seeders: -1, BadPeer: "evil"},
 		{Name: "B.2021.720p", TMDBID: 2, Video: Video{Width: 1280, Height: 720, Seconds: 6}},
+		{Name: "A.2021.2160p", TMDBID: 1, Video: Video{Width: 3840, Height: 2160, Seconds: 6}, Link: "ftp", Trackerless: true},
+		{Name: "A.2021.480p", TMDBID: 1, Video: Video{Width: 640, Height: 480, Seconds: 6}, Link: MagnetLink, Trackerless: true},
+		{Name: "A.2021.576p", TMDBID: 1, Video: Video{Width: 720, Height: 576, Seconds: 6}, Link: RedirectLink, Trackerless: true, Public: true},
 	}}
 	want := []string{
 		"scenario x: release A.2021.1080p is listed twice",
@@ -26,6 +29,10 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		"scenario x: release a b.mkv has -1 seeders",
 		`scenario x: release a b.mkv bad_peer "evil" is not corrupt, stall, choke or drop`,
 		"scenario x: release B.2021.720p names tmdb movie 2, which tmdb does not list",
+		`scenario x: release A.2021.2160p link "ftp" is not torrent, magnet or redirect`,
+		"scenario x: release A.2021.2160p is trackerless, which is for link magnet or redirect",
+		"scenario x: release A.2021.2160p is trackerless and private; a trackerless release is public",
+		"scenario x: release A.2021.480p is trackerless and private; a trackerless release is public",
 		"scenario x: tracker interval -1s is negative",
 	}
 	err := s.Validate()

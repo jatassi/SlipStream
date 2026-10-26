@@ -211,7 +211,7 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 
 func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
 	s := scenarioWithSeed()
-	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built")
+	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
 	if err != nil {
 		t.Fatal(err)
 	}

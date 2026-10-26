@@ -1034,6 +1034,20 @@
               "choke",
               "drop"
             ]
+          },
+          "public": {
+            "type": "boolean"
+          },
+          "link": {
+            "type": "string",
+            "enum": [
+              "torrent",
+              "magnet",
+              "redirect"
+            ]
+          },
+          "trackerless": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false,

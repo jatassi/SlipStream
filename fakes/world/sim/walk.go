@@ -87,7 +87,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 	var listing []site.Release
 	for _, r := range s.Releases {
 		payload := Payload(r.Name)
-		meta, hash, err := releases.Metainfo(r.Name+".mkv", payload, announce)
+		meta, hash, err := releases.Metainfo(r.Name+".mkv", payload, announce, r.Public)
 		if err != nil {
 			t.Fatal(err)
 		}
