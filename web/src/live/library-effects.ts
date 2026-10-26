@@ -23,9 +23,17 @@ export const libraryEffects = {
   "works.changed": (data, { refresh }) => {
     noteWork("fetch");
     refresh({ queryKey: getListWorksQueryKey() });
-    refresh({ queryKey: getGetWorkQueryKey(data.workId) });
-    refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+    for (const workId of data.workIds) {
+      refresh({ queryKey: getGetWorkQueryKey(workId) });
+      refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
+    }
     refresh({ queryKey: getListRootsQueryKey() });
+    refresh(everyCatalogSearch);
+  },
+  "works.removed": (_data, { refresh }) => {
+    refresh({ queryKey: getListWorksQueryKey() });
+    refresh({ queryKey: getListRootsQueryKey() });
+    refresh({ queryKey: getGetCountsQueryKey() });
     refresh(everyCatalogSearch);
   },
   "works.content-types-changed": (_data, { refresh }) => {
@@ -52,6 +60,7 @@ export const libraryEffects = {
 } satisfies Pick<
   LiveEffects,
   | "works.changed"
+  | "works.removed"
   | "works.content-types-changed"
   | "works.type-changed"
   | "files.changed"

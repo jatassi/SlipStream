@@ -342,7 +342,7 @@ func (discard[T]) Publish(context.Context, T) {}
 
 type published struct{ n atomic.Int64 }
 
-func (p *published) Publish(context.Context, works.WorkChanged) { p.n.Add(1) }
+func (p *published) Publish(context.Context, works.Changed) { p.n.Add(1) }
 
 // retyped records each works.type-changed by its Content Type.
 type retyped struct {

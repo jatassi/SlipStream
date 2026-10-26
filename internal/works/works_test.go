@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -47,7 +48,7 @@ type harness struct {
 	works   *works.Works
 	lib     *storage.DB[storage.Library]
 	fx      *contenttypetest.Fixture
-	changed *recorder[works.WorkChanged]
+	changed *recorder[works.Changed]
 	types   *recorder[works.ContentTypesChanged]
 	log     *bytes.Buffer
 	art     *prefetched
@@ -66,7 +67,7 @@ func (p *prefetched) Prefetch(wants []artwork.Want) {
 
 func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog, source works.Source) (*works.Works, *harness) {
 	t.Helper()
-	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}}
+	h := &harness{lib: lib, changed: &recorder[works.Changed]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}}
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     catalogs,
@@ -234,7 +235,7 @@ func TestAddTwiceFetchesOnce(t *testing.T) {
 	if got := render(tree); got != want {
 		t.Fatalf("tree =\n%s\nwant\n%s", got, want)
 	}
-	if got := h.changed.take(); len(got) != 1 || got[0].WorkID != tree.ID.String() {
+	if got := h.changed.take(); len(got) != 1 || !slices.Equal(got[0].WorkIDs, []string{tree.ID.String()}) {
 		t.Fatalf("published %v, want one works.changed for %s", got, tree.ID)
 	}
 
@@ -310,7 +311,7 @@ func TestRefreshKeepsEveryID(t *testing.T) {
 		t.Fatalf("refreshed tree =\n%s\nwant\n%s", got, want)
 	}
 	sameIDs(t, first, second)
-	if got := h.changed.take(); len(got) != 1 || got[0].WorkID != first.ID.String() {
+	if got := h.changed.take(); len(got) != 1 || !slices.Equal(got[0].WorkIDs, []string{first.ID.String()}) {
 		t.Fatalf("published %v, want one works.changed for %s", got, first.ID)
 	}
 
@@ -371,7 +372,7 @@ func TestGoneUpstreamMarksAndChangesNothingElse(t *testing.T) {
 	if encode(t, unmarked) != encode(t, tree) {
 		t.Fatalf("marking it gone changed more than the mark:\n%s\n%s", encode(t, unmarked), encode(t, tree))
 	}
-	if got := h.changed.take(); len(got) != 1 || got[0].WorkID != tree.ID.String() {
+	if got := h.changed.take(); len(got) != 1 || !slices.Equal(got[0].WorkIDs, []string{tree.ID.String()}) {
 		t.Fatalf("marking it gone published %v, want one works.changed for %s", got, tree.ID)
 	}
 	if _, err := h.works.Refresh(t.Context(), admin, tree.ID); !errors.Is(err, works.ErrGoneUpstream) {

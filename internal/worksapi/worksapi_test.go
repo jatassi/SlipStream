@@ -104,7 +104,7 @@ func serve(t *testing.T) *server {
 		Source:       fx.Source(),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
-		Changed:      discard[works.WorkChanged]{},
+		Changed:      discard[works.Changed]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
 		TypeChanged:  discard[works.TypeChanged]{},
 		Log:          log,

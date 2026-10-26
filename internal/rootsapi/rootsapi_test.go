@@ -134,7 +134,7 @@ func serve(t *testing.T) *server {
 		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
-		Changed:      discard[works.WorkChanged]{},
+		Changed:      discard[works.Changed]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
 		Log:          slog.New(slog.DiscardHandler),
 	})

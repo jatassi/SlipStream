@@ -129,7 +129,7 @@ test("Activity counts moving jobs and follows grabs.changed", async () => {
   counts.set(3);
   server.clients[0]?.send({
     event: "grabs.changed",
-    data: { grabId: "7e9a1c3d-5f7b-4d9e-8a1c-5e7f9b1d3a4c", workId: orchardId },
+    data: { grabId: "7e9a1c3d-5f7b-4d9e-8a1c-5e7f9b1d3a4c", workId: orchardId, progress: false },
   });
   await expect.element(activity).toHaveTextContent("Activity3 live");
 });

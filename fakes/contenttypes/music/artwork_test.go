@@ -63,7 +63,7 @@ func TestMusicCoverArtUsesTheSameStore(t *testing.T) {
 	m := metadatatest.Artwork(t, lib, map[works.TypeID]metadata.Source{music.Def.ID(): src}, client, metadata.DefaultTimings())
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): library()}, Timings: works.DefaultTimings(),
-		Source: m, Artwork: m, Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+		Source: m, Artwork: m, Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)

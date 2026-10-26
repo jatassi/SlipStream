@@ -211,7 +211,7 @@ func TestSetMonitoredPublishesChanged(t *testing.T) {
 	}
 	h.changed.take()
 	monitored := func(tree works.Tree) string { return monitoredKeys(t, h, tree.ID) }
-	published := func() []string { return publishedIDs(h) }
+	published := func() []string { return publishedIDs(t, h) }
 	both := []string{a.ID.String(), b.ID.String()}
 	slices.Sort(both)
 
@@ -220,7 +220,7 @@ func TestSetMonitoredPublishesChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := published(); !reflect.DeepEqual(got, both) {
-		t.Fatalf("monitoring Items of two Works published %v, want one works.changed each for %v", got, both)
+		t.Fatalf("monitoring Items of two Works published %v, want one works.changed naming %v", got, both)
 	}
 	if ga, gb := monitored(a), monitored(b); ga != "c1 c2" || gb != "c3" {
 		t.Fatalf("monitored = %q and %q, want c1 c2 and c3", ga, gb)
@@ -257,10 +257,17 @@ func monitoredKeys(t *testing.T, h *harness, id works.WorkID) string {
 	return strings.Join(on, " ")
 }
 
-func publishedIDs(h *harness) []string {
+// publishedIDs are the Works the one works.changed since the last call
+// names, none when nothing published.
+func publishedIDs(t *testing.T, h *harness) []string {
+	t.Helper()
+	events := h.changed.take()
+	if len(events) > 1 {
+		t.Fatalf("published %d works.changed, want at most one", len(events))
+	}
 	var ids []string
-	for _, c := range h.changed.take() {
-		ids = append(ids, c.WorkID)
+	for _, c := range events {
+		ids = append(ids, c.WorkIDs...)
 	}
 	slices.Sort(ids)
 	return ids

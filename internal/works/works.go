@@ -53,8 +53,26 @@ type Timings struct {
 
 func DefaultTimings() Timings { return Timings{Fetch: 30 * time.Second} }
 
-type WorkChanged struct {
-	WorkID string `json:"workId" format:"uuid"`
+// Changed names the Works that read differently now, at least one.
+type Changed struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
+// Removed names the Works deleted.
+type Removed struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
+func ChangedOf(ids ...WorkID) Changed { return Changed{WorkIDs: idStrings(ids)} }
+
+func RemovedOf(ids ...WorkID) Removed { return Removed{WorkIDs: idStrings(ids)} }
+
+func idStrings(ids []WorkID) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.String()
+	}
+	return out
 }
 
 type ContentTypesChanged struct {
@@ -66,7 +84,8 @@ type TypeChanged struct {
 }
 
 var (
-	ChangedEvent             = live.AdminEvent[WorkChanged]("works.changed")
+	ChangedEvent             = live.AdminEvent[Changed]("works.changed")
+	RemovedEvent             = live.AdminEvent[Removed]("works.removed")
 	ContentTypesChangedEvent = live.EveryoneEvent[ContentTypesChanged]("works.content-types-changed")
 	// TypeChangedEvent means every Work of the type may read differently,
 	// so a page refetches the type's Works instead of hearing one
@@ -123,7 +142,8 @@ type Config struct {
 		Prefetch(wants []artwork.Want)
 	}
 	Timings      Timings
-	Changed      Publisher[WorkChanged]
+	Changed      Publisher[Changed]
+	Removed      Publisher[Removed]
 	TypesChanged Publisher[ContentTypesChanged]
 	TypeChanged  Publisher[TypeChanged]
 	Log          *slog.Logger

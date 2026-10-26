@@ -52,7 +52,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},

@@ -1094,6 +1094,7 @@ export type FilesChangedOutput = zod.output<typeof FilesChanged>;
 
 export const GrabsChanged = zod.object({
   grabId: zod.uuid(),
+  progress: zod.boolean().describe("True when only the download's progress moved"),
   workId: zod.uuid(),
 });
 
@@ -3939,7 +3940,9 @@ export const TargetsAnyCut = zod.object({
 export type TargetsAnyCut = zod.input<typeof TargetsAnyCut>;
 export type TargetsAnyCutOutput = zod.output<typeof TargetsAnyCut>;
 
-export const TargetsChanged = zod.object({});
+export const TargetsChanged = zod.object({
+  workIds: zod.array(zod.string()),
+});
 
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
 export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
@@ -4982,6 +4985,13 @@ export const WorksCandidateList = zod.object({
 export type WorksCandidateList = zod.input<typeof WorksCandidateList>;
 export type WorksCandidateListOutput = zod.output<typeof WorksCandidateList>;
 
+export const WorksChanged = zod.object({
+  workIds: zod.array(zod.string()),
+});
+
+export type WorksChanged = zod.input<typeof WorksChanged>;
+export type WorksChangedOutput = zod.output<typeof WorksChanged>;
+
 export const WorksFieldSpec = zod.object({
   depth: zod
     .int()
@@ -5109,6 +5119,13 @@ export const WorksPreviewed = zod.object({
 export type WorksPreviewed = zod.input<typeof WorksPreviewed>;
 export type WorksPreviewedOutput = zod.output<typeof WorksPreviewed>;
 
+export const WorksRemoved = zod.object({
+  workIds: zod.array(zod.string()),
+});
+
+export type WorksRemoved = zod.input<typeof WorksRemoved>;
+export type WorksRemovedOutput = zod.output<typeof WorksRemoved>;
+
 export const WorksSettingsChange = zod.object({
   values: zod
     .record(zod.string(), zod.unknown())
@@ -5133,13 +5150,6 @@ export const WorksTypeSettings = zod.object({
 
 export type WorksTypeSettings = zod.input<typeof WorksTypeSettings>;
 export type WorksTypeSettingsOutput = zod.output<typeof WorksTypeSettings>;
-
-export const WorksWorkChanged = zod.object({
-  workId: zod.uuid(),
-});
-
-export type WorksWorkChanged = zod.input<typeof WorksWorkChanged>;
-export type WorksWorkChangedOutput = zod.output<typeof WorksWorkChanged>;
 
 export const WorksWorkList = zod.object({
   works: zod.array(WorksListedWork).describe("By sort label, then id"),
@@ -5350,7 +5360,7 @@ export type LiveEventVolumesChangedOutput = zod.output<typeof LiveEventVolumesCh
 
 export const LiveEventWorksChanged = zod.object({
   event: zod.enum(["works.changed"]),
-  data: WorksWorkChanged,
+  data: WorksChanged,
 });
 
 export type LiveEventWorksChanged = zod.input<typeof LiveEventWorksChanged>;
@@ -5365,6 +5375,14 @@ export type LiveEventWorksContentTypesChanged = zod.input<typeof LiveEventWorksC
 export type LiveEventWorksContentTypesChangedOutput = zod.output<
   typeof LiveEventWorksContentTypesChanged
 >;
+
+export const LiveEventWorksRemoved = zod.object({
+  event: zod.enum(["works.removed"]),
+  data: WorksRemoved,
+});
+
+export type LiveEventWorksRemoved = zod.input<typeof LiveEventWorksRemoved>;
+export type LiveEventWorksRemovedOutput = zod.output<typeof LiveEventWorksRemoved>;
 
 export const LiveEventWorksTypeChanged = zod.object({
   event: zod.enum(["works.type-changed"]),
@@ -5401,6 +5419,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
+  LiveEventWorksRemoved,
   LiveEventWorksTypeChanged,
 ]);
 

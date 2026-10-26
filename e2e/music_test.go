@@ -167,7 +167,7 @@ func TestMusic(t *testing.T) {
 		"    #7 1 Night Ferry [disc=1 length=190000ms]",
 		"    #8 2 Signal Fires [disc=1 length=224000ms]",
 	}, "\n"))
-	event(t, stream, "works.changed", `{"workId":"`+tr.ID+`"}`)
+	event(t, stream, "works.changed", `{"workIds":["`+tr.ID+`"]}`)
 
 	again := decode(t, "addWork again", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`"}`), &added{})
 	if again.Created || string(again.Work) != string(first.Work) {

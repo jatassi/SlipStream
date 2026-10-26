@@ -236,7 +236,7 @@ export function workServer() {
     grabMoves(next: GrabsGrab, nextCells = cells) {
       grabs = [next, otherWork];
       cells = nextCells;
-      send({ event: "grabs.changed", data: { grabId, workId: orchardId } });
+      send({ event: "grabs.changed", data: { grabId, workId: orchardId, progress: false } });
     },
   };
 }

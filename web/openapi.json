@@ -1962,6 +1962,10 @@
             "format": "uuid",
             "type": "string"
           },
+          "progress": {
+            "description": "True when only the download's progress moved",
+            "type": "boolean"
+          },
           "workId": {
             "format": "uuid",
             "type": "string"
@@ -1969,7 +1973,8 @@
         },
         "required": [
           "grabId",
-          "workId"
+          "workId",
+          "progress"
         ],
         "type": "object"
       },
@@ -8470,6 +8475,17 @@
       },
       "TargetsChanged": {
         "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
         "type": "object"
       },
       "TargetsCut": {
@@ -10430,6 +10446,21 @@
         ],
         "type": "object"
       },
+      "WorksChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
+        "type": "object"
+      },
       "WorksContentType": {
         "additionalProperties": false,
         "properties": {
@@ -11089,6 +11120,21 @@
         ],
         "type": "object"
       },
+      "WorksRemoved": {
+        "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
+        "type": "object"
+      },
       "WorksSettingsChange": {
         "additionalProperties": false,
         "properties": {
@@ -11267,19 +11313,6 @@
         },
         "required": [
           "settings"
-        ],
-        "type": "object"
-      },
-      "WorksWorkChanged": {
-        "additionalProperties": false,
-        "properties": {
-          "workId": {
-            "format": "uuid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "workId"
         ],
         "type": "object"
       },
@@ -17711,7 +17744,7 @@
                       {
                         "properties": {
                           "data": {
-                            "$ref": "#/components/schemas/WorksWorkChanged"
+                            "$ref": "#/components/schemas/WorksChanged"
                           },
                           "event": {
                             "const": "works.changed",
@@ -17758,6 +17791,32 @@
                           "event"
                         ],
                         "title": "Event works.content-types-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/WorksRemoved"
+                          },
+                          "event": {
+                            "const": "works.removed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event works.removed",
                         "type": "object"
                       },
                       {

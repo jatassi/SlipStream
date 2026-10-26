@@ -68,7 +68,7 @@ test("works.changed invalidates the Works, that Work, its cells and every catalo
     search: getSearchCatalogQueryKey("cinema", { query: "orchard" }),
   });
 
-  server.clients[0]?.send({ event: "works.changed", data: { workId: orchard } });
+  server.clients[0]?.send({ event: "works.changed", data: { workIds: [orchard] } });
   await expect.poll(invalidated).toEqual({
     list: true,
     work: true,
@@ -112,7 +112,7 @@ test("targets.changed invalidates every Work's cells and no Work", async () => {
     work: getGetWorkQueryKey(orchard),
   });
 
-  server.clients[0]?.send({ event: "targets.changed", data: {} });
+  server.clients[0]?.send({ event: "targets.changed", data: { workIds: [] } });
   await expect.poll(invalidated).toEqual({ orchard: true, harvest: true, work: false });
 });
 

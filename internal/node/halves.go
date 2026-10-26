@@ -208,6 +208,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Artwork:      meta,
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
+		Removed:      works.RemovedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
 		TypeChanged:  typeChanged,
 		Log:          n.rootLog.With("subsystem", "works"),

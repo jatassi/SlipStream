@@ -761,7 +761,7 @@ func (gr *Grabs) publishProgress(ctx context.Context, s *schedule, now time.Time
 			continue
 		}
 		s.shown[g.ID] = *p
-		gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
+		gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String(), Progress: true})
 	}
 }
 
