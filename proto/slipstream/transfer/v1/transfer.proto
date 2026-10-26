@@ -8,6 +8,8 @@ syntax = "proto3";
 
 package slipstream.transfer.v1;
 
+import "slipstream/transfer/v1/sync.proto";
+
 message Frame {
   oneof frame {
     Open open = 1;
@@ -19,36 +21,12 @@ message Frame {
   }
 }
 
-// Route is who opens a Transfer's lanes. BOTH_DIAL is the no-route wait
-// between two Workers: each end keeps trying its own direction.
-enum Route {
-  ROUTE_UNSPECIFIED = 0;
-  ROUTE_RECEIVER_DIALS = 1;
-  ROUTE_SENDER_DIALS = 2;
-  ROUTE_NODE_LINK = 3;
-  ROUTE_BOTH_DIAL = 4;
-}
-
 // Lane is a lane's first frame, from the side that opened it. route is the
 // route it was opened on, never BOTH_DIAL. The other side resets the lane
 // unless that Transfer is active with that peer on a route that takes it.
 message Lane {
   bytes transfer_id = 1;
   Route route = 2;
-}
-
-// Source is the file a sender reads.
-message Source {
-  oneof ref {
-    TorrentPayload torrent = 1;
-  }
-}
-
-// TorrentPayload is file file_index of a torrent its Node's torrent client
-// holds.
-message TorrentPayload {
-  bytes info_hash = 1;
-  uint32 file_index = 2;
 }
 
 // Open names the file of the lane's Transfer at position.

@@ -43,7 +43,7 @@ func (r *run) fact(now time.Time) proto.Message {
 		Active:        true,
 		VerifiedBytes: rx.verifiedBytes,
 		Rate:          int64(rx.rate),
-		Moving:        rx.moving,
+		Moving:        rx.moving != tv1.Route_ROUTE_UNSPECIFIED,
 		Lanes:         uint32(rx.lanes),              //nolint:gosec // one per route
 		RttMs:         uint32(rx.rtt.Milliseconds()), //nolint:gosec // a round trip, far under 49 days
 		Retried:       uint32(rx.retried),            //nolint:gosec // a count of chunks asked again

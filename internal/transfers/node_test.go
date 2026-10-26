@@ -242,7 +242,7 @@ func TestATransferArrivesWholeOnEachRoute(t *testing.T) {
 				receiver.start()
 				tr.route(c.route, 0)
 				tr.expectArrived()
-				if moved := receiver.h.moving(tr.id); !slices.Contains(moved, c.route) && c.route != tv1.Route_ROUTE_BOTH_DIAL {
+				if moved := receiver.h.moving(tr.id); !slices.Contains(moved, c.route) {
 					t.Fatalf("the receiver's facts said bytes moved on %v, want %s", moved, c.route)
 				}
 			})
@@ -366,27 +366,29 @@ func TestAStaleRouteLaneIsReset(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		_, w, _ := trio(t)
 		tr := newTransfer(t, w[0], w[1])
-		held := make(chan struct{})
+		held, reached := make(chan struct{}), make(chan struct{})
+		var once sync.Once
 		tr.sent.setHold(func(position, index int) {
 			if position == 0 && index == 2 {
+				once.Do(func() { close(reached) })
 				<-held
 			}
 		})
 		w[0].start()
 		w[1].start()
 		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
-		w[1].h.await(t, "bytes moving on route 1", func(_ []*tv1.Result, fs []*tv1.Facts) bool {
-			return len(fs) > 0 && receiving(fs[len(fs)-1], tr.id).GetMoving() == tv1.Route_ROUTE_RECEIVER_DIALS
-		})
+		<-reached
+		synctest.Wait()
+		if moved := w[1].h.moving(tr.id); !slices.Equal(moved, []tv1.Route{tv1.Route_ROUTE_RECEIVER_DIALS}) {
+			t.Fatalf("bytes moved on %v before the route changed, want route 1", moved)
+		}
 		tr.route(tv1.Route_ROUTE_SENDER_DIALS, 0)
+		synctest.Wait()
 		tr.sent.setHold(nil)
 		close(held)
 		tr.expectArrived()
-		for _, f := range w[1].h.facts() {
-			r := receiving(f, tr.id)
-			if r.GetRoute() == tv1.Route_ROUTE_SENDER_DIALS && r.GetMoving() == tv1.Route_ROUTE_RECEIVER_DIALS {
-				t.Fatalf("facts for route 2 said bytes moved on the route 1 lane: %v", r)
-			}
+		if n := tr.sent.count(0, 2); n != 2 {
+			t.Fatalf("the chunk held on the route 1 lane was sent %d times, want again on route 2", n)
 		}
 		if moved := w[1].h.moving(tr.id); !slices.Contains(moved, tv1.Route_ROUTE_SENDER_DIALS) {
 			t.Fatalf("bytes moved on %v after the route changed, want route 2", moved)
@@ -668,11 +670,12 @@ func lastWait(fs []*tv1.Facts, id storage.UUID) tv1.Wait_Kind {
 	return receiving(fs[len(fs)-1], id).GetWait().GetKind()
 }
 
+// moving is each route the receiver's facts said bytes moved on.
 func (h *holder) moving(id storage.UUID) []tv1.Route {
 	var out []tv1.Route
 	for _, f := range h.facts() {
-		if m := receiving(f, id).GetMoving(); m != tv1.Route_ROUTE_UNSPECIFIED && !slices.Contains(out, m) {
-			out = append(out, m)
+		if r := receiving(f, id); r.GetMoving() && !slices.Contains(out, r.GetRoute()) {
+			out = append(out, r.GetRoute())
 		}
 	}
 	return out

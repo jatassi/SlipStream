@@ -28,63 +28,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Route is who opens a Transfer's lanes. BOTH_DIAL is the no-route wait
-// between two Workers: each end keeps trying its own direction.
-type Route int32
-
-const (
-	Route_ROUTE_UNSPECIFIED    Route = 0
-	Route_ROUTE_RECEIVER_DIALS Route = 1
-	Route_ROUTE_SENDER_DIALS   Route = 2
-	Route_ROUTE_NODE_LINK      Route = 3
-	Route_ROUTE_BOTH_DIAL      Route = 4
-)
-
-// Enum value maps for Route.
-var (
-	Route_name = map[int32]string{
-		0: "ROUTE_UNSPECIFIED",
-		1: "ROUTE_RECEIVER_DIALS",
-		2: "ROUTE_SENDER_DIALS",
-		3: "ROUTE_NODE_LINK",
-		4: "ROUTE_BOTH_DIAL",
-	}
-	Route_value = map[string]int32{
-		"ROUTE_UNSPECIFIED":    0,
-		"ROUTE_RECEIVER_DIALS": 1,
-		"ROUTE_SENDER_DIALS":   2,
-		"ROUTE_NODE_LINK":      3,
-		"ROUTE_BOTH_DIAL":      4,
-	}
-)
-
-func (x Route) Enum() *Route {
-	p := new(Route)
-	*p = x
-	return p
-}
-
-func (x Route) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Route) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_transfer_v1_transfer_proto_enumTypes[0].Descriptor()
-}
-
-func (Route) Type() protoreflect.EnumType {
-	return &file_slipstream_transfer_v1_transfer_proto_enumTypes[0]
-}
-
-func (x Route) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Route.Descriptor instead.
-func (Route) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{0}
-}
-
 type Absent_Reason int32
 
 const (
@@ -121,11 +64,11 @@ func (x Absent_Reason) String() string {
 }
 
 func (Absent_Reason) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_transfer_v1_transfer_proto_enumTypes[1].Descriptor()
+	return file_slipstream_transfer_v1_transfer_proto_enumTypes[0].Descriptor()
 }
 
 func (Absent_Reason) Type() protoreflect.EnumType {
-	return &file_slipstream_transfer_v1_transfer_proto_enumTypes[1]
+	return &file_slipstream_transfer_v1_transfer_proto_enumTypes[0]
 }
 
 func (x Absent_Reason) Number() protoreflect.EnumNumber {
@@ -134,7 +77,7 @@ func (x Absent_Reason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Absent_Reason.Descriptor instead.
 func (Absent_Reason) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{7, 0}
+	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{5, 0}
 }
 
 type Frame struct {
@@ -338,127 +281,6 @@ func (x *Lane) GetRoute() Route {
 	return Route_ROUTE_UNSPECIFIED
 }
 
-// Source is the file a sender reads.
-type Source struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Ref:
-	//
-	//	*Source_Torrent
-	Ref           isSource_Ref `protobuf_oneof:"ref"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Source) Reset() {
-	*x = Source{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Source) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Source) ProtoMessage() {}
-
-func (x *Source) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Source.ProtoReflect.Descriptor instead.
-func (*Source) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *Source) GetRef() isSource_Ref {
-	if x != nil {
-		return x.Ref
-	}
-	return nil
-}
-
-func (x *Source) GetTorrent() *TorrentPayload {
-	if x != nil {
-		if x, ok := x.Ref.(*Source_Torrent); ok {
-			return x.Torrent
-		}
-	}
-	return nil
-}
-
-type isSource_Ref interface {
-	isSource_Ref()
-}
-
-type Source_Torrent struct {
-	Torrent *TorrentPayload `protobuf:"bytes,1,opt,name=torrent,proto3,oneof"`
-}
-
-func (*Source_Torrent) isSource_Ref() {}
-
-// TorrentPayload is file file_index of a torrent its Node's torrent client
-// holds.
-type TorrentPayload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	InfoHash      []byte                 `protobuf:"bytes,1,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
-	FileIndex     uint32                 `protobuf:"varint,2,opt,name=file_index,json=fileIndex,proto3" json:"file_index,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TorrentPayload) Reset() {
-	*x = TorrentPayload{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TorrentPayload) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TorrentPayload) ProtoMessage() {}
-
-func (x *TorrentPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TorrentPayload.ProtoReflect.Descriptor instead.
-func (*TorrentPayload) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *TorrentPayload) GetInfoHash() []byte {
-	if x != nil {
-		return x.InfoHash
-	}
-	return nil
-}
-
-func (x *TorrentPayload) GetFileIndex() uint32 {
-	if x != nil {
-		return x.FileIndex
-	}
-	return 0
-}
-
 // Open names the file of the lane's Transfer at position.
 type Open struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -470,7 +292,7 @@ type Open struct {
 
 func (x *Open) Reset() {
 	*x = Open{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[4]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -482,7 +304,7 @@ func (x *Open) String() string {
 func (*Open) ProtoMessage() {}
 
 func (x *Open) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[4]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -495,7 +317,7 @@ func (x *Open) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Open.ProtoReflect.Descriptor instead.
 func (*Open) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{4}
+	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Open) GetPosition() uint32 {
@@ -525,7 +347,7 @@ type Identity struct {
 
 func (x *Identity) Reset() {
 	*x = Identity{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[5]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -537,7 +359,7 @@ func (x *Identity) String() string {
 func (*Identity) ProtoMessage() {}
 
 func (x *Identity) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[5]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -550,7 +372,7 @@ func (x *Identity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Identity.ProtoReflect.Descriptor instead.
 func (*Identity) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Identity) GetSize() int64 {
@@ -585,7 +407,7 @@ type Manifest struct {
 
 func (x *Manifest) Reset() {
 	*x = Manifest{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[6]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -597,7 +419,7 @@ func (x *Manifest) String() string {
 func (*Manifest) ProtoMessage() {}
 
 func (x *Manifest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[6]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -610,7 +432,7 @@ func (x *Manifest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Manifest.ProtoReflect.Descriptor instead.
 func (*Manifest) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{6}
+	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Manifest) GetSize() int64 {
@@ -646,7 +468,7 @@ type Absent struct {
 
 func (x *Absent) Reset() {
 	*x = Absent{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[7]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -658,7 +480,7 @@ func (x *Absent) String() string {
 func (*Absent) ProtoMessage() {}
 
 func (x *Absent) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[7]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -671,7 +493,7 @@ func (x *Absent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Absent.ProtoReflect.Descriptor instead.
 func (*Absent) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{7}
+	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Absent) GetReason() Absent_Reason {
@@ -698,7 +520,7 @@ type Want struct {
 
 func (x *Want) Reset() {
 	*x = Want{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[8]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -710,7 +532,7 @@ func (x *Want) String() string {
 func (*Want) ProtoMessage() {}
 
 func (x *Want) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[8]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -723,7 +545,7 @@ func (x *Want) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Want.ProtoReflect.Descriptor instead.
 func (*Want) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{8}
+	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Want) GetChunks() []uint32 {
@@ -747,7 +569,7 @@ type Chunk struct {
 
 func (x *Chunk) Reset() {
 	*x = Chunk{}
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[9]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -759,7 +581,7 @@ func (x *Chunk) String() string {
 func (*Chunk) ProtoMessage() {}
 
 func (x *Chunk) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[9]
+	mi := &file_slipstream_transfer_v1_transfer_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -772,7 +594,7 @@ func (x *Chunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Chunk.ProtoReflect.Descriptor instead.
 func (*Chunk) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{9}
+	return file_slipstream_transfer_v1_transfer_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Chunk) GetIndex() uint32 {
@@ -807,7 +629,7 @@ var File_slipstream_transfer_v1_transfer_proto protoreflect.FileDescriptor
 
 const file_slipstream_transfer_v1_transfer_proto_rawDesc = "" +
 	"\n" +
-	"%slipstream/transfer/v1/transfer.proto\x12\x16slipstream.transfer.v1\"\xdd\x02\n" +
+	"%slipstream/transfer/v1/transfer.proto\x12\x16slipstream.transfer.v1\x1a!slipstream/transfer/v1/sync.proto\"\xdd\x02\n" +
 	"\x05Frame\x122\n" +
 	"\x04open\x18\x01 \x01(\v2\x1c.slipstream.transfer.v1.OpenH\x00R\x04open\x12>\n" +
 	"\bmanifest\x18\x02 \x01(\v2 .slipstream.transfer.v1.ManifestH\x00R\bmanifest\x128\n" +
@@ -819,14 +641,7 @@ const file_slipstream_transfer_v1_transfer_proto_rawDesc = "" +
 	"\x04Lane\x12\x1f\n" +
 	"\vtransfer_id\x18\x01 \x01(\fR\n" +
 	"transferId\x123\n" +
-	"\x05route\x18\x02 \x01(\x0e2\x1d.slipstream.transfer.v1.RouteR\x05route\"S\n" +
-	"\x06Source\x12B\n" +
-	"\atorrent\x18\x01 \x01(\v2&.slipstream.transfer.v1.TorrentPayloadH\x00R\atorrentB\x05\n" +
-	"\x03ref\"L\n" +
-	"\x0eTorrentPayload\x12\x1b\n" +
-	"\tinfo_hash\x18\x01 \x01(\fR\binfoHash\x12\x1d\n" +
-	"\n" +
-	"file_index\x18\x02 \x01(\rR\tfileIndex\"Z\n" +
+	"\x05route\x18\x02 \x01(\x0e2\x1d.slipstream.transfer.v1.RouteR\x05route\"Z\n" +
 	"\x04Open\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\rR\bposition\x126\n" +
 	"\x06source\x18\x02 \x01(\v2\x1e.slipstream.transfer.v1.SourceR\x06source\"[\n" +
@@ -853,13 +668,7 @@ const file_slipstream_transfer_v1_transfer_proto_rawDesc = "" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x12\n" +
 	"\x04hash\x18\x02 \x01(\fR\x04hash\x12\x18\n" +
 	"\abinding\x18\x03 \x01(\bR\abinding\x12\x12\n" +
-	"\x04data\x18\x04 \x01(\fR\x04data*z\n" +
-	"\x05Route\x12\x15\n" +
-	"\x11ROUTE_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14ROUTE_RECEIVER_DIALS\x10\x01\x12\x16\n" +
-	"\x12ROUTE_SENDER_DIALS\x10\x02\x12\x13\n" +
-	"\x0fROUTE_NODE_LINK\x10\x03\x12\x13\n" +
-	"\x0fROUTE_BOTH_DIAL\x10\x04B\xf2\x01\n" +
+	"\x04data\x18\x04 \x01(\fR\x04dataB\xf2\x01\n" +
 	"\x1acom.slipstream.transfer.v1B\rTransferProtoP\x01ZKgithub.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1;transferv1\xa2\x02\x03STX\xaa\x02\x16Slipstream.Transfer.V1\xca\x02\x16Slipstream\\Transfer\\V1\xe2\x02\"Slipstream\\Transfer\\V1\\GPBMetadata\xea\x02\x18Slipstream::Transfer::V1b\x06proto3"
 
 var (
@@ -874,39 +683,37 @@ func file_slipstream_transfer_v1_transfer_proto_rawDescGZIP() []byte {
 	return file_slipstream_transfer_v1_transfer_proto_rawDescData
 }
 
-var file_slipstream_transfer_v1_transfer_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_slipstream_transfer_v1_transfer_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_slipstream_transfer_v1_transfer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_slipstream_transfer_v1_transfer_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_slipstream_transfer_v1_transfer_proto_goTypes = []any{
-	(Route)(0),             // 0: slipstream.transfer.v1.Route
-	(Absent_Reason)(0),     // 1: slipstream.transfer.v1.Absent.Reason
-	(*Frame)(nil),          // 2: slipstream.transfer.v1.Frame
-	(*Lane)(nil),           // 3: slipstream.transfer.v1.Lane
-	(*Source)(nil),         // 4: slipstream.transfer.v1.Source
-	(*TorrentPayload)(nil), // 5: slipstream.transfer.v1.TorrentPayload
-	(*Open)(nil),           // 6: slipstream.transfer.v1.Open
-	(*Identity)(nil),       // 7: slipstream.transfer.v1.Identity
-	(*Manifest)(nil),       // 8: slipstream.transfer.v1.Manifest
-	(*Absent)(nil),         // 9: slipstream.transfer.v1.Absent
-	(*Want)(nil),           // 10: slipstream.transfer.v1.Want
-	(*Chunk)(nil),          // 11: slipstream.transfer.v1.Chunk
+	(Absent_Reason)(0), // 0: slipstream.transfer.v1.Absent.Reason
+	(*Frame)(nil),      // 1: slipstream.transfer.v1.Frame
+	(*Lane)(nil),       // 2: slipstream.transfer.v1.Lane
+	(*Open)(nil),       // 3: slipstream.transfer.v1.Open
+	(*Identity)(nil),   // 4: slipstream.transfer.v1.Identity
+	(*Manifest)(nil),   // 5: slipstream.transfer.v1.Manifest
+	(*Absent)(nil),     // 6: slipstream.transfer.v1.Absent
+	(*Want)(nil),       // 7: slipstream.transfer.v1.Want
+	(*Chunk)(nil),      // 8: slipstream.transfer.v1.Chunk
+	(Route)(0),         // 9: slipstream.transfer.v1.Route
+	(*Source)(nil),     // 10: slipstream.transfer.v1.Source
 }
 var file_slipstream_transfer_v1_transfer_proto_depIdxs = []int32{
-	6,  // 0: slipstream.transfer.v1.Frame.open:type_name -> slipstream.transfer.v1.Open
-	8,  // 1: slipstream.transfer.v1.Frame.manifest:type_name -> slipstream.transfer.v1.Manifest
-	9,  // 2: slipstream.transfer.v1.Frame.absent:type_name -> slipstream.transfer.v1.Absent
-	10, // 3: slipstream.transfer.v1.Frame.want:type_name -> slipstream.transfer.v1.Want
-	11, // 4: slipstream.transfer.v1.Frame.chunk:type_name -> slipstream.transfer.v1.Chunk
-	3,  // 5: slipstream.transfer.v1.Frame.lane:type_name -> slipstream.transfer.v1.Lane
-	0,  // 6: slipstream.transfer.v1.Lane.route:type_name -> slipstream.transfer.v1.Route
-	5,  // 7: slipstream.transfer.v1.Source.torrent:type_name -> slipstream.transfer.v1.TorrentPayload
-	4,  // 8: slipstream.transfer.v1.Open.source:type_name -> slipstream.transfer.v1.Source
-	7,  // 9: slipstream.transfer.v1.Manifest.identity:type_name -> slipstream.transfer.v1.Identity
-	1,  // 10: slipstream.transfer.v1.Absent.reason:type_name -> slipstream.transfer.v1.Absent.Reason
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	3,  // 0: slipstream.transfer.v1.Frame.open:type_name -> slipstream.transfer.v1.Open
+	5,  // 1: slipstream.transfer.v1.Frame.manifest:type_name -> slipstream.transfer.v1.Manifest
+	6,  // 2: slipstream.transfer.v1.Frame.absent:type_name -> slipstream.transfer.v1.Absent
+	7,  // 3: slipstream.transfer.v1.Frame.want:type_name -> slipstream.transfer.v1.Want
+	8,  // 4: slipstream.transfer.v1.Frame.chunk:type_name -> slipstream.transfer.v1.Chunk
+	2,  // 5: slipstream.transfer.v1.Frame.lane:type_name -> slipstream.transfer.v1.Lane
+	9,  // 6: slipstream.transfer.v1.Lane.route:type_name -> slipstream.transfer.v1.Route
+	10, // 7: slipstream.transfer.v1.Open.source:type_name -> slipstream.transfer.v1.Source
+	4,  // 8: slipstream.transfer.v1.Manifest.identity:type_name -> slipstream.transfer.v1.Identity
+	0,  // 9: slipstream.transfer.v1.Absent.reason:type_name -> slipstream.transfer.v1.Absent.Reason
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_transfer_v1_transfer_proto_init() }
@@ -914,6 +721,7 @@ func file_slipstream_transfer_v1_transfer_proto_init() {
 	if File_slipstream_transfer_v1_transfer_proto != nil {
 		return
 	}
+	file_slipstream_transfer_v1_sync_proto_init()
 	file_slipstream_transfer_v1_transfer_proto_msgTypes[0].OneofWrappers = []any{
 		(*Frame_Open)(nil),
 		(*Frame_Manifest)(nil),
@@ -922,16 +730,13 @@ func file_slipstream_transfer_v1_transfer_proto_init() {
 		(*Frame_Chunk)(nil),
 		(*Frame_Lane)(nil),
 	}
-	file_slipstream_transfer_v1_transfer_proto_msgTypes[2].OneofWrappers = []any{
-		(*Source_Torrent)(nil),
-	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_transfer_v1_transfer_proto_rawDesc), len(file_slipstream_transfer_v1_transfer_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   10,
+			NumEnums:      1,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
