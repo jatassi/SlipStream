@@ -338,7 +338,7 @@ func TestASearchWhoseRemovalWaitsOutlastsDroppedEvents(t *testing.T) {
 		time.Sleep(time.Minute - timings.ResolveHold + time.Second)
 		c.engine.onRemove(func() {
 			for range 100 {
-				if err := c.engine.Engine.PostUpdates(); err != nil {
+				if err := c.engine.PostUpdates(); err != nil {
 					t.Error(err)
 				}
 			}

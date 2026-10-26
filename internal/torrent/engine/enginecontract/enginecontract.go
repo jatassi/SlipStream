@@ -282,6 +282,31 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 	e := h.Open(t, engine.Config{})
 	r := record(e)
 	a, b := settled(t, h, e, r)
+	afterDropped(t, h, e, r, a, b)
+}
+
+func updatesCarryATorrentWhoseRemovalWaits(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	a, b := settled(t, h, e, r)
+	parting := running(t, e, "Parting", tr.URL)
+	h.Until(t, "the tracker hears started", func() bool { return len(tr.Announces()) > 0 })
+	if err := e.Remove(parting, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := statusOf(afterDropped(t, h, e, r, a, b), parting); !ok {
+		t.Fatalf("after Dropped, Updates carried %d and %d but not %d, whose removal waits for its tracker", a, b, parting)
+	}
+	tr.Answer()
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == parting })
+}
+
+// afterDropped posts updates until e drops events, and returns the first
+// Updates that carries a and b, which changed nothing, failing t when one
+// comes before any Dropped.
+func afterDropped(t *testing.T, h Harness, e engine.Engine, r *recorder, a, b engine.Handle) engine.Updates {
+	t.Helper()
 	// More than libtorrent's alert queue holds: high_performance_seed's 10000,
 	// doubled for state_update's priority, with every buffer after it full.
 	for range 50000 {
@@ -290,6 +315,7 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 		}
 	}
 	from := r.next
+	var got engine.Updates
 	h.Until(t, "Updates carry both torrents after Dropped", func() bool {
 		r.poll()
 		dropped := false
@@ -304,6 +330,7 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 					if !dropped {
 						t.Fatalf("Updates carried the unchanged %d and %d before any Dropped", a, b)
 					}
+					got = ev
 					return true
 				}
 			}
@@ -313,49 +340,7 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 		}
 		return false
 	})
-}
-
-func updatesCarryATorrentWhoseRemovalWaits(t *testing.T, h Harness) {
-	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
-	e := h.Open(t, engine.Config{})
-	r := record(e)
-	a, b := settled(t, h, e, r)
-	parting := running(t, e, "Parting", tr.URL)
-	h.Until(t, "the tracker hears started", func() bool { return len(tr.Announces()) > 0 })
-	if err := e.Remove(parting, false); err != nil {
-		t.Fatal(err)
-	}
-	for range 50000 {
-		if err := e.PostUpdates(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	from := r.next
-	h.Until(t, "Updates carry every torrent after Dropped", func() bool {
-		r.poll()
-		dropped := false
-		for _, ev := range r.seen[from:] {
-			switch ev := ev.(type) {
-			case engine.Dropped:
-				dropped = true
-			case engine.Updates:
-				_, hasA := statusOf(ev, a)
-				_, hasB := statusOf(ev, b)
-				if dropped && hasA && hasB {
-					if _, ok := statusOf(ev, parting); !ok {
-						t.Fatalf("after Dropped, Updates carried %d and %d but not %d, whose removal waits for its tracker", a, b, parting)
-					}
-					return true
-				}
-			}
-		}
-		if err := e.PostUpdates(); err != nil {
-			t.Fatal(err)
-		}
-		return false
-	})
-	tr.Answer()
-	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == parting })
+	return got
 }
 
 func trackerListCarriesNextAndMinAnnounce(t *testing.T, h Harness) {
