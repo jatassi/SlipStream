@@ -17,6 +17,9 @@ export const getListGrabsResponseMock = (
             code: faker.helpers.arrayElement([
               "indexer_unavailable",
               "torrent_unreachable",
+              "magnet_invalid",
+              "no_metadata",
+              "no_peer_source",
               "torrent_invalid",
               "infohash_mismatch",
               "torrent_v2_only",
@@ -65,6 +68,14 @@ export const getListGrabsResponseMock = (
       null,
     ]),
     itemId: faker.string.uuid(),
+    ...(faker.datatype.boolean()
+      ? {
+          metadata: {
+            endsAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+            peers: faker.number.int({ min: 0 }),
+          },
+        }
+      : {}),
     nodeId: faker.string.uuid(),
     ...(faker.datatype.boolean()
       ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
@@ -124,6 +135,9 @@ export const getGetGrabResponseMock = (
           code: faker.helpers.arrayElement([
             "indexer_unavailable",
             "torrent_unreachable",
+            "magnet_invalid",
+            "no_metadata",
+            "no_peer_source",
             "torrent_invalid",
             "infohash_mismatch",
             "torrent_v2_only",
@@ -172,6 +186,14 @@ export const getGetGrabResponseMock = (
     null,
   ]),
   itemId: faker.string.uuid(),
+  ...(faker.datatype.boolean()
+    ? {
+        metadata: {
+          endsAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          peers: faker.number.int({ min: 0 }),
+        },
+      }
+    : {}),
   nodeId: faker.string.uuid(),
   ...(faker.datatype.boolean()
     ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }

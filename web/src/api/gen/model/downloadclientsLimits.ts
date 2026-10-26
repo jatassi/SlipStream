@@ -8,6 +8,7 @@ export interface DownloadclientsLimits {
   activeDownloads: number;
   /** @minimum 1 */
   connections: number;
+  dht: boolean;
   /**
    * Bytes a second, 0 for no limit
    * @minimum 0

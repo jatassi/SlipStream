@@ -53,6 +53,7 @@ export const getListDownloadClientsResponseMock = (
       activeChecks: faker.number.int({ min: 1 }),
       activeDownloads: faker.number.int({ min: 0 }),
       connections: faker.number.int({ min: 1 }),
+      dht: faker.datatype.boolean(),
       downloadLimit: faker.number.int({ min: 0 }),
       stalledAfterSeconds: faker.number.int({ min: 1 }),
       uploadLimit: faker.number.int({ min: 0 }),
@@ -70,6 +71,36 @@ export const getListDownloadClientsResponseMock = (
   })),
   thresholds: {
     faultStall: {
+      applies: faker.helpers.arrayElement(["live", "restart"] as const),
+      default: faker.number.int(),
+      ...(faker.datatype.boolean()
+        ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      isDefault: faker.datatype.boolean(),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      kind: faker.helpers.arrayElement(["duration"] as const),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      max: faker.number.int(),
+      min: faker.number.int(),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
+      step: faker.number.int(),
+      value: faker.number.int(),
+    },
+    metadataWait: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
       default: faker.number.int(),
       ...(faker.datatype.boolean()
@@ -137,6 +168,36 @@ export const getSetDownloadClientThresholdsResponseMock = (
   overrideResponse: Partial<Extract<DownloadclientsThresholds, object>> = {},
 ): DownloadclientsThresholds => ({
   faultStall: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  metadataWait: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.number.int(),
     ...(faker.datatype.boolean()
@@ -309,6 +370,30 @@ export const getGetDownloadClientSettingsResponseMock = (
     ...(faker.datatype.boolean()
       ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
+  },
+  dht: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["switch"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.datatype.boolean(),
   },
   downloadLimit: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -533,6 +618,30 @@ export const getSetDownloadClientSettingsResponseMock = (
     ...(faker.datatype.boolean()
       ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
+  },
+  dht: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["switch"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.datatype.boolean(),
   },
   downloadLimit: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),

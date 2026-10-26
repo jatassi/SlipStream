@@ -15,6 +15,11 @@ export interface DownloadclientsSettingsPatch {
    */
   connections?: number | null;
   /**
+   * Whether the client runs the DHT, which public torrents use to find peers; null resets it to its default
+   * @nullable
+   */
+  dht?: boolean | null;
+  /**
    * Bytes a second, 0 for no limit; null resets it to its default
    * @nullable
    */

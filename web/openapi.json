@@ -495,6 +495,9 @@
             "minimum": 1,
             "type": "integer"
           },
+          "dht": {
+            "type": "boolean"
+          },
           "downloadLimit": {
             "description": "Bytes a second, 0 for no limit",
             "format": "int64",
@@ -523,6 +526,7 @@
           "activeChecks",
           "connections",
           "utp",
+          "dht",
           "stalledAfterSeconds"
         ],
         "type": "object"
@@ -702,6 +706,9 @@
           "connections": {
             "$ref": "#/components/schemas/SettingCountField"
           },
+          "dht": {
+            "$ref": "#/components/schemas/SettingSwitchField"
+          },
           "downloadLimit": {
             "$ref": "#/components/schemas/SettingRateField"
           },
@@ -722,6 +729,7 @@
           "activeChecks",
           "connections",
           "utp",
+          "dht",
           "stalledAfter"
         ],
         "type": "object"
@@ -750,6 +758,13 @@
             "format": "int64",
             "type": [
               "integer",
+              "null"
+            ]
+          },
+          "dht": {
+            "description": "Whether the client runs the DHT, which public torrents use to find peers; null resets it to its default",
+            "type": [
+              "boolean",
               "null"
             ]
           },
@@ -846,13 +861,17 @@
           "faultStall": {
             "$ref": "#/components/schemas/SettingDurationField"
           },
+          "metadataWait": {
+            "$ref": "#/components/schemas/SettingDurationField"
+          },
           "unregisteredGap": {
             "$ref": "#/components/schemas/SettingDurationField"
           }
         },
         "required": [
           "faultStall",
-          "unregisteredGap"
+          "unregisteredGap",
+          "metadataWait"
         ],
         "type": "object"
       },
@@ -861,6 +880,14 @@
         "properties": {
           "faultStall": {
             "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "metadataWait": {
+            "description": "Seconds a magnet link's metadata search runs before its Grab fails; null resets it to its default",
             "format": "int64",
             "type": [
               "integer",
@@ -2006,6 +2033,9 @@
             "enum": [
               "indexer_unavailable",
               "torrent_unreachable",
+              "magnet_invalid",
+              "no_metadata",
+              "no_peer_source",
               "torrent_invalid",
               "infohash_mismatch",
               "torrent_v2_only",
@@ -2060,7 +2090,7 @@
             "description": "Why it failed, absent unless it did"
           },
           "fetchNodeId": {
-            "description": "The Searching Node that fetched the .torrent, null until it did",
+            "description": "The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did",
             "format": "uuid",
             "type": [
               "string",
@@ -2092,6 +2122,10 @@
           "itemId": {
             "format": "uuid",
             "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GrabsMetadataSearch",
+            "description": "The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"
           },
           "nodeId": {
             "description": "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
@@ -2198,6 +2232,27 @@
         },
         "required": [
           "grabs"
+        ],
+        "type": "object"
+      },
+      "GrabsMetadataSearch": {
+        "additionalProperties": false,
+        "properties": {
+          "endsAt": {
+            "description": "When the Grab fails unless a peer has sent the metadata",
+            "format": "date-time",
+            "type": "string"
+          },
+          "peers": {
+            "description": "Peers connected at the Downloading Node's last response",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "peers",
+          "endsAt"
         ],
         "type": "object"
       },
