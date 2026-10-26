@@ -1,6 +1,7 @@
 package releases_test
 
 import (
+	"bytes"
 	"encoding/hex"
 	"net/netip"
 	"os"
@@ -95,5 +96,27 @@ func TestPasskeyComesFromTheSeed(t *testing.T) {
 	a, b := releases.Passkey(scenario.Scenario{Seed: "home"}), releases.Passkey(scenario.Scenario{Seed: "office"})
 	if _, err := hex.DecodeString(a); err != nil || len(a) != 32 || a == b || a != releases.Passkey(scenario.Scenario{Seed: "home"}) {
 		t.Fatalf("passkeys %q and %q", a, b)
+	}
+}
+
+func TestAPublicReleaseIsAnotherTorrentWithNoPrivateKey(t *testing.T) {
+	payload := []byte("the orchard payload")
+	private, privateHash, err := releases.Metainfo("orchard.mkv", payload, "https://127.0.0.1:1/announce/key", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, publicHash, err := releases.Metainfo("orchard.mkv", payload, "https://127.0.0.1:1/announce/key", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := bencode.DecodeMetainfo(public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Info.Private || bytes.Contains(m.RawInfo, []byte("7:private")) || !bytes.Contains(private, []byte("7:privatei1e")) {
+		t.Fatalf("the public info dictionary is %q, want no private key", m.RawInfo)
+	}
+	if publicHash == privateHash || m.InfoHash != publicHash {
+		t.Fatalf("the public torrent's info hash is %s and the private one's %s, want two hashes", publicHash, privateHash)
 	}
 }

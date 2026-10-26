@@ -42,6 +42,8 @@ var listing = []site.Release{
 	{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", Size: 6000, InfoHash: hash1080, TMDBID: 9000001, IMDbID: "tt9000001", Seeders: 12, Torrent: []byte(torrent)},
 	{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", Size: 3000, InfoHash: hash720, TMDBID: 9000001, IMDbID: "tt9000001", Seeders: 40, Torrent: []byte("d4:infod4:name1:bee")},
 	{Name: "Orchard.Road.2019.1080p.WEB-DL.H264-FKW", Size: 5000, InfoHash: strings.Repeat("c", 40), TMDBID: 9000002, IMDbID: "tt9000002", Seeders: 1, Torrent: []byte("d4:infod4:name1:cee")},
+	{Name: "Salt.Meadow.2020.1080p.WEB-DL.H264-FKW", Size: 5000, InfoHash: strings.Repeat("e", 40), TMDBID: 9000004, IMDbID: "tt9000004", Seeders: 3, Link: scenario.MagnetLink},
+	{Name: "Salt.Meadow.2020.720p.WEB-DL.H264-FKW", Size: 2000, InfoHash: strings.Repeat("f", 40), TMDBID: 9000004, IMDbID: "tt9000004", Seeders: 2, Link: scenario.RedirectLink},
 }
 
 func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", Seed: "site-test"} }
@@ -188,16 +190,27 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("items =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	fetched, err := x.FetchTorrent(t.Context(), idx, items[0].Link)
-	if err != nil || string(fetched.Torrent) != rewritten {
-		t.Fatalf("FetchTorrent = %q, %v, want %q", fetched.Torrent, err, rewritten)
+	fetched, err := x.Fetch(t.Context(), idx, items[0].Link)
+	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten {
+		t.Fatalf("Fetch = %+v, %v, want the .torrent %q", fetched, err, rewritten)
 	}
-	_, err = x.FetchTorrent(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
+	magnets, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}})
+	if err != nil || len(magnets) != 2 {
+		t.Fatalf("Search for the magnet releases = %+v, %v; want two items", magnets, err)
+	}
+	for i, want := range []string{strings.Repeat("e", 40), strings.Repeat("f", 40)} {
+		fetched, err := x.Fetch(t.Context(), idx, magnets[i].Link)
+		got, ok := fetched.(indexers.Magnet)
+		if err != nil || !ok || got.Link.InfoHash.String() != want || len(got.Link.Trackers) != 1 || got.Link.Trackers[0] != announce {
+			t.Errorf("Fetch of %s at %s = %+v, %v; want the magnet link of %s announcing to %s", magnets[i].Title, magnets[i].Link, fetched, err, want, announce)
+		}
+	}
+	_, err = x.Fetch(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
 	var unavailable *indexers.UnavailableError
 	if !errors.As(err, &unavailable) || unavailable.Wait || err.Error() != "the Indexer is unavailable: the torrent's URL is not on the Indexer's host" {
-		t.Fatalf("an off-host FetchTorrent = %v, want an unavailable error that does not wait", err)
+		t.Fatalf("an off-host Fetch = %v, want an unavailable error that does not wait", err)
 	}
-	_, err = x.FetchTorrent(t.Context(), idx, f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent"))
+	_, err = x.Fetch(t.Context(), idx, f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent"))
 	if err == nil || err.Error() != "the Indexer is unavailable: the Indexer responded with status 404" {
 		t.Fatalf("a missing torrent = %v", err)
 	}
@@ -211,7 +224,7 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 
 func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
 	s := scenarioWithSeed()
-	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built")
+	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,5 +247,52 @@ func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
 	}
 	if served.InfoHash != hash {
 		t.Fatalf("the served info hash is %s, want the catalog's %s", served.InfoHash, hash)
+	}
+}
+
+func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
+	s := scenarioWithSeed()
+	catalog := &releases.Catalog{Passkey: "p4ss", Releases: []releases.Release{
+		{Release: scenario.Release{Name: "Harbor.Lights", Link: scenario.MagnetLink}, InfoHash: bencode.InfoHash{1}},
+		{Release: scenario.Release{Name: "Salt.Meadow", Link: scenario.MagnetLink, Trackerless: true, Public: true}, InfoHash: bencode.InfoHash{2}},
+		{Release: scenario.Release{Name: "Quiet.Orchard", Link: scenario.RedirectLink}, InfoHash: bencode.InfoHash{3}},
+	}}
+	fronts := fake.Fronts{
+		{Target: "tracker", Node: "home", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7001"), TLS: true}},
+		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
+	}
+	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
+	origin := f.Address.URL("")
+	harbor := "magnet:?xt=urn:btih:" + bencode.InfoHash{1}.String() + "&amp;dn=Harbor.Lights&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
+	meadow := "magnet:?xt=urn:btih:" + bencode.InfoHash{2}.String() + "&amp;dn=Salt.Meadow"
+	orchard := "magnet:?xt=urn:btih:" + bencode.InfoHash{3}.String() + "&amp;dn=Quiet.Orchard&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
+	body := get(t, f, site.TorznabPath+"/api?apikey="+site.APIKey(s)+"&t=search&q=")
+	for _, want := range []string{
+		"<link>" + harbor + "</link>",
+		`<enclosure url="` + harbor + `" length="0" type="application/x-bittorrent" />`,
+		`<torznab:attr name="magneturl" value="` + harbor + `" />`,
+		"<link>" + meadow + "</link>",
+		`<torznab:attr name="magneturl" value="` + meadow + `" />`,
+		"<link>" + origin + "/download/" + bencode.InfoHash{3}.String() + ".torrent</link>",
+		`<torznab:attr name="magneturl" value="` + orchard + `" />`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the feed\n%s\nholds no %s", body, want)
+		}
+	}
+
+	noFollow := *f.Client
+	noFollow.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL("/download/"+bencode.InfoHash{3}.String()+".torrent"), http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := noFollow.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if want := strings.ReplaceAll(orchard, "&amp;", "&"); res.StatusCode != http.StatusFound || res.Header.Get("Location") != want {
+		t.Fatalf("GET the redirect release's .torrent = %d to %q, want 302 to %s", res.StatusCode, res.Header.Get("Location"), want)
 	}
 }

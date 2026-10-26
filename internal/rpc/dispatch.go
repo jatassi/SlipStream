@@ -57,7 +57,7 @@ func (d *Dispatch) mount(name string, held role.Name, register func(*connect.Ser
 	}
 	srv := connect.NewServer(gates...)
 	register(srv)
-	connecthttp.Mount(d.mux, srv)
+	connecthttp.Mount(d.mux, srv, connecthttp.WithReadMaxBytes(link.MaxMessage))
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.servers[name] = srv

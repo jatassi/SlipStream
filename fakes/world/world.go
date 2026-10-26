@@ -17,6 +17,7 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -114,14 +115,16 @@ type nodeRun struct {
 }
 
 // fakeRun is a fake the world hosts: the address of its world front, and
-// the inbox each of its fronts pushes connections into.
+// the inbox each of its fronts pushes connections into, or for a UDP fake
+// the address of its world socket and every origin's socket.
 type fakeRun struct {
-	spec   fake.Spec
-	env    fake.Env
-	at     fake.Address
-	inbox  *front.Inbox
-	cancel context.CancelFunc
-	done   chan error
+	spec    fake.Spec
+	env     fake.Env
+	at      fake.Address
+	inbox   *front.Inbox
+	sockets map[string]*net.UDPConn
+	cancel  context.CancelFunc
+	done    chan error
 }
 
 type unwind []func()
@@ -394,16 +397,13 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 			}
 			f.env.Leaf = &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}
 		}
-		server, err := f.spec.New(r.scenario, f.env)
+		serve, err := r.server(f)
 		if err != nil {
-			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
-		}
-		if err := r.serveFronts(f); err != nil {
 			return err
 		}
 		fctx, cancel := context.WithCancel(r.life)
 		f.cancel, f.done = cancel, make(chan error, 1)
-		go func() { f.done <- server.Serve(fctx, f.inbox) }()
+		go func() { f.done <- serve(fctx) }()
 		r.log.Info("fake started", "fake", f.spec.Name, "url", f.spec.URL(f.at))
 		undo.push(func() {
 			if err := f.stop(); err != nil {
@@ -412,6 +412,25 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 		})
 	}
 	return nil
+}
+
+// server builds f and serves its fronts, or hands it its sockets.
+func (r *Run) server(f *fakeRun) (func(context.Context) error, error) {
+	if f.spec.NewUDP != nil {
+		server, err := f.spec.NewUDP(r.scenario, f.env)
+		if err != nil {
+			return nil, fmt.Errorf("fake %s: %w", f.spec.Name, err)
+		}
+		return func(ctx context.Context) error { return server.ServeUDP(ctx, f.sockets) }, nil
+	}
+	server, err := f.spec.New(r.scenario, f.env)
+	if err != nil {
+		return nil, fmt.Errorf("fake %s: %w", f.spec.Name, err)
+	}
+	if err := r.serveFronts(f); err != nil {
+		return nil, err
+	}
+	return func(ctx context.Context) error { return server.Serve(ctx, f.inbox) }, nil
 }
 
 // startSeeders seeds each seeded release once fake-tracker serves, and

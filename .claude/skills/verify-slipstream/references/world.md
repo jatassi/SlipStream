@@ -26,6 +26,7 @@ Each Node reaches each fake through its own front, a listener on `127.0.0.1` tha
 | `smtp` | the SMTP server an Admin saves, plaintext with STARTTLS or implicit TLS on one front |
 | `seeders` or `seeders/<release>` | every swarm byte from the fake seeders, TCP only |
 | `link/<node>` | the Node link to the Node that listens, for example `link/home` |
+| `dht` | KRPC queries to fake-dht, the Node's one DHT router. A UDP socket per Node, not a front, so fault rules don't play on it |
 
 The Indexer was entered with the URL of the seedbox's fixture-site front, because the seedbox holds Searching.
 
@@ -75,6 +76,7 @@ $FW announces open $RUN <seq> --proof <f>/<s>
 
 - `announces` is the tracker's capture: one `tracker.announce` record per announce, attributed to the Node by the front it came through. `data.event` is `started`, `completed` or empty for a regular announce, which libtorrent spaces five minutes apart; wait on `started` and `completed` only.
 - `mail` is the `smtp` fake's capture: one `smtp.message` record per accepted message with its envelope (`from`, `to`), `username`, `security` (`none`, `starttls` or `tls`), `subject`, `text` and `html`, attributed to the sending Node. `open` copies `message.eml`, `message.html` and `message.txt`.
+- `lookups` is fake-dht's capture: one `dht.query` record per KRPC query, attributed to the Node by the socket it came to. `data.method` is `ping`, `find_node`, `get_peers` or `announce_peer`, and `data.infoHash` is set for the last two. `$FW lookups list $RUN --node home --where method=get_peers --where infoHash=<hex>` lists a Node's lookups of one torrent. A private torrent's info hash never appears.
 - `leecher.hello` is the Scenario's leecher (`leecher: {node, release}`), attributed to its Node. After that Node's first accepted announce of the release, the leecher dials the Node's listen port through its `leecher/<node>` front and says a BitTorrent hello. `data.answered` says whether the Node answered for the release, and `data.error` says why not. Under the `loopback-peers` divergence the connection proves the listen port, so the Node's client card reads reachable. A Scenario with no leecher reads unproven. `home` has a leecher on seedbox.
 - `works.added` is the world's one record for a Scenario's `library.works`, written once every Work is added: `data.contentType`, `data.count` and `data.seconds`, the time the adds took. The `scale` Scenario adds 20,000 movies that fake-tmdb generates from `tmdb.generated {count, seed}`, with ids from 50000001.
 - `wait` takes the first match after `--after`, by default after the previous step's start. When the awaited record can arrive during an earlier step, pass `--after` the seq of a record printed before that step, such as a `fault.set` or `fault.fired`.

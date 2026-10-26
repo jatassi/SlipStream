@@ -135,7 +135,7 @@ func attachSeeded(t *testing.T, controller node.Half, swarm *enginetest.World, b
 		ids = nil
 		for i := range n {
 			payload := seededPayload(i)
-			raw, hash, err := releases.Metainfo(fmt.Sprintf("Idle.%d.mkv", i), payload, idleTracker)
+			raw, hash, err := releases.Metainfo(fmt.Sprintf("Idle.%d.mkv", i), payload, idleTracker, false)
 			if err != nil {
 				return err
 			}

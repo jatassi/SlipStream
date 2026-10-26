@@ -135,7 +135,7 @@ func searchOf(s grabs.Search) search {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
+	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
 	Message string `json:"message"`
 }
 
@@ -149,25 +149,31 @@ type progress struct {
 	Total int64 `json:"total" minimum:"0" doc:"Bytes wanted"`
 }
 
+type metadataSearch struct {
+	Peers  int       `json:"peers" minimum:"0" doc:"Peers connected at the Downloading Node's last response"`
+	EndsAt time.Time `json:"endsAt" doc:"When the Grab fails unless a peer has sent the metadata"`
+}
+
 type grab struct {
-	ID           string    `json:"id" format:"uuid"`
-	WorkID       string    `json:"workId" format:"uuid"`
-	ItemID       string    `json:"itemId" format:"uuid"`
-	Edition      string    `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
-	TargetIDs    []string  `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
-	ReleaseTitle string    `json:"releaseTitle"`
-	Quality      string    `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
-	ReleaseSize  int64     `json:"releaseSize" minimum:"0"`
-	IndexerID    string    `json:"indexerId" format:"uuid"`
-	NodeID       string    `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
-	FetchNodeID  *string   `json:"fetchNodeId" format:"uuid" doc:"The Searching Node that fetched the .torrent, null until it did"`
-	TorrentID    *string   `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
-	InfoHash     *string   `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
-	Stage        string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
-	Failure      *failure  `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
-	History      []entered `json:"history" nullable:"false" doc:"Each stage it entered, oldest first"`
-	Progress     *progress `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID           string          `json:"id" format:"uuid"`
+	WorkID       string          `json:"workId" format:"uuid"`
+	ItemID       string          `json:"itemId" format:"uuid"`
+	Edition      string          `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
+	TargetIDs    []string        `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
+	ReleaseTitle string          `json:"releaseTitle"`
+	Quality      string          `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
+	ReleaseSize  int64           `json:"releaseSize" minimum:"0"`
+	IndexerID    string          `json:"indexerId" format:"uuid"`
+	NodeID       string          `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
+	FetchNodeID  *string         `json:"fetchNodeId" format:"uuid" doc:"The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did"`
+	TorrentID    *string         `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
+	InfoHash     *string         `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
+	Stage        string          `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	Failure      *failure        `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
+	History      []entered       `json:"history" nullable:"false" doc:"Each stage it entered, oldest first"`
+	Progress     *progress       `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
+	Metadata     *metadataSearch `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
+	CreatedAt    time.Time       `json:"createdAt"`
 }
 
 func grabOf(v grabs.View) grab {
@@ -198,6 +204,9 @@ func grabOf(v grabs.View) grab {
 	}
 	if v.Progress != nil {
 		out.Progress = &progress{Done: v.Progress.Done, Total: v.Progress.Total}
+	}
+	if v.Metadata != nil {
+		out.Metadata = &metadataSearch{Peers: v.Metadata.Peers, EndsAt: v.Metadata.EndsAt}
 	}
 	return out
 }

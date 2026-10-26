@@ -66,7 +66,8 @@ type SearchingServiceClient interface {
 	Caps(context.Context, *v1.CapsRequest) (*v1.CapsResponse, error)
 	// Search sends one Torznab query.
 	Search(context.Context, *v1.SearchRequest) (*v1.SearchResponse, error)
-	// FetchTorrent downloads a .torrent from the Indexer's own host.
+	// FetchTorrent downloads a .torrent from the Indexer's own host, or
+	// returns the magnet link the Indexer redirected to.
 	FetchTorrent(context.Context, *v1.FetchTorrentRequest) (*v1.FetchTorrentResponse, error)
 }
 
@@ -83,7 +84,8 @@ type SearchingServiceHandler interface {
 	Caps(context.Context, *v1.CapsRequest) (*v1.CapsResponse, error)
 	// Search sends one Torznab query.
 	Search(context.Context, *v1.SearchRequest) (*v1.SearchResponse, error)
-	// FetchTorrent downloads a .torrent from the Indexer's own host.
+	// FetchTorrent downloads a .torrent from the Indexer's own host, or
+	// returns the magnet link the Indexer redirected to.
 	FetchTorrent(context.Context, *v1.FetchTorrentRequest) (*v1.FetchTorrentResponse, error)
 }
 

@@ -7,6 +7,9 @@ import (
 	"math/rand/v2"
 	"net/netip"
 	"time"
+
+	"github.com/jatassi/slipstream/internal/magnet"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
 // Engine is a thin port over a torrent engine. Every policy (when to start,
@@ -16,7 +19,18 @@ type Engine interface {
 	// Add adds a torrent paused: nothing connects or announces until Resume.
 	// It takes Resume when the caller has resume data, else Metainfo, and sets
 	// each counter to the larger of the resume data's value and Baseline's.
+	// A torrent an Add made whose removal waits is taken back under its
+	// handle. A FetchMetadata torrent whose removal waits fails it with
+	// ErrRemoving.
 	Add(AddParams) (Handle, error)
+	// FetchMetadata adds a running torrent of a magnet link that gets its
+	// info dictionary from peers and downloads no file. MetadataReceived
+	// follows once a peer sent it, or MetadataTooLarge once a peer gave a
+	// size over bencode.MaxTorrent, and the torrent stays, downloading
+	// nothing, until Remove. Its tracker list is the link's trackers, each
+	// its own tier. Any torrent of the hash whose removal waits fails it
+	// with ErrRemoving.
+	FetchMetadata(MetadataParams) (Handle, error)
 	// Pause stops the torrent gracefully. A tracker gets stopped only where it
 	// answered started and awaits no answer, so until each announce is
 	// answered the pause waits, as Remove does.
@@ -37,7 +51,8 @@ type Engine interface {
 	// PostTrackers sends TrackerList for h.
 	PostTrackers(Handle) error
 	// PostUpdates sends Updates with the torrents whose status changed since
-	// the last call, or with every torrent once the engine sent Dropped.
+	// the last call, or with every torrent once the engine sent Dropped. A
+	// torrent whose removal waits is among them until Removed.
 	PostUpdates() error
 	// PostStats sends Stats.
 	PostStats() error
@@ -50,7 +65,9 @@ type Engine interface {
 	// FilesDeleted follows Removed.
 	Remove(h Handle, deleteFiles bool) error
 	// Files lists a torrent's files as they lie under its save path, after
-	// the engine sanitized the names the metainfo gives.
+	// the engine sanitized the names the metainfo gives. It fails with
+	// ErrNoMetadata, as FileProgress does, before a FetchMetadata
+	// torrent's metadata arrived.
 	Files(Handle) ([]File, error)
 	// FileProgress is the bytes done of each file, in Files' order.
 	FileProgress(Handle) ([]int64, error)
@@ -80,7 +97,9 @@ type Config struct {
 	// checks whether the default route moved, and moves its listener with
 	// it. Zero checks once, at Open.
 	RouteCheck time.Duration
-	Discovery  Discovery
+	// DHTRouters are the nodes a DHT that Limits turns on joins through.
+	// LSD, UPnP and NAT-PMP are always off.
+	DHTRouters []endpoint.HostPort
 	// AnnounceFloor is the least time between two regular announces to a
 	// tracker, whatever interval it answers: libtorrent's
 	// min_announce_interval. Zero is no floor.
@@ -101,6 +120,9 @@ type Limits struct {
 	Connections int
 	// UTP lets peers connect over uTP as well as TCP, both ways.
 	UTP bool
+	// DHT runs the DHT, which a torrent added with Discover uses to find
+	// peers. Turned on, it looks up each such torrent that runs at once.
+	DHT bool
 	// WatchIncoming sends IncomingPeer for each incoming connection.
 	WatchIncoming bool
 }
@@ -134,10 +156,17 @@ func DefaultSettings() Settings {
 	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881"), Downloads: "downloads"}
 }
 
-// Discovery selects the peer discovery services. Its zero value turns
-// all four off.
-type Discovery struct {
-	DHT, LSD, UPnP, NATPMP bool
+// Endpoints is the torrent section of a Node's endpoints block.
+type Endpoints struct {
+	DHTRouters []endpoint.HostPort `yaml:"dht_routers"`
+}
+
+// DefaultEndpoints are libtorrent's own DHT routers.
+func DefaultEndpoints() Endpoints {
+	return Endpoints{DHTRouters: []endpoint.HostPort{
+		endpoint.MustParseHostPort("dht.libtorrent.org:25401"),
+		endpoint.MustParseHostPort("router.bittorrent.com:6881"),
+	}}
 }
 
 type AddParams struct {
@@ -148,7 +177,19 @@ type AddParams struct {
 	SavePath string
 	// SeedMode trusts the data under SavePath as complete without hashing it.
 	SeedMode bool
+	// Discover lets the torrent find peers through peer exchange, and
+	// through the DHT while Limits.DHT runs it. A private torrent never
+	// does, whatever Discover says.
+	Discover bool
 	Baseline Totals
+}
+
+type MetadataParams struct {
+	Link     magnet.Link
+	SavePath string
+	// Discover is as AddParams'. A link's torrent can't say it is private
+	// until its metadata arrives.
+	Discover bool
 }
 
 // Totals are a torrent's all-time counters.
@@ -334,6 +375,19 @@ type (
 	// HashFailed is a piece whose data failed its hash check: a peer sent
 	// data that is not the torrent's.
 	HashFailed struct{ Torrent Handle }
+	// MetadataReceived is a FetchMetadata torrent's info dictionary, as a
+	// peer sent it: its SHA-1 is the torrent's info hash.
+	MetadataReceived struct {
+		Torrent Handle
+		Info    []byte
+	}
+	// MetadataTooLarge is a peer that sent Size, over bencode.MaxTorrent,
+	// as the size of a FetchMetadata torrent's info dictionary, which the
+	// engine never takes.
+	MetadataTooLarge struct {
+		Torrent Handle
+		Size    int64
+	}
 	// Stats is the payload the engine sent and received since it opened.
 	Stats struct {
 		SentPayload, RecvPayload int64
@@ -363,6 +417,8 @@ func (Checked) event()          {}
 func (IncomingPeer) event()     {}
 func (FileError) event()        {}
 func (HashFailed) event()       {}
+func (MetadataReceived) event() {}
+func (MetadataTooLarge) event() {}
 func (Stats) event()            {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any
@@ -396,6 +452,8 @@ const (
 	CodeNotListening   = 3
 	CodeDiskFull       = 4
 	CodeNoRoute        = 5
+	CodeNoMetadata     = 6
+	CodeRemoving       = 7
 )
 
 var (
@@ -407,6 +465,12 @@ var (
 	// ErrNoRoute is an unspecified listen address on a host with no default
 	// route in its family.
 	ErrNoRoute = &Error{Category: CategoryShim, Code: CodeNoRoute, Text: "no route to the internet"}
+	// ErrNoMetadata is a torrent whose metadata hasn't arrived.
+	ErrNoMetadata = &Error{Category: CategoryShim, Code: CodeNoMetadata, Text: "no metadata yet"}
+	// ErrRemoving is an Add or FetchMetadata of a hash whose torrent is
+	// still being removed, which only an Add of a torrent an Add made takes
+	// back.
+	ErrRemoving = &Error{Category: CategoryShim, Code: CodeRemoving, Text: "a torrent of this hash is still being removed"}
 )
 
 // Error compares by Category and Code. Text is for logs.

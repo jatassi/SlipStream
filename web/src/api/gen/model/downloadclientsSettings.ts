@@ -7,6 +7,7 @@ export interface DownloadclientsSettings {
   activeChecks: SettingCountField;
   activeDownloads: SettingCountField;
   connections: SettingCountField;
+  dht: SettingSwitchField;
   downloadLimit: SettingRateField;
   stalledAfter: SettingDurationField;
   uploadLimit: SettingRateField;

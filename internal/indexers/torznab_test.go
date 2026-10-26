@@ -60,6 +60,13 @@ func TestItemsKeepTheirTorrentSeedersHashAndIDs(t *testing.T) {
 			`"Night Harbor 2019 2160p UHD BluRay" 53687091200 http://jackett.example.test:9117/dl/example/?jackett_apikey=k&path=77&file=Night+Harbor seeders=9 hash=fedcba9876543210fedcba9876543210fedcba98 ids=map[imdbid:tt0000501]`,
 			`"Night Harbor 2019 Sample" 1048576 http://jackett.example.test:9117/dl/example/?jackett_apikey=k&path=78 seeders=0 hash= ids=map[]`,
 		}},
+		{"magnet-results.xml", []string{
+			`"Night Harbor 2019 1080p Magnet Enclosure" 1000 magnet:?xt=urn:btih:0123456789ABCDEF0123456789ABCDEF01234567&dn=Night+Harbor seeders=4 hash=0123456789abcdef0123456789abcdef01234567 ids=map[]`,
+			`"Night Harbor 2019 720p Magnet Link" 2000 magnet:?xt=urn:btih:AERUKZ4JVPG66AJDIVSYTK6N54ASGRLH seeders=0 hash=0123456789abcdef0123456589abcdef01234567 ids=map[]`,
+			`"Night Harbor 2019 480p Magnet Attr" 3000 magnet:?xt=urn:btih:fedcba9876543210fedcba9876543210fedcba98&tr=udp%3A%2F%2Fopen.example.test%3A6969 seeders=0 hash=fedcba9876543210fedcba9876543210fedcba98 ids=map[]`,
+			`"Night Harbor 2019 2160p Torrent And Magnet" 4000 https://prowlarr.example.test/1/download?apikey=k&id=43 seeders=0 hash=00112233445566778899aabbccddeeff00112233 ids=map[]`,
+			`"Night Harbor 2019 Remux Hash Attr" 5000 magnet:?xt=urn:btih:00112233445566778899aabbccddeeff00112233 seeders=0 hash=aaaabbbbccccddddeeeeffff0000111122223333 ids=map[]`,
+		}},
 	} {
 		t.Run(tc.file, func(t *testing.T) {
 			items, err := indexers.ParseItems(fixture(t, tc.file))

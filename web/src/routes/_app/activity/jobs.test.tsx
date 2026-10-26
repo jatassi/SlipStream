@@ -113,7 +113,7 @@ test("Activity leads with what moves and what failed, then the failure, then eac
     .toMatchTextContent(
       "Orchard Harvest" +
         "Cause" +
-        "SlipStream couldn't download the release's .torrent file from the Indexer." +
+        "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer." +
         "Recovery" +
         "Search again to pick another release." +
         "Release" +

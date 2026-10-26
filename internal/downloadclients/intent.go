@@ -52,6 +52,7 @@ func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 			ActiveChecks:        int32(s.ActiveChecks),    //nolint:gosec // the setting's Max fits
 			Connections:         int32(s.Connections),     //nolint:gosec // the setting's Max fits
 			Utp:                 s.UTP,
+			Dht:                 s.DHT,
 			StalledAfterSeconds: int64(s.StalledAfter / time.Second),
 		},
 		Thresholds: &dlv1.Thresholds{

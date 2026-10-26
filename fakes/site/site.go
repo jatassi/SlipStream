@@ -10,6 +10,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -84,6 +85,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			listed = append(listed, Release{
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
+				Link: r.Link, Trackerless: r.Trackerless,
 			})
 		}
 	}
@@ -114,6 +116,11 @@ type Release struct {
 	Torrent  []byte
 	// Unlisted leaves it out of every feed until the List cue lists it.
 	Unlisted bool
+	// Link is how the feeds link it: a magnet or redirect release's item
+	// carries its magnet link as the magneturl attr too.
+	Link scenario.Link
+	// Trackerless leaves tr out of its magnet link.
+	Trackerless bool
 }
 
 // APIKey is the site's API key in a world with Scenario s.
@@ -139,11 +146,12 @@ type site struct {
 }
 
 // Announce is the tracker URL a .torrent announces to when origin fetches
-// it.
+// it, and the tr of a magnet link origin reads.
 type Announce func(origin string) (string, error)
 
 // Routes serve releases behind apiKey. Each .torrent announces to the
-// URL announce gives its downloader.
+// URL announce gives its downloader, and each magnet link names the URL
+// it gives the reader of the feed or the redirect.
 func Routes(apiKey string, releases []Release, announce Announce) fake.Routes {
 	return newSite(apiKey, releases, announce).routes()
 }
@@ -250,6 +258,18 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 			continue
 		}
 		link := origin + "/download/" + rel.InfoHash + ".torrent"
+		var magnetAttr string
+		if rel.Link.Magnet() {
+			magnet, err := s.magnet(rel, fake.OriginOf(r.Context()))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if rel.Link == scenario.MagnetLink {
+				link = magnet
+			}
+			magnetAttr = fmt.Sprintf(`      <torznab:attr name="magneturl" value="%s" />`+"\n", esc(magnet))
+		}
 		fmt.Fprintf(&b, `    <item>
       <title>%s</title>
       <guid>%s</guid>
@@ -260,8 +280,8 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
       <torznab:attr name="infohash" value="%s" />
       <torznab:attr name="tmdbid" value="%d" />
       <torznab:attr name="imdbid" value="%s" />
-    </item>
-`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, rel.TMDBID, esc(rel.IMDbID))
+%s    </item>
+`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, rel.TMDBID, esc(rel.IMDbID), magnetAttr)
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())
@@ -273,14 +293,38 @@ func esc(s string) string {
 	return b.String()
 }
 
+// magnet is rel's magnet link as origin reads it: its info hash, its
+// name and, unless it's trackerless, origin's tracker URL.
+func (s *site) magnet(rel Release, origin string) (string, error) {
+	link := "magnet:?xt=urn:btih:" + rel.InfoHash + "&dn=" + url.QueryEscape(rel.Name)
+	if rel.Trackerless {
+		return link, nil
+	}
+	tr, err := s.announce(origin)
+	if err != nil {
+		return "", err
+	}
+	return link + "&tr=" + url.QueryEscape(tr), nil
+}
+
 // download serves a release's .torrent announcing to the downloader's
 // own tracker URL. It copies the info dictionary's bytes verbatim, so the
-// info hash is the catalog's.
+// info hash is the catalog's. A redirect release's answers 302 to its
+// magnet link instead.
 func (s *site) download(w http.ResponseWriter, r *http.Request) {
 	hash, ok := strings.CutSuffix(r.PathValue("file"), ".torrent")
 	i := slices.IndexFunc(s.releases, func(rel Release) bool { return ok && rel.InfoHash == hash })
 	if i < 0 {
 		http.NotFound(w, r)
+		return
+	}
+	if s.releases[i].Link == scenario.RedirectLink {
+		magnet, err := s.magnet(s.releases[i], fake.OriginOf(r.Context()))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, magnet, http.StatusFound)
 		return
 	}
 	meta, err := bencode.DecodeMetainfo(s.releases[i].Torrent)

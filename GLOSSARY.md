@@ -272,6 +272,10 @@ _Avoid_: Client mapping, routing rule
 What an Indexer lists for download: a title with the facts it states about itself and one info hash.
 _Avoid_: Result, torrent (for the listing), NZB
 
+**Magnet link**:
+A link that names a Release by its info hash, with an optional name and trackers, in place of its .torrent. While the Grab is fetching, the Downloading Node gets the torrent's metadata from peers, and the Grab fails if no peer sends it within the metadata wait.
+_Avoid_: Magnet URI, magnet (alone, in UI)
+
 **Want**:
 One Edition at one Target of a monitored, released Item that no file fills, or whose filling file is below the Target's cutoff. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
 _Avoid_: Missing item, wanted cell, slot
