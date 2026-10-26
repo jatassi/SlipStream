@@ -22,6 +22,8 @@ import (
 // loop is what Run keeps between passes: what it last judged, wrote and
 // published.
 type loop struct {
+	// intents is nil until the first pass, which Touches every Node: a
+	// Node's session may have derived its intent before the loop judged.
 	intents intents
 	views   map[ID]View
 	written map[pairKey]written
@@ -43,7 +45,7 @@ type written struct {
 func (t *Transfers) Run(ctx context.Context) error {
 	var sampling sync.WaitGroup
 	defer sampling.Wait()
-	l := &loop{intents: intents{}, views: map[ID]View{}, written: map[pairKey]written{}, transfers: map[string]bool{}, nodes: map[string]bool{}}
+	l := &loop{views: map[ID]View{}, written: map[pairKey]written{}, transfers: map[string]bool{}, nodes: map[string]bool{}}
 	watched := t.cfg.Hub.Watch(ctx, roots.ChangedEvent, roots.VolumesChangedEvent, health.ChangedEvent, nodes.ChangedEvent)
 	for {
 		board := t.cfg.Board()
@@ -139,7 +141,7 @@ func (t *Transfers) moved(l *loop, views map[ID]View) {
 func (t *Transfers) touchMoved(l *loop, j judgment) {
 	var moved []role.NodeID
 	for node := range j.intents {
-		if !proto.Equal(j.intents.of(node), l.intents.of(node)) {
+		if l.intents == nil || !proto.Equal(j.intents.of(node), l.intents.of(node)) {
 			moved = append(moved, node)
 		}
 	}
