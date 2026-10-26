@@ -6,9 +6,6 @@ name: lanes-measure
 # every arm in a cell shares one machine. Run it by hand.
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/project-thread-osqbr4-lanes-measure]
-    paths: [internal/link/internal/mux/**, .github/workflows/lanes-measure.yml]
 
 permissions:
   contents: read
@@ -37,6 +34,7 @@ jobs:
           command -v ethtool || sudo apt-get install -y ethtool
       - name: Record the runner
         run: |
+          uptime
           nproc
           lscpu | grep -E 'Model name|^CPU\(s\)|Thread'
           uname -r
@@ -48,3 +46,4 @@ jobs:
           go test -c -o "$RUNNER_TEMP/mux.test" ./internal/link/internal/mux
           sudo env TEST_LINK_MEASURE_LANES=1 TEST_LINK_LANES_CELLS="^${CELL//./\\.}\$" GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" \
             "$RUNNER_TEMP/mux.test" -test.run '^TestMeasureLanes$' -test.v -test.timeout 40m
+          uptime
