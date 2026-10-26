@@ -454,6 +454,14 @@ func (r *Roots) MakeDefault(ctx context.Context, _ identity.Admin, id ID) error 
 	return nil
 }
 
+// Publish sends roots.changed naming ids, for a change committed in
+// another owner's Write. It sends nothing for none.
+func (r *Roots) Publish(ctx context.Context, ids []ID) {
+	if len(ids) > 0 {
+		r.cfg.Changed.Publish(ctx, changedOf(ids))
+	}
+}
+
 // List lists every root by Content Type, oldest first in each.
 func (r *Roots) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 	var out []View

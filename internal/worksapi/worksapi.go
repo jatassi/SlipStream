@@ -272,7 +272,6 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/monitored",
 		Summary: "Monitor every Item of each Work, or none, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notImplemented},
 	}, h.setWorksMonitored)
 
 	api.Register(o, api.Admin, api.Op{
@@ -281,7 +280,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/profile",
 		Summary: "Give each Work a Profile through one Impact, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{profileNotFound, targetsapi.ImpactChanged, notImplemented},
+		Errors:  []*api.Code{profileNotFound, targetsapi.ImpactChanged},
 	}, h.setWorksProfile)
 
 	api.Register(o, api.Admin, api.Op{
@@ -290,7 +289,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/root",
 		Summary: "Move each Work without files to a root, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{rootNotFound, notImplemented},
+		Errors:  []*api.Code{rootNotFound},
 	}, h.setWorksRoot)
 
 	api.Register(o, api.Admin, api.Op{
@@ -299,7 +298,6 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/refresh",
 		Summary: "Refresh each Work from its metadata source, keeping every id, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notImplemented},
 	}, h.refreshWorks)
 
 	api.Register(o, api.Admin, api.Op{
@@ -308,7 +306,6 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/delete",
 		Summary: "Remove each Work from the library, deleting its files or leaving them, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notImplemented},
 	}, h.deleteWorks)
 
 	api.Register(o, api.Admin, api.Op{

@@ -44,6 +44,13 @@ type SetWants struct {
 	Own     *Editions
 }
 
+// SetProfiles has each of Works want from Profile, of their Content Type,
+// with its Edition list, except a Work with its own list, which keeps it.
+type SetProfiles struct {
+	Works   []works.WorkID
+	Profile ProfileID
+}
+
 // UpdateCut replaces custom cut Key's name and aliases with Spec. Its key
 // stays, and every file of it takes the new name.
 type UpdateCut struct {
@@ -226,6 +233,25 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 		}
 	}
 	return nil
+}
+
+func (c SetProfiles) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+	own, err := q.CountOwnListsOf(ctx, c.Works)
+	return Touched{Works: c.Works, OwnList: int(own)}, err
+}
+
+func (c SetProfiles) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	p, err := profileIn(ctx, q, c.Profile)
+	if err != nil {
+		return err
+	}
+	switch other, err := q.CountWantsOfOtherType(ctx, db.CountWantsOfOtherTypeParams{ContentType: p.ContentType, WorkIds: c.Works}); {
+	case err != nil:
+		return err
+	case other > 0:
+		return ErrProfileWrongType
+	}
+	return q.SetProfileOfWorks(ctx, db.SetProfileOfWorksParams{ProfileID: c.Profile, WorkIds: c.Works})
 }
 
 func (c UpdateCut) touches(context.Context, *db.Queries) (Touched, error) { //nolint:unparam // the other kinds read to answer
