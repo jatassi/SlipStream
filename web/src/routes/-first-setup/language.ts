@@ -3,8 +3,10 @@ export type PlaceSuggestion = { readonly language?: string; readonly region?: st
 
 // The region a language is most often spoken in, such as JP for ja or TW for zh-Hant.
 const homeRegion = (locale: Intl.Locale) =>
-  new Intl.Locale(locale.language, locale.script === undefined ? {} : { script: locale.script })
-    .maximize().region;
+  new Intl.Locale(
+    locale.language,
+    locale.script === undefined ? {} : { script: locale.script },
+  ).maximize().region;
 
 /**
  * The first browser tag whose language TMDB offers picks the language: for

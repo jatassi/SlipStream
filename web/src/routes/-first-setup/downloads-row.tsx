@@ -77,11 +77,7 @@ export function DownloadsRow({ card, apart }: { card: Card; apart: boolean }) {
     <li aria-label={card.nodeName} className="flex flex-col gap-3 px-4 py-3">
       <span className="font-semibold text-ink-1">{card.nodeName}</span>
       {apart && <Apart />}
-      {card.inStep ? (
-        <DownloadsFolder card={card} />
-      ) : (
-        <p>{offline(card.nodeName)}</p>
-      )}
+      {card.inStep ? <DownloadsFolder card={card} /> : <p>{offline(card.nodeName)}</p>}
       {card.downloads !== undefined && (
         <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
           {card.downloads.name} has {bytes(card.downloads.free)} free.

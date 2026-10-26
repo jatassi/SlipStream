@@ -49,9 +49,7 @@ function Row({
   return (
     <li aria-label={screen.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
       <span className="min-w-0 flex-[1_1_12ch] text-ink-1">{screen.name}</span>
-      {step.state === "skipped" && (
-        <SettingsLink href={screen.settings} onSettings={onSettings} />
-      )}
+      {step.state === "skipped" && <SettingsLink href={screen.settings} onSettings={onSettings} />}
       <Chip look={step.state === "skipped" ? "outline" : "fill"}>
         {step.state === "skipped" ? "Skipped" : "Set"}
       </Chip>

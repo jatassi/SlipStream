@@ -151,9 +151,7 @@ test("a tab that missed another browser's finish follows it into the Library on 
   await expect.element(stepHeading("Kinds of media")).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Continue" }));
   await expect.poll(() => pathname(app)).toBe("/library");
-  await expect
-    .element(page.getByText("First setup is already finished"))
-    .not.toBeInTheDocument();
+  await expect.element(page.getByText("First setup is already finished")).not.toBeInTheDocument();
   expect(server.writes).toEqual([]);
   expect(server.finishes).toEqual([]);
 });

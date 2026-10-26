@@ -95,12 +95,16 @@ test("a downloads folder saved but not yet in use offers the Node's restart", as
 test("a Node whose settings don't load costs only its row, and the step can still be skipped", async () => {
   let failing = true;
   const working = nodeSystems({ configs: { [homeCard.nodeId]: withTorrent() } }).handlers;
-  const server = open(onVolume("/data"), [], [
-    http.get("*/api/v1/nodes/:id/config", () =>
-      failing ? problem(500, "internal", "SlipStream couldn't read the settings") : undefined,
-    ),
-    ...working,
-  ]);
+  const server = open(
+    onVolume("/data"),
+    [],
+    [
+      http.get("*/api/v1/nodes/:id/config", () =>
+        failing ? problem(500, "internal", "SlipStream couldn't read the settings") : undefined,
+      ),
+      ...working,
+    ],
+  );
   const row = page.getByRole("listitem", { name: "home" });
   await expect
     .element(
@@ -125,9 +129,15 @@ test("a Node whose settings don't load costs only its row, and the step can stil
 });
 
 test("an offline Node's row says it shows its folder once it reconnects", async () => {
-  open(onVolume("/data"), [], [
-    http.get("*/api/v1/nodes/:id/config", () => problem(503, "node_offline", "The Node is offline")),
-  ]);
+  open(
+    onVolume("/data"),
+    [],
+    [
+      http.get("*/api/v1/nodes/:id/config", () =>
+        problem(503, "node_offline", "The Node is offline"),
+      ),
+    ],
+  );
   await expect
     .element(page.getByText("home is offline. Its downloads folder shows here when it reconnects."))
     .toBeVisible();
