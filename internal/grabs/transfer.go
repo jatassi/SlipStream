@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/transfers/source"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // startTransfer starts g's Transfer in tx: its planned file, from the Node
@@ -130,4 +131,29 @@ func (gr *Grabs) transfersCommitted(jobs []string) {
 		gr.cfg.Changed.Publish(context.Background(), c)
 	}
 	gr.wake()
+}
+
+// transferNames is the Names hook: each job's Grab named by its Work's
+// label, read in r. A job no Grab has goes unnamed.
+func transferNames(ctx context.Context, r storage.Reader[file], jobs []string) (map[string]string, error) {
+	out := make(map[string]string, len(jobs))
+	for _, job := range jobs {
+		id, err := storage.ParseUUID(job)
+		if err != nil {
+			continue
+		}
+		row, err := db.New(r).GetGrab(ctx, GrabID{UUID: id})
+		if errors.Is(err, storage.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		w, err := works.SummaryOf(ctx, r, row.WorkID)
+		if err != nil {
+			return nil, err
+		}
+		out[job] = w.Label
+	}
+	return out, nil
 }

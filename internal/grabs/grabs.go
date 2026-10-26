@@ -202,6 +202,7 @@ func New(cfg Config) *Grabs {
 		Verified: gr.transferVerified,
 		Failed:   gr.transferFailed,
 		After:    gr.transfersCommitted,
+		Names:    transferNames,
 	})
 	return gr
 }

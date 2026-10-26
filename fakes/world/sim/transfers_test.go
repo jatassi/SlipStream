@@ -149,10 +149,10 @@ func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
 }
 
 // TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer writes off
-// Downloading on seedbox while it sends and the Grab reads its Transfer
-// copying: the Grab fails node_written_off at transferring, the
-// Transfer's record goes in the same Write, and nas deletes what it
-// staged.
+// Downloading on seedbox while it sends, the Grab reads its Transfer
+// copying and the Transfer is named for its Work: the Grab fails
+// node_written_off at transferring, the Transfer's record goes in the
+// same Write, and nas deletes what it staged.
 func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
@@ -164,6 +164,14 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 			return len(gs) == 1 && gs[0].Stage == "transferring" && gs[0].Progress != nil &&
 				gs[0].Progress.Total == int64(len(sim.Payload(release))) && gs[0].Progress.Transfer != nil && gs[0].Progress.Transfer.State == "copying"
 		})
+		listed := decode[struct {
+			Transfers []struct {
+				JobName string `json:"jobName"`
+			} `json:"transfers"`
+		}](t, "listTransfers", w.API().Admin("home", http.MethodGet, "/api/v1/transfers", "")).Transfers
+		if len(listed) != 1 || listed[0].JobName != "The Quiet Orchard" {
+			t.Fatalf("listTransfers = %+v, want the Grab's Transfer named The Quiet Orchard", listed)
+		}
 		a := w.API()
 		writeOff(t, a, seedbox(t, a).ID)
 		g := await(t, w)
