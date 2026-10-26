@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -235,6 +236,43 @@ func (q *Queries) ListHomedWorks(ctx context.Context) ([]works.WorkID, error) {
 			return nil, err
 		}
 		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHomesOf = `-- name: ListHomesOf :many
+SELECT work_id, root_id FROM roots_work WHERE work_id IN (/*SLICE:work_ids*/?)
+`
+
+func (q *Queries) ListHomesOf(ctx context.Context, workIds []works.WorkID) ([]RootsWork, error) {
+	query := listHomesOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RootsWork
+	for rows.Next() {
+		var i RootsWork
+		if err := rows.Scan(&i.WorkID, &i.RootID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
