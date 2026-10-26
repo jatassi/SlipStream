@@ -2,7 +2,8 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures.ts";
 
-test.use({ scenario: "scale", launchSeconds: 1500 });
+// A trace records every frame of the scroll, which would add to the tasks it measures.
+test.use({ scenario: "scale", launchSeconds: 1500, trace: "off" });
 test.describe.configure({ timeout: 300_000 });
 
 declare global {
@@ -32,14 +33,16 @@ function watch() {
   );
 }
 
-// Scrolls the window to the bottom in steps a wheel would take, one frame apart.
+// Scrolls the window in steps a wheel would take, one frame apart, until a
+// step no longer moves it.
 async function scrollToEnd(page: Page) {
   await page.evaluate(
     () =>
       new Promise<void>((resolve) => {
         const step = () => {
+          const before = window.scrollY;
           window.scrollBy(0, 600);
-          if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 1) {
+          if (window.scrollY === before) {
             resolve();
             return;
           }
