@@ -152,6 +152,14 @@ func Answered(err error) bool {
 	return ok && ce.IsRemote()
 }
 
+// CutShort reports a call that ended with no answer from the called
+// Node's handler, as when that Node stopped mid-call and its link closed
+// the response, so it may have run; only an idempotent call retries it.
+func CutShort(err error) bool {
+	ce, ok := errors.AsType[*connect.Error](err)
+	return ok && !ce.IsRemote()
+}
+
 type callerKey struct{}
 
 // CallerOf is the key of the Node whose call ctx serves: this Node's own on

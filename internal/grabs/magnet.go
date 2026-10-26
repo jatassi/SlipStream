@@ -122,7 +122,8 @@ func composed(g Grab, link magnet.Link, info []byte, to role.NodeID) outcome {
 
 // unresolvable is the outcome of a Resolve call that failed. A Node that
 // holds the hash waits for KnownInfo to read it, and a Node that takes no
-// new torrent, or that the call never reached, waits for the roster.
+// new torrent, or that the call never reached, waits for the roster. A
+// call lost or cut short asks again, since Resolve joins the search.
 func unresolvable(ctx context.Context, err error) outcome {
 	_, notSent := rpc.NotSent(err)
 	switch {
@@ -130,7 +131,7 @@ func unresolvable(ctx context.Context, err error) outcome {
 		return stopped{}
 	case errors.Is(err, downloadclients.ErrNotTaking), notSent:
 		return wait{cause: err, roster: true}
-	case errors.Is(err, downloadclients.ErrHeld), rpc.Lost(err):
+	case errors.Is(err, downloadclients.ErrHeld), rpc.Lost(err), rpc.CutShort(err):
 		return wait{cause: err}
 	}
 	return fail{DownloadFailed, err.Error()}

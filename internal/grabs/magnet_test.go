@@ -13,6 +13,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"connectrpc.com/connect/v2"
+
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
@@ -351,6 +353,22 @@ func TestAGrabFailsAtItsDeadlineAfterAnyRestart(t *testing.T) {
 		p.failed(late, grabs.NoMetadata)
 		if got := len(p.swarm.asked()); got != asked {
 			t.Errorf("a Grab whose recorded search ran past its deadline asked the Node %d times, want none", got-asked)
+		}
+	})
+}
+
+// TestAResolveCallCutShortAsksAgain has the first call end as a Node
+// that stops mid-call ends it, with no answer from its handler.
+func TestAResolveCallCutShortAsksAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		rel := newRelease(t)
+		cut := connect.NewError(connect.CodeUnimplemented, "unary stream has zero messages")
+		p := newPipeline(t, answer{err: cut}, answer{res: downloadclients.Resolved{Info: rel.info}})
+		id := p.grab(rel.link.String(), nil)
+		p.running()
+		time.Sleep(grabs.DefaultTimings().RetryMax + hold)
+		if v := p.view(id); v.Stage != grabs.Downloading || len(p.swarm.asked()) != 2 {
+			t.Fatalf("after a call cut short the Grab is %s with %+v after %d calls, want downloading after a second", v.Stage, v.Failed, len(p.swarm.asked()))
 		}
 	})
 }
