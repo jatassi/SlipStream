@@ -118,7 +118,12 @@ func checkNotSent(t *testing.T, w *sim.World, box role.NodeID) {
 func office(t *testing.T, w *sim.World) string {
 	t.Helper()
 	ready := w.Node("office").Ready()
-	apiKey, err := nodeapi.ClaimController(t.Context(), w.Client(), "http://"+ready.Listeners.HTTP.String(), ready.SetupCode, nodeapi.Admin{Email: "olu@example.test", DisplayName: "Olu Bello", PIN: "1357"})
+	base := "http://" + ready.Listeners.HTTP.String()
+	session, err := nodeapi.ClaimController(t.Context(), w.Client(), base, ready.SetupCode, nodeapi.Admin{Email: "olu@example.test", DisplayName: "Olu Bello", PIN: "1357"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	apiKey, err := nodeapi.RegenerateAPIKey(t.Context(), w.Client(), base, session)
 	if err != nil {
 		t.Fatal(err)
 	}

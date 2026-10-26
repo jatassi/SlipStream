@@ -254,6 +254,10 @@ func updateOwnAccount(lib Library) func(context.Context, identity.Account, *ownP
 		if err != nil {
 			return nil, err
 		}
-		return &getSessionOutput{Body: session{Account: accountOf(profile), KeyPrompt: string(prompt)}}, nil
+		s, err := withFirstRun(ctx, lib, Session{Account: accountOf(profile), KeyPrompt: string(prompt)})
+		if err != nil {
+			return nil, err
+		}
+		return &getSessionOutput{Body: s}, nil
 	}
 }

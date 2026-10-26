@@ -2,7 +2,6 @@ package systemapi_test
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
@@ -45,6 +45,7 @@ type node struct {
 	t    *testing.T
 	h    http.Handler
 	code string
+	lib  *storage.DB[storage.Library]
 }
 
 // controller is a Controller's claim, reaching Nodes through systems.
@@ -80,7 +81,7 @@ func newController(t *testing.T, f system.Facts, systems *nodesystem.Nodes) *nod
 	r := api.NewRouter(api.Services{Node: identitytest.Node{Service: svc}, Gate: gate, Web: fstest.MapFS{}, Log: log})
 	identityapi.Routes(r, identitytest.Node{Service: svc})
 	systemapi.Routes(r, f, controller{identitytest.Node{Service: svc}, systems})
-	return &node{t: t, h: r.Handler(), code: code}
+	return &node{t: t, h: r.Handler(), code: code, lib: lib}
 }
 
 func (n *node) do(method, target, body string, headers map[string]string) *httptest.ResponseRecorder {
@@ -98,13 +99,10 @@ func (n *node) do(method, target, body string, headers map[string]string) *httpt
 func (n *node) claim() (apiKey string) {
 	n.t.Helper()
 	w := n.do(http.MethodPost, "/api/v1/setup/controller", `{"email":"admin@example.com","displayName":"Admin","pin":"1234"}`, map[string]string{"X-Setup-Code": n.code})
-	var res struct {
-		APIKey string `json:"apiKey"`
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil || w.Code != http.StatusCreated {
+	if w.Code != http.StatusCreated {
 		n.t.Fatalf("claimController = %d %s", w.Code, w.Body)
 	}
-	return res.APIKey
+	return identitytest.APIKey(n.t, n.lib)
 }
 
 func expect(t *testing.T, w *httptest.ResponseRecorder, status int, body string) {

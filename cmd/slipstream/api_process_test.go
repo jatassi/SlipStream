@@ -64,6 +64,21 @@ func claimController(t *testing.T, ready node.Ready, code string) httpReply {
 	return call(t, ready, http.MethodPost, "/api/v1/setup/controller", `{"email":"admin@example.com","displayName":"Admin","pin":"1234"}`, map[string]string{"X-Setup-Code": code})
 }
 
+// keyOf regenerates the API key with the session claimed's cookie set,
+// since a claim never shows the key.
+func keyOf(t *testing.T, ready node.Ready, claimed httpReply) string {
+	t.Helper()
+	cookie, _, _ := strings.Cut(claimed.header.Get("Set-Cookie"), ";")
+	r := call(t, ready, http.MethodPost, "/api/v1/api-key", "", map[string]string{"Cookie": cookie})
+	var res struct {
+		APIKey string `json:"apiKey"`
+	}
+	if err := json.Unmarshal([]byte(r.body), &res); err != nil || r.status != http.StatusOK {
+		t.Fatalf("regenerateAPIKey = %d %s", r.status, r.body)
+	}
+	return res.APIKey
+}
+
 func stopNode(t *testing.T, p *nodeProc, dir string) {
 	t.Helper()
 	if res := slipstream(t, childEnv(), "stop", "--data-dir", dir); res.code != node.ExitOK {
@@ -102,20 +117,18 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 
 	claimed := claimController(t, ready, ready.SetupCode)
-	var res struct {
-		APIKey string `json:"apiKey"`
-	}
-	if err := json.Unmarshal([]byte(claimed.body), &res); err != nil || claimed.status != http.StatusCreated {
+	if claimed.status != http.StatusCreated {
 		t.Fatalf("claimController = %d %s, want 201", claimed.status, claimed.body)
 	}
 	if cookie := claimed.header.Get("Set-Cookie"); !strings.HasSuffix(cookie, "; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax") {
 		t.Fatalf("Set-Cookie = %q", cookie)
 	}
-	if !regexp.MustCompile(`^ssk_[A-Za-z0-9_-]{43}$`).MatchString(res.APIKey) {
-		t.Fatalf("apiKey = %q", res.APIKey)
+	apiKey := keyOf(t, ready, claimed)
+	if !regexp.MustCompile(`^ssk_[A-Za-z0-9_-]{43}$`).MatchString(apiKey) {
+		t.Fatalf("apiKey = %q", apiKey)
 	}
 
-	sys := call(t, ready, http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": res.APIKey})
+	sys := call(t, ready, http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": apiKey})
 	var report struct {
 		Build     map[string]any `json:"build"`
 		DataDir   string         `json:"dataDir"`
@@ -206,13 +219,10 @@ func TestSystemReportsTheBinarysStamp(t *testing.T) {
 	dir := dataDir(t)
 	ready := startBinary(t, stamped, dir).ready()
 	r := claimController(t, ready, ready.SetupCode)
-	var res struct {
-		APIKey string `json:"apiKey"`
-	}
-	if err := json.Unmarshal([]byte(r.body), &res); err != nil || r.status != http.StatusCreated {
+	if r.status != http.StatusCreated {
 		t.Fatalf("claimController = %d %s, want 201", r.status, r.body)
 	}
-	sys := call(t, ready, http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": res.APIKey})
+	sys := call(t, ready, http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": keyOf(t, ready, r)})
 	var report struct {
 		Build struct {
 			Stamped     bool   `json:"stamped"`

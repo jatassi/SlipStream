@@ -57,7 +57,7 @@ func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Rout
 	if err != nil {
 		t.Fatal(err)
 	}
-	var admin identity.Claimed
+	var admin identity.SignedIn
 	err = gate.Run(t.Context(), identity.Caller{}, code, func(c identity.Claim) {
 		admin, err = svc.ClaimController(t.Context(), c, "ada@example.test", "Ada", pin)
 	})
@@ -66,7 +66,7 @@ func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Rout
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	routes(r)
-	return &Owner{handler: r.Handler(), apiKey: admin.APIKey.Reveal(), session: admin.Cookie, Log: logged}
+	return &Owner{handler: r.Handler(), apiKey: identitytest.APIKey(t, lib), session: admin.Cookie, Log: logged}
 }
 
 func (o *Owner) Call(t *testing.T, method, path, body string) (status int, reply string) {

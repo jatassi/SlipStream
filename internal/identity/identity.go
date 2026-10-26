@@ -129,25 +129,21 @@ func (s *Service) HasAdmin(ctx context.Context) (bool, error) {
 	return db.New(s.lib).HasAdmin(ctx)
 }
 
-// Claimed is the first Admin's Profile, the API key shown this once, and
-// the cookie of its new session.
-type Claimed struct {
-	Profile Profile
-	APIKey  APIKey
-	Cookie  *http.Cookie
-}
-
 // ClaimController creates the first Admin, the API key and a session in
-// one Write. It returns ErrAlreadyClaimed when an Admin exists.
-func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayName string, pin PIN) (Claimed, error) {
+// one Write, and returns the sign-in. The key is never shown: Settings >
+// API key's Regenerate is the one place a person sees one. It returns
+// ErrAlreadyClaimed when an Admin exists.
+func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayName string, pin PIN) (SignedIn, error) {
 	hash, err := s.pins.hash(ctx, pin)
 	if err != nil {
-		return Claimed{}, err
+		return SignedIn{}, err
 	}
-	profile := Profile{ID: AccountID{UUID: storage.NewUUID()}, Email: normalizeEmail(email), DisplayName: displayName, Admin: true}
-	apiKey := newAPIKey()
+	id := AccountID{UUID: storage.NewUUID()}
 	token := newToken()
-	var lifetime time.Duration
+	var (
+		out      SignedIn
+		lifetime time.Duration
+	)
 	err = s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
 		admin, err := q.HasAdmin(ctx)
 		if err != nil {
@@ -162,9 +158,9 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 		}
 		lifetime = set.SessionLifetime
 		err = q.InsertAccount(ctx, db.InsertAccountParams{
-			ID:          profile.ID,
-			Email:       profile.Email,
-			DisplayName: profile.DisplayName,
+			ID:          id,
+			Email:       normalizeEmail(email),
+			DisplayName: displayName,
 			Admin:       true,
 			PinHash:     hash,
 			CreatedAt:   fx.now,
@@ -172,20 +168,21 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 		if err != nil {
 			return err
 		}
-		if err := q.InsertAPIKey(ctx, db.InsertAPIKeyParams{TokenHash: digest(apiKey.token), CreatedAt: fx.now}); err != nil {
+		if err := q.InsertAPIKey(ctx, db.InsertAPIKeyParams{TokenHash: digest(newAPIKey().token), CreatedAt: fx.now}); err != nil {
 			return err
 		}
-		row, err := q.GetAccount(ctx, profile.ID)
+		row, err := q.GetAccount(ctx, id)
 		if err != nil {
 			return err
 		}
-		_, err = startSession(ctx, q, fx, c.client, row, token, false)
+		out, err = startSession(ctx, q, fx, c.client, row, token, false)
 		return err
 	})
 	if err != nil {
-		return Claimed{}, err
+		return SignedIn{}, err
 	}
-	return Claimed{Profile: profile, APIKey: apiKey, Cookie: cookie(token, c.https, lifetime)}, nil
+	out.Cookie = cookie(token, c.https, lifetime)
+	return out, nil
 }
 
 // SignedIn is any way in: a PIN, a Signup link, a Reset link.

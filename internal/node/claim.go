@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -287,6 +288,20 @@ func (s surfaceNode) Health() (*health.Health, bool) {
 		return nil, false
 	}
 	return h.health, true
+}
+
+func (s surfaceNode) FirstRun() (*firstrun.FirstRun, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.firstRun == nil {
+		return nil, false
+	}
+	return h.firstRun, true
+}
+
+// FirstRunOpen reads first setup, which only a Controller, the one claim
+// with sessions, has.
+func (s surfaceNode) FirstRunOpen(ctx context.Context) (bool, error) {
+	return s.n.half.Load().firstRun.IsOpen(ctx)
 }
 
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {
