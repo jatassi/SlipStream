@@ -27,7 +27,9 @@ enum {
 enum {
 	LTS_SHIM_UNKNOWN_TORRENT = 1,
 	/* Out of space, whatever the OS calls it. */
-	LTS_SHIM_DISK_FULL = 4
+	LTS_SHIM_DISK_FULL = 4,
+	/* The torrent has no metadata yet. */
+	LTS_SHIM_NO_METADATA = 6
 };
 
 enum {
@@ -62,7 +64,8 @@ enum {
 	LTS_ALERT_INCOMING_PEER,
 	LTS_ALERT_FILE_ERROR,
 	LTS_ALERT_STATS,
-	LTS_ALERT_HASH_FAILED
+	LTS_ALERT_HASH_FAILED,
+	LTS_ALERT_METADATA_RECEIVED
 };
 
 enum {
@@ -140,7 +143,8 @@ typedef struct {
 
 /* payload is shim-owned until lts_free_alert: the bytes of RESUME_SAVED, the
    text of TRACKER_FAILED's failure reason or TRACKER_WARNED's message, the
-   address of INCOMING_PEER as text, payload_len lts_status of UPDATES,
+   address of INCOMING_PEER as text, the info dictionary of
+   METADATA_RECEIVED, payload_len lts_status of UPDATES,
    payload_len lts_tracker of TRACKER_LIST, or STATS' payload bytes sent and
    received, two int64_t. tracker indexes the torrent's tracker list, and
    at_ms is the Unix milliseconds the alert was posted at. */
@@ -185,6 +189,10 @@ int lts_listen_on(lts_session* s, const char* address, uint16_t port, lts_error*
 int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 /* Adds the torrent paused and not auto-managed, whatever resume data says. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
+/* Adds the torrent of the magnet link uri running, not auto-managed and
+   with default_dont_download, so it downloads its info dictionary, posts
+   METADATA_RECEIVED, and writes no file. discover is as lts_add_params'. */
+int lts_fetch_metadata(lts_session* s, const char* uri, const char* save_path, int32_t discover, int64_t* torrent, lts_error* err);
 int lts_connect_peer(lts_session* s, int64_t torrent, const char* address, uint16_t port, lts_error* err);
 /* Pauses gracefully once no tracker awaits an answer. */
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err);
@@ -204,7 +212,9 @@ int lts_post_stats(lts_session* s, lts_error* err);
    deletes the torrent's files, then its save path if left empty, and posts
    FILES_DELETED after REMOVED. */
 int lts_remove(lts_session* s, int64_t torrent, int32_t delete_files, lts_error* err);
-/* Bytes done per file, in lts_torrent_files' order. Free *done with lts_free. */
+/* Bytes done per file, in lts_torrent_files' order. Free *done with lts_free.
+   It and lts_torrent_files fail with LTS_SHIM_NO_METADATA before the
+   torrent's metadata arrived. */
 int lts_file_progress(lts_session* s, int64_t torrent, int64_t** done, int32_t* count, lts_error* err);
 void lts_free(void* p);
 /* Lists the torrent's files but its pad files, with paths relative to the

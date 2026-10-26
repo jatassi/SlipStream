@@ -9,6 +9,7 @@
 #include <libtorrent/error_code.hpp>
 #include <libtorrent/file_storage.hpp>
 #include <libtorrent/ip_filter.hpp>
+#include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/posix_disk_io.hpp>
 #include <libtorrent/read_resume_data.hpp>
 #include <libtorrent/session.hpp>
@@ -335,6 +336,14 @@ int32_t tracker_index(lt::torrent_handle const& h, std::string const& url) {
 	throw std::logic_error("an alert's tracker is not in its torrent's list");
 }
 
+// metadata is h's torrent_info, which libtorrent leaves null until the
+// metadata arrives.
+std::shared_ptr<lt::torrent_info const> metadata(lt::torrent_handle const& h) {
+	std::shared_ptr<lt::torrent_info const> ti = h.torrent_file();
+	if (!ti) throw shim_error(LTS_SHIM_NO_METADATA, "no metadata yet");
+	return ti;
+}
+
 int32_t announce_event(lt::event_t e) {
 	switch (e) {
 	case lt::event_t::completed: return LTS_EVENT_COMPLETED;
@@ -551,6 +560,19 @@ void convert(lts_session* s, lt::alert* a) {
 		if (o.torrent != 0 && o.error.category == LTS_CATEGORY_SHIM && o.error.code == LTS_SHIM_DISK_FULL) turn_to(s, fe->handle, turn::pause);
 		break;
 	}
+	case lt::metadata_received_alert::alert_type: {
+		auto* mr = static_cast<lt::metadata_received_alert*>(a);
+		o.kind = LTS_ALERT_METADATA_RECEIVED;
+		o.torrent = torrent(mr);
+		std::shared_ptr<lt::torrent_info const> ti = mr->handle.torrent_file();
+		if (o.torrent == 0 || !ti) return;
+		lt::span<char const> const info = ti->info_section();
+		o.payload = std::malloc(std::size_t(info.size()));
+		if (o.payload == nullptr) throw std::bad_alloc();
+		std::memcpy(o.payload, info.data(), std::size_t(info.size()));
+		o.payload_len = int64_t(info.size());
+		break;
+	}
 	case lt::hash_failed_alert::alert_type:
 		o.kind = LTS_ALERT_HASH_FAILED;
 		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
@@ -649,6 +671,26 @@ void discover(lt::add_torrent_params& atp, bool on) {
 	lt::torrent_flags_t const both = lt::torrent_flags::disable_dht | lt::torrent_flags::disable_pex;
 	if (on) atp.flags &= ~both;
 	else atp.flags |= both;
+}
+
+// hold adds atp under a new id and returns its id. Adding a parting torrent
+// again returns its handle: it stays, under the id it had, and pauses as
+// any add does.
+int64_t hold(lts_session* s, lt::add_torrent_params atp) {
+	std::lock_guard<std::mutex> l(s->mu);
+	int64_t id = s->next++;
+	atp.userdata = lt::client_data_t(reinterpret_cast<lts_id*>(intptr_t(id)));
+	lt::error_code ec;
+	lt::torrent_handle h = s->ses.add_torrent(std::move(atp), ec);
+	check(ec);
+	if (auto pt = s->parting.find(h); pt != s->parting.end()) {
+		id = pt->second.id;
+		s->parting.erase(pt);
+		turn_to(s, h, turn::pause);
+	}
+	s->by_id[id] = h;
+	s->by_handle[h] = id;
+	return id;
 }
 
 std::string listen_interface(char const* address, uint16_t port) {
@@ -765,21 +807,20 @@ int lts_add(lts_session* s, lts_add_params const* p, int64_t* torrent, lts_error
 		atp.total_downloaded = std::max(atp.total_downloaded, p->base_downloaded);
 		atp.active_time = std::max(atp.active_time, int(p->base_active_s));
 		atp.seeding_time = std::max(atp.seeding_time, int(p->base_seeding_s));
-		std::lock_guard<std::mutex> l(s->mu);
-		int64_t id = s->next++;
-		atp.userdata = lt::client_data_t(reinterpret_cast<lts_id*>(intptr_t(id)));
-		lt::torrent_handle h = s->ses.add_torrent(std::move(atp), ec);
+		*torrent = hold(s, std::move(atp));
+	});
+}
+
+int lts_fetch_metadata(lts_session* s, char const* uri, char const* save_path, int32_t discover_peers, int64_t* torrent, lts_error* err) {
+	return guard(err, [&] {
+		lt::error_code ec;
+		lt::add_torrent_params atp = lt::parse_magnet_uri(uri, ec);
 		check(ec);
-		// Adding a parting torrent again returns its handle: it stays, under
-		// the id it had, and pauses as any add does.
-		if (auto pt = s->parting.find(h); pt != s->parting.end()) {
-			id = pt->second.id;
-			s->parting.erase(pt);
-			turn_to(s, h, turn::pause);
-		}
-		s->by_id[id] = h;
-		s->by_handle[h] = id;
-		*torrent = id;
+		atp.save_path = save_path;
+		atp.flags &= ~(lt::torrent_flags::auto_managed | lt::torrent_flags::paused);
+		atp.flags |= lt::torrent_flags::default_dont_download;
+		discover(atp, discover_peers != 0);
+		*torrent = hold(s, std::move(atp));
 	});
 }
 
@@ -879,7 +920,7 @@ int lts_remove(lts_session* s, int64_t torrent, int32_t delete_files, lts_error*
 int lts_file_progress(lts_session* s, int64_t torrent, int64_t** done, int32_t* count, lts_error* err) {
 	return guard(err, [&] {
 		lt::torrent_handle h = find(s, torrent);
-		std::shared_ptr<lt::torrent_info const> ti = h.torrent_file();
+		std::shared_ptr<lt::torrent_info const> ti = metadata(h);
 		lt::file_storage const& fs = ti->files();
 		std::vector<std::int64_t> progress = h.file_progress();
 		auto* out = static_cast<int64_t*>(std::calloc(std::size_t(fs.num_files()) + 1, sizeof(int64_t)));
@@ -899,7 +940,7 @@ void lts_free(void* p) {
 
 int lts_torrent_files(lts_session* s, int64_t torrent, lts_file** files, int32_t* count, lts_error* err) {
 	return guard(err, [&] {
-		std::shared_ptr<lt::torrent_info const> ti = find(s, torrent).torrent_file();
+		std::shared_ptr<lt::torrent_info const> ti = metadata(find(s, torrent));
 		lt::file_storage const& fs = ti->files();
 		std::vector<lt::file_index_t> kept;
 		std::vector<std::string> paths;

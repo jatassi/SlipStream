@@ -320,6 +320,18 @@ func (s *Session) Add(p engine.AddParams) (engine.Handle, error) {
 	return engine.Handle(id), err
 }
 
+func (s *Session) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
+	uri := C.CString(p.Link.String())
+	defer C.free(unsafe.Pointer(uri))
+	savePath := C.CString(p.SavePath)
+	defer C.free(unsafe.Pointer(savePath))
+	var id C.int64_t
+	err := s.call(func(cerr *C.lts_error) C.int {
+		return C.lts_fetch_metadata(s.ses, uri, savePath, cBool(p.Discover), &id, cerr)
+	})
+	return engine.Handle(id), err
+}
+
 // pinned is b for C to read through a Go struct, which cgo allows only for
 // pinned memory, and NULL for none.
 func pinned(pins *runtime.Pinner, b []byte) *C.char {
@@ -606,6 +618,8 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.FileError{Torrent: h, Err: goError(&a.error)}
 	case C.LTS_ALERT_HASH_FAILED:
 		return engine.HashFailed{Torrent: h}
+	case C.LTS_ALERT_METADATA_RECEIVED:
+		return engine.MetadataReceived{Torrent: h, Info: C.GoBytes(a.payload, C.int(a.payload_len))}
 	case C.LTS_ALERT_STATS:
 		counters := unsafe.Slice((*C.int64_t)(a.payload), 2)
 		return engine.Stats{SentPayload: int64(counters[0]), RecvPayload: int64(counters[1]), At: alertTime(a.at_ms)}

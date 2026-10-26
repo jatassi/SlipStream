@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
@@ -19,6 +20,12 @@ type Engine interface {
 	// It takes Resume when the caller has resume data, else Metainfo, and sets
 	// each counter to the larger of the resume data's value and Baseline's.
 	Add(AddParams) (Handle, error)
+	// FetchMetadata adds a running torrent of a magnet link that gets its
+	// info dictionary from peers and downloads no file. MetadataReceived
+	// follows once a peer sent it, and the torrent stays, downloading
+	// nothing, until Remove. Its tracker list is the link's trackers, each
+	// its own tier.
+	FetchMetadata(MetadataParams) (Handle, error)
 	// Pause stops the torrent gracefully. A tracker gets stopped only where it
 	// answered started and awaits no answer, so until each announce is
 	// answered the pause waits, as Remove does.
@@ -52,7 +59,9 @@ type Engine interface {
 	// FilesDeleted follows Removed.
 	Remove(h Handle, deleteFiles bool) error
 	// Files lists a torrent's files as they lie under its save path, after
-	// the engine sanitized the names the metainfo gives.
+	// the engine sanitized the names the metainfo gives. It fails with
+	// ErrNoMetadata, as FileProgress does, before a FetchMetadata
+	// torrent's metadata arrived.
 	Files(Handle) ([]File, error)
 	// FileProgress is the bytes done of each file, in Files' order.
 	FileProgress(Handle) ([]int64, error)
@@ -167,6 +176,14 @@ type AddParams struct {
 	// does, whatever Discover says.
 	Discover bool
 	Baseline Totals
+}
+
+type MetadataParams struct {
+	Link     magnet.Link
+	SavePath string
+	// Discover is as AddParams'. A link's torrent can't say it is private
+	// until its metadata arrives.
+	Discover bool
 }
 
 // Totals are a torrent's all-time counters.
@@ -352,6 +369,12 @@ type (
 	// HashFailed is a piece whose data failed its hash check: a peer sent
 	// data that is not the torrent's.
 	HashFailed struct{ Torrent Handle }
+	// MetadataReceived is a FetchMetadata torrent's info dictionary, as a
+	// peer sent it: its SHA-1 is the torrent's info hash.
+	MetadataReceived struct {
+		Torrent Handle
+		Info    []byte
+	}
 	// Stats is the payload the engine sent and received since it opened.
 	Stats struct {
 		SentPayload, RecvPayload int64
@@ -381,6 +404,7 @@ func (Checked) event()          {}
 func (IncomingPeer) event()     {}
 func (FileError) event()        {}
 func (HashFailed) event()       {}
+func (MetadataReceived) event() {}
 func (Stats) event()            {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any
@@ -414,6 +438,7 @@ const (
 	CodeNotListening   = 3
 	CodeDiskFull       = 4
 	CodeNoRoute        = 5
+	CodeNoMetadata     = 6
 )
 
 var (
@@ -425,6 +450,8 @@ var (
 	// ErrNoRoute is an unspecified listen address on a host with no default
 	// route in its family.
 	ErrNoRoute = &Error{Category: CategoryShim, Code: CodeNoRoute, Text: "no route to the internet"}
+	// ErrNoMetadata is a torrent whose metadata hasn't arrived.
+	ErrNoMetadata = &Error{Category: CategoryShim, Code: CodeNoMetadata, Text: "no metadata yet"}
 )
 
 // Error compares by Category and Code. Text is for logs.

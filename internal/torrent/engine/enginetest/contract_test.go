@@ -58,7 +58,8 @@ func (h *worlds) Tracker(_ *testing.T, rules enginetest.TrackerRules) enginecont
 	}
 }
 
-// Seed has the World's swarm serve the release's files at swarmRate.
+// Seed has the World's swarm serve the release's files at swarmRate, and
+// its metadata.
 func (h *worlds) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine, engine.Handle) {
 	m, err := bencode.DecodeMetainfo(meta)
 	if err != nil {
@@ -74,7 +75,12 @@ func (h *worlds) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine,
 	}
 	h.w.Payload(m.InfoHash, payload)
 	h.w.Transfer(m.InfoHash, swarmRate, 0)
-	return func(engine.Engine, engine.Handle) {}
+	h.w.Serve(m)
+	return func(e engine.Engine, th engine.Handle) {
+		if err := e.ConnectPeer(th, netip.MustParseAddrPort("127.0.0.9:6881")); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func (h *worlds) TakePort(*testing.T) netip.AddrPort {

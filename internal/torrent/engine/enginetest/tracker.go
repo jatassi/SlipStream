@@ -223,6 +223,7 @@ func (a *announcing) answer(tr *tracker, event string) {
 			}
 			a.t.e.emit(engine.TrackerReplied{Torrent: a.t.handle, At: now})
 		}
+		a.t.reach()
 	}
 	a.schedule()
 	a.t.settle()
@@ -243,15 +244,27 @@ func (a *announcing) reannounce(index int, delay time.Duration, ignoreMin bool) 
 	a.schedule()
 }
 
-// list is the torrent's tracker list: the one tracker its metainfo names.
+// list is the torrent's tracker list: each tier's trackers in order, the
+// announce URL alone when there is no announce-list. Only the first is
+// announced to, as libtorrent announces to the first tier that answers.
 func (a *announcing) list() []engine.Tracker {
-	if a.t.meta.Announce == "" {
-		return nil
+	tiers := a.t.meta.AnnounceList
+	if len(tiers) == 0 && a.t.meta.Announce != "" {
+		tiers = [][]string{{a.t.meta.Announce}}
 	}
-	return []engine.Tracker{{
-		URL: a.t.meta.Announce, Endpoints: a.endpoints, NextAnnounce: a.next, MinAnnounce: a.min,
-		Message: a.message, LastError: a.lastErr, Fails: a.fails, Updating: a.updating, StartSent: a.startSent,
-	}}
+	var out []engine.Tracker
+	for tier, urls := range tiers {
+		for _, url := range urls {
+			out = append(out, engine.Tracker{Index: len(out), URL: url, Tier: tier})
+		}
+	}
+	if len(out) > 0 {
+		out[0] = engine.Tracker{
+			URL: out[0].URL, Endpoints: a.endpoints, NextAnnounce: a.next, MinAnnounce: a.min,
+			Message: a.message, LastError: a.lastErr, Fails: a.fails, Updating: a.updating, StartSent: a.startSent,
+		}
+	}
+	return out
 }
 
 // schedule sets the timer for the next regular announce, which waits for
