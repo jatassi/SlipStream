@@ -36,10 +36,17 @@ test("Refresh metadata reads the source again, and a Work the source drops says 
   await expect(notifications(page)).toContainText(
     "TMDB no longer lists The Salt Road, so it wasn't refreshed.",
   );
-  await expect(page.getByText("Refresh metadata is unavailable")).toBeVisible();
-  await expect(
-    page.getByText("TMDB no longer lists this movie. SlipStream keeps it as it is."),
-  ).toBeVisible();
+  const gone = "TMDB no longer lists this movie. SlipStream keeps it as it is.";
+  if (isPhone(page)) {
+    await page.getByRole("button", { name: /Refresh metadata is unavailable$/u }).click();
+    const sheet = page.getByRole("dialog", { name: "Refresh metadata is unavailable" });
+    await expect(sheet).toContainText(gone);
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+  } else {
+    await expect(page.getByText("Refresh metadata is unavailable")).toBeVisible();
+    await expect(page.getByText(gone)).toBeVisible();
+  }
   await expect(page.getByRole("main")).toContainText("Two sisters walk the salt road. Revision 1.");
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("gone-upstream.png"), fullPage: true });

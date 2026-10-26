@@ -47,7 +47,7 @@ async function openEditions(page: Page) {
   return page.getByRole("dialog", { name: "Editions of The Quiet Orchard" });
 }
 
-test("a failed download shows under Needs you with the cells it holds back, and Search again retries it", async ({
+test("a failed download shows under Needs you, and Search again retries it", async ({
   adminPage: page,
   world,
 }, testInfo) => {
@@ -66,7 +66,7 @@ test("a failed download shows under Needs you with the cells it holds back, and 
   const card = needsYou.getByRole("article");
   await expect(card).toHaveCount(1);
   await expect(card).toContainText("Failed at");
-  await expect(card).toHaveAccessibleName(/failed at .* waits on it$/u);
+  await expect(card).toHaveAccessibleName("1080p failed at Downloading");
   await expect(page.getByRole("list", { name: "Cells" })).toContainText("failed");
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("needs-you.png"), fullPage: true });
@@ -74,8 +74,11 @@ test("a failed download shows under Needs you with the cells it holds back, and 
   await world.fw.fault.clear("download-refused");
   await card.getByRole("button", { name: "Search again" }).click();
   await expect(notifications(page)).toContainText("Search started");
-  await expect(needsYou).toBeHidden({ timeout: 60_000 });
-  await expect(orchardCells(page)).toContainText("Upgrade available");
+  await expect(orchardCells(page)).toContainText("Upgrade available", { timeout: 60_000 });
+  await expect(card).toHaveCount(0);
+  await expect(needsYou.getByRole("list", { name: "Upgrades available" })).toContainText(
+    "Upgrade available for 1080p and HD",
+  );
 });
 
 test("an Admin sets the Work's own Editions through the Impact, and an unseen cut waits in its own row", async ({
