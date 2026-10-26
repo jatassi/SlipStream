@@ -1,8 +1,9 @@
 import { useRouter } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { z } from "zod";
 
 import { setAddress, useGetAddressSuspense } from "../api/gen/query/identity/identity";
-import { submitErrors, useAppForm } from "../ui/form";
+import { SubmitButton, submitErrors, useAppForm } from "../ui/form";
 import { toast } from "../ui/toast";
 
 const addressForm = z.object({ address: z.string().trim().min(1, "Enter an address") });
@@ -27,9 +28,15 @@ function describe(address: string, saved: string): string {
     : "Signup, Reset and email links use this address.";
 }
 
-export function AddressSection() {
+/** The address with the suggestion filled in while none is set; `children` hold its submit. */
+export function AddressForm({
+  onSaved,
+  children,
+}: {
+  onSaved: () => Promise<void>;
+  children: ReactNode;
+}) {
   const { address, suggestedAddress } = useGetAddressSuspense().data;
-  const router = useRouter();
   const form = useAppForm({
     defaultValues: { address: address === "" ? suggestedAddress : address },
     validators: { onSubmit: addressForm },
@@ -40,8 +47,7 @@ export function AddressSection() {
       });
       if (saved !== null) {
         formApi.reset({ address: saved.address });
-        toast("Saved the address");
-        await router.invalidate();
+        await onSaved();
       }
     },
   });
@@ -67,10 +73,24 @@ export function AddressSection() {
           )}
         </form.AppField>
         <form.FormAlert />
-        <div>
-          <form.SubmitButton label="Save" />
-        </div>
+        {children}
       </form.AppForm>
     </form>
+  );
+}
+
+export function AddressSection() {
+  const router = useRouter();
+  return (
+    <AddressForm
+      onSaved={async () => {
+        toast("Saved the address");
+        await router.invalidate();
+      }}
+    >
+      <div>
+        <SubmitButton label="Save" />
+      </div>
+    </AddressForm>
   );
 }
