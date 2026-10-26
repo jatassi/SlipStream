@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -72,6 +73,7 @@ type half struct {
 	targets  *targets.Targets
 	roots    *roots.Roots
 	files    *files.Files
+	library  *library.Library
 	grabs    *grabs.Grabs
 	clients  *downloadclients.Clients
 	tasks    *tasks.Scheduler
@@ -123,7 +125,7 @@ func (n *Node) startController(ctx context.Context) error {
 	arrivals := roots.NewArrivals()
 	var (
 		systems *nodesystem.Nodes
-		library *roots.Roots
+		homes   *roots.Roots
 	)
 	side, err = nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
@@ -140,7 +142,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Kept:            grabs.Kept,
 		Torrents:        clients,
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
-			return library.Figures(ctx, r, id)
+			return homes.Figures(ctx, r, id)
 		},
 		Facts: func(id role.NodeID, scope string) {
 			arrivals.Note(id, scope)
@@ -254,7 +256,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	library, err = roots.Open(ctx, roots.Config{
+	homes, err = roots.Open(ctx, roots.Config{
 		Library: lib.db,
 		Types:   types,
 		Roster:  side,
@@ -282,11 +284,12 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Works: tree, Targets: goals, Grabs: grabs.GrabCells{},
 		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Today:   n.today,
-		Disk:    library,
+		Disk:    homes,
 		Timings: n.cfg.Timings.Files,
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
 	})
+	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf})
 	receiver := transfers.NewReceiver(transfers.Config{Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers})
 	pipeline := grabs.New(grabs.Config{
 		Library:   lib.db,
@@ -300,7 +303,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
-		Roots:         library,
+		Roots:         homes,
 		Staging:       n.store,
 		Controller:    side.Self(),
 		Transfers:     receiver,
@@ -345,8 +348,9 @@ func (n *Node) startController(ctx context.Context) error {
 	h := &half{
 		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, metadata: meta, indexers: registry,
 		targets:   goals,
-		roots:     library,
+		roots:     homes,
 		files:     shelf,
+		library:   composer,
 		grabs:     pipeline,
 		clients:   clients,
 		tasks:     scheduler,
@@ -357,7 +361,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	n.setHalf(h)
 	n.claimed.Go("nodes", side.Run)
-	n.claimed.Go("roots", library.Run)
+	n.claimed.Go("roots", homes.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("files", shelf.Run)
