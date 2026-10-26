@@ -67,7 +67,8 @@ enum {
 	LTS_ALERT_FILE_ERROR,
 	LTS_ALERT_STATS,
 	LTS_ALERT_HASH_FAILED,
-	LTS_ALERT_METADATA_RECEIVED
+	LTS_ALERT_METADATA_RECEIVED,
+	LTS_ALERT_METADATA_TOO_LARGE
 };
 
 enum {
@@ -148,8 +149,10 @@ typedef struct {
    address of INCOMING_PEER as text, the info dictionary of
    METADATA_RECEIVED, payload_len lts_status of UPDATES,
    payload_len lts_tracker of TRACKER_LIST, or STATS' payload bytes sent and
-   received, two int64_t. tracker indexes the torrent's tracker list, and
-   at_ms is the Unix milliseconds the alert was posted at. */
+   received, two int64_t. METADATA_TOO_LARGE has no payload, and its
+   payload_len is the info dictionary size a peer gave. tracker indexes the
+   torrent's tracker list, and at_ms is the Unix milliseconds the alert was
+   posted at. */
 typedef struct {
 	int32_t kind;
 	int32_t state;
@@ -180,8 +183,10 @@ typedef struct {
 /* A session binds the port it is given or none, and then posts LISTEN_FAILED.
    An empty address listens nowhere. dht_routers is dht_bootstrap_nodes,
    host:port pairs separated by commas. The session opens with DHT, LSD, UPnP
-   and NAT-PMP off, and lts_configure turns DHT on. */
-lts_session* lts_open(const char* address, uint16_t port, const char* dht_routers, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err);
+   and NAT-PMP off, and lts_configure turns DHT on. A metadata fetch takes
+   no info dictionary over max_metadata_size bytes, and posts
+   METADATA_TOO_LARGE for a peer that gives a larger size. */
+lts_session* lts_open(const char* address, uint16_t port, const char* dht_routers, int32_t announce_floor_s, int32_t peers_share_address, int32_t max_metadata_size, lts_error* err);
 int lts_configure(lts_session* s, const lts_limits* l, lts_error* err);
 /* The peer fingerprint and user agent the session announces with. */
 int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char* user_agent, size_t user_agent_len, lts_error* err);

@@ -64,6 +64,11 @@ func TestResolveAsksTheNodeAndReadsEachAnswer(t *testing.T) {
 			}}},
 			want: dc.Unresolved{Reason: dc.EngineError, Error: "libtorrent error 2: no such file"},
 		},
+		{
+			name: "an info dictionary over the .torrent cap",
+			res:  &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_Unresolved{Unresolved: &dlv1.Unresolved{Reason: dlv1.UnresolvedReason_UNRESOLVED_REASON_INFO_TOO_LARGE}}},
+			want: dc.Unresolved{Reason: dc.InfoTooLarge},
+		},
 		{name: "a held torrent", res: &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_Held{Held: &dlv1.Held{}}}, is: dc.ErrHeld},
 		{name: "a client taking no new torrent", res: &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_NotTaking{NotTaking: &dlv1.NotTaking{}}}, is: dc.ErrNotTaking},
 	} {

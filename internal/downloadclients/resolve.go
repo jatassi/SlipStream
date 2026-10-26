@@ -54,12 +54,16 @@ const (
 	NoPeerSource
 	// EngineError: the Node's torrent engine failed the search.
 	EngineError
+	// InfoTooLarge: a peer sent a size for the info dictionary over
+	// bencode.MaxTorrent.
+	InfoTooLarge
 )
 
 var reasonOnWire = map[dlv1.UnresolvedReason]UnresolvedReason{
 	dlv1.UnresolvedReason_UNRESOLVED_REASON_TIMED_OUT:      TimedOut,
 	dlv1.UnresolvedReason_UNRESOLVED_REASON_NO_PEER_SOURCE: NoPeerSource,
 	dlv1.UnresolvedReason_UNRESOLVED_REASON_ENGINE_ERROR:   EngineError,
+	dlv1.UnresolvedReason_UNRESOLVED_REASON_INFO_TOO_LARGE: InfoTooLarge,
 }
 
 var (
@@ -109,6 +113,8 @@ func (u Unresolved) Words(wait time.Duration) string {
 		return "The magnet link names no tracker, and DHT is off on the Node that downloads it"
 	case EngineError:
 		return "The metadata search failed with a torrent engine error: " + u.Error
+	case InfoTooLarge:
+		return fmt.Sprintf("The magnet link's metadata is larger than %d MiB, the most SlipStream reads for a .torrent", bencode.MaxTorrent>>20)
 	case TimedOut:
 		msg = "No peer sent the metadata in " + setting.Words(wait)
 	}

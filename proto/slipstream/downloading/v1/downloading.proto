@@ -307,6 +307,9 @@ enum UnresolvedReason {
   // the Node's DHT is off.
   UNRESOLVED_REASON_NO_PEER_SOURCE = 2;
   UNRESOLVED_REASON_ENGINE_ERROR = 3;
+  // UNRESOLVED_REASON_INFO_TOO_LARGE: a peer sent a size for the info
+  // dictionary over the largest .torrent SlipStream reads.
+  UNRESOLVED_REASON_INFO_TOO_LARGE = 4;
 }
 
 // Held is a torrent of the info hash the Node already holds, whose

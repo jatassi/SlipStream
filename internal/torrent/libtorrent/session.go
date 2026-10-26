@@ -24,6 +24,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
@@ -170,7 +171,7 @@ func open(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	dhtRouters := C.CString(strings.Join(routers, ","))
 	defer C.free(unsafe.Pointer(dhtRouters))
 	var cerr C.lts_error
-	ses := C.lts_open(addr, C.uint16_t(ap.Port()), dhtRouters, C.int32_t(cfg.AnnounceFloor/time.Second), cBool(cfg.PeersShareAddress), &cerr)
+	ses := C.lts_open(addr, C.uint16_t(ap.Port()), dhtRouters, C.int32_t(cfg.AnnounceFloor/time.Second), cBool(cfg.PeersShareAddress), C.int32_t(bencode.MaxTorrent), &cerr)
 	if ses == nil {
 		return nil, goError(&cerr)
 	}
@@ -620,6 +621,8 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.HashFailed{Torrent: h}
 	case C.LTS_ALERT_METADATA_RECEIVED:
 		return engine.MetadataReceived{Torrent: h, Info: C.GoBytes(a.payload, C.int(a.payload_len))}
+	case C.LTS_ALERT_METADATA_TOO_LARGE:
+		return engine.MetadataTooLarge{Torrent: h, Size: int64(a.payload_len)}
 	case C.LTS_ALERT_STATS:
 		counters := unsafe.Slice((*C.int64_t)(a.payload), 2)
 		return engine.Stats{SentPayload: int64(counters[0]), RecvPayload: int64(counters[1]), At: alertTime(a.at_ms)}

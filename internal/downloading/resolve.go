@@ -212,6 +212,9 @@ func (l *loop) searchEvent(s *search, ev engine.Event) {
 	case engine.MetadataReceived:
 		l.c.cfg.Log.Info("A magnet link's metadata arrived", "info_hash", s.link.InfoHash.String())
 		l.end(s, &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_Info{Info: ev.Info}})
+	case engine.MetadataTooLarge:
+		l.c.cfg.Log.Warn("A peer sent a size for a magnet link's metadata over the .torrent limit", "info_hash", s.link.InfoHash.String(), "bytes", ev.Size, "limit", bencode.MaxTorrent)
+		l.end(s, unresolved(dlv1.UnresolvedReason_UNRESOLVED_REASON_INFO_TOO_LARGE, s.most, s.trackerSaid, ""))
 	case engine.TrackerFailed:
 		if ev.Reason != "" {
 			s.trackerSaid = ev.Reason

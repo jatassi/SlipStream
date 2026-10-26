@@ -14,6 +14,10 @@ import (
 	"strings"
 )
 
+// MaxTorrent is the largest .torrent SlipStream reads, and so the largest
+// info dictionary it takes from a magnet link's peers.
+const MaxTorrent = 10 << 20
+
 // ErrV2Only refuses a torrent that has only the v2 form, so no v1 info hash.
 var ErrV2Only = errors.New("bencode: the torrent is v2-only")
 

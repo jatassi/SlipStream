@@ -372,6 +372,10 @@ func (t *torrent) receive() {
 	if t.fetch == nil || !t.fetch.reached || t.fetch.received || !served || m.Info.Private {
 		return
 	}
+	if len(m.RawInfo) > bencode.MaxTorrent {
+		t.e.emit(engine.MetadataTooLarge{Torrent: t.handle, Size: int64(len(m.RawInfo))})
+		return
+	}
 	t.fetch.received = true
 	t.meta.Info, t.meta.RawInfo = m.Info, m.RawInfo
 	t.files = files(m.Info)

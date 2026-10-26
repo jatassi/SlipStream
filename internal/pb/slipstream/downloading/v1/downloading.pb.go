@@ -325,6 +325,9 @@ const (
 	// the Node's DHT is off.
 	UnresolvedReason_UNRESOLVED_REASON_NO_PEER_SOURCE UnresolvedReason = 2
 	UnresolvedReason_UNRESOLVED_REASON_ENGINE_ERROR   UnresolvedReason = 3
+	// UNRESOLVED_REASON_INFO_TOO_LARGE: a peer sent a size for the info
+	// dictionary over the largest .torrent SlipStream reads.
+	UnresolvedReason_UNRESOLVED_REASON_INFO_TOO_LARGE UnresolvedReason = 4
 )
 
 // Enum value maps for UnresolvedReason.
@@ -334,12 +337,14 @@ var (
 		1: "UNRESOLVED_REASON_TIMED_OUT",
 		2: "UNRESOLVED_REASON_NO_PEER_SOURCE",
 		3: "UNRESOLVED_REASON_ENGINE_ERROR",
+		4: "UNRESOLVED_REASON_INFO_TOO_LARGE",
 	}
 	UnresolvedReason_value = map[string]int32{
 		"UNRESOLVED_REASON_UNSPECIFIED":    0,
 		"UNRESOLVED_REASON_TIMED_OUT":      1,
 		"UNRESOLVED_REASON_NO_PEER_SOURCE": 2,
 		"UNRESOLVED_REASON_ENGINE_ERROR":   3,
+		"UNRESOLVED_REASON_INFO_TOO_LARGE": 4,
 	}
 )
 
@@ -3406,12 +3411,13 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x16FAULT_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17FAULT_KIND_ENGINE_ERROR\x10\x01\x12\x1b\n" +
 	"\x17FAULT_KIND_UNREGISTERED\x10\x02\x12\x19\n" +
-	"\x15FAULT_KIND_NO_PAYLOAD\x10\x03*\xa0\x01\n" +
+	"\x15FAULT_KIND_NO_PAYLOAD\x10\x03*\xc6\x01\n" +
 	"\x10UnresolvedReason\x12!\n" +
 	"\x1dUNRESOLVED_REASON_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bUNRESOLVED_REASON_TIMED_OUT\x10\x01\x12$\n" +
 	" UNRESOLVED_REASON_NO_PEER_SOURCE\x10\x02\x12\"\n" +
-	"\x1eUNRESOLVED_REASON_ENGINE_ERROR\x10\x03*=\n" +
+	"\x1eUNRESOLVED_REASON_ENGINE_ERROR\x10\x03\x12$\n" +
+	" UNRESOLVED_REASON_INFO_TOO_LARGE\x10\x04*=\n" +
 	"\x03Act\x12\x13\n" +
 	"\x0fACT_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fACT_ANNOUNCE\x10\x01\x12\x0f\n" +

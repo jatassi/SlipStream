@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1" //nolint:gosec // the v1 info hash
 	"os"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -359,6 +360,20 @@ func TestASearchWhoseRemovalWaitsOutlastsDroppedEvents(t *testing.T) {
 		}
 		if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, f.payload) {
 			t.Fatalf("the download holds %d bytes, %v; want its %d", len(got), err, len(f.payload))
+		}
+	})
+}
+
+func TestAMagnetLinkWhoseMetadataIsOverTheTorrentCapEndsAtOnce(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := makeFile(t, "Orchard.mkv", map[string]any{"x-padding": strings.Repeat("x", bencode.MaxTorrent)})
+		n.serve(f)
+		c := n.start()
+		c.send(live())
+		r := await(t, resolve(c, linkOf(f, trackerURL), time.Now().Add(wait)))
+		if got := r.res.GetUnresolved().GetReason(); r.err != nil || got != dlv1.UnresolvedReason_UNRESOLVED_REASON_INFO_TOO_LARGE {
+			t.Errorf("a search whose peers offer an info dictionary over the cap answered %T, %v; want unresolved as info too large", r.res.GetAnswer(), r.err)
 		}
 	})
 }

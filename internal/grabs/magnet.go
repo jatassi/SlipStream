@@ -26,6 +26,7 @@ var unresolvedCode = map[downloadclients.UnresolvedReason]Code{
 	downloadclients.TimedOut:     NoMetadata,
 	downloadclients.NoPeerSource: NoPeerSource,
 	downloadclients.EngineError:  DownloadFailed,
+	downloadclients.InfoTooLarge: TorrentInvalid,
 }
 
 // again runs the same step at once, with no backoff: a long poll paced

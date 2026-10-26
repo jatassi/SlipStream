@@ -154,10 +154,12 @@ func Answered(err error) bool {
 
 // CutShort reports a call that ended with no answer from the called
 // Node's handler, as when that Node stopped mid-call and its link closed
-// the response, so it may have run; only an idempotent call retries it.
+// the response, so it may have run; only an idempotent call retries it. A
+// response over the caller's read limit isn't cut short, since the same
+// call fails the same way again.
 func CutShort(err error) bool {
 	ce, ok := errors.AsType[*connect.Error](err)
-	return ok && !ce.IsRemote()
+	return ok && !ce.IsRemote() && ce.Code() != connect.CodeResourceExhausted
 }
 
 type callerKey struct{}

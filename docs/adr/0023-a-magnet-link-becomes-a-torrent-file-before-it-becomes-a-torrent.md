@@ -17,6 +17,7 @@ A Grab of a magnet link gets the torrent's metadata in its Fetching stage, befor
 - A metadata search takes no download slot and no check slot, and ignores held downloads and the disk guard, because it downloads only the info dictionary. Many magnet Grabs search at once.
 - A metadata search's announces are outside the announce Ledger, which records only the download's announces.
 - A magnet link with no tracker on a Node with DHT off fails at once with `no_peer_source`.
+- A metadata search takes no info dictionary larger than `bencode.MaxTorrent`, the 10 MiB cap of an Indexer's .torrent, which also sizes the link's largest message. Once a peer gives a larger size, the Grab fails at Fetching with `torrent_invalid`.
 - A Node's DHT runs while its "DHT for public torrents" switch is on and it holds a torrent or a metadata search that `mayDiscover` lets use DHT. Turning DHT on live makes every such torrent announce to the DHT at once.
 - A magnet link whose info hash any Torrent row has recorded reuses that row's info dictionary and calls no Node, so the Grabs of a season pack make one search.
 - A magnet link doesn't appear on the Torrents page and can't be paused there until its metadata arrives. Its Grab row shows the peers sending metadata and when the search ends.

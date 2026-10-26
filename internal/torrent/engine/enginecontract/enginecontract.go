@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -100,6 +101,7 @@ func Run(t *testing.T, h Harness) {
 		{"AResumedDownloadReachesThePeerItsPauseDropped", aResumedDownloadReachesThePeerItsPauseDropped},
 		{"MetadataComesFromAPeer", metadataComesFromAPeer},
 		{"PrivateMetadataNeverComes", privateMetadataNeverComes},
+		{"MetadataOverTheTorrentCapIsReported", metadataOverTheTorrentCapIsReported},
 		{"FilesNeedMetadata", filesNeedMetadata},
 		{"RemoveAMetadataFetch", removeAMetadataFetch},
 		{"OnlyAnAddTakesBackATorrentWhoseRemovalWaits", onlyAnAddTakesBackATorrentWhoseRemovalWaits},
@@ -789,6 +791,27 @@ func privateMetadataNeverComes(t *testing.T, h Harness) {
 	}
 }
 
+func metadataOverTheTorrentCapIsReported(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := build(t, "Oversized", "", map[string]any{"x-padding": strings.Repeat("x", bencode.MaxTorrent)}, nil)
+	m, err := bencode.DecodeMetainfo(rel.meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reach := h.Seed(t, rel.meta, rel.dir)
+	th := fetchMetadata(t, e, engine.MetadataParams{Link: magnet.Link{InfoHash: rel.hash, Name: "Oversized"}, SavePath: t.TempDir()})
+	reach(e, th)
+	got := await(t, h, r, func(m engine.MetadataTooLarge) bool { return m.Torrent == th })
+	if got.Size != int64(len(m.RawInfo)) {
+		t.Fatalf("the engine reported %d bytes of metadata, want the seeder's %d", got.Size, len(m.RawInfo))
+	}
+	r.poll()
+	if i := slices.IndexFunc(r.seen, func(ev engine.Event) bool { return isMetadataOf(ev, th) }); i >= 0 {
+		t.Fatalf("the engine took an info dictionary over the cap: %+v", r.seen[i])
+	}
+}
+
 func isMetadataOf(ev engine.Event, th engine.Handle) bool {
 	m, ok := ev.(engine.MetadataReceived)
 	return ok && m.Torrent == th
@@ -1159,16 +1182,17 @@ const pieceLen = 16 << 10
 
 func release(t *testing.T, name, announce string, files ...file) released {
 	t.Helper()
-	return build(t, name, announce, false, files)
+	return build(t, name, announce, nil, files)
 }
 
 // privateRelease is release with the private flag set.
 func privateRelease(t *testing.T, name, announce string, files ...file) released {
 	t.Helper()
-	return build(t, name, announce, true, files)
+	return build(t, name, announce, map[string]any{"private": 1}, files)
 }
 
-func build(t *testing.T, name, announce string, private bool, files []file) released {
+// build is release with extra's keys in its info dictionary.
+func build(t *testing.T, name, announce string, extra map[string]any, files []file) released {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), name)
 	single := len(files) == 0
@@ -1204,9 +1228,7 @@ func build(t *testing.T, name, announce string, private bool, files []file) rele
 		pieces = append(pieces, sum[:]...)
 	}
 	info := map[string]any{"name": name, "piece length": pieceLen, "pieces": pieces}
-	if private {
-		info["private"] = 1
-	}
+	maps.Copy(info, extra)
 	if single {
 		info["length"] = len(rel.payload)
 	} else {

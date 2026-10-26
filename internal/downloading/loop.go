@@ -936,6 +936,8 @@ func handleOf(ev engine.Event) engine.Handle {
 		return ev.Torrent
 	case engine.MetadataReceived:
 		return ev.Torrent
+	case engine.MetadataTooLarge:
+		return ev.Torrent
 	}
 	return 0
 }

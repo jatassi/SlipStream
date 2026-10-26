@@ -303,6 +303,7 @@ func TestAMagnetLinkWhoseSearchEndsFailsItsGrabAtFetching(t *testing.T) {
 		{"timed out", downloadclients.Unresolved{Reason: downloadclients.TimedOut, MostPeers: 2, TrackerMessage: "unregistered torrent"}, grabs.NoMetadata, "The tracker responded: unregistered torrent"},
 		{"no peer source", downloadclients.Unresolved{Reason: downloadclients.NoPeerSource}, grabs.NoPeerSource, "DHT is off"},
 		{"engine error", downloadclients.Unresolved{Reason: downloadclients.EngineError, Error: "libtorrent error 2"}, grabs.DownloadFailed, "libtorrent error 2"},
+		{"info too large", downloadclients.Unresolved{Reason: downloadclients.InfoTooLarge}, grabs.TorrentInvalid, "The magnet link's metadata is larger than 10 MiB"},
 	} {
 		t.Run(row.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {

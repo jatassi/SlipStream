@@ -7,6 +7,7 @@
 #include <libtorrent/announce_entry.hpp>
 #include <libtorrent/bdecode.hpp>
 #include <libtorrent/error_code.hpp>
+#include <libtorrent/extensions.hpp>
 #include <libtorrent/file_storage.hpp>
 #include <libtorrent/ip_filter.hpp>
 #include <libtorrent/magnet_uri.hpp>
@@ -105,6 +106,12 @@ struct lts_session {
 	bool resync = false;
 	int64_t next = 1;
 	std::deque<lts_alert> pending;
+	// too_large holds the METADATA_TOO_LARGE alerts plugins post from
+	// libtorrent's network thread. mu can't guard them, since a shim call
+	// holds mu while it waits on that thread, so too_large_mu does, taken
+	// after mu or alone.
+	std::mutex too_large_mu;
+	std::vector<lts_alert> too_large;
 	explicit lts_session(lt::session_params p) : ses(std::move(p)) {}
 };
 
@@ -686,6 +693,39 @@ void discover(lt::add_torrent_params& atp, bool on) {
 	else atp.flags |= both;
 }
 
+// too_large_peer posts METADATA_TOO_LARGE for a peer whose extension
+// handshake gives an info dictionary size over max_metadata_size.
+// libtorrent drops such metadata with no alert, so the fetch would
+// otherwise look until its deadline.
+struct too_large_peer final : lt::peer_plugin {
+	lts_session* s;
+	int64_t id;
+	int64_t most;
+	too_large_peer(lts_session* s, int64_t id, int64_t most) : s(s), id(id), most(most) {}
+	bool on_extension_handshake(lt::bdecode_node const& h) override {
+		std::int64_t const size = h.dict_find_int_value("metadata_size", 0);
+		if (size > most) {
+			lts_alert o{};
+			o.kind = LTS_ALERT_METADATA_TOO_LARGE;
+			o.torrent = id;
+			o.payload_len = size;
+			std::lock_guard<std::mutex> l(s->too_large_mu);
+			s->too_large.push_back(o);
+		}
+		return false;
+	}
+};
+
+struct too_large_torrent final : lt::torrent_plugin {
+	lts_session* s;
+	int64_t id;
+	int64_t most;
+	too_large_torrent(lts_session* s, int64_t id, int64_t most) : s(s), id(id), most(most) {}
+	std::shared_ptr<lt::peer_plugin> new_connection(lt::peer_connection_handle const&) override {
+		return std::make_shared<too_large_peer>(s, id, most);
+	}
+};
+
 // hold adds atp under a new id and returns its id. lts_add of a parting
 // torrent lts_add made returns its handle: it stays, under the id it had,
 // and pauses as any add does. A metadata fetch's torrent holds no file
@@ -721,7 +761,7 @@ std::string listen_interface(char const* address, uint16_t port) {
 
 extern "C" {
 
-lts_session* lts_open(char const* address, uint16_t port, char const* dht_routers, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err) {
+lts_session* lts_open(char const* address, uint16_t port, char const* dht_routers, int32_t announce_floor_s, int32_t peers_share_address, int32_t max_metadata_size, lts_error* err) {
 	lts_session* s = nullptr;
 	guard(err, [&] {
 		sp p = lt::high_performance_seed();
@@ -733,6 +773,7 @@ lts_session* lts_open(char const* address, uint16_t port, char const* dht_router
 		p.set_bool(sp::enable_natpmp, false);
 		p.set_str(sp::dht_bootstrap_nodes, dht_routers);
 		p.set_int(sp::min_announce_interval, announce_floor_s);
+		p.set_int(sp::max_metadata_size, max_metadata_size);
 		p.set_bool(sp::allow_multiple_connections_per_ip, peers_share_address != 0);
 		p.set_str(sp::listen_interfaces, listen_interface(address, port));
 		p.set_int(sp::max_retry_port_bind, 0);
@@ -836,6 +877,10 @@ int lts_fetch_metadata(lts_session* s, char const* uri, char const* save_path, i
 		atp.flags &= ~(lt::torrent_flags::auto_managed | lt::torrent_flags::paused);
 		atp.flags |= lt::torrent_flags::default_dont_download;
 		discover(atp, discover_peers != 0);
+		int64_t const most = s->ses.get_settings().get_int(sp::max_metadata_size);
+		atp.extensions.push_back([s, most](lt::torrent_handle const&, lt::client_data_t userdata) {
+			return std::make_shared<too_large_torrent>(s, id_of(userdata), most);
+		});
 		*torrent = hold(s, std::move(atp), true);
 	});
 }
@@ -1001,6 +1046,11 @@ int lts_wait_alerts(lts_session* s, int timeout_ms, lts_alert* out, int max, lts
 			for (lt::alert* a : s->popped) convert(s, a);
 		}
 		std::lock_guard<std::mutex> l(s->mu);
+		{
+			std::lock_guard<std::mutex> t(s->too_large_mu);
+			s->pending.insert(s->pending.end(), s->too_large.begin(), s->too_large.end());
+			s->too_large.clear();
+		}
 		for (; n < max && !s->pending.empty(); ++n) {
 			out[n] = s->pending.front();
 			s->pending.pop_front();

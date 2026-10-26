@@ -305,3 +305,15 @@ func TestACallCarriesAMessageAsLargeAsTheTorrentCap(t *testing.T) {
 		}
 	})
 }
+
+func TestAResponseOverTheMessageCapIsNoCallCutShort(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.Connect(t)
+		text := strings.Repeat("x", link.MaxMessage-20)
+		_, err := rpctestv1connect.RecordService.Call(c.worker).Record(t.Context(), &rpctestv1.RecordRequest{Text: text})
+		if rpc.CodeOf(err) != rpc.CodeResourceExhausted || rpc.CutShort(err) {
+			t.Errorf("a call whose response is over the link's cap = %v (code %v), want resource exhausted and not cut short", err, rpc.CodeOf(err))
+		}
+	})
+}

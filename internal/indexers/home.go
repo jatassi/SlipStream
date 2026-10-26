@@ -7,15 +7,13 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/magnet"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/rpc"
 )
 
-const (
-	searchLimit  = 8 << 20
-	torrentLimit = 10 << 20
-)
+const searchLimit = 8 << 20
 
 // Home is the Searching service an Indexer's home Node serves. It sends
 // each request and returns the answer unparsed, within the request
@@ -73,7 +71,7 @@ func (h *Home) FetchTorrent(ctx context.Context, req *searchv1.FetchTorrentReque
 	if err != nil || !onHost(link, home) {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "the torrent's URL is not on the Indexer's host")
 	}
-	res, err := h.get(ctx, link, torrentLimit)
+	res, err := h.get(ctx, link, bencode.MaxTorrent)
 	if err != nil {
 		return nil, err
 	}

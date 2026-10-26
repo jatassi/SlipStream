@@ -25,7 +25,8 @@ type Engine interface {
 	Add(AddParams) (Handle, error)
 	// FetchMetadata adds a running torrent of a magnet link that gets its
 	// info dictionary from peers and downloads no file. MetadataReceived
-	// follows once a peer sent it, and the torrent stays, downloading
+	// follows once a peer sent it, or MetadataTooLarge once a peer gave a
+	// size over bencode.MaxTorrent, and the torrent stays, downloading
 	// nothing, until Remove. Its tracker list is the link's trackers, each
 	// its own tier. Any torrent of the hash whose removal waits fails it
 	// with ErrRemoving.
@@ -380,6 +381,13 @@ type (
 		Torrent Handle
 		Info    []byte
 	}
+	// MetadataTooLarge is a peer that sent Size, over bencode.MaxTorrent,
+	// as the size of a FetchMetadata torrent's info dictionary, which the
+	// engine never takes.
+	MetadataTooLarge struct {
+		Torrent Handle
+		Size    int64
+	}
 	// Stats is the payload the engine sent and received since it opened.
 	Stats struct {
 		SentPayload, RecvPayload int64
@@ -410,6 +418,7 @@ func (IncomingPeer) event()     {}
 func (FileError) event()        {}
 func (HashFailed) event()       {}
 func (MetadataReceived) event() {}
+func (MetadataTooLarge) event() {}
 func (Stats) event()            {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any
