@@ -213,20 +213,33 @@ func onSeedbox(edit func(e *node.Env)) sim.Option {
 }
 
 // TestAControllerRestartedAtEachStageImportsOnce stops home just before
-// each step of the walk and starts it again on its link port, as a
-// Controller on the default port restarts: the Grab resumes and ends
-// imported with one file.
+// each step of the walk, or mid-Transfer once seedbox sends its first
+// chunk, and starts it again on its link port, as a Controller on the
+// default port restarts: the Grab resumes and ends imported with one file.
 func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 	for _, stage := range []grabs.Stage{grabs.Fetching, grabs.Downloading, grabs.Probing, grabs.Transferring, grabs.Importing} {
 		t.Run(string(stage), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				reached := make(chan struct{})
+				reached, restarted := make(chan struct{}), make(chan struct{})
 				var held atomic.Bool
-				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(_ string, e *node.Env) {
+				hold := func() bool {
+					if !held.CompareAndSwap(false, true) {
+						return false
+					}
+					close(reached)
+					return true
+				}
+				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
 					e.Test.BeforeStep = func(ctx context.Context, s grabs.Stage) {
-						if s == stage && held.CompareAndSwap(false, true) {
-							close(reached)
+						if s == stage && hold() {
 							<-ctx.Done()
+						}
+					}
+					if name == "seedbox" && stage == grabs.Transferring {
+						e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) {
+							if hold() {
+								<-restarted
+							}
 						}
 					}
 				}))
@@ -236,6 +249,7 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 				link := h.Ready().Listeners.Link
 				h.Stop()
 				h.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_LINK_LISTEN="+link.String()) })
+				close(restarted)
 				expectImported(t, await(t, w))
 				expectPlaced(t, w)
 			})
