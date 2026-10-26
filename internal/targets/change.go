@@ -36,12 +36,11 @@ type UpdateProfile struct {
 // moves its Works to To, of the same type. They keep their own lists.
 type DeleteProfile struct{ ID, To ProfileID }
 
-// SetWants has Work want from Profile, of its type, with Own as its own
-// Edition list, or its Profile's when Own is nil.
+// SetWants gives Work Own as its own Edition list, or its Profile's when
+// Own is nil. Its Profile changes only through SetProfiles.
 type SetWants struct {
-	Work    works.WorkID
-	Profile ProfileID
-	Own     *Editions
+	Work works.WorkID
+	Own  *Editions
 }
 
 // SetProfiles has each of Works want from Profile, of their Content Type,
@@ -208,9 +207,6 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 	if err != nil {
 		return err
 	}
-	if err := sameType(ctx, q, c.Profile, now.ContentType); err != nil {
-		return err
-	}
 	var own *db.List
 	if c.Own != nil {
 		if err := known.check(*c.Own, now.ContentType); err != nil {
@@ -218,7 +214,7 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 		}
 		own = new(listOf(*c.Own))
 	}
-	if err := q.SetWants(ctx, db.SetWantsParams{WorkID: c.Work, ProfileID: c.Profile, Editions: own}); err != nil {
+	if err := q.SetWants(ctx, db.SetWantsParams{WorkID: c.Work, Editions: own}); err != nil {
 		return err
 	}
 	if err := q.DeleteWantsCuts(ctx, c.Work); err != nil {

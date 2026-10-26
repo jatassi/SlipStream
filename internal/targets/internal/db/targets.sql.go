@@ -1119,17 +1119,16 @@ func (q *Queries) SetDefault(ctx context.Context, id ProfileID) error {
 }
 
 const setWants = `-- name: SetWants :exec
-UPDATE targets_wants SET profile_id = ?1, editions = ?2 WHERE work_id = ?3
+UPDATE targets_wants SET editions = ?1 WHERE work_id = ?2
 `
 
 type SetWantsParams struct {
-	ProfileID ProfileID
-	Editions  *List
-	WorkID    works.WorkID
+	Editions *List
+	WorkID   works.WorkID
 }
 
 func (q *Queries) SetWants(ctx context.Context, arg SetWantsParams) error {
-	_, err := q.db.ExecContext(ctx, setWants, arg.ProfileID, arg.Editions, arg.WorkID)
+	_, err := q.db.ExecContext(ctx, setWants, arg.Editions, arg.WorkID)
 	return err
 }
 

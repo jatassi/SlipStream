@@ -9289,14 +9289,9 @@
               }
             ],
             "description": "The Work's own Edition list, or null for its Profile's"
-          },
-          "profileId": {
-            "format": "uuid",
-            "type": "string"
           }
         },
         "required": [
-          "profileId",
           "editions"
         ],
         "type": "object"
@@ -43350,9 +43345,7 @@
                         "code": {
                           "enum": [
                             "cut_not_found",
-                            "invalid",
-                            "profile_not_found",
-                            "profile_wrong_type"
+                            "invalid"
                           ],
                           "type": "string"
                         }
@@ -43401,7 +43394,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
+        "summary": "Set a Work's own Edition list, or its Profile's, refilling and renaming its files, or preview the change's Impact",
         "tags": [
           "targets"
         ],

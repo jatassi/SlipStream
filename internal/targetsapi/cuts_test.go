@@ -78,7 +78,7 @@ func TestAnEditionListNamesOnlyCutsItsTypeCanHold(t *testing.T) {
 	named := strings.Replace(profileBody("Cuts", ids["web"]), `{"kind":"any"}`, cutsBody("standard", "nope"), 1)
 	s.Expect(t, http.MethodPost, "/api/v1/profiles", named, http.StatusUnprocessableEntity, missing)
 	s.Expect(t, http.MethodPut, "/api/v1/profiles/"+ids["small"], named, http.StatusUnprocessableEntity, missing)
-	s.Expect(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants", `{"profileId":"`+ids["small"]+`","editions":`+cutsBody("nope")+`}`, http.StatusUnprocessableEntity, missing)
+	s.Expect(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants", `{"editions":`+cutsBody("nope")+`}`, http.StatusUnprocessableEntity, missing)
 	s.fx.SetCuts([]release.Cut{{Key: "superfan", Name: "Superfan", Aliases: []string{"Superfan"}}})
 	extended := strings.Replace(profileBody("Cuts", ids["web"]), `{"kind":"any"}`, cutsBody("standard", "superfan", "extended"), 1)
 	code, body := s.Call(t, http.MethodPost, "/api/v1/profiles", extended)
@@ -97,13 +97,13 @@ func TestACutHeldByAListOrAFileStays(t *testing.T) {
 		t.Fatalf("updateProfile naming Fan Edit = %d %s", code, body)
 	}
 	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("Small uses it"))
-	code, body := s.Call(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants?unwanted=keep", `{"profileId":"`+ids["fixture"]+`","editions":`+cutsBody("fan-edit")+`}`)
+	code, body := s.Call(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants?unwanted=keep", `{"editions":`+cutsBody("fan-edit")+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("setWorkWants naming Fan Edit = %d %s", code, body)
 	}
 	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("Small and 1 Work's own list use it"))
 	s.Call(t, http.MethodPut, "/api/v1/profiles/"+ids["small"], profileBody("Small", ids["web"]))
-	s.Call(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants", `{"profileId":"`+ids["fixture"]+`","editions":null}`)
+	s.Call(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants", `{"editions":null}`)
 	cutAll(t, s, "fan-edit")
 	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("1 file uses it"))
 	cutAll(t, s, "standard")
