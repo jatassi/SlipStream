@@ -51,11 +51,16 @@ func (s *Server) Listen(origin string, addr netip.AddrPort) (netip.AddrPort, err
 	if err != nil {
 		return netip.AddrPort{}, fmt.Errorf("krpc: listen for %s: %w", origin, err)
 	}
+	s.Serve(origin, conn)
+	return netip.MustParseAddrPort(conn.LocalAddr().String()), nil
+}
+
+// Serve answers on conn as origin's socket until Close closes it.
+func (s *Server) Serve(origin string, conn *net.UDPConn) {
 	s.mu.Lock()
 	s.conns = append(s.conns, conn)
 	s.mu.Unlock()
 	s.wg.Go(func() { s.serve(origin, conn) })
-	return netip.MustParseAddrPort(conn.LocalAddr().String()), nil
 }
 
 // Close closes every socket and waits for each to stop.
