@@ -42,12 +42,69 @@ type FailedError struct{ Reason string }
 
 func (e *FailedError) Error() string { return "transfers: " + e.Reason }
 
+// Timings are protocol internals, config only.
 type Timings struct {
 	// Chunk bounds the wait for each frame from the source.
 	Chunk time.Duration `yaml:"chunk"`
+	// Report is how often a Node reports its facts while bytes move.
+	Report time.Duration `yaml:"report"`
+	// Dial is how long a dialing Node tries a route before it gives up on
+	// it.
+	Dial time.Duration `yaml:"dial"`
+	// RouteRetry is how long a pair starts on a higher route that moved
+	// bytes before it tries the first route again.
+	RouteRetry time.Duration `yaml:"route_retry"`
+	LanesStart int           `yaml:"lanes_start"`
+	LanesGrow  time.Duration `yaml:"lanes_grow"`
+	// LanesGain is the rise in rate, in percent, that earns another lane.
+	LanesGain int `yaml:"lanes_gain"`
+	LanesMax  int `yaml:"lanes_max"`
+	// Ahead is how many chunks a receiver asks for beyond the one it waits
+	// on.
+	Ahead int `yaml:"ahead"`
+	// SyncBytes and SyncEvery bound a receiver's batch of verified chunks
+	// before it syncs them and records them.
+	SyncBytes int64         `yaml:"sync_bytes"`
+	SyncEvery time.Duration `yaml:"sync_every"`
+	RetryMin  time.Duration `yaml:"retry_min"`
+	RetryMax  time.Duration `yaml:"retry_max"`
+	// Damaged is how many times one chunk may fail its check before the
+	// Transfer fails.
+	Damaged int `yaml:"damaged"`
+	// Piece is the size of each write a sender paces.
+	Piece  int64         `yaml:"piece"`
+	Unlink time.Duration `yaml:"unlink"`
+	// PairWrite is how often the Controller records a pair's speed.
+	PairWrite time.Duration `yaml:"pair_write"`
+	// Estimate is the window of a receiver's speed average.
+	Estimate time.Duration `yaml:"estimate"`
+	// Changed is how often the Controller publishes transfers.changed.
+	Changed time.Duration `yaml:"changed"`
 }
 
-func DefaultTimings() Timings { return Timings{Chunk: 30 * time.Second} }
+func DefaultTimings() Timings {
+	return Timings{
+		Chunk:      30 * time.Second,
+		Report:     time.Second,
+		Dial:       30 * time.Second,
+		RouteRetry: time.Hour,
+		LanesStart: 2,
+		LanesGrow:  10 * time.Second,
+		LanesGain:  10,
+		LanesMax:   8,
+		Ahead:      2,
+		SyncBytes:  64 << 20,
+		SyncEvery:  time.Second,
+		RetryMin:   time.Second,
+		RetryMax:   time.Minute,
+		Damaged:    4,
+		Piece:      64 << 10,
+		Unlink:     30 * time.Second,
+		PairWrite:  time.Minute,
+		Estimate:   20 * time.Second,
+		Changed:    time.Second,
+	}
+}
 
 // Payloads finds a torrent's file on this Node.
 type Payloads interface {
