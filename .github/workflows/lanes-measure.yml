@@ -11,6 +11,8 @@ on:
         description: A regexp over the arm names to run, empty for all of them
         required: false
         default: ""
+  push:
+    branches: [claude/project-thread-osqbr4-ahead-measure]
 
 permissions:
   contents: read
@@ -25,7 +27,7 @@ jobs:
       matrix:
         rtt: [30ms, 100ms, 300ms]
         loss: ["0%", "0.1%"]
-        path: [1gbit/64MiB, uncapped/64MiB, 1gbit/stock]
+        path: [1gbit/64MiB, 1gbit/stock]
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -47,7 +49,7 @@ jobs:
       - name: Measure lanes
         env:
           CELL: ${{ matrix.rtt }}/${{ matrix.loss }}/${{ matrix.path }}
-          ARMS: ${{ inputs.arms }}
+          ARMS: ${{ inputs.arms || '^(tls-stream|lanes-1|lanes-4)(-ahead-[48])?$' }}
         run: |
           go test -c -o "$RUNNER_TEMP/mux.test" ./internal/link/internal/mux
           sudo env TEST_LINK_MEASURE_LANES=1 TEST_LINK_LANES_CELLS="^${CELL//./\\.}\$" TEST_LINK_LANES_ARMS="$ARMS" GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" \
