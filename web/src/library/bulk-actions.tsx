@@ -4,10 +4,10 @@ import {
   NotificationOff01Icon,
   RefreshIcon,
 } from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
 import { useState } from "react";
 
 import { sentenceOf } from "../api/errors";
-import { Button } from "../ui/button";
 import { toast } from "../ui/toast";
 import { act } from "../works/actions/act";
 import type { WorkAction } from "../works/actions/actions";
@@ -37,52 +37,50 @@ function useRun(picked: readonly LibraryWork[]) {
   };
 }
 
-export function BulkActions({
-  picked,
-  oneType,
-  onDialog,
-}: {
-  picked: readonly LibraryWork[];
+export type BulkAction = {
+  readonly label: string;
+  readonly icon: IconSvgElement | undefined;
+  readonly busy: boolean;
+  readonly danger: boolean;
   /** Profiles and roots belong to one Content Type, so only picks of one type change them. */
-  oneType: boolean;
-  onDialog: (kind: BulkDialogKind) => void;
-}) {
+  readonly oneTypeOnly: boolean;
+  readonly onSelect: () => void;
+};
+
+const plain = { icon: undefined, busy: false, danger: false, oneTypeOnly: false } as const;
+
+export function useBulkActions(
+  picked: readonly LibraryWork[],
+  onDialog: (kind: BulkDialogKind) => void,
+): readonly BulkAction[] {
   const { running, on } = useRun(picked);
   const open = (kind: BulkDialogKind) => () => {
     onDialog(kind);
   };
-  return (
-    <>
-      <Button
-        icon={Notification01Icon}
-        busy={running === "monitor"}
-        onClick={on({ kind: "monitor", on: true })}
-      >
-        Monitor
-      </Button>
-      <Button
-        icon={NotificationOff01Icon}
-        busy={running === "monitor"}
-        onClick={on({ kind: "monitor", on: false })}
-      >
-        Unmonitor
-      </Button>
-      {oneType ? (
-        <>
-          <Button onClick={open("profile")}>Change Profile…</Button>
-          <Button onClick={open("root")}>Set library root…</Button>
-        </>
-      ) : (
-        <span className="text-meta text-ink-3">
-          Pick Works of one Content Type to change their Profile or library root.
-        </span>
-      )}
-      <Button icon={RefreshIcon} busy={running === "refresh"} onClick={on({ kind: "refresh" })}>
-        Refresh metadata
-      </Button>
-      <Button icon={Delete02Icon} look="ghost" onClick={open("delete")}>
-        Delete…
-      </Button>
-    </>
-  );
+  return [
+    {
+      ...plain,
+      label: "Monitor",
+      icon: Notification01Icon,
+      busy: running === "monitor",
+      onSelect: on({ kind: "monitor", on: true }),
+    },
+    {
+      ...plain,
+      label: "Unmonitor",
+      icon: NotificationOff01Icon,
+      busy: running === "monitor",
+      onSelect: on({ kind: "monitor", on: false }),
+    },
+    { ...plain, label: "Change Profile…", oneTypeOnly: true, onSelect: open("profile") },
+    { ...plain, label: "Set library root…", oneTypeOnly: true, onSelect: open("root") },
+    {
+      ...plain,
+      label: "Refresh metadata",
+      icon: RefreshIcon,
+      busy: running === "refresh",
+      onSelect: on({ kind: "refresh" }),
+    },
+    { ...plain, label: "Delete…", icon: Delete02Icon, danger: true, onSelect: open("delete") },
+  ];
 }

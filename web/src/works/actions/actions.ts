@@ -13,6 +13,7 @@ import {
   setWorksProfile,
   setWorksRoot,
 } from "../../api/gen/query/works/works";
+import { capital, filesOf } from "./delete-plan";
 
 type Shapes = {
   readonly monitor: { readonly on: boolean };
@@ -56,7 +57,6 @@ export type Named = { readonly words: string; readonly one: boolean };
 
 const be = ({ one }: Named) => (one ? "is" : "are");
 const was = ({ one }: Named) => (one ? "was" : "were");
-const its = ({ one }: Named) => (one ? "its" : "their");
 
 export type Entry<K extends ActionKind> = {
   readonly post: (workIds: string[], action: WorkAction<K>) => Promise<Answers[K]>;
@@ -104,9 +104,10 @@ export const actions: { readonly [K in ActionKind]: Entry<K> } = {
       if (plan.files === 0) {
         return `Deleted ${named.words}.`;
       }
+      const held = filesOf(named, plan.files, false);
       return files === "delete"
-        ? `Deleted ${named.words} and ${its(named)} files.`
-        : `Deleted ${named.words}. ${named.one ? "Its" : "Their"} files stay on disk.`;
+        ? `Deleted ${named.words}, with ${held}.`
+        : `Deleted ${named.words}. ${capital(held)} ${plan.files === 1 ? "stays" : "stay"} on disk.`;
     },
     already: (named) => `${named.words} ${was(named)} already deleted.`,
     attempt: () => "delete",

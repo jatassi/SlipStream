@@ -107,11 +107,21 @@ func classify(ctx context.Context, err error, code Code) outcome {
 	case ctx.Err() != nil:
 		return stopped{}
 	case notSent && why == rpc.NotHolder:
-		return fail{IndexerUnavailable, err.Error()}
+		return fail{IndexerUnavailable, detail(err)}
 	case notSent, rpc.Lost(err), errors.Is(err, transfers.ErrBroken), errors.Is(err, downloading.ErrNotPresent):
 		return wait{cause: err}
 	}
-	return fail{code, err.Error()}
+	return fail{code, detail(err)}
+}
+
+// detail is a remote step's error as its failure's Detail: the cause the
+// remote Node gave, without the call's code or the wrapping the failure's
+// code already says.
+func detail(err error) string {
+	if u, ok := errors.AsType[*indexers.UnavailableError](err); ok {
+		return u.Reason()
+	}
+	return rpc.MessageOf(err)
 }
 
 // local is the outcome of an error reading or writing the library inside

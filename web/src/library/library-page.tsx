@@ -49,7 +49,6 @@ export function LibraryPage({ types, view, onView, empty }: LibraryProps) {
         onSelect={picking.select}
         onRefreshAll={onRefreshAll}
       />
-      {picking.selecting && <BulkBar picking={picking} />}
       <Results
         arranged={arranged}
         view={view}
@@ -59,6 +58,7 @@ export function LibraryPage({ types, view, onView, empty }: LibraryProps) {
         noun={noun}
         onClear={clear}
       />
+      {picking.selecting && <BulkBar picking={picking} />}
     </>
   );
 }

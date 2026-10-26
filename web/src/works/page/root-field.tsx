@@ -31,8 +31,7 @@ export function RootField({
       />
       {files > 0 && (
         <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-          This {type.work.one.toLowerCase()} has files, so it stays in its library root. Moving a
-          Work with files arrives with Moves.
+          {`This ${type.work.one.toLowerCase()} has files, so it stays in its library root. Moving a Work that has files isn't supported yet.`}
         </p>
       )}
     </div>

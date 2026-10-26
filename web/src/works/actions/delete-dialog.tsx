@@ -24,9 +24,9 @@ type DeleteDialogProps = {
 /**
  * Asks before deleting Works, with what the delete takes: their files and
  * Kept files with their size, and what keeps running in the torrent
- * client. Deleting files is the default. A Work whose files sit on an
- * offline Node can't lose them, so the dialog names it and offers leaving
- * the files instead.
+ * client. Deleting files is the default, and Works with no files offer
+ * no choice. A Work whose files sit on an offline Node can't lose them, so
+ * the dialog names it and offers leaving the files instead.
  */
 export function DeleteDialog({ subjects, open, onOpenChange, onDeleting }: DeleteDialogProps) {
   const [files, setFiles] = useState<WorksDeletingFiles>("delete");
@@ -45,7 +45,9 @@ export function DeleteDialog({ subjects, open, onOpenChange, onDeleting }: Delet
         return act(subjects, { kind: "delete", files });
       }}
     >
-      <RadioGroup label="Files" options={choices} value={files} onValueChange={setFiles} />
+      {(preview.data?.plan.files ?? 0) > 0 && (
+        <RadioGroup label="Files" options={choices} value={files} onValueChange={setFiles} />
+      )}
       <DeletePreview
         subjects={subjects}
         named={named}
