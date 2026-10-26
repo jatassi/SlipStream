@@ -60,9 +60,6 @@ func tmdbAPI(t *testing.T, path string) string {
 	return config.Endpoints.TMDB.API
 }
 
-// TestEachNodeBootstrapsFromItsOwnDHTSocket launches fake-dht, a UDP
-// fake: each Node's dht_routers names its own socket, and each socket
-// responds to doctor's ping.
 func TestEachNodeBootstrapsFromItsOwnDHTSocket(t *testing.T) {
 	t.Parallel()
 	s := stubScenario()

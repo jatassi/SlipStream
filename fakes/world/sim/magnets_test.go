@@ -17,8 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
-// magnetic is home with its 1080p release, the one a search grabs, as
-// edit makes it.
 func magnetic(t *testing.T, edit func(*scenario.Release)) scenario.Scenario {
 	t.Helper()
 	s := home(t)
@@ -32,8 +30,6 @@ var (
 	privateMagnet = func(r *scenario.Release) { r.Link = scenario.MagnetLink }
 )
 
-// fetches counts the metadata searches seedbox's engines start, across
-// its starts.
 func fetches(n *atomic.Int64) sim.Option {
 	return onSeedbox(func(e *node.Env) {
 		open := e.Engine
@@ -54,7 +50,6 @@ func (s metadataFetches) FetchMetadata(p engine.MetadataParams) (engine.Handle, 
 	return s.Engine.FetchMetadata(p)
 }
 
-// metadataWait sets downloading.metadataWait through the API.
 func metadataWait(t *testing.T, w *sim.World, wait time.Duration) {
 	t.Helper()
 	body := fmt.Sprintf(`{"metadataWait":%d}`, int64(wait/time.Second))
@@ -70,8 +65,6 @@ type torrentRows struct {
 	} `json:"rows"`
 }
 
-// expectTorrent checks the one Torrent is the release's, at its real
-// size.
 func expectTorrent(t *testing.T, w *sim.World) {
 	t.Helper()
 	rows := decode[torrentRows](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents?tab=all", "")).Rows
@@ -163,9 +156,6 @@ func TestARedirectToAMagnetLinkResolvesAndImports(t *testing.T) {
 	})
 }
 
-// TestTwoGrabsOfOneMagnetLinkMakeOneSearch lists the release for a second
-// movie under the same magnet link, as a pack holds both, and searches
-// both at once.
 func TestTwoGrabsOfOneMagnetLinkMakeOneSearch(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := magnetic(t, publicMagnet)

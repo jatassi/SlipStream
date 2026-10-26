@@ -82,7 +82,6 @@ func (sessions) Incoming(t *testing.T, e engine.Engine) netip.Addr {
 	return netip.MustParseAddrPort(c.LocalAddr().String()).Addr()
 }
 
-// DHT is fake-dht on loopback.
 func (sessions) DHT(t *testing.T) enginecontract.DHT {
 	var mu sync.Mutex
 	lookups := map[bencode.InfoHash]int{}

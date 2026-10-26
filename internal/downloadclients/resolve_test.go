@@ -18,8 +18,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// resolver is a Node's client that answers Resolve with res and keeps
-// the request.
 type resolver struct {
 	downloadingv1connect.UnimplementedDownloadingServiceHandler
 	res   *dlv1.ResolveResponse

@@ -58,8 +58,6 @@ func (h *worlds) Tracker(_ *testing.T, rules enginetest.TrackerRules) enginecont
 	}
 }
 
-// Seed has the World's swarm serve the release's files at swarmRate, and
-// its metadata.
 func (h *worlds) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine, engine.Handle) {
 	m, err := bencode.DecodeMetainfo(meta)
 	if err != nil {
@@ -100,7 +98,6 @@ func (h *worlds) Incoming(t *testing.T, e engine.Engine) netip.Addr {
 	return from
 }
 
-// DHT is the World's DHT, which ignores the routers.
 func (h *worlds) DHT(*testing.T) enginecontract.DHT {
 	return enginecontract.DHT{Routers: []endpoint.HostPort{endpoint.MustParseHostPort("router.example:6881")}, Lookups: h.w.Lookups}
 }

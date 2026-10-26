@@ -13,7 +13,6 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
 
-// withDHT is live(ts...) with the Node's DHT switch set to on.
 func withDHT(on bool, ts ...*dlv1.Torrent) role.Snapshot[*dlv1.Intent] {
 	s := live(ts...)
 	s.Intent.Settings = proto.CloneOf(settings)

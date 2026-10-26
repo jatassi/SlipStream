@@ -58,8 +58,6 @@ func (w *world) recorded() []krpc.Query {
 	return slices.Clone(w.queries)
 }
 
-// ask sends one KRPC query to addr from conn and returns the response's
-// dictionary.
 func ask(t *testing.T, conn *net.UDPConn, addr netip.AddrPort, method string, args map[string]any) map[string]any {
 	t.Helper()
 	args["id"] = "abcdefghij0123456789"

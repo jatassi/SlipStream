@@ -58,7 +58,6 @@ func linkOf(f file, trackers ...string) magnet.Link {
 	return magnet.Link{InfoHash: f.hash, Name: f.name, Trackers: trackers}
 }
 
-// serve has the World's swarm send f's info dictionary.
 func (n *node) serve(f file) {
 	n.t.Helper()
 	m, err := bencode.DecodeMetainfo(f.meta)
@@ -166,7 +165,6 @@ func TestASearchEndsAtItsDeadlineWithTheTrackersLastWord(t *testing.T) {
 	})
 }
 
-// resolveAfterHold is one Resolve, waited out until its hold.
 func resolveAfterHold(c *client, link magnet.Link, endsAt time.Time) <-chan resolved {
 	ch := resolve(c, link, endsAt)
 	synctest.Wait()

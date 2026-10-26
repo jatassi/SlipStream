@@ -242,16 +242,12 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 	}
 }
 
-// holding is an engine whose events of one kind, and every event after
-// one, wait for release.
 type holding struct {
 	engine.Engine
 	events chan engine.Event
 	closed chan struct{}
 }
 
-// holdAt opens engines whose events of kind E wait for release, each
-// once it is sent on reached.
 func holdAt[E engine.Event](open func(engine.Config) (engine.Engine, error), reached chan<- struct{}, release <-chan struct{}) func(engine.Config) (engine.Engine, error) {
 	return func(cfg engine.Config) (engine.Engine, error) {
 		e, err := open(cfg)

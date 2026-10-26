@@ -27,8 +27,6 @@ var (
 	meadow  = bencode.InfoHash{3}
 )
 
-// catalog holds orchard, public and seeded, harbor, private and seeded,
-// and meadow, public with no seeder.
 var catalog = &releases.Catalog{Releases: []releases.Release{
 	{Release: scenario.Release{Name: "orchard", Public: true, Seeded: true}, InfoHash: orchard},
 	{Release: scenario.Release{Name: "harbor", Seeded: true}, InfoHash: harbor},
@@ -59,8 +57,6 @@ func (s *sink) records() []events.Record {
 	return append([]events.Record{}, s.recs...)
 }
 
-// serve runs fake-dht on a socket for home and one for seedbox until the
-// test ends.
 func serve(t *testing.T, records *sink) map[string]netip.AddrPort {
 	t.Helper()
 	s := scenario.Scenario{Seed: "dht"}

@@ -141,9 +141,6 @@ type discard struct{}
 
 func (discard) Append(rec events.Record) (events.Record, error) { return rec, nil }
 
-// catalogPlan is the fault Plan of a world of every fake running s, with
-// each fake that has fronts built, as at launch, so its routes are
-// declared.
 func catalogPlan(t *testing.T, s scenario.Scenario) *fault.Plan {
 	t.Helper()
 	names := make([]string, len(s.Nodes))

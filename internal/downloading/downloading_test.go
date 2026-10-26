@@ -212,9 +212,6 @@ func (c *control) fetched() []storage.UUID {
 	return slices.Clone(c.asked)
 }
 
-// checks is an engine that counts the checks it is asked for, keeps the
-// limits it runs with and whether each add may discover, and calls
-// removing as it is asked to remove a torrent.
 type checks struct {
 	engine.Engine
 	mu       sync.Mutex
@@ -232,7 +229,6 @@ func (c *checks) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
 	return c.Engine.FetchMetadata(p)
 }
 
-// searches is how many metadata searches the engine was asked for.
 func (c *checks) searches() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()

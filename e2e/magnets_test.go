@@ -14,8 +14,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
-// magnetRelease is a release of the magnets Scenario, the movie it is
-// for and where its import lands.
 type magnetRelease struct {
 	name, key, placed string
 }
@@ -28,7 +26,6 @@ var (
 	privateFalls       = magnetRelease{"Juniper.Falls.2022.1080p.WEB-DL.H264-FKW", "9000005", "movies/Juniper Falls (2022)/Juniper Falls (2022) - 1080p.mkv"}
 )
 
-// grabbed adds rel's movie monitored, searches it and returns its Work.
 func grabbed(t *testing.T, a *worldtest.API, rel magnetRelease) string {
 	t.Helper()
 	work := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+rel.key+`","monitor":true}`), &added{})
@@ -42,7 +39,6 @@ func grabbed(t *testing.T, a *worldtest.API, rel magnetRelease) string {
 	return tr.ID
 }
 
-// endedGrab is the Grab of work once it is imported or failed.
 func endedGrab(t *testing.T, a *worldtest.API, work string) grabView {
 	t.Helper()
 	var g grabView
@@ -75,12 +71,6 @@ func infoHashOf(t *testing.T, m world.Manifest, name string) string {
 	return ""
 }
 
-// TestMagnetLinksGetTheirMetadataFromTheSwarm walks the magnets Scenario
-// on the release binary and real libtorrent: the trackerless release
-// imports through fake-dht alone, the magnet link naming the tracker and
-// the redirect to one import, the private magnet link fails no_metadata
-// once the metadata wait set to a minute passes, and fake-dht never sees
-// a private release's info hash.
 func TestMagnetLinksGetTheirMetadataFromTheSwarm(t *testing.T) {
 	t.Parallel()
 	run := worldtest.Launch(t, "magnets")

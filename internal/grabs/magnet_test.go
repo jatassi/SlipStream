@@ -38,7 +38,6 @@ import (
 
 const hold = 20 * time.Second
 
-// asked is one Resolve call a Downloading Node received.
 type asked struct {
 	node   role.NodeID
 	link   magnet.Link
@@ -46,10 +45,6 @@ type asked struct {
 	at     time.Time
 }
 
-// swarm is the Downloading Role's Controller half as a Grab of a magnet
-// link calls it: each Resolve gets the next of answers, the last one
-// again once they run out. A Searching or Resolved answer comes after the
-// hold, as the Node's long poll does.
 type swarm struct {
 	noDownloads
 	mu      sync.Mutex
@@ -84,8 +79,6 @@ func (s *swarm) asked() []asked {
 	return slices.Clone(s.calls)
 }
 
-// roster is one Node holding every Role, whose next change the test
-// makes.
 type roster struct {
 	node    role.NodeID
 	mu      sync.Mutex
@@ -129,8 +122,6 @@ func (p *published) count() int {
 	return len(p.ids)
 }
 
-// pipeline is a Controller holding every Role, with one Work, its library
-// root and one Indexer, whose Grabs ask swarm for metadata.
 type pipeline struct {
 	t       *testing.T
 	lib     library
@@ -193,8 +184,6 @@ func schemas() []storage.Schema[storage.Library] {
 	}
 }
 
-// grab adds a fetching Grab of link, with the Indexer's info hash hint
-// when hint isn't nil.
 func (p *pipeline) grab(link string, hint *bencode.InfoHash) grabs.GrabID {
 	p.t.Helper()
 	id := storage.NewUUID()
@@ -241,7 +230,6 @@ func (p *pipeline) failed(id grabs.GrabID, code grabs.Code) grabs.View {
 	return v
 }
 
-// release is a torrent's info dictionary and its magnet link.
 type release struct {
 	info []byte
 	link magnet.Link
@@ -289,8 +277,6 @@ func TestAMagnetLinksGrabShowsItsSearchAndDownloadsTheTorrentAPeerSent(t *testin
 	})
 }
 
-// askedInTurn checks that the Downloading Node was asked n times for link
-// until endsAt, each call right after the one before held.
 func (p *pipeline) askedInTurn(link magnet.Link, endsAt time.Time, n int) {
 	p.t.Helper()
 	calls := p.swarm.asked()
@@ -356,8 +342,6 @@ func TestAGrabFailsAtItsDeadlineAfterAnyRestart(t *testing.T) {
 	})
 }
 
-// TestAResolveCallCutShortAsksAgain has the first call end as a Node
-// that stops mid-call ends it, with no answer from its handler.
 func TestAResolveCallCutShortAsksAgain(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		rel := newRelease(t)
