@@ -29,7 +29,6 @@ function WorkCell({ grab, work }: GrabRow) {
   );
 }
 
-// A transferring Grab says what its Transfer does: where it copies from, or why it waits.
 function TransferWords({ grab }: { grab: GrabsGrab }) {
   const transfer = useTransferOf(grab.id);
   return transfer === undefined ? stageWord.transferring : headline(transfer);

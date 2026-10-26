@@ -192,14 +192,15 @@ test("a click on a link selects the link it pressed, though the click's point mi
   await expect.element(page.getByRole("complementary", { name: "home and vps" })).toBeVisible();
 });
 
+const vpsTraffic = (at: string) => ({
+  at,
+  links: [{ a: ids.home, b: ids.vps, abBps: 250_000, baBps: 6_000_000, rttMs: 24 }],
+  nodes: [],
+});
+
 test("a link's Inspector counts the link and its Transfers in what each end sends", async () => {
-  const sample = (at: string) => ({
-    at,
-    links: [{ a: ids.home, b: ids.vps, abBps: 250_000, baBps: 6_000_000, rttMs: 24 }],
-    nodes: [],
-  });
-  takeTraffic(sample("2026-10-26T14:00:00Z"));
-  takeTraffic(sample("2026-10-26T14:00:01Z"));
+  takeTraffic(vpsTraffic("2026-10-26T14:00:00Z"));
+  takeTraffic(vpsTraffic("2026-10-26T14:00:01Z"));
   renderApp({ path: "/nodes", handlers: dragServer().handlers });
   await expect.element(diagram()).toBeVisible();
   await userEvent.click(

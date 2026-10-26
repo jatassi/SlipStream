@@ -6,6 +6,7 @@ import type {
   TransfersTransfer,
   TransfersTransferState,
 } from "../api/gen/model";
+import { SetTransferSettingsBody } from "../api/gen/zod/transfers/transfers.zod";
 import { homeId, seedboxId } from "./nodes";
 
 const gib = 1024 * 1024 * 1024;
@@ -144,9 +145,9 @@ export function transfersApi({
     http.get("*/api/v1/transfers/speeds", () => HttpResponse.json({ speeds: state.speeds })),
     http.get("*/api/v1/transfers/nodes/:nodeId/settings", () => HttpResponse.json(state.settings)),
     http.patch("*/api/v1/transfers/nodes/:nodeId/settings", async ({ request, params }) => {
-      const body = (await request.json()) as { sendLimit: number };
+      const body = SetTransferSettingsBody.parse(await request.json());
       writes.push({ nodeId: String(params["nodeId"]), body });
-      state.settings = sendLimitOf(body.sendLimit);
+      state.settings = sendLimitOf(body.sendLimit ?? 0);
       return HttpResponse.json(state.settings);
     }),
   ];

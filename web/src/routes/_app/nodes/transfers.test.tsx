@@ -42,12 +42,14 @@ test("the section opens with what the Node receives, then each Transfer's own se
   await expect
     .element(rowOf("Heat (1995)").getByRole("progressbar", { name: "Transferring Heat (1995)" }))
     .toHaveAttribute("aria-valuenow", "25");
-  for (const transfer of [queued, waiting, needsSpace, failed]) {
-    await expect
-      .element(rowOf(transfer.jobName).getByText(transfer.reason ?? "", { exact: true }))
-      .toBeVisible();
-    await expect.element(rowOf(transfer.jobName).getByText("From seedbox")).toBeVisible();
-  }
+  await Promise.all(
+    [queued, waiting, needsSpace, failed].flatMap((transfer) => [
+      expect
+        .element(rowOf(transfer.jobName).getByText(transfer.reason ?? "", { exact: true }))
+        .toBeVisible(),
+      expect.element(rowOf(transfer.jobName).getByText("From seedbox")).toBeVisible(),
+    ]),
+  );
   await expect.element(rowOf("Miami Vice (2006)").getByText("Failed")).toBeVisible();
   await expect.element(rowOf("Manhunter (1986)").getByText("Needs space")).toBeVisible();
 
