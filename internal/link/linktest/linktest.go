@@ -55,6 +55,8 @@ type Side struct {
 	// Lanes serves each lane from a key the Node's Trust admits with
 	// AllowLane. With none the Node refuses every lane.
 	Lanes func(ctx context.Context, peer link.Key, c net.Conn)
+	// LaneHandler serves lanes in place of Lanes, and admits them itself.
+	LaneHandler link.LaneHandler
 }
 
 type Node struct {
@@ -118,7 +120,10 @@ func Start(t testing.TB, nw *fault.Network, name string, addrs []netip.Addr, sid
 	for kind, h := range side.Streams {
 		l.HandleStream(kind, h)
 	}
-	if side.Lanes != nil {
+	switch {
+	case side.LaneHandler != nil:
+		l.HandleLanes(side.LaneHandler)
+	case side.Lanes != nil:
 		l.HandleLanes(lanes{n.Trust, side.Lanes})
 	}
 	n.Link = l
