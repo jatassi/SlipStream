@@ -42,7 +42,7 @@ test("each provider shows its status sentence, whose key it uses and its key pag
   await expect.element(first.getByText("TMDB is working.")).toBeVisible();
   await expect.element(first.getByText("SlipStream's key")).toBeVisible();
   await expect
-    .element(first.getByRole("link", { name: "Get a TMDB key" }))
+    .element(first.getByRole("link", { name: "Get a key from TMDB" }))
     .toHaveAttribute("href", tmdb.keyPage);
   await expect.element(first.getByRole("button", { name: "Remove key" })).not.toBeInTheDocument();
 

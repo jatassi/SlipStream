@@ -110,7 +110,7 @@ function ProviderActions({ provider }: { provider: MetadataProvider }) {
         rel="noreferrer"
         className="ml-1 text-meta text-ink-2 underline hover:text-ink-1"
       >
-        Get a {provider.label} key
+        Get a key from {provider.label}
       </a>
       <KeyDialog provider={provider} open={setting} onOpenChange={setSetting} />
     </div>
