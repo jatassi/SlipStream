@@ -510,10 +510,14 @@ func (x *Absent) GetDetail() string {
 	return ""
 }
 
-// Want asks for chunks of the open file, by index.
+// Want asks for chunks of the open file, by index. lanes is how many lanes
+// the receiver wants: a sender that dials keeps that many open. A lane the
+// receiver lets go ends with a Want of no chunks that carries the new
+// count.
 type Want struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Chunks        []uint32               `protobuf:"varint,1,rep,packed,name=chunks,proto3" json:"chunks,omitempty"`
+	Lanes         uint32                 `protobuf:"varint,2,opt,name=lanes,proto3" json:"lanes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -553,6 +557,13 @@ func (x *Want) GetChunks() []uint32 {
 		return x.Chunks
 	}
 	return nil
+}
+
+func (x *Want) GetLanes() uint32 {
+	if x != nil {
+		return x.Lanes
+	}
+	return 0
 }
 
 // Chunk is one chunk of the open file and the BLAKE3-256 the sender took
@@ -661,9 +672,10 @@ const file_slipstream_transfer_v1_transfer_proto_rawDesc = "" +
 	"\x12REASON_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vREASON_GONE\x10\x01\x12\x11\n" +
 	"\rREASON_FAILED\x10\x02\x12\x14\n" +
-	"\x10REASON_NOT_READY\x10\x03\"\x1e\n" +
+	"\x10REASON_NOT_READY\x10\x03\"4\n" +
 	"\x04Want\x12\x16\n" +
-	"\x06chunks\x18\x01 \x03(\rR\x06chunks\"_\n" +
+	"\x06chunks\x18\x01 \x03(\rR\x06chunks\x12\x14\n" +
+	"\x05lanes\x18\x02 \x01(\rR\x05lanes\"_\n" +
 	"\x05Chunk\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x12\n" +
 	"\x04hash\x18\x02 \x01(\fR\x04hash\x12\x18\n" +

@@ -9,6 +9,7 @@ import (
 	"math/bits"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/zeebo/blake3"
@@ -19,10 +20,15 @@ import (
 	"github.com/jatassi/slipstream/internal/transfers/internal/db"
 )
 
-// receiving is the receiver's state. Only its run's receive goroutine
-// touches the fields above the facts, which are under run.mu.
+// receiving is the receiver's state. mu guards the files and the queue,
+// which every lane's carrier shares. The facts are under run.mu, taken
+// after mu.
 type receiving struct {
 	inbound chan *lane
+
+	mu sync.Mutex
+	// changed closes when a lane may find work it didn't before.
+	changed chan struct{}
 	folder  string
 	files   []*staged
 	buf     []byte
@@ -30,7 +36,6 @@ type receiving struct {
 	// sync.
 	batchBytes int64
 	batchSince time.Time
-	nextDial   time.Time
 	tries      int
 	failed     bool
 	damaged    *failure
@@ -38,7 +43,6 @@ type receiving struct {
 	// The facts, under run.mu.
 	wait          *tv1.Wait
 	moving        tv1.Route
-	lanes         int
 	rtt           time.Duration
 	retried       int
 	verifiedBytes int64
@@ -56,11 +60,17 @@ type staged struct {
 	m        *tv1.Manifest
 	verified bitset
 	// written is the chunks written since the last sync, by their hash.
-	written  map[int][32]byte
-	fails    map[int]*fails
-	out      storing.WriteAtFile
-	in       storing.ReadAtCloser
-	reported bool
+	written map[int][32]byte
+	// asked is the chunks some lane asked for and hasn't taken.
+	asked map[int]bool
+	fails map[int]*fails
+	// gen counts restarts. A lane holds the file open at the gen it
+	// opened it, and takes no chunk of another.
+	gen       int
+	finishing bool
+	out       storing.WriteAtFile
+	in        storing.ReadAtCloser
+	reported  bool
 }
 
 type fails struct {
@@ -80,102 +90,82 @@ func (f *failure) Error() string {
 	return fmt.Sprintf("%s at file %d: %s", f.code, f.position, f.detail)
 }
 
-// receive runs the receiver until the run ends: it stages, takes a lane on
-// its route, and fills its files on it, again after each break.
+// receive runs the receiver's lanes until the run ends, each filling the
+// files from the one queue of missing chunks.
 func (r *run) receive() {
-	rx := r.rx
 	defer r.closeFiles()
-	for r.ctx.Err() == nil {
-		if rx.failed || rx.folder != "" && rx.current() == nil {
-			r.setWait(tv1.Wait_KIND_UNSPECIFIED, "")
-			<-r.ctx.Done()
-			return
-		}
-		if err := r.stage(); err != nil {
-			r.setWait(tv1.Wait_KIND_ROOT_NOT_READY, err.Error())
-			r.backoff()
-			continue
-		}
-		rx.tries = 0
-		if l := r.awaitLane(); l != nil {
-			r.carry(l)
-		}
-	}
+	r.runLanes(laneEnd{inbound: r.rx.inbound, ready: r.ready, serve: r.carry, grows: true})
 }
 
-// carry fills the files on l until it ends, then lets it go. A lane this
-// end opened that never heard from the peer is a failed attempt on its
-// route.
-func (r *run) carry(l *lane) {
+// ready gates a first lane on the Storage holder's gate for the root,
+// with a backoff while it fails. A receiver whose files are all reported,
+// or that failed, takes no lane.
+func (r *run) ready() (time.Duration, bool) {
 	rx := r.rx
-	r.note(func() { rx.lanes = 1 })
+	rx.mu.Lock()
+	defer rx.mu.Unlock()
+	if rx.failed || rx.folder != "" && rx.current() == nil {
+		r.setWait(tv1.Wait_KIND_UNSPECIFIED, "")
+		return 0, false
+	}
+	if err := r.stage(); err != nil {
+		r.setWait(tv1.Wait_KIND_ROOT_NOT_READY, err.Error())
+		rx.tries++
+		return retryDelay(rx.tries, r.e.cfg.Timings), false
+	}
+	rx.tries = 0
+	r.setWait(tv1.Wait_KIND_CONNECTING, "")
+	return 0, true
+}
+
+// carry fills the files on l until it ends, puts the chunks it still had
+// asked back in the queue, and reports whether the sender answered on it.
+func (r *run) carry(l *lane) (heard bool) {
+	rx := r.rx
 	heard, err := r.fill(l)
+	rx.mu.Lock()
 	if ferr := r.flush(); ferr != nil && err == nil {
 		err = ferr
 	}
-	r.note(func() {
-		rx.lanes, rx.moving = 0, tv1.Route_ROUTE_UNSPECIFIED
-		rx.retried += len(l.asked)
-	})
-	r.drop(l)
-	switch {
-	case !l.dialed:
-	case heard:
-		r.heard(l.route)
-	default:
-		rx.nextDial = time.Now().Add(r.failed(l.route))
+	if f := rx.file(l.open); f != nil && l.gen == f.gen {
+		for _, i := range l.asked {
+			delete(f.asked, i)
+		}
 	}
+	r.note(func() { rx.retried += len(l.asked) })
+	l.asked = nil
+	rx.poke()
+	rx.mu.Unlock()
 	if f, ok := errors.AsType[*failure](err); ok {
 		r.fail(f)
 	}
+	return heard
 }
 
-// backoff waits out the receiver's next retry of a gate, a source or a
-// full disk. The run's end cuts it short, which the caller's loop sees.
+// retire lets l go once the chunks it asked for arrive. Its last Want
+// tells a sender that dials how many lanes to keep.
+func (r *run) retire(l *lane) {
+	l.retiring.Store(true)
+	r.rx.mu.Lock()
+	r.rx.poke()
+	r.rx.mu.Unlock()
+}
+
+// poke wakes every idle lane. Call it with mu held.
+func (rx *receiving) poke() {
+	close(rx.changed)
+	rx.changed = make(chan struct{})
+}
+
+// backoff waits out the receiver's next retry of a source or a full disk,
+// with mu let go. The run's end cuts it short, which the caller's loop
+// sees.
 func (r *run) backoff() {
 	r.rx.tries++
-	r.pause(retryDelay(r.rx.tries, r.e.cfg.Timings))
-}
-
-// awaitLane is the next lane on the current route: one this end opens, or
-// one the sender opened. It is nil once the run ends.
-func (r *run) awaitLane() *lane {
-	rx := r.rx
-	for {
-		route := dials(r.spec.side, r.route())
-		if route != tv1.Route_ROUTE_UNSPECIFIED && !time.Now().Before(rx.nextDial) {
-			l, err := r.open(route)
-			if err == nil {
-				return l
-			}
-			rx.nextDial = time.Now().Add(r.failed(route))
-		}
-		r.setWait(tv1.Wait_KIND_CONNECTING, "")
-		if l, ok := r.awaitInbound(route != tv1.Route_ROUTE_UNSPECIFIED); l != nil || !ok {
-			return l
-		}
-	}
-}
-
-// awaitInbound waits for a lane the sender opens, until this end may dial
-// again when it dials, or the route changes. ok is false once the run
-// ended.
-func (r *run) awaitInbound(dialing bool) (l *lane, ok bool) {
-	var retry <-chan time.Time
-	if dialing {
-		t := time.NewTimer(time.Until(r.rx.nextDial))
-		defer t.Stop()
-		retry = t.C
-	}
-	select {
-	case l := <-r.rx.inbound:
-		return l, true
-	case <-retry:
-	case <-r.routeChanged():
-	case <-r.ctx.Done():
-		return nil, false
-	}
-	return nil, true
+	d := retryDelay(r.rx.tries, r.e.cfg.Timings)
+	r.rx.mu.Unlock()
+	defer r.rx.mu.Lock()
+	r.pause(d)
 }
 
 // stage passes the Storage holder's gate for the root, and on the first
@@ -207,7 +197,10 @@ func (r *run) stage() error {
 	style := r.e.cfg.Disk.Host().Style
 	rx.files = nil
 	for _, f := range r.spec.files {
-		s := &staged{file: f, path: style.Join(folder, strconv.Itoa(f.position)+".part"), written: map[int][32]byte{}, fails: map[int]*fails{}}
+		s := &staged{
+			file: f, path: style.Join(folder, strconv.Itoa(f.position)+".part"),
+			written: map[int][32]byte{}, asked: map[int]bool{}, fails: map[int]*fails{},
+		}
 		row, err := q.Resume(r.ctx, r.resumeKey(f.position))
 		if err != nil && !errors.Is(err, storage.ErrNoRows) {
 			return err
@@ -232,18 +225,63 @@ func (rx *receiving) current() *staged {
 	return nil
 }
 
-// fill asks for the files' missing chunks in order on l, keeps each copy
-// that matches its hash, and finishes each file once all are verified. It
-// returns when l breaks, the run ends, every file is reported, or the
-// Transfer can't finish, and reports whether the sender answered at all.
-func (r *run) fill(l *lane) (heard bool, err error) {
-	for r.ctx.Err() == nil {
-		if r.rx.damaged != nil {
-			return heard, r.rx.damaged
+func (rx *receiving) file(position int) *staged {
+	for _, f := range rx.files {
+		if f.position == position {
+			return f
 		}
-		f := r.rx.current()
-		if f == nil {
+	}
+	return nil
+}
+
+// pick is the file l takes further next: the one it has chunks asked of,
+// else the first not yet reported that is still to open, has a chunk to
+// ask for, or is whole and next to finish. Lanes move on to the next file
+// while another's last chunks are in flight, and files still finish in
+// order.
+func (rx *receiving) pick(l *lane, now time.Time) *staged {
+	if len(l.asked) > 0 {
+		return rx.file(l.open)
+	}
+	for _, f := range rx.files {
+		switch {
+		case f.reported || f.finishing:
+			continue
+		case f.m == nil, f.whole() && f == rx.current():
+			return f
+		case f.whole():
+			continue
+		}
+		if _, ok := f.next(now); ok {
+			return f
+		}
+	}
+	return nil
+}
+
+// fill takes the files one exchange at a time on l, beside the other
+// lanes, until l breaks or retires, the run ends, every file is reported,
+// or the Transfer can't finish. It reports whether the sender answered at
+// all.
+func (r *run) fill(l *lane) (heard bool, err error) {
+	rx := r.rx
+	rx.mu.Lock()
+	defer rx.mu.Unlock()
+	for r.ctx.Err() == nil {
+		switch {
+		case rx.damaged != nil:
+			return heard, rx.damaged
+		case rx.current() == nil:
 			return heard, nil
+		case l.retiring.Load() && len(l.asked) == 0:
+			return heard, r.wantOn(l, nil)
+		}
+		f := rx.pick(l, time.Now())
+		if f == nil {
+			if err := r.idle(); err != nil {
+				return heard, err
+			}
+			continue
 		}
 		stepped, err := r.step(l, f)
 		heard = heard || stepped
@@ -254,32 +292,29 @@ func (r *run) fill(l *lane) (heard bool, err error) {
 	return heard, nil
 }
 
-// step takes f one exchange further on l: it opens f, finishes it, or
-// asks for and takes a chunk.
+// step takes f one exchange further on l: it finishes f, opens it, or
+// asks for and takes a chunk. mu is let go while l waits on the sender.
 func (r *run) step(l *lane, f *staged) (heard bool, err error) {
-	switch {
-	case l.open != f.position:
-		m, err := r.request(l, f)
-		if err != nil {
+	if len(l.asked) == 0 {
+		switch {
+		case f.whole():
+			err := r.finish(l, f)
 			return answered(err), r.notReady(err)
+		case l.open != f.position || l.gen != f.gen:
+			return r.openFile(l, f)
 		}
-		r.rx.tries = 0
-		if err := r.adopt(f, m); err != nil {
-			return true, err
-		}
-		l.open = f.position
-		return true, nil
-	case f.whole():
-		err := r.finish(l, f)
-		return answered(err), r.notReady(err)
 	}
 	if err := r.want(l, f); err != nil {
 		return false, err
 	}
 	if len(l.asked) == 0 {
-		return false, r.idle(f)
+		return false, nil
 	}
-	fr, err := l.read(r.e.cfg.Timings.Chunk)
+	var fr *tv1.Frame
+	err = r.rx.unlocked(func() (err error) {
+		fr, err = l.read(r.e.cfg.Timings.Chunk)
+		return err
+	})
 	if err != nil {
 		return false, err
 	}
@@ -289,6 +324,10 @@ func (r *run) step(l *lane, f *staged) (heard bool, err error) {
 		return true, fmt.Errorf("the sender sent %T, not a chunk it was asked for", fr.GetFrame())
 	}
 	l.asked = slices.Delete(l.asked, at, at+1)
+	if l.gen != f.gen {
+		return true, nil
+	}
+	delete(f.asked, int(c.GetIndex()))
 	if err := r.keep(l, f, c); err != nil {
 		return true, err
 	}
@@ -297,6 +336,29 @@ func (r *run) step(l *lane, f *staged) (heard bool, err error) {
 		return true, r.flush()
 	}
 	return true, nil
+}
+
+// openFile opens f on l and takes its Manifest as f's source.
+func (r *run) openFile(l *lane, f *staged) (heard bool, err error) {
+	m, err := r.request(l, f)
+	if err != nil {
+		return answered(err), r.notReady(err)
+	}
+	r.rx.tries = 0
+	if !f.reported {
+		if err := r.adopt(f, m); err != nil {
+			return true, err
+		}
+	}
+	l.open, l.gen = f.position, f.gen
+	return true, nil
+}
+
+// unlocked runs io with mu let go.
+func (rx *receiving) unlocked(io func() error) error {
+	rx.mu.Unlock()
+	defer rx.mu.Lock()
+	return io()
 }
 
 // answered reports whether err came after the sender's answer.
@@ -315,44 +377,75 @@ func (r *run) notReady(err error) error {
 	return nil
 }
 
-// want asks for chunks of f until l has Ahead of them asked.
+// want asks for chunks of f until l has Ahead of them asked, while l
+// holds f open at its current gen and isn't retiring.
 func (r *run) want(l *lane, f *staged) error {
+	if l.open != f.position || l.gen != f.gen || l.retiring.Load() {
+		return nil
+	}
 	now := time.Now()
 	var want []uint32
 	for len(l.asked) < r.e.cfg.Timings.Ahead {
-		i, ok := f.next(now, l.asked)
+		i, ok := f.next(now)
 		if !ok {
 			break
 		}
 		l.asked = append(l.asked, i)
+		f.asked[i] = true
 		want = append(want, uint32(i)) //nolint:gosec // under the file's chunk count
 	}
 	if len(want) == 0 {
 		return nil
 	}
-	return l.send(&tv1.Frame{Frame: &tv1.Frame_Want{Want: &tv1.Want{Chunks: want}}})
+	return r.wantOn(l, want)
 }
 
-// idle is a step with nothing to ask for: it records the chunks written,
-// or waits for the first missing chunk's backoff.
-func (r *run) idle(f *staged) error {
-	if len(f.written) > 0 {
+// wantOn sends a Want of chunks on l, with mu let go, and the lanes the
+// receiver wants now.
+func (r *run) wantOn(l *lane, chunks []uint32) error {
+	w := &tv1.Want{Chunks: chunks, Lanes: uint32(r.lanesWanted.Load())} //nolint:gosec // at most LanesMax
+	return r.rx.unlocked(func() error { return l.send(&tv1.Frame{Frame: &tv1.Frame_Want{Want: w}}) })
+}
+
+// idle is a lane with nothing to take: it records the chunks written, or
+// waits with mu let go until a lane may find work or the first backoff
+// ends.
+func (r *run) idle() error {
+	rx := r.rx
+	if rx.batchBytes > 0 {
 		return r.flush()
 	}
-	r.pause(time.Until(f.retryAt()))
+	var retry <-chan time.Time
+	if at := rx.retryAt(time.Now()); !at.IsZero() {
+		retry = after(at)
+	}
+	changed := rx.changed
+	rx.mu.Unlock()
+	defer rx.mu.Lock()
+	select {
+	case <-changed:
+	case <-retry:
+	case <-r.ctx.Done():
+	}
 	return nil
 }
 
 var errNotReady = errors.New("the source isn't ready")
 
-// request opens f on l: its Manifest, errNotReady while the sender can't
-// read it yet, or a *failure when it never will.
+// request opens f on l, with mu let go while it waits: its Manifest,
+// errNotReady while the sender can't read it yet, or a *failure when it
+// never will.
 func (r *run) request(l *lane, f *staged) (*tv1.Manifest, error) {
 	start := time.Now()
-	if err := l.send(&tv1.Frame{Frame: &tv1.Frame_Open{Open: &tv1.Open{Position: uint32(f.position), Source: f.wire}}}); err != nil { //nolint:gosec // a position the intent names
-		return nil, err
-	}
-	fr, err := l.read(r.e.cfg.Timings.Chunk)
+	open := &tv1.Frame{Frame: &tv1.Frame_Open{Open: &tv1.Open{Position: uint32(f.position), Source: f.wire}}} //nolint:gosec // a position the intent names
+	var fr *tv1.Frame
+	err := r.rx.unlocked(func() (err error) {
+		if err := l.send(open); err != nil {
+			return err
+		}
+		fr, err = l.read(r.e.cfg.Timings.Chunk)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -460,9 +553,12 @@ func (r *run) restart(f *staged, m *tv1.Manifest) error {
 		return err
 	}
 	f.m, f.verified = m, verified
+	f.gen++
 	clear(f.written)
+	clear(f.asked)
 	clear(f.fails)
 	r.countVerified()
+	r.rx.poke()
 	return nil
 }
 
@@ -503,6 +599,7 @@ func (r *run) keep(l *lane, f *staged, c *tv1.Chunk) error {
 	r.setWait(tv1.Wait_KIND_UNSPECIFIED, "")
 	r.note(func() {
 		rx.moved += int64(len(c.GetData()))
+		r.win.binding = r.win.binding || c.GetBinding()
 		if rx.moving != l.route && holds(r.r, l.route) {
 			rx.moving = l.route
 			r.e.facts.urgent()
@@ -553,6 +650,7 @@ func (r *run) flush() error {
 	}
 	rx.batchBytes, rx.batchSince = 0, time.Time{}
 	r.countVerified()
+	rx.poke()
 	r.e.facts.progress()
 	return nil
 }
@@ -598,6 +696,7 @@ func (r *run) chunkFailed(f *staged, i int, readBack bool) {
 	n := c.transit + c.readBack
 	c.next = time.Now().Add(retryDelay(n, r.e.cfg.Timings))
 	r.note(func() { r.rx.retried++ })
+	r.rx.poke()
 	if n >= r.e.cfg.Timings.Damaged {
 		detail := fmt.Sprintf("chunk %d failed its check %d times", i, n)
 		if c.transit == 0 {
@@ -607,18 +706,27 @@ func (r *run) chunkFailed(f *staged, i int, readBack bool) {
 	}
 }
 
-// finish opens f once more: a changed identity restarts it. Otherwise it
-// syncs and closes the file, then records it whole and queues FileVerified
-// in one local write, so placement never finds a torn file or an open
-// handle.
+// finish opens f once more on l, the one lane that finishes it: a changed
+// identity restarts it. Otherwise it syncs and closes the file, then
+// records it whole and queues FileVerified in one local write, so
+// placement never finds a torn file or an open handle.
 func (r *run) finish(l *lane, f *staged) error {
+	f.finishing = true
+	defer func() {
+		f.finishing = false
+		r.rx.poke()
+	}()
+	gen := f.gen
 	m, err := r.request(l, f)
 	if err != nil {
 		return err
 	}
-	if !sameIdentity(f.m.GetIdentity(), m.GetIdentity()) {
-		return r.restart(f, m)
+	if f.gen != gen || !sameIdentity(f.m.GetIdentity(), m.GetIdentity()) {
+		err := r.adopt(f, m)
+		l.open, l.gen = f.position, f.gen
+		return err
 	}
+	l.open, l.gen = f.position, f.gen
 	if err := f.out.Sync(); err != nil {
 		return fmt.Errorf("sync the staged file: %w", err)
 	}
@@ -641,9 +749,14 @@ func (r *run) finish(l *lane, f *staged) error {
 	return nil
 }
 
-// fail reports f and stops the receiver: the Controller decides what
+// fail reports f once and stops the receiver: the Controller decides what
 // follows.
 func (r *run) fail(f *failure) {
+	r.rx.mu.Lock()
+	defer r.rx.mu.Unlock()
+	if r.rx.failed {
+		return
+	}
 	err := r.e.cfg.Local.Write(context.WithoutCancel(r.ctx), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		return r.h.Report(ctx, tx, &tv1.Result{Result: &tv1.Result_Failed{Failed: &tv1.Failed{
 			TransferId: r.spec.id.Bytes(), Code: f.code, Position: uint32(f.position), Detail: f.detail, //nolint:gosec // a position the intent names
@@ -670,6 +783,8 @@ func (r *run) full(err error) bool {
 }
 
 func (r *run) closeFiles() {
+	r.rx.mu.Lock()
+	defer r.rx.mu.Unlock()
 	if r.rx.folder == "" {
 		return
 	}
@@ -703,30 +818,34 @@ func (f *staged) allWritten() bool {
 	return true
 }
 
-// next is the first chunk neither verified, written nor asked, whose
-// backoff is over.
-func (f *staged) next(now time.Time, asked []int) (int, bool) {
+// next is the first chunk neither verified, written nor asked on any
+// lane, whose backoff is over.
+func (f *staged) next(now time.Time) (int, bool) {
 	for i := range chunks(f.m.GetSize()) {
-		if _, ok := f.written[i]; ok || f.verified.has(i) || slices.Contains(asked, i) {
-			continue
+		if c := f.fails[i]; f.missing(i) && (c == nil || !now.Before(c.next)) {
+			return i, true
 		}
-		if c := f.fails[i]; c != nil && now.Before(c.next) {
-			continue
-		}
-		return i, true
 	}
 	return 0, false
 }
 
-// retryAt is when the first missing chunk's backoff ends.
-func (f *staged) retryAt() time.Time {
+func (f *staged) missing(i int) bool {
+	_, written := f.written[i]
+	return !written && !f.verified.has(i) && !f.asked[i]
+}
+
+// retryAt is when the first missing chunk's backoff ends, zero when no
+// missing chunk waits one out.
+func (rx *receiving) retryAt(now time.Time) time.Time {
 	var at time.Time
-	for i, c := range f.fails {
-		if f.verified.has(i) {
-			continue
-		}
-		if at.IsZero() || c.next.Before(at) {
-			at = c.next
+	for _, f := range rx.files {
+		for i, c := range f.fails {
+			if f.reported || !f.missing(i) || !now.Before(c.next) {
+				continue
+			}
+			if at.IsZero() || c.next.Before(at) {
+				at = c.next
+			}
 		}
 	}
 	return at

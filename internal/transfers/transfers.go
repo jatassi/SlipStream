@@ -9,10 +9,12 @@ import (
 	"embed"
 	"errors"
 	"io"
+	"net"
 	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers/internal/db"
 )
@@ -113,6 +115,9 @@ type Hooks struct {
 	// Sent sees each chunk a Node sends after it hashed it, and may change
 	// it.
 	Sent func(transfer ID, position, index int, data []byte)
+	// Lane wraps each lane a Node engine's run holds, to cut, stall or
+	// throttle it.
+	Lane func(transfer ID, route transferv1.Route, c net.Conn) net.Conn
 }
 
 // Hash is a chunk's BLAKE3-256.

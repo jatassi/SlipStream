@@ -63,9 +63,13 @@ message Absent {
   }
 }
 
-// Want asks for chunks of the open file, by index.
+// Want asks for chunks of the open file, by index. lanes is how many lanes
+// the receiver wants: a sender that dials keeps that many open. A lane the
+// receiver lets go ends with a Want of no chunks that carries the new
+// count.
 message Want {
   repeated uint32 chunks = 1;
+  uint32 lanes = 2;
 }
 
 // Chunk is one chunk of the open file and the BLAKE3-256 the sender took
