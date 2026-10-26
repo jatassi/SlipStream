@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
+import { asPhone } from "../test/viewport";
 import { Select } from "./select";
 import type { ShellKind } from "./shell-context";
 
@@ -76,4 +77,33 @@ test("an option's leading mark sits before its label in the list and on the trig
   await seedbox.click();
   await expect.element(select).toHaveTextContent("offlineseedbox");
   await expect.element(select.getByTestId("dot-offline")).toBeVisible();
+});
+
+const roots = [
+  { value: "movies", label: "/srv/media/movies · 82 GB free" },
+  {
+    value: "archive",
+    label: "/srv/media/archive/of/every/movie/this/library/has/ever/held · 82 GB free",
+  },
+] as const;
+
+function Root() {
+  const [value, setValue] = useState<(typeof roots)[number]["value"]>("movies");
+  return <Select label="Library root" options={roots} value={value} onValueChange={setValue} />;
+}
+
+test("on a phone a list of options wider than the screen opens inside it", async () => {
+  await asPhone();
+  renderKit(<Root />, { shell: "phone" });
+  await page.getByRole("combobox", { name: "Library root" }).click();
+  const archive = page.getByRole("option", { name: /archive/u });
+  await expect.element(archive).toBeVisible();
+  const list = page.getByRole("listbox").element().getBoundingClientRect();
+  expect(list.left, "the list starts on the screen").toBeGreaterThanOrEqual(0);
+  expect(list.right, "the list ends on the screen").toBeLessThanOrEqual(innerWidth);
+  expect(document.documentElement.scrollWidth, "the page doesn't scroll sideways").toBe(innerWidth);
+  await archive.click();
+  await expect
+    .element(page.getByRole("combobox", { name: "Library root" }))
+    .toHaveTextContent(roots[1].label);
 });
