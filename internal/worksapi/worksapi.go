@@ -234,6 +234,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/library",
 		Summary: "List every Work as a Library row, or one Content Type's, or the named ones",
 		Status:  http.StatusOK,
+		Gzip:    true,
 		Errors:  []*api.Code{contentTypeNotFound},
 	}, h.listLibrary)
 
