@@ -42,10 +42,11 @@ export type StepScreen = {
 
 const nothing = () => Promise.resolve();
 
-// Each in-step Node's settings hold its downloads folder, read live from the Node.
+// Each in-step Node's settings hold its downloads folder, read live from the
+// Node. Its row shows a failed read, so the step loads without it.
 async function loadDownloadClients(queryClient: QueryClient) {
   const { cards } = await freshQuery(queryClient, getListDownloadClientsSuspenseQueryOptions());
-  await Promise.all(
+  await Promise.allSettled(
     cards
       .filter((card) => card.inStep)
       .map((card) => freshQuery(queryClient, getGetNodeConfigSuspenseQueryOptions(card.nodeId))),
