@@ -39,7 +39,8 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 ## Features
 
 - [Shell](./shell.md) covers the desktop sidebar and top bar, the phone tab bar and More sheet, the palette, toasts, titles, errors and not-found, the portal and the startup sequence.
-- [Setup](./setup.md) covers the Setup code from the Controller's log, a wrong code, the setup link that fills it in, and creating the first Admin on `first-run`.
+- [Setup](./setup.md) covers the Setup code from the Controller's log, a wrong code, the setup link that fills it in, and creating the first Admin on `first-run`, who lands on first setup.
+- [First setup](./first-run.md) covers the steps after the claim on `first-run`: the frame with Skip, Back and Finish setup, resuming after a reload or an app URL, the address, passkey, language and region, library roots, downloads and Targets steps, and the last screen with Go to Library.
 - [Sign-in](./sign-in.md) covers Email and PIN for an Admin and a Member, a wrong PIN and the wait it earns, the per-address limit, returning to the page asked for, saved state and sign-out.
 - [Signup links](./signup-links.md) covers issuing a Signup link, its email, the pending list, a dead link and joining on desktop and phone.
 - [Passkeys](./passkeys.md) covers the prompt after sign-in, adding one with Chromium's virtual authenticator, signing in with it, the deep link and the IP address that can't hold one.
