@@ -215,8 +215,8 @@ func TestSeveralRootsPerTypeWithOneDefault(t *testing.T) {
 	if err := json.Unmarshal(orchard.Work, &tr); err != nil {
 		t.Fatal(err)
 	}
-	worldtest.Expect(t, "setWorkRoot", a.Admin("home", http.MethodPatch, "/api/v1/works/"+tr.ID, `{"rootId":"`+films.ID+`"}`),
-		worldtest.Reply{Status: 200, Body: `{"workId":"` + tr.ID + `","rootId":"` + films.ID + `"}` + "\n"})
+	worldtest.Expect(t, "setWorksRoot", a.Admin("home", http.MethodPut, "/api/v1/works/root", `{"workIds":["`+tr.ID+`"],"rootId":"`+films.ID+`"}`),
+		worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + tr.ID + `","outcome":"done"}]}` + "\n"})
 	movies.Works, films.Works = 1, 1
-	expect("listRoots after setWorkRoot", movies, films)
+	expect("listRoots after setWorksRoot", movies, films)
 }

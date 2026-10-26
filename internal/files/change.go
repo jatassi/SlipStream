@@ -107,14 +107,14 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		return Impact{}, nil, err
 	}
 	var (
-		trees []works.Tree
+		trees []works.Bare
 		ids   []works.WorkID
 	)
 	for _, w := range append(touched.Works, tagged...) {
-		if slices.ContainsFunc(trees, func(t works.Tree) bool { return t.ID == w }) {
+		if slices.ContainsFunc(trees, func(t works.Bare) bool { return t.ID == w }) {
 			continue
 		}
-		tree, err := f.cfg.Works.TreeIn(ctx, tx, w)
+		tree, err := works.BareIn(ctx, tx, w)
 		if err != nil {
 			return Impact{}, nil, err
 		}

@@ -4,17 +4,12 @@
 package library
 
 import (
-	"errors"
-
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
-
-// ErrNotBuilt is a method whose work hasn't shipped yet.
-var ErrNotBuilt = errors.New("library: not built yet")
 
 type Config struct {
 	Library *storage.DB[storage.Library]

@@ -182,6 +182,9 @@ func Open(ctx context.Context, cfg Config) (*Works, error) {
 			return nil, &storage.RefusedError{Err: fmt.Errorf("library.db holds Works of Content Type %s, which this binary doesn't register", id)}
 		}
 	}
+	if err := w.catchUpTitles(ctx); err != nil {
+		return nil, fmt.Errorf("open works: index titles: %w", err)
+	}
 	return w, nil
 }
 

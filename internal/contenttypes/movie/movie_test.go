@@ -961,6 +961,7 @@ func TestATypeSettingChangePublishesOneTypeChanged(t *testing.T) {
 	cinema := setting.Patch{movie.CountsAs.Key: json.RawMessage(`"cinema"`), movie.CinemaDelay.Key: json.RawMessage(`604800`)}
 	fields := sh.set(t, cinema)
 	want := []setting.Field{
+		setting.Switch{Key: "movie.add.monitor", Label: "New movies are monitored", Default: true}.Field(nil),
 		movie.CountsAs.Field(ptr(movie.CountsAs.Options[1].Value)),
 		movie.CinemaDelay.Field(ptr(int64(604800))),
 	}

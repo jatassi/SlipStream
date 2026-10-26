@@ -63,6 +63,8 @@ type Record struct {
 	WorkFields  []works.FieldValue
 	LevelFields map[works.Key][]works.FieldValue
 	ItemFields  map[works.Key][]works.FieldValue
+	// Titles are the Work's titles beyond its label, which Titles answers.
+	Titles []string
 }
 
 // Fixture is the library half, and each provider half it opens reads its
@@ -75,6 +77,7 @@ type Fixture struct {
 	fetches   map[works.Key]int
 	calls     []Call
 	stored    map[works.WorkID]works.FieldSet
+	titles    map[works.WorkID][]string
 	hold      *hold
 	opened    []Opened
 	libraries []contenttype.LibraryDeps
@@ -120,6 +123,7 @@ func New() *Fixture {
 		fails:   map[works.Key]error{},
 		fetches: map[works.Key]int{},
 		stored:  map[works.WorkID]works.FieldSet{},
+		titles:  map[works.WorkID][]string{},
 		timings: map[works.ItemID]targets.Timing{},
 		growing: map[works.WorkID]bool{},
 	}
@@ -369,8 +373,9 @@ func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at wo
 	if !ok {
 		fs = works.FieldSet{Levels: map[works.LevelID][]works.FieldValue{}, Items: map[works.ItemID][]works.FieldValue{}}
 	}
-	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields)
+	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields) || !slices.Equal(f.titles[at.Work], r.Titles)
 	fs.Work = r.WorkFields
+	f.titles[at.Work] = r.Titles
 	for key, id := range at.Levels {
 		changed = changed || !reflect.DeepEqual(fs.Levels[id], r.LevelFields[key])
 		fs.Levels[id] = r.LevelFields[key]
@@ -406,9 +411,11 @@ func (f *Fixture) ListFields(_ context.Context, _ storage.Reader[storage.Library
 	return out, nil
 }
 
-// Titles answers none: a Shelf is known by its label alone.
-func (*Fixture) Titles(context.Context, storage.Reader[storage.Library], works.WorkID) ([]string, error) {
-	return nil, nil
+// Titles answers the stored record's Titles.
+func (f *Fixture) Titles(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.titles[w]), nil
 }
 
 // Links answers none: a Shelf links nowhere.

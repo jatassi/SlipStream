@@ -26,10 +26,7 @@ func open(l Library) *files.Files {
 	return f
 }
 
-var (
-	workNotFound   = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
-	notImplemented = api.NewCode(http.StatusNotImplemented, "not_implemented", "This route isn't built yet")
-)
+var workNotFound = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 
 type probe struct {
 	Width  int `json:"width" minimum:"0"`
@@ -154,7 +151,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/works/{workId}/files",
 		Summary: "List a Work's library files with the cells each fills, and the folder they sit in",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, notImplemented},
+		Errors:  []*api.Code{workNotFound},
 	}, h.listWorkFiles)
 }
 
@@ -165,25 +162,22 @@ func (h handlers) getWorkCells(ctx context.Context, by identity.Admin, in *cells
 	if err != nil {
 		return nil, workNotFound
 	}
-	items, cells, err := open(h.lib).WorkCells(ctx, by, works.WorkID{UUID: u})
+	items, cells, rollup, err := open(h.lib).WorkCells(ctx, by, works.WorkID{UUID: u})
 	if errors.Is(err, works.ErrNoWork) {
 		return nil, workNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	out := cellList{Cells: []api.OneOf[cell]{}, Items: []itemStatus{}, Summary: summaryOf(items, cells), NeedsYou: []api.OneOf[need]{}}
+	out := cellList{Cells: []api.OneOf[cell]{}, Items: []itemStatus{}, Summary: summaryOf(rollup), NeedsYou: needsOf(rollup.Needs)}
 	of := map[works.ItemID][]files.Cell{}
 	for _, c := range cells {
 		out.Cells = append(out.Cells, variantOf(c))
 		of[c.Item.ID] = append(of[c.Item.ID], c)
 	}
 	for _, it := range items {
-		row := itemStatus{ItemID: it.ID.String()}
-		if s, ok := files.Status(of[it.ID]); ok {
-			row.Status = StatusOf(s)
-		}
-		out.Items = append(out.Items, row)
+		s, _ := files.Status(of[it.ID])
+		out.Items = append(out.Items, itemStatus{ItemID: it.ID.String(), Status: StatusOf(s)})
 	}
 	return &cellListOutput{Body: out}, nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -52,21 +53,15 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 		}
 		root = &roots.ID{UUID: u}
 	}
-	t, created, err := open(h.shelf).Add(ctx, by, works.TypeID(in.Body.ContentType), key, works.Adding{
-		Monitor: in.Body.Monitor != nil && *in.Body.Monitor,
-		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			if err := targets.Assign(ctx, tx, w, profile); err != nil {
-				return err
-			}
-			return roots.Assign(ctx, tx, w, root)
-		},
+	a, err := composer(h.shelf).Add(ctx, by, library.Adding{
+		Type: works.TypeID(in.Body.ContentType), Key: key, Profile: profile, Root: root, Monitor: in.Body.Monitor, Remember: in.Body.Remember,
 	})
 	if err != nil {
 		return nil, answer(err)
 	}
-	out, err := h.viewOf(ctx, by, t)
+	out, err := h.view(ctx, by, a.Tree.ID)
 	if err != nil {
 		return nil, err
 	}
-	return &addedOutput{Body: added{Created: created, Work: out}}, nil
+	return &addedOutput{Body: added{Created: a.Created, Work: out}}, nil
 }

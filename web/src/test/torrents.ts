@@ -7,17 +7,16 @@ import type {
   DownloadclientsTorrentDetail,
   DownloadclientsTorrentList,
   DownloadclientsTorrentRow,
-  WorksContentType,
-  WorksListedWork,
+  WorksLibraryRow,
 } from "../api/gen/model";
 import { getListTorrentsMockHandler } from "../api/gen/query/downloadclients/downloadclients.msw";
 import { getListCutsMockHandler } from "../api/gen/query/targets/targets.msw";
 import {
   getListContentTypesMockHandler,
-  getListWorksMockHandler,
+  getListLibraryMockHandler,
 } from "../api/gen/query/works/works.msw";
 import { artworkHandlers, artworkUrl } from "./ambient/fixtures";
-import { cinema, orchardId, orchardListed } from "./library";
+import { cinema, libraryRow, orchardId, orchardRow } from "./library";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "./nodes";
 import { targetHandlers } from "./targets";
 
@@ -38,32 +37,13 @@ const tabs = ["downloading", "seeding", "problems", "all"] as const;
 
 export const harvestId = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
-const harvest: WorksListedWork = {
-  id: harvestId,
-  contentType: "cinema",
-  key: "9000002",
-  label: "Orchard Harvest",
-  sortLabel: "Orchard Harvest",
-  addedAt: "2026-10-11T09:00:00Z",
-  refreshedAt: "2026-10-11T09:00:00Z",
-  goneUpstreamAt: null,
-  fields: [],
-  artwork: [],
-};
+const harvest = libraryRow({ id: harvestId, key: "9000002", label: "Orchard Harvest" });
 
 const zines = { ...cinema, id: "zines", name: "Zines" };
 
-const posteredCinema: WorksContentType = {
-  ...cinema,
-  artwork: [{ key: "poster", label: "Poster", shape: "poster", tier: "work" }],
-};
-
 export const orchardPoster = artworkUrl("red");
 
-const posteredOrchard: WorksListedWork = {
-  ...orchardListed,
-  artwork: [{ kind: "poster", url: orchardPoster }],
-};
+const posteredOrchard: WorksLibraryRow = { ...orchardRow, posterUrl: orchardPoster };
 
 let serial = 0;
 
@@ -193,11 +173,9 @@ export function torrentsServer(
         asked.push(named);
         return { ...listOf(rows), rows: rows.filter((row) => named.includes(row.id)) };
       }),
-      getListWorksMockHandler({
-        works: [harvest, posteredOrchard],
-      }),
+      getListLibraryMockHandler({ rows: [harvest, posteredOrchard] }),
       nodesAre(home, seedbox),
-      getListContentTypesMockHandler({ contentTypes: [posteredCinema, zines] }),
+      getListContentTypesMockHandler({ contentTypes: [cinema, zines] }),
       ...artworkHandlers,
       getListCutsMockHandler({
         cuts: [

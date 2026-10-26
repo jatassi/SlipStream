@@ -1,7 +1,6 @@
 package works
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -338,7 +337,11 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 // moved. A source that no longer has the Work marks it gone upstream,
 // changes nothing else, and is ErrGoneUpstream.
 func (w *Works) Refresh(ctx context.Context, by identity.Admin, id WorkID) (Tree, error) {
-	if err := w.refresh(ctx, id, role.NodeID{}); err != nil {
+	changed, err := w.refresh(ctx, id, role.NodeID{})
+	if changed {
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
+	}
+	if err != nil {
 		return Tree{}, err
 	}
 	return w.Get(ctx, by, id)
@@ -350,16 +353,22 @@ func (w *Works) Refresh(ctx context.Context, by identity.Admin, id WorkID) (Tree
 // runner can tell a Node that no longer holds Metadata from a source that
 // failed.
 func (w *Works) RefreshDue(ctx context.Context, id WorkID, via role.NodeID) error {
-	return w.refresh(ctx, id, via)
+	changed, err := w.refresh(ctx, id, via)
+	if changed {
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
+	}
+	return err
 }
 
-func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) error {
+// refresh converges Work id on its source and reports whether it reads
+// differently now, a new gone-upstream mark included.
+func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) (bool, error) {
 	row, err := db.New(w.cfg.Library).GetWork(ctx, id)
 	if errors.Is(err, storage.ErrNoRows) {
-		return ErrNoWork
+		return false, ErrNoWork
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	reg := w.types[row.ContentType]
 	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, Fetching{Purpose: ForRefresh, RatingsReadAt: row.RatingsReadAt, Via: via})
@@ -367,23 +376,19 @@ func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) error {
 		return w.goneUpstream(ctx, id)
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	var changed bool
 	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		changed, err = converge(ctx, tx, reg.catalog, id, p, storage.Now())
 		return err
 	})
-	if err != nil {
-		return err
-	}
-	if changed {
-		w.cfg.Changed.Publish(ctx, ChangedOf(id))
-	}
-	return nil
+	return changed, err
 }
 
-func (w *Works) goneUpstream(ctx context.Context, id WorkID) error {
+// goneUpstream marks Work id gone upstream, reports whether the mark is
+// new, and is ErrGoneUpstream.
+func (w *Works) goneUpstream(ctx context.Context, id WorkID) (bool, error) {
 	var marked bool
 	err := w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -398,12 +403,9 @@ func (w *Works) goneUpstream(ctx context.Context, id WorkID) error {
 		return q.MarkGoneUpstream(ctx, db.MarkGoneUpstreamParams{GoneUpstreamAt: storage.Now(), ID: id})
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
-	if marked {
-		w.cfg.Changed.Publish(ctx, ChangedOf(id))
-	}
-	return ErrGoneUpstream
+	return marked, ErrGoneUpstream
 }
 
 // SetMonitored monitors or unmonitors items, publishing one works.changed
@@ -493,6 +495,9 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 	}
 	own, err := c.Store(ctx, tx, at, p.Detail)
 	if err != nil {
+		return false, err
+	}
+	if err := indexTitles(ctx, tx, c, id, p.Label, p.SortLabel); err != nil {
 		return false, err
 	}
 	relabeled := p.Label != row.Label || p.SortLabel != row.SortLabel
@@ -785,25 +790,14 @@ func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []
 	if t.Fields, err = ordered(reg.specs(TierWork), fs.Work); err != nil {
 		return Tree{}, fmt.Errorf("the Work: %w", err)
 	}
-	rank := map[LevelID]int{}
-	for len(levels) > 0 {
-		n := 1 + slices.IndexFunc(levels[1:], func(l db.WorksLevel) bool { return l.Depth != levels[0].Depth })
-		if n == 0 {
-			n = len(levels)
+	rank := treeOrder(levels, items)
+	for _, l := range levels {
+		values, err := ordered(reg.specs(TierLevel(int(l.Depth))), fs.Levels[l.ID])
+		if err != nil {
+			return Tree{}, fmt.Errorf("level %s: %w", l.Key, err)
 		}
-		depth := levels[:n]
-		levels = levels[n:]
-		slices.SortStableFunc(depth, func(a, b db.WorksLevel) int { return cmp.Compare(rank[a.ParentID], rank[b.ParentID]) })
-		for _, l := range depth {
-			rank[l.ID] = len(rank) + 1
-			values, err := ordered(reg.specs(TierLevel(int(l.Depth))), fs.Levels[l.ID])
-			if err != nil {
-				return Tree{}, fmt.Errorf("level %s: %w", l.Key, err)
-			}
-			t.Levels = append(t.Levels, Level{ID: l.ID, ParentID: l.ParentID, Depth: int(l.Depth), Key: l.Key, Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Fields: values})
-		}
+		t.Levels = append(t.Levels, Level{ID: l.ID, ParentID: l.ParentID, Depth: int(l.Depth), Key: l.Key, Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Fields: values})
 	}
-	slices.SortStableFunc(items, func(a, b db.WorksItem) int { return cmp.Compare(rank[a.LevelID], rank[b.LevelID]) })
 	held := map[ItemID]bool{}
 	for _, it := range items {
 		held[it.ID] = true

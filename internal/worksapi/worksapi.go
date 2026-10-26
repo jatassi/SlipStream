@@ -76,7 +76,6 @@ var (
 	profileWrongType    = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
 	rootWrongType       = api.NewCode(http.StatusUnprocessableEntity, "root_wrong_type", "The root holds another Content Type's Works")
-	notImplemented      = api.NewCode(http.StatusNotImplemented, "not_implemented", "This route isn't built yet")
 )
 
 var codes = []struct {
@@ -96,7 +95,6 @@ var codes = []struct {
 	{targets.ErrProfileWrongType, profileWrongType},
 	{roots.ErrNotFound, rootNotFound},
 	{roots.ErrWrongType, rootWrongType},
-	{library.ErrNotBuilt, notImplemented},
 }
 
 func answer(err error) error {
@@ -245,7 +243,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/library",
 		Summary: "List every Work as a Library row, or one Content Type's, or the named ones",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+		Errors:  []*api.Code{contentTypeNotFound},
 	}, h.listLibrary)
 
 	api.Register(o, api.Admin, api.Op{
@@ -254,7 +252,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/search",
 		Summary: "Search the library's Works by every title they go by, best first",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+		Errors:  []*api.Code{contentTypeNotFound},
 	}, h.searchWorks)
 
 	api.Register(o, api.Admin, api.Op{
@@ -272,7 +270,6 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/monitored",
 		Summary: "Monitor every Item of each Work, or none, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notImplemented},
 	}, h.setWorksMonitored)
 
 	api.Register(o, api.Admin, api.Op{
@@ -281,7 +278,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/profile",
 		Summary: "Give each Work a Profile through one Impact, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{profileNotFound, targetsapi.ImpactChanged, notImplemented},
+		Errors:  []*api.Code{profileNotFound, targetsapi.ImpactChanged},
 	}, h.setWorksProfile)
 
 	api.Register(o, api.Admin, api.Op{
@@ -290,7 +287,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/root",
 		Summary: "Move each Work without files to a root, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{rootNotFound, notImplemented},
+		Errors:  []*api.Code{rootNotFound},
 	}, h.setWorksRoot)
 
 	api.Register(o, api.Admin, api.Op{
@@ -299,7 +296,6 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/refresh",
 		Summary: "Refresh each Work from its metadata source, keeping every id, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notImplemented},
 	}, h.refreshWorks)
 
 	api.Register(o, api.Admin, api.Op{
@@ -308,7 +304,6 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/delete",
 		Summary: "Remove each Work from the library, deleting its files or leaving them, with an outcome per Work",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notImplemented},
 	}, h.deleteWorks)
 
 	api.Register(o, api.Admin, api.Op{

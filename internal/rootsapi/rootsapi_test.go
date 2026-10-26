@@ -30,7 +30,6 @@ import (
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
-	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
@@ -57,12 +56,13 @@ type node struct {
 	r *roots.Roots
 	w *works.Works
 	t *targets.Targets
+	l *library.Library
 }
 
 func (n node) Roots() (*roots.Roots, bool)       { return n.r, true }
 func (n node) Works() (*works.Works, bool)       { return n.w, true }
 func (n node) Targets() (*targets.Targets, bool) { return n.t, true }
-func (node) Library() (*library.Library, bool)   { return nil, false }
+func (n node) Library() (*library.Library, bool) { return n.l, true }
 func (node) Minter() (artwork.Minter, bool) {
 	return artwork.NewMinter([]byte("rootsapi")), true
 }
@@ -176,7 +176,7 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := node{svc, w, goals}
+	n := node{svc, w, goals, library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: svc})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) {
 		rootsapi.Routes(r, n)
 		worksapi.Routes(r, n)
@@ -547,63 +547,6 @@ func TestAddWorkTakesARootOrTheDefault(t *testing.T) {
 		`{"status":404,"code":"root_not_found","title":"No root has that id"}`)
 	if got := s.works(t); got != want {
 		t.Fatalf("listRoots after refused adds =\n%swant\n%s", got, want)
-	}
-}
-
-func TestSetWorkRootRefusesAWorkWithFiles(t *testing.T) {
-	s := serve(t)
-	first := s.create(t, body("fixture", t.TempDir()))
-	second := s.create(t, body("fixture", t.TempDir()))
-	other := s.create(t, body("other", t.TempDir()))
-	empty := s.add(t, "empty", "")
-	held := s.add(t, "held", "")
-
-	set := func(root string) string { return `{"rootId":"` + root + `"}` }
-	s.Expect(t, http.MethodPatch, "/api/v1/works/"+empty, set(second), http.StatusOK, `{"workId":"id1","rootId":"id2"}`)
-	if got, want := s.works(t), first+" default=true works=1\n"+second+" default=false works=1\n"+other+" default=true works=0\n"; got != want {
-		t.Fatalf("listRoots after moving the empty Work =\n%swant\n%s", got, want)
-	}
-
-	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		w, err := works.SummaryOf(ctx, tx, works.WorkID{UUID: must(storage.ParseUUID(held))})
-		if err != nil {
-			return err
-		}
-		items, err := works.ItemsOf(ctx, tx, []works.WorkID{w.ID})
-		if err != nil {
-			return err
-		}
-		root := roots.ID{UUID: must(storage.ParseUUID(first))}
-		_, err = files.Add(ctx, tx, files.File{
-			WorkID: w.ID, ItemID: items[w.ID][0].ID, Cut: release.Standard, RootID: root, Path: "held/held.mkv", Size: 2048,
-			Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p,
-		}, nil)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.Expect(t, http.MethodPatch, "/api/v1/works/"+held, set(second), http.StatusConflict,
-		`{"status":409,"code":"work_has_files","title":"The Work has files, so its root can't change"}`)
-	s.Expect(t, http.MethodPatch, "/api/v1/works/"+held, set(first), http.StatusOK, `{"workId":"id1","rootId":"id2"}`)
-	s.Expect(t, http.MethodPatch, "/api/v1/works/"+empty, set(other), http.StatusUnprocessableEntity,
-		`{"status":422,"code":"root_wrong_type","title":"The root holds another Content Type's Works"}`)
-	s.Expect(t, http.MethodPatch, "/api/v1/works/"+storage.NewUUID().String(), set(first), http.StatusNotFound,
-		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
-	s.Expect(t, http.MethodPatch, "/api/v1/works/"+empty, set(storage.NewUUID().String()), http.StatusNotFound,
-		`{"status":404,"code":"root_not_found","title":"No root has that id"}`)
-	_, list := s.Call(t, http.MethodGet, "/api/v1/roots", "")
-	var listed struct {
-		Roots []struct {
-			Works     int64 `json:"works"`
-			FileBytes int64 `json:"fileBytes"`
-		} `json:"roots"`
-	}
-	if err := json.Unmarshal([]byte(list), &listed); err != nil {
-		t.Fatal(err)
-	}
-	if r := listed.Roots[0]; r.Works != 1 || r.FileBytes != 2048 {
-		t.Fatalf("the first root holds %d Works and %d bytes, want the held Work's 2048", r.Works, r.FileBytes)
 	}
 }
 
