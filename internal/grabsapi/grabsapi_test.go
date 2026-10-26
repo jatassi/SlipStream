@@ -91,7 +91,7 @@ func (site) Search(context.Context, *searchv1.SearchRequest) (*searchv1.SearchRe
 }
 
 func (site) FetchTorrent(context.Context, *searchv1.FetchTorrentRequest) (*searchv1.FetchTorrentResponse, error) {
-	return &searchv1.FetchTorrentResponse{Torrent: []byte("not bencode")}, nil
+	return &searchv1.FetchTorrentResponse{Got: &searchv1.FetchTorrentResponse_Torrent{Torrent: []byte("not bencode")}}, nil
 }
 
 func must[T any](t *testing.T) func(T, error) T {

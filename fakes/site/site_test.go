@@ -188,16 +188,16 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("items =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	fetched, err := x.FetchTorrent(t.Context(), idx, items[0].Link)
-	if err != nil || string(fetched.Torrent) != rewritten {
-		t.Fatalf("FetchTorrent = %q, %v, want %q", fetched.Torrent, err, rewritten)
+	fetched, err := x.Fetch(t.Context(), idx, items[0].Link)
+	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten {
+		t.Fatalf("Fetch = %+v, %v, want the .torrent %q", fetched, err, rewritten)
 	}
-	_, err = x.FetchTorrent(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
+	_, err = x.Fetch(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
 	var unavailable *indexers.UnavailableError
 	if !errors.As(err, &unavailable) || unavailable.Wait || err.Error() != "the Indexer is unavailable: invalid_argument: the torrent's URL is not on the Indexer's host" {
-		t.Fatalf("an off-host FetchTorrent = %v, want an unavailable error that does not wait", err)
+		t.Fatalf("an off-host Fetch = %v, want an unavailable error that does not wait", err)
 	}
-	_, err = x.FetchTorrent(t.Context(), idx, f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent"))
+	_, err = x.Fetch(t.Context(), idx, f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent"))
 	if err == nil || err.Error() != "the Indexer is unavailable: aborted: the Indexer responded with status 404" {
 		t.Fatalf("a missing torrent = %v", err)
 	}
