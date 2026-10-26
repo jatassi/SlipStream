@@ -11,13 +11,19 @@ import (
 
 // ListFields reads year, runtime, certification and genres for every one
 // of ws in two queries.
-func (*Movie) ListFields(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.WorkID][]works.FieldValue, error) {
+func (*Movie) ListFields(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[works.WorkID][]works.FieldValue, error) {
 	q := db.New(r)
-	movies, err := q.ListMovies(ctx, ws)
+	movies, err := works.Read(ws, func() ([]db.ListEveryListedRow, error) { return q.ListEveryListed(ctx) }, func(ids []works.WorkID) ([]db.ListEveryListedRow, error) {
+		rows, err := q.ListListedOf(ctx, ids)
+		return as(rows, func(r db.ListListedOfRow) db.ListEveryListedRow { return db.ListEveryListedRow(r) }), err
+	})
 	if err != nil {
 		return nil, err
 	}
-	genres, err := q.ListGenresOf(ctx, ws)
+	genres, err := works.Read(ws, func() ([]db.ListEveryGenreRow, error) { return q.ListEveryGenre(ctx) }, func(ids []works.WorkID) ([]db.ListEveryGenreRow, error) {
+		rows, err := q.ListGenresOf(ctx, ids)
+		return as(rows, func(r db.ListGenresOfRow) db.ListEveryGenreRow { return db.ListEveryGenreRow(r) }), err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -43,4 +49,13 @@ func (*Movie) ListFields(ctx context.Context, r storage.Reader[file], ws []works
 		out[mv.WorkID] = fields
 	}
 	return out, nil
+}
+
+// as converts each of rows, a query's row type, to another of its shape.
+func as[F, T any](rows []F, to func(F) T) []T {
+	out := make([]T, len(rows))
+	for i, r := range rows {
+		out[i] = to(r)
+	}
+	return out
 }

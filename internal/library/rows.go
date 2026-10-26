@@ -36,9 +36,9 @@ func (l *Library) rowsIn(ctx context.Context, r storage.Reader[storage.Library],
 	for i, w := range ws {
 		bares[i], ids[i] = w.Bare, w.ID
 	}
-	among := works.Every[works.WorkID]()
-	if !s.Whole() {
-		among = works.Only(ids)
+	among := works.Only(ids)
+	if s.Whole() {
+		among = works.Every(ids)
 	}
 	rolled, err := l.cfg.Files.Rollups(ctx, r, bares, among)
 	if err != nil {

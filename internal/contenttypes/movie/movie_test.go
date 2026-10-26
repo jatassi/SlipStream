@@ -846,7 +846,7 @@ func timings(t *testing.T, key works.Key) (tree works.Tree, got map[works.ItemID
 	sh, tree := added(t, key)
 	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = sh.m.Timings(ctx, r, []works.WorkID{tree.ID})
+		got, err = sh.m.Timings(ctx, r, works.Only([]works.WorkID{tree.ID}))
 		return err
 	})
 	return tree, got
@@ -926,22 +926,25 @@ func TestAvailabilityRule(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			sh.set(t, reset)
 			sh.set(t, c.patch)
-			got := map[works.Key]availability{}
-			sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-				items, err := works.ItemsOf(ctx, r, slices.Collect(maps.Keys(added)))
-				if err != nil {
-					return err
-				}
-				timings, err := sh.m.Timings(ctx, r, slices.Collect(maps.Keys(added)))
-				for w, its := range items {
-					if d, known := timings[its[0].ID].Released.Get(); known {
-						got[added[w]] = availability{d.String(), timings[its[0].ID].Basis}
+			ids := slices.Collect(maps.Keys(added))
+			for _, ws := range []works.Among[works.WorkID]{works.Only(ids), works.Every(ids)} {
+				got := map[works.Key]availability{}
+				sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+					items, err := works.ItemsOf(ctx, r, ws)
+					if err != nil {
+						return err
 					}
+					timings, err := sh.m.Timings(ctx, r, ws)
+					for w, its := range items {
+						if d, known := timings[its[0].ID].Released.Get(); known {
+							got[added[w]] = availability{d.String(), timings[its[0].ID].Basis}
+						}
+					}
+					return err
+				})
+				if !reflect.DeepEqual(got, c.want) {
+					t.Fatalf("availability of every movie (%t) = %v, want %v (9000004 has no date)", ws.Every(), got, c.want)
 				}
-				return err
-			})
-			if !reflect.DeepEqual(got, c.want) {
-				t.Fatalf("availability = %v, want %v (9000004 has no date)", got, c.want)
 			}
 		})
 	}

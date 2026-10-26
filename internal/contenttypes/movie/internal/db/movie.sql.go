@@ -230,6 +230,84 @@ func (q *Queries) ListCredits(ctx context.Context, workID works.WorkID) ([]ListC
 	return items, nil
 }
 
+const listEveryReleaseDate = `-- name: ListEveryReleaseDate :many
+SELECT work_id, country, kind, date FROM movie_release
+`
+
+type ListEveryReleaseDateRow struct {
+	WorkID  works.WorkID
+	Country string
+	Kind    int64
+	Date    string
+}
+
+func (q *Queries) ListEveryReleaseDate(ctx context.Context) ([]ListEveryReleaseDateRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryReleaseDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryReleaseDateRow
+	for rows.Next() {
+		var i ListEveryReleaseDateRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.Country,
+			&i.Kind,
+			&i.Date,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryTiming = `-- name: ListEveryTiming :many
+SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie
+`
+
+type ListEveryTimingRow struct {
+	WorkID         works.WorkID
+	TmdbID         TMDBID
+	PrimaryRelease *string
+	RuntimeMinutes *int64
+}
+
+func (q *Queries) ListEveryTiming(ctx context.Context) ([]ListEveryTimingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryTiming)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryTimingRow
+	for rows.Next() {
+		var i ListEveryTimingRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TmdbID,
+			&i.PrimaryRelease,
+			&i.RuntimeMinutes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGenres = `-- name: ListGenres :many
 SELECT name FROM movie_genre WHERE work_id = ?1 ORDER BY position
 `
@@ -257,12 +335,19 @@ func (q *Queries) ListGenres(ctx context.Context, workID works.WorkID) ([]string
 	return items, nil
 }
 
-const listMovies = `-- name: ListMovies :many
-SELECT work_id, tmdb_id, imdb_id, title, title_english, original_title, original_language, year, primary_release, overview, tagline, runtime_minutes, status, certification, certification_country, studio_id, studio_name, collection_id, collection_name, trailer_site, trailer_key, awards FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+const listReleaseDatesOf = `-- name: ListReleaseDatesOf :many
+SELECT work_id, country, kind, date FROM movie_release WHERE work_id IN (/*SLICE:work_ids*/?)
 `
 
-func (q *Queries) ListMovies(ctx context.Context, workIds []works.WorkID) ([]MovieMovie, error) {
-	query := listMovies
+type ListReleaseDatesOfRow struct {
+	WorkID  works.WorkID
+	Country string
+	Kind    int64
+	Date    string
+}
+
+func (q *Queries) ListReleaseDatesOf(ctx context.Context, workIds []works.WorkID) ([]ListReleaseDatesOfRow, error) {
+	query := listReleaseDatesOf
 	var queryParams []interface{}
 	if len(workIds) > 0 {
 		for _, v := range workIds {
@@ -277,32 +362,14 @@ func (q *Queries) ListMovies(ctx context.Context, workIds []works.WorkID) ([]Mov
 		return nil, err
 	}
 	defer rows.Close()
-	var items []MovieMovie
+	var items []ListReleaseDatesOfRow
 	for rows.Next() {
-		var i MovieMovie
+		var i ListReleaseDatesOfRow
 		if err := rows.Scan(
 			&i.WorkID,
-			&i.TmdbID,
-			&i.ImdbID,
-			&i.Title,
-			&i.TitleEnglish,
-			&i.OriginalTitle,
-			&i.OriginalLanguage,
-			&i.Year,
-			&i.PrimaryRelease,
-			&i.Overview,
-			&i.Tagline,
-			&i.RuntimeMinutes,
-			&i.Status,
-			&i.Certification,
-			&i.CertificationCountry,
-			&i.StudioID,
-			&i.StudioName,
-			&i.CollectionID,
-			&i.CollectionName,
-			&i.TrailerSite,
-			&i.TrailerKey,
-			&i.Awards,
+			&i.Country,
+			&i.Kind,
+			&i.Date,
 		); err != nil {
 			return nil, err
 		}
@@ -348,6 +415,55 @@ func (q *Queries) ListReleases(ctx context.Context, workIds []works.WorkID) ([]M
 			&i.Date,
 			&i.Certification,
 			&i.Note,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTimingsOf = `-- name: ListTimingsOf :many
+SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?)
+`
+
+type ListTimingsOfRow struct {
+	WorkID         works.WorkID
+	TmdbID         TMDBID
+	PrimaryRelease *string
+	RuntimeMinutes *int64
+}
+
+func (q *Queries) ListTimingsOf(ctx context.Context, workIds []works.WorkID) ([]ListTimingsOfRow, error) {
+	query := listTimingsOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTimingsOfRow
+	for rows.Next() {
+		var i ListTimingsOfRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TmdbID,
+			&i.PrimaryRelease,
+			&i.RuntimeMinutes,
 		); err != nil {
 			return nil, err
 		}

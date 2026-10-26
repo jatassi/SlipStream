@@ -128,7 +128,7 @@ func WorksOf(ctx context.Context, r storage.Reader[file], id ProfileID) ([]works
 
 // TimingsIn answers each Item of ws, Works of Content Type typ, from its
 // facet in one call.
-func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ works.TypeID, ws []works.WorkID) (map[works.ItemID]Timing, error) {
+func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ works.TypeID, ws works.Among[works.WorkID]) (map[works.ItemID]Timing, error) {
 	facet, ok := t.cfg.Types[typ]
 	if !ok {
 		return nil, ErrNoType
@@ -141,7 +141,7 @@ func (t *Targets) Timings(ctx context.Context, _ identity.Admin, typ works.TypeI
 	var out map[works.ItemID]Timing
 	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		out, err = t.TimingsIn(ctx, r, typ, []works.WorkID{work})
+		out, err = t.TimingsIn(ctx, r, typ, works.Only([]works.WorkID{work}))
 		return err
 	})
 	return out, err

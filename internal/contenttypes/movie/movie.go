@@ -3,9 +3,11 @@
 package movie
 
 import (
+	"cmp"
 	"context"
 	"embed"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -211,13 +214,19 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 
 // Timings answers each movie's runtime, and its release date as the day
 // it counts as out under the movie settings in the region.
-func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
 	q := db.New(r)
-	movies, err := q.ListMovies(ctx, ws)
+	movies, err := works.Read(ws, func() ([]db.ListEveryTimingRow, error) { return q.ListEveryTiming(ctx) }, func(ids []works.WorkID) ([]db.ListEveryTimingRow, error) {
+		rows, err := q.ListTimingsOf(ctx, ids)
+		return as(rows, func(r db.ListTimingsOfRow) db.ListEveryTimingRow { return db.ListEveryTimingRow(r) }), err
+	})
 	if err != nil {
 		return nil, err
 	}
-	releases, err := q.ListReleases(ctx, ws)
+	releases, err := works.Read(ws, func() ([]db.ListEveryReleaseDateRow, error) { return q.ListEveryReleaseDate(ctx) }, func(ids []works.WorkID) ([]db.ListEveryReleaseDateRow, error) {
+		rows, err := q.ListReleaseDatesOf(ctx, ids)
+		return as(rows, func(r db.ListReleaseDatesOfRow) db.ListEveryReleaseDateRow { return db.ListEveryReleaseDateRow(r) }), err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +244,12 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.
 	}
 	of := map[works.WorkID][]releaseDate{}
 	for _, rel := range releases {
-		of[rel.WorkID] = append(of[rel.WorkID], releaseOf(rel))
+		of[rel.WorkID] = append(of[rel.WorkID], releaseDate{Country: rel.Country, Kind: tmdb.ReleaseType(rel.Kind), Date: rel.Date})
+	}
+	for _, rs := range of {
+		slices.SortFunc(rs, func(a, b releaseDate) int {
+			return cmp.Or(cmp.Compare(a.Country, b.Country), cmp.Compare(a.Kind, b.Kind), cmp.Compare(a.Date, b.Date))
+		})
 	}
 	out := map[works.ItemID]targets.Timing{}
 	for _, mv := range movies {

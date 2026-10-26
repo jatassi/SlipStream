@@ -80,9 +80,9 @@ func (w *Works) RowsIn(ctx context.Context, r storage.Reader[file], s Scope) ([]
 	if err != nil {
 		return nil, err
 	}
-	among := Every[WorkID]()
-	if !s.Whole() {
-		among = Only(idsOf(works))
+	among := Only(idsOf(works))
+	if s.Whole() {
+		among = Every(among.IDs())
 	}
 	return w.rowsOf(ctx, r, works, among)
 }
@@ -146,15 +146,18 @@ func (w *Works) rowsOf(ctx context.Context, r storage.Reader[file], works []db.W
 		return nil, err
 	}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
-		reg, ids := w.types[typ], byType[typ]
-		if err := listValues(ctx, r, reg, ids, at); err != nil {
+		reg, ofType := w.types[typ], Only(byType[typ])
+		if among.Every() {
+			ofType = Every(byType[typ])
+		}
+		if err := listValues(ctx, r, reg, ofType, at); err != nil {
 			return nil, err
 		}
 		if reg.desc.Art.Poster == "" {
 			continue
 		}
 		kind := reg.desc.Art.Poster
-		art, err := Read(among, func() ([]db.ListEveryWorkArtRow, error) { return q.ListEveryWorkArt(ctx, kind) }, func(ids []WorkID) ([]db.ListEveryWorkArtRow, error) {
+		art, err := Read(ofType, func() ([]db.ListEveryWorkArtRow, error) { return q.ListEveryWorkArt(ctx, kind) }, func(ids []WorkID) ([]db.ListEveryWorkArtRow, error) {
 			rows, err := q.ListWorkArtOfWorks(ctx, db.ListWorkArtOfWorksParams{Kind: kind, WorkIds: ids})
 			return convert(rows, func(r db.ListWorkArtOfWorksRow) db.ListEveryWorkArtRow { return db.ListEveryWorkArtRow(r) }), err
 		})
@@ -193,9 +196,9 @@ func posterShape(d Description) artwork.Shape {
 	return d.Artwork[i].Shape
 }
 
-// listValues puts the listed fields reg's catalog answers for ids on their
+// listValues puts the listed fields reg's catalog answers for ws on their
 // rows, refusing a field the type doesn't list.
-func listValues(ctx context.Context, r storage.Reader[file], reg registered, ids []WorkID, at map[WorkID]*Row) error {
+func listValues(ctx context.Context, r storage.Reader[file], reg registered, ws Among[WorkID], at map[WorkID]*Row) error {
 	var listed []FieldSpec
 	for _, f := range reg.specs(TierWork) {
 		if f.List != 0 {
@@ -205,20 +208,15 @@ func listValues(ctx context.Context, r storage.Reader[file], reg registered, ids
 	if len(listed) == 0 {
 		return nil
 	}
-	values := map[WorkID][]FieldValue{}
-	for chunk := range slices.Chunk(ids, Batch) {
-		of, err := reg.catalog.ListFields(ctx, r, chunk)
-		if err != nil {
-			return fmt.Errorf("content type %s: listed fields: %w", reg.desc.Name, err)
-		}
-		maps.Copy(values, of)
+	values, err := reg.catalog.ListFields(ctx, r, ws)
+	if err != nil {
+		return fmt.Errorf("content type %s: listed fields: %w", reg.desc.Name, err)
 	}
 	for id, vs := range values {
 		row, ok := at[id]
 		if !ok {
 			return fmt.Errorf("content type %s: listed fields name work %s, which it wasn't asked for", reg.desc.Name, id)
 		}
-		var err error
 		if row.Values, err = ordered(listed, vs); err != nil {
 			return fmt.Errorf("content type %s: listed fields of work %s: %w", reg.desc.Name, id, err)
 		}
@@ -287,10 +285,12 @@ func readOrder(levels []db.WorksLevel, items []db.WorksItem) ([]db.WorksLevel, [
 	slices.SortFunc(levels, func(a, b db.WorksLevel) int {
 		return cmp.Or(cmp.Compare(a.Depth, b.Depth), placed(a.WithdrawnAt, a.Position, a.ID.UUID, b.WithdrawnAt, b.Position, b.ID.UUID))
 	})
-	slices.SortFunc(items, func(a, b db.WorksItem) int {
-		return placed(a.WithdrawnAt, a.Position, a.ID.UUID, b.WithdrawnAt, b.Position, b.ID.UUID)
-	})
+	slices.SortFunc(items, siblings)
 	return levels, items
+}
+
+func siblings(a, b db.WorksItem) int {
+	return placed(a.WithdrawnAt, a.Position, a.ID.UUID, b.WithdrawnAt, b.Position, b.ID.UUID)
 }
 
 // placed orders siblings: present before withdrawn, then by position and id.

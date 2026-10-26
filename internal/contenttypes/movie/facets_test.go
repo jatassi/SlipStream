@@ -12,20 +12,23 @@ import (
 
 func TestListFieldsReadOnlyTheListedFields(t *testing.T) {
 	sh, tree := added(t, saltRoad)
-	var got map[works.WorkID][]works.FieldValue
-	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		var err error
-		got, err = sh.m.ListFields(ctx, r, []works.WorkID{tree.ID})
-		return err
-	})
 	want := map[works.WorkID][]works.FieldValue{tree.ID: {
 		works.NumberField("year", 2022),
 		works.DurationField("runtime", 112*time.Minute),
 		works.TextField("certification", "PG-13"),
 		works.TextsField("genres", []string{"Drama", "Adventure"}),
 	}}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("ListFields = %+v, want %+v", got, want)
+	ids := []works.WorkID{tree.ID}
+	for _, ws := range []works.Among[works.WorkID]{works.Only(ids), works.Every(ids)} {
+		var got map[works.WorkID][]works.FieldValue
+		sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			var err error
+			got, err = sh.m.ListFields(ctx, r, ws)
+			return err
+		})
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("ListFields of every movie (%t) = %+v, want %+v", ws.Every(), got, want)
+		}
 	}
 }
 

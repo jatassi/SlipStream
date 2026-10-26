@@ -570,7 +570,7 @@ func TestSetWorkRootRefusesAWorkWithFiles(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		items, err := works.ItemsOf(ctx, tx, []works.WorkID{w.ID})
+		items, err := works.ItemsOf(ctx, tx, works.Only([]works.WorkID{w.ID}))
 		if err != nil {
 			return err
 		}

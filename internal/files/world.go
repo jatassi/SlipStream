@@ -78,25 +78,27 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	}
 	timing := map[works.ItemID]targets.Timing{}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
-		for chunk := range slices.Chunk(byType[typ], works.Batch) {
-			of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, chunk)
-			if err != nil {
-				return nil, err
-			}
-			maps.Copy(timing, of)
+		ofType := works.Only(byType[typ])
+		if among.Every() {
+			ofType = works.Every(byType[typ])
+		}
+		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, ofType)
+		if err != nil {
+			return nil, err
+		}
+		maps.Copy(timing, of)
+	}
+	var items []works.ItemID
+	for _, t := range trees {
+		for _, it := range t.Items {
+			items = append(items, it.ID)
 		}
 	}
-	items := works.Every[works.ItemID]()
-	if !among.Every() {
-		var listed []works.ItemID
-		for _, t := range trees {
-			for _, it := range t.Items {
-				listed = append(listed, it.ID)
-			}
-		}
-		items = works.Only(listed)
+	listed := works.Only(items)
+	if among.Every() {
+		listed = works.Every(items)
 	}
-	seen, err := targets.SeenIn(ctx, r, items)
+	seen, err := targets.SeenIn(ctx, r, listed)
 	if err != nil {
 		return nil, err
 	}

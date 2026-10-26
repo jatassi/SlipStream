@@ -67,7 +67,7 @@ func (h handlers) previewCatalogRecord(ctx context.Context, by identity.Admin, i
 	var timings map[works.ItemID]targets.Timing
 	t, stored, err := open(h.shelf).Preview(ctx, by, works.TypeID(in.ContentType), key, func(ctx context.Context, r storage.Reader[storage.Library], t works.Tree) error {
 		var err error
-		timings, err = goals(h.shelf).TimingsIn(ctx, r, t.ContentType, []works.WorkID{t.ID})
+		timings, err = goals(h.shelf).TimingsIn(ctx, r, t.ContentType, works.Only([]works.WorkID{t.ID}))
 		return err
 	})
 	if err != nil {
