@@ -218,6 +218,42 @@ func onSeedbox(edit func(e *node.Env)) sim.Option {
 	})
 }
 
+// stageHold stops a walk once at stage: before home runs its step, or,
+// for transferring, at the first chunk seedbox sends, which waits until
+// restarted closes.
+type stageHold struct {
+	stage              grabs.Stage
+	reached, restarted chan struct{}
+	held               atomic.Bool
+}
+
+func newStageHold(stage grabs.Stage) *stageHold {
+	return &stageHold{stage: stage, reached: make(chan struct{}), restarted: make(chan struct{})}
+}
+
+func (h *stageHold) hold() bool {
+	if !h.held.CompareAndSwap(false, true) {
+		return false
+	}
+	close(h.reached)
+	return true
+}
+
+func (h *stageHold) edit(name string, e *node.Env) {
+	e.Test.BeforeStep = func(ctx context.Context, s grabs.Stage) {
+		if s == h.stage && h.hold() {
+			<-ctx.Done()
+		}
+	}
+	if name == "seedbox" && h.stage == grabs.Transferring {
+		e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) {
+			if h.hold() {
+				<-h.restarted
+			}
+		}
+	}
+}
+
 // TestAControllerRestartedAtEachStageImportsOnce stops home just before
 // each step of the walk, or mid-Transfer once seedbox sends its first
 // chunk, and starts it again on its link port, as a Controller on the
@@ -226,36 +262,15 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 	for _, stage := range []grabs.Stage{grabs.Fetching, grabs.Downloading, grabs.Probing, grabs.Transferring, grabs.Importing} {
 		t.Run(string(stage), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				reached, restarted := make(chan struct{}), make(chan struct{})
-				var held atomic.Bool
-				hold := func() bool {
-					if !held.CompareAndSwap(false, true) {
-						return false
-					}
-					close(reached)
-					return true
-				}
-				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
-					e.Test.BeforeStep = func(ctx context.Context, s grabs.Stage) {
-						if s == stage && hold() {
-							<-ctx.Done()
-						}
-					}
-					if name == "seedbox" && stage == grabs.Transferring {
-						e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) {
-							if hold() {
-								<-restarted
-							}
-						}
-					}
-				}))
+				held := newStageHold(stage)
+				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(held.edit))
 				search(t, w, addOrchard(t, w))
-				<-reached
+				<-held.reached
 				h := w.Node("home")
 				link := h.Ready().Listeners.Link
 				h.Stop()
 				h.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_LINK_LISTEN="+link.String()) })
-				close(restarted)
+				close(held.restarted)
 				expectImported(t, await(t, w))
 				expectPlaced(t, w)
 			})

@@ -411,17 +411,17 @@ func TestTheQueueSweepsHeldEntriesNoFileGrabOrTransferNames(t *testing.T) {
 	svc := l.files(files.NoGrabs{})
 	live := l.download(t, svc, tree, 0, release.WEBDL1080p, "live")
 	grab := storage.NewUUID()
-	copying, cancelled := transfers.ID{UUID: storage.NewUUID()}, transfers.ID{UUID: storage.NewUUID()}
+	copying, canceled := transfers.ID{UUID: storage.NewUUID()}, transfers.ID{UUID: storage.NewUUID()}
 	l.staged = map[transfers.ID]bool{copying: true}
 	staged := transfers.StagedRel(copying, 0).String()
 	l.put(t, files.HoldingOf(grab, ".mkv"), "a Grab's download")
 	l.put(t, staged, "a Transfer's file")
 	l.put(t, files.HoldingOf(storage.NewUUID(), ".mkv.part"), "a failed Grab's copy")
-	l.put(t, transfers.StagedRel(cancelled, 0).String(), "a cancelled Transfer's file")
-	l.put(t, transfers.StagedRel(cancelled, 1).String(), "a cancelled Transfer's second file")
+	l.put(t, transfers.StagedRel(canceled, 0).String(), "a canceled Transfer's file")
+	l.put(t, transfers.StagedRel(canceled, 1).String(), "a canceled Transfer's second file")
 	l.put(t, storing.HoldingDir+"/stray.txt", "not SlipStream's")
 	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Transfer's file"}
-	gone := filepath.Join(l.root.Path, filepath.FromSlash(storing.StagingDir), cancelled.String())
+	gone := filepath.Join(l.root.Path, filepath.FromSlash(storing.StagingDir), canceled.String())
 	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed entries", func() bool {
 		_, err := os.Stat(gone)
 		return maps.Equal(l.onDisk(t), want) && errors.Is(err, fs.ErrNotExist)

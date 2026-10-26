@@ -302,10 +302,10 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 
 // staged is g's Transfer, and whether it holds g's file verified at the
 // place g's root is now.
-func (gr *Grabs) staged(ctx context.Context, g Grab) (transfers.ID, bool, error) {
+func (gr *Grabs) staged(ctx context.Context, g Grab) (id transfers.ID, verified bool, err error) {
 	var t transfers.Transfer
 	var ok bool
-	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
 		t, ok, err = gr.cfg.Transfers.Find(ctx, r, transfers.Grab, g.ID.String())
 		return err
@@ -469,6 +469,7 @@ func (gr *Grabs) move(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 		return params, gr.startTransfer(ctx, tx, g)
 	case Imported, Failed:
 		return params, gr.cancelTransfer(ctx, tx, g.ID)
+	case Fetching, Downloading, Probing, Importing:
 	}
 	return params, nil
 }
@@ -496,7 +497,7 @@ func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in file
 
 // entered tells what g entering stage next changes beyond the library:
 // Admins, the downloading Node's intent, and the Transfers move started,
-// placed or cancelled.
+// placed or canceled.
 func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
 	gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
 	switch next {
@@ -508,6 +509,7 @@ func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
 		gr.cfg.Transfers.Touch()
 	case Transferring, Failed:
 		gr.cfg.Transfers.Touch()
+	case Fetching, Probing, Importing:
 	}
 }
 
@@ -764,6 +766,7 @@ func (gr *Grabs) progress(ctx context.Context, grabs []Grab) (map[GrabID]*Progre
 			}
 		case Transferring:
 			jobs = append(jobs, g.ID.String())
+		case Fetching, Probing, Importing, Imported, Failed:
 		}
 	}
 	if len(jobs) == 0 {

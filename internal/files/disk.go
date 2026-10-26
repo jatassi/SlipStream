@@ -253,7 +253,7 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 // sweep removes what the held folders of roots ids hold that nothing
 // claims: a holding file whose name is no live file's or unfinished
 // Grab's, and a staging folder whose name is no live Transfer's. A Grab
-// that failed after its import placed the bytes, a Transfer cancelled
+// that failed after its import placed the bytes, a Transfer canceled
 // while its Node was away, or a crash between two steps leaves them. It
 // lists the folders, on each root's Node, before reading the library, so
 // what is placed or staged meanwhile belongs to a Grab, file or Transfer

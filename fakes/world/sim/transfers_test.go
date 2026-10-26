@@ -180,7 +180,7 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 		if n := transferRecords(t, w); n != 0 {
 			t.Fatalf("home keeps %d Transfer records once the Grab failed, want none", n)
 		}
-		eventually(t, "nas deletes the cancelled Transfer's staging", func() bool { return len(staging(t, w)) == 0 })
+		eventually(t, "nas deletes the canceled Transfer's staging", func() bool { return len(staging(t, w)) == 0 })
 	})
 }
 
