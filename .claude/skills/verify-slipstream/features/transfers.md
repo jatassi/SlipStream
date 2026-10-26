@@ -92,6 +92,7 @@ Steps:
   $FW exec $RUN --proof transfers/transfers-needs-space -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"nodeId\":\"$NAS\",\"mount\":\"/\",\"warnBelow\":{\"amount\":100,\"unit\":\"percent\"},\"errorBelow\":{\"amount\":100,\"unit\":\"percent\"}}" '{nodes.home.url}/api/v1/system/health/volumes'
   $FW exec $RUN -- bash -c "for i in \$(seq 30); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/transfers' | jq -e '.transfers[0].state == \"needs_space\"' >/dev/null && exit 0; sleep 1; done; exit 1"
   $FW exec $RUN --proof transfers/transfers-needs-space -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/transfers'
+  $FW exec $RUN --proof transfers/transfers-needs-space -- $PW cli $D run-code 'async page => { const reason = page.getByRole("table", { name: "Grabs" }).getByText(/^Waiting for .+ free on nas/u); await reason.waitFor({ timeout: 10000 }); return reason.textContent(); }'
   $FW exec $RUN --proof transfers/transfers-needs-space -- $PW cli $D snapshot 'getByRole("table", { name: "Grabs" })' --filename={runDir}/proof/transfers/transfers-needs-space/activity.aria.yml
   $FW exec $RUN -- $PW cli $D goto "{nodes.home.browserUrl}/nodes/$NAS/transfers"
   $FW exec $RUN --proof transfers/transfers-needs-space -- $PW cli $D snapshot 'getByRole("main")' --filename={runDir}/proof/transfers/transfers-needs-space/nas.aria.yml
@@ -129,6 +130,7 @@ Steps:
 
 ## Gotchas
 
+- Pages follow `transfers.changed`, published at most once a second, so a snapshot taken just after the API changes can show the state before. Wait for the words with `run-code` first.
 - A Transfer reads `Connecting to seedbox.` until its first whole 4 MiB chunk is verified, even while bytes move. At 512 KB/s over four lanes that is about 30 seconds, and the pace line appears only then.
 - `link/seedbox` is keyed by the Node that listens, so a fault there holds every connection to seedbox's link listener. On `seedbox-nas` nas dials seedbox for lanes and no other Node does, so it holds the Transfer's lanes alone. Faults on one lane or one pair, damaged chunks and a route refused in one direction stay in the simulation and package tiers.
 - Without a send limit the 36 MB Transfer finishes in about a second on loopback, too fast to read. Set the limit before the search. `Send limit` starts at MB/s once it holds a number, so pick `KB/s`; 0 means no limit.
