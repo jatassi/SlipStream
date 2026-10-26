@@ -605,7 +605,7 @@ func (q *Queries) ListEverySighting(ctx context.Context) ([]ListEverySightingRow
 }
 
 const listEveryWants = `-- name: ListEveryWants :many
-SELECT work_id, profile_id, editions FROM targets_wants
+SELECT work_id, profile_id, editions FROM targets_wants ORDER BY rowid
 `
 
 func (q *Queries) ListEveryWants(ctx context.Context) ([]TargetsWant, error) {

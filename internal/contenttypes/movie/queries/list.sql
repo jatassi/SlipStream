@@ -1,8 +1,8 @@
 -- name: ListListedOf :many
-SELECT work_id, year, runtime_minutes, certification FROM movie_movie WHERE work_id IN (sqlc.slice(work_ids));
+SELECT work_id, year, runtime_minutes, certification FROM movie_movie WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
 
 -- name: ListEveryListed :many
-SELECT work_id, year, runtime_minutes, certification FROM movie_movie;
+SELECT work_id, year, runtime_minutes, certification FROM movie_movie ORDER BY rowid;
 
 -- name: ListGenresOf :many
 SELECT work_id, name FROM movie_genre WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id, position;

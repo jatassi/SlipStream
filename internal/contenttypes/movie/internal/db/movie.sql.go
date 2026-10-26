@@ -231,7 +231,7 @@ func (q *Queries) ListCredits(ctx context.Context, workID works.WorkID) ([]ListC
 }
 
 const listEveryReleaseDate = `-- name: ListEveryReleaseDate :many
-SELECT work_id, country, kind, date FROM movie_release
+SELECT work_id, country, kind, date FROM movie_release ORDER BY rowid
 `
 
 type ListEveryReleaseDateRow struct {
@@ -270,7 +270,7 @@ func (q *Queries) ListEveryReleaseDate(ctx context.Context) ([]ListEveryReleaseD
 }
 
 const listEveryTiming = `-- name: ListEveryTiming :many
-SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie
+SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie ORDER BY rowid
 `
 
 type ListEveryTimingRow struct {
@@ -336,7 +336,7 @@ func (q *Queries) ListGenres(ctx context.Context, workID works.WorkID) ([]string
 }
 
 const listReleaseDatesOf = `-- name: ListReleaseDatesOf :many
-SELECT work_id, country, kind, date FROM movie_release WHERE work_id IN (/*SLICE:work_ids*/?)
+SELECT work_id, country, kind, date FROM movie_release WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 type ListReleaseDatesOfRow struct {
@@ -430,7 +430,7 @@ func (q *Queries) ListReleases(ctx context.Context, workIds []works.WorkID) ([]M
 }
 
 const listTimingsOf = `-- name: ListTimingsOf :many
-SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?)
+SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 type ListTimingsOfRow struct {

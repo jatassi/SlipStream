@@ -258,7 +258,7 @@ func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 }
 
 const listBriefFilesOfWorks = `-- name: ListBriefFilesOfWorks :many
-SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?)
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 type ListBriefFilesOfWorksRow struct {
@@ -347,7 +347,7 @@ func (q *Queries) ListDoomed(ctx context.Context) ([]FilesDoomed, error) {
 }
 
 const listEveryBriefFile = `-- name: ListEveryBriefFile :many
-SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file ORDER BY rowid
 `
 
 type ListEveryBriefFileRow struct {
@@ -394,7 +394,7 @@ func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileR
 }
 
 const listEveryFile = `-- name: ListEveryFile :many
-SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file
+SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
@@ -434,7 +434,7 @@ func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
 }
 
 const listEveryFill = `-- name: ListEveryFill :many
-SELECT file_id, target_id, item_id, edition FROM files_fill
+SELECT file_id, target_id, item_id, edition FROM files_fill ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFill(ctx context.Context) ([]FilesFill, error) {

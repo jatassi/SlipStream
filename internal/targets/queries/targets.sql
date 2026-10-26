@@ -94,7 +94,7 @@ SELECT * FROM targets_wants ORDER BY work_id;
 SELECT * FROM targets_wants WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
 
 -- name: ListEveryWants :many
-SELECT * FROM targets_wants;
+SELECT * FROM targets_wants ORDER BY rowid;
 
 -- name: ListWorksOfProfile :many
 SELECT work_id FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) ORDER BY work_id;

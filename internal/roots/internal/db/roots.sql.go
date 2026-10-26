@@ -220,7 +220,7 @@ func (q *Queries) InsertVolume(ctx context.Context, arg InsertVolumeParams) erro
 }
 
 const listEveryHome = `-- name: ListEveryHome :many
-SELECT work_id, root_id FROM roots_work
+SELECT work_id, root_id FROM roots_work ORDER BY rowid
 `
 
 func (q *Queries) ListEveryHome(ctx context.Context) ([]RootsWork, error) {

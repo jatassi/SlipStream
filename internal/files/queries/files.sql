@@ -13,13 +13,13 @@ DELETE FROM files_file WHERE id = sqlc.arg(id);
 SELECT * FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY id;
 
 -- name: ListEveryFile :many
-SELECT * FROM files_file;
+SELECT * FROM files_file ORDER BY rowid;
 
 -- name: ListBriefFilesOfWorks :many
-SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file WHERE work_id IN (sqlc.slice(work_ids));
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
 
 -- name: ListEveryBriefFile :many
-SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file;
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file ORDER BY rowid;
 
 -- name: ListFileIDs :many
 SELECT id FROM files_file ORDER BY id;
@@ -38,7 +38,7 @@ WHERE files_file.work_id IN (sqlc.slice(work_ids))
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id;
 
 -- name: ListEveryFill :many
-SELECT * FROM files_fill;
+SELECT * FROM files_fill ORDER BY rowid;
 
 -- name: ListFillsOfTargets :many
 SELECT files_fill.target_id, files_file.work_id, files_file.item_id, files_file.size FROM files_fill

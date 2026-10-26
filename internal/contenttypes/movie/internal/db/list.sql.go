@@ -45,7 +45,7 @@ func (q *Queries) ListEveryGenre(ctx context.Context) ([]ListEveryGenreRow, erro
 }
 
 const listEveryListed = `-- name: ListEveryListed :many
-SELECT work_id, year, runtime_minutes, certification FROM movie_movie
+SELECT work_id, year, runtime_minutes, certification FROM movie_movie ORDER BY rowid
 `
 
 type ListEveryListedRow struct {
@@ -126,7 +126,7 @@ func (q *Queries) ListGenresOf(ctx context.Context, workIds []works.WorkID) ([]L
 }
 
 const listListedOf = `-- name: ListListedOf :many
-SELECT work_id, year, runtime_minutes, certification FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?)
+SELECT work_id, year, runtime_minutes, certification FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 type ListListedOfRow struct {

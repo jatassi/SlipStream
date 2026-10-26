@@ -106,16 +106,26 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		return nil, err
 	}
 	out := make([]world, len(trees))
-	at := make(map[works.WorkID]*world, len(trees))
 	today := f.cfg.Today()
 	for i, t := range trees {
 		out[i] = world{tree: t, goals: goals[t.ID], root: homes[t.ID], grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: today}
-		at[t.ID] = &out[i]
 	}
-	q := db.New(r)
+	if err := shelve(ctx, db.New(r), out, among, read, seen); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// shelve puts each file of ws's Works on its Work's world, oldest first,
+// with its fills, and adds the file's cut to seen. among names ws's Works.
+func shelve(ctx context.Context, q *db.Queries, ws []world, among works.Among[works.WorkID], read fileRead, seen map[works.ItemID][]release.CutKey) error {
+	at := make(map[works.WorkID]*world, len(ws))
+	for i := range ws {
+		at[ws[i].tree.ID] = &ws[i]
+	}
 	rows, err := read(ctx, q, among)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	of := make(map[ID]*world, len(rows))
 	for _, row := range rows {
@@ -126,14 +136,14 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 			seen[row.ItemID] = append(seen[row.ItemID], row.Cut)
 		}
 	}
-	for i := range out {
-		slices.SortFunc(out[i].files, func(a, b File) int { return a.ID.Compare(b.ID.UUID) })
+	for i := range ws {
+		slices.SortFunc(ws[i].files, func(a, b File) int { return a.ID.Compare(b.ID.UUID) })
 	}
 	fills, err := works.Read(among, func() ([]db.FilesFill, error) { return q.ListEveryFill(ctx) }, func(ids []works.WorkID) ([]db.FilesFill, error) {
 		return q.ListFillsOfWorks(ctx, ids)
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, fill := range fills {
 		w := of[fill.FileID]
@@ -142,7 +152,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		}
 		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
 	}
-	return out, nil
+	return nil
 }
 
 // fileRead reads the files of among's Works.
