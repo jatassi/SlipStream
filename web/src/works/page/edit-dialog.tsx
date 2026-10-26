@@ -65,7 +65,7 @@ export function EditDialog({
       <div className="flex flex-col gap-4">
         <ProfilePicker profiles={profiles} value={profile} onValueChange={setProfile} />
         <RootField type={subject.type} value={root} files={files} onValueChange={setRoot} />
-        <p className="text-ink-2">A new Profile shows what changes before anything is saved.</p>
+        <p className="text-ink-2">Before a new Profile is saved, the Impact lists what changes.</p>
         <AttemptActions attempt={saving} onCancel={close}>
           Save
         </AttemptActions>

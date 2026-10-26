@@ -132,7 +132,6 @@ const fixedHandlers = () => [
   nodesAre(home, seedbox),
 ];
 
-// The live stream, sending to the page's one client.
 function liveStream() {
   const clients: Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"][] = [];
   const send: (typeof clients)[number]["send"] = (event) => {

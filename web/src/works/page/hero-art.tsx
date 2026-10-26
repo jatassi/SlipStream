@@ -2,6 +2,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 
 import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { ambientScene, subscribeScene, useAmbient } from "../../shell/ambient/use-ambient";
+import { useShellSlots } from "../../shell/page";
 
 const neutral = { kind: "neutral" } as const;
 
@@ -53,7 +54,7 @@ export function PosterArt({ url }: { url: string | undefined }) {
   );
 }
 
-/** The title treatment as the heading's image, the label its accessible name; the label in text without one. */
+/** The title treatment as the h1's image, the label its accessible name; the label in text without one. */
 export function TitleHeading({
   label,
   treatment,
@@ -62,11 +63,18 @@ export function TitleHeading({
   treatment: string | undefined;
 }) {
   const [failed, setFailed] = useState<string>();
+  // A pushed page's nav bar holds its h1, so the hero's title shows without repeating it.
+  const Title = useShellSlots().heading.kind === "bar" ? "p" : "h1";
+  const hidden = Title === "p" ? { "aria-hidden": true } : {};
   if (treatment === undefined || failed === treatment) {
-    return <h1 className="text-title-large text-ink-1">{label}</h1>;
+    return (
+      <Title className="text-title-large text-ink-1" {...hidden}>
+        {label}
+      </Title>
+    );
   }
   return (
-    <h1>
+    <Title {...hidden}>
       <img
         src={`${treatment}?size=medium`}
         alt=""
@@ -76,7 +84,7 @@ export function TitleHeading({
         }}
       />
       <span className="sr-only">{label}</span>
-    </h1>
+    </Title>
   );
 }
 

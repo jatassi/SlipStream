@@ -37,7 +37,7 @@ function cellsOf(
   return `${itemPart}${cutPart}${list.format(targets.map((id) => targetName(id)))}`;
 }
 
-/** "2160p HDR failed at Downloading · 1080p and 720p wait on it" */
+/** "2160p HDR failed at Import · 1080p and 720p wait on it" */
 export function failedWords(naming: Naming, need: FilesFailedNeed, grab: FailedGrab): string {
   const failed = `${cellsOf(naming, need, [need.targetId])} failed at ${stageLabel[trackStage[grab.failure.stage]]}`;
   if (need.waiting.length === 0) {

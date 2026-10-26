@@ -178,7 +178,7 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** "Counts as out on 16 April 2021, Digital release in United States" for a one-Item Work. */
+/** "Counts as out on April 16, 2021, Digital release in United States" for a one-Item Work. */
 function availabilityOf(type: WorksContentType, work: WorksWorkView): string | undefined {
   const [item] = work.items;
   if (type.items === "many" || item === undefined) {
