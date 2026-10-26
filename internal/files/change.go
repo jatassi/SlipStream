@@ -121,7 +121,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		trees = append(trees, tree)
 		ids = append(ids, w)
 	}
-	before, err := f.worlds(ctx, tx, trees, works.Only(ids))
+	before, err := f.worlds(ctx, tx, trees, works.Only(ids), wholeFiles)
 	if err != nil {
 		return Impact{}, nil, err
 	}
@@ -132,7 +132,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	if err := targets.Apply(ctx, tx, known, c); err != nil {
 		return Impact{}, nil, err
 	}
-	afters, err := f.worlds(ctx, tx, trees, works.Only(ids))
+	afters, err := f.worlds(ctx, tx, trees, works.Only(ids), wholeFiles)
 	if err != nil {
 		return Impact{}, nil, err
 	}

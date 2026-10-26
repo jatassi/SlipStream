@@ -46,7 +46,7 @@ func (l *Library) rowsIn(ctx context.Context, r storage.Reader[storage.Library],
 	}
 	out := make([]Row, len(ws))
 	for i, w := range ws {
-		out[i] = Row{Work: w, Rollup: rolled[w.ID]}
+		out[i] = Row{Work: w, Rollup: rolled[i]}
 	}
 	return out, nil
 }

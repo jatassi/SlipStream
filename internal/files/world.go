@@ -52,7 +52,7 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 	if err != nil {
 		return world{}, err
 	}
-	ws, err := f.worlds(ctx, r, []works.Bare{tree}, works.Only([]works.WorkID{work}))
+	ws, err := f.worlds(ctx, r, []works.Bare{tree}, works.Only([]works.WorkID{work}), wholeFiles)
 	if err != nil {
 		return world{}, err
 	}
@@ -60,8 +60,9 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 }
 
 // worlds loads the world of each Work of trees in r, in trees' order,
-// reading each kind of row once for them all. among names trees' Works.
-func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID]) ([]world, error) {
+// reading each kind of row once for them all, and their files with read.
+// among names trees' Works.
+func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID], read fileRead) ([]world, error) {
 	ids := make([]works.WorkID, len(trees))
 	byType := map[works.TypeID][]works.WorkID{}
 	for i, t := range trees {
@@ -121,16 +122,14 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		at[t.ID] = &out[i]
 	}
 	q := db.New(r)
-	rows, err := works.Read(among, func() ([]db.FilesFile, error) { return q.ListEveryFile(ctx) }, func(ids []works.WorkID) ([]db.FilesFile, error) {
-		return q.ListFilesOfWorks(ctx, ids)
-	})
+	rows, err := read(ctx, q, among)
 	if err != nil {
 		return nil, err
 	}
 	of := make(map[ID]*world, len(rows))
 	for _, row := range rows {
 		w := at[row.WorkID]
-		w.files = append(w.files, File(row))
+		w.files = append(w.files, row)
 		of[row.ID] = w
 		if !slices.Contains(seen[row.ItemID], row.Cut) {
 			seen[row.ItemID] = append(seen[row.ItemID], row.Cut)
@@ -149,6 +148,38 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		of[fill.FileID].fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
 	}
 	return out, nil
+}
+
+// fileRead reads the files of among's Works.
+type fileRead func(context.Context, *db.Queries, works.Among[works.WorkID]) ([]File, error)
+
+func wholeFiles(ctx context.Context, q *db.Queries, among works.Among[works.WorkID]) ([]File, error) {
+	rows, err := works.Read(among, func() ([]db.FilesFile, error) { return q.ListEveryFile(ctx) }, func(ids []works.WorkID) ([]db.FilesFile, error) {
+		return q.ListFilesOfWorks(ctx, ids)
+	})
+	out := make([]File, len(rows))
+	for i, row := range rows {
+		out[i] = File(row)
+	}
+	return out, err
+}
+
+// briefFiles reads only what cells and a Rollup read of each file: not its
+// path, probe, Grab or label.
+func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.WorkID]) ([]File, error) {
+	rows, err := works.Read(among, func() ([]db.ListEveryBriefFileRow, error) { return q.ListEveryBriefFile(ctx) }, func(ids []works.WorkID) ([]db.ListEveryBriefFileRow, error) {
+		rows, err := q.ListBriefFilesOfWorks(ctx, ids)
+		out := make([]db.ListEveryBriefFileRow, len(rows))
+		for i, row := range rows {
+			out[i] = db.ListEveryBriefFileRow(row)
+		}
+		return out, err
+	})
+	out := make([]File, len(rows))
+	for i, row := range rows {
+		out[i] = File{ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Size: row.Size, Quality: row.Quality, Extra: row.Extra}
+	}
+	return out, err
 }
 
 // named adds what names reads to w under fills: the Content Type's

@@ -242,28 +242,38 @@ func BareIn(ctx context.Context, r storage.Reader[file], id WorkID) (Bare, error
 }
 
 // baresOf reads the Items of works, which among names, each Work's in
-// tree order.
+// tree order. Only a Work of many Items has its levels read: they order
+// its Items.
 func baresOf(ctx context.Context, r storage.Reader[file], works []db.WorksWork, among Among[WorkID]) ([]Bare, error) {
 	q := db.New(r)
-	levels, err := Read(among, func() ([]db.WorksLevel, error) { return q.ListEveryLevel(ctx) }, func(ids []WorkID) ([]db.WorksLevel, error) {
-		return q.ListLevelsOfWorks(ctx, ids)
-	})
-	if err != nil {
-		return nil, err
-	}
 	items, err := Read(among, func() ([]db.WorksItem, error) { return q.ListEveryItem(ctx) }, func(ids []WorkID) ([]db.WorksItem, error) {
 		return q.ListItemsOfWorks(ctx, ids)
 	})
 	if err != nil {
 		return nil, err
 	}
+	itemsOf := make(map[WorkID][]db.WorksItem, len(works))
+	var many []WorkID
+	for _, it := range items {
+		itemsOf[it.WorkID] = append(itemsOf[it.WorkID], it)
+		if len(itemsOf[it.WorkID]) == 2 {
+			many = append(many, it.WorkID)
+		}
+	}
+	var levels []db.WorksLevel
+	switch {
+	case len(many) == 0:
+	case among.Every():
+		levels, err = q.ListEveryLevel(ctx)
+	default:
+		levels, err = Read(Only(many), nil, func(ids []WorkID) ([]db.WorksLevel, error) { return q.ListLevelsOfWorks(ctx, ids) })
+	}
+	if err != nil {
+		return nil, err
+	}
 	levelsOf := map[WorkID][]db.WorksLevel{}
 	for _, l := range levels {
 		levelsOf[l.WorkID] = append(levelsOf[l.WorkID], l)
-	}
-	itemsOf := map[WorkID][]db.WorksItem{}
-	for _, it := range items {
-		itemsOf[it.WorkID] = append(itemsOf[it.WorkID], it)
 	}
 	out := make([]Bare, len(works))
 	for i, row := range works {

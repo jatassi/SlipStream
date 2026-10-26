@@ -15,6 +15,12 @@ SELECT * FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY id;
 -- name: ListEveryFile :many
 SELECT * FROM files_file;
 
+-- name: ListBriefFilesOfWorks :many
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file WHERE work_id IN (sqlc.slice(work_ids));
+
+-- name: ListEveryBriefFile :many
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file;
+
 -- name: ListFileIDs :many
 SELECT id FROM files_file ORDER BY id;
 
