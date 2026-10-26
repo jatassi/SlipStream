@@ -6,6 +6,11 @@ name: lanes-measure
 # every arm in a cell shares one machine. Run it by hand.
 on:
   workflow_dispatch:
+    inputs:
+      arms:
+        description: A regexp over the arm names to run, empty for all of them
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -42,8 +47,9 @@ jobs:
       - name: Measure lanes
         env:
           CELL: ${{ matrix.rtt }}/${{ matrix.loss }}/${{ matrix.path }}
+          ARMS: ${{ inputs.arms }}
         run: |
           go test -c -o "$RUNNER_TEMP/mux.test" ./internal/link/internal/mux
-          sudo env TEST_LINK_MEASURE_LANES=1 TEST_LINK_LANES_CELLS="^${CELL//./\\.}\$" GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" \
+          sudo env TEST_LINK_MEASURE_LANES=1 TEST_LINK_LANES_CELLS="^${CELL//./\\.}\$" TEST_LINK_LANES_ARMS="$ARMS" GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" \
             "$RUNNER_TEMP/mux.test" -test.run '^TestMeasureLanes$' -test.v -test.timeout 40m
           uptime

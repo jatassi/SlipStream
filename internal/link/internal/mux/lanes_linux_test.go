@@ -37,10 +37,12 @@ import (
 const (
 	lanesEnv  = "TEST_LINK_MEASURE_LANES"
 	cellsEnv  = "TEST_LINK_LANES_CELLS"
+	armsEnv   = "TEST_LINK_LANES_ARMS"
 	lanesRuns = 5
 	chunkSize = 4 << 20
-	// ahead is timings.transfers.ahead, the chunks each lane keeps wanted.
-	ahead                  = 2
+	// laneALPN is the protocol lanes negotiate, with a build name of its
+	// own.
+	laneALPN               = "slipstream-transfer/measure"
 	transferKind wire.Kind = 2
 	stockRmem              = "4096 131072 6291456"
 	stockWmem              = "4096 16384 4194304"
@@ -64,17 +66,36 @@ type laneArm struct {
 	// with link.stream_window's default, as route 3 does.
 	link  bool
 	proto protocol
+	// ahead is timings.transfers.ahead, the chunks each lane keeps wanted.
+	ahead int
 }
 
 var laneArms = []laneArm{
-	{"link-chunks", 1, true, chunks},
-	{"link-stream", 1, true, stream},
-	{"tls-stream", 1, false, stream},
-	{"lanes-1", 1, false, chunks},
-	{"lanes-2", 2, false, chunks},
-	{"lanes-4", 4, false, chunks},
-	{"lanes-8", 8, false, chunks},
-	{"lanes-16", 16, false, chunks},
+	{"link-chunks", 1, true, chunks, 2},
+	{"link-stream", 1, true, stream, 0},
+	{"tls-stream", 1, false, stream, 0},
+	{"lanes-1", 1, false, chunks, 2},
+	{"lanes-2", 2, false, chunks, 2},
+	{"lanes-4", 4, false, chunks, 2},
+	{"lanes-8", 8, false, chunks, 2},
+	{"lanes-16", 16, false, chunks, 2},
+	{"lanes-1-ahead-4", 1, false, chunks, 4},
+	{"lanes-1-ahead-8", 1, false, chunks, 8},
+	{"lanes-4-ahead-4", 4, false, chunks, 4},
+	{"lanes-4-ahead-8", 4, false, chunks, 8},
+}
+
+// selectedArms is every arm whose name matches TEST_LINK_LANES_ARMS, all
+// of them when it is empty.
+func selectedArms() []laneArm {
+	only := regexp.MustCompile(os.Getenv(armsEnv))
+	var out []laneArm
+	for _, a := range laneArms {
+		if only.MatchString(a.name) {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // cell is one path between the namespaces.
@@ -142,6 +163,9 @@ type laneResult struct {
 	Errors    int
 	ClientCPU float64
 	ServerCPU float64
+	// TCPMemMiB is the kernel's memory for every TCP socket at the
+	// window's end, both ends together.
+	TCPMemMiB float64
 	TCP       tcpWindow
 	// Sent and dropped packets at the server end's netem (data direction)
 	// and tbf, and the client end's netem (acknowledgements).
@@ -192,14 +216,15 @@ func laneArmNamed(t *testing.T, name string) laneArm {
 // gets fresh namespaces, so no cached TCP metrics carry between arms.
 func measureLanes(t *testing.T) {
 	only := regexp.MustCompile(os.Getenv(cellsEnv))
+	arms := selectedArms()
 	var results []laneResult
 	for _, c := range lanesCells() {
 		if !only.MatchString(c.String()) {
 			continue
 		}
 		for run := range lanesRuns {
-			for i := range laneArms {
-				a := laneArms[(i+run)%len(laneArms)]
+			for i := range arms {
+				a := arms[(i+run)%len(arms)]
 				topology(t, c.shape(t))
 				r := measureLane(t, a)
 				r.Cell, r.Run = c.String(), run
@@ -212,7 +237,7 @@ func measureLanes(t *testing.T) {
 			}
 		}
 	}
-	lanesReport(results)
+	lanesReport(results, arms)
 	for _, r := range results {
 		if r.Errors > 0 || r.Mbits == 0 {
 			t.Errorf("%s run %d of %s had %d errors and carried %.1f Mbit/s", r.Arm, r.Run, r.Cell, r.Errors, r.Mbits)
@@ -232,7 +257,7 @@ func measureLane(t *testing.T, a laneArm) laneResult {
 			t.Fatal(err)
 		}
 	}
-	r.Arm, r.ServerCPU, r.TCP = a.name, sender.ServerCPU, sender.TCP
+	r.Arm, r.ServerCPU, r.TCP, r.TCPMemMiB = a.name, sender.ServerCPU, sender.TCP, sender.TCPMemMiB
 	srv, cli := qdiscs(t, serverNS, serverDev), qdiscs(t, clientNS, clientDev)
 	r.DataPkts, r.LossDrops, r.CapDrops, r.AckLossDrops = srv["netem"].pkts, srv["netem"].dropped, srv["tbf"].dropped, cli["netem"].dropped
 	return r
@@ -273,7 +298,7 @@ func laneServer(t *testing.T, a laneArm) {
 		}
 		raw[i] = c
 	}
-	conns := handshake(t, raw, func(c net.Conn) *tls.Conn { return tls.Server(c, wire.ServerConfig(cert, pinned(clientKey))) })
+	conns := handshake(t, raw, func(c net.Conn) *tls.Conn { return tls.Server(c, wire.ServerConfig(cert, laneALPN, pinned(clientKey))) })
 	served := make(chan error, len(conns))
 	for _, c := range conns {
 		go func() { served <- sendLane(a, c) }()
@@ -281,13 +306,13 @@ func laneServer(t *testing.T, a laneArm) {
 	time.Sleep(warmUp)
 	from, cpuFrom := tcpInfos(t, raw), cpuTime()
 	time.Sleep(measureFor)
-	to, cpuTo := tcpInfos(t, raw), cpuTime()
+	to, cpuTo, mem := tcpInfos(t, raw), cpuTime(), tcpMemMiB(t)
 	for range conns {
 		if err := <-served; err != nil {
 			t.Logf("%s server: %v", a.name, err)
 		}
 	}
-	r := laneResult{ServerCPU: (cpuTo - cpuFrom).Seconds() / measureFor.Seconds(), TCP: window(from, to)}
+	r := laneResult{ServerCPU: (cpuTo - cpuFrom).Seconds() / measureFor.Seconds(), TCP: window(from, to), TCPMemMiB: mem}
 	b, err := json.Marshal(r)
 	if err != nil {
 		t.Fatal(err)
@@ -341,6 +366,21 @@ func sendLane(a laneArm, c net.Conn) error {
 	return sendChunks(rw)
 }
 
+// tcpMemMiB reads the pages every TCP socket holds from sockstat. The
+// count is the kernel's, across namespaces.
+func tcpMemMiB(t *testing.T) float64 {
+	b, err := os.ReadFile("/proc/net/sockstat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`(?m)^TCP:.* mem (\d+)`).FindSubmatch(b)
+	if m == nil {
+		t.Fatalf("no TCP mem in sockstat:\n%s", b)
+	}
+	pages, _ := strconv.ParseFloat(string(m[1]), 64)
+	return pages * float64(os.Getpagesize()) / (1 << 20)
+}
+
 // sendChunks answers each 4-byte Want with the chunk's index and 4 MiB of
 // random bytes, in one write.
 func sendChunks(rw io.ReadWriter) error {
@@ -377,7 +417,11 @@ func laneClient(t *testing.T, a laneArm) {
 			t.Fatal(err)
 		}
 	}
-	conns := handshake(t, raw, func(c net.Conn) *tls.Conn { return tls.Client(c, wire.ClientConfig(cert, pinned(serverKey))) })
+	tlsConfig := wire.LaneConfig(cert, laneALPN, pinned(serverKey))
+	if a.link {
+		tlsConfig = wire.ClientConfig(cert, pinned(serverKey))
+	}
+	conns := handshake(t, raw, func(c net.Conn) *tls.Conn { return tls.Client(c, tlsConfig) })
 	var stopped atomic.Bool
 	var got atomic.Int64
 	moved := make([]*counted, len(conns))
@@ -448,12 +492,12 @@ func receiveLane(t *testing.T, a laneArm, c net.Conn, got *atomic.Int64) error {
 		_, err := io.Copy(io.Discard, rw)
 		return fmt.Errorf("discard: %w", cmp.Or(err, io.EOF))
 	}
-	return wantChunks(rw, got)
+	return wantChunks(rw, a.ahead, got)
 }
 
 // wantChunks keeps ahead chunks wanted and checks each arrives whole and
 // in order.
-func wantChunks(rw io.ReadWriter, got *atomic.Int64) error {
+func wantChunks(rw io.ReadWriter, ahead int, got *atomic.Int64) error {
 	var next uint32
 	want := func() error {
 		var b [4]byte
@@ -536,7 +580,7 @@ func window(from, to []unix.TCPInfo) tcpWindow {
 
 // lanesReport prints each cell's arms as median Mbit/s with the range over
 // runs.
-func lanesReport(results []laneResult) {
+func lanesReport(results []laneResult, arms []laneArm) {
 	var b strings.Builder
 	b.WriteString("| cell | arm | median Mbit/s | min | max | runs |\n|---|---|---|---|---|---|\n")
 	var cellNames []string
@@ -546,7 +590,7 @@ func lanesReport(results []laneResult) {
 		}
 	}
 	for _, c := range cellNames {
-		for _, a := range laneArms {
+		for _, a := range arms {
 			var mbits []float64
 			for _, r := range results {
 				if r.Cell == c && r.Arm == a.name {
