@@ -97,7 +97,7 @@ export async function imported(world: World): Promise<string> {
     .poll(
       async () =>
         Cells.parse((await world.api("GET", `/api/v1/works/${workId}/cells`)).body).cells.every(
-          (cell) => cell.state !== "missing",
+          (cell) => cell.state === "upgradable",
         ),
       { message: "the WEB-DL is imported", timeout: 60_000 },
     )
