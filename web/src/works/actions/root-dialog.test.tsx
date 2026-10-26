@@ -47,13 +47,13 @@ test("the root dialog shows free space and names the Works with files that stay"
     name: "Set the library root of The Quiet Orchard, Film 2, and Film 3",
   });
   const picker = dialog.getByRole("combobox", { name: "Library root" });
-  await expect.element(picker).toHaveTextContent("/srv/media/films, 1.2 TB free");
+  await expect.element(picker).toHaveTextContent("/srv/media/films · 1.2 TB free");
   await userEvent.click(picker);
   await expect
-    .element(page.getByRole("option", { name: "/mnt/archive/films, free space not read yet" }))
+    .element(page.getByRole("option", { name: "/mnt/archive/films · Free space not read yet" }))
     .toBeVisible();
   await userEvent.click(
-    page.getByRole("option", { name: "/mnt/archive/films, free space not read yet" }),
+    page.getByRole("option", { name: "/mnt/archive/films · Free space not read yet" }),
   );
   await expect
     .element(

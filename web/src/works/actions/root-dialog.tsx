@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-import type { RootsNodeVolumes, RootsRoot, WorksContentType } from "../../api/gen/model";
+import type { WorksContentType } from "../../api/gen/model";
 import { useListRootsSuspense, useListVolumesSuspense } from "../../api/gen/query/roots/roots";
-import { bytes } from "../../format";
+import { freeOf } from "../../roots/root-columns";
 import { ConfirmDialog } from "../../ui/confirm-dialog";
 import { Select } from "../../ui/select";
 import { act } from "./act";
@@ -11,13 +11,6 @@ import { filesStay, namedOf } from "./outcomes";
 
 /** A Work for the root picker: its files decide whether it can move. */
 export type Rooted = Subject & { readonly files: number };
-
-export function freeOf(root: RootsRoot, volumes: readonly RootsNodeVolumes[]): string {
-  const volume = volumes
-    .find((group) => group.nodeId === root.nodeId)
-    ?.volumes.find((candidate) => candidate.id === root.volumeId);
-  return volume === undefined ? "free space not read yet" : `${bytes(volume.free)} free`;
-}
 
 type RootDialogProps = {
   readonly type: WorksContentType;
@@ -46,7 +39,7 @@ export function RootDialog({ type, works, open, onOpenChange }: RootDialogProps)
         label="Library root"
         options={roots.map((root) => ({
           value: root.id,
-          label: `${root.path}, ${freeOf(root, nodes)}`,
+          label: `${root.path} · ${freeOf(root, nodes)}`,
         }))}
         value={rootId}
         onValueChange={setRootId}

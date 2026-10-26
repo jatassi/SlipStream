@@ -48,7 +48,7 @@ export function freeOf(root: RootsRoot, volumes: readonly RootsNodeVolumes[]): s
   const volume = volumes
     .find((group) => group.nodeId === root.nodeId)
     ?.volumes.find((candidate) => candidate.id === root.volumeId);
-  return volume === undefined ? "Not read yet" : `${bytes(volume.free)} free`;
+  return volume === undefined ? "Free space not read yet" : `${bytes(volume.free)} free`;
 }
 
 export function rootColumns(

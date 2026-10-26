@@ -1,7 +1,7 @@
 import { useListRootsSuspense, useListVolumesSuspense } from "../../api/gen/query/roots/roots";
 import type { WorksContentType } from "../../api/gen/model";
 import { Select } from "../../ui/select";
-import { freeOf } from "../actions/root-dialog";
+import { freeOf } from "../../roots/root-columns";
 
 /** The Work's library root, fixed while it has files: a Work with any keeps its root until Moves. */
 export function RootField({
@@ -23,7 +23,7 @@ export function RootField({
         label="Library root"
         options={roots.map((candidate) => ({
           value: candidate.id,
-          label: `${candidate.path}, ${freeOf(candidate, nodes)}`,
+          label: `${candidate.path} · ${freeOf(candidate, nodes)}`,
         }))}
         value={value}
         disabled={files > 0}
