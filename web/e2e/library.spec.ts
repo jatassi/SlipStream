@@ -36,8 +36,9 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
   await expectColumns(page, ["Movie", "Status", "1080p"]);
 
   await navigate(page, "Library");
-  await expect(page.getByRole("list", { name: "Works" }).getByRole("listitem")).toHaveText(
-    "The Quiet Orchard2021",
+  await expect(page.getByRole("heading", { name: "T 1", level: 2 })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("listitem")).toHaveText(
+    "The Quiet Orchard2021Missing",
   );
   await page.goto("/add?contentType=movie&query=quiet+orchard");
   await expect(

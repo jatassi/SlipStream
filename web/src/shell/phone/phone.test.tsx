@@ -2,13 +2,13 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { WorksListedWork } from "../../api/gen/model";
 import { getGetSystemMockHandler } from "../../api/gen/query/system/system.msw";
 import {
   getListContentTypesMockHandler,
-  getListWorksMockHandler,
+  getListLibraryMockHandler,
 } from "../../api/gen/query/works/works.msw";
-import { cinema, orchard, orchardId } from "../../test/library";
+import { cinema, orchardId, orchardRow } from "../../test/library";
+import { orchards } from "../../test/library-page";
 import { asPhone } from "../../test/viewport";
 import { renderApp } from "../../test/render-app";
 import { workServer } from "../../test/work-server";
@@ -25,13 +25,6 @@ function counting(activity: number) {
     }),
   );
 }
-
-const listed = (count: number): WorksListedWork[] =>
-  Array.from({ length: count }, (_, index) => ({
-    ...orchard,
-    id: `${orchardId.slice(0, -2)}${String(index).padStart(2, "0")}`,
-    label: `Orchard ${index + 1}`,
-  }));
 
 const moreButtons = [
   "Films",
@@ -186,7 +179,7 @@ test("on a phone a menu opens as an action sheet", async () => {
 
 test("the large title hands its words to the nav bar once it scrolls away", async () => {
   await asPhone();
-  renderApp({ path: "/library", handlers: [getListWorksMockHandler({ works: listed(40) })] });
+  renderApp({ path: "/library", handlers: [getListLibraryMockHandler({ rows: orchards(40) })] });
   const barTitle = page.getByRole("banner").getByText("Library");
   await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
   await expect.poll(() => getComputedStyle(barTitle.element()).opacity).toBe("0");
@@ -201,9 +194,9 @@ test("a pushed page goes back to its library, and a tab returns to where it was"
   const server = workServer();
   const { router } = renderApp({
     path: "/library/cinema",
-    handlers: [...server.handlers, getListWorksMockHandler({ works: [{ ...orchard }] })],
+    handlers: [getListLibraryMockHandler({ rows: [orchardRow] }), ...server.handlers],
   });
-  await userEvent.click(page.getByRole("link", { name: "The Quiet Orchard 2021" }));
+  await userEvent.click(page.getByRole("link", { name: "The Quiet Orchard" }));
   const back = page.getByRole("banner").getByRole("link", { name: "Films" });
   await expect.element(back).toHaveAttribute("href", "/library/cinema");
   await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();

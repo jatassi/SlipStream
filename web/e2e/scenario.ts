@@ -6,5 +6,7 @@ export type Scenario =
   | "low-space"
   | "serving"
   | "targets"
+  | "movies"
+  | "scale"
   | "torrents"
   | "cgnat-home";

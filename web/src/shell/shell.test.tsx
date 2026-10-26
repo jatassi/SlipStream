@@ -2,12 +2,12 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { WorksContentType, WorksListedWork } from "../api/gen/model";
+import type { WorksContentType } from "../api/gen/model";
 import {
   getListContentTypesMockHandler,
-  getListWorksMockHandler,
+  getListLibraryMockHandler,
 } from "../api/gen/query/works/works.msw";
-import { cinema, orchard, orchardId } from "../test/library";
+import { cinema, orchardId, orchardRow } from "../test/library";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { asPhone, resize } from "../test/viewport";
@@ -48,13 +48,6 @@ function counting(first: number) {
     },
   };
 }
-
-const listed = (count: number): WorksListedWork[] =>
-  Array.from({ length: count }, (_, index) => ({
-    ...orchard,
-    id: `${orchardId.slice(0, -2)}${String(index).padStart(2, "0")}`,
-    label: `Orchard ${index + 1}`,
-  }));
 
 test("the sidebar lists Library with each enabled Content Type, Activity and the system rows", async () => {
   const server = liveServer();
@@ -184,21 +177,17 @@ test("the account menu opens the portal", async () => {
   await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
 });
 
-test("a Content Type's page lists its Works, is titled with them and adds one", async () => {
-  const asked: string[] = [];
+test("a Content Type's page shows its Works, is titled with them and adds one", async () => {
   renderApp({
     path: "/library/cinema",
     handlers: [
       getListContentTypesMockHandler({ contentTypes: [cinema] }),
-      getListWorksMockHandler(({ request }) => {
-        asked.push(new URL(request.url).search);
-        return { works: listed(1) };
-      }),
+      getListLibraryMockHandler({ rows: [orchardRow] }),
     ],
   });
   await expect.element(page.getByRole("heading", { name: "Films" })).toBeVisible();
   await expect.poll(() => document.title).toBe("Films · SlipStream");
-  expect(asked).toEqual(["?contentType=cinema"]);
+  await expect.element(page.getByRole("link", { name: "The Quiet Orchard" })).toBeVisible();
   await expect
     .element(page.getByRole("banner").getByRole("button", { name: "Add a Film" }))
     .toHaveAttribute("href", "/add?contentType=cinema");

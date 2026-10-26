@@ -53,3 +53,13 @@ export function cinemaLibrary(rows: readonly WorksLibraryRow[] = threeFilms) {
     ],
   };
 }
+
+/** `count` cinema rows labelled Orchard 1, Orchard 2 and on. */
+export const orchards = (count: number): WorksLibraryRow[] =>
+  Array.from({ length: count }, (_, index) =>
+    libraryRow({
+      id: `${orchardRow.id.slice(0, -2)}${String(index).padStart(2, "0")}`,
+      key: String(9_100_000 + index),
+      label: `Orchard ${index + 1}`,
+    }),
+  );
