@@ -39,6 +39,17 @@ func (q *Queries) DeleteKey(ctx context.Context, provider string) (int64, error)
 	return result.RowsAffected()
 }
 
+const getRefreshAll = `-- name: GetRefreshAll :one
+SELECT refresh_all_at FROM metadata_type WHERE content_type = ?1
+`
+
+func (q *Queries) GetRefreshAll(ctx context.Context, contentType string) (storage.Time, error) {
+	row := q.db.QueryRowContext(ctx, getRefreshAll, contentType)
+	var refresh_all_at storage.Time
+	err := row.Scan(&refresh_all_at)
+	return refresh_all_at, err
+}
+
 const getSettings = `-- name: GetSettings :one
 SELECT id, language, region, unreleased_every_seconds, growing_every_seconds, others_every_seconds, follow_changes, ratings_every_seconds, cache_for_seconds, artwork_store_mb FROM metadata_settings
 `

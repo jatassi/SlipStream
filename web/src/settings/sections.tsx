@@ -22,6 +22,7 @@ import { ProfilesSection } from "../targets/profiles-section";
 import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
+import { contentTypesSection } from "./content-types";
 import { EmailSection } from "./email";
 import { metadataSection } from "./metadata";
 import { nodesSection } from "./nodes";
@@ -63,6 +64,7 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
     },
     component: ApiKeySection,
   },
+  contentTypesSection,
   libraryRootsSection,
   metadataSection,
   {

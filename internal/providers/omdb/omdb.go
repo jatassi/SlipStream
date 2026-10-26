@@ -73,6 +73,7 @@ func (c *Client) Provider() metadata.Provider {
 		Burst:    c.timings.Burst,
 		Key:      func(q url.Values, key string) { q.Set("apikey", key) },
 		Classify: classify,
+		KeyPage:  c.endpoints.KeyPage.String(),
 	}
 }
 

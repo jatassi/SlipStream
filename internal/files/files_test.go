@@ -45,7 +45,7 @@ func must[T any](t *testing.T) func(T, error) T {
 
 type grabbing map[files.CellKey]files.GrabCell
 
-func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[files.CellKey]files.GrabCell, error) {
+func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return g, nil
 }
 

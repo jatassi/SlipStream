@@ -189,7 +189,7 @@ func (a *Availability) arrivals(ctx context.Context) ([]arrival, error) {
 		for i, w := range all {
 			ids[i] = w.ID
 		}
-		items, err := works.ItemsOf(ctx, r, ids)
+		items, err := works.ItemsOf(ctx, r, works.Only(ids))
 		if err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func (a *Availability) timings(ctx context.Context, r storage.Reader[storage.Lib
 	}
 	out := map[works.ItemID]targets.Timing{}
 	for typ, ws := range watched {
-		t, err := a.cfg.Targets.TimingsIn(ctx, r, typ, ws)
+		t, err := a.cfg.Targets.TimingsIn(ctx, r, typ, works.Only(ws))
 		if err != nil {
 			return nil, fmt.Errorf("read the %s timings: %w", typ, err)
 		}

@@ -81,6 +81,9 @@ func (s *shelved) add(t *testing.T, key, label, body string, things ...string) w
 func (s *shelved) addRecord(t *testing.T, key string, r contenttypetest.Record, body string) works.Tree {
 	t.Helper()
 	s.fx.Put(works.Key(key), r)
+	if !strings.Contains(body, `"monitor"`) {
+		body += `,"monitor":false`
+	}
 	code, reply := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"`+key+`"`+body+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork %s = %d %s", key, code, reply)
@@ -266,8 +269,12 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 	if got := s.needsYou(t, w); got != want {
 		t.Fatalf("Needs you is\n%s\nwant\n%s", got, want)
 	}
-	if r := s.rows(t, "?workIds="+w.ID.String()); len(r) != 1 || r[0].NeedsYou != 5 || r[0].Failed != 2 || *r[0].Status != "missing" {
+	r := s.rows(t, "?workIds="+w.ID.String())
+	if len(r) != 1 || r[0].NeedsYou != 5 || r[0].Failed != 2 || *r[0].Status != "missing" {
 		t.Fatalf("the row is %+v, want 5 Needs you, 2 failed, missing", r)
+	}
+	if all := s.rows(t, ""); !reflect.DeepEqual(all, r) {
+		t.Fatalf("the whole Library is %+v, want the one row read by id, %+v", all, r)
 	}
 
 	rootless := stock(t, false)

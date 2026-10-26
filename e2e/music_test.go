@@ -150,7 +150,7 @@ func TestMusic(t *testing.T) {
 	worldtest.Expect(t, "searchCatalog for The Lanterns", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns("null"))
 
 	stream := worldtest.NewMessages(t, run.Manifest(), world.AdminIdentity)
-	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`"}`), &added{})
+	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","monitor":false}`), &added{})
 	var ids []string
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
@@ -168,7 +168,7 @@ func TestMusic(t *testing.T) {
 	}, "\n"))
 	event(t, stream, "works.changed", `{"workIds":["`+tr.ID+`"]}`)
 
-	again := decode(t, "addWork again", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`"}`), &added{})
+	again := decode(t, "addWork again", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","monitor":false}`), &added{})
 	if again.Created || string(again.Work) != string(first.Work) {
 		t.Fatalf("addWork again created %t with work\n%s\nwant false with\n%s", again.Created, again.Work, first.Work)
 	}
@@ -192,7 +192,7 @@ func TestMusic(t *testing.T) {
 		t.Fatalf("a second refreshWork = %d\n%s\nwant the first's body apart from refreshedAt\n%s", twice.Status, twice.Body, refreshed.Body)
 	}
 
-	addBay := `{"contentType":"music","key":"` + marrowBay + `"}`
+	addBay := `{"contentType":"music","key":"` + marrowBay + `","monitor":false}`
 	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't respond. Try again later.", "MusicBrainz: responded with 503 Service Unavailable"))
 	bay := decode(t, "addWork for Marrow Bay again", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), &added{})
 	var bayTree tree

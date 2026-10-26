@@ -10,6 +10,7 @@ An Admin searches the metadata catalog from the Library's `Add` menu and adds a 
 - `add-no-match` a search with no match reads `Nothing matches "<query>".`
 - `add-work` `Add The Quiet Orchard` opens the add sheet, whose `Profile` reads `Movies (default)`, and its `Add Movie` creates the Work and opens its Work page.
 - `add-work-page` the Work page shows the movie's record from fake-tmdb: English title and Original title `The Quiet Orchard`, Original language `en`, Year `2021`, Release date `2021-04-16`, Runtime `1h 44m`, Status `Released` and IMDb id `tt9000001`, and the table `Any cut cells` with the starter `1080p` Target reading `Missing` (P-259). `GET /api/v1/works/{id}` carries the same fields, and no ratings: `home`'s fake-omdb knows no title and its fake-tmdb lists no votes.
+- `add-remember` by API on a fresh run, `GET /api/v1/content-types/movie/settings` leads with `movie.add.monitor`, `New movies are monitored`, on by default. `POST /api/v1/works` with `remember` true, a Profile `Small` and `monitor` false answers `created` true with the Item unmonitored and makes `Small` the type's default Profile and `movie.add.monitor` off, publishing one `targets.changed`, after the one creating `Small` sent. The same add again with the `Movies` Profile and `monitor` true answers `created` false with the Work as it was, and moves no default. The in-process tests in `internal/worksapi/add_test.go` prove the root, a racing add, an add without `remember`, and a monitor left out taking `movie.add.monitor`.
 - `add-open-existing` a Work already in the library is a link, `The Quiet Orchard 2021 In the library`, in place of `Add`, and opens its Work page.
 
 ## How to get to it (user POV)
@@ -18,7 +19,7 @@ An Admin searches the metadata catalog from the Library's `Add` menu and adds a 
 - Phone shell: on the `Library` tab, `Add` beside the large title opens the action sheet `Add a Work` with `Add a Movie`.
 - Both shells: the palette's `Add a Movie` (Ctrl+K or ⌘K on desktop, the `Search` tab on phone).
 - Both shells: `/add?contentType=movie&query=<title>` runs the search directly. The Library at `/library` (`/` redirects there) lists the added Work.
-- API: `GET /api/v1/content-types/{contentType}/catalog?query=`, `GET /api/v1/content-types/{contentType}/catalog/{key}` (preview), `POST /api/v1/works`, `GET /api/v1/works`. Search and preview have no screen yet.
+- API: `GET /api/v1/content-types/{contentType}/catalog?query=`, `GET /api/v1/content-types/{contentType}/catalog/{key}` (preview), `POST /api/v1/works` (`remember` makes each choice given the type's default), `GET /api/v1/works`, `GET` and `PATCH /api/v1/content-types/{contentType}/settings` (`<type>.add.monitor`). Search and preview have no screen yet.
 
 ## Driving it with fakeworld and playwright cli
 
@@ -44,6 +45,21 @@ Steps:
   $FW exec $RUN --proof add-a-movie/add-search-year -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=quiet+orchard+2021'
   $FW exec $RUN --proof add-a-movie/add-preview -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
   $FW exec $RUN --proof add-a-movie/add-preview -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works'
+  ```
+
+- **Remember the choices, by API.** On a fresh run, read the type's settings, make a Profile `Small`, then add The Quiet Orchard remembering `Small` and `monitor` false. The add answers `"created":true` with `"monitored":false`; the Profiles list `Small` with `"default":true`; the settings read `movie.add.monitor` `"value":false`; the stream carries one `targets.changed` after the one creating `Small` sent. Add it again with the `Movies` Profile and `monitor` true: `"created":false`, and the Profiles and settings read as before.
+
+  ```sh
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/settings'
+  MOVIES=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles' | jq -r '.profiles[] | select(.name == "Movies") | .id')
+  SMALL=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"name":"Small","contentType":"movie","targets":[],"editions":{"kind":"any"}}' '{nodes.home.url}/api/v1/profiles' | jq -r .id)
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","profileId":"'$SMALL'","monitor":false,"remember":true}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles'
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/settings'
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","profileId":"'$MOVIES'","monitor":true,"remember":true}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles'
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/settings'
+  $FW sse list $RUN --as admin --event targets.changed
   ```
 
 - **No match.** Go to `/add?contentType=movie&query=volcano`. The page reads `Nothing matches "volcano".`

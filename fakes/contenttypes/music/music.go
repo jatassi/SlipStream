@@ -189,7 +189,7 @@ func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, 
 }
 
 // ListFields answers none: music lists no field.
-func (*Music) ListFields(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID][]works.FieldValue, error) {
+func (*Music) ListFields(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID][]works.FieldValue, error) {
 	return nil, nil
 }
 
@@ -276,9 +276,10 @@ func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (
 }
 
 // Timings answers each track's length and its album's release date.
-func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
 	q := db.New(r)
-	albums, err := q.ListAlbumsOf(ctx, ws)
+	listed := works.Only(ws.IDs())
+	albums, err := works.Read(listed, nil, func(ids []works.WorkID) ([]db.MusicAlbum, error) { return q.ListAlbumsOf(ctx, ids) })
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,7 @@ func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.Wo
 		}
 		released[a.LevelID] = release.Known(d)
 	}
-	tracks, err := q.ListTracksOf(ctx, ws)
+	tracks, err := works.Read(listed, nil, func(ids []works.WorkID) ([]db.MusicTrack, error) { return q.ListTracksOf(ctx, ids) })
 	if err != nil {
 		return nil, err
 	}

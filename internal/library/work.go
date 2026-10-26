@@ -34,7 +34,7 @@ func (l *Library) Work(ctx context.Context, _ identity.Admin, id works.WorkID) (
 		if err != nil {
 			return err
 		}
-		timings, err := l.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, []works.WorkID{id})
+		timings, err := l.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, works.Only([]works.WorkID{id}))
 		if err != nil {
 			return err
 		}

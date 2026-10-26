@@ -26,6 +26,12 @@ import type {
   ClearMetadataKey409,
   ClearMetadataKey422,
   ClearMetadataKey500,
+  GetContentTypeRefresh401,
+  GetContentTypeRefresh403,
+  GetContentTypeRefresh404,
+  GetContentTypeRefresh409,
+  GetContentTypeRefresh422,
+  GetContentTypeRefresh500,
   GetMetadataSettings401,
   GetMetadataSettings403,
   GetMetadataSettings409,
@@ -37,6 +43,7 @@ import type {
   MetadataNewKey,
   MetadataProvider,
   MetadataProviderList,
+  MetadataRefreshAllRun,
   MetadataRefreshStarted,
   MetadataSettings,
   MetadataSettingsChange,
@@ -86,6 +93,172 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetContentTypeRefreshUrl = (contentType: string) => {
+  return `/api/v1/content-types/${contentType}/refresh`;
+};
+
+/**
+ * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open
+ */
+export const getContentTypeRefresh = async (
+  contentType: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MetadataRefreshAllRun> => {
+  return apiFetch<MetadataRefreshAllRun>(getGetContentTypeRefreshUrl(contentType), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetContentTypeRefreshQueryKey = (contentType: string) => {
+  return [`/api/v1/content-types/${contentType}/refresh`] as const;
+};
+
+export const getGetContentTypeRefreshSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getContentTypeRefresh>>,
+  TError = ErrorType<
+    | GetContentTypeRefresh401
+    | GetContentTypeRefresh403
+    | GetContentTypeRefresh404
+    | GetContentTypeRefresh409
+    | GetContentTypeRefresh422
+    | GetContentTypeRefresh500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeRefresh>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetContentTypeRefreshQueryKey(contentType);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getContentTypeRefresh>>> = ({ signal }) =>
+    getContentTypeRefresh(contentType, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<
+    Awaited<ReturnType<typeof getContentTypeRefresh>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetContentTypeRefreshSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getContentTypeRefresh>>
+>;
+export type GetContentTypeRefreshSuspenseQueryError = ErrorType<
+  | GetContentTypeRefresh401
+  | GetContentTypeRefresh403
+  | GetContentTypeRefresh404
+  | GetContentTypeRefresh409
+  | GetContentTypeRefresh422
+  | GetContentTypeRefresh500
+>;
+
+export function useGetContentTypeRefreshSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeRefresh>>,
+  TError = ErrorType<
+    | GetContentTypeRefresh401
+    | GetContentTypeRefresh403
+    | GetContentTypeRefresh404
+    | GetContentTypeRefresh409
+    | GetContentTypeRefresh422
+    | GetContentTypeRefresh500
+  >,
+>(
+  contentType: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeRefresh>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContentTypeRefreshSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeRefresh>>,
+  TError = ErrorType<
+    | GetContentTypeRefresh401
+    | GetContentTypeRefresh403
+    | GetContentTypeRefresh404
+    | GetContentTypeRefresh409
+    | GetContentTypeRefresh422
+    | GetContentTypeRefresh500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeRefresh>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContentTypeRefreshSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeRefresh>>,
+  TError = ErrorType<
+    | GetContentTypeRefresh401
+    | GetContentTypeRefresh403
+    | GetContentTypeRefresh404
+    | GetContentTypeRefresh409
+    | GetContentTypeRefresh422
+    | GetContentTypeRefresh500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeRefresh>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open
+ */
+
+export function useGetContentTypeRefreshSuspense<
+  TData = Awaited<ReturnType<typeof getContentTypeRefresh>>,
+  TError = ErrorType<
+    | GetContentTypeRefresh401
+    | GetContentTypeRefresh403
+    | GetContentTypeRefresh404
+    | GetContentTypeRefresh409
+    | GetContentTypeRefresh422
+    | GetContentTypeRefresh500
+  >,
+>(
+  contentType: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getContentTypeRefresh>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetContentTypeRefreshSuspenseQueryOptions(contentType, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getRefreshContentTypeUrl = (contentType: string) => {
   return `/api/v1/content-types/${contentType}/refresh`;
