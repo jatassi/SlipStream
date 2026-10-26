@@ -22,6 +22,24 @@ func TestNetworkMagic(t *testing.T) {
 	}
 }
 
+func TestStableMagic(t *testing.T) {
+	for magic, want := range map[int64]bool{
+		0xef53:     true,  // ext4
+		0x9123683e: true,  // btrfs
+		0x58465342: true,  // xfs
+		0x01021994: true,  // tmpfs
+		0x4d44:     false, // vfat
+		0x2011bab0: false, // exfat
+		0x6969:     false, // nfs
+		0xff534d42: false, // cifs
+		0xfe534d42: false, // smb2 and smb3
+	} {
+		if got := stableMagic(magic); got != want {
+			t.Errorf("stableMagic(%#x) = %v, want %v", magic, got, want)
+		}
+	}
+}
+
 func TestOSDiskVolumeMountHoldsTheFolder(t *testing.T) {
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {

@@ -109,6 +109,95 @@ func TestDiskFaultsPlayOnCue(t *testing.T) {
 	t.Run("readonly", playsReadOnly)
 	t.Run("volume and full", playsVolumeAndFull)
 	t.Run("hung", func(t *testing.T) { synctest.Test(t, playsHung) })
+	t.Run("on an open writer", playsOnAnOpenWriter)
+	t.Run("on an open reader", playsOnAnOpenReader)
+	t.Run("hung on an open reader", func(t *testing.T) { synctest.Test(t, playsHungOnAnOpenReader) })
+}
+
+func playsOnAnOpenWriter(t *testing.T) {
+	c := newCued(t)
+	part := filepath.Join(c.folder, "0.part")
+	w, err := c.d.OpenWrite(c.ctx, part)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+	if _, err := w.WriteAt([]byte("film"), 0); err != nil {
+		t.Fatalf("WriteAt with room = %v", err)
+	}
+	lift := c.cue(fault.Full{})
+	if _, err := w.WriteAt([]byte("film"), 4); !errors.Is(err, syscall.ENOSPC) {
+		t.Fatalf("WriteAt once the volume fills = %v, want ENOSPC", err)
+	}
+	if again, err := c.d.OpenWrite(c.ctx, part); err != nil {
+		t.Fatalf("OpenWrite on a full volume = %v, want it to open", err)
+	} else {
+		_ = again.Close()
+	}
+	lift()
+	readOnly := c.cue(fault.ReadOnly{})
+	if _, err := w.WriteAt([]byte("film"), 4); !errors.Is(err, syscall.EROFS) {
+		t.Fatalf("WriteAt once the folder turns read-only = %v, want EROFS", err)
+	}
+	if err := w.Truncate(0); !errors.Is(err, syscall.EROFS) {
+		t.Fatalf("Truncate once the folder turns read-only = %v, want EROFS", err)
+	}
+	readOnly()
+	if _, err := w.WriteAt([]byte("film"), 4); err != nil {
+		t.Fatalf("WriteAt once the folder takes writes again = %v", err)
+	}
+	if err := w.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(part); err != nil || string(b) != "filmfilm" {
+		t.Fatalf("the file holds %q, %v; want the two writes that had room", b, err)
+	}
+}
+
+func playsOnAnOpenReader(t *testing.T) {
+	c := newCued(t)
+	r, err := c.d.OpenAt(c.ctx, c.marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.Close() }()
+	b := make([]byte, 1)
+	lift := c.cue(fault.Unmounted{})
+	if _, err := r.ReadAt(b, 0); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("ReadAt once the folder unmounts = %v, want not exist", err)
+	}
+	if _, err := c.d.OpenAt(c.ctx, c.marker); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("OpenAt on an unmounted folder = %v, want not exist", err)
+	}
+	lift()
+	if _, err := r.ReadAt(b, 0); err != nil || string(b) != "x" {
+		t.Fatalf("ReadAt once mounted again = %q, %v", b, err)
+	}
+}
+
+func playsHungOnAnOpenReader(t *testing.T) {
+	c := newCued(t)
+	r, err := c.d.OpenAt(c.ctx, c.marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.Close() }()
+	lift := c.cue(fault.Hung{})
+	answered := make(chan error, 1)
+	go func() {
+		_, err := r.ReadAt(make([]byte, 1), 0)
+		answered <- err
+	}()
+	synctest.Wait()
+	select {
+	case err := <-answered:
+		t.Fatalf("ReadAt on a hung folder answered %v", err)
+	default:
+	}
+	lift()
+	if err := <-answered; err != nil {
+		t.Fatalf("ReadAt once the folder answers = %v", err)
+	}
 }
 
 func playsUnmounted(t *testing.T) {

@@ -47,7 +47,7 @@ func (l *Link) Invite(ctx context.Context, t Target) error {
 func (l *Link) invite(ctx context.Context, t Target) error {
 	ctx, cancel := context.WithTimeout(ctx, l.cfg.Timings.Handshake)
 	defer cancel()
-	s, err := l.race(ctx, t.Addresses, pinned(t.Key))
+	s, err := l.dialSession(ctx, t.Addresses, pinned(t.Key))
 	if err != nil {
 		return err
 	}

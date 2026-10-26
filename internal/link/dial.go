@@ -160,7 +160,7 @@ func (l *Link) turnedAway(k *keeper, err error, refusal *string) bool {
 func (l *Link) attempt(ctx context.Context, t Target) (*session, error) {
 	ctx, cancel := context.WithTimeout(ctx, l.cfg.Timings.Handshake)
 	defer cancel()
-	s, err := l.race(ctx, t.Addresses, pinned(t.Key))
+	s, err := l.dialSession(ctx, t.Addresses, pinned(t.Key))
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paire
 	defer cancel()
 	stop := context.AfterFunc(l.ctx, cancel)
 	defer stop()
-	s, err := l.race(ctx, addrs, func(k Key) error {
+	s, err := l.dialSession(ctx, addrs, func(k Key) error {
 		if !code.Names(k[:]) {
 			return fmt.Errorf("%w: it holds key %s", ErrKeyMismatch, k.Fingerprint())
 		}
@@ -272,14 +272,25 @@ func (l *Link) hello(ctx context.Context, s *session) error {
 	return fmt.Errorf("hello: the peer responded with %T, which this build doesn't support", res.GetOutcome())
 }
 
+// dialSession races addrs with pin as the check of the peer's key, and
+// starts a session on the connection that wins.
+func (l *Link) dialSession(ctx context.Context, addrs Addresses, pin func(Key) error) (*session, error) {
+	c, tc, err := l.race(ctx, addrs, wire.ClientConfig(l.cert, func(pub ed25519.PublicKey, _ string) error { return pin(Key(pub)) }))
+	if err != nil {
+		return nil, err
+	}
+	return l.start(c, tc, true)
+}
+
 // race dials every address, IPv6 at once and IPv4 after fallback_delay
 // unless an IPv6 dial connected first, or at once when every IPv6 dial
-// failed. The first session through TLS wins and the rest are closed.
-func (l *Link) race(ctx context.Context, addrs Addresses, pin func(Key) error) (*session, error) {
+// failed, and runs TLS with cfg on each. The first connection through TLS
+// wins and the rest are closed.
+func (l *Link) race(ctx context.Context, addrs Addresses, cfg *tls.Config) (*counted, *tls.Conn, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	v6, v4 := addrs.families()
-	r := &racer{l: l, ctx: ctx, pin: pin, results: make(chan dialed, len(v6)+len(v4)), connected6: make(chan struct{}, len(v6))}
+	r := &racer{l: l, ctx: ctx, cfg: cfg, results: make(chan dialed, len(v6)+len(v4)), connected6: make(chan struct{}, len(v6))}
 	r.dial(v6, true)
 	pending, failed6, connected := len(v6), 0, false
 	startV4 := func() {
@@ -304,7 +315,7 @@ func (l *Link) race(ctx context.Context, addrs Addresses, pin func(Key) error) (
 		case d := <-r.results:
 			pending--
 			if d.err == nil {
-				return d.s, nil
+				return d.c, d.tc, nil
 			}
 			errs = append(errs, d.err)
 			if d.ipv6 {
@@ -315,15 +326,15 @@ func (l *Link) race(ctx context.Context, addrs Addresses, pin func(Key) error) (
 			}
 		}
 	}
-	return nil, errors.Join(errs...)
+	return nil, nil, errors.Join(errs...)
 }
 
 // racer runs one race's dials. The first to finish TLS claims the race;
-// any that finish after close their session.
+// any that finish after close their connection.
 type racer struct {
 	l          *Link
 	ctx        context.Context
-	pin        func(Key) error
+	cfg        *tls.Config
 	results    chan dialed
 	connected6 chan struct{}
 
@@ -332,7 +343,8 @@ type racer struct {
 }
 
 type dialed struct {
-	s    *session
+	c    *counted
+	tc   *tls.Conn
 	err  error
 	ipv6 bool
 }
@@ -340,49 +352,37 @@ type dialed struct {
 func (r *racer) dial(addrs []netip.AddrPort, ipv6 bool) {
 	for _, a := range addrs {
 		if !r.l.spawn(func() { r.results <- r.connect(a, ipv6) }) {
-			r.results <- dialed{nil, errClosed, ipv6}
+			r.results <- dialed{err: errClosed, ipv6: ipv6}
 		}
 	}
 }
 
 func (r *racer) connect(a netip.AddrPort, ipv6 bool) dialed {
-	s, err := r.l.connect(r.ctx, a, r.pin, func() {
-		if ipv6 {
-			r.connected6 <- struct{}{}
-		}
-	})
+	raw, err := r.l.cfg.Net.DialContext(r.ctx, "tcp", a.String())
 	if err != nil {
-		return dialed{nil, err, ipv6}
+		return dialed{err: fmt.Errorf("dial %s: %w", a, err), ipv6: ipv6}
+	}
+	if ipv6 {
+		r.connected6 <- struct{}{}
+	}
+	c := newCounted(raw)
+	tc := tls.Client(c, r.cfg)
+	if err := tc.HandshakeContext(r.ctx); err != nil {
+		_ = c.Close()
+		return dialed{err: fmt.Errorf("handshake with %s: %w", a, err), ipv6: ipv6}
 	}
 	r.mu.Lock()
 	lost := r.won
 	r.won = true
 	r.mu.Unlock()
 	if lost {
-		_ = s.mux.Close()
-		return dialed{nil, errLostRace, ipv6}
+		_ = c.Close()
+		return dialed{err: errLostRace, ipv6: ipv6}
 	}
-	return dialed{s, nil, ipv6}
+	return dialed{c: c, tc: tc, ipv6: ipv6}
 }
 
 var (
 	errLostRace = errors.New("another address connected first")
 	errClosed   = errors.New("the link is closed")
 )
-
-// connect dials a, runs TLS with pin as the check of the peer's key, and
-// starts the session.
-func (l *Link) connect(ctx context.Context, a netip.AddrPort, pin func(Key) error, connected func()) (*session, error) {
-	raw, err := l.cfg.Net.DialContext(ctx, "tcp", a.String())
-	if err != nil {
-		return nil, fmt.Errorf("dial %s: %w", a, err)
-	}
-	connected()
-	c := &counted{Conn: raw}
-	tc := tls.Client(c, wire.ClientConfig(l.cert, func(pub ed25519.PublicKey) error { return pin(Key(pub)) }))
-	if err := tc.HandshakeContext(ctx); err != nil {
-		_ = c.Close()
-		return nil, fmt.Errorf("handshake with %s: %w", a, err)
-	}
-	return l.start(c, tc, true)
-}
