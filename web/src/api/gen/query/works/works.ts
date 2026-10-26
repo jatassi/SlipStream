@@ -28,7 +28,6 @@ import type {
   DeleteWorks409,
   DeleteWorks422,
   DeleteWorks500,
-  DeleteWorks501,
   GetContentTypeSettings401,
   GetContentTypeSettings403,
   GetContentTypeSettings404,
@@ -79,7 +78,6 @@ import type {
   RefreshWorks409,
   RefreshWorks422,
   RefreshWorks500,
-  RefreshWorks501,
   SearchCatalog401,
   SearchCatalog403,
   SearchCatalog404,
@@ -107,13 +105,11 @@ import type {
   SetWorksMonitored409,
   SetWorksMonitored422,
   SetWorksMonitored500,
-  SetWorksMonitored501,
   SetWorksProfile401,
   SetWorksProfile403,
   SetWorksProfile409,
   SetWorksProfile422,
   SetWorksProfile500,
-  SetWorksProfile501,
   SetWorksProfileParams,
   SetWorksRoot401,
   SetWorksRoot403,
@@ -121,7 +117,6 @@ import type {
   SetWorksRoot409,
   SetWorksRoot422,
   SetWorksRoot500,
-  SetWorksRoot501,
   UpdateContentTypeSettings401,
   UpdateContentTypeSettings403,
   UpdateContentTypeSettings404,
@@ -1553,12 +1548,7 @@ export const getDeleteWorksMutationKey = () => ["deleteWorks"] as const;
 
 export const getDeleteWorksMutationOptions = <
   TError = ErrorType<
-    | DeleteWorks401
-    | DeleteWorks403
-    | DeleteWorks409
-    | DeleteWorks422
-    | DeleteWorks500
-    | DeleteWorks501
+    DeleteWorks401 | DeleteWorks403 | DeleteWorks409 | DeleteWorks422 | DeleteWorks500
   >,
   TContext = unknown,
 >(options?: {
@@ -1597,12 +1587,7 @@ export const getDeleteWorksMutationOptions = <
 export type DeleteWorksMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorks>>>;
 export type DeleteWorksMutationBody = WorksDeleting;
 export type DeleteWorksMutationError = ErrorType<
-  | DeleteWorks401
-  | DeleteWorks403
-  | DeleteWorks409
-  | DeleteWorks422
-  | DeleteWorks500
-  | DeleteWorks501
+  DeleteWorks401 | DeleteWorks403 | DeleteWorks409 | DeleteWorks422 | DeleteWorks500
 >;
 export type DeleteWorksMutationVariables = { data: WorksDeleting };
 
@@ -1611,12 +1596,7 @@ export type DeleteWorksMutationVariables = { data: WorksDeleting };
  */
 export const useDeleteWorks = <
   TError = ErrorType<
-    | DeleteWorks401
-    | DeleteWorks403
-    | DeleteWorks409
-    | DeleteWorks422
-    | DeleteWorks500
-    | DeleteWorks501
+    DeleteWorks401 | DeleteWorks403 | DeleteWorks409 | DeleteWorks422 | DeleteWorks500
   >,
   TContext = unknown,
 >(
@@ -1685,7 +1665,6 @@ export const getSetWorksMonitoredMutationOptions = <
     | SetWorksMonitored409
     | SetWorksMonitored422
     | SetWorksMonitored500
-    | SetWorksMonitored501
   >,
   TContext = unknown,
 >(options?: {
@@ -1731,7 +1710,6 @@ export type SetWorksMonitoredMutationError = ErrorType<
   | SetWorksMonitored409
   | SetWorksMonitored422
   | SetWorksMonitored500
-  | SetWorksMonitored501
 >;
 export type SetWorksMonitoredMutationVariables = { data: WorksMonitoredChange };
 
@@ -1745,7 +1723,6 @@ export const useSetWorksMonitored = <
     | SetWorksMonitored409
     | SetWorksMonitored422
     | SetWorksMonitored500
-    | SetWorksMonitored501
   >,
   TContext = unknown,
 >(
@@ -1827,7 +1804,6 @@ export const getSetWorksProfileMutationOptions = <
     | SetWorksProfile409
     | SetWorksProfile422
     | SetWorksProfile500
-    | SetWorksProfile501
   >,
   TContext = unknown,
 >(options?: {
@@ -1873,7 +1849,6 @@ export type SetWorksProfileMutationError = ErrorType<
   | SetWorksProfile409
   | SetWorksProfile422
   | SetWorksProfile500
-  | SetWorksProfile501
 >;
 export type SetWorksProfileMutationVariables = {
   data: WorksProfileChange;
@@ -1890,7 +1865,6 @@ export const useSetWorksProfile = <
     | SetWorksProfile409
     | SetWorksProfile422
     | SetWorksProfile500
-    | SetWorksProfile501
   >,
   TContext = unknown,
 >(
@@ -1954,12 +1928,7 @@ export const getRefreshWorksMutationKey = () => ["refreshWorks"] as const;
 
 export const getRefreshWorksMutationOptions = <
   TError = ErrorType<
-    | RefreshWorks401
-    | RefreshWorks403
-    | RefreshWorks409
-    | RefreshWorks422
-    | RefreshWorks500
-    | RefreshWorks501
+    RefreshWorks401 | RefreshWorks403 | RefreshWorks409 | RefreshWorks422 | RefreshWorks500
   >,
   TContext = unknown,
 >(options?: {
@@ -1998,12 +1967,7 @@ export const getRefreshWorksMutationOptions = <
 export type RefreshWorksMutationResult = NonNullable<Awaited<ReturnType<typeof refreshWorks>>>;
 export type RefreshWorksMutationBody = WorksRefreshing;
 export type RefreshWorksMutationError = ErrorType<
-  | RefreshWorks401
-  | RefreshWorks403
-  | RefreshWorks409
-  | RefreshWorks422
-  | RefreshWorks500
-  | RefreshWorks501
+  RefreshWorks401 | RefreshWorks403 | RefreshWorks409 | RefreshWorks422 | RefreshWorks500
 >;
 export type RefreshWorksMutationVariables = { data: WorksRefreshing };
 
@@ -2012,12 +1976,7 @@ export type RefreshWorksMutationVariables = { data: WorksRefreshing };
  */
 export const useRefreshWorks = <
   TError = ErrorType<
-    | RefreshWorks401
-    | RefreshWorks403
-    | RefreshWorks409
-    | RefreshWorks422
-    | RefreshWorks500
-    | RefreshWorks501
+    RefreshWorks401 | RefreshWorks403 | RefreshWorks409 | RefreshWorks422 | RefreshWorks500
   >,
   TContext = unknown,
 >(
@@ -2087,7 +2046,6 @@ export const getSetWorksRootMutationOptions = <
     | SetWorksRoot409
     | SetWorksRoot422
     | SetWorksRoot500
-    | SetWorksRoot501
   >,
   TContext = unknown,
 >(options?: {
@@ -2132,7 +2090,6 @@ export type SetWorksRootMutationError = ErrorType<
   | SetWorksRoot409
   | SetWorksRoot422
   | SetWorksRoot500
-  | SetWorksRoot501
 >;
 export type SetWorksRootMutationVariables = { data: WorksRootChange };
 
@@ -2147,7 +2104,6 @@ export const useSetWorksRoot = <
     | SetWorksRoot409
     | SetWorksRoot422
     | SetWorksRoot500
-    | SetWorksRoot501
   >,
   TContext = unknown,
 >(

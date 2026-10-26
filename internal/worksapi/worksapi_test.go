@@ -494,16 +494,10 @@ func TestArtworkAnswersAsURLsTheRouteOpens(t *testing.T) {
 // The literal routes beside /works/{workId} reach their own stubs.
 func TestEachLibraryRouteReachesItsOwnHandler(t *testing.T) {
 	s := serve(t)
-	ids := `{"workIds":["` + storage.NewUUID().String() + `"]`
 	stub := `{"status":501,"code":"not_implemented","title":"This route isn't built yet"}`
 	for _, c := range []struct{ method, path, body string }{
 		{http.MethodGet, "/api/v1/works/search?q=heat", ""},
 		{http.MethodGet, "/api/v1/library?contentType=fixture", ""},
-		{http.MethodPut, "/api/v1/works/monitored", ids + `,"on":true}`},
-		{http.MethodPut, "/api/v1/works/profile?preview=true", ids + `,"profileId":"` + storage.NewUUID().String() + `"}`},
-		{http.MethodPut, "/api/v1/works/root", ids + `,"rootId":"` + storage.NewUUID().String() + `"}`},
-		{http.MethodPost, "/api/v1/works/refresh", ids + `}`},
-		{http.MethodPost, "/api/v1/works/delete", ids + `,"files":"leave","preview":true}`},
 	} {
 		expect(t, s, c.method, c.path, c.body, http.StatusNotImplemented, stub)
 	}
