@@ -150,7 +150,8 @@ func TestClassify(t *testing.T) {
 		{"versions differ", live, link.ErrMismatched, wait{cause: link.ErrMismatched}},
 		{"call lost", live, rpc.Errorf(rpc.CodeUnavailable, "the link died"), wait{cause: rpc.Errorf(rpc.CodeUnavailable, "the link died")}},
 		{"torrent not re-added", live, downloading.ErrNotPresent, wait{cause: downloading.ErrNotPresent}},
-		{"refused by ffprobe", live, rpc.Errorf(rpc.CodeFailedPrecondition, "ffprobe: exit status 1"), fail{ProbeFailed, "failed_precondition: ffprobe: exit status 1"}},
+		{"refused by ffprobe", live, rpc.Errorf(rpc.CodeFailedPrecondition, "ffprobe: exit status 1"), fail{ProbeFailed, "ffprobe: exit status 1"}},
+		{"refused by the Indexer", live, &indexers.UnavailableError{Err: rpc.Errorf(rpc.CodeAborted, "the Indexer responded with status 500")}, fail{ProbeFailed, "The Indexer responded with status 500."}},
 		{"stopping", canceled, link.ErrDisconnected, stopped{}},
 	} {
 		got := classify(c.ctx, c.err, ProbeFailed)

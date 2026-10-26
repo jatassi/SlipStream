@@ -39,7 +39,7 @@ const verb = ({ one }: Named, single: string, plural: string) => (one ? single :
 
 /** Why a Work with files keeps its library root. */
 export const filesStay = (named: Named): string =>
-  `${named.words} ${verb(named, "has files, so it stays in its library root", "have files, so they stay in their library roots")}. Moving a Work with files arrives with Moves.`;
+  `${named.words} ${verb(named, "has files, so it stays in its library root", "have files, so they stay in their library roots")}. Moving a Work that has files isn't supported yet.`;
 
 type Skipping = { readonly already: (named: Named) => string; readonly source: string };
 

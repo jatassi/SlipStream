@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { sentenceOf } from "../../api/errors";
 import type {
@@ -19,6 +19,7 @@ export function useDeletePreview(subjects: readonly Subject[], files: WorksDelet
     queryKey: ["works-delete-preview", files, ...workIds],
     queryFn: ({ signal }) => deleteWorks({ workIds, files, preview: true }, { signal }),
     gcTime: 0,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -77,7 +78,7 @@ export function DeletePreview({
   preview: Preview;
   onLeave: () => void;
 }) {
-  if (preview.isPending) {
+  if (preview.isPending || preview.isPlaceholderData) {
     return <Spinner label="Checking what this deletes" />;
   }
   if (preview.isError) {

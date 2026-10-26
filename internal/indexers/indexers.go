@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -99,7 +100,17 @@ type UnavailableError struct {
 	Err  error
 }
 
-func (e *UnavailableError) Error() string { return "the Indexer is unavailable: " + e.Err.Error() }
+func (e *UnavailableError) Error() string {
+	return "the Indexer is unavailable: " + rpc.MessageOf(e.Err)
+}
+
+// Reason is the cause alone as a sentence a person reads, for a problem's
+// detail or a failure's Detail, whose title already says the Indexer is
+// unavailable.
+func (e *UnavailableError) Reason() string {
+	m := rpc.MessageOf(e.Err)
+	return strings.ToUpper(m[:1]) + m[1:] + "."
+}
 
 func (e *UnavailableError) Unwrap() error { return e.Err }
 

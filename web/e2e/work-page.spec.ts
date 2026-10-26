@@ -67,6 +67,8 @@ test("a failed download shows under Needs you, and Search again retries it", asy
   await expect(card).toHaveCount(1);
   await expect(card).toContainText("Failed at");
   await expect(card).toHaveAccessibleName("1080p failed at Downloading");
+  await expect(card).toContainText("The Indexer responded with status 500.");
+  await expect(card).not.toContainText("unavailable:");
   await expect(page.getByRole("list", { name: "Cells" })).toContainText("failed");
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("needs-you.png"), fullPage: true });

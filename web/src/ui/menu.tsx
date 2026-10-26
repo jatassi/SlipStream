@@ -13,7 +13,7 @@ export type MenuItem =
   | {
       kind?: "action";
       label: string;
-      icon?: IconSvgElement;
+      icon?: IconSvgElement | undefined;
       tone?: Tone;
       disabled?: boolean;
       onSelect: () => void;

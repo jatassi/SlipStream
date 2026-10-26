@@ -13,14 +13,17 @@ type Names = {
   readonly targetName: (id: string) => string;
 };
 
+const list = new Intl.ListFormat("en", { type: "conjunction" });
+
+// "Fills Director's Cut 2160p and 1080p", a cut before its Target as Needs you says it.
 const fillWords =
   ({ cutName, targetName }: Names) =>
   (file: FilesListedFile) =>
-    `Fills ${file.fills
-      .map(({ targetId, edition }) =>
-        edition === anyCut ? targetName(targetId) : `${targetName(targetId)}, ${cutName(edition)}`,
-      )
-      .join("; ")}`;
+    `Fills ${list.format(
+      file.fills.map(({ targetId, edition }) =>
+        edition === anyCut ? targetName(targetId) : `${cutName(edition)} ${targetName(targetId)}`,
+      ),
+    )}`;
 
 function FileRow({
   file,
