@@ -247,7 +247,7 @@ func (q *Queries) ListHomedWorks(ctx context.Context) ([]works.WorkID, error) {
 }
 
 const listHomesOf = `-- name: ListHomesOf :many
-SELECT work_id, root_id FROM roots_work WHERE work_id IN (/*SLICE:work_ids*/?)
+SELECT work_id, root_id FROM roots_work WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 func (q *Queries) ListHomesOf(ctx context.Context, workIds []works.WorkID) ([]RootsWork, error) {

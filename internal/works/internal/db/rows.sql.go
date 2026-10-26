@@ -61,6 +61,7 @@ func (q *Queries) ListLevelsOfWorks(ctx context.Context, workIds []WorkID) ([]Wo
 const listWorkArtOfWorks = `-- name: ListWorkArtOfWorks :many
 SELECT work_id, source, path FROM works_artwork
 WHERE kind = ?1 AND ifnull(item_id, x'') = x'' AND work_id IN (/*SLICE:work_ids*/?)
+ORDER BY work_id
 `
 
 type ListWorkArtOfWorksParams struct {
@@ -111,6 +112,7 @@ func (q *Queries) ListWorkArtOfWorks(ctx context.Context, arg ListWorkArtOfWorks
 const listWorkRatingsOfWorks = `-- name: ListWorkRatingsOfWorks :many
 SELECT work_id, source, value, votes, fetched_at FROM works_rating
 WHERE ifnull(item_id, x'') = x'' AND work_id IN (/*SLICE:work_ids*/?)
+ORDER BY work_id, source
 `
 
 type ListWorkRatingsOfWorksRow struct {
