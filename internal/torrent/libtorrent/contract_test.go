@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jatassi/slipstream/fakes/dht"
+	"github.com/jatassi/slipstream/fakes/dht/krpc"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -86,9 +86,9 @@ func (sessions) Incoming(t *testing.T, e engine.Engine) netip.Addr {
 func (sessions) DHT(t *testing.T) enginecontract.DHT {
 	var mu sync.Mutex
 	lookups := map[bencode.InfoHash]int{}
-	srv := dht.New(dht.Config{
+	srv := krpc.New(krpc.Config{
 		Peers: func(string, bencode.InfoHash) []netip.AddrPort { return nil },
-		Record: func(q dht.Query) {
+		Record: func(q krpc.Query) {
 			mu.Lock()
 			defer mu.Unlock()
 			if q.Method == "get_peers" {

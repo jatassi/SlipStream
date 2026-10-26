@@ -1,8 +1,8 @@
-// Package dht is fake-dht: SlipStream's own DHT node speaking KRPC (BEP 5)
-// over UDP, with one socket per origin. It answers ping, find_node with no
-// nodes, get_peers with the peers the caller lists for that origin and
-// hash, and announce_peer, and records every query it receives.
-package dht
+// Package krpc is the DHT node fake-dht runs: KRPC (BEP 5) over UDP, with
+// one socket per origin. It answers ping, find_node with no nodes,
+// get_peers with the peers the caller lists for that origin and hash, and
+// announce_peer, and records every query it receives.
+package krpc
 
 import (
 	"crypto/sha1" //nolint:gosec // a node ID only needs to be 20 bytes that differ per origin
@@ -49,7 +49,7 @@ func New(cfg Config) *Server { return &Server{cfg: cfg} }
 func (s *Server) Listen(origin string, addr netip.AddrPort) (netip.AddrPort, error) {
 	conn, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(addr))
 	if err != nil {
-		return netip.AddrPort{}, fmt.Errorf("dht: listen for %s: %w", origin, err)
+		return netip.AddrPort{}, fmt.Errorf("krpc: listen for %s: %w", origin, err)
 	}
 	s.mu.Lock()
 	s.conns = append(s.conns, conn)
@@ -85,13 +85,12 @@ func (s *Server) serve(origin string, conn *net.UDPConn) {
 		}
 		out, err := bencode.Encode(res)
 		if err != nil {
-			panic(fmt.Sprintf("dht: encode a response: %v", err))
+			panic(fmt.Sprintf("krpc: encode a response: %v", err))
 		}
 		_, _ = conn.WriteToUDPAddrPort(out, from)
 	}
 }
 
-// KRPC error codes.
 const (
 	protocolError = 203
 	methodUnknown = 204

@@ -1,4 +1,4 @@
-package dht_test
+package krpc_test
 
 import (
 	"net"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jatassi/slipstream/fakes/dht"
+	"github.com/jatassi/slipstream/fakes/dht/krpc"
 	"github.com/jatassi/slipstream/internal/bencode"
 )
 
@@ -23,22 +23,22 @@ var (
 )
 
 type world struct {
-	srv     *dht.Server
+	srv     *krpc.Server
 	mu      sync.Mutex
-	queries []dht.Query
+	queries []krpc.Query
 }
 
 func start(t *testing.T) *world {
 	t.Helper()
 	w := &world{}
-	w.srv = dht.New(dht.Config{
+	w.srv = krpc.New(krpc.Config{
 		Peers: func(origin string, h bencode.InfoHash) []netip.AddrPort {
 			if h != seeded {
 				return nil
 			}
 			return []netip.AddrPort{front[origin]}
 		},
-		Record: func(q dht.Query) {
+		Record: func(q krpc.Query) {
 			w.mu.Lock()
 			defer w.mu.Unlock()
 			w.queries = append(w.queries, q)
@@ -52,7 +52,7 @@ func start(t *testing.T) *world {
 	return w
 }
 
-func (w *world) recorded() []dht.Query {
+func (w *world) recorded() []krpc.Query {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return slices.Clone(w.queries)
@@ -126,7 +126,7 @@ func TestEachOriginsSocketAnswersGetPeersWithItsOwnPeers(t *testing.T) {
 		t.Errorf("get_peers for a hash nobody seeds answered %q, want no values and no nodes", r)
 	}
 	from := netip.MustParseAddrPort(c.LocalAddr().String())
-	want := []dht.Query{
+	want := []krpc.Query{
 		{Origin: "home", Method: "get_peers", From: from, InfoHash: seeded},
 		{Origin: "away", Method: "get_peers", From: from, InfoHash: seeded},
 		{Origin: "home", Method: "get_peers", From: from, InfoHash: lonely},
@@ -154,7 +154,7 @@ func TestPingFindNodeAndAnnouncePeerAreAnsweredAndRecorded(t *testing.T) {
 		t.Errorf("an unknown method answered %q, want error 204", e)
 	}
 	from := netip.MustParseAddrPort(c.LocalAddr().String())
-	want := []dht.Query{
+	want := []krpc.Query{
 		{Origin: "home", Method: "ping", From: from},
 		{Origin: "home", Method: "find_node", From: from},
 		{Origin: "home", Method: "announce_peer", From: from, InfoHash: seeded, Port: 6881},
