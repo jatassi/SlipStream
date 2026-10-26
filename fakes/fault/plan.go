@@ -292,17 +292,17 @@ func (p *Plan) Refused(f Front) (refused bool, changed <-chan struct{}) {
 	return refused, p.changedLocked()
 }
 
-// dialing is what a dial on a Network path meets: Refuse while a refuse
-// rule holds the path, Stall when a stall would take the connection,
+// dialing is what a dial through f on a Network path meets: Refuse while
+// a refuse rule holds f, Stall when a stall would take the connection,
 // since a stalled path drops the handshake, and nil otherwise.
-func (p *Plan) dialing() Fault {
-	if refused, _ := p.Refused(path); refused {
+func (p *Plan) dialing(f Front) Fault {
+	if refused, _ := p.Refused(f); refused {
 		return Refuse{}
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, e := range p.rules {
-		if e.takes(path, Conn) {
+		if e.takes(f, Conn) {
 			if e.Fault == (Stall{}) {
 				return Stall{}
 			}
