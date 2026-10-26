@@ -267,4 +267,3 @@ func downloads(t *testing.T, w *sim.World) []os.FileInfo {
 	}
 	return out
 }
-

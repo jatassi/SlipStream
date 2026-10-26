@@ -160,16 +160,16 @@ type Roots interface {
 }
 
 type Config struct {
-	Library    *storage.DB[file]
-	Works      *works.Works
-	Targets    *targets.Targets
-	Files      *files.Files
-	Indexers   *indexers.Indexers
-	Terms      map[works.TypeID]indexers.Facet
-	Roster     Roster
-	Downloads  Downloads
-	Media      media.Remote
-	Roots      Roots
+	Library   *storage.DB[file]
+	Works     *works.Works
+	Targets   *targets.Targets
+	Files     *files.Files
+	Indexers  *indexers.Indexers
+	Terms     map[works.TypeID]indexers.Facet
+	Roster    Roster
+	Downloads Downloads
+	Media     media.Remote
+	Roots     Roots
 	// Transfers copies a Grab's file from the Node that downloaded it to
 	// the Node that holds its root.
 	Transfers     *transfers.Transfers
