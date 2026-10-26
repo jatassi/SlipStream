@@ -51,6 +51,7 @@ var (
 	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
 	taskRunning         = api.NewCode(http.StatusConflict, "task_running", "The task has a run open")
 	artworkUnavailable  = api.NewCode(http.StatusNotFound, "artwork_unavailable", "SlipStream has no such image to show")
+	notImplemented      = api.NewCode(http.StatusNotImplemented, "not_implemented", "This route isn't built yet")
 )
 
 func answer(err error) error {
@@ -89,13 +90,21 @@ var states = map[metadata.State]string{
 }
 
 type provider struct {
-	ID      string                  `json:"id" doc:"The provider, such as tmdb"`
-	Label   string                  `json:"label"`
-	Summary string                  `json:"summary" doc:"How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details"`
-	Key     string                  `json:"key" enum:"none,bundled,yours" doc:"Whose key calls carry: none in this build, SlipStream's, or the Admin's"`
-	State   string                  `json:"state" enum:"unused,working,key_refused,rate_limited,out_of_allowance,unreachable" doc:"From the latest outcome of a call or test, unused until one"`
-	Until   api.Nullable[time.Time] `json:"until" doc:"When a rate limited provider, or one out of its daily allowance, takes calls again"`
-	Details details                 `json:"details"`
+	ID          string                    `json:"id" doc:"The provider, such as tmdb"`
+	Label       string                    `json:"label"`
+	Summary     string                    `json:"summary" doc:"How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details"`
+	Key         string                    `json:"key" enum:"none,bundled,yours" doc:"Whose key calls carry: none in this build, SlipStream's, or the Admin's"`
+	State       string                    `json:"state" enum:"unused,working,key_refused,rate_limited,out_of_allowance,unreachable" doc:"From the latest outcome of a call or test, unused until one"`
+	Until       api.Nullable[time.Time]   `json:"until" doc:"When a rate limited provider, or one out of its daily allowance, takes calls again"`
+	KeySetAt    api.Nullable[time.Time]   `json:"keySetAt" doc:"When the Admin set the key in use; null unless it is theirs"`
+	KeyPage     string                    `json:"keyPage" format:"uri" doc:"Where an Admin gets a key, opened in the browser"`
+	Attribution api.Nullable[attribution] `json:"attribution" doc:"What the provider's terms require SlipStream to show; null when they require nothing"`
+	Details     details                   `json:"details"`
+}
+
+type attribution struct {
+	Text string `json:"text" doc:"The sentence to show, word for word"`
+	Logo string `json:"logo" enum:"tmdb" doc:"The logo the web app bundles to show beside it"`
 }
 
 type details struct {
@@ -162,6 +171,13 @@ type refreshStarted struct {
 }
 
 type refreshStartedOutput struct{ Body refreshStarted }
+
+type refreshAllRun struct {
+	LastRunAt api.Nullable[time.Time] `json:"lastRunAt" doc:"When the latest Refresh all of the type ran; null until one has"`
+	Running   bool                    `json:"running" doc:"Whether a run that refreshes every Work of the type is open"`
+}
+
+type refreshAllRunOutput struct{ Body refreshAllRun }
 
 type settings struct {
 	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"Language and region first, then the cache, OMDb's ratings and the artwork store"`
@@ -248,6 +264,15 @@ func Routes(r *api.Router, registry Registry) {
 		Errors:  []*api.Code{contentTypeNotFound, taskUnknown, taskRunning},
 	}, h.refreshAll)
 
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getContentTypeRefresh",
+		Method:  http.MethodGet,
+		Path:    "/content-types/{contentType}/refresh",
+		Summary: "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+	}, h.getRefreshAll)
+
 	api.RegisterImage(o, api.Account, api.Op{
 		ID:      "getArtwork",
 		Method:  http.MethodGet,
@@ -325,6 +350,10 @@ func (h handlers) refreshAll(ctx context.Context, by identity.Admin, in *refresh
 		return nil, answer(err)
 	}
 	return &refreshStartedOutput{Body: refreshStarted{RunID: int64(id)}}, nil
+}
+
+func (handlers) getRefreshAll(context.Context, identity.Admin, *refreshInput) (*refreshAllRunOutput, error) {
+	return nil, notImplemented
 }
 
 func (h handlers) clearCache(_ context.Context, by identity.Admin, _ *struct{}) (*struct{}, error) {

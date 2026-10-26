@@ -177,8 +177,8 @@ func (f *fetches) all() []string {
 }
 
 const (
-	unusedTMDB = `{"id":"tmdb","label":"TMDB","summary":"This build has no TMDB key. Add your own.","key":"none","state":"unused","until":null,"details":{"lastSuccess":null,"lastError":null,"nodes":[]}}`
-	unusedOMDb = `{"id":"omdb","label":"OMDb","summary":"This build has no OMDb key. Add your own.","key":"none","state":"unused","until":null,"details":{"lastSuccess":null,"lastError":null,"nodes":[]}}`
+	unusedTMDB = `{"id":"tmdb","label":"TMDB","summary":"This build has no TMDB key. Add your own.","key":"none","state":"unused","until":null,"keySetAt":null,"keyPage":"","attribution":null,"details":{"lastSuccess":null,"lastError":null,"nodes":[]}}`
+	unusedOMDb = `{"id":"omdb","label":"OMDb","summary":"This build has no OMDb key. Add your own.","key":"none","state":"unused","until":null,"keySetAt":null,"keyPage":"","attribution":null,"details":{"lastSuccess":null,"lastError":null,"nodes":[]}}`
 )
 
 func TestAnAdminKeyIsTestedOnSaveAndShownInUse(t *testing.T) {
@@ -191,7 +191,7 @@ func TestAnAdminKeyIsTestedOnSaveAndShownInUse(t *testing.T) {
 	s.owner.Expect(t, http.MethodGet, "/api/v1/metadata/providers", "", http.StatusOK, `{"providers":[`+unusedTMDB+`,`+unusedOMDb+`]}`)
 
 	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/tmdb/key", `{"key":"mine"}`, http.StatusOK,
-		`{"id":"tmdb","label":"TMDB","summary":"TMDB is working.","key":"yours","state":"working","until":null,"details":{"lastSuccess":"T","lastError":null,"nodes":[{"nodeId":"id1","reached":true,"at":"T"}]}}`)
+		`{"id":"tmdb","label":"TMDB","summary":"TMDB is working.","key":"yours","state":"working","until":null,"keySetAt":null,"keyPage":"","attribution":null,"details":{"lastSuccess":"T","lastError":null,"nodes":[{"nodeId":"id1","reached":true,"at":"T"}]}}`)
 	s.owner.Expect(t, http.MethodDelete, "/api/v1/metadata/providers/tmdb/key", "", http.StatusOK, unusedTMDB)
 	s.owner.Expect(t, http.MethodDelete, "/api/v1/metadata/providers/tmdb/key", "", http.StatusOK, unusedTMDB)
 	if want := []string{"tmdb", "tmdb"}; !slices.Equal(s.changed.providers, want) {
@@ -211,7 +211,7 @@ func TestATestReadsTheProvidersStateWithItsTime(t *testing.T) {
 
 	s.tmdb.Cue(t, faketmdb.RevokeKey.Name, map[string]string{"key": ""})
 	s.owner.Expect(t, http.MethodPost, "/api/v1/metadata/providers/tmdb/test", "", http.StatusOK,
-		`{"id":"tmdb","label":"TMDB","summary":"This build has no TMDB key. Add your own.","key":"none","state":"key_refused","until":null,"details":{"lastSuccess":null,"lastError":{"words":"TMDB refused the key: Invalid API key: You must be granted a valid key.","at":"T"},"nodes":[{"nodeId":"id1","reached":true,"at":"T"}]}}`)
+		`{"id":"tmdb","label":"TMDB","summary":"This build has no TMDB key. Add your own.","key":"none","state":"key_refused","until":null,"keySetAt":null,"keyPage":"","attribution":null,"details":{"lastSuccess":null,"lastError":{"words":"TMDB refused the key: Invalid API key: You must be granted a valid key.","at":"T"},"nodes":[{"nodeId":"id1","reached":true,"at":"T"}]}}`)
 }
 
 func TestAnUnknownProviderIsNotFound(t *testing.T) {
