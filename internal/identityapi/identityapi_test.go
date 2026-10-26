@@ -47,6 +47,8 @@ var fixtureAdmin = struct{ ID, Path string }{"getFixture", "/fixture"}
 type nodeOptions struct {
 	origins []api.Origin
 	proxies []api.Proxy
+	// setupOpen leaves first setup open after the claim.
+	setupOpen bool
 }
 
 func newNode(t *testing.T) *node { return newNodeWith(t, nodeOptions{}) }
@@ -66,19 +68,19 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	gate, code, err := identity.NewGate(ctx, identitytest.Node{Service: svc}.Claim, log)
+	gate, code, err := identity.NewGate(ctx, identitytest.Node{Service: svc, SetupOpen: o.setupOpen}.Claim, log)
 	if err != nil {
 		t.Fatal(err)
 	}
 	r := api.NewRouter(api.Services{
-		Node:           identitytest.Node{Service: svc},
+		Node:           identitytest.Node{Service: svc, SetupOpen: o.setupOpen},
 		Gate:           gate,
 		Web:            fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},
 		TrustedOrigins: o.origins,
 		TrustedProxies: o.proxies,
 		Log:            log,
 	})
-	identityapi.Routes(r, identitytest.Node{Service: svc})
+	identityapi.Routes(r, identitytest.Node{Service: svc, SetupOpen: o.setupOpen})
 	api.Register(r.Owner("fixture", api.Admin), api.Admin, api.Op{ID: fixtureAdmin.ID, Method: http.MethodGet, Path: fixtureAdmin.Path},
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
 	return &node{t: t, mail: sent, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
@@ -183,7 +185,8 @@ type claimResponse struct {
 		DisplayName string `json:"displayName"`
 		Admin       bool   `json:"admin"`
 	} `json:"account"`
-	APIKey string `json:"apiKey"`
+	// APIKey is a fresh key the test made, since the claim shows none.
+	APIKey string `json:"-"`
 }
 
 func (n *node) claimed() (res claimResponse, session string) {
@@ -195,6 +198,7 @@ func (n *node) claimed() (res claimResponse, session string) {
 	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
 		n.t.Fatal(err)
 	}
+	res.APIKey = identitytest.APIKey(n.t, n.lib)
 	return res, sessionOf(n.t, w)
 }
 
@@ -247,8 +251,8 @@ func TestClaimController(t *testing.T) {
 	if !res.Account.Admin || res.Account.Email != "admin@example.com" || res.Account.DisplayName != "Admin" {
 		t.Fatalf("account = %+v, want the Admin admin@example.com", res.Account)
 	}
-	if !regexp.MustCompile(`^ssk_[A-Za-z0-9_-]{43}$`).MatchString(res.APIKey) {
-		t.Fatalf("apiKey = %q", res.APIKey)
+	if want := `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","firstRun":"finished","passkeyPrompt":false}` + "\n"; w.Body.String() != want {
+		t.Fatalf("the claim's reply = %s, want the sign-in %s", w.Body, want)
 	}
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
@@ -258,7 +262,7 @@ func TestClaimController(t *testing.T) {
 	}
 	expect(t, n.claim(n.code, "1234"), 409, alreadyClaimed)
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/session", session: sessionOf(t, w)}), 200,
-		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
+		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","firstRun":"finished"}`+"\n")
 }
 
 // The gate turns busy before the body is read, so a second setup request
@@ -311,7 +315,7 @@ func TestCreateSession(t *testing.T) {
 		t.Fatalf("a wrong PIN and an unknown email differ: %v and %v", wrong.Header(), unknown.Header())
 	}
 	w := n.signIn(" Admin@Example.COM ", "1234")
-	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","passkeyPrompt":false}`+"\n")
+	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","firstRun":"finished","passkeyPrompt":false}`+"\n")
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
 	}

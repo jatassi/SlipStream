@@ -9,7 +9,11 @@ import (
 
 // Node is a Node whose library.db is open from the start: Unclaimed until
 // its library holds an Admin, a Controller after.
-type Node struct{ Service *identity.Service }
+type Node struct {
+	Service *identity.Service
+	// SetupOpen is whether its first setup is open.
+	SetupOpen bool
+}
 
 func (n Node) Claim(ctx context.Context) (system.Claim, error) {
 	admin, err := n.Service.HasAdmin(ctx)
@@ -20,6 +24,8 @@ func (n Node) Claim(ctx context.Context) (system.Claim, error) {
 }
 
 func (n Node) Identity() (*identity.Service, bool) { return n.Service, true }
+
+func (n Node) FirstRunOpen(context.Context) (bool, error) { return n.SetupOpen, nil }
 
 func (n Node) ClaimController(_ context.Context, claim func(*identity.Service) error) error {
 	return claim(n.Service)

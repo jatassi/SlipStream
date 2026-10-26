@@ -155,7 +155,6 @@ import type {
   IdentityApiKeyMade,
   IdentityCeremony,
   IdentityClaimBody,
-  IdentityClaimed,
   IdentityEmailChangeStarted,
   IdentityIssuedResetLink,
   IdentityIssuedSignupLink,
@@ -4484,7 +4483,7 @@ export const getClaimControllerUrl = () => {
 export const claimController = async (
   identityClaimBody: IdentityClaimBody,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<IdentityClaimed> => {
+): Promise<IdentitySignedIn> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
   ): Record<string, string | readonly string[]> => {
@@ -4504,7 +4503,7 @@ export const claimController = async (
     }
     return headers;
   };
-  return apiFetch<IdentityClaimed>(getClaimControllerUrl(), {
+  return apiFetch<IdentitySignedIn>(getClaimControllerUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

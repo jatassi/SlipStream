@@ -16,7 +16,7 @@ const (
 	crockford      = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 	setupCodeLen   = 12
 	setupCodeGroup = 4
-	setupCodeHint  = "open this Node in a browser to start a new SlipStream, join one or restore a Backup"
+	setupCodeHint  = "open this Node in a browser to start a new SlipStream or join one"
 )
 
 // newSetupCode draws 60 bits as 12 Crockford base32 symbols, shown as

@@ -269,7 +269,7 @@ func redeemSignupLink(lib Library) func(context.Context, identity.Anyone, *joinI
 		if err != nil {
 			return nil, answer(err)
 		}
-		return signedInOf(got), nil
+		return signedInOf(ctx, lib, got)
 	}
 }
 
@@ -287,7 +287,7 @@ func redeemResetLink(lib Library) func(context.Context, identity.Anyone, *newPIN
 		if err != nil {
 			return nil, answer(err)
 		}
-		return signedInOf(got), nil
+		return signedInOf(ctx, lib, got)
 	}
 }
 

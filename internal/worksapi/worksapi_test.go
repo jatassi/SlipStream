@@ -157,7 +157,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var admin identity.Claimed
+	var admin identity.SignedIn
 	err = gate.Run(t.Context(), identity.Caller{}, code, func(c identity.Claim) {
 		admin, err = svc.ClaimController(t.Context(), c, "ada@example.test", "Ada", pin)
 	})
@@ -167,8 +167,8 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
-		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
-		Source:       fx.Source(),
+		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx},
+		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      discard[works.Changed]{},
@@ -198,7 +198,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
-	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
+	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {
@@ -314,8 +314,9 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	req.Header.Set("Cookie", identity.CookieName+"="+s.session)
 	w := httptest.NewRecorder()
 	s.handler.ServeHTTP(w, req)
-	want := `{"contentTypes":[{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
-		fixtureDescriptors + `}]}` + "\n"
+	fixture := `{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
+		fixtureDescriptors + `}`
+	want := `{"contentTypes":[` + fixture + "," + strings.Replace(fixture, `"id":"fixture"`, `"id":"other"`, 1) + "]}\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}
@@ -341,6 +342,7 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 			fixtureDescriptors+`}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "", 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
+	expect(t, s, http.MethodPut, "/api/v1/content-types/other/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_last","title":"Turn on another Content Type before turning this one off"}`)
 	if code, _ := s.call(t, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":true}`); code != 200 {
 		t.Fatalf("turn on = %d", code)
 	}

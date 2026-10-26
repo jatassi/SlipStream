@@ -73,12 +73,10 @@ func (c client) admin(apiKey, method, path, body string) reply {
 // claimedHome claims home and mints a Join Code with its API key.
 func claimedHome(t *testing.T, home *Node, hc client) (apiKey, code string) {
 	t.Helper()
-	claimed := decode[struct {
-		APIKey string `json:"apiKey"`
-	}](t, hc.claim(home.Ready().SetupCode, "1234"), http.StatusCreated)
+	apiKey = keyOf(t, hc, hc.claim(home.Ready().SetupCode, "1234"))
 	minted := decode[struct {
 		Code string `json:"code"`
-	}](t, hc.admin(claimed.APIKey, http.MethodPost, "/api/v1/join-codes", ""), http.StatusCreated)
+	}](t, hc.admin(apiKey, http.MethodPost, "/api/v1/join-codes", ""), http.StatusCreated)
 	parsed, err := joincode.Parse(minted.Code)
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +84,7 @@ func claimedHome(t *testing.T, home *Node, hc client) (apiKey, code string) {
 	if got, want := parsed.Addresses(), []netip.AddrPort{home.Ready().Listeners.Link}; !slices.Equal(got, want) {
 		t.Fatalf("the Join Code names %v, want the link listener %v", got, want)
 	}
-	return claimed.APIKey, minted.Code
+	return apiKey, minted.Code
 }
 
 type joinedWorker struct {

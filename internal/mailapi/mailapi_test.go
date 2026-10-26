@@ -63,13 +63,10 @@ func newNode(t *testing.T) *node {
 	mailapi.Routes(r, l)
 	n := &node{t: t, h: r.Handler(), smtp: f}
 	w := n.do(http.MethodPost, "/api/v1/setup/controller", `{"email":"ada@example.com","displayName":"Ada Okafor","pin":"2468"}`, map[string]string{"X-Setup-Code": code})
-	var claimed struct {
-		APIKey string `json:"apiKey"`
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &claimed); err != nil || w.Code != http.StatusCreated {
+	if w.Code != http.StatusCreated {
 		t.Fatalf("claimController = %d %s", w.Code, w.Body)
 	}
-	n.apiKey = claimed.APIKey
+	n.apiKey = identitytest.APIKey(t, lib)
 	for _, c := range w.Result().Cookies() {
 		if c.Name == identity.CookieName {
 			n.session = c.Value

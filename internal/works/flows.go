@@ -103,8 +103,8 @@ func (w *Works) Describe(t TypeID) (Description, bool) {
 }
 
 // SetEnabled turns t on or off. Turning off a type that holds a Work is
-// ErrTypeInUse. A change publishes ContentTypesChanged; a repeat changes
-// nothing.
+// ErrTypeInUse, and turning off the only type on is ErrLastType. A change
+// publishes ContentTypesChanged; a repeat changes nothing.
 func (w *Works) SetEnabled(ctx context.Context, _ identity.Admin, t TypeID, on bool) (ContentType, error) {
 	reg, ok := w.types[t]
 	if !ok {
@@ -124,6 +124,13 @@ func (w *Works) SetEnabled(ctx context.Context, _ identity.Admin, t TypeID, on b
 			return err
 		case holds:
 			return ErrTypeInUse
+		}
+		off, err := q.ListDisabledTypes(ctx)
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(w.ids, func(id TypeID) bool { return id != t && !slices.Contains(off, id) }) {
+			return ErrLastType
 		}
 		changed, err = q.DisableType(ctx, db.DisableTypeParams{ContentType: t, DisabledAt: storage.Now()})
 		return err

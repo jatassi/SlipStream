@@ -159,3 +159,11 @@ test("on phone the section is a pushed page with one root per row, and Add opens
   await expect.element(sheet.getByRole("textbox", { name: "Folder" })).toBeVisible();
   await expect.element(sheet.getByRole("textbox", { name: "Folder" })).not.toHaveFocus();
 });
+
+test("Library roots leads with a switch for each kind of media", async () => {
+  serveRoots({ roots: [filmsRoot] });
+  openRoots();
+  const kinds = page.getByRole("list", { name: "Kinds of media" });
+  await expect.element(kinds.getByRole("switch", { name: "Films" })).toBeChecked();
+  await expect.element(kinds.getByRole("switch", { name: "Zines" })).toBeChecked();
+});

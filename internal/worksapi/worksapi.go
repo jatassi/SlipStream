@@ -66,6 +66,7 @@ var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	contentTypeDisabled = api.NewCode(http.StatusConflict, "content_type_disabled", "That Content Type is turned off")
 	contentTypeInUse    = api.NewCode(http.StatusConflict, "content_type_in_use", "Remove its Works before turning this Content Type off")
+	contentTypeLast     = api.NewCode(http.StatusConflict, "content_type_last", "Turn on another Content Type before turning this one off")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	workGoneUpstream    = api.NewCode(http.StatusConflict, "work_gone_upstream", "The metadata source no longer has this Work")
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
@@ -85,6 +86,7 @@ var codes = []struct {
 	{works.ErrNoType, contentTypeNotFound},
 	{works.ErrTypeOff, contentTypeDisabled},
 	{works.ErrTypeInUse, contentTypeInUse},
+	{works.ErrLastType, contentTypeLast},
 	{works.ErrNoWork, workNotFound},
 	{works.ErrGoneUpstream, workGoneUpstream},
 	{works.ErrNotFound, metadataNotFound},
@@ -180,7 +182,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/content-types/{contentType}/enabled",
 		Summary: "Turn a Content Type on or off. It can be off only while it holds no Works",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, contentTypeInUse},
+		Errors:  []*api.Code{contentTypeNotFound, contentTypeInUse, contentTypeLast},
 	}, h.setContentTypeEnabled)
 
 	api.Register(o, api.Admin, api.Op{

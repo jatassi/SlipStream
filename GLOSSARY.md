@@ -348,6 +348,10 @@ _Avoid_: Portal user, user, guest
 A one-time code a fresh install prints to its console and log, which unlocks its first-run page to create the first Admin, join a SlipStream or restore a Backup.
 _Avoid_: Bootstrap token, install key
 
+**First setup**:
+The guided steps a new Controller's first Admin walks through after the claim, open until that Admin finishes them.
+_Avoid_: Onboarding, setup wizard, first run (for the steps after the claim)
+
 **Signup link**:
 A single-use link an Admin issues so one person can create their Account.
 _Avoid_: Invite, invitation, Join Code

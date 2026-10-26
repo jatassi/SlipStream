@@ -90,6 +90,27 @@ type prompted struct {
 	PasskeyPrompt bool `json:"passkeyPrompt"`
 }
 
+type firstRunPrompted struct {
+	FirstRun      *string `json:"firstRun"`
+	PasskeyPrompt bool    `json:"passkeyPrompt"`
+}
+
+func TestFirstSetupHoldsThePasskeyPromptAndReachesOnlyAdmins(t *testing.T) {
+	for _, open := range []bool{true, false} {
+		n := newNodeWith(t, nodeOptions{setupOpen: open})
+		n.claimed()
+		state := map[bool]string{true: "open", false: "finished"}[open]
+		got := decode[firstRunPrompted](t, n.signInAt(home), http.StatusOK)
+		if got.FirstRun == nil || *got.FirstRun != state || got.PasskeyPrompt == open {
+			t.Errorf("an Admin's sign-in with first setup %s = firstRun %v, passkeyPrompt %v; want %s and %v", state, got.FirstRun, got.PasskeyPrompt, state, !open)
+		}
+		member := identitytest.Session(t, n.lib, identitytest.Member(t, n.lib, "member@example.com"))
+		if got := decode[firstRunPrompted](t, n.getSession(member), http.StatusOK); got.FirstRun != nil {
+			t.Errorf("a Member's session carries firstRun %q", *got.FirstRun)
+		}
+	}
+}
+
 func TestThePasskeyPromptShowsOnlyWhereAPasskeyWorks(t *testing.T) {
 	n := newNode(t)
 	_, a := n.claimed()

@@ -122,14 +122,13 @@ func claimed(t *testing.T, lib *storage.DB[storage.Library], log *slog.Logger) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	var admin identity.Claimed
 	err = gate.Run(t.Context(), identity.Caller{}, code, func(c identity.Claim) {
-		admin, err = svc.ClaimController(t.Context(), c, "ada@example.test", "Ada", pin)
+		_, err = svc.ClaimController(t.Context(), c, "ada@example.test", "Ada", pin)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return svc, gate, admin.APIKey.Reveal()
+	return svc, gate, identitytest.APIKey(t, lib)
 }
 
 func TestAJoinCodeNeedsALinkAddress(t *testing.T) {

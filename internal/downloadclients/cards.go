@@ -2,6 +2,7 @@ package downloadclients
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
@@ -31,6 +32,9 @@ type Card struct {
 	// Totals add up the Node's live Torrents', and Torrents counts them.
 	Totals   Totals
 	Torrents int
+	// Volume is the Node's downloads folder volume as last sampled, nil
+	// until the first sample.
+	Volume *Volume
 	// Guard is set while the disk guard holds the Node's new downloads.
 	Guard *Guard
 }
@@ -82,32 +86,46 @@ func (c *Clients) Cards(ctx context.Context) ([]Card, error) {
 		if err != nil {
 			return err
 		}
+		vols, err := volumesIn(ctx, r)
+		if err != nil {
+			return err
+		}
 		for i, node := range downloaders {
-			o, err := nodeOverridesOf(ctx, r, node)
-			if err != nil {
+			if cards[i], err = c.cardIn(ctx, r, node); err != nil {
 				return err
-			}
-			t, err := db.New(r).GetNodeTotals(ctx, node)
-			if err != nil {
-				return err
-			}
-			cards[i] = Card{
-				Node: node, InStep: c.cfg.Roster.InStep(node), Settings: o.Settings(), Torrents: int(t.Torrents),
-				Totals: Totals{
-					Uploaded: t.Uploaded, Downloaded: t.Downloaded,
-					Active: time.Duration(t.ActiveSeconds) * time.Second, Seeding: time.Duration(t.SeedingSeconds) * time.Second,
-				},
-			}
-			if f, ok := c.cfg.Facts(node); ok {
-				cards[i].Facts = factsFrom(f)
 			}
 			if g, on := guards[node]; on {
 				cards[i].Guard = &g
+			}
+			if j := slices.IndexFunc(vols, func(v Volume) bool { return v.Node == node }); j >= 0 {
+				cards[i].Volume = &vols[j]
 			}
 		}
 		return nil
 	})
 	return cards, err
+}
+
+func (c *Clients) cardIn(ctx context.Context, r storage.Reader[file], node role.NodeID) (Card, error) {
+	o, err := nodeOverridesOf(ctx, r, node)
+	if err != nil {
+		return Card{}, err
+	}
+	t, err := db.New(r).GetNodeTotals(ctx, node)
+	if err != nil {
+		return Card{}, err
+	}
+	card := Card{
+		Node: node, InStep: c.cfg.Roster.InStep(node), Settings: o.Settings(), Torrents: int(t.Torrents),
+		Totals: Totals{
+			Uploaded: t.Uploaded, Downloaded: t.Downloaded,
+			Active: time.Duration(t.ActiveSeconds) * time.Second, Seeding: time.Duration(t.SeedingSeconds) * time.Second,
+		},
+	}
+	if f, ok := c.cfg.Facts(node); ok {
+		card.Facts = factsFrom(f)
+	}
+	return card, nil
 }
 
 // Arrived is nodes.Config.Facts: a Node's Downloading facts change its

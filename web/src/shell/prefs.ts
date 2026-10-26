@@ -10,6 +10,7 @@ type Values = {
   showHiddenFolders: boolean;
   /** Each Library's last view, by Content Type id or "all", in its address form; the Library parses it. */
   libraryViews: Readonly<Record<string, unknown>>;
+  setupCode: string;
 };
 
 export type Pref = keyof Values;
@@ -52,6 +53,7 @@ const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   lastEmail: text("browser"),
   showHiddenFolders: flag("browser"),
   libraryViews: views,
+  setupCode: text("tab"),
 };
 
 export const prefKey = (pref: Pref): string => `slipstream.${pref}`;

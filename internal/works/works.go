@@ -108,6 +108,7 @@ var (
 	ErrNoType       = errors.New("no Content Type has that id")
 	ErrTypeOff      = errors.New("that Content Type is turned off")
 	ErrTypeInUse    = errors.New("the Content Type still holds Works")
+	ErrLastType     = errors.New("the Content Type is the only one turned on")
 	ErrNoWork       = errors.New("no Work has that id")
 	ErrGoneUpstream = errors.New("the metadata source no longer has this Work")
 )

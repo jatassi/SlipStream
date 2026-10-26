@@ -17,7 +17,7 @@ export function Ways({ code, left }: { code: string; left: string | undefined })
       <ol aria-label="Ways to use the code" className="flex flex-col gap-3 text-ink-2">
         <li>
           <span className="font-semibold text-ink-1">First-run page.</span> Open the new Node in a
-          browser and paste the code there.
+          browser, choose Join an existing SlipStream and paste the code there.
         </li>
         <li className="flex flex-col gap-1">
           <span>
