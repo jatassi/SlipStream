@@ -114,7 +114,6 @@ func (h *Home) api(ctx context.Context, idx *searchv1.Indexer, params map[string
 	return h.get(ctx, u, searchLimit)
 }
 
-// response is an Indexer's response: its body, status and Location.
 type response struct {
 	body     []byte
 	status   int32

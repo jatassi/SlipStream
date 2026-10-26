@@ -49,8 +49,7 @@ type World struct {
 	payloads  map[bencode.InfoHash][]byte
 	transfers map[bencode.InfoHash]rates
 	trackers  map[string]*tracker
-	// lookups counts the DHT lookups of each info hash.
-	lookups map[bencode.InfoHash]int
+	lookups   map[bencode.InfoHash]int
 	// served are the metainfos whose info dictionary the swarm sends.
 	served map[bencode.InfoHash]bencode.Metainfo
 	// engines are the open engines.
@@ -289,7 +288,6 @@ type torrent struct {
 
 // fetch is a FetchMetadata torrent's search for its info dictionary.
 type fetch struct {
-	// reached is whether the torrent reached the swarm.
 	reached  bool
 	received bool
 }
@@ -333,7 +331,6 @@ func (e *Engine) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
 	return h, nil
 }
 
-// hold holds t under a new handle and returns it.
 func (e *Engine) hold(t *torrent) engine.Handle {
 	if was, ok := e.parting[t.meta.InfoHash]; ok {
 		// libtorrent hands back a torrent whose removal waits, and it stays.
@@ -551,7 +548,6 @@ func (e *Engine) Configure(l engine.Limits) error {
 	return nil
 }
 
-// lookUp looks t up in the World's DHT when t may.
 func (t *torrent) lookUp() {
 	if t.e.limits.DHT && t.discover && !t.meta.Info.Private && !t.paused {
 		t.e.w.lookups[t.meta.InfoHash]++
