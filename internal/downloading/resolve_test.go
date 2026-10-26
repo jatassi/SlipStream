@@ -266,3 +266,30 @@ func TestAClientThatIsntLiveTakesNoSearch(t *testing.T) {
 		}
 	})
 }
+
+func TestACallAfterASearchTimedOutGetsASearchOfItsOwn(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
+		f := newFile(t, "Orchard.mkv")
+		c := n.start()
+		c.send(live())
+		link := linkOf(f, trackerURL)
+
+		early := resolve(c, link, time.Now().Add(timings.ResolveHold/2))
+		time.Sleep(timings.ResolveHold/2 + 2*time.Second)
+		late := resolve(c, link, time.Now().Add(wait))
+		pending(t, late, "while the search that timed out is removed")
+		n.world.Answer(trackerURL)
+		if u := unresolvedOf(t, await(t, early)); u.GetReason() != dlv1.UnresolvedReason_UNRESOLVED_REASON_TIMED_OUT {
+			t.Errorf("the call whose deadline passed got %v, want timed out", u)
+		}
+		pending(t, late, "for a search of its own, not the end of one that timed out at another call's deadline")
+		n.serve(f)
+		if info := infoOf(t, await(t, late)); sha1.Sum(info) != f.hash { //nolint:gosec // the v1 info hash
+			t.Errorf("the late call got an info dictionary hashing to %x, want %s", sha1.Sum(info), f.hash) //nolint:gosec // the v1 info hash
+		}
+		if s := c.engine.searches(); s != 2 {
+			t.Errorf("the engine was asked for %d metadata searches, want one for each deadline", s)
+		}
+	})
+}

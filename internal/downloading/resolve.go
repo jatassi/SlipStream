@@ -67,6 +67,9 @@ type search struct {
 	// trackerSaid is the last failure reason a tracker responded with.
 	trackerSaid string
 	waiting     []chan answer
+	// next are the calls that came once end could no longer answer them,
+	// for a search that starts once this one's torrent is Removed.
+	next []ask
 	// end is what every waiting call gets once the engine torrent is
 	// Removed, nil for a search nobody asked about.
 	end *dlv1.ResolveResponse
@@ -92,35 +95,58 @@ func (l *loop) taking() bool {
 }
 
 func (l *loop) resolve(a ask, now time.Time) {
+	if !l.place(a, now) {
+		return
+	}
+	h, c := a.link.InfoHash, l.c
+	time.AfterFunc(c.cfg.Timings.ResolveHold, func() { c.send(func(l *loop) { l.hold(h, a.reply) }) })
+}
+
+// place answers a, or has it wait on its hash's search, and reports
+// whether it waits.
+func (l *loop) place(a ask, now time.Time) bool {
 	h := a.link.InfoHash
 	if !l.taking() {
 		a.reply <- answer{res: notTaking()}
-		return
+		return false
 	}
 	if l.torrents[h] != nil {
 		a.reply <- answer{res: held()}
-		return
+		return false
 	}
 	s := l.searches[h]
 	switch {
 	case s == nil && !l.peerSource(a.link):
 		a.reply <- answer{res: unresolved(dlv1.UnresolvedReason_UNRESOLVED_REASON_NO_PEER_SOURCE, 0, "", "")}
-		return
+		return false
 	case s == nil:
 		s = &search{link: a.link}
 		if err := l.startSearch(s, now); err != nil {
 			a.reply <- answer{res: unresolved(dlv1.UnresolvedReason_UNRESOLVED_REASON_ENGINE_ERROR, 0, "", err.Error())}
-			return
+			return false
 		}
 		l.searches[h] = s
 	case s.phase == kept:
 		a.reply <- answer{res: s.end}
-		return
+		return false
+	case s.phase == ending && !answersAnyCall(s.end):
+		s.next = append(s.next, a)
+		return true
 	}
 	s.asked, s.endsAt = now, later(s.endsAt, a.endsAt)
 	s.waiting = append(s.waiting, a.reply)
-	c := l.c
-	time.AfterFunc(c.cfg.Timings.ResolveHold, func() { c.send(func(l *loop) { l.hold(h, a.reply) }) })
+	return true
+}
+
+// answersAnyCall reports whether end answers a call whatever its
+// deadline: an end that timed out or found no peer source answers only
+// the calls it was chosen for.
+func answersAnyCall(end *dlv1.ResolveResponse) bool {
+	switch end.GetAnswer().(type) {
+	case *dlv1.ResolveResponse_Info, *dlv1.ResolveResponse_Held:
+		return true
+	}
+	return false
 }
 
 func later(a, b time.Time) time.Time {
@@ -143,10 +169,7 @@ func (l *loop) startSearch(s *search, now time.Time) error {
 		l.c.cfg.Log.Warn("can't start looking for a magnet link's metadata", "info_hash", s.link.InfoHash.String(), "err", err.Error())
 		return err
 	}
-	*s = search{
-		link: s.link, phase: looking, handle: handle, discover: discover, since: now,
-		endsAt: s.endsAt, asked: s.asked, waiting: s.waiting,
-	}
+	*s = search{link: s.link, phase: looking, handle: handle, discover: discover, since: now}
 	l.searchOf[handle] = s
 	return nil
 }
@@ -158,11 +181,13 @@ func (l *loop) hold(h bencode.InfoHash, reply chan answer) {
 	if s == nil {
 		return
 	}
-	i := slices.Index(s.waiting, reply)
-	if i < 0 || s.phase == looking && !time.Now().Before(s.endsAt) {
+	if i := slices.IndexFunc(s.next, func(a ask) bool { return a.reply == reply }); i >= 0 {
+		s.next = slices.Delete(s.next, i, i+1)
+	} else if i := slices.Index(s.waiting, reply); i >= 0 && (s.phase != looking || time.Now().Before(s.endsAt)) {
+		s.waiting = slices.Delete(s.waiting, i, i+1)
+	} else {
 		return
 	}
-	s.waiting = slices.Delete(s.waiting, i, i+1)
 	reply <- answer{res: &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_Searching{Searching: &dlv1.Searching{
 		SinceUnixMs: s.since.UnixMilli(), Peers: int32(s.peers), //nolint:gosec // a peer count fits
 	}}}}
@@ -197,27 +222,24 @@ func (l *loop) searchEvent(s *search, ev engine.Event) {
 }
 
 // searchRemoved answers the waiting calls with the search's end, and
-// keeps a found info dictionary. A search that ended unasked starts again
-// for a call that came since.
+// keeps a found info dictionary. The calls that came since are placed
+// again, so a search of their own starts for them.
 func (l *loop) searchRemoved(s *search, now time.Time) {
 	delete(l.searchOf, s.handle)
 	s.handle = 0
-	if s.end == nil && len(s.waiting) > 0 {
-		err := l.startSearch(s, now)
-		if err == nil {
-			return
-		}
-		s.end = unresolved(dlv1.UnresolvedReason_UNRESOLVED_REASON_ENGINE_ERROR, 0, "", err.Error())
-	}
 	for _, w := range s.waiting {
 		w <- answer{res: s.end}
 	}
-	s.waiting = nil
+	next := s.next
+	s.waiting, s.next = nil, nil
 	if _, found := s.end.GetAnswer().(*dlv1.ResolveResponse_Info); found {
 		s.phase, s.found = kept, now
-		return
+	} else {
+		delete(l.searches, s.link.InfoHash)
 	}
-	delete(l.searches, s.link.InfoHash)
+	for _, a := range next {
+		l.place(a, now)
+	}
 }
 
 // resyncSearches takes each ending search the engine no longer holds as
@@ -273,6 +295,9 @@ func (l *loop) releaseSearches() {
 		}
 		for _, w := range s.waiting {
 			w <- answer{res: notTaking()}
+		}
+		for _, a := range s.next {
+			a.reply <- answer{res: notTaking()}
 		}
 	}
 	clear(l.searches)
