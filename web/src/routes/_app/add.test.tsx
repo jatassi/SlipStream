@@ -124,6 +124,7 @@ test("with two roots the sheet offers each with its free space", async () => {
   await openSheet();
 
   await userEvent.click(sheet().getByRole("combobox", { name: "Library root" }));
+  await expect.element(page.getByRole("option", { name: /^\/mnt\/shelf/u })).toBeVisible();
   expect(
     page
       .getByRole("option")
