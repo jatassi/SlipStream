@@ -17,6 +17,11 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/link/v1/linkv1connect"
 )
 
+// MaxMessage is the largest message a call over the link reads: a
+// .torrent at the Indexers' 10 MiB cap, or its info dictionary, with room
+// for the rest of the message.
+const MaxMessage = 16 << 20
+
 // session is one authenticated connection to a peer. It is live once it
 // is the peer table's entry for its key.
 type session struct {
@@ -71,7 +76,7 @@ func (l *Link) start(c *counted, tc *tls.Conn, dialed bool) (*session, error) {
 	s.http = wire.Transport(l.cfg.Settings.StreamWindow, func(ctx context.Context) (net.Conn, error) {
 		return wire.Open(ctx, ms, wire.RPC)
 	})
-	s.rpc = connecthttp.NewTransport(&http.Client{Transport: s.http}, "http://"+s.key.String())
+	s.rpc = connecthttp.NewTransport(&http.Client{Transport: s.http}, "http://"+s.key.String(), connecthttp.WithReadMaxBytes(MaxMessage))
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.closed {

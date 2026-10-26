@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -286,6 +287,21 @@ func TestACallWhoseLinkDiesIsLost(t *testing.T) {
 		close(release)
 		if _, notSent := rpc.NotSent(err); notSent || !rpc.Lost(err) || rpc.Answered(err) {
 			t.Errorf("a call whose link died after sending = %v (code %v), want Lost and unanswered", err, rpc.CodeOf(err))
+		}
+	})
+}
+
+func TestACallCarriesAMessageAsLargeAsTheTorrentCap(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.Connect(t)
+		text := strings.Repeat("x", 11<<20)
+		res, err := rpctestv1connect.RecordService.Call(c.worker).Record(t.Context(), &rpctestv1.RecordRequest{Text: text})
+		if err != nil {
+			t.Fatalf("an 11 MiB request and response over the link: %v", err)
+		}
+		if len(res.GetText()) != len(text) {
+			t.Fatalf("the response carried %d bytes, want %d", len(res.GetText()), len(text))
 		}
 	})
 }
