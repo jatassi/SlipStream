@@ -4,15 +4,15 @@ One Work on one scroll. The hero sets the Work's backdrop behind its poster, its
 
 ## Sub-features
 
-- `work-hero` The Salt Road's page on `movies` shows the backdrop, the poster and the title treatment as an image inside the `h1` named `The Salt Road`, the facts line `2023 · Movie · 1h 52m · PG-13 · Drama, Adventure` with its first rating, the `Cells` pills, and the overview clamped to three lines with `More` (P-045).
+- `work-hero` The Salt Road's page on `movies` shows the backdrop, the poster and the title treatment as an image inside the `h1` named `The Salt Road`, the facts line `2022 · Movie · 1h 52m · PG-13 · Drama, Adventure` with its first rating, `IMDb 7.1`, the `Cells` pills, and the overview clamped to three lines with `More` (P-045).
 - `work-needs-you` a Work with no library root reads `No library root for this Work` with `Open Library roots` under `Needs you`; a failed download reads one compact failure card named for the cells it holds back, with `Search again`, and the pills read `failed`.
 - `work-matrix` the table `Editions and Targets` has one column per Target of the Work's Profile with its sourcing, `Downloaded`, and one row per wanted Edition reading where its list comes from, `From Profile <name>` or `Set for this Work`; each cell has its state chip and, while it lacks a file, `Search for <Target>, <Edition>`. On phone it is one card per Edition (P-208).
 - `work-editions` `Editions` (desktop) or `Edit Editions` (phone, in the actions sheet) opens `Editions of <title>` with the heading `Editions from Profile <name>`; `Choose cuts` and `Add cut` make `Editions set for this Work`, and `Save` opens the Impact `Save the Editions of <title>`. Saving toasts `Saved the Editions of <title>.`, the rows read `Set for this Work`, and a cut no release has shown yet sits in its own row reading `Not seen yet. It's wanted once a release of it is found.`
 - `work-files` `Files` reads the Work's library root and folder, then each file that fills a cell with its fills, quality, size and dimensions, and `Kept files` apart, each with `Kept file` and `Fills no wanted Target`; with none it reads `No files yet. A Grab that imports puts its file here.` (P-048).
-- `work-about` About shows the tagline, Certification `PG-13 (United States)` with its `With` country, Studio `Fennel Films` beside the studio logo, Collection and Awards, one strip of photos per department of Cast and crew, each rating with its votes and fetch time, the TMDB page and trailer as links that open a new tab, the movie Item's `Counts as out on April 4, 2023, Digital release in United States.`, and `TMDB lists this movie as 9000005.` over `Details` (P-048, P-057).
+- `work-about` About shows the tagline, Certification `PG-13 (US)` with its `With` country, Studio `Fennel Films` beside the studio logo, Collection and Awards, one strip of photos per department of Cast and crew, each rating with its votes and fetch time, the TMDB page and trailer as links that open a new tab, the movie Item's `Counts as out on April 4, 2023, Digital release in United States.`, and `TMDB lists this movie as 9000005.` over `Details` (P-048, P-057).
 - `work-edit` `Edit…` opens `Edit <title>` with `Profile` and `Library root`; a new Profile saves through the Impact `Give <title> the Profile <name>` and toasts `Changed the Profile of <title>.` (P-047).
 - `work-refresh` `Refresh metadata` toasts `Refreshed the metadata of <title>.` and the page shows the new record; once TMDB drops the Work it toasts `TMDB no longer lists <title>, so it wasn't refreshed.`, the hero reads `Gone from TMDB`, `Refresh metadata is unavailable` and `TMDB no longer lists this movie. SlipStream keeps it as it is.` with `Delete`, the record stays, and `Refresh metadata` in the menu is disabled (P-047).
-- `work-delete` `Delete…` opens the delete dialog; deleting toasts once and the page goes back to the Library, and a Work deleted elsewhere while its page is open toasts `<title> was deleted.` and leaves the same way (P-047).
+- `work-delete` `Delete…`, or the gone-upstream warning's `Delete`, opens `Delete <title>?`; deleting toasts once, `Deleted <title> and its files.`, and the page goes back to its Library. A Work deleted elsewhere while its page is open toasts `<title> was deleted.` and leaves the same way (P-047).
 
 ## How to get to it (user POV)
 
@@ -73,11 +73,15 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
   ```
 
-- **Delete.** Choose `Delete…`, then the dialog's delete button. The page goes back to the Library, and `GET /api/v1/works/$W` answers 404.
+- **Delete.** Choose the warning's `Delete`, then the dialog's `Delete`. The page goes to `/library/movie` with one toast. Then add The Quiet Orchard, open its page, set `Q` to its id and delete it over the API: the page toasts `The Quiet Orchard was deleted.` and goes to `/library/movie`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Delete" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Delete", exact: true })'
   $FW exec $RUN --proof work-page/work-delete -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/work-page/work-delete/dialog.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Delete", exact: true })'
+  $FW exec $RUN --proof work-page/work-delete -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/work-page/work-delete/after.png
+  $FW exec $RUN --proof work-page/work-delete -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"workIds\":[\"$Q\"],\"files\":\"leave\"}" '{nodes.home.url}/api/v1/works/delete'
+  $FW exec $RUN --proof work-page/work-delete -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/work-page/work-delete/elsewhere.png
   ```
 
 ## Gotchas
