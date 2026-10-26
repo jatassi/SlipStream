@@ -107,7 +107,7 @@ test("Set key tests the key and saves it only once the provider accepts it", asy
 
   await userEvent.fill(dialog.getByRole("textbox", { name: "Key" }), "good-key");
   await userEvent.click(dialog.getByRole("button", { name: "Test and save" }));
-  await expect.element(page.getByText("TMDB now uses your key.")).toBeVisible();
+  await expect.element(page.getByText("SlipStream now calls TMDB with your key.")).toBeVisible();
   await expect.element(dialog).not.toBeInTheDocument();
   expect(sent).toEqual([{ key: "wrong-key" }, { key: "good-key" }]);
 });

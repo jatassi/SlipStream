@@ -37,7 +37,7 @@ export function RefreshAll({ type }: { type: WorksContentType }) {
   return (
     <div className="flex flex-col items-start gap-2">
       <p className="text-ink-2">
-        Refresh all reads every {type.work.one} from {type.source} again, as after changing the
+        Refresh all reads every {type.work.one} from {type.source} again. Use it after changing the
         metadata language or region. {lastRunWords(run)}
       </p>
       <Button busy={starting} disabled={run.running} onClick={() => void start()}>

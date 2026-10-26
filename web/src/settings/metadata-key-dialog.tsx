@@ -21,7 +21,7 @@ function KeyForm({ provider, onDone }: { provider: MetadataProvider; onDone: () 
         formApi.setErrorMap({ onSubmit: submitErrors(error, { metadata_key_refused: "key" }) });
         return;
       }
-      toast(`${provider.label} now uses your key.`);
+      toast(`SlipStream now calls ${provider.label} with your key.`);
       onDone();
     },
   });
