@@ -7,4 +7,5 @@ export type Scenario =
   | "serving"
   | "targets"
   | "torrents"
-  | "cgnat-home";
+  | "cgnat-home"
+  | "seedbox-nas";
