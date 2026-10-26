@@ -2315,6 +2315,14 @@ export const MakeFolderInputBody = zod.object({
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
 
+export const MetadataAttribution = zod.object({
+  logo: zod.enum(["tmdb"]).describe("The logo the web app bundles to show beside it"),
+  text: zod.string().describe("The sentence to show, word for word"),
+});
+
+export type MetadataAttribution = zod.input<typeof MetadataAttribution>;
+export type MetadataAttributionOutput = zod.output<typeof MetadataAttribution>;
+
 export const MetadataChanged = zod.object({
   provider: zod.string().describe("The provider whose status changed"),
 });
@@ -2362,11 +2370,21 @@ export type MetadataNewKey = zod.input<typeof MetadataNewKey>;
 export type MetadataNewKeyOutput = zod.output<typeof MetadataNewKey>;
 
 export const MetadataProvider = zod.object({
+  attribution: zod
+    .union([MetadataAttribution, zod.null()])
+    .describe(
+      "What the provider's terms require SlipStream to show; null when they require nothing",
+    ),
   details: MetadataDetails,
   id: zod.string().describe("The provider, such as tmdb"),
   key: zod
     .enum(["none", "bundled", "yours"])
     .describe("Whose key calls carry: none in this build, SlipStream's, or the Admin's"),
+  keyPage: zod.url().describe("Where an Admin gets a key, opened in the browser"),
+  keySetAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Admin set the key in use; null unless it is theirs"),
   label: zod.string(),
   state: zod
     .enum(["unused", "working", "key_refused", "rate_limited", "out_of_allowance", "unreachable"])
@@ -2391,6 +2409,17 @@ export const MetadataProviderList = zod.object({
 
 export type MetadataProviderList = zod.input<typeof MetadataProviderList>;
 export type MetadataProviderListOutput = zod.output<typeof MetadataProviderList>;
+
+export const MetadataRefreshAllRun = zod.object({
+  lastRunAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the latest Refresh all of the type ran; null until one has"),
+  running: zod.boolean().describe("Whether a run that refreshes every Work of the type is open"),
+});
+
+export type MetadataRefreshAllRun = zod.input<typeof MetadataRefreshAllRun>;
+export type MetadataRefreshAllRunOutput = zod.output<typeof MetadataRefreshAllRun>;
 
 export const MetadataRefreshStarted = zod.object({
   runId: zod.int().describe("The Metadata refresh run that refreshes every Work of the type"),
@@ -3880,14 +3909,6 @@ export const RootsVolumesChanged = zod.object({
 export type RootsVolumesChanged = zod.input<typeof RootsVolumesChanged>;
 export type RootsVolumesChangedOutput = zod.output<typeof RootsVolumesChanged>;
 
-export const RootsWorkRoot = zod.object({
-  rootId: zod.uuid(),
-  workId: zod.uuid(),
-});
-
-export type RootsWorkRoot = zod.input<typeof RootsWorkRoot>;
-export type RootsWorkRootOutput = zod.output<typeof RootsWorkRoot>;
-
 export const ServingWorker = zod.object({
   controller: zod.string().describe("Its Controller's name"),
   fingerprint: zod.string().describe("This Worker's key fingerprint, as its Controller lists it"),
@@ -3904,13 +3925,6 @@ export const ServingWorker = zod.object({
 
 export type ServingWorker = zod.input<typeof ServingWorker>;
 export type ServingWorkerOutput = zod.output<typeof ServingWorker>;
-
-export const SetWorkRootInputBody = zod.object({
-  rootId: zod.uuid(),
-});
-
-export type SetWorkRootInputBody = zod.input<typeof SetWorkRootInputBody>;
-export type SetWorkRootInputBodyOutput = zod.output<typeof SetWorkRootInputBody>;
 
 export const ShellAlerts = zod.object({
   health: zod

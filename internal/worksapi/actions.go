@@ -2,9 +2,12 @@ package worksapi
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -65,10 +68,11 @@ func (h handlers) setWorksMonitored(ctx context.Context, by identity.Admin, in *
 	if err != nil {
 		return nil, err
 	}
-	if _, err := composer(h.shelf).Monitor(ctx, by, ws, in.Body.On); err != nil {
+	os, err := composer(h.shelf).Monitor(ctx, by, ws, in.Body.On)
+	if err != nil {
 		return nil, answer(err)
 	}
-	return nil, notImplemented
+	return outcomeListOf(os)
 }
 
 func (h handlers) setWorksProfile(ctx context.Context, by identity.Admin, in *profileInput) (*profileChangedOutput, error) {
@@ -80,10 +84,18 @@ func (h handlers) setWorksProfile(ctx context.Context, by identity.Admin, in *pr
 	if err != nil {
 		return nil, profileNotFound
 	}
-	if _, _, err := composer(h.shelf).SetProfile(ctx, by, ws, targets.ProfileID{UUID: u}, in.Mode()); err != nil {
+	impact, os, err := composer(h.shelf).SetProfile(ctx, by, ws, targets.ProfileID{UUID: u}, in.Mode())
+	if moved, ok := errors.AsType[*files.ImpactChangedError](err); ok {
+		return nil, targetsapi.ImpactRefused(moved)
+	}
+	if err != nil {
 		return nil, answer(err)
 	}
-	return nil, notImplemented
+	out, err := outcomesOf(os)
+	if err != nil {
+		return nil, err
+	}
+	return &profileChangedOutput{Body: profileChanged{Impact: targetsapi.ImpactOf(impact), Outcomes: out}}, nil
 }
 
 func (h handlers) setWorksRoot(ctx context.Context, by identity.Admin, in *rootInput) (*outcomeListOutput, error) {
@@ -95,10 +107,11 @@ func (h handlers) setWorksRoot(ctx context.Context, by identity.Admin, in *rootI
 	if err != nil {
 		return nil, rootNotFound
 	}
-	if _, err := composer(h.shelf).SetRoot(ctx, by, ws, roots.ID{UUID: u}); err != nil {
+	os, err := composer(h.shelf).SetRoot(ctx, by, ws, roots.ID{UUID: u})
+	if err != nil {
 		return nil, answer(err)
 	}
-	return nil, notImplemented
+	return outcomeListOf(os)
 }
 
 func (h handlers) refreshWorks(ctx context.Context, by identity.Admin, in *refreshInput) (*outcomeListOutput, error) {
@@ -106,8 +119,17 @@ func (h handlers) refreshWorks(ctx context.Context, by identity.Admin, in *refre
 	if err != nil {
 		return nil, err
 	}
-	if _, err := composer(h.shelf).Refresh(ctx, by, ws); err != nil {
+	os, err := composer(h.shelf).Refresh(ctx, by, ws)
+	if err != nil {
 		return nil, answer(err)
 	}
-	return nil, notImplemented
+	return outcomeListOf(os)
+}
+
+func outcomeListOf(os []library.Outcome) (*outcomeListOutput, error) {
+	out, err := outcomesOf(os)
+	if err != nil {
+		return nil, err
+	}
+	return &outcomeListOutput{Body: outcomeList{Outcomes: out}}, nil
 }

@@ -77,6 +77,20 @@ func (m *Metadata) RefreshAll(ctx context.Context, _ identity.Admin, t works.Typ
 	})
 }
 
+// RefreshAllAt is when every Work of t was last asked to refresh, by
+// Refresh all or a new language or region, zero if never. The first run
+// of Metadata refresh started at or after it refreshes them all.
+func (m *Metadata) RefreshAllAt(ctx context.Context, _ identity.Admin, t works.TypeID) (time.Time, error) {
+	if !slices.Contains(m.cfg.Types, t) {
+		return time.Time{}, works.ErrNoType
+	}
+	at, err := db.New(m.cfg.Library).GetRefreshAll(ctx, string(t))
+	if errors.Is(err, storage.ErrNoRows) {
+		return time.Time{}, nil
+	}
+	return at.Time(), err
+}
+
 // shown lists the task once the library holds a Work.
 func shown(ctx context.Context, r storage.Reader[storage.Library]) (bool, error) {
 	held, err := works.Held(ctx, r)

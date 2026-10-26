@@ -12,7 +12,6 @@ import type {
   RootsSuggestions,
   RootsVerdict,
   RootsVolumeList,
-  RootsWorkRoot,
 } from "../../model";
 
 export const getBrowseFoldersResponseMock = (
@@ -310,14 +309,6 @@ export const getListVolumesResponseMock = (
   ...overrideResponse,
 });
 
-export const getSetWorkRootResponseMock = (
-  overrideResponse: Partial<Extract<RootsWorkRoot, object>> = {},
-): RootsWorkRoot => ({
-  rootId: faker.string.uuid(),
-  workId: faker.string.uuid(),
-  ...overrideResponse,
-});
-
 export const getBrowseFoldersMockHandler = (
   overrideResponse?:
     | RootsListing
@@ -591,30 +582,6 @@ export const getListVolumesMockHandler = (
     options,
   );
 };
-
-export const getSetWorkRootMockHandler = (
-  overrideResponse?:
-    | RootsWorkRoot
-    | ((
-        info: Parameters<Parameters<typeof http.patch>[1]>[0],
-      ) => Promise<RootsWorkRoot> | RootsWorkRoot),
-  options?: RequestHandlerOptions,
-) => {
-  return http.patch(
-    "*/api/v1/works/:workId",
-    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
-      return HttpResponse.json(
-        overrideResponse !== undefined
-          ? typeof overrideResponse === "function"
-            ? await overrideResponse(info)
-            : overrideResponse
-          : getSetWorkRootResponseMock(),
-        { status: 200 },
-      );
-    },
-    options,
-  );
-};
 export const getRootsMock = () => [
   getBrowseFoldersMockHandler(),
   getMakeFolderMockHandler(),
@@ -628,5 +595,4 @@ export const getRootsMock = () => [
   getRehomeRootMockHandler(),
   getMakeDefaultRootMockHandler(),
   getListVolumesMockHandler(),
-  getSetWorkRootMockHandler(),
 ];

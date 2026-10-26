@@ -81,6 +81,9 @@ func (s *shelved) add(t *testing.T, key, label, body string, things ...string) w
 func (s *shelved) addRecord(t *testing.T, key string, r contenttypetest.Record, body string) works.Tree {
 	t.Helper()
 	s.fx.Put(works.Key(key), r)
+	if !strings.Contains(body, `"monitor"`) {
+		body += `,"monitor":false`
+	}
 	code, reply := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"`+key+`"`+body+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork %s = %d %s", key, code, reply)
