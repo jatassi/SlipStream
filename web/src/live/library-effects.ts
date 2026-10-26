@@ -1,4 +1,4 @@
-import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
+import { getGetWorkCellsQueryKey, getListWorkFilesQueryKey } from "../api/gen/query/files/files";
 import {
   getGetGrabQueryKey,
   getListGrabsQueryKey,
@@ -13,44 +13,55 @@ import {
 } from "../api/gen/query/works/works";
 import { noteWork } from "./activity";
 import { everyPath } from "./refresh";
+import { noteRemoved } from "./removed";
+import { dropRows, queueRows, wholeLibrary } from "./rows";
 import type { LiveEffects } from "./types";
 
-const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
 const everyWork = everyPath(/^\/api\/v1\/works(\/[^/]+(\/cells)?)?$/u);
 
-/** The library's events: Works, their files, Grabs and searches. A fetch or a search also moves the Diagram's machines. */
+/**
+ * The library's events: Works, their files, Grabs and searches. A row of
+ * the Library is read again only for the Works an event names. A fetch or
+ * a search also moves the Diagram's machines.
+ */
 export const libraryEffects = {
-  "works.changed": (data, { refresh }) => {
+  "works.changed": ({ workIds }, { queryClient, refresh }) => {
     noteWork("fetch");
+    queueRows(queryClient, workIds);
     refresh({ queryKey: getListWorksQueryKey() });
-    for (const workId of data.workIds) {
+    for (const workId of workIds) {
       refresh({ queryKey: getGetWorkQueryKey(workId) });
       refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
     }
     refresh({ queryKey: getListRootsQueryKey() });
-    refresh(everyCatalogSearch);
   },
-  "works.removed": (_data, { refresh }) => {
+  "works.removed": ({ workIds }, { queryClient, refresh }) => {
+    noteRemoved(queryClient, workIds);
+    dropRows(queryClient, workIds);
     refresh({ queryKey: getListWorksQueryKey() });
     refresh({ queryKey: getListRootsQueryKey() });
     refresh({ queryKey: getGetCountsQueryKey() });
-    refresh(everyCatalogSearch);
   },
   "works.content-types-changed": (_data, { refresh }) => {
     refresh({ queryKey: getListContentTypesQueryKey() });
   },
   "works.type-changed": (_data, { refresh }) => {
+    refresh(wholeLibrary);
     refresh(everyWork);
-    refresh(everyCatalogSearch);
   },
-  "files.changed": (data, { refresh }) => {
-    refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+  "files.changed": ({ workId }, { queryClient, refresh }) => {
+    queueRows(queryClient, [workId]);
+    refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
+    refresh({ queryKey: getListWorkFilesQueryKey(workId) });
     refresh({ queryKey: getListRootsQueryKey() });
   },
-  "grabs.changed": (data, { refresh }) => {
+  "grabs.changed": ({ grabId, workId, progress }, { queryClient, refresh }) => {
+    if (!progress) {
+      queueRows(queryClient, [workId]);
+    }
     refresh({ queryKey: getListGrabsQueryKey() });
-    refresh({ queryKey: getGetGrabQueryKey(data.grabId) });
-    refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+    refresh({ queryKey: getGetGrabQueryKey(grabId) });
+    refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
     refresh({ queryKey: getGetCountsQueryKey() });
   },
   "grabs.search-changed": (data, { refresh }) => {
