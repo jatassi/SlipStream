@@ -26,7 +26,7 @@ func (q *Queries) CountUnplaced(ctx context.Context, transferID local.TransferID
 }
 
 const deleteTransfer = `-- name: DeleteTransfer :exec
-DELETE FROM transfers_transfer WHERE id = ?1
+DELETE FROM transfers_record WHERE id = ?1
 `
 
 func (q *Queries) DeleteTransfer(ctx context.Context, id local.TransferID) error {
@@ -84,12 +84,12 @@ func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (Tran
 }
 
 const getTransfer = `-- name: GetTransfer :one
-SELECT id, purpose, job, source_node, destination_kind, destination_root, created_at, failure_code, failure_position, failure_detail FROM transfers_transfer WHERE id = ?1
+SELECT id, purpose, job, source_node, destination_kind, destination_root, created_at, failure_code, failure_position, failure_detail FROM transfers_record WHERE id = ?1
 `
 
-func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (TransfersTransfer, error) {
+func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (TransfersRecord, error) {
 	row := q.db.QueryRowContext(ctx, getTransfer, id)
-	var i TransfersTransfer
+	var i TransfersRecord
 	err := row.Scan(
 		&i.ID,
 		&i.Purpose,
@@ -136,7 +136,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 }
 
 const insertTransfer = `-- name: InsertTransfer :exec
-INSERT INTO transfers_transfer (id, purpose, job, source_node, destination_kind, destination_root, created_at)
+INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 `
 
@@ -263,7 +263,7 @@ func (q *Queries) ListPairs(ctx context.Context) ([]TransfersPair, error) {
 }
 
 const listTransferIDs = `-- name: ListTransferIDs :many
-SELECT id FROM transfers_transfer ORDER BY id
+SELECT id FROM transfers_record ORDER BY id
 `
 
 func (q *Queries) ListTransferIDs(ctx context.Context) ([]local.TransferID, error) {
@@ -290,18 +290,18 @@ func (q *Queries) ListTransferIDs(ctx context.Context) ([]local.TransferID, erro
 }
 
 const listTransfers = `-- name: ListTransfers :many
-SELECT id, purpose, job, source_node, destination_kind, destination_root, created_at, failure_code, failure_position, failure_detail FROM transfers_transfer ORDER BY created_at, id
+SELECT id, purpose, job, source_node, destination_kind, destination_root, created_at, failure_code, failure_position, failure_detail FROM transfers_record ORDER BY created_at, id
 `
 
-func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersTransfer, error) {
+func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersRecord, error) {
 	rows, err := q.db.QueryContext(ctx, listTransfers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []TransfersTransfer
+	var items []TransfersRecord
 	for rows.Next() {
-		var i TransfersTransfer
+		var i TransfersRecord
 		if err := rows.Scan(
 			&i.ID,
 			&i.Purpose,
@@ -356,7 +356,7 @@ func (q *Queries) PutPair(ctx context.Context, arg PutPairParams) error {
 }
 
 const setFailure = `-- name: SetFailure :exec
-UPDATE transfers_transfer
+UPDATE transfers_record
 SET failure_code = ?1, failure_position = ?2, failure_detail = ?3
 WHERE id = ?4 AND failure_code IS NULL
 `
@@ -424,7 +424,7 @@ func (q *Queries) SetVerified(ctx context.Context, arg SetVerifiedParams) error 
 }
 
 const transferOfJob = `-- name: TransferOfJob :one
-SELECT id FROM transfers_transfer WHERE purpose = ?1 AND job = ?2
+SELECT id FROM transfers_record WHERE purpose = ?1 AND job = ?2
 `
 
 type TransferOfJobParams struct {

@@ -3,7 +3,7 @@
 -- another. Its live state is never stored: the Controller judges it from
 -- these rows, both Nodes' facts and standing, and the destination volume.
 -- The destination's Node isn't stored either, so a re-home moves it.
-CREATE TABLE transfers_transfer (
+CREATE TABLE transfers_record (
     id BLOB PRIMARY KEY NOT NULL,
     purpose TEXT NOT NULL CHECK (purpose <> ''),
     job TEXT NOT NULL,
@@ -22,10 +22,10 @@ CREATE TABLE transfers_transfer (
     CHECK ((destination_kind = 'root') = (destination_root IS NOT NULL)),
     CHECK (failure_code IS NOT NULL OR (failure_position IS NULL AND failure_detail = ''))
 ) STRICT;
-CREATE INDEX transfers_transfer_line ON transfers_transfer (created_at, id);
+CREATE INDEX transfers_record_line ON transfers_record (created_at, id);
 
 CREATE TABLE transfers_file (
-    transfer_id BLOB NOT NULL REFERENCES transfers_transfer (id) ON DELETE CASCADE,
+    transfer_id BLOB NOT NULL REFERENCES transfers_record (id) ON DELETE CASCADE,
     position INTEGER NOT NULL CHECK (position >= 0),
     -- The Item key the purpose groups files by, '' for none.
     item TEXT NOT NULL,

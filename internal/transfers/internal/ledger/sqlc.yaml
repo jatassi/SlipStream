@@ -13,7 +13,7 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
-          - column: transfers_transfer.id
+          - column: transfers_record.id
             go_type:
               import: github.com/jatassi/slipstream/internal/transfers/internal/db
               package: local
@@ -23,7 +23,7 @@ sql:
               import: github.com/jatassi/slipstream/internal/transfers/internal/db
               package: local
               type: TransferID
-          - column: transfers_transfer.destination_root
+          - column: transfers_record.destination_root
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
               type: ID

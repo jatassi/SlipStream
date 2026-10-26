@@ -22,7 +22,7 @@ func New(r storage.Reader[file]) *Queries { return db.New(r) }
 
 type (
 	Queries              = db.Queries
-	Transfer             = db.TransfersTransfer
+	Transfer             = db.TransfersRecord
 	File                 = db.TransfersFile
 	Pair                 = db.TransfersPair
 	Node                 = db.TransfersNode

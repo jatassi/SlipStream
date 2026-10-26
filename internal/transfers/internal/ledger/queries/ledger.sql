@@ -1,5 +1,5 @@
 -- name: InsertTransfer :exec
-INSERT INTO transfers_transfer (id, purpose, job, source_node, destination_kind, destination_root, created_at)
+INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, created_at)
 VALUES (sqlc.arg(id), sqlc.arg(purpose), sqlc.arg(job), sqlc.arg(source_node), sqlc.arg(destination_kind), sqlc.arg(destination_root), sqlc.arg(created_at));
 
 -- name: InsertFile :exec
@@ -7,16 +7,16 @@ INSERT INTO transfers_file (transfer_id, position, item, name, source_kind, info
 VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(item), sqlc.arg(name), sqlc.arg(source_kind), sqlc.arg(info_hash), sqlc.arg(file_index), sqlc.arg(size));
 
 -- name: TransferOfJob :one
-SELECT id FROM transfers_transfer WHERE purpose = sqlc.arg(purpose) AND job = sqlc.arg(job);
+SELECT id FROM transfers_record WHERE purpose = sqlc.arg(purpose) AND job = sqlc.arg(job);
 
 -- name: GetTransfer :one
-SELECT * FROM transfers_transfer WHERE id = sqlc.arg(id);
+SELECT * FROM transfers_record WHERE id = sqlc.arg(id);
 
 -- name: ListTransfers :many
-SELECT * FROM transfers_transfer ORDER BY created_at, id;
+SELECT * FROM transfers_record ORDER BY created_at, id;
 
 -- name: ListTransferIDs :many
-SELECT id FROM transfers_transfer ORDER BY id;
+SELECT id FROM transfers_record ORDER BY id;
 
 -- name: ListFiles :many
 SELECT * FROM transfers_file ORDER BY transfer_id, position;
@@ -35,12 +35,12 @@ UPDATE transfers_file SET placed = 1 WHERE transfer_id = sqlc.arg(transfer_id) A
 SELECT count(*) FROM transfers_file WHERE transfer_id = sqlc.arg(transfer_id) AND placed = 0;
 
 -- name: SetFailure :exec
-UPDATE transfers_transfer
+UPDATE transfers_record
 SET failure_code = sqlc.arg(failure_code), failure_position = sqlc.arg(failure_position), failure_detail = sqlc.arg(failure_detail)
 WHERE id = sqlc.arg(id) AND failure_code IS NULL;
 
 -- name: DeleteTransfer :exec
-DELETE FROM transfers_transfer WHERE id = sqlc.arg(id);
+DELETE FROM transfers_record WHERE id = sqlc.arg(id);
 
 -- name: ListPairs :many
 SELECT * FROM transfers_pair ORDER BY source_node, destination_node;

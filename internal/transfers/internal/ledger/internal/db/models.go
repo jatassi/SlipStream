@@ -38,7 +38,7 @@ type TransfersPair struct {
 	RouteAt         storage.Time
 }
 
-type TransfersTransfer struct {
+type TransfersRecord struct {
 	ID              local.TransferID
 	Purpose         string
 	Job             string
