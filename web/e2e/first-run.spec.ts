@@ -49,7 +49,7 @@ async function startNewSlipStream(page: Page): Promise<void> {
   await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially("1357");
   await page.getByRole("textbox", { name: "PIN again", exact: true }).pressSequentially("1357");
   await page.getByRole("button", { name: "Create Admin" }).click();
-  await expect(page).not.toHaveURL(/\/setup$/u);
+  await expect(page).toHaveURL(/\/setup\/address$/u);
 }
 
 // The Join tests finish first setup by API, because its guided steps have
@@ -155,7 +155,7 @@ test("Start a new SlipStream claims the Node and leaves the first-run page", asy
   await startNewSlipStream(page);
   expect((await world.api("GET", "/api/v1/status")).body).toMatchObject({ claim: "controller" });
   await page.goto("/setup");
-  await expect(page).not.toHaveURL(/\/setup$/u);
+  await expect(page).toHaveURL(/\/setup\/address$/u);
 });
 
 test("den joins home with a Join Code from Add a Node", async ({ page, world, newContext }) => {
