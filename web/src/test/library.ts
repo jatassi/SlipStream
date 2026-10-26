@@ -1,4 +1,4 @@
-import type { WorksContentType, WorksListedWork, WorksTree } from "../api/gen/model";
+import type { WorksContentType, WorksListedWork, WorksWorkView } from "../api/gen/model";
 
 export const cinema: WorksContentType = {
   id: "cinema",
@@ -9,17 +9,48 @@ export const cinema: WorksContentType = {
   item: { one: "Film", many: "Films" },
   levels: [],
   fields: [
-    { key: "year", label: "Year", tier: "work", kind: "number" },
-    { key: "released", label: "Released", tier: "work", kind: "date" },
-    { key: "runtime", label: "Runtime", tier: "work", kind: "duration" },
+    {
+      key: "year",
+      label: "Year",
+      tier: "work",
+      kind: "number",
+      in: ["facts"],
+      list: { column: true, sort: true, filter: true },
+      with: null,
+      art: null,
+    },
+    {
+      key: "released",
+      label: "Released",
+      tier: "work",
+      kind: "date",
+      in: ["about"],
+      list: { column: false, sort: false, filter: false },
+      with: null,
+      art: null,
+    },
+    {
+      key: "runtime",
+      label: "Runtime",
+      tier: "work",
+      kind: "duration",
+      in: ["facts"],
+      list: { column: true, sort: true, filter: false },
+      with: null,
+      art: null,
+    },
   ],
   artwork: [],
+  source: "TMDB",
+  items: "one",
+  art: { poster: null, backdrop: null, title: null },
+  ratings: [],
 };
 
 export const orchardId = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";
 export const orchardItemId = "8e2b4d6f-1a3c-4e5f-9b7d-0c2e4a6b8d1f";
 
-export const orchard: WorksTree = {
+export const orchard: WorksWorkView = {
   id: orchardId,
   contentType: "cinema",
   key: "9000001",
@@ -51,6 +82,9 @@ export const orchard: WorksTree = {
       availability: { date: "2021-04-09", basis: "Digital release in United States" },
     },
   ],
+  links: [],
+  profile: { id: "0199e1f2-7a3b-7c4d-8e5f-000000000001", name: "Films" },
+  root: null,
 };
 
 export const orchardListed: WorksListedWork = {

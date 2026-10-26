@@ -127,6 +127,9 @@ var stateNames = [...]string{Unreleased: "unreleased", Missing: "missing", Downl
 
 func (s State) String() string { return stateNames[s] }
 
+// States names every State, in the glossary's order.
+func States() []string { return slices.Clone(stateNames[Unreleased:]) }
+
 // CellKey names one cell: an Edition at a Target of an Item.
 type CellKey struct {
 	Item    works.ItemID

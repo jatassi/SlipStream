@@ -214,7 +214,7 @@ func (sv sources) tmdbOf(t *testing.T, ask metadata.Ask, id int64) tmdb.Movie {
 }
 
 func library() contenttype.Library {
-	return movie.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)})
+	return movie.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, movie.Def.Endpoints())
 }
 
 func ask(language, region string) metadata.Ask {
@@ -342,7 +342,7 @@ func (discard[T]) Publish(context.Context, T) {}
 
 type published struct{ n atomic.Int64 }
 
-func (p *published) Publish(context.Context, works.WorkChanged) { p.n.Add(1) }
+func (p *published) Publish(context.Context, works.Changed) { p.n.Add(1) }
 
 // retyped records each works.type-changed by its Content Type.
 type retyped struct {

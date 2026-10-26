@@ -532,7 +532,13 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "log.viewer_lines", Value: "2000", Default: "2000", Source: "default", Env: "SLIPSTREAM_LOG_VIEWER_LINES"},
 			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_API"},
 			{Key: "endpoints.tmdb.images", Value: "https://image.tmdb.org/t/p", Default: "https://image.tmdb.org/t/p", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_IMAGES"},
+			{Key: "endpoints.tmdb.key_page", Value: "https://www.themoviedb.org/settings/api", Default: "https://www.themoviedb.org/settings/api", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_KEY_PAGE"},
 			{Key: "endpoints.omdb.api", Value: "https://www.omdbapi.com", Default: "https://www.omdbapi.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_API"},
+			{Key: "endpoints.omdb.key_page", Value: "https://www.omdbapi.com/apikey.aspx", Default: "https://www.omdbapi.com/apikey.aspx", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_KEY_PAGE"},
+			{Key: "endpoints.content_types.movie.imdb", Value: "https://www.imdb.com", Default: "https://www.imdb.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_IMDB"},
+			{Key: "endpoints.content_types.movie.tmdb_site", Value: "https://www.themoviedb.org", Default: "https://www.themoviedb.org", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_TMDB_SITE"},
+			{Key: "endpoints.content_types.movie.trakt", Value: "https://trakt.tv", Default: "https://trakt.tv", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_TRAKT"},
+			{Key: "endpoints.content_types.movie.youtube", Value: "https://www.youtube.com", Default: "https://www.youtube.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_YOUTUBE"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
 			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
@@ -600,7 +606,10 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.health.retry", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_RETRY"},
 			{Key: "timings.health.check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_CHECK"},
 		},
-		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api"},
+		Census: []string{
+			"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page",
+			"endpoints.content_types.movie.imdb", "endpoints.content_types.movie.tmdb_site", "endpoints.content_types.movie.trakt", "endpoints.content_types.movie.youtube",
+		},
 		ContentTypes: []string{"movie"},
 	}
 	if !reflect.DeepEqual(got, want) {

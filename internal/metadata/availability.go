@@ -38,7 +38,7 @@ type AvailabilityConfig struct {
 	Targets *targets.Targets
 	// Hub wakes the timer on works.changed and works.type-changed.
 	Hub     *live.Hub
-	Changed works.Publisher[works.WorkChanged]
+	Changed works.Publisher[works.Changed]
 	// Now is the time in the Controller's zone, whose calendar days the
 	// timer announces.
 	Now      func() time.Time
@@ -162,8 +162,8 @@ func (a *Availability) release(ctx context.Context, last, today time.Time, ws []
 			return fmt.Errorf("hand %d released Items to the hook: %w", len(items), err)
 		}
 	}
-	for _, w := range ws {
-		a.cfg.Changed.Publish(ctx, works.WorkChanged{WorkID: w.String()})
+	if len(ws) > 0 {
+		a.cfg.Changed.Publish(ctx, works.ChangedOf(ws...))
 	}
 	err := a.cfg.Local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		return announced.SetDay(ctx, tx, today)

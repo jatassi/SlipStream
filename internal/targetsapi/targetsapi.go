@@ -123,7 +123,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/targets/{targetId}",
 		Summary: "Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, impactChanged},
+		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, ImpactChanged},
 	}, h.updateTarget)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "duplicateTarget",
@@ -171,7 +171,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles/{profileId}",
 		Summary: "Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, impactChanged},
+		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, ImpactChanged},
 	}, h.updateProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "deleteProfile",
@@ -179,7 +179,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles/{profileId}",
 		Summary: "Delete a Profile that isn't its Content Type's default, moving its Works to another of the type, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchProfile, profileNotFound, profileIsDefault, profileWrongType, impactChanged},
+		Errors:  []*api.Code{noSuchProfile, profileNotFound, profileIsDefault, profileWrongType, ImpactChanged},
 	}, h.deleteProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "makeDefaultProfile",
@@ -210,7 +210,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/cuts/{cutKey}",
 		Summary: "Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchCut, standardIsFixed, cutNotCustom, cutNameTaken, impactChanged},
+		Errors:  []*api.Code{noSuchCut, standardIsFixed, cutNotCustom, cutNameTaken, ImpactChanged},
 	}, h.updateCut)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "deleteCut",
@@ -234,7 +234,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/works/{workId}/wants",
 		Summary: "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, profileNotFound, profileWrongType, cutNotFound, impactChanged},
+		Errors:  []*api.Code{workNotFound, profileNotFound, profileWrongType, cutNotFound, ImpactChanged},
 	}, h.setWorkWants)
 }
 

@@ -53,6 +53,7 @@ var Events = []live.Event{
 	nodes.SettingsChangedEvent,
 	nodes.TrafficEvent,
 	works.ChangedEvent,
+	works.RemovedEvent,
 	works.ContentTypesChangedEvent,
 	works.TypeChangedEvent,
 	metadata.ChangedEvent,

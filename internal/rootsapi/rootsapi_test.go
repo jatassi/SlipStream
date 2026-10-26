@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -61,6 +62,7 @@ type node struct {
 func (n node) Roots() (*roots.Roots, bool)       { return n.r, true }
 func (n node) Works() (*works.Works, bool)       { return n.w, true }
 func (n node) Targets() (*targets.Targets, bool) { return n.t, true }
+func (node) Library() (*library.Library, bool)   { return nil, false }
 func (node) Minter() (artwork.Minter, bool) {
 	return artwork.NewMinter([]byte("rootsapi")), true
 }
@@ -134,7 +136,7 @@ func serve(t *testing.T) *server {
 		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
-		Changed:      discard[works.WorkChanged]{},
+		Changed:      discard[works.Changed]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
 		Log:          slog.New(slog.DiscardHandler),
 	})

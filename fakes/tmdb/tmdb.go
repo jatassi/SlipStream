@@ -41,6 +41,7 @@ var Fake = fake.Spec{
 	New:  newServer,
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.TMDB.API = endpoint.MustParseURL(at.URL(root))
+		e.TMDB.KeyPage = endpoint.MustParseURL("https://www.tmdb.invalid/settings/api")
 	},
 	Online: fake.OnlineSuite("tmdb"),
 	Cues:   []fake.CueSpec{RevokeKey, Change, Delete},

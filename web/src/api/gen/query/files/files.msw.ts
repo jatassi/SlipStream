@@ -7,10 +7,15 @@ import type {
   FilesCellList,
   FilesDownloadingCell,
   FilesFailedCell,
+  FilesFailedNeed,
+  FilesFileList,
   FilesMetCell,
   FilesMissingCell,
+  FilesNoRootNeed,
   FilesUnreleasedCell,
   FilesUpgradableCell,
+  FilesUpgradeNeed,
+  FilesWaitingNeed,
 } from "../../model";
 
 export const getGetWorkCellsResponseFilesUnreleasedCellMock = (
@@ -149,6 +154,58 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
   ...overrideResponse,
 });
 
+export const getGetWorkCellsResponseFilesFailedNeedMock = (
+  overrideResponse: Partial<FilesFailedNeed> = {},
+): FilesFailedNeed => ({
+  ...{
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    grabId: faker.string.uuid(),
+    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["failed"] as const),
+    targetId: faker.string.uuid(),
+    waiting: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesUpgradeNeedMock = (
+  overrideResponse: Partial<FilesUpgradeNeed> = {},
+): FilesUpgradeNeed => ({
+  ...{
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["upgrade"] as const),
+    upgrades: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesWaitingNeedMock = (
+  overrideResponse: Partial<FilesWaitingNeed> = {},
+): FilesWaitingNeed => ({
+  ...{
+    code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    grabId: faker.string.uuid(),
+    kind: faker.helpers.arrayElement(["waiting"] as const),
+  },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesNoRootNeedMock = (
+  overrideResponse: Partial<FilesNoRootNeed> = {},
+): FilesNoRootNeed => ({
+  ...{ kind: faker.helpers.arrayElement(["no_root"] as const) },
+  ...overrideResponse,
+});
+
 export const getGetWorkCellsResponseMock = (
   overrideResponse: Partial<Extract<FilesCellList, object>> = {},
 ): FilesCellList => ({
@@ -176,6 +233,86 @@ export const getGetWorkCellsResponseMock = (
       null,
     ]),
   })),
+  needsYou: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getGetWorkCellsResponseFilesFailedNeedMock() },
+      { ...getGetWorkCellsResponseFilesUpgradeNeedMock() },
+      { ...getGetWorkCellsResponseFilesWaitingNeedMock() },
+      { ...getGetWorkCellsResponseFilesNoRootNeedMock() },
+    ]),
+  ),
+  summary: {
+    cells: {
+      ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+    },
+    itemStatus: {
+      ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+    },
+    items: faker.number.int({ min: 0 }),
+    status: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "unreleased",
+        "missing",
+        "downloading",
+        "failed",
+        "upgradable",
+        "met",
+      ] as const),
+      null,
+    ]),
+  },
+  ...overrideResponse,
+});
+
+export const getListWorkFilesResponseMock = (
+  overrideResponse: Partial<Extract<FilesFileList, object>> = {},
+): FilesFileList => ({
+  files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    fills: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        itemId: faker.string.uuid(),
+        targetId: faker.string.uuid(),
+      }),
+    ),
+    folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    id: faker.string.uuid(),
+    kept: faker.datatype.boolean(),
+    path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
+    quality: faker.helpers.arrayElement([
+      "sdtv",
+      "dvd",
+      "webrip-480p",
+      "hdtv-720p",
+      "webrip-720p",
+      "webdl-720p",
+      "bluray-720p",
+      "hdtv-1080p",
+      "webrip-1080p",
+      "webdl-1080p",
+      "bluray-1080p",
+      "remux-1080p",
+      "hdtv-2160p",
+      "webrip-2160p",
+      "webdl-2160p",
+      "bluray-2160p",
+      "remux-2160p",
+      "cam",
+    ] as const),
+    size: faker.number.int({ min: 0 }),
+  })),
+  folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 });
 
@@ -202,4 +339,28 @@ export const getGetWorkCellsMockHandler = (
     options,
   );
 };
-export const getFilesMock = () => [getGetWorkCellsMockHandler()];
+
+export const getListWorkFilesMockHandler = (
+  overrideResponse?:
+    | FilesFileList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<FilesFileList> | FilesFileList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/works/:workId/files",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListWorkFilesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+export const getFilesMock = () => [getGetWorkCellsMockHandler(), getListWorkFilesMockHandler()];

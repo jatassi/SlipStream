@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { WorksListedWork, WorksTree } from "../../api/gen/model";
+import type { WorksListedWork, WorksWorkView } from "../../api/gen/model";
 import {
   getGetWorkMockHandler,
   getListContentTypesMockHandler,
@@ -16,7 +16,7 @@ import { renderApp } from "../../test/render-app";
 
 const label = "Search Works or run a command";
 const duneId = "6f1d3b5a-9c7e-4b2d-8f0a-1c3e5a7b9d2f";
-const dune: WorksTree = {
+const dune: WorksWorkView = {
   ...orchard,
   id: duneId,
   key: "9000002",

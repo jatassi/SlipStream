@@ -63,7 +63,7 @@ func serve(t *testing.T) *served {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {
 		t.Fatal(err)

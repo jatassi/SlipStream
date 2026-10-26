@@ -31,6 +31,11 @@ export const ActInputBody = zod.object({
 export type ActInputBody = zod.input<typeof ActInputBody>;
 export type ActInputBodyOutput = zod.output<typeof ActInputBody>;
 
+export const Bare = zod.union([zod.number(), zod.string(), zod.array(zod.string())]);
+
+export type Bare = zod.input<typeof Bare>;
+export type BareOutput = zod.output<typeof Bare>;
+
 export const checkFolderInputBodyPathMax = 4096;
 
 export const CheckFolderInputBody = zod.object({
@@ -1056,19 +1061,22 @@ export const FilesCell = zod.discriminatedUnion("state", [
 export type FilesCell = zod.input<typeof FilesCell>;
 export type FilesCellOutput = zod.output<typeof FilesCell>;
 
+export const FilesState = zod.enum([
+  "unreleased",
+  "missing",
+  "downloading",
+  "failed",
+  "upgradable",
+  "met",
+]);
+
+export type FilesState = zod.input<typeof FilesState>;
+export type FilesStateOutput = zod.output<typeof FilesState>;
+
 export const FilesItemStatus = zod.object({
   itemId: zod.uuid(),
   status: zod
-    .union([
-      zod.literal("unreleased"),
-      zod.literal("missing"),
-      zod.literal("downloading"),
-      zod.literal("failed"),
-      zod.literal("upgradable"),
-      zod.literal("met"),
-      zod.literal(null),
-    ])
-    .nullable()
+    .union([FilesState, zod.null()])
     .describe(
       "The first state its cells hold, in the glossary's order; null for an Item with no cell",
     ),
@@ -1077,9 +1085,91 @@ export const FilesItemStatus = zod.object({
 export type FilesItemStatus = zod.input<typeof FilesItemStatus>;
 export type FilesItemStatusOutput = zod.output<typeof FilesItemStatus>;
 
+export const FilesFailedNeed = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cells want"),
+  grabId: zod.uuid().describe("The Grab that failed"),
+  itemIds: zod.array(zod.string()).describe("A run of Items in tree order whose entries match"),
+  kind: zod.enum(["failed"]),
+  targetId: zod.uuid().describe("The Target whose download failed"),
+  waiting: zod
+    .array(zod.string())
+    .describe(
+      "The Targets of the same Items and Edition, still missing, that wait on the failed one",
+    ),
+});
+
+export type FilesFailedNeed = zod.input<typeof FilesFailedNeed>;
+export type FilesFailedNeedOutput = zod.output<typeof FilesFailedNeed>;
+
+export const FilesUpgradeNeed = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cells want"),
+  itemIds: zod.array(zod.string()).describe("A run of Items in tree order whose entries match"),
+  kind: zod.enum(["upgrade"]),
+  upgrades: zod.array(zod.string()).describe("Every upgradable Target of the Items and Edition"),
+});
+
+export type FilesUpgradeNeed = zod.input<typeof FilesUpgradeNeed>;
+export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
+
+export const FilesWaitingNeed = zod.object({
+  code: zod.string().describe("Why the Grab waits, such as needs_transfer"),
+  grabId: zod.uuid(),
+  kind: zod.enum(["waiting"]),
+});
+
+export type FilesWaitingNeed = zod.input<typeof FilesWaitingNeed>;
+export type FilesWaitingNeedOutput = zod.output<typeof FilesWaitingNeed>;
+
+export const FilesNoRootNeed = zod.object({
+  kind: zod.enum(["no_root"]).describe("The Work has no root. Its downloads wait until it has one"),
+});
+
+export type FilesNoRootNeed = zod.input<typeof FilesNoRootNeed>;
+export type FilesNoRootNeedOutput = zod.output<typeof FilesNoRootNeed>;
+
+export const FilesNeed = zod.discriminatedUnion("kind", [
+  FilesFailedNeed,
+  FilesUpgradeNeed,
+  FilesWaitingNeed,
+  FilesNoRootNeed,
+]);
+
+export type FilesNeed = zod.input<typeof FilesNeed>;
+export type FilesNeedOutput = zod.output<typeof FilesNeed>;
+
+export const FilesStateCounts = zod.object({
+  downloading: zod.int().min(1).exactOptional(),
+  failed: zod.int().min(1).exactOptional(),
+  met: zod.int().min(1).exactOptional(),
+  missing: zod.int().min(1).exactOptional(),
+  unreleased: zod.int().min(1).exactOptional(),
+  upgradable: zod.int().min(1).exactOptional(),
+});
+
+export type FilesStateCounts = zod.input<typeof FilesStateCounts>;
+export type FilesStateCountsOutput = zod.output<typeof FilesStateCounts>;
+
+export const filesSummaryItemsMin = 0;
+
+export const FilesSummary = zod.object({
+  cells: FilesStateCounts.describe("Its cells by state"),
+  itemStatus: FilesStateCounts.describe("Its Items by status; an Item with no cell isn't counted"),
+  items: zod.int().min(filesSummaryItemsMin),
+  status: zod
+    .union([FilesState, zod.null()])
+    .describe(
+      "The first status its Items hold, in the glossary's order; null for a Work with no cell",
+    ),
+});
+
+export type FilesSummary = zod.input<typeof FilesSummary>;
+export type FilesSummaryOutput = zod.output<typeof FilesSummary>;
+
 export const FilesCellList = zod.object({
   cells: zod.array(FilesCell).describe("By Item in tree order, then Target in Profile order"),
   items: zod.array(FilesItemStatus).describe("Every Item in tree order"),
+  needsYou: zod.array(FilesNeed).describe("What the Work needs from an Admin, failures first"),
+  summary: FilesSummary.describe("What the cells add up to for the Work"),
 });
 
 export type FilesCellList = zod.input<typeof FilesCellList>;
@@ -1092,8 +1182,69 @@ export const FilesChanged = zod.object({
 export type FilesChanged = zod.input<typeof FilesChanged>;
 export type FilesChangedOutput = zod.output<typeof FilesChanged>;
 
+export const FilesFill = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  itemId: zod.uuid(),
+  targetId: zod.uuid(),
+});
+
+export type FilesFill = zod.input<typeof FilesFill>;
+export type FilesFillOutput = zod.output<typeof FilesFill>;
+
+export const filesListedFileSizeMin = 0;
+
+export const FilesListedFile = zod.object({
+  fills: zod.array(FilesFill).describe("The cells it fills; empty for a Kept file"),
+  folder: zod.string().describe("The folder it sits in, relative to its root, / separated"),
+  id: zod.uuid(),
+  kept: zod.boolean().describe("A Kept file, which fills no cell"),
+  path: zod.string().describe("Relative to its root, / separated"),
+  probe: FilesProbe,
+  quality: zod.enum([
+    "sdtv",
+    "dvd",
+    "webrip-480p",
+    "hdtv-720p",
+    "webrip-720p",
+    "webdl-720p",
+    "bluray-720p",
+    "hdtv-1080p",
+    "webrip-1080p",
+    "webdl-1080p",
+    "bluray-1080p",
+    "remux-1080p",
+    "hdtv-2160p",
+    "webrip-2160p",
+    "webdl-2160p",
+    "bluray-2160p",
+    "remux-2160p",
+    "cam",
+  ]),
+  size: zod.int().min(filesListedFileSizeMin),
+});
+
+export type FilesListedFile = zod.input<typeof FilesListedFile>;
+export type FilesListedFileOutput = zod.output<typeof FilesListedFile>;
+
+export const FilesFileList = zod.object({
+  files: zod
+    .array(FilesListedFile)
+    .describe(
+      "Filling files first, in Profile order of the first Target each fills, then Kept files",
+    ),
+  folder: zod
+    .string()
+    .describe(
+      "The Work's folder under its root, the one its naming template gives while it has no file",
+    ),
+});
+
+export type FilesFileList = zod.input<typeof FilesFileList>;
+export type FilesFileListOutput = zod.output<typeof FilesFileList>;
+
 export const GrabsChanged = zod.object({
   grabId: zod.uuid(),
+  progress: zod.boolean().describe("True when only the download's progress moved"),
   workId: zod.uuid(),
 });
 
@@ -3939,7 +4090,9 @@ export const TargetsAnyCut = zod.object({
 export type TargetsAnyCut = zod.input<typeof TargetsAnyCut>;
 export type TargetsAnyCutOutput = zod.output<typeof TargetsAnyCut>;
 
-export const TargetsChanged = zod.object({});
+export const TargetsChanged = zod.object({
+  workIds: zod.array(zod.string()),
+});
 
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
 export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
@@ -4909,12 +5062,39 @@ export const WorksLevel = zod.object({
 export type WorksLevel = zod.input<typeof WorksLevel>;
 export type WorksLevelOutput = zod.output<typeof WorksLevel>;
 
-export const worksTreeContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const WorksWebLink = zod.object({
+  key: zod.string().describe("The link's key, such as imdb"),
+  kind: zod.enum(["page", "trailer"]),
+  label: zod.string().describe("The site's name as a person reads it"),
+  url: zod.url(),
+});
 
-export const WorksTree = zod.object({
+export type WorksWebLink = zod.input<typeof WorksWebLink>;
+export type WorksWebLinkOutput = zod.output<typeof WorksWebLink>;
+
+export const WorksWorkProfile = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type WorksWorkProfile = zod.input<typeof WorksWorkProfile>;
+export type WorksWorkProfileOutput = zod.output<typeof WorksWorkProfile>;
+
+export const WorksWorkRoot = zod.object({
+  id: zod.uuid(),
+  nodeId: zod.uuid().describe("The Storage Node whose disk holds it"),
+  path: zod.string().describe("The folder's path on that Node, in that Node's format"),
+});
+
+export type WorksWorkRoot = zod.input<typeof WorksWorkRoot>;
+export type WorksWorkRootOutput = zod.output<typeof WorksWorkRoot>;
+
+export const worksWorkViewContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksWorkView = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
   artwork: zod.array(WorksArt).describe("The Work's own images, by kind"),
-  contentType: zod.string().regex(worksTreeContentTypeRegExp),
+  contentType: zod.string().regex(worksWorkViewContentTypeRegExp),
   fields: zod.array(WorksFieldValue),
   goneUpstreamAt: zod.iso
     .datetime({ offset: true })
@@ -4931,21 +5111,46 @@ export const WorksTree = zod.object({
   levels: zod
     .array(WorksLevel)
     .describe("By depth, then their parent's order, live before withdrawn, then position"),
+  links: zod
+    .array(WorksWebLink)
+    .describe("Pages about the Work on other sites, in its Content Type's order"),
+  profile: WorksWorkProfile.describe("The Profile the Work wants from"),
   ratings: zod.array(WorksRating).describe("The Work's own, by source"),
   refreshedAt: zod.iso.datetime({ offset: true }),
+  root: zod
+    .union([WorksWorkRoot, zod.null()])
+    .describe("The root the Work lives in; null while it has none"),
   sortLabel: zod.string(),
 });
 
-export type WorksTree = zod.input<typeof WorksTree>;
-export type WorksTreeOutput = zod.output<typeof WorksTree>;
+export type WorksWorkView = zod.input<typeof WorksWorkView>;
+export type WorksWorkViewOutput = zod.output<typeof WorksWorkView>;
 
 export const WorksAdded = zod.object({
   created: zod.boolean().describe("False when the Work was already in the library"),
-  work: WorksTree,
+  work: WorksWorkView,
 });
 
 export type WorksAdded = zod.input<typeof WorksAdded>;
 export type WorksAddedOutput = zod.output<typeof WorksAdded>;
+
+export const WorksArtRoles = zod.object({
+  backdrop: zod
+    .string()
+    .nullable()
+    .describe("The kind shown behind the Work page's header; null when none"),
+  poster: zod
+    .string()
+    .nullable()
+    .describe("The kind the Library and the Work page show as its poster; null when none"),
+  title: zod
+    .string()
+    .nullable()
+    .describe("The kind of logo shown as the Work's title; null when none"),
+});
+
+export type WorksArtRoles = zod.input<typeof WorksArtRoles>;
+export type WorksArtRolesOutput = zod.output<typeof WorksArtRoles>;
 
 export const WorksArtworkKind = zod.object({
   key: zod.string(),
@@ -4982,16 +5187,52 @@ export const WorksCandidateList = zod.object({
 export type WorksCandidateList = zod.input<typeof WorksCandidateList>;
 export type WorksCandidateListOutput = zod.output<typeof WorksCandidateList>;
 
+export const WorksChanged = zod.object({
+  workIds: zod.array(zod.string()),
+});
+
+export type WorksChanged = zod.input<typeof WorksChanged>;
+export type WorksChangedOutput = zod.output<typeof WorksChanged>;
+
+export const WorksListing = zod.object({
+  column: zod.boolean().describe("A column of the Library's table"),
+  filter: zod
+    .boolean()
+    .describe("A filter: picked values for text and texts, a range for number, date and duration"),
+  sort: zod.boolean().describe("A sort, with sections by its value"),
+});
+
+export type WorksListing = zod.input<typeof WorksListing>;
+export type WorksListingOutput = zod.output<typeof WorksListing>;
+
 export const WorksFieldSpec = zod.object({
+  art: zod
+    .string()
+    .nullable()
+    .describe(
+      "The key of a Work artwork kind shown beside it, such as a studio's logo; null when none",
+    ),
   depth: zod
     .int()
     .min(1)
     .exactOptional()
     .describe("The level's depth, 1 for the outermost; present only on tier level"),
+  in: zod
+    .array(zod.enum(["facts", "tagline", "overview", "about", "credits", "details"]))
+    .describe("Every place the Work page shows it"),
   key: zod.string(),
   kind: zod.enum(["text", "number", "date", "duration", "texts", "people", "link"]),
   label: zod.string(),
+  list: WorksListing.describe(
+    "Where the Library uses it; all false for a field of a level or an Item",
+  ),
   tier: zod.enum(["work", "level", "item"]),
+  with: zod
+    .string()
+    .nullable()
+    .describe(
+      "The key of a text field of the same tier shown in brackets after it; null when none",
+    ),
 });
 
 export type WorksFieldSpec = zod.input<typeof WorksFieldSpec>;
@@ -5008,14 +5249,24 @@ export type WorksNounOutput = zod.output<typeof WorksNoun>;
 export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksContentType = zod.object({
+  art: WorksArtRoles,
   artwork: zod.array(WorksArtworkKind).describe("The kinds of image its Works and Items carry"),
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
   icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
   id: zod.string().regex(worksContentTypeIdRegExp),
   item: WorksNoun,
+  items: zod
+    .enum(["one", "many"])
+    .describe("How many Items a Work holds, which sets the Work page's layout"),
   levels: zod.array(WorksNoun).describe("Outermost first; empty when Items hang off the Work"),
   name: zod.string(),
+  ratings: zod
+    .array(zod.string())
+    .describe(
+      "The ratings sources its Works show, in order. The first a Work holds is its hero rating",
+    ),
+  source: zod.string().describe("Its metadata source's name, such as TMDB"),
   work: WorksNoun,
 });
 
@@ -5038,12 +5289,213 @@ export const WorksContentTypesChanged = zod.object({
 export type WorksContentTypesChanged = zod.input<typeof WorksContentTypesChanged>;
 export type WorksContentTypesChangedOutput = zod.output<typeof WorksContentTypesChanged>;
 
+export const worksDeletePlanBytesMin = 0;
+
+export const worksDeletePlanDownloadingMin = 0;
+
+export const worksDeletePlanFilesMin = 0;
+
+export const worksDeletePlanKeptMin = 0;
+
+export const worksDeletePlanWorksMin = 0;
+
+export const WorksDeletePlan = zod.object({
+  bytes: zod.int().min(worksDeletePlanBytesMin).describe("The size of their library files"),
+  downloading: zod
+    .int()
+    .min(worksDeletePlanDownloadingMin)
+    .describe(
+      "Their unfinished downloads, whose torrents keep downloading and seeding in the client",
+    ),
+  files: zod
+    .int()
+    .min(worksDeletePlanFilesMin)
+    .describe("Their library files, Kept files included"),
+  kept: zod.int().min(worksDeletePlanKeptMin).describe("Their Kept files"),
+  works: zod.int().min(worksDeletePlanWorksMin).describe("The Works it removes"),
+});
+
+export type WorksDeletePlan = zod.input<typeof WorksDeletePlan>;
+export type WorksDeletePlanOutput = zod.output<typeof WorksDeletePlan>;
+
+export const WorksDoneOutcome = zod.object({
+  outcome: zod.enum(["done"]),
+  workId: zod.uuid(),
+});
+
+export type WorksDoneOutcome = zod.input<typeof WorksDoneOutcome>;
+export type WorksDoneOutcomeOutput = zod.output<typeof WorksDoneOutcome>;
+
+export const WorksSkippedOutcome = zod.object({
+  outcome: zod.enum(["skipped"]),
+  reason: zod
+    .enum(["already", "work_has_files", "work_gone_upstream", "work_not_found"])
+    .describe("Why the action left the Work as it was"),
+  workId: zod.uuid(),
+});
+
+export type WorksSkippedOutcome = zod.input<typeof WorksSkippedOutcome>;
+export type WorksSkippedOutcomeOutput = zod.output<typeof WorksSkippedOutcome>;
+
+export const WorksOutcomeProblem = zod.object({
+  code: zod
+    .string()
+    .describe("The code a request for this Work alone would have been refused with"),
+  detail: zod.string().exactOptional(),
+  title: zod.string(),
+});
+
+export type WorksOutcomeProblem = zod.input<typeof WorksOutcomeProblem>;
+export type WorksOutcomeProblemOutput = zod.output<typeof WorksOutcomeProblem>;
+
+export const WorksFailedOutcome = zod.object({
+  outcome: zod.enum(["failed"]),
+  problem: WorksOutcomeProblem,
+  workId: zod.uuid(),
+});
+
+export type WorksFailedOutcome = zod.input<typeof WorksFailedOutcome>;
+export type WorksFailedOutcomeOutput = zod.output<typeof WorksFailedOutcome>;
+
+export const WorksOutcome = zod.discriminatedUnion("outcome", [
+  WorksDoneOutcome,
+  WorksSkippedOutcome,
+  WorksFailedOutcome,
+]);
+
+export type WorksOutcome = zod.input<typeof WorksOutcome>;
+export type WorksOutcomeOutput = zod.output<typeof WorksOutcome>;
+
+export const WorksDeleted = zod.object({
+  outcomes: zod.array(WorksOutcome).describe("One per Work, in request order"),
+  plan: WorksDeletePlan,
+});
+
+export type WorksDeleted = zod.input<typeof WorksDeleted>;
+export type WorksDeletedOutput = zod.output<typeof WorksDeleted>;
+
+export const worksDeletingWorkIdsMax = 20000;
+
+export const WorksDeleting = zod.object({
+  files: zod
+    .enum(["delete", "leave"])
+    .describe("Delete the Works' library files from disk, or leave them where they are"),
+  preview: zod
+    .boolean()
+    .exactOptional()
+    .describe("Return the plan and the outcomes it predicts, and delete nothing"),
+  workIds: zod
+    .array(zod.uuid())
+    .min(1)
+    .max(worksDeletingWorkIdsMax)
+    .describe("A repeated id counts once"),
+});
+
+export type WorksDeleting = zod.input<typeof WorksDeleting>;
+export type WorksDeletingOutput = zod.output<typeof WorksDeleting>;
+
 export const WorksEnabled = zod.object({
   enabled: zod.boolean(),
 });
 
 export type WorksEnabled = zod.input<typeof WorksEnabled>;
 export type WorksEnabledOutput = zod.output<typeof WorksEnabled>;
+
+export const worksRowRatingScaleExclusiveMin = 0;
+
+export const worksRowRatingValueMin = 0;
+
+export const WorksRowRating = zod.object({
+  scale: zod.number().gt(worksRowRatingScaleExclusiveMin).describe("The value's maximum"),
+  source: zod.string().describe("The ratings source, such as imdb"),
+  value: zod.number().min(worksRowRatingValueMin),
+});
+
+export type WorksRowRating = zod.input<typeof WorksRowRating>;
+export type WorksRowRatingOutput = zod.output<typeof WorksRowRating>;
+
+export const worksLibraryRowAvailableOnRegExp = new RegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$");
+export const worksLibraryRowBytesMin = 0;
+
+export const worksLibraryRowContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const worksLibraryRowFailedMin = 0;
+
+export const worksLibraryRowFilesMin = 0;
+
+export const worksLibraryRowItemsMin = 0;
+
+export const worksLibraryRowKeptMin = 0;
+
+export const worksLibraryRowNeedsYouMin = 0;
+
+export const WorksLibraryRow = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  availableOn: zod
+    .string()
+    .regex(worksLibraryRowAvailableOnRegExp)
+    .nullable()
+    .describe(
+      "Its one Item's availability date, or for many Items the earliest not yet out, else the latest out; null while no Item has a date",
+    ),
+  bytes: zod
+    .int()
+    .min(worksLibraryRowBytesMin)
+    .describe("The size of its library files, Kept files included"),
+  cells: FilesStateCounts.describe("Its cells by state"),
+  contentType: zod.string().regex(worksLibraryRowContentTypeRegExp),
+  failed: zod
+    .int()
+    .min(worksLibraryRowFailedMin)
+    .describe("Its wanted cells whose download failed"),
+  files: zod.int().min(worksLibraryRowFilesMin).describe("Its library files, Kept files included"),
+  goneUpstreamAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the metadata source last reported that it no longer has this Work; null while it has it",
+    ),
+  id: zod.uuid(),
+  itemStatus: FilesStateCounts.describe("Its Items by status; an Item with no cell isn't counted"),
+  items: zod.int().min(worksLibraryRowItemsMin),
+  kept: zod.int().min(worksLibraryRowKeptMin).describe("Its Kept files"),
+  key: zod.string(),
+  label: zod.string(),
+  monitored: zod.enum(["all", "some", "none"]).describe("How many of its Items are monitored"),
+  needsYou: zod.int().min(worksLibraryRowNeedsYouMin).describe("The entries of its Needs you"),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route for its poster, without a size; null when it has none"),
+  profileId: zod.uuid(),
+  rating: zod
+    .union([WorksRowRating, zod.null()])
+    .describe(
+      "The first of its Content Type's ratings sources that it holds; null when it holds none",
+    ),
+  refreshedAt: zod.iso.datetime({ offset: true }),
+  rootId: zod.uuid().nullable().describe("Null while the Work has no root"),
+  sortLabel: zod.string(),
+  status: zod
+    .union([FilesState, zod.null()])
+    .describe(
+      "The first status its Items hold, in the glossary's order; null for a Work with no cell",
+    ),
+  values: zod
+    .record(zod.string(), Bare)
+    .describe(
+      "Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out",
+    ),
+});
+
+export type WorksLibraryRow = zod.input<typeof WorksLibraryRow>;
+export type WorksLibraryRowOutput = zod.output<typeof WorksLibraryRow>;
+
+export const WorksLibraryRows = zod.object({
+  rows: zod.array(WorksLibraryRow).describe("By sort label, then id"),
+});
+
+export type WorksLibraryRows = zod.input<typeof WorksLibraryRows>;
+export type WorksLibraryRowsOutput = zod.output<typeof WorksLibraryRows>;
 
 export const worksListedWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
@@ -5068,6 +5520,20 @@ export const WorksListedWork = zod.object({
 export type WorksListedWork = zod.input<typeof WorksListedWork>;
 export type WorksListedWorkOutput = zod.output<typeof WorksListedWork>;
 
+export const worksMonitoredChangeWorkIdsMax = 20000;
+
+export const WorksMonitoredChange = zod.object({
+  on: zod.boolean().describe("Monitor every Item of each Work, or none"),
+  workIds: zod
+    .array(zod.uuid())
+    .min(1)
+    .max(worksMonitoredChangeWorkIdsMax)
+    .describe("A repeated id counts once"),
+});
+
+export type WorksMonitoredChange = zod.input<typeof WorksMonitoredChange>;
+export type WorksMonitoredChangeOutput = zod.output<typeof WorksMonitoredChange>;
+
 export const worksNewWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const worksNewWorkKeyMax = 200;
 
@@ -5081,12 +5547,20 @@ export const WorksNewWork = zod.object({
   monitor: zod
     .boolean()
     .exactOptional()
-    .describe("Monitor a new Work's Items; adding a Work already in the library changes nothing"),
+    .describe(
+      "Monitor a new Work's Items; left out, the type's add default. Adding a Work already in the library changes nothing",
+    ),
   profileId: zod
     .uuid()
     .exactOptional()
     .describe(
       "The Profile of the Content Type a new Work wants from; left out, the type's default",
+    ),
+  remember: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Make each choice given here its type's default for the next add. Adding a Work already in the library changes no default",
     ),
   rootId: zod
     .uuid()
@@ -5099,6 +5573,43 @@ export const WorksNewWork = zod.object({
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
 
+export const WorksOutcomeList = zod.object({
+  outcomes: zod.array(WorksOutcome).describe("One per Work, in request order"),
+});
+
+export type WorksOutcomeList = zod.input<typeof WorksOutcomeList>;
+export type WorksOutcomeListOutput = zod.output<typeof WorksOutcomeList>;
+
+export const worksTreeContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksTree = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  artwork: zod.array(WorksArt).describe("The Work's own images, by kind"),
+  contentType: zod.string().regex(worksTreeContentTypeRegExp),
+  fields: zod.array(WorksFieldValue),
+  goneUpstreamAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the metadata source last reported that it no longer has this Work; null while it has it",
+    ),
+  id: zod.uuid(),
+  items: zod
+    .array(WorksItem)
+    .describe("By their level's order, live before withdrawn, then position"),
+  key: zod.string(),
+  label: zod.string(),
+  levels: zod
+    .array(WorksLevel)
+    .describe("By depth, then their parent's order, live before withdrawn, then position"),
+  ratings: zod.array(WorksRating).describe("The Work's own, by source"),
+  refreshedAt: zod.iso.datetime({ offset: true }),
+  sortLabel: zod.string(),
+});
+
+export type WorksTree = zod.input<typeof WorksTree>;
+export type WorksTreeOutput = zod.output<typeof WorksTree>;
+
 export const WorksPreviewed = zod.object({
   inLibrary: zod
     .boolean()
@@ -5108,6 +5619,74 @@ export const WorksPreviewed = zod.object({
 
 export type WorksPreviewed = zod.input<typeof WorksPreviewed>;
 export type WorksPreviewedOutput = zod.output<typeof WorksPreviewed>;
+
+export const worksProfileChangeWorkIdsMax = 20000;
+
+export const WorksProfileChange = zod.object({
+  profileId: zod
+    .uuid()
+    .describe("The Profile each Work wants from; a Work with its own Edition list keeps it"),
+  workIds: zod
+    .array(zod.uuid())
+    .min(1)
+    .max(worksProfileChangeWorkIdsMax)
+    .describe("A repeated id counts once"),
+});
+
+export type WorksProfileChange = zod.input<typeof WorksProfileChange>;
+export type WorksProfileChangeOutput = zod.output<typeof WorksProfileChange>;
+
+export const WorksProfileChanged = zod.object({
+  impact: TargetsImpact,
+  outcomes: zod.array(WorksOutcome).describe("One per Work, in request order"),
+});
+
+export type WorksProfileChanged = zod.input<typeof WorksProfileChanged>;
+export type WorksProfileChangedOutput = zod.output<typeof WorksProfileChanged>;
+
+export const worksRefreshingWorkIdsMax = 20000;
+
+export const WorksRefreshing = zod.object({
+  workIds: zod
+    .array(zod.uuid())
+    .min(1)
+    .max(worksRefreshingWorkIdsMax)
+    .describe("A repeated id counts once"),
+});
+
+export type WorksRefreshing = zod.input<typeof WorksRefreshing>;
+export type WorksRefreshingOutput = zod.output<typeof WorksRefreshing>;
+
+export const WorksRemoved = zod.object({
+  workIds: zod.array(zod.string()),
+});
+
+export type WorksRemoved = zod.input<typeof WorksRemoved>;
+export type WorksRemovedOutput = zod.output<typeof WorksRemoved>;
+
+export const worksRootChangeWorkIdsMax = 20000;
+
+export const WorksRootChange = zod.object({
+  rootId: zod.uuid().describe("The root each Work moves to; a Work with files stays where it is"),
+  workIds: zod
+    .array(zod.uuid())
+    .min(1)
+    .max(worksRootChangeWorkIdsMax)
+    .describe("A repeated id counts once"),
+});
+
+export type WorksRootChange = zod.input<typeof WorksRootChange>;
+export type WorksRootChangeOutput = zod.output<typeof WorksRootChange>;
+
+export const WorksSearchResult = zod.object({
+  rows: zod
+    .array(WorksLibraryRow)
+    .describe("The rows of the first limit of them, in the same order"),
+  workIds: zod.array(zod.string()).describe("Every matching Work, best first"),
+});
+
+export type WorksSearchResult = zod.input<typeof WorksSearchResult>;
+export type WorksSearchResultOutput = zod.output<typeof WorksSearchResult>;
 
 export const WorksSettingsChange = zod.object({
   values: zod
@@ -5133,13 +5712,6 @@ export const WorksTypeSettings = zod.object({
 
 export type WorksTypeSettings = zod.input<typeof WorksTypeSettings>;
 export type WorksTypeSettingsOutput = zod.output<typeof WorksTypeSettings>;
-
-export const WorksWorkChanged = zod.object({
-  workId: zod.uuid(),
-});
-
-export type WorksWorkChanged = zod.input<typeof WorksWorkChanged>;
-export type WorksWorkChangedOutput = zod.output<typeof WorksWorkChanged>;
 
 export const WorksWorkList = zod.object({
   works: zod.array(WorksListedWork).describe("By sort label, then id"),
@@ -5350,7 +5922,7 @@ export type LiveEventVolumesChangedOutput = zod.output<typeof LiveEventVolumesCh
 
 export const LiveEventWorksChanged = zod.object({
   event: zod.enum(["works.changed"]),
-  data: WorksWorkChanged,
+  data: WorksChanged,
 });
 
 export type LiveEventWorksChanged = zod.input<typeof LiveEventWorksChanged>;
@@ -5365,6 +5937,14 @@ export type LiveEventWorksContentTypesChanged = zod.input<typeof LiveEventWorksC
 export type LiveEventWorksContentTypesChangedOutput = zod.output<
   typeof LiveEventWorksContentTypesChanged
 >;
+
+export const LiveEventWorksRemoved = zod.object({
+  event: zod.enum(["works.removed"]),
+  data: WorksRemoved,
+});
+
+export type LiveEventWorksRemoved = zod.input<typeof LiveEventWorksRemoved>;
+export type LiveEventWorksRemovedOutput = zod.output<typeof LiveEventWorksRemoved>;
 
 export const LiveEventWorksTypeChanged = zod.object({
   event: zod.enum(["works.type-changed"]),
@@ -5401,6 +5981,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
+  LiveEventWorksRemoved,
   LiveEventWorksTypeChanged,
 ]);
 

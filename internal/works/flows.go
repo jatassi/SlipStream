@@ -232,7 +232,7 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 		return Tree{}, false, err
 	}
 	if created {
-		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
 		if wants := prefetches(reg.desc, p.Artwork); len(wants) > 0 {
 			w.cfg.Artwork.Prefetch(wants)
 		}
@@ -378,7 +378,7 @@ func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) error {
 		return err
 	}
 	if changed {
-		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
 	}
 	return nil
 }
@@ -401,13 +401,14 @@ func (w *Works) goneUpstream(ctx context.Context, id WorkID) error {
 		return err
 	}
 	if marked {
-		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
 	}
 	return ErrGoneUpstream
 }
 
-// SetMonitored monitors or unmonitors items, publishing works.changed for
-// each Work whose Items it changed. An id no Item has changes nothing.
+// SetMonitored monitors or unmonitors items, publishing one works.changed
+// naming each Work whose Items it changed. An id no Item has changes
+// nothing.
 func (w *Works) SetMonitored(ctx context.Context, _ identity.Admin, items []ItemID, on bool) error {
 	var touched []WorkID
 	err := w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -421,8 +422,8 @@ func (w *Works) SetMonitored(ctx context.Context, _ identity.Admin, items []Item
 	if err != nil {
 		return err
 	}
-	for _, id := range touched {
-		w.cfg.Changed.Publish(ctx, WorkChanged{WorkID: id.String()})
+	if len(touched) > 0 {
+		w.cfg.Changed.Publish(ctx, ChangedOf(touched...))
 	}
 	return nil
 }

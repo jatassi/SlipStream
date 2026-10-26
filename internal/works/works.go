@@ -53,8 +53,26 @@ type Timings struct {
 
 func DefaultTimings() Timings { return Timings{Fetch: 30 * time.Second} }
 
-type WorkChanged struct {
-	WorkID string `json:"workId" format:"uuid"`
+// Changed names the Works that read differently now, at least one.
+type Changed struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
+// Removed names the Works deleted.
+type Removed struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
+func ChangedOf(ids ...WorkID) Changed { return Changed{WorkIDs: idStrings(ids)} }
+
+func RemovedOf(ids ...WorkID) Removed { return Removed{WorkIDs: idStrings(ids)} }
+
+func idStrings(ids []WorkID) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.String()
+	}
+	return out
 }
 
 type ContentTypesChanged struct {
@@ -66,7 +84,8 @@ type TypeChanged struct {
 }
 
 var (
-	ChangedEvent             = live.AdminEvent[WorkChanged]("works.changed")
+	ChangedEvent             = live.AdminEvent[Changed]("works.changed")
+	RemovedEvent             = live.AdminEvent[Removed]("works.removed")
 	ContentTypesChangedEvent = live.EveryoneEvent[ContentTypesChanged]("works.content-types-changed")
 	// TypeChangedEvent means every Work of the type may read differently,
 	// so a page refetches the type's Works instead of hearing one
@@ -123,7 +142,8 @@ type Config struct {
 		Prefetch(wants []artwork.Want)
 	}
 	Timings      Timings
-	Changed      Publisher[WorkChanged]
+	Changed      Publisher[Changed]
+	Removed      Publisher[Removed]
 	TypesChanged Publisher[ContentTypesChanged]
 	TypeChanged  Publisher[TypeChanged]
 	Log          *slog.Logger
@@ -168,11 +188,17 @@ func Open(ctx context.Context, cfg Config) (*Works, error) {
 var fieldKey = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 func validate(d Description) error {
-	if d.Name == "" {
+	switch {
+	case d.Name == "":
 		return errors.New("its name is empty")
-	}
-	if iconNames[d.Icon] == "" {
+	case iconNames[d.Icon] == "":
 		return errors.New("it has no icon")
+	case d.Source == "":
+		return errors.New("it names no source")
+	case itemsNames[d.Items] == "":
+		return errors.New("it has no Items shape")
+	case d.Items == ItemsOne && len(d.Levels) > 0:
+		return errors.New("it holds one Item and declares levels")
 	}
 	nouns := append([]Noun{d.Work, d.Item}, d.Levels...)
 	for _, n := range nouns {
@@ -180,26 +206,139 @@ func validate(d Description) error {
 			return fmt.Errorf("noun %+v needs both One and Many", n)
 		}
 	}
-	seen := map[Tier]map[string]bool{}
+	declared, err := validateFields(d)
+	if err != nil {
+		return err
+	}
+	for _, err := range []error{validateArtwork(d.Artwork), validatePlaces(d.Fields), validateFieldRefs(d, declared), validateArt(d), validateRatings(d.Ratings)} {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateFields answers each tier's fields by key.
+func validateFields(d Description) (map[Tier]map[string]FieldSpec, error) {
+	declared := map[Tier]map[string]FieldSpec{}
 	for _, f := range d.Fields {
 		switch {
 		case !fieldKey.MatchString(f.Key):
-			return fmt.Errorf("field key %s is not %s", f.Key, fieldKey)
+			return nil, fmt.Errorf("field key %s is not %s", f.Key, fieldKey)
 		case f.Label == "":
-			return fmt.Errorf("field %s has no label", f.Key)
+			return nil, fmt.Errorf("field %s has no label", f.Key)
 		case f.Tier != TierWork && f.Tier != TierItem && (f.Tier < 1 || int(f.Tier) > len(d.Levels)):
-			return fmt.Errorf("field %s sits at %s, which the type does not declare", f.Key, f.Tier)
+			return nil, fmt.Errorf("field %s sits at %s, which the type does not declare", f.Key, f.Tier)
 		case kindNames[f.Kind] == "":
-			return fmt.Errorf("field %s has no kind", f.Key)
-		case seen[f.Tier][f.Key]:
-			return fmt.Errorf("field %s is declared twice on %s", f.Key, f.Tier)
+			return nil, fmt.Errorf("field %s has no kind", f.Key)
 		}
-		if seen[f.Tier] == nil {
-			seen[f.Tier] = map[string]bool{}
+		if _, twice := declared[f.Tier][f.Key]; twice {
+			return nil, fmt.Errorf("field %s is declared twice on %s", f.Key, f.Tier)
 		}
-		seen[f.Tier][f.Key] = true
+		if declared[f.Tier] == nil {
+			declared[f.Tier] = map[string]FieldSpec{}
+		}
+		declared[f.Tier][f.Key] = f
 	}
-	return validateArtwork(d.Artwork)
+	return declared, nil
+}
+
+// validateFieldRefs holds each field's list flags, With and Art to what
+// the type declares.
+func validateFieldRefs(d Description, declared map[Tier]map[string]FieldSpec) error {
+	for _, f := range d.Fields {
+		if err := validateListing(f); err != nil {
+			return err
+		}
+		if with, ok := declared[f.Tier][f.With]; f.With != "" && (!ok || with.Kind != KindText || f.With == f.Key) {
+			return fmt.Errorf("field %s is shown with %s, which is no other text field of %s", f.Key, f.With, f.Tier)
+		}
+		if f.Art != "" && !hasWorkKind(d.Artwork, f.Art, "") {
+			return fmt.Errorf("field %s shows art %s, which is no Work-tier artwork kind", f.Key, f.Art)
+		}
+	}
+	return nil
+}
+
+func validateArt(d Description) error {
+	for _, role := range []struct {
+		name, key string
+		shape     artwork.Shape
+	}{{"poster", d.Art.Poster, artwork.ShapePoster}, {"backdrop", d.Art.Backdrop, artwork.ShapeBackdrop}, {"title", d.Art.Title, artwork.ShapeLogo}} {
+		if role.key != "" && !hasWorkKind(d.Artwork, role.key, role.shape) {
+			return fmt.Errorf("its %s art %s is no Work-tier artwork kind of shape %s", role.name, role.key, role.shape)
+		}
+	}
+	return nil
+}
+
+func validateRatings(sources []RatingSource) error {
+	for i, r := range sources {
+		if _, ok := RatingSources[r]; !ok {
+			return fmt.Errorf("it shows ratings from %s, which RatingSources doesn't list", r)
+		}
+		if slices.Contains(sources[:i], r) {
+			return fmt.Errorf("it shows ratings from %s twice", r)
+		}
+	}
+	return nil
+}
+
+// validatePlaces holds every field to a place that takes it: tagline and
+// overview take one text field each, credits take people only and facts
+// take no people.
+func validatePlaces(fields []FieldSpec) error {
+	held := map[Place]string{}
+	for _, f := range fields {
+		if len(f.In) == 0 {
+			return fmt.Errorf("field %s is in no place", f.Key)
+		}
+		for i, p := range f.In {
+			single := p == PlaceTagline || p == PlaceOverview
+			switch {
+			case placeNames[p] == "":
+				return fmt.Errorf("field %s is in place %d, which doesn't exist", f.Key, p)
+			case slices.Contains(f.In[:i], p):
+				return fmt.Errorf("field %s is in %s twice", f.Key, p)
+			case single && f.Kind != KindText:
+				return fmt.Errorf("field %s is %s, and %s takes text only", f.Key, f.Kind, p)
+			case single && held[p] != "":
+				return fmt.Errorf("fields %s and %s are both in %s, which takes one", held[p], f.Key, p)
+			case p == PlaceCredits && f.Kind != KindPeople:
+				return fmt.Errorf("field %s is %s, and credits takes people only", f.Key, f.Kind)
+			case p == PlaceFacts && f.Kind == KindPeople:
+				return fmt.Errorf("field %s is people, which facts doesn't take", f.Key)
+			}
+			if single {
+				held[p] = f.Key
+			}
+		}
+	}
+	return nil
+}
+
+func validateListing(f FieldSpec) error {
+	switch {
+	case f.List&^listAll != 0:
+		return fmt.Errorf("field %s has list flags %b, which aren't all flags", f.Key, f.List)
+	case f.List == 0:
+		return nil
+	case f.Tier != TierWork:
+		return fmt.Errorf("field %s sits at %s and is listed, and only Work-tier fields are", f.Key, f.Tier)
+	case f.Kind == KindPeople || f.Kind == KindLink:
+		return fmt.Errorf("field %s is %s, which the Library can't list", f.Key, f.Kind)
+	case f.List.Has(ListSort) && f.Kind == KindTexts:
+		return fmt.Errorf("field %s is texts, which the Library can't sort by", f.Key)
+	}
+	return nil
+}
+
+// hasWorkKind is whether kinds holds a Work-tier kind key, of shape when
+// shape is set.
+func hasWorkKind(kinds []artwork.Kind, key string, shape artwork.Shape) bool {
+	return slices.ContainsFunc(kinds, func(k artwork.Kind) bool {
+		return !k.Item && k.Key == key && (shape == "" || k.Shape == shape)
+	})
 }
 
 func validateArtwork(kinds []artwork.Kind) error {

@@ -93,7 +93,7 @@ func open(f faketest.Served) metadata.Source {
 }
 
 func library() contenttype.Library {
-	return music.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)})
+	return music.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, music.Def.Endpoints())
 }
 
 func added(t *testing.T, s scenario.Scenario, artist works.Key) (contenttype.Library, *storage.DB[storage.Library], works.Tree) {
@@ -104,7 +104,7 @@ func added(t *testing.T, s scenario.Scenario, artist works.Key) (contenttype.Lib
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
 		Source: src, Artwork: src,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)

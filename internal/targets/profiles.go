@@ -67,7 +67,7 @@ func (t *Targets) CreateProfile(ctx context.Context, _ identity.Admin, s Profile
 	if err != nil {
 		return Profile{}, err
 	}
-	t.cfg.Changed.Publish(ctx, Changed{})
+	t.cfg.Changed.Publish(ctx, changedOf(nil))
 	return p, nil
 }
 
@@ -176,7 +176,7 @@ func (t *Targets) MakeDefault(ctx context.Context, by identity.Admin, id Profile
 		return Profile{}, err
 	}
 	if changed {
-		t.cfg.Changed.Publish(ctx, Changed{})
+		t.cfg.Changed.Publish(ctx, changedOf(nil))
 	}
 	return t.GetProfile(ctx, by, id)
 }

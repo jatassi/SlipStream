@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { FilesCell, FilesItemStatusStatus } from "../api/gen/model";
+import type { FilesCell, FilesState } from "../api/gen/model";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { LiveChip } from "../ui/live-chip";
@@ -8,7 +8,7 @@ import { MetPill } from "../ui/met-pill";
 import { SignalChip } from "../ui/signal-chip";
 import { nameOf } from "./paths";
 
-const chips: { readonly [S in NonNullable<FilesItemStatusStatus>]: ReactNode } = {
+const chips: { readonly [S in FilesState]: ReactNode } = {
   unreleased: <Chip>Unreleased</Chip>,
   missing: <Chip>Missing</Chip>,
   downloading: <LiveChip>Downloading</LiveChip>,
@@ -17,7 +17,7 @@ const chips: { readonly [S in NonNullable<FilesItemStatusStatus>]: ReactNode } =
   met: <MetPill>Met</MetPill>,
 };
 
-export const ItemStatus = ({ status }: { status: FilesItemStatusStatus }) =>
+export const ItemStatus = ({ status }: { status: FilesState | null }) =>
   status === null ? null : chips[status];
 
 export function CellState({ cell }: { cell: FilesCell | undefined }) {

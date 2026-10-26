@@ -93,7 +93,10 @@ function activityServer() {
     },
     grabMoves(next: GrabsGrab) {
       list = { grabs: [next, failed] };
-      clients[0]?.send({ event: "grabs.changed", data: { grabId: next.id, workId: next.workId } });
+      clients[0]?.send({
+        event: "grabs.changed",
+        data: { grabId: next.id, workId: next.workId, progress: false },
+      });
     },
   };
 }

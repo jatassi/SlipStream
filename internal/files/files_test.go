@@ -75,7 +75,7 @@ func open(t testing.TB) *library {
 		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
 		Source:       fx.Source(),
 		Artwork:      fx,
-		Changed:      discard[works.WorkChanged]{},
+		Changed:      discard[works.Changed]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {

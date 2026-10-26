@@ -29,10 +29,15 @@ const label = "OMDb"
 
 type Endpoints struct {
 	API endpoint.URL `yaml:"api"`
+	// KeyPage is where an Admin gets a key, opened in the browser only.
+	KeyPage endpoint.URL `yaml:"key_page"`
 }
 
 func DefaultEndpoints() Endpoints {
-	return Endpoints{API: endpoint.MustParseURL("https://www.omdbapi.com")}
+	return Endpoints{
+		API:     endpoint.MustParseURL("https://www.omdbapi.com"),
+		KeyPage: endpoint.MustParseURL("https://www.omdbapi.com/apikey.aspx"),
+	}
 }
 
 // Timings are OMDb's protocol facts: one request every Interval per

@@ -1,3 +1,3 @@
 export interface TargetsChanged {
-  [key: string]: unknown;
+  workIds: string[];
 }

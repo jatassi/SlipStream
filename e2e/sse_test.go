@@ -43,7 +43,7 @@ func TestSSEIsCapturedFromLaunch(t *testing.T) {
 	if want := (sseView{world.AdminIdentity, "home", "live.resync", "{}"}); len(launched) == len(before) || launched[0] != want {
 		t.Fatalf("the captured stream starts %+v with %d of %d messages before run.ready, want %+v first and before it", launched[0], len(launched)-len(before), len(launched), want)
 	}
-	changed := sseView{world.AdminIdentity, "home", "grabs.changed", `{"grabId":"` + w.grab.ID + `","workId":"` + w.work + `"}`}
+	changed := sseView{world.AdminIdentity, "home", "grabs.changed", `{"grabId":"` + w.grab.ID + `","workId":"` + w.work + `","progress":false}`}
 	found := false
 	for _, m := range launched {
 		found = found || m == changed
