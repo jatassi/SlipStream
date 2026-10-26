@@ -234,8 +234,11 @@ func (t *Transfers) Start(ctx context.Context, tx *storage.Tx[storage.Library], 
 	}
 	q := ledger.New(tx)
 	id, err := q.TransferOfJob(ctx, ledger.TransferOfJobParams{Purpose: string(r.Purpose), Job: r.Job})
-	if err == nil || !errors.Is(err, storage.ErrNoRows) {
-		return id, err
+	switch {
+	case err == nil:
+		return id, nil
+	case !errors.Is(err, storage.ErrNoRows):
+		return ID{}, err
 	}
 	id = ID{UUID: storage.NewUUID()}
 	root := rootOf(r.Destination)

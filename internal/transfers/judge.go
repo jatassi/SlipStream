@@ -167,13 +167,14 @@ func (s snapshot) sending(t Transfer) *tv1.Sending {
 }
 
 // judgedFailure is the failure the snapshot alone decides: the root moved
-// onto the source Node, or the source's Node was written off.
+// onto the source Node, or the source's Node was written off with a file
+// still to copy.
 func (s snapshot) judgedFailure(t Transfer, d roots.Destination) (Code, int, bool) {
 	if d.Node == t.Source {
 		return Rerouted, -1, true
 	}
 	for _, f := range t.Files {
-		if !f.Placed && s.sources[sourceAt{t.Source, f.Source}].State == source.WrittenOff {
+		if missing(f) && s.sources[sourceAt{t.Source, f.Source}].State == source.WrittenOff {
 			return SourceWrittenOff, f.Position, true
 		}
 	}
@@ -320,10 +321,10 @@ func (s snapshot) pairWait(ends ...role.NodeID) *Wait {
 
 // route is the active Transfer's route: the first on the ladder whose
 // dialer hasn't given it up, starting from the pair's last route while
-// that is within RouteRetry, and when that ends. No route left between
-// two Workers is BOTH_DIAL. A dialer's gave_up counts only from facts on
-// that route or a later one, so facts from before a flip can't skip a
-// route.
+// that moved bytes within RouteRetry. It also returns when that start
+// expires, zero for never. No route left between two Workers is
+// BOTH_DIAL. A dialer's gave_up counts only from facts on that route or a
+// later one, so facts from before a flip can't skip a route.
 func (s snapshot) route(c candidate, key pairKey) (tv1.Route, time.Time) {
 	ladder := []tv1.Route{tv1.Route_ROUTE_RECEIVER_DIALS, tv1.Route_ROUTE_SENDER_DIALS}
 	if s.ends[key.source].Controller || s.ends[key.dest].Controller {

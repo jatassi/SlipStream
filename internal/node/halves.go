@@ -97,11 +97,11 @@ func (n *Node) startController(ctx context.Context) error {
 	holder := n.openHolder(client)
 	opened := n.openLibraries()
 	var (
-		downloads *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
-		moving    *role.Control[*tv1.Intent, *tv1.Facts, *tv1.Result]
-		side      *nodes.Service
-		cluster   *rpc.Cluster
-		library   *roots.Roots
+		downloads    *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
+		transferring *role.Control[*tv1.Intent, *tv1.Facts, *tv1.Result]
+		side         *nodes.Service
+		cluster      *rpc.Cluster
+		library      *roots.Roots
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -126,8 +126,8 @@ func (n *Node) startController(ctx context.Context) error {
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	copies := transfers.New(transfers.ControllerConfig{
 		Library: lib.db,
-		Touch:   func(nodes ...role.NodeID) { moving.Touch(nodes...) },
-		Facts:   func(id role.NodeID) (*tv1.Facts, bool) { return moving.Facts(id) },
+		Touch:   func(nodes ...role.NodeID) { transferring.Touch(nodes...) },
+		Facts:   func(id role.NodeID) (*tv1.Facts, bool) { return transferring.Facts(id) },
 		Board:   func() transfers.Board { return transfers.BoardOf(side.Board()) },
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
 			return roots.DestinationsIn(ctx, r, ids, stored, side)
@@ -141,7 +141,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Timings:    n.cfg.Timings.Transfers,
 		Log:        n.rootLog.With("subsystem", "transfers"),
 	})
-	moving = transfers.Def.Serve(copies.Derive, copies.Apply)
+	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
@@ -154,7 +154,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored, moving}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored, transferring}, n.env.Test.Served...),
 		Owners:          owners(),
 		Kept:            grabs.Kept,
 		Torrents:        clients,

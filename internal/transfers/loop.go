@@ -52,22 +52,20 @@ func (t *Transfers) Run(ctx context.Context) error {
 		if err != nil && ctx.Err() == nil {
 			t.cfg.Log.Error("judge the Transfers", "err", err.Error())
 		}
-		timer := time.NewTimer(time.Until(due))
-		if due.IsZero() {
-			timer.Stop()
+		var timer <-chan time.Time
+		if !due.IsZero() {
+			timer = time.After(time.Until(due))
 		}
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			return nil
 		case <-t.poke:
 		case <-watched:
 		case <-board.Changed():
 		case <-rootsMoved:
 		case <-moved:
-		case <-timer.C:
+		case <-timer:
 		}
-		timer.Stop()
 	}
 }
 
