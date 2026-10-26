@@ -764,3 +764,70 @@ func workID(t *testing.T, s string) works.WorkID {
 	}
 	return works.WorkID{UUID: id}
 }
+
+// TestEveryActionTakesTheMostWorksARequestMayName drives each action over
+// 20,000 Works, the most a request may name, so no read on its path binds
+// more ids than SQLite takes.
+func TestEveryActionTakesTheMostWorksARequestMayName(t *testing.T) {
+	s := shelve(t)
+	web, big := s.profile(t, "Web", s.web), s.profile(t, "Big")
+	ws := s.seed(t, 20000, web)
+	all := ids(ws...)
+	done := func(what, path, body string) {
+		t.Helper()
+		_, a := s.act(t, http.MethodPost, path, body)
+		for _, o := range a.Outcomes {
+			if o.Outcome != "done" {
+				t.Fatalf("%s answers %s for a Work, want every one done", what, o.Outcome)
+			}
+		}
+		if len(a.Outcomes) != len(ws) {
+			t.Fatalf("%s answers %d outcomes, want %d", what, len(a.Outcomes), len(ws))
+		}
+	}
+	put := func(what, path, body string) {
+		t.Helper()
+		_, a := s.act(t, http.MethodPut, path, body)
+		if len(a.Outcomes) != len(ws) || a.Outcomes[len(ws)-1].Outcome != "done" {
+			t.Fatalf("%s answers %d outcomes, the last %+v, want %d done", what, len(a.Outcomes), a.Outcomes[len(a.Outcomes)-1], len(ws))
+		}
+	}
+	put("monitoring", "/api/v1/works/monitored", all+`,"on":true}`)
+	put("rehoming", "/api/v1/works/root", all+`,"rootId":"`+s.films.ID.String()+`"}`)
+	put("a Profile change", "/api/v1/works/profile?confirm=0", all+`,"profileId":"`+big.String()+`"}`)
+	done("a delete", "/api/v1/works/delete", all+`,"files":"delete"}`)
+	if n := s.count(t, `SELECT count(*) FROM works_work`); n != 0 {
+		t.Fatalf("%d Works stay after the delete, want none", n)
+	}
+}
+
+// seed writes n Works of one Item each, without files, into movies and
+// wanting from profile.
+func (s *shelves) seed(t *testing.T, n int, profile targets.ProfileID) []string {
+	t.Helper()
+	ws := make([]string, n)
+	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for i := range ws {
+			id := storage.NewUUID()
+			ws[i] = id.String()
+			for _, q := range []struct {
+				query string
+				args  []any
+			}{
+				{`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, ?, ?, 'Shelf', 'Shelf', 0, 0)`, []any{id, contenttypetest.ID, fmt.Sprintf("k%d", i)}},
+				{`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'c1', 'Scarf', 1)`, []any{storage.NewUUID(), id}},
+				{`INSERT INTO targets_wants (work_id, profile_id) VALUES (?, ?)`, []any{id, profile}},
+				{`INSERT INTO roots_work (work_id, root_id) VALUES (?, ?)`, []any{id, s.movies.ID}},
+			} {
+				if _, err := tx.ExecContext(ctx, q.query, q.args...); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ws
+}

@@ -88,15 +88,6 @@ func (r *Roots) HomeAll(ctx context.Context, _ identity.Admin, ws []works.WorkID
 	return moved, refused, nil
 }
 
-// Publish sends one roots.changed naming ids, none when ids is empty: for
-// a composer that changed what the roots hold, such as a delete of their
-// Works.
-func (r *Roots) Publish(ctx context.Context, ids []ID) {
-	if len(ids) > 0 {
-		r.cfg.Changed.Publish(ctx, changedOf(ids))
-	}
-}
-
 // Assign homes w, a Work being added, in root, or in its type's default
 // when root is nil, or nowhere while its type has no root.
 func Assign(ctx context.Context, tx *storage.Tx[file], w works.Summary, root *ID) error {
