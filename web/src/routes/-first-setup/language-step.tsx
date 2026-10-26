@@ -36,12 +36,17 @@ function usePrefilled(language: SettingChoiceField, region: SettingChoiceField) 
   });
 }
 
-export function LanguageStep({ nav }: StepBodyProps) {
+export function LanguageStep({ step, nav }: StepBodyProps) {
   const { settings } = useGetMetadataSettingsSuspense().data;
   const language = choiceOf(settings, "metadata.language");
   const region = choiceOf(settings, "metadata.region");
   const [chosen, setChosen] = usePrefilled(language, region);
+  const unchanged = chosen.language === language.value && chosen.region === region.value;
   const save = useAttempt(async () => {
+    if (step.state === "done" && unchanged) {
+      await nav.complete();
+      return;
+    }
     await updateMetadataSettings({
       values: { [language.key]: chosen.language, [region.key]: chosen.region },
     });

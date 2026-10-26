@@ -6,9 +6,9 @@ import { SetAddressBody } from "../../api/gen/zod/identity/identity.zod";
 import { done, firstSetup, metadataPlace, stepHeading, todo } from "../../test/first-setup";
 import { renderApp } from "../../test/render-app";
 
-function addressServer(suggestedAddress: string) {
+function addressServer(suggestedAddress: string, initial = "") {
   const saved: string[] = [];
-  let address = "";
+  let address = initial;
   return {
     saved,
     handlers: [
@@ -75,4 +75,35 @@ test("Skip leaves the address unset", async () => {
   await expect.element(stepHeading("Language and region")).toBeVisible();
   expect(address.saved).toEqual([]);
   expect(server.writes).toEqual([{ id: "address", outcome: "skipped" }]);
+});
+
+test("Continue on a done address step moves on without saving the same address again", async () => {
+  const server = firstSetup([done("address"), todo("language")]);
+  const address = addressServer("http://media-box:8080", "https://slipstream.example.com");
+  renderApp({
+    path: "/setup/address",
+    handlers: [...server.handlers, ...address.handlers, ...metadataPlace().handlers],
+  });
+  await expect
+    .element(page.getByRole("textbox", { name: "Address" }))
+    .toHaveValue("https://slipstream.example.com");
+  await userEvent.click(page.getByRole("button", { name: "Continue" }));
+  await expect.element(stepHeading("Language and region")).toBeVisible();
+  expect(address.saved).toEqual([]);
+  expect(server.writes).toEqual([]);
+});
+
+test("a changed address on a done step is saved before moving on", async () => {
+  const server = firstSetup([done("address"), todo("language")]);
+  const address = addressServer("http://media-box:8080", "https://slipstream.example.com");
+  renderApp({
+    path: "/setup/address",
+    handlers: [...server.handlers, ...address.handlers, ...metadataPlace().handlers],
+  });
+  const field = page.getByRole("textbox", { name: "Address" });
+  await userEvent.fill(field, "https://media.example.com");
+  await userEvent.click(page.getByRole("button", { name: "Continue" }));
+  await expect.element(stepHeading("Language and region")).toBeVisible();
+  expect(address.saved).toEqual(["https://media.example.com"]);
+  expect(server.writes).toEqual([]);
 });

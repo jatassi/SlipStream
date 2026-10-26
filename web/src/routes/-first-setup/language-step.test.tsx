@@ -11,8 +11,8 @@ function browserSpeaks(...languages: string[]) {
   });
 }
 
-function open(place = metadataPlace()) {
-  const server = firstSetup([done("address"), todo("language")]);
+function open(place = metadataPlace(), language = todo("language")) {
+  const server = firstSetup([done("address"), language]);
   renderApp({ path: "/setup/language", handlers: [...server.handlers, ...place.handlers] });
   return server;
 }
@@ -60,4 +60,15 @@ test("Skip keeps English and the United States", async () => {
   await expect.element(stepHeading("First setup")).toBeVisible();
   expect(metadata.sent).toEqual([]);
   expect(server.writes).toEqual([{ id: "language", outcome: "skipped" }]);
+});
+
+test("Continue on a done language step moves on without saving the same place again", async () => {
+  browserSpeaks("en-GB");
+  const metadata = metadataPlace("fr-FR", "FR");
+  const server = open(metadata, done("language"));
+  await expect.element(select("Metadata language")).toHaveTextContent("French (France)");
+  await userEvent.click(page.getByRole("button", { name: "Continue" }));
+  await expect.element(stepHeading("First setup")).toBeVisible();
+  expect(metadata.sent).toEqual([]);
+  expect(server.writes).toEqual([]);
 });
