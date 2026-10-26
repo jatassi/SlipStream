@@ -252,9 +252,8 @@ service DownloadingService {
   rpc Sample(SampleRequest) returns (SampleResponse);
   // Resolve answers a magnet link's info dictionary once a peer sent it,
   // how the search for it stands after a while, or why it ended. A second
-  // call for the same info hash joins the first, and a search's last
-  // answer stays for a call whose answer was lost. It answers Unavailable
-  // while the Node takes no new torrent.
+  // call for the same info hash joins the first, and a found info
+  // dictionary stays for a call whose answer was lost.
   rpc Resolve(ResolveRequest) returns (ResolveResponse);
 }
 
@@ -276,6 +275,7 @@ message ResolveResponse {
     Searching searching = 2;
     Unresolved unresolved = 3;
     Held held = 4;
+    NotTaking not_taking = 5;
   }
 }
 
@@ -312,6 +312,9 @@ enum UnresolvedReason {
 // Held is a torrent of the info hash the Node already holds, whose
 // .torrent the Controller has.
 message Held {}
+
+// NotTaking is a client that takes no new torrent now.
+message NotTaking {}
 
 message SampleRequest {}
 

@@ -11,7 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/magnet"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -78,9 +77,6 @@ func (c *Clients) Resolve(ctx context.Context, node role.NodeID, link magnet.Lin
 	res, err := c.cfg.Remote(node).Resolve(ctx, &dlv1.ResolveRequest{
 		InfoHash: link.InfoHash[:], Trackers: link.Trackers, Name: link.Name, EndsAtUnixMs: endsAt.UnixMilli(),
 	})
-	if rpc.Answered(err) && rpc.CodeOf(err) == rpc.CodeUnavailable {
-		return nil, ErrNotTaking
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +87,8 @@ func (c *Clients) Resolve(ctx context.Context, node role.NodeID, link magnet.Lin
 		return Searching{Since: time.UnixMilli(a.Searching.GetSinceUnixMs()).UTC(), Peers: int(a.Searching.GetPeers())}, nil
 	case *dlv1.ResolveResponse_Held:
 		return nil, ErrHeld
+	case *dlv1.ResolveResponse_NotTaking:
+		return nil, ErrNotTaking
 	case *dlv1.ResolveResponse_Unresolved:
 		u := a.Unresolved
 		reason, ok := reasonOnWire[u.GetReason()]

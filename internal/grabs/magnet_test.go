@@ -208,7 +208,6 @@ func (p *pipeline) grab(link string, hint *bencode.InfoHash) grabs.GrabID {
 	return grabs.GrabID{UUID: id}
 }
 
-// running runs the pipeline until the test ends.
 func (p *pipeline) running() {
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan error)

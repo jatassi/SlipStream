@@ -113,9 +113,8 @@ type DownloadingServiceClient interface {
 	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
 	// Resolve answers a magnet link's info dictionary once a peer sent it,
 	// how the search for it stands after a while, or why it ended. A second
-	// call for the same info hash joins the first, and a search's last
-	// answer stays for a call whose answer was lost. It answers Unavailable
-	// while the Node takes no new torrent.
+	// call for the same info hash joins the first, and a found info
+	// dictionary stays for a call whose answer was lost.
 	Resolve(context.Context, *v1.ResolveRequest) (*v1.ResolveResponse, error)
 }
 
@@ -146,9 +145,8 @@ type DownloadingServiceHandler interface {
 	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
 	// Resolve answers a magnet link's info dictionary once a peer sent it,
 	// how the search for it stands after a while, or why it ended. A second
-	// call for the same info hash joins the first, and a search's last
-	// answer stays for a call whose answer was lost. It answers Unavailable
-	// while the Node takes no new torrent.
+	// call for the same info hash joins the first, and a found info
+	// dictionary stays for a call whose answer was lost.
 	Resolve(context.Context, *v1.ResolveRequest) (*v1.ResolveResponse, error)
 }
 

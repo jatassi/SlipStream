@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -19,18 +18,17 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// resolver is a Node's client that answers Resolve with res or err and
-// keeps the request.
+// resolver is a Node's client that answers Resolve with res and keeps
+// the request.
 type resolver struct {
 	downloadingv1connect.UnimplementedDownloadingServiceHandler
 	res   *dlv1.ResolveResponse
-	err   error
 	asked *dlv1.ResolveRequest
 }
 
 func (r *resolver) Resolve(_ context.Context, req *dlv1.ResolveRequest) (*dlv1.ResolveResponse, error) {
 	r.asked = req
-	return r.res, r.err
+	return r.res, nil
 }
 
 func TestResolveAsksTheNodeAndReadsEachAnswer(t *testing.T) {
@@ -40,7 +38,6 @@ func TestResolveAsksTheNodeAndReadsEachAnswer(t *testing.T) {
 	for _, row := range []struct {
 		name string
 		res  *dlv1.ResolveResponse
-		err  error
 		want dc.Resolution
 		is   error
 	}{
@@ -70,10 +67,10 @@ func TestResolveAsksTheNodeAndReadsEachAnswer(t *testing.T) {
 			want: dc.Unresolved{Reason: dc.EngineError, Error: "libtorrent error 2: no such file"},
 		},
 		{name: "a held torrent", res: &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_Held{Held: &dlv1.Held{}}}, is: dc.ErrHeld},
-		{name: "a client taking no new torrent", err: connect.NewError(connect.CodeUnavailable, "the torrent client takes no new torrent now").WithRemote(), is: dc.ErrNotTaking},
+		{name: "a client taking no new torrent", res: &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_NotTaking{NotTaking: &dlv1.NotTaking{}}}, is: dc.ErrNotTaking},
 	} {
 		t.Run(row.name, func(t *testing.T) {
-			node := &resolver{res: row.res, err: row.err}
+			node := &resolver{res: row.res}
 			c := dc.New(dc.Config{Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node }})
 			got, err := c.Resolve(t.Context(), role.NodeID{UUID: storage.NewUUID()}, link, endsAt)
 			if row.is != nil {
@@ -97,15 +94,6 @@ func equalResolution(a, b dc.Resolution) bool {
 		return ok && bytes.Equal(ra.Info, rb.Info)
 	}
 	return a == b
-}
-
-func TestALinkLostOnTheWayIsNoRefusal(t *testing.T) {
-	node := &resolver{err: connect.NewError(connect.CodeUnavailable, "no live link session to the peer")}
-	c := dc.New(dc.Config{Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node }})
-	_, err := c.Resolve(t.Context(), role.NodeID{UUID: storage.NewUUID()}, magnet.Link{InfoHash: bencode.InfoHash{0xab}}, time.Now())
-	if err == nil || errors.Is(err, dc.ErrNotTaking) {
-		t.Errorf("Resolve over a link that died = %v, want the call's own error", err)
-	}
 }
 
 func TestKnownInfoReadsTheInfoDictionaryOfAnyTorrentOfTheHash(t *testing.T) {

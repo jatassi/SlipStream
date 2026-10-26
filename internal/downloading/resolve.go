@@ -13,8 +13,6 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
-var errNotTaking = rpc.Errorf(rpc.CodeUnavailable, "the torrent client takes no new torrent now")
-
 // Resolve answers once a peer sent the info dictionary of the magnet link
 // req names, once Timings.ResolveHold passed with how the search stands,
 // or once the search ended without it. A second call for the same info
@@ -89,7 +87,6 @@ const (
 	kept
 )
 
-// taking reports whether the client takes new torrents now.
 func (l *loop) taking() bool {
 	return l.run != nil && l.intent.Intent != nil && l.intent.MayStart()
 }
@@ -97,7 +94,7 @@ func (l *loop) taking() bool {
 func (l *loop) resolve(a ask, now time.Time) {
 	h := a.link.InfoHash
 	if !l.taking() {
-		a.reply <- answer{err: errNotTaking}
+		a.reply <- answer{res: notTaking()}
 		return
 	}
 	if l.torrents[h] != nil {
@@ -275,11 +272,15 @@ func (l *loop) releaseSearches() {
 			}
 		}
 		for _, w := range s.waiting {
-			w <- answer{err: errNotTaking}
+			w <- answer{res: notTaking()}
 		}
 	}
 	clear(l.searches)
 	clear(l.searchOf)
+}
+
+func notTaking() *dlv1.ResolveResponse {
+	return &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_NotTaking{NotTaking: &dlv1.NotTaking{}}}
 }
 
 func held() *dlv1.ResolveResponse {

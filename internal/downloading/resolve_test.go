@@ -12,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/magnet"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
-	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
@@ -22,7 +21,6 @@ type resolved struct {
 	err error
 }
 
-// resolve calls Resolve for link with the deadline endsAt.
 func resolve(c *client, link magnet.Link, endsAt time.Time) <-chan resolved {
 	out := make(chan resolved, 1)
 	go func() {
@@ -265,8 +263,8 @@ func TestAClientThatIsntLiveTakesNoSearch(t *testing.T) {
 		s := live()
 		s.Draining = true
 		c.send(s)
-		if r := await(t, resolve(c, linkOf(f, trackerURL), time.Now().Add(wait))); rpc.CodeOf(r.err) != rpc.CodeUnavailable {
-			t.Errorf("Resolve on a draining client = %v, %v; want Unavailable", r.res, r.err)
+		if r := await(t, resolve(c, linkOf(f, trackerURL), time.Now().Add(wait))); r.res.GetNotTaking() == nil {
+			t.Errorf("Resolve on a draining client = %v, %v; want not taking", r.res, r.err)
 		}
 	})
 }
