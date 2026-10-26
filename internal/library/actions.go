@@ -20,12 +20,10 @@ func (l *Library) SetProfile(context.Context, identity.Admin, []works.WorkID, ta
 	return files.Impact{}, nil, ErrNotBuilt
 }
 
-// SetRoot homes each of ws in the root.
 func (l *Library) SetRoot(context.Context, identity.Admin, []works.WorkID, roots.ID) ([]Outcome, error) {
 	return nil, ErrNotBuilt
 }
 
-// Refresh refreshes each of ws from its metadata source.
 func (l *Library) Refresh(context.Context, identity.Admin, []works.WorkID) ([]Outcome, error) {
 	return nil, ErrNotBuilt
 }

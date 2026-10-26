@@ -18,14 +18,13 @@ const (
 	marrowBay = "a1000000-0000-4000-8000-000000000002"
 )
 
-const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,` +
-	`"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"item":{"one":"Track","many":"Tracks"},` +
-	`"fields":[{"key":"country","label":"Country","tier":"work","kind":"text"},` +
-	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date"},` +
-	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text"},` +
-	`{"key":"disc","label":"Disc","tier":"item","kind":"number"},` +
-	`{"key":"length","label":"Length","tier":"item","kind":"duration"}],` +
-	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}]}`
+const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"item":{"one":"Track","many":"Tracks"},"fields":[` +
+	`{"key":"country","label":"Country","tier":"work","kind":"text","in":["facts","about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"disc","label":"Disc","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"length","label":"Length","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
+	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}],"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[]}`
 
 func searchLanterns(workID string) worldtest.Reply {
 	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `}]}` + "\n"}

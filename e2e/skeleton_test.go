@@ -143,7 +143,8 @@ func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
 	worldtest.Expect(t, "getWorkCells before the search", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
 		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"any","targetId":"` + target + `","targetName":"1080p","wanted":true,` +
-			`"state":"missing"}],"items":[{"itemId":"` + tr.Items[0].ID + `","status":"missing"}]}` + "\n",
+			`"state":"missing"}],"items":[{"itemId":"` + tr.Items[0].ID + `","status":"missing"}],` +
+			`"summary":{"status":"missing","cells":{"missing":1},"items":1,"itemStatus":{"missing":1}},"needsYou":[]}` + "\n",
 	})
 	return w
 }
@@ -322,7 +323,8 @@ func checkUpgradable(t *testing.T, w walked) {
 		Status: 200,
 		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"any","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":true,"state":"upgradable",` +
 			`"file":{"id":"` + c.File.ID + `","path":"The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv","size":` + strconv.FormatInt(c.File.Size, 10) +
-			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}],"items":[{"itemId":"` + c.ItemID + `","status":"upgradable"}]}` + "\n",
+			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}],"items":[{"itemId":"` + c.ItemID + `","status":"upgradable"}],` +
+			`"summary":{"status":"upgradable","cells":{"upgradable":1},"items":1,"itemStatus":{"upgradable":1}},"needsYou":[]}` + "\n",
 	})
 }
 

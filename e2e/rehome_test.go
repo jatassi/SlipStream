@@ -77,7 +77,8 @@ func TestARootWithAnImportedFileIsRehomedThenDeleted(t *testing.T) {
 	}
 	worldtest.Expect(t, "getWorkCells after forgetting", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{Status: 200,
 		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"any","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":true,"state":"missing"}],` +
-			`"items":[{"itemId":"` + c.ItemID + `","status":"missing"}]}` + "\n"})
+			`"items":[{"itemId":"` + c.ItemID + `","status":"missing"}],` +
+			`"summary":{"status":"missing","cells":{"missing":1},"items":1,"itemStatus":{"missing":1}},"needsYou":[]}` + "\n"})
 
 	if r := w.a.Admin("home", http.MethodDelete, "/api/v1/roots/"+root.ID, ""); r.Status != http.StatusNoContent {
 		t.Fatalf("deleteRoot = %d %s, want 204", r.Status, r.Body)
