@@ -46,7 +46,7 @@ test("an offline seedbox lights the Nodes dot, its Indexer's search says what it
     .getByRole("dialog", { name: "Add The Quiet Orchard" })
     .getByRole("button", { name: "Add Movie" })
     .click();
-  await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
   await expectNodesRow(page, "", 5000);
 
   await world.fw.node("stop", "seedbox");

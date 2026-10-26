@@ -507,7 +507,7 @@ func (l *library) runUntil(t *testing.T, svc *files.Files, what string, done fun
 
 type unfinished []storage.UUID
 
-func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[files.CellKey]files.GrabCell, error) {
+func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return nil, nil
 }
 

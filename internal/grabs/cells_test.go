@@ -40,7 +40,7 @@ func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
 	var got map[files.CellKey]files.GrabCell
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = grabs.GrabCells{InStep: inStep}.GrabCells(ctx, r, []works.WorkID{{UUID: work}})
+		got, err = grabs.GrabCells{InStep: inStep}.GrabCells(ctx, r, works.Only([]works.WorkID{{UUID: work}}))
 		return err
 	})
 	if err != nil {

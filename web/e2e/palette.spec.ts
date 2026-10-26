@@ -35,13 +35,13 @@ test("the palette opens a Work by its name", async ({ adminPage: page, world }) 
 
   await page.keyboard.type("quiet orch");
   await expect(palette.getByRole("group", { name: "Works" }).getByRole("option")).toHaveText([
-    "The Quiet OrchardMovie",
+    "The Quiet Orchard2021 · Movie · Missing",
   ]);
   await expectAccessible(page);
 
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/works/${id}$`, "u"));
-  await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
   await expect(palette).toHaveCount(0);
 });
 

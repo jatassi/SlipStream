@@ -17,7 +17,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
     .getByRole("dialog", { name: "Add The Quiet Orchard" })
     .getByRole("button", { name: "Add Movie" })
     .click();
-  await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
 
   await workSearch(page).click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Search started");

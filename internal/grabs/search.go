@@ -243,7 +243,7 @@ func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, ter
 	if err != nil {
 		return nil, err
 	}
-	timings, err := gr.cfg.Targets.TimingsIn(ctx, tx, tree.ContentType, []works.WorkID{run.WorkID})
+	timings, err := gr.cfg.Targets.TimingsIn(ctx, tx, tree.ContentType, works.Only([]works.WorkID{run.WorkID}))
 	if err != nil {
 		return nil, err
 	}

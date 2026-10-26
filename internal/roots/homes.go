@@ -9,10 +9,12 @@ import (
 )
 
 // HomesOf reads the root each of ws lives in, inside a caller's read. A
-// rootless Work is left out. It binds one variable per id, so a caller
-// passes at most works.Batch.
-func HomesOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.WorkID]ID, error) {
-	rows, err := db.New(r).ListHomesOf(ctx, ws)
+// rootless Work is left out.
+func HomesOf(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[works.WorkID]ID, error) {
+	q := db.New(r)
+	rows, err := works.Read(ws, func() ([]db.RootsWork, error) { return q.ListEveryHome(ctx) }, func(ids []works.WorkID) ([]db.RootsWork, error) {
+		return q.ListHomesOf(ctx, ids)
+	})
 	if err != nil {
 		return nil, err
 	}

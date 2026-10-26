@@ -397,11 +397,11 @@ func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w
 
 // ListFields answers each Work's stored Work-tier fields that Description
 // lists.
-func (f *Fixture) ListFields(_ context.Context, _ storage.Reader[storage.Library], ws []works.WorkID) (map[works.WorkID][]works.FieldValue, error) {
+func (f *Fixture) ListFields(_ context.Context, _ storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[works.WorkID][]works.FieldValue, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := map[works.WorkID][]works.FieldValue{}
-	for _, w := range ws {
+	for _, w := range ws.IDs() {
 		for _, v := range f.stored[w].Work {
 			if slices.ContainsFunc(Description.Fields, func(s works.FieldSpec) bool { return s.Tier == works.TierWork && s.Key == v.Key && s.List != 0 }) {
 				out[w] = append(out[w], v)
@@ -488,11 +488,11 @@ func (f *Fixture) SetCuts(cuts []release.Cut) {
 
 // Timings answers every stored Item of ws: its SetTiming, else Released
 // and an unknown runtime.
-func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := map[works.ItemID]targets.Timing{}
-	for _, w := range ws {
+	for _, w := range ws.IDs() {
 		for id := range f.stored[w].Items {
 			t, ok := f.timings[id]
 			if !ok {

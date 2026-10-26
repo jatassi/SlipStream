@@ -279,11 +279,11 @@ func (r refresh) units(ctx context.Context, rd storage.Reader[storage.Library]) 
 // tiersOf notes which of type t's Works ids have an Item not out by now,
 // and which can still gain Items.
 func (r refresh) tiersOf(ctx context.Context, rd storage.Reader[storage.Library], t works.TypeID, ids []works.WorkID, now time.Time, unreleased, growing map[works.WorkID]bool) error {
-	items, err := works.ItemsOf(ctx, rd, ids)
+	items, err := works.ItemsOf(ctx, rd, works.Only(ids))
 	if err != nil {
 		return err
 	}
-	timings, err := r.cfg.Targets.TimingsIn(ctx, rd, t, ids)
+	timings, err := r.cfg.Targets.TimingsIn(ctx, rd, t, works.Only(ids))
 	if err != nil {
 		return fmt.Errorf("read the %s timings: %w", t, err)
 	}
