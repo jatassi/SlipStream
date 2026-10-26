@@ -302,8 +302,11 @@ func decodeFile(v any) (File, error) {
 	return File{Path: path, Length: length}, nil
 }
 
-// Encode encodes v, which holds ints, int64s, strings, []bytes, []anys and
-// map[string]anys. Dictionary keys go out sorted, as bencoding requires.
+// Raw is a value already bencoded, which Encode writes as it is.
+type Raw []byte
+
+// Encode encodes v, which holds ints, int64s, strings, []bytes, Raws, []anys
+// and map[string]anys. Dictionary keys go out sorted, as bencoding requires.
 func Encode(v any) ([]byte, error) {
 	var b bytes.Buffer
 	if err := encode(&b, v); err != nil {
@@ -322,6 +325,8 @@ func encode(b *bytes.Buffer, v any) error {
 		fmt.Fprintf(b, "%d:%s", len(v), v)
 	case []byte:
 		fmt.Fprintf(b, "%d:%s", len(v), v)
+	case Raw:
+		b.Write(v)
 	case []any:
 		b.WriteByte('l')
 		for _, e := range v {
