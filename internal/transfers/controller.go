@@ -198,6 +198,10 @@ type Transfers struct {
 	// limited is the Nodes whose send limit changed since the last
 	// transfers.changed.
 	limited []role.NodeID
+	// judged is every Node's intent as the loop last judged it, and
+	// strayed the Nodes served another intent since.
+	judged  intents
+	strayed map[role.NodeID]bool
 }
 
 func New(cfg ControllerConfig) *Transfers {
@@ -207,6 +211,7 @@ func New(cfg ControllerConfig) *Transfers {
 		poke:     make(chan struct{}, 1),
 		fullAt:   map[ID]time.Time{},
 		fired:    map[role.NodeID]map[PurposeKind][]string{},
+		strayed:  map[role.NodeID]bool{},
 	}
 }
 

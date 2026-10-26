@@ -3,6 +3,7 @@ package transfers
 import (
 	"context"
 	"errors"
+	"maps"
 	"reflect"
 	"slices"
 	"sync"
@@ -22,9 +23,6 @@ import (
 // loop is what Run keeps between passes: what it last judged, wrote and
 // published.
 type loop struct {
-	// intents is nil until the first pass, which Touches every Node: a
-	// Node's session may have derived its intent before the loop judged.
-	intents intents
 	views   map[ID]View
 	written map[pairKey]written
 
@@ -86,7 +84,7 @@ func (t *Transfers) pass(ctx context.Context, l *loop, board Board, sampling *sy
 		return time.Time{}, nil
 	}
 	now := time.Now()
-	t.touchMoved(l, j)
+	t.touchMoved(j)
 	views := make(map[ID]View, len(j.views))
 	for _, v := range j.views {
 		views[v.ID] = v
@@ -137,23 +135,22 @@ func (t *Transfers) moved(l *loop, views map[ID]View) {
 	t.limited = nil
 }
 
-// touchMoved Touches every Node whose intent differs from the last pass's.
-func (t *Transfers) touchMoved(l *loop, j judgment) {
-	var moved []role.NodeID
-	for node := range j.intents {
-		if l.intents == nil || !proto.Equal(j.intents.of(node), l.intents.of(node)) {
-			moved = append(moved, node)
+// touchMoved Touches every Node whose intent differs from the last pass's,
+// and every Node served another intent since.
+func (t *Transfers) touchMoved(j judgment) {
+	t.mu.Lock()
+	touch := t.strayed
+	for _, nodes := range []intents{j.intents, t.judged} {
+		for node := range nodes {
+			if !proto.Equal(j.intents.of(node), t.judged.of(node)) {
+				touch[node] = true
+			}
 		}
 	}
-	for node := range l.intents {
-		if _, ok := j.intents[node]; !ok && !proto.Equal(j.intents.of(node), l.intents.of(node)) {
-			moved = append(moved, node)
-		}
-	}
-	l.intents = j.intents
-	if len(moved) > 0 {
-		slices.SortFunc(moved, func(a, b role.NodeID) int { return a.Compare(b.UUID) })
-		t.cfg.Touch(moved...)
+	t.judged, t.strayed = j.intents, map[role.NodeID]bool{}
+	t.mu.Unlock()
+	if len(touch) > 0 {
+		t.cfg.Touch(slices.SortedFunc(maps.Keys(touch), func(a, b role.NodeID) int { return a.Compare(b.UUID) })...)
 	}
 }
 

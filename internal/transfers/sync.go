@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/jatassi/slipstream/internal/nodes"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -16,13 +18,24 @@ import (
 )
 
 // Derive is node's intent: judge over a snapshot of rd, projected to
-// node.
+// node. An intent other than the loop last judged wakes the loop, which
+// then Touches node even if its next judgment matches its last.
 func (t *Transfers) Derive(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID) (*tv1.Intent, error) {
 	j, err := t.judgeIn(ctx, rd, t.cfg.Board())
 	if err != nil {
 		return nil, err
 	}
-	return j.intents.of(node), nil
+	in := j.intents.of(node)
+	t.mu.Lock()
+	strayed := !proto.Equal(in, t.judged.of(node))
+	if strayed {
+		t.strayed[node] = true
+	}
+	t.mu.Unlock()
+	if strayed {
+		t.Touch()
+	}
+	return in, nil
 }
 
 // Apply applies one of node's Results in tx. A FileVerified counts only
