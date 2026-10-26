@@ -22,30 +22,31 @@ type GrabsFill struct {
 }
 
 type GrabsGrab struct {
-	ID              GrabID
-	WorkID          works.WorkID
-	ItemID          works.ItemID
-	Edition         targets.Edition
-	Source          string
-	IndexerID       indexers.ID
-	NodeID          role.NodeID
-	ReleaseTitle    string
-	ReleaseSize     int64
-	ReleaseLink     string
-	ReleaseInfoHash []byte
-	Stage           Stage
-	TorrentID       downloadclients.ID
-	FileIndex       *int64
-	Probe           *string
-	RootID          roots.ID
-	Path            *string
-	FailedStage     *Stage
-	FailureCode     *Code
-	FailureMessage  *string
-	CreatedAt       storage.Time
-	UpdatedAt       storage.Time
-	Unwanted        *files.Unwanted
-	FetchNodeID     role.NodeID
+	ID                GrabID
+	WorkID            works.WorkID
+	ItemID            works.ItemID
+	Edition           targets.Edition
+	Source            string
+	IndexerID         indexers.ID
+	NodeID            role.NodeID
+	ReleaseTitle      string
+	ReleaseSize       int64
+	ReleaseLink       string
+	ReleaseInfoHash   []byte
+	Stage             Stage
+	TorrentID         downloadclients.ID
+	FileIndex         *int64
+	Probe             *string
+	RootID            roots.ID
+	Path              *string
+	FailedStage       *Stage
+	FailureCode       *Code
+	FailureMessage    *string
+	CreatedAt         storage.Time
+	UpdatedAt         storage.Time
+	Unwanted          *files.Unwanted
+	FetchNodeID       role.NodeID
+	MetadataStartedAt storage.Time
 }
 
 type GrabsRefusal struct {

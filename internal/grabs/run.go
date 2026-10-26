@@ -124,9 +124,10 @@ func local(ctx context.Context, err error) outcome {
 	return wait{cause: err}
 }
 
-// fetch brings the .torrent through the Node the Indexer routes to now and
-// hands it to a Downloading Node: the one holding the Work's root when it
-// may download, so the file lands by a hard link. While no Node may take
+// fetch brings the .torrent through the Node the Indexer routes to now, or
+// a magnet link's metadata through the Downloading Node, and hands it to
+// that Downloading Node: the one holding the Work's root when it may
+// download, so the file lands by a hard link. While no Node may take
 // either, it waits for the roster to change.
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	var idx indexers.Indexer
@@ -150,7 +151,7 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 		return fail{TorrentV2Only, err.Error()}
 	}
 	if _, invalid := errors.AsType[*magnet.InvalidError](err); invalid {
-		return fail{TorrentUnreachable, err.Error()}
+		return fail{MagnetInvalid, err.Error()}
 	}
 	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
 		return wait{cause: err, roster: true}
@@ -166,7 +167,7 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	case indexers.Torrent:
 		return decoded(g, got.Raw, fetched{by: got.Node, to: to})
 	case indexers.Magnet:
-		return fail{TorrentUnreachable, "SlipStream doesn't download magnet links yet"}
+		return gr.resolve(ctx, g, got.Link, to)
 	}
 	panic("grabs: unknown fetch result")
 }
@@ -541,6 +542,7 @@ func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in file
 // entered tells what g entering stage next changes beyond the library:
 // Admins, the downloading Node's intent, and its Transfer once done.
 func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
+	gr.searching.drop(g.ID)
 	gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
 	if next == Downloading {
 		gr.cfg.Downloads.Touch(g.Node)
@@ -595,6 +597,8 @@ const (
 	committed result = iota + 1
 	waited
 	halted
+	// rerun: the step runs again at once.
+	rerun
 )
 
 // step runs g's due step and commits its outcome. A wait on a Node out of
@@ -608,6 +612,8 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 	switch o := o.(type) {
 	case stopped:
 		return halted
+	case again:
+		return rerun
 	case wait:
 		gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", o.cause.Error())
 		changed := gr.cfg.Roster.Changed()
@@ -740,7 +746,7 @@ func (gr *Grabs) start(ctx context.Context, s *schedule, now time.Time, id stora
 
 func (s *schedule) record(r report, now time.Time, t Timings, rnd *rand.Rand) {
 	switch r.result {
-	case committed:
+	case committed, rerun:
 		delete(s.attempts, r.id)
 		delete(s.retryAt, r.id)
 	case waited:

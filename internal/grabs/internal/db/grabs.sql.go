@@ -143,7 +143,7 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 }
 
 const getGrab = `-- name: GetGrab :one
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id FROM grabs_grab WHERE id = ?1
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE id = ?1
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
@@ -174,6 +174,7 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.UpdatedAt,
 		&i.Unwanted,
 		&i.FetchNodeID,
+		&i.MetadataStartedAt,
 	)
 	return i, err
 }
@@ -347,7 +348,7 @@ func (q *Queries) ListFills(ctx context.Context) ([]GrabsFill, error) {
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id FROM grabs_grab ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -384,6 +385,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.UpdatedAt,
 			&i.Unwanted,
 			&i.FetchNodeID,
+			&i.MetadataStartedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -460,7 +462,7 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 }
 
 const listOpenGrabs = `-- name: ListOpenGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -497,6 +499,7 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.UpdatedAt,
 			&i.Unwanted,
 			&i.FetchNodeID,
+			&i.MetadataStartedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -795,4 +798,22 @@ type SettleGrabParams struct {
 func (q *Queries) SettleGrab(ctx context.Context, arg SettleGrabParams) error {
 	_, err := q.db.ExecContext(ctx, settleGrab, arg.Unwanted, arg.ID)
 	return err
+}
+
+const startMetadataSearch = `-- name: StartMetadataSearch :one
+UPDATE grabs_grab SET metadata_started_at = coalesce(metadata_started_at, ?1)
+WHERE id = ?2 AND stage = 'fetching'
+RETURNING metadata_started_at
+`
+
+type StartMetadataSearchParams struct {
+	At storage.Time
+	ID GrabID
+}
+
+func (q *Queries) StartMetadataSearch(ctx context.Context, arg StartMetadataSearchParams) (storage.Time, error) {
+	row := q.db.QueryRowContext(ctx, startMetadataSearch, arg.At, arg.ID)
+	var metadata_started_at storage.Time
+	err := row.Scan(&metadata_started_at)
+	return metadata_started_at, err
 }
