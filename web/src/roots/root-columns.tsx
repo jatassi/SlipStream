@@ -44,7 +44,7 @@ function NodeCell({ node }: { node: NodesNode | undefined }) {
   );
 }
 
-function freeOf(root: RootsRoot, volumes: readonly RootsNodeVolumes[]): string {
+export function freeOf(root: RootsRoot, volumes: readonly RootsNodeVolumes[]): string {
   const volume = volumes
     .find((group) => group.nodeId === root.nodeId)
     ?.volumes.find((candidate) => candidate.id === root.volumeId);
