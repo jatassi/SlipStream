@@ -1,12 +1,15 @@
 package sim_test
 
 import (
+	"errors"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -17,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/internal/node"
+	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/transfers"
 )
@@ -124,14 +128,40 @@ func TestATransferBetweenWorkersSurvivesASeedboxKillAndAControllerRestart(t *tes
 	})
 }
 
+// cutLanes counts the lanes a fault cut while seedbox sent on them.
+type cutLanes struct{ n atomic.Int32 }
+
+func (c *cutLanes) wrap(_ transfers.ID, _ transferv1.Route, conn net.Conn) net.Conn {
+	return &cutLane{Conn: conn, cuts: c}
+}
+
+type cutLane struct {
+	net.Conn
+	cuts *cutLanes
+	once sync.Once
+}
+
+func (l *cutLane) Write(b []byte) (int, error) {
+	n, err := l.Conn.Write(b)
+	if errors.Is(err, fault.ErrCut) {
+		l.once.Do(func() { l.cuts.n.Add(1) })
+	}
+	return n, err //nolint:wrapcheck // the lane's own error, as the engine expects
+}
+
 // TestATransferBetweenWorkersResumesAcrossCutLanes cuts every connection
-// between nas and seedbox after 6 MiB: each new lane asks only for the
-// chunks nas hasn't verified, so no chunk crosses more than twice, and the
+// between nas and seedbox after 6 MiB, mid-chunk on any lane that carries
+// two. Each cut loses the one chunk in flight on its lane, and a lane asks
+// only for chunks nas hasn't verified and no other lane has asked for: so
+// seedbox sends each chunk once, and once more for each lane cut, and the
 // file arrives whole.
 func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		counted := &sends{by: map[int]int{}, flip: -1}
-		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = counted.sent }))
+		cut := &cutLanes{}
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+			e.Test.Transfers = transfers.Hooks{Sent: counted.sent, Lane: cut.wrap}
+		}))
 		flip(t, w.Path("nas", "seedbox"), fault.Cut(6<<20))
 		search(t, w, addOrchard(t, w))
 		expectImported(t, await(t, w))
@@ -139,10 +169,16 @@ func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
 		if len(got) != 5 {
 			t.Fatalf("seedbox sent chunks %v, want each of the 5", got)
 		}
-		for i, n := range got {
-			if n > 2 {
-				t.Fatalf("seedbox sent chunk %d %d times (%v), want at most twice: a new lane resumes from what nas verified", i, n, got)
-			}
+		cuts := int(cut.n.Load())
+		if cuts == 0 {
+			t.Fatal("no lane was cut, want the 6 MiB cut to break the lanes that carry two chunks")
+		}
+		sent := 0
+		for _, n := range got {
+			sent += n
+		}
+		if sent > len(got)+cuts {
+			t.Fatalf("seedbox sent %d chunks (%v) over %d cut lanes, want at most %d: only a chunk lost to a cut crosses again", sent, got, cuts, len(got)+cuts)
 		}
 		expectPlaced(t, w)
 	})
