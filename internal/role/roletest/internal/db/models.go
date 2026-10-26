@@ -18,3 +18,8 @@ type ProbeIntent struct {
 	NodeID role.NodeID
 	Value  string
 }
+
+type ProbeWide struct {
+	NodeID role.NodeID
+	Value  string
+}

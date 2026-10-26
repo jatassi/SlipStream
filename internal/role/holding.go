@@ -61,7 +61,7 @@ type Holding struct {
 	changed chan struct{}
 	facts   map[string]*anypb.Any
 	unsent  map[string]bool
-	runs    map[Name]*run
+	runs    map[string]*run
 	host    Host
 }
 
@@ -100,7 +100,7 @@ func NewHolding(ctx context.Context, cfg HoldingConfig) (*Holding, error) {
 		changed: make(chan struct{}),
 		facts:   map[string]*anypb.Any{},
 		unsent:  map[string]bool{},
-		runs:    map[Name]*run{},
+		runs:    map[string]*run{},
 	}
 	if err := cfg.Local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		var err error
