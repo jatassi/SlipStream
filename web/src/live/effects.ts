@@ -9,32 +9,21 @@ import {
 } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
-import {
-  getListCutsQueryKey,
-  getListProfilesQueryKey,
-  getListTargetsQueryKey,
-} from "../api/gen/query/targets/targets";
 import { downloadEffects } from "./download-effects";
 import { libraryEffects } from "./library-effects";
 import { everyPath } from "./refresh";
-import { queueRows, wholeLibrary } from "./rows";
 import { systemEffects } from "./system-effects";
+import { targetsEffects } from "./targets-effects";
 import type { LiveEffects } from "./types";
 
-const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
 const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
 const everySignupLink = everyPath(/^\/api\/v1\/signup-links\/[^/]+$/u);
-const everyTarget = everyPath(/^\/api\/v1\/targets\/[^/]+$/u);
-const everyProfile = everyPath(/^\/api\/v1\/profiles\/[^/]+$/u);
-const everyWorksWants = everyPath(/^\/api\/v1\/works\/[^/]+\/wants$/u);
-
-// Past this many Works a change reads the whole Library once instead of row by row.
-const widestSplice = 1000;
 
 export const effects = {
   ...systemEffects,
   ...libraryEffects,
   ...downloadEffects,
+  ...targetsEffects,
   "identity.sessions-changed": (data, { refresh }) => {
     refresh({ queryKey: getGetSessionQueryKey() });
     refresh({ queryKey: getListSessionsQueryKey() });
@@ -53,20 +42,6 @@ export const effects = {
   "identity.links-changed": (_data, { refresh }) => {
     refresh({ queryKey: getListSignupLinksQueryKey() });
     refresh(everySignupLink);
-  },
-  "targets.changed": ({ workIds }, { queryClient, refresh }) => {
-    if (workIds.length > widestSplice) {
-      refresh(wholeLibrary);
-    } else {
-      queueRows(queryClient, workIds);
-    }
-    refresh({ queryKey: getListTargetsQueryKey() });
-    refresh(everyTarget);
-    refresh({ queryKey: getListProfilesQueryKey() });
-    refresh(everyProfile);
-    refresh({ queryKey: getListCutsQueryKey() });
-    refresh(everyWorksWants);
-    refresh(everyWorksCells);
   },
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });
