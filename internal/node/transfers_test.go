@@ -29,7 +29,7 @@ func TestTheControllerReceivesFromItsWorkersSource(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = home.half.Load().transfers.Receive(t.Context(), transfers.Job{
+		err = home.half.Load().receiver.Receive(t.Context(), transfers.Job{
 			ID:       transfers.ID{UUID: storage.NewUUID()},
 			Source:   role.NodeID{UUID: boxID},
 			InfoHash: bencode.InfoHash{1},
