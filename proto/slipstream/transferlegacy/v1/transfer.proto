@@ -1,0 +1,44 @@
+// The walking skeleton's Transfer chunk protocol (internal/transfers
+// Receiver and Source). Each frame rides a kind-2 link stream as a uvarint
+// length and then one Frame. The receiver drives: Open, then Want; the
+// source answers Manifest or Absent, then a Chunk for each index wanted.
+// It lives here only until the Grab purpose moves onto the Node engine,
+// which deletes it with the Receiver and Source.
+syntax = "proto3";
+
+package slipstream.transferlegacy.v1;
+
+message Frame {
+  oneof frame {
+    Open open = 1;
+    Manifest manifest = 2;
+    Absent absent = 3;
+    Want want = 4;
+    Chunk chunk = 5;
+  }
+}
+
+// Open names the file a receiver wants: one file of a torrent.
+message Open {
+  bytes info_hash = 1;
+  uint32 file_index = 2;
+}
+
+// Manifest is the file's size and the BLAKE3-256 of each chunk, in order.
+message Manifest {
+  int64 size = 1;
+  int64 chunk_size = 2;
+  repeated bytes chunk_hashes = 3;
+}
+
+// Absent answers an Open for a file the source doesn't hold.
+message Absent {}
+
+message Want {
+  repeated uint32 chunks = 1;
+}
+
+message Chunk {
+  uint32 index = 1;
+  bytes data = 2;
+}

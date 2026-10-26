@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/jatassi/slipstream/internal/link"
-	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
+	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transferlegacy/v1"
 )
 
 // maxFrame is the largest frame either side reads: a whole chunk and its

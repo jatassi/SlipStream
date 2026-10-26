@@ -1,0 +1,156 @@
+// The transfers sync channel: the Node-wide intent, facts and results
+// every claimed Node holds. Lockstep, like the rest of the sync stream.
+syntax = "proto3";
+
+package slipstream.transfer.v1;
+
+import "slipstream/transfer/v1/transfer.proto";
+
+// Intent is what one Node sends and receives now, with every default
+// applied.
+message Intent {
+  // send_limit is bytes a second across every lane this Node sends, 0 for
+  // none.
+  int64 send_limit = 1;
+  // active is the Transfers the Controller made active that this Node
+  // sends or receives. Queued and stepped-aside Transfers stay out.
+  repeated Active active = 2;
+  // keep is every Transfer id whose staging this Node holds, active or
+  // not, failed included, sorted. A staging folder named by neither list
+  // goes.
+  repeated bytes keep = 3;
+}
+
+message Active {
+  bytes transfer_id = 1;
+  Side side = 2;
+  Peer peer = 3;
+  Route route = 4;
+  // destination is set for the receiver only.
+  Destination destination = 5;
+  // files is every file not verified at the destination's generation, in
+  // order.
+  repeated File files = 6;
+}
+
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_SEND = 1;
+  SIDE_RECEIVE = 2;
+}
+
+message Peer {
+  bytes key = 1;
+  // addresses: nodes_dial, then nodes_address. Empty when the peer is the
+  // Controller: a Worker dials its Controller where it keeps its link.
+  repeated string addresses = 2;
+}
+
+message Destination {
+  oneof kind {
+    RootDestination root = 1;
+  }
+}
+
+// RootDestination is a library root at its generation.
+message RootDestination {
+  bytes root_id = 1;
+  int64 place = 2;
+}
+
+message File {
+  uint32 position = 1;
+  Source source = 2;
+  int64 size = 3;
+}
+
+// Facts are latest-wins, sent at most once per timings.transfers.report
+// while bytes move, at once on a wait or route change.
+message Facts {
+  repeated Receiving receiving = 1;
+  repeated Sending sending = 2;
+}
+
+message Receiving {
+  bytes transfer_id = 1;
+  // active is false for a kept Transfer this Node no longer runs; it then
+  // carries only the last wait it saw, so a step-aside never flaps.
+  bool active = 2;
+  // verified_bytes is the verified bytes of files not yet reported
+  // verified.
+  int64 verified_bytes = 3;
+  // rate is bytes a second over timings.transfers.estimate.
+  int64 rate = 4;
+  // moving is the route bytes move on, unspecified while none do.
+  Route moving = 5;
+  uint32 lanes = 6;
+  uint32 rtt_ms = 7;
+  uint32 retried = 8;
+  // gave_up is the routes this end dials that failed for
+  // timings.transfers.dial in this run.
+  repeated Route gave_up = 9;
+  Wait wait = 10;
+  // route is the route of the intent these facts answer, so facts from
+  // before a route change never move the route again.
+  Route route = 11;
+}
+
+message Sending {
+  bytes transfer_id = 1;
+  repeated Route gave_up = 2;
+  // binding: the send limit held a chunk back since the last facts.
+  bool binding = 3;
+  // route is as Receiving's.
+  Route route = 4;
+}
+
+message Wait {
+  Kind kind = 1;
+  // detail is the OS or engine text.
+  string detail = 2;
+
+  enum Kind {
+    // KIND_UNSPECIFIED is no wait.
+    KIND_UNSPECIFIED = 0;
+    KIND_CONNECTING = 1;
+    // KIND_SOURCE_NOT_READY is the sender's Absent{not_ready}.
+    KIND_SOURCE_NOT_READY = 2;
+    // KIND_ROOT_NOT_READY is the Storage holder's gate refusing.
+    KIND_ROOT_NOT_READY = 3;
+    // KIND_DISK_FULL is a staged write that ran out of space.
+    KIND_DISK_FULL = 4;
+  }
+}
+
+// Result is applied exactly once. Applying one for a Transfer or file the
+// Controller no longer has, has failed, or that this Node no longer
+// receives, does nothing.
+message Result {
+  oneof result {
+    FileVerified verified = 1;
+    Failed failed = 2;
+  }
+}
+
+// FileVerified is a file staged whole at place, the destination's
+// generation, so a stale one can't mark a file verified at a newer place.
+message FileVerified {
+  bytes transfer_id = 1;
+  uint32 position = 2;
+  int64 place = 3;
+}
+
+message Failed {
+  bytes transfer_id = 1;
+  Code code = 2;
+  uint32 position = 3;
+  string detail = 4;
+
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    CODE_SOURCE_GONE = 1;
+    CODE_SOURCE_FAILED = 2;
+    // CODE_DAMAGED: detail is "read_back" when only the read-back failed.
+    CODE_DAMAGED = 3;
+  }
+}
