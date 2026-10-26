@@ -121,8 +121,21 @@ func (q *Queries) GetInheritedTotals(ctx context.Context, infoHash []byte) (GetI
 	return i, err
 }
 
+const getMetainfoOfHash = `-- name: GetMetainfoOfHash :one
+SELECT metainfo FROM downloadclients_torrent WHERE info_hash = ?1 ORDER BY added_order DESC LIMIT 1
+`
+
+// The metainfo of the newest Torrent of a hash on any Node, live or
+// removed.
+func (q *Queries) GetMetainfoOfHash(ctx context.Context, infoHash []byte) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, getMetainfoOfHash, infoHash)
+	var metainfo []byte
+	err := row.Scan(&metainfo)
+	return metainfo, err
+}
+
 const getNodeSettings = `-- name: GetNodeSettings :one
-SELECT node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds FROM downloadclients_node WHERE node_id = ?
+SELECT node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht FROM downloadclients_node WHERE node_id = ?
 `
 
 func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (DownloadclientsNode, error) {
@@ -137,6 +150,7 @@ func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (Down
 		&i.Connections,
 		&i.Utp,
 		&i.StalledAfterSeconds,
+		&i.Dht,
 	)
 	return i, err
 }
@@ -173,18 +187,19 @@ func (q *Queries) GetNodeTotals(ctx context.Context, nodeID role.NodeID) (GetNod
 }
 
 const getThresholds = `-- name: GetThresholds :one
-SELECT fault_stall_seconds, unregistered_gap_seconds FROM downloadclients_settings WHERE id = 1
+SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds FROM downloadclients_settings WHERE id = 1
 `
 
 type GetThresholdsRow struct {
 	FaultStallSeconds      *int64
 	UnregisteredGapSeconds *int64
+	MetadataWaitSeconds    *int64
 }
 
 func (q *Queries) GetThresholds(ctx context.Context) (GetThresholdsRow, error) {
 	row := q.db.QueryRowContext(ctx, getThresholds)
 	var i GetThresholdsRow
-	err := row.Scan(&i.FaultStallSeconds, &i.UnregisteredGapSeconds)
+	err := row.Scan(&i.FaultStallSeconds, &i.UnregisteredGapSeconds, &i.MetadataWaitSeconds)
 	return i, err
 }
 
@@ -829,10 +844,10 @@ func (q *Queries) SetFault(ctx context.Context, arg SetFaultParams) error {
 
 const setNodeSettings = `-- name: SetNodeSettings :exec
 INSERT INTO downloadclients_node (
-    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds
+    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht
 ) VALUES (
     ?1, ?2, ?3, ?4,
-    ?5, ?6, ?7, ?8
+    ?5, ?6, ?7, ?8, ?9
 )
 ON CONFLICT (node_id) DO UPDATE SET
     download_limit = excluded.download_limit,
@@ -841,7 +856,8 @@ ON CONFLICT (node_id) DO UPDATE SET
     active_checks = excluded.active_checks,
     connections = excluded.connections,
     utp = excluded.utp,
-    stalled_after_seconds = excluded.stalled_after_seconds
+    stalled_after_seconds = excluded.stalled_after_seconds,
+    dht = excluded.dht
 `
 
 type SetNodeSettingsParams struct {
@@ -853,6 +869,7 @@ type SetNodeSettingsParams struct {
 	Connections         *int64
 	Utp                 *bool
 	StalledAfterSeconds *int64
+	Dht                 *bool
 }
 
 func (q *Queries) SetNodeSettings(ctx context.Context, arg SetNodeSettingsParams) error {
@@ -865,6 +882,7 @@ func (q *Queries) SetNodeSettings(ctx context.Context, arg SetNodeSettingsParams
 		arg.Connections,
 		arg.Utp,
 		arg.StalledAfterSeconds,
+		arg.Dht,
 	)
 	return err
 }
@@ -938,17 +956,19 @@ func (q *Queries) SetSaveFolder(ctx context.Context, arg SetSaveFolderParams) er
 const setThresholds = `-- name: SetThresholds :exec
 UPDATE downloadclients_settings SET
     fault_stall_seconds = ?1,
-    unregistered_gap_seconds = ?2
+    unregistered_gap_seconds = ?2,
+    metadata_wait_seconds = ?3
 WHERE id = 1
 `
 
 type SetThresholdsParams struct {
 	FaultStallSeconds      *int64
 	UnregisteredGapSeconds *int64
+	MetadataWaitSeconds    *int64
 }
 
 func (q *Queries) SetThresholds(ctx context.Context, arg SetThresholdsParams) error {
-	_, err := q.db.ExecContext(ctx, setThresholds, arg.FaultStallSeconds, arg.UnregisteredGapSeconds)
+	_, err := q.db.ExecContext(ctx, setThresholds, arg.FaultStallSeconds, arg.UnregisteredGapSeconds, arg.MetadataWaitSeconds)
 	return err
 }
 

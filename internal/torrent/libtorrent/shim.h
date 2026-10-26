@@ -27,14 +27,11 @@ enum {
 enum {
 	LTS_SHIM_UNKNOWN_TORRENT = 1,
 	/* Out of space, whatever the OS calls it. */
-	LTS_SHIM_DISK_FULL = 4
-};
-
-enum {
-	LTS_DISCOVERY_DHT = 1 << 0,
-	LTS_DISCOVERY_LSD = 1 << 1,
-	LTS_DISCOVERY_UPNP = 1 << 2,
-	LTS_DISCOVERY_NATPMP = 1 << 3
+	LTS_SHIM_DISK_FULL = 4,
+	/* The torrent has no metadata yet. */
+	LTS_SHIM_NO_METADATA = 6,
+	/* A torrent of the hash is still being removed. */
+	LTS_SHIM_REMOVING = 7
 };
 
 enum {
@@ -69,7 +66,9 @@ enum {
 	LTS_ALERT_INCOMING_PEER,
 	LTS_ALERT_FILE_ERROR,
 	LTS_ALERT_STATS,
-	LTS_ALERT_HASH_FAILED
+	LTS_ALERT_HASH_FAILED,
+	LTS_ALERT_METADATA_RECEIVED,
+	LTS_ALERT_METADATA_TOO_LARGE
 };
 
 enum {
@@ -114,6 +113,9 @@ typedef struct {
 	size_t resume_len;
 	const char* save_path;
 	int32_t seed_mode;
+	/* discover clears disable_dht and disable_pex, else sets both, whatever
+	   resume data says. */
+	int32_t discover;
 	int64_t base_uploaded;
 	int64_t base_downloaded;
 	int64_t base_active_s;
@@ -144,10 +146,13 @@ typedef struct {
 
 /* payload is shim-owned until lts_free_alert: the bytes of RESUME_SAVED, the
    text of TRACKER_FAILED's failure reason or TRACKER_WARNED's message, the
-   address of INCOMING_PEER as text, payload_len lts_status of UPDATES,
+   address of INCOMING_PEER as text, the info dictionary of
+   METADATA_RECEIVED, payload_len lts_status of UPDATES,
    payload_len lts_tracker of TRACKER_LIST, or STATS' payload bytes sent and
-   received, two int64_t. tracker indexes the torrent's tracker list, and
-   at_ms is the Unix milliseconds the alert was posted at. */
+   received, two int64_t. METADATA_TOO_LARGE has no payload, and its
+   payload_len is the info dictionary size a peer gave. tracker indexes the
+   torrent's tracker list, and at_ms is the Unix milliseconds the alert was
+   posted at. */
 typedef struct {
 	int32_t kind;
 	int32_t state;
@@ -167,14 +172,21 @@ typedef struct {
 	int32_t connections;
 	int32_t utp;
 	int32_t watch_incoming;
+	/* dht runs the DHT. Turned on, it looks up each torrent that may
+	   discover at once. */
+	int32_t dht;
 } lts_limits;
 
 /* Functions that return int return 0 on success and -1 with *err filled. */
 /* announce_floor_s is min_announce_interval, the least interval between two
    regular announces to a tracker. */
 /* A session binds the port it is given or none, and then posts LISTEN_FAILED.
-   An empty address listens nowhere. */
-lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err);
+   An empty address listens nowhere. dht_routers is dht_bootstrap_nodes,
+   host:port pairs separated by commas. The session opens with DHT, LSD, UPnP
+   and NAT-PMP off, and lts_configure turns DHT on. A metadata fetch takes
+   no info dictionary over max_metadata_size bytes, and posts
+   METADATA_TOO_LARGE for a peer that gives a larger size. */
+lts_session* lts_open(const char* address, uint16_t port, const char* dht_routers, int32_t announce_floor_s, int32_t peers_share_address, int32_t max_metadata_size, lts_error* err);
 int lts_configure(lts_session* s, const lts_limits* l, lts_error* err);
 /* The peer fingerprint and user agent the session announces with. */
 int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char* user_agent, size_t user_agent_len, lts_error* err);
@@ -182,8 +194,16 @@ int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char
    again with the same address and port, it retries a listen that failed. */
 int lts_listen_on(lts_session* s, const char* address, uint16_t port, lts_error* err);
 int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
-/* Adds the torrent paused and not auto-managed, whatever resume data says. */
+/* Adds the torrent paused and not auto-managed, whatever resume data says.
+   Adding a torrent lts_add added again while its removal waits takes it
+   back under its id. Adding one of a hash whose metadata fetch is being
+   removed fails with LTS_SHIM_REMOVING, as lts_fetch_metadata does for any
+   hash being removed. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
+/* Adds the torrent of the magnet link uri running, not auto-managed and
+   with default_dont_download, so it downloads its info dictionary, posts
+   METADATA_RECEIVED, and writes no file. discover is as lts_add_params'. */
+int lts_fetch_metadata(lts_session* s, const char* uri, const char* save_path, int32_t discover, int64_t* torrent, lts_error* err);
 int lts_connect_peer(lts_session* s, int64_t torrent, const char* address, uint16_t port, lts_error* err);
 /* Pauses gracefully once no tracker awaits an answer. */
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err);
@@ -196,14 +216,16 @@ int lts_save_resume(lts_session* s, int64_t torrent, lts_error* err);
 /* Posts TRACKER_LIST. */
 int lts_post_trackers(lts_session* s, int64_t torrent, lts_error* err);
 /* Posts UPDATES with the torrents that changed, or with every torrent after
-   DROPPED. */
+   DROPPED, a torrent whose removal waits among them until REMOVED. */
 int lts_post_updates(lts_session* s, lts_error* err);
 int lts_post_stats(lts_session* s, lts_error* err);
 /* Removes once no tracker awaits an answer. With delete_files it
    deletes the torrent's files, then its save path if left empty, and posts
    FILES_DELETED after REMOVED. */
 int lts_remove(lts_session* s, int64_t torrent, int32_t delete_files, lts_error* err);
-/* Bytes done per file, in lts_torrent_files' order. Free *done with lts_free. */
+/* Bytes done per file, in lts_torrent_files' order. Free *done with lts_free.
+   It and lts_torrent_files fail with LTS_SHIM_NO_METADATA before the
+   torrent's metadata arrived. */
 int lts_file_progress(lts_session* s, int64_t torrent, int64_t** done, int32_t* count, lts_error* err);
 void lts_free(void* p);
 /* Lists the torrent's files but its pad files, with paths relative to the

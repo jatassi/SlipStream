@@ -24,6 +24,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
@@ -163,8 +164,14 @@ func dynamicPorts(r *rand.Rand, n int) []uint16 {
 func open(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	addr := C.CString(addressText(ap.Addr()))
 	defer C.free(unsafe.Pointer(addr))
+	routers := make([]string, len(cfg.DHTRouters))
+	for i, r := range cfg.DHTRouters {
+		routers[i] = r.String()
+	}
+	dhtRouters := C.CString(strings.Join(routers, ","))
+	defer C.free(unsafe.Pointer(dhtRouters))
 	var cerr C.lts_error
-	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), C.int32_t(cfg.AnnounceFloor/time.Second), cBool(cfg.PeersShareAddress), &cerr)
+	ses := C.lts_open(addr, C.uint16_t(ap.Port()), dhtRouters, C.int32_t(cfg.AnnounceFloor/time.Second), cBool(cfg.PeersShareAddress), C.int32_t(bencode.MaxTorrent), &cerr)
 	if ses == nil {
 		return nil, goError(&cerr)
 	}
@@ -303,6 +310,7 @@ func (s *Session) Add(p engine.AddParams) (engine.Handle, error) {
 		resume_len:      C.size_t(len(p.Resume)),
 		save_path:       savePath,
 		seed_mode:       cBool(p.SeedMode),
+		discover:        cBool(p.Discover),
 		base_uploaded:   C.int64_t(p.Baseline.Uploaded),
 		base_downloaded: C.int64_t(p.Baseline.Downloaded),
 		base_active_s:   C.int64_t(p.Baseline.Active / time.Second),
@@ -310,6 +318,18 @@ func (s *Session) Add(p engine.AddParams) (engine.Handle, error) {
 	}
 	var id C.int64_t
 	err := s.call(func(cerr *C.lts_error) C.int { return C.lts_add(s.ses, &params, &id, cerr) }) //nolint:gocritic // cgo's pointer check repeats &params
+	return engine.Handle(id), err
+}
+
+func (s *Session) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
+	uri := C.CString(p.Link.String())
+	defer C.free(unsafe.Pointer(uri))
+	savePath := C.CString(p.SavePath)
+	defer C.free(unsafe.Pointer(savePath))
+	var id C.int64_t
+	err := s.call(func(cerr *C.lts_error) C.int {
+		return C.lts_fetch_metadata(s.ses, uri, savePath, cBool(p.Discover), &id, cerr)
+	})
 	return engine.Handle(id), err
 }
 
@@ -346,6 +366,7 @@ func (s *Session) Configure(l engine.Limits) error {
 		connections:    C.int32_t(l.Connections),
 		utp:            cBool(l.UTP),
 		watch_incoming: cBool(l.WatchIncoming),
+		dht:            cBool(l.DHT),
 	}
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_configure(s.ses, &limits, cerr) })
 }
@@ -598,6 +619,10 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.FileError{Torrent: h, Err: goError(&a.error)}
 	case C.LTS_ALERT_HASH_FAILED:
 		return engine.HashFailed{Torrent: h}
+	case C.LTS_ALERT_METADATA_RECEIVED:
+		return engine.MetadataReceived{Torrent: h, Info: C.GoBytes(a.payload, C.int(a.payload_len))}
+	case C.LTS_ALERT_METADATA_TOO_LARGE:
+		return engine.MetadataTooLarge{Torrent: h, Size: int64(a.payload_len)}
 	case C.LTS_ALERT_STATS:
 		counters := unsafe.Slice((*C.int64_t)(a.payload), 2)
 		return engine.Stats{SentPayload: int64(counters[0]), RecvPayload: int64(counters[1]), At: alertTime(a.at_ms)}
@@ -667,24 +692,6 @@ func goError(e *C.lts_error) *engine.Error {
 		Code:     int(e.code),
 		Text:     C.GoString(&e.text[0]),
 	}
-}
-
-func discoveryBits(d engine.Discovery) C.uint32_t {
-	var bits C.uint32_t
-	for _, b := range []struct {
-		on  bool
-		bit C.uint32_t
-	}{
-		{d.DHT, C.LTS_DISCOVERY_DHT},
-		{d.LSD, C.LTS_DISCOVERY_LSD},
-		{d.UPnP, C.LTS_DISCOVERY_UPNP},
-		{d.NATPMP, C.LTS_DISCOVERY_NATPMP},
-	} {
-		if b.on {
-			bits |= b.bit
-		}
-	}
-	return bits
 }
 
 func cBool(b bool) C.int {

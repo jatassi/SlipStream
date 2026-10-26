@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
@@ -15,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -90,6 +92,10 @@ func (noDownloads) Touch(...role.NodeID)   {}
 func (noDownloads) Moved() <-chan struct{} { return nil }
 func (noDownloads) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
+}
+
+func (noDownloads) Resolve(context.Context, role.NodeID, magnet.Link, time.Time) (downloadclients.Resolution, error) {
+	panic("reading a Grab asks no Node for metadata")
 }
 
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {

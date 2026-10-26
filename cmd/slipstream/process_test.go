@@ -533,6 +533,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_API"},
 			{Key: "endpoints.tmdb.images", Value: "https://image.tmdb.org/t/p", Default: "https://image.tmdb.org/t/p", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_IMAGES"},
 			{Key: "endpoints.omdb.api", Value: "https://www.omdbapi.com", Default: "https://www.omdbapi.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_API"},
+			{Key: "endpoints.torrent.dht_routers", Value: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Default: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TORRENT_DHT_ROUTERS"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
 			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
@@ -596,6 +597,9 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.downloading.totals_report", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_TOTALS_REPORT"},
 			{Key: "timings.downloading.live_sample", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_LIVE_SAMPLE"},
 			{Key: "timings.downloading.route_check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_ROUTE_CHECK"},
+			{Key: "timings.downloading.resolve_hold", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_RESOLVE_HOLD"},
+			{Key: "timings.downloading.resolve_lease", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_RESOLVE_LEASE"},
+			{Key: "timings.downloading.resolve_keep", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_RESOLVE_KEEP"},
 			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_PROBE"},
 			{Key: "timings.mail.send", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MAIL_SEND"},
 			{Key: "timings.serving.drain", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SERVING_DRAIN"},
@@ -617,7 +621,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.health.retry", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_RETRY"},
 			{Key: "timings.health.check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_CHECK"},
 		},
-		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api"},
+		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers"},
 		ContentTypes: []string{"movie"},
 	}
 	if !reflect.DeepEqual(got, want) {

@@ -15,7 +15,7 @@ type Key = keyof DownloadclientsSettings;
 const groups: readonly { readonly title: string; readonly keys: readonly Key[] }[] = [
   { title: "Speed", keys: ["downloadLimit", "uploadLimit"] },
   { title: "Queue", keys: ["activeDownloads", "activeChecks", "stalledAfter"] },
-  { title: "Peers", keys: ["connections", "utp"] },
+  { title: "Peers", keys: ["connections", "utp", "dht"] },
 ];
 
 /** A Node's built-in client settings kept on the Controller, each saved on its own and applied live. */

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginecontract"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
@@ -57,7 +58,6 @@ func (h *worlds) Tracker(_ *testing.T, rules enginetest.TrackerRules) enginecont
 	}
 }
 
-// Seed has the World's swarm serve the release's files at swarmRate.
 func (h *worlds) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine, engine.Handle) {
 	m, err := bencode.DecodeMetainfo(meta)
 	if err != nil {
@@ -73,7 +73,12 @@ func (h *worlds) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine,
 	}
 	h.w.Payload(m.InfoHash, payload)
 	h.w.Transfer(m.InfoHash, swarmRate, 0)
-	return func(engine.Engine, engine.Handle) {}
+	h.w.Serve(m)
+	return func(e engine.Engine, th engine.Handle) {
+		if err := e.ConnectPeer(th, netip.MustParseAddrPort("127.0.0.9:6881")); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func (h *worlds) TakePort(*testing.T) netip.AddrPort {
@@ -91,6 +96,10 @@ func (h *worlds) Incoming(t *testing.T, e engine.Engine) netip.Addr {
 	from := netip.MustParseAddr("127.0.0.1")
 	h.w.Incoming(to, from)
 	return from
+}
+
+func (h *worlds) DHT(*testing.T) enginecontract.DHT {
+	return enginecontract.DHT{Routers: []endpoint.HostPort{endpoint.MustParseHostPort("router.example:6881")}, Lookups: h.w.Lookups}
 }
 
 // Until polls each fake second for a fake hour.

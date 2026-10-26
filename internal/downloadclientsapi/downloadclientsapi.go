@@ -46,6 +46,7 @@ type settings struct {
 	ActiveChecks    setting.CountField    `json:"activeChecks"`
 	Connections     setting.CountField    `json:"connections"`
 	UTP             setting.SwitchField   `json:"utp"`
+	DHT             setting.SwitchField   `json:"dht"`
 	StalledAfter    setting.DurationField `json:"stalledAfter"`
 }
 
@@ -56,6 +57,7 @@ type settingsPatch struct {
 	ActiveChecks    api.Patch[int64] `json:"activeChecks,omitempty" doc:"null resets it to its default"`
 	Connections     api.Patch[int64] `json:"connections,omitempty" doc:"null resets it to its default"`
 	UTP             api.Patch[bool]  `json:"utp,omitempty" doc:"null resets it to its default"`
+	DHT             api.Patch[bool]  `json:"dht,omitempty" doc:"Whether the client runs the DHT, which public torrents use to find peers; null resets it to its default"`
 	StalledAfter    api.Patch[int64] `json:"stalledAfter,omitempty" doc:"Seconds; null resets it to its default"`
 }
 
@@ -78,6 +80,7 @@ func settingsOf(o downloadclients.NodeOverrides) *settingsOutput {
 		ActiveChecks:    downloadclients.ActiveChecks.Field(o.ActiveChecks),
 		Connections:     downloadclients.Connections.Field(o.Connections),
 		UTP:             downloadclients.UTP.Field(o.UTP),
+		DHT:             downloadclients.DHT.Field(o.DHT),
 		StalledAfter:    downloadclients.StalledAfter.Field(o.StalledAfter),
 	}}
 }
@@ -107,6 +110,9 @@ func change(b settingsPatch) (downloadclients.NodeChange, error) {
 	}
 	if b.UTP.Sent() {
 		c.UTP = new(downloadclients.UTP.Parse(b.UTP.Value()))
+	}
+	if b.DHT.Sent() {
+		c.DHT = new(downloadclients.DHT.Parse(b.DHT.Value()))
 	}
 	return c, nil
 }
@@ -201,6 +207,7 @@ type limits struct {
 	ActiveChecks    int64 `json:"activeChecks" minimum:"1"`
 	Connections     int64 `json:"connections" minimum:"1"`
 	UTP             bool  `json:"utp"`
+	DHT             bool  `json:"dht"`
 	StalledAfter    int64 `json:"stalledAfterSeconds" minimum:"1"`
 }
 
@@ -216,11 +223,13 @@ type clientsListOutput struct{ Body clientsList }
 type thresholds struct {
 	FaultStall      setting.DurationField `json:"faultStall"`
 	UnregisteredGap setting.DurationField `json:"unregisteredGap"`
+	MetadataWait    setting.DurationField `json:"metadataWait"`
 }
 
 type thresholdsPatch struct {
 	FaultStall      api.Patch[int64] `json:"faultStall,omitempty" doc:"Seconds; null resets it to its default"`
 	UnregisteredGap api.Patch[int64] `json:"unregisteredGap,omitempty" doc:"Seconds; null resets it to its default"`
+	MetadataWait    api.Patch[int64] `json:"metadataWait,omitempty" doc:"Seconds a magnet link's metadata search runs before its Grab fails; null resets it to its default"`
 }
 
 type thresholdsInput struct{ Body thresholdsPatch }
@@ -228,7 +237,10 @@ type thresholdsInput struct{ Body thresholdsPatch }
 type thresholdsOutput struct{ Body thresholds }
 
 func thresholdsOf(o downloadclients.ThresholdOverrides) thresholds {
-	return thresholds{FaultStall: downloadclients.FaultStall.Field(o.FaultStall), UnregisteredGap: downloadclients.UnregisteredGap.Field(o.UnregisteredGap)}
+	return thresholds{
+		FaultStall: downloadclients.FaultStall.Field(o.FaultStall), UnregisteredGap: downloadclients.UnregisteredGap.Field(o.UnregisteredGap),
+		MetadataWait: downloadclients.MetadataWait.Field(o.MetadataWait),
+	}
 }
 
 func cardOf(c downloadclients.Card, name string) clientCard {
@@ -237,7 +249,7 @@ func cardOf(c downloadclients.Card, name string) clientCard {
 		NodeID: c.Node.String(), NodeName: name, InStep: c.InStep, Torrents: c.Torrents,
 		Limits: limits{
 			DownloadLimit: s.DownloadLimit, UploadLimit: s.UploadLimit, ActiveDownloads: s.ActiveDownloads, ActiveChecks: s.ActiveChecks,
-			Connections: s.Connections, UTP: s.UTP, StalledAfter: int64(s.StalledAfter / time.Second),
+			Connections: s.Connections, UTP: s.UTP, DHT: s.DHT, StalledAfter: int64(s.StalledAfter / time.Second),
 		},
 		Totals: totals{
 			Uploaded: c.Totals.Uploaded, Downloaded: c.Totals.Downloaded,
@@ -288,6 +300,7 @@ func (h handlers) setThresholds(ctx context.Context, _ identity.Admin, in *thres
 	}{
 		{in.Body.FaultStall, downloadclients.FaultStall.Parse, &ch.FaultStall},
 		{in.Body.UnregisteredGap, downloadclients.UnregisteredGap.Parse, &ch.UnregisteredGap},
+		{in.Body.MetadataWait, downloadclients.MetadataWait.Parse, &ch.MetadataWait},
 	} {
 		if !f.patch.Sent() {
 			continue

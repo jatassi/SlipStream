@@ -1,0 +1,39 @@
+diff --git a/lib/mockServiceWorker.js b/lib/mockServiceWorker.js
+index 5497876c406862e8ecd860c29dc37ed4d7b66f75..b5b6e57186aa2774644753a793092aff6a1c3603 100644
+--- a/lib/mockServiceWorker.js
++++ b/lib/mockServiceWorker.js
+@@ -61,7 +61,7 @@ addEventListener('message', function (event) {
+         const client = await self.clients.get(clientId)
+ 
+         if (client != null) {
+-          await sendToClient(client, {
++          sendToClient(client, {
+             type: 'CLIENT_CLOSED',
+           })
+         }
+@@ -83,14 +83,14 @@ addEventListener('message', function (event) {
+ 
+       switch (event.data) {
+         case 'KEEPALIVE_REQUEST': {
+-          await sendToClient(client, {
++          sendToClient(client, {
+             type: 'KEEPALIVE_RESPONSE',
+           })
+           break
+         }
+ 
+         case 'INTEGRITY_CHECK_REQUEST': {
+-          await sendToClient(client, {
++          sendToClient(client, {
+             type: 'INTEGRITY_CHECK_RESPONSE',
+             payload: {
+               packageVersion: PACKAGE_VERSION,
+@@ -103,7 +103,7 @@ addEventListener('message', function (event) {
+         case 'MOCK_ACTIVATE': {
+           activeClientIds.add(clientId)
+ 
+-          await sendToClient(client, {
++          sendToClient(client, {
+             type: 'MOCKING_ENABLED',
+             payload: {
+               client: {

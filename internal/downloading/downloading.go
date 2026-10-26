@@ -80,12 +80,22 @@ type Timings struct {
 	// RouteCheck is how often a client listening on an unspecified address
 	// checks which address the default route leaves from, to follow it.
 	RouteCheck time.Duration `yaml:"route_check"`
+	// ResolveHold is the longest a Resolve call waits for a magnet link's
+	// metadata before it answers how the search stands.
+	ResolveHold time.Duration `yaml:"resolve_hold"`
+	// ResolveLease is how long a metadata search runs with no call asking
+	// about it.
+	ResolveLease time.Duration `yaml:"resolve_lease"`
+	// ResolveKeep is how long a found info dictionary stays for a Resolve
+	// call whose answer was lost.
+	ResolveKeep time.Duration `yaml:"resolve_keep"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
 		Facts: time.Second, AnnounceFloor: 5 * time.Minute, ResumeSave: 5 * time.Minute, ShutdownSave: 15 * time.Second,
 		StartSpread: 2 * time.Minute, AnnounceJitter: 3 * time.Minute, TotalsReport: 5 * time.Minute, LiveSample: time.Second, RouteCheck: 30 * time.Second,
+		ResolveHold: 20 * time.Second, ResolveLease: 2 * time.Minute, ResolveKeep: 2 * time.Minute,
 	}
 }
 

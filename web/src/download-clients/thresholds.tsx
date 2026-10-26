@@ -7,33 +7,40 @@ import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 import { toast } from "../ui/toast";
 
-const thresholdKeys = [
-  "faultStall",
-  "unregisteredGap",
-] as const satisfies readonly (keyof DownloadclientsThresholds)[];
+type Key = keyof DownloadclientsThresholds;
+
+const sections: readonly {
+  readonly title: string;
+  readonly about: string;
+  readonly keys: readonly Key[];
+}[] = [
+  {
+    title: "When a release counts as bad",
+    about:
+      "A download that gets no data at all for this long, or that its tracker reports as unregistered twice this far apart, counts as a bad release. Later automatic searches act on it.",
+    keys: ["faultStall", "unregisteredGap"],
+  },
+  {
+    title: "Magnet links",
+    about: "A Grab of a magnet link fails when no peer sends its metadata in this long.",
+    keys: ["metadataWait"],
+  },
+];
 
 export function Thresholds({ thresholds }: { thresholds: DownloadclientsThresholds }) {
   const queryClient = useQueryClient();
-  return (
-    <Section title="When a release counts as bad">
-      <p className="mb-3 text-ink-3">
-        A download that gets no data at all for this long, or that its tracker reports as
-        unregistered twice this far apart, counts as a bad release. Later automatic searches act on
-        it.
-      </p>
+  const save = async (key: Key, value: number | boolean | null) => {
+    adoptThresholds(queryClient, await setDownloadClientThresholds({ [key]: value }));
+    toast("Download Clients settings saved");
+  };
+  return sections.map(({ title, about, keys }) => (
+    <Section key={title} title={title}>
+      <p className="mb-3 text-ink-3">{about}</p>
       <SettingGroup>
-        {thresholdKeys.map((key) => (
-          <SettingField
-            key={key}
-            field={thresholds[key]}
-            onSave={async (value) => {
-              const saved = await setDownloadClientThresholds({ [key]: value });
-              adoptThresholds(queryClient, saved);
-              toast("Download Clients settings saved");
-            }}
-          />
+        {keys.map((key) => (
+          <SettingField key={key} field={thresholds[key]} onSave={(value) => save(key, value)} />
         ))}
       </SettingGroup>
     </Section>
-  );
+  ));
 }

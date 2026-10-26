@@ -106,3 +106,8 @@ SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')
 
 -- name: ReleaseRoot :exec
 UPDATE grabs_grab SET root_id = NULL WHERE root_id = sqlc.arg(root_id) AND stage IN ('imported', 'failed');
+
+-- name: StartMetadataSearch :one
+UPDATE grabs_grab SET metadata_started_at = coalesce(metadata_started_at, sqlc.arg(at))
+WHERE id = sqlc.arg(id) AND stage = 'fetching'
+RETURNING metadata_started_at;

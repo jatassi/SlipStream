@@ -8,6 +8,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/jatassi/slipstream/fakes/dht"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
@@ -57,4 +58,52 @@ func tmdbAPI(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return config.Endpoints.TMDB.API
+}
+
+func TestEachNodeBootstrapsFromItsOwnDHTSocket(t *testing.T) {
+	t.Parallel()
+	s := stubScenario()
+	s.Nodes = append(s.Nodes, scenario.Node{Name: "seedbox"})
+	ctx := worldtest.Context(t)
+	run, err := world.LaunchWith(ctx, world.Options{Binary: stub{}.build(t), Scenario: s, RunDir: filepath.Join(t.TempDir(), "run"), Origin: worldtest.Origin(t)}, []fake.Spec{dht.Fake})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = run.Stop(ctx) })
+	m := run.Manifest()
+	for _, n := range m.Nodes {
+		i := slices.IndexFunc(m.Fronts, func(f world.Front) bool { return f.Target == dht.Fake.Name && f.Node == n.Name })
+		if i < 0 {
+			t.Fatalf("fronts %+v name no socket for %s", m.Fronts, n.Name)
+		}
+		router := dhtRouter(t, filepath.Join(n.DataDir, "config.yaml"))
+		if want := m.Fronts[i].Address; router != want || m.Fronts[i].URL != "udp://"+want {
+			t.Errorf("node %s's endpoints.torrent.dht_routers = %s, want its own socket %s at %s", n.Name, router, want, m.Fronts[i].URL)
+		}
+	}
+	if c := world.Doctor(ctx, m.RunDir, ".").Checks[3]; !c.OK {
+		t.Errorf("doctor's %q failed with %v, want every socket to respond to a ping", c.Name, c.Failures)
+	}
+}
+
+func dhtRouter(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Endpoints struct {
+			Torrent struct {
+				DHTRouters []string `yaml:"dht_routers"`
+			} `yaml:"torrent"`
+		} `yaml:"endpoints"`
+	}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Endpoints.Torrent.DHTRouters) != 1 {
+		t.Fatalf("%s names DHT routers %v, want one", path, config.Endpoints.Torrent.DHTRouters)
+	}
+	return config.Endpoints.Torrent.DHTRouters[0]
 }

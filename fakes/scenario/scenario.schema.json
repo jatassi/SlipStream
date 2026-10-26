@@ -423,6 +423,18 @@
             "route_check": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "resolve_hold": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "resolve_lease": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "resolve_keep": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
           },
           "additionalProperties": false,
@@ -1083,6 +1095,20 @@
               "choke",
               "drop"
             ]
+          },
+          "public": {
+            "type": "boolean"
+          },
+          "link": {
+            "type": "string",
+            "enum": [
+              "torrent",
+              "magnet",
+              "redirect"
+            ]
+          },
+          "trackerless": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false,

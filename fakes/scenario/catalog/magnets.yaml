@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, whose Indexer links most releases by
+  magnet link. The Quiet Orchard's release is public and trackerless, so
+  home finds its seeders only through fake-dht. Harbor Lights' is public
+  and its magnet link names the tracker, and Salt Meadow's .torrent URL
+  redirects to its public magnet link. Cedar Hollow's is private behind a
+  magnet link, so its seeders never send the metadata and its Grab fails
+  no_metadata once the metadata wait passes. Juniper Falls' is a private
+  .torrent.
+seed: magnets
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000002
+      imdb_id: tt9000002
+      title: Harbor Lights
+      released: 2019-09-06
+      runtime: 98m
+    - id: 9000003
+      imdb_id: tt9000003
+      title: Salt Meadow
+      released: 2020-02-14
+      runtime: 91m
+    - id: 9000004
+      imdb_id: tt9000004
+      title: Cedar Hollow
+      released: 2018-10-12
+      runtime: 95m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: Juniper Falls
+      released: 2022-06-03
+      runtime: 102m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+    public: true
+    link: magnet
+    trackerless: true
+  - name: Harbor.Lights.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000002
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 8
+    seeded: true
+    advertised_size: 7.6GiB
+    public: true
+    link: magnet
+  - name: Salt.Meadow.2020.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000003
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 3
+    seeded: true
+    advertised_size: 7.1GiB
+    public: true
+    link: redirect
+  - name: Cedar.Hollow.2018.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000004
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 5
+    seeded: true
+    advertised_size: 6.9GiB
+    link: magnet
+  - name: Juniper.Falls.2022.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000005
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 9
+    seeded: true
+    advertised_size: 7.4GiB
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, site: fixture-site}]

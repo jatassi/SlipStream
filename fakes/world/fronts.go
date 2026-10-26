@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/netip"
 	"slices"
 
@@ -41,8 +42,34 @@ func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) e
 		r.table = append(r.table, fake.Front{Target: p.Target, Node: p.Origin, Address: fake.Address{AddrPort: f.Addr(), TLS: p.Layers&fault.TLS != 0}})
 	}
 	for _, spec := range specs {
-		at, _ := r.table.Find(fault.Target(spec.Name), events.World)
-		r.fakes = append(r.fakes, &fakeRun{spec: spec, at: at, inbox: front.NewInbox(at.AddrPort)})
+		f := &fakeRun{spec: spec}
+		if spec.NewUDP != nil {
+			if err := r.bindSockets(undo, f); err != nil {
+				return err
+			}
+		}
+		f.at, _ = r.table.Find(fault.Target(spec.Name), events.World)
+		if spec.NewUDP == nil {
+			f.inbox = front.NewInbox(f.at.AddrPort)
+		}
+		r.fakes = append(r.fakes, f)
+	}
+	return nil
+}
+
+// bindSockets binds the UDP fake f one socket for each Node and the world
+// on 127.0.0.1, where that origin reaches it.
+func (r *Run) bindSockets(undo *unwind, f *fakeRun) error {
+	f.sockets = map[string]*net.UDPConn{}
+	for _, origin := range append(r.nodeNames(), events.World) {
+		conn, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:0")))
+		if err != nil {
+			return fmt.Errorf("fake %s: bind the socket of %s: %w", f.spec.Name, origin, err)
+		}
+		undo.push(func() { _ = conn.Close() })
+		f.sockets[origin] = conn
+		at := fake.Address{AddrPort: netip.MustParseAddrPort(conn.LocalAddr().String())}
+		r.table = append(r.table, fake.Front{Target: fault.Target(f.spec.Name), Node: origin, Address: at})
 	}
 	return nil
 }
@@ -52,6 +79,9 @@ func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) e
 func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release, leecher *scenario.Leecher) []fault.Front {
 	var planned []fault.Front
 	for _, spec := range specs {
+		if spec.NewUDP != nil {
+			continue
+		}
 		layers := fault.Conn | fault.HTTP
 		if spec.TLS == fake.FrontTLS {
 			layers |= fault.TLS

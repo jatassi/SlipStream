@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
@@ -72,6 +73,10 @@ func (alone) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
 }
 
+func (alone) Resolve(context.Context, role.NodeID, magnet.Link, time.Time) (downloadclients.Resolution, error) {
+	panic("a .torrent link needs no metadata search")
+}
+
 type lapsing struct{ lapsed atomic.Bool }
 
 func (*lapsing) Holds(role.Name, role.NodeID) bool { return true }
@@ -91,7 +96,7 @@ func (site) Search(context.Context, *searchv1.SearchRequest) (*searchv1.SearchRe
 }
 
 func (site) FetchTorrent(context.Context, *searchv1.FetchTorrentRequest) (*searchv1.FetchTorrentResponse, error) {
-	return &searchv1.FetchTorrentResponse{Torrent: []byte("not bencode")}, nil
+	return &searchv1.FetchTorrentResponse{Got: &searchv1.FetchTorrentResponse_Torrent{Torrent: []byte("not bencode")}}, nil
 }
 
 func must[T any](t *testing.T) func(T, error) T {

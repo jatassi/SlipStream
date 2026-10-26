@@ -41,6 +41,8 @@ const (
 	DownloadingServiceFreesProcedure = "/slipstream.downloading.v1.DownloadingService/Frees"
 	// DownloadingServiceSampleProcedure is the procedure name of the DownloadingService's Sample RPC.
 	DownloadingServiceSampleProcedure = "/slipstream.downloading.v1.DownloadingService/Sample"
+	// DownloadingServiceResolveProcedure is the procedure name of the DownloadingService's Resolve RPC.
+	DownloadingServiceResolveProcedure = "/slipstream.downloading.v1.DownloadingService/Resolve"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
@@ -82,6 +84,13 @@ var (
 			Procedure:  DownloadingServiceSampleProcedure,
 		}
 	})
+	downloadingServiceResolveSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Resolve"),
+			Procedure:  DownloadingServiceResolveProcedure,
+		}
+	})
 )
 
 // DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
@@ -102,6 +111,11 @@ type DownloadingServiceClient interface {
 	// Sample samples the downloads volume now and answers once the Node has
 	// set its facts with the sample.
 	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
+	// Resolve answers a magnet link's info dictionary once a peer sent it,
+	// how the search for it stands after a while, or why it ended. A second
+	// call for the same info hash joins the first, and a found info
+	// dictionary stays for a call whose answer was lost.
+	Resolve(context.Context, *v1.ResolveRequest) (*v1.ResolveResponse, error)
 }
 
 // NewDownloadingServiceClient constructs a client for the
@@ -129,6 +143,11 @@ type DownloadingServiceHandler interface {
 	// Sample samples the downloads volume now and answers once the Node has
 	// set its facts with the sample.
 	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
+	// Resolve answers a magnet link's info dictionary once a peer sent it,
+	// how the search for it stands after a while, or why it ended. A second
+	// call for the same info hash joins the first, and a found info
+	// dictionary stays for a call whose answer was lost.
+	Resolve(context.Context, *v1.ResolveRequest) (*v1.ResolveResponse, error)
 }
 
 // RegisterDownloadingServiceHandler registers svc as the
@@ -141,6 +160,7 @@ func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingSe
 		connect.Method{Spec: downloadingServiceActSpec(), Handler: adapter.act},
 		connect.Method{Spec: downloadingServiceFreesSpec(), Handler: adapter.frees},
 		connect.Method{Spec: downloadingServiceSampleSpec(), Handler: adapter.sample},
+		connect.Method{Spec: downloadingServiceResolveSpec(), Handler: adapter.resolve},
 	)
 }
 
@@ -165,6 +185,10 @@ func (UnimplementedDownloadingServiceHandler) Frees(context.Context, *v1.FreesRe
 
 func (UnimplementedDownloadingServiceHandler) Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Sample is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) Resolve(context.Context, *v1.ResolveRequest) (*v1.ResolveResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Resolve is not implemented")
 }
 
 type downloadingServiceClient struct {
@@ -206,6 +230,14 @@ func (c *downloadingServiceClient) Frees(ctx context.Context, req *v1.FreesReque
 func (c *downloadingServiceClient) Sample(ctx context.Context, req *v1.SampleRequest) (*v1.SampleResponse, error) {
 	var res v1.SampleResponse
 	if err := c.client.CallUnary(ctx, downloadingServiceSampleSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) Resolve(ctx context.Context, req *v1.ResolveRequest) (*v1.ResolveResponse, error) {
+	var res v1.ResolveResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceResolveSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -267,6 +299,18 @@ func (h downloadingServiceHandler) sample(ctx context.Context, _ connect.Spec, s
 		return err
 	}
 	res, err := h.svc.Sample(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) resolve(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ResolveRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Resolve(ctx, &req)
 	if err != nil {
 		return err
 	}

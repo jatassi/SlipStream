@@ -7,9 +7,13 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/dht/krpc"
+	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginecontract"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
@@ -76,6 +80,34 @@ func (sessions) Incoming(t *testing.T, e engine.Engine) netip.Addr {
 		t.Fatalf("the session kept a connection that sent no handshake: %v", err)
 	}
 	return netip.MustParseAddrPort(c.LocalAddr().String()).Addr()
+}
+
+func (sessions) DHT(t *testing.T) enginecontract.DHT {
+	var mu sync.Mutex
+	lookups := map[bencode.InfoHash]int{}
+	srv := krpc.New(krpc.Config{
+		Peers: func(string, bencode.InfoHash) []netip.AddrPort { return nil },
+		Record: func(q krpc.Query) {
+			mu.Lock()
+			defer mu.Unlock()
+			if q.Method == "get_peers" {
+				lookups[q.InfoHash]++
+			}
+		},
+	})
+	t.Cleanup(func() { _ = srv.Close() })
+	addr, err := srv.Listen("engine", netip.MustParseAddrPort("127.0.0.1:0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return enginecontract.DHT{
+		Routers: []endpoint.HostPort{endpoint.MustParseHostPort(addr.String())},
+		Lookups: func(h bencode.InfoHash) int {
+			mu.Lock()
+			defer mu.Unlock()
+			return lookups[h]
+		},
+	}
 }
 
 func (sessions) Until(t *testing.T, what string, cond func() bool) {

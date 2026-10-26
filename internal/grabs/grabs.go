@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -146,6 +147,9 @@ type Downloads interface {
 	Moved() <-chan struct{}
 	// Sample is a Torrent's live sample, false while it has none.
 	Sample(id downloadclients.ID) (downloadclients.Sample, bool)
+	// Resolve is one long poll of node's search for link's metadata,
+	// which ends at endsAt unless a peer sent it.
+	Resolve(ctx context.Context, node role.NodeID, link magnet.Link, endsAt time.Time) (downloadclients.Resolution, error)
 }
 
 // Roots is the library roots as a Grab reaches them: bytes go into a
@@ -185,8 +189,9 @@ type Config struct {
 }
 
 type Grabs struct {
-	cfg  Config
-	poke chan struct{}
+	cfg       Config
+	poke      chan struct{}
+	searching searching
 
 	mu sync.Mutex
 	// moved is each Grab a transfers hook moved, for grabs.changed once
@@ -196,7 +201,7 @@ type Grabs struct {
 
 // New builds the Grab pipeline and registers its Transfers purpose.
 func New(cfg Config) *Grabs {
-	gr := &Grabs{cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}}
+	gr := &Grabs{cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: searching{peers: map[GrabID]int{}}}
 	cfg.Transfers.Register(transfers.Purpose{
 		Kind:     transfers.Grab,
 		Verified: gr.transferVerified,
@@ -259,10 +264,14 @@ type Grab struct {
 	// Node downloads the release: the Indexer's home Node until the fetch,
 	// then the Downloading Node the fetch handed the .torrent to.
 	Node role.NodeID
-	// FetchNode is the Searching Node that fetched the .torrent, zero
-	// until it did.
+	// FetchNode is the Node that fetched the .torrent: the Indexer's
+	// Searching Node, or the Downloading Node that got a magnet link's
+	// metadata from peers. Zero until one did.
 	FetchNode role.NodeID
-	Stage     Stage
+	// MetadataSince is when the Grab first asked for its magnet link's
+	// metadata, zero until it did.
+	MetadataSince time.Time
+	Stage         Stage
 	// Torrent is nil until the fetch attached one.
 	Torrent *Torrent
 	Plan    *Plan
@@ -326,7 +335,8 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, Link: row.ReleaseLink},
-		Node:    row.NodeID, FetchNode: row.FetchNodeID, Stage: row.Stage, History: rel.history[row.ID], Created: row.CreatedAt.Time(),
+		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
+		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
 	}
 	if row.ReleaseInfoHash != nil {
 		h := bencode.InfoHash(row.ReleaseInfoHash)

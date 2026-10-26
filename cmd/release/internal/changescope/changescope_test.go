@@ -182,6 +182,7 @@ func TestDiagram(t *testing.T) {
 		{"the check", []nativetouch.Change{modified("web/scripts/diagram-check.ts")}, true},
 		{"the anatomy skill", []nativetouch.Change{modified(".claude/skills/anatomy/scripts/line-ends.mjs")}, true},
 		{"the lockfile", []nativetouch.Change{modified("web/bun.lock")}, true},
+		{"a package patch", []nativetouch.Change{modified("web/patches/msw@3.0.3.patch")}, true},
 		{"a rename out of the Diagram", []nativetouch.Change{{Old: nativetouch.Side{Path: "web/src/diagram/x.ts"}, New: nativetouch.Side{Path: "web/src/x.ts"}}}, true},
 	} {
 		if got := Diagram(c.changes); got != c.want {

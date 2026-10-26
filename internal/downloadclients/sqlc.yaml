@@ -27,6 +27,10 @@ sql:
             go_type:
               type: bool
               pointer: true
+          - column: downloadclients_node.dht
+            go_type:
+              type: bool
+              pointer: true
           - column: downloadclients_settings.id
             go_type:
               type: Singleton

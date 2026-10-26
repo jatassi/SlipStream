@@ -1,7 +1,8 @@
 // Package releases builds the release catalog the fakes share: for each
-// Scenario release, a payload video the bundled ffmpeg makes and a private
-// torrent of it that announces to fake-tracker. The world builds it once
-// per launch, after the fakes' listeners are bound.
+// Scenario release, a payload video the bundled ffmpeg makes and a torrent
+// of it that announces to fake-tracker, private unless the release is
+// public. The world builds it once per launch, after the fakes' listeners
+// are bound.
 package releases
 
 import (
@@ -191,7 +192,7 @@ func place(cached, dir string, r scenario.Release, announce string) (Release, er
 	if err != nil {
 		return Release{}, fmt.Errorf("copy the payload: %w", err)
 	}
-	meta, hash, err := metainfo(name, size, pieces.sum(), announce)
+	meta, hash, err := metainfo(name, size, pieces.sum(), announce, r.Public)
 	if err != nil {
 		return Release{}, err
 	}
@@ -202,23 +203,23 @@ func place(cached, dir string, r scenario.Release, announce string) (Release, er
 
 // Metainfo is a catalog torrent of payload as the one file name, for a
 // world that makes its payloads without ffmpeg.
-func Metainfo(name string, payload []byte, announce string) ([]byte, bencode.InfoHash, error) {
+func Metainfo(name string, payload []byte, announce string, public bool) ([]byte, bencode.InfoHash, error) {
 	pieces := &pieceHasher{}
 	_, _ = pieces.Write(payload)
-	return metainfo(name, int64(len(payload)), pieces.sum(), announce)
+	return metainfo(name, int64(len(payload)), pieces.sum(), announce, public)
 }
 
-func metainfo(name string, size int64, pieces []byte, announce string) ([]byte, bencode.InfoHash, error) {
-	meta, err := bencode.Encode(map[string]any{
-		"announce": announce,
-		"info": map[string]any{
-			"length":       size,
-			"name":         name,
-			"piece length": PieceLength,
-			"pieces":       pieces,
-			"private":      1,
-		},
-	})
+func metainfo(name string, size int64, pieces []byte, announce string, public bool) ([]byte, bencode.InfoHash, error) {
+	info := map[string]any{
+		"length":       size,
+		"name":         name,
+		"piece length": PieceLength,
+		"pieces":       pieces,
+	}
+	if !public {
+		info["private"] = 1
+	}
+	meta, err := bencode.Encode(map[string]any{"announce": announce, "info": info})
 	if err != nil {
 		return nil, bencode.InfoHash{}, err
 	}

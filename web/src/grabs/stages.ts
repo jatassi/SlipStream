@@ -66,8 +66,22 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: "Search again once the Indexer is back.",
   },
   torrent_unreachable: {
-    cause: "SlipStream couldn't download the release's .torrent file from the Indexer.",
+    cause:
+      "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer.",
     recovery: searchAgain,
+  },
+  magnet_invalid: {
+    cause: "The release's magnet link has no info hash SlipStream can read.",
+    recovery: searchAgain,
+  },
+  no_metadata: {
+    cause: "No peer sent the magnet link's metadata in time.",
+    recovery: searchAgain,
+  },
+  no_peer_source: {
+    cause: "The magnet link names no tracker, and DHT is off on the Node that downloads it.",
+    recovery:
+      "Turn on DHT for public torrents in that Node's torrent client settings, or search again.",
   },
   torrent_invalid: {
     cause: "The .torrent file the Indexer sent is damaged.",

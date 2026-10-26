@@ -7,6 +7,7 @@ import { useTransferOf } from "../transfers/job";
 import { paceLine } from "../transfers/words";
 import { Data } from "../ui/data";
 import { LiveBar } from "../ui/live-bar";
+import { MetadataCell } from "./metadata-cell";
 import { movesBytes, stageWord } from "./stages";
 
 const percent = ({ done, total }: { done: number; total: number }) =>
@@ -79,6 +80,9 @@ function TransferProgress({ grab }: { grab: GrabsGrab }) {
 }
 
 export function ProgressCell({ grab }: { grab: GrabsGrab }) {
+  if (grab.metadata !== undefined) {
+    return <MetadataCell search={grab.metadata} />;
+  }
   if (!movesBytes(grab)) {
     return null;
   }

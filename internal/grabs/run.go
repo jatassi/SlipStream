@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
@@ -124,9 +125,10 @@ func local(ctx context.Context, err error) outcome {
 	return wait{cause: err}
 }
 
-// fetch brings the .torrent through the Node the Indexer routes to now and
-// hands it to a Downloading Node: the one holding the Work's root when it
-// may download, so the file lands by a hard link. While no Node may take
+// fetch brings the .torrent through the Node the Indexer routes to now, or
+// a magnet link's metadata through the Downloading Node, and hands it to
+// that Downloading Node: the one holding the Work's root when it may
+// download, so the file lands by a hard link. While no Node may take
 // either, it waits for the roster to change.
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	var idx indexers.Indexer
@@ -145,7 +147,13 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	if _, err := gr.cfg.Roster.Route(role.Downloading, root.Node); err != nil {
 		return wait{cause: err, roster: true}
 	}
-	f, err := gr.cfg.Indexers.FetchTorrent(ctx, idx, g.Release.Link)
+	got, err := gr.cfg.Indexers.Fetch(ctx, idx, g.Release.Link)
+	if errors.Is(err, bencode.ErrV2Only) {
+		return fail{TorrentV2Only, err.Error()}
+	}
+	if _, invalid := errors.AsType[*magnet.InvalidError](err); invalid {
+		return fail{MagnetInvalid, err.Error()}
+	}
 	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
 		return wait{cause: err, roster: true}
 	}
@@ -156,7 +164,19 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return wait{cause: err, roster: true}
 	}
-	m, err := bencode.DecodeMetainfo(f.Torrent)
+	switch got := got.(type) {
+	case indexers.Torrent:
+		return decoded(g, got.Raw, fetched{by: got.Node, to: to})
+	case indexers.Magnet:
+		return gr.resolve(ctx, g, got.Link, to)
+	}
+	panic("grabs: unknown fetch result")
+}
+
+// decoded is the advance to Downloading with the .torrent raw, or the
+// failure that keeps raw from being g's.
+func decoded(g Grab, raw []byte, f fetched) outcome {
+	m, err := bencode.DecodeMetainfo(raw)
 	switch {
 	case errors.Is(err, bencode.ErrV2Only):
 		return fail{TorrentV2Only, err.Error()}
@@ -165,7 +185,7 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	case g.Release.InfoHash != nil && *g.Release.InfoHash != m.InfoHash:
 		return fail{InfohashMismatch, fmt.Sprintf("The .torrent's info hash is %s and the Indexer's is %s", m.InfoHash, g.Release.InfoHash)}
 	}
-	return advance{to: Downloading, torrent: &dotTorrent{metainfo: m, raw: f.Torrent}, fetched: &fetched{by: f.Node, to: to}}
+	return advance{to: Downloading, torrent: &dotTorrent{metainfo: m, raw: raw}, fetched: &f}
 }
 
 func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
@@ -499,6 +519,7 @@ func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in file
 // Admins, the downloading Node's intent, and the Transfers move started,
 // placed or canceled.
 func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
+	gr.searching.drop(g.ID)
 	gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
 	switch next {
 	case Downloading:
@@ -552,6 +573,8 @@ const (
 	committed result = iota + 1
 	waited
 	halted
+	// rerun: the step runs again at once.
+	rerun
 )
 
 // step runs g's due step and commits its outcome. A wait on a Node out of
@@ -565,6 +588,8 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 	switch o := o.(type) {
 	case stopped:
 		return halted
+	case again:
+		return rerun
 	case wait:
 		gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", o.cause.Error())
 		changed := gr.cfg.Roster.Changed()
@@ -679,7 +704,7 @@ func (gr *Grabs) start(ctx context.Context, s *schedule, now time.Time, id stora
 
 func (s *schedule) record(r report, now time.Time, t Timings, rnd *rand.Rand) {
 	switch r.result {
-	case committed:
+	case committed, rerun:
 		delete(s.attempts, r.id)
 		delete(s.retryAt, r.id)
 	case waited:

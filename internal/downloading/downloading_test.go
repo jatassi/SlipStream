@@ -221,9 +221,37 @@ type checks struct {
 	mu       sync.Mutex
 	n        int
 	limits   engine.Limits
+	discover []bool
+	fetches  int
 	removing func()
 	holding  bool
 	held     []engine.Handle
+}
+
+func (c *checks) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
+	c.mu.Lock()
+	c.fetches++
+	c.mu.Unlock()
+	return c.Engine.FetchMetadata(p)
+}
+
+func (c *checks) searches() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.fetches
+}
+
+func (c *checks) Add(p engine.AddParams) (engine.Handle, error) {
+	c.mu.Lock()
+	c.discover = append(c.discover, p.Discover)
+	c.mu.Unlock()
+	return c.Engine.Add(p)
+}
+
+func (c *checks) discovers() []bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.discover)
 }
 
 func (c *checks) Remove(h engine.Handle, deleteFiles bool) error {

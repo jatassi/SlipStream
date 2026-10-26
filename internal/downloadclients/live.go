@@ -213,15 +213,32 @@ func (c *Clients) fold(node role.NodeID, n *watched, after uint64, res *dlv1.Wat
 }
 
 func (c *Clients) publishLive(ctx context.Context) {
-	agg, err := c.Downloads(ctx)
+	tick, publish, err := c.takeLive(ctx)
 	if err != nil {
 		if ctx.Err() == nil {
 			c.cfg.Log.Error("add up the downloads", "err", err.Error())
 		}
 		return
 	}
+	if publish {
+		c.cfg.Live.Event.Publish(ctx, tick)
+	}
+}
+
+// takeLive is the next torrents.live, and whether it says anything new.
+// It takes the moved rows and the sum from the same samples.
+func (c *Clients) takeLive(ctx context.Context) (LiveTick, bool, error) {
+	rows, err := db.New(c.cfg.Library).ListDownloads(ctx)
+	if err != nil {
+		return LiveTick{}, false, err
+	}
 	w := &c.watching
 	w.mu.Lock()
+	defer w.mu.Unlock()
+	agg, err := w.addUp(rows)
+	if err != nil {
+		return LiveTick{}, false, err
+	}
 	tick := LiveTick{At: time.Now(), Rows: []LiveRow{}, Downloads: agg}
 	for _, id := range slices.SortedFunc(maps.Keys(w.moved), func(a, b ID) int { return a.Compare(b.UUID) }) {
 		s := w.moved[id]
@@ -232,10 +249,7 @@ func (c *Clients) publishLive(ctx context.Context) {
 	publish := len(tick.Rows) > 0 || agg != w.shown
 	clear(w.moved)
 	w.shown = agg
-	w.mu.Unlock()
-	if publish {
-		c.cfg.Live.Event.Publish(ctx, tick)
-	}
+	return tick, publish, nil
 }
 
 // Downloads adds up the downloads, each at its live sample while it has
@@ -245,6 +259,14 @@ func (c *Clients) Downloads(ctx context.Context) (Aggregate, error) {
 	if err != nil {
 		return Aggregate{}, err
 	}
+	w := &c.watching
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.addUp(rows)
+}
+
+// addUp adds up rows at the samples w holds. The caller holds w.mu.
+func (w *watching) addUp(rows []db.ListDownloadsRow) (Aggregate, error) {
 	agg, downloads, paused := Aggregate{}, 0, 0
 	for _, row := range rows {
 		rep, err := reportOf(row.Report)
@@ -261,7 +283,7 @@ func (c *Clients) Downloads(ctx context.Context) (Aggregate, error) {
 			paused++
 		}
 		done := rep.done(row.Size)
-		if l, ok := c.Sample(row.ID); ok {
+		if l, ok := w.sample(row.ID); ok {
 			done = l.Done
 		}
 		agg.Done += done
@@ -276,6 +298,10 @@ func (c *Clients) Sample(id ID) (Sample, bool) {
 	w := &c.watching
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	return w.sample(id)
+}
+
+func (w *watching) sample(id ID) (Sample, bool) {
 	for _, n := range w.nodes {
 		if s, ok := n.torrents[id]; ok {
 			return s, true
