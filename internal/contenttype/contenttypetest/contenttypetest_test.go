@@ -43,7 +43,7 @@ func shelf(t *testing.T, f *contenttypetest.Fixture) (tree works.Tree, timings f
 		t.Helper()
 		var got map[works.ItemID]targets.Timing
 		if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-			got, err = f.Timings(ctx, r, []works.WorkID{tree.ID})
+			got, err = f.Timings(ctx, r, works.Only([]works.WorkID{tree.ID}))
 			return err
 		}); err != nil {
 			t.Fatal(err)

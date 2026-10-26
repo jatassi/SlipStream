@@ -188,7 +188,7 @@ type GrabCell struct {
 type Inflight interface {
 	// GrabCells reads the latest Grab of each cell of ws that a Grab
 	// fetches, is in flight for or failed.
-	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[CellKey]GrabCell, error)
+	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[CellKey]GrabCell, error)
 	// Unfinished lists the ids of every Grab not yet imported or failed,
 	// whose download may sit in a root's holding folder.
 	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
@@ -201,7 +201,7 @@ type Inflight interface {
 // NoGrabs is Inflight while nothing grabs.
 type NoGrabs struct{}
 
-func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[CellKey]GrabCell, error) {
+func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[CellKey]GrabCell, error) {
 	return nil, nil
 }
 

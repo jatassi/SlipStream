@@ -57,7 +57,7 @@ func (l *Library) SetProfile(ctx context.Context, by identity.Admin, ws []works.
 		if summaries, err = works.SummariesOf(ctx, r, ids); err != nil {
 			return err
 		}
-		goals, err = targets.GoalsOf(ctx, r, presentOf(ids, summaries))
+		goals, err = targets.GoalsOf(ctx, r, works.Only(presentOf(ids, summaries)))
 		return err
 	})
 	if err != nil {

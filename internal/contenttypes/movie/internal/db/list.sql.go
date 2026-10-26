@@ -12,6 +12,77 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const listEveryGenre = `-- name: ListEveryGenre :many
+SELECT work_id, name FROM movie_genre ORDER BY work_id, position
+`
+
+type ListEveryGenreRow struct {
+	WorkID works.WorkID
+	Name   string
+}
+
+func (q *Queries) ListEveryGenre(ctx context.Context) ([]ListEveryGenreRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryGenre)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryGenreRow
+	for rows.Next() {
+		var i ListEveryGenreRow
+		if err := rows.Scan(&i.WorkID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryListed = `-- name: ListEveryListed :many
+SELECT work_id, year, runtime_minutes, certification FROM movie_movie ORDER BY rowid
+`
+
+type ListEveryListedRow struct {
+	WorkID         works.WorkID
+	Year           *int64
+	RuntimeMinutes *int64
+	Certification  *string
+}
+
+func (q *Queries) ListEveryListed(ctx context.Context) ([]ListEveryListedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryListed)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryListedRow
+	for rows.Next() {
+		var i ListEveryListedRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.Year,
+			&i.RuntimeMinutes,
+			&i.Certification,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGenresOf = `-- name: ListGenresOf :many
 SELECT work_id, name FROM movie_genre WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id, position
 `
@@ -41,6 +112,55 @@ func (q *Queries) ListGenresOf(ctx context.Context, workIds []works.WorkID) ([]L
 	for rows.Next() {
 		var i ListGenresOfRow
 		if err := rows.Scan(&i.WorkID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listListedOf = `-- name: ListListedOf :many
+SELECT work_id, year, runtime_minutes, certification FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListListedOfRow struct {
+	WorkID         works.WorkID
+	Year           *int64
+	RuntimeMinutes *int64
+	Certification  *string
+}
+
+func (q *Queries) ListListedOf(ctx context.Context, workIds []works.WorkID) ([]ListListedOfRow, error) {
+	query := listListedOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListListedOfRow
+	for rows.Next() {
+		var i ListListedOfRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.Year,
+			&i.RuntimeMinutes,
+			&i.Certification,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

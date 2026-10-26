@@ -31,9 +31,9 @@ type Catalog interface {
 	// each of the kind its FieldSpec declares.
 	Fields(ctx context.Context, r storage.Reader[storage.Library], w WorkID) (FieldSet, error)
 	// ListFields reads, for each of ws in one call, the Work-tier fields
-	// whose spec has a List flag, and only those. works hands it at most
-	// 2,000 ids.
-	ListFields(ctx context.Context, r storage.Reader[storage.Library], ws []WorkID) (map[WorkID][]FieldValue, error)
+	// whose spec has a List flag, and only those. When ws is every Work
+	// of the type, the type's own rows are all of theirs.
+	ListFields(ctx context.Context, r storage.Reader[storage.Library], ws Among[WorkID]) (map[WorkID][]FieldValue, error)
 	// Titles is every title w is known by beyond its label and sort label,
 	// in any language, for search. The core calls it inside the Write that
 	// stores w.

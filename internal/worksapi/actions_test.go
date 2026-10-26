@@ -276,7 +276,7 @@ func (s *shelves) item(t *testing.T, work string) works.ItemID {
 	var item works.ItemID
 	err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		id := workID(t, work)
-		items, err := works.ItemsOf(ctx, r, []works.WorkID{id})
+		items, err := works.ItemsOf(ctx, r, works.Only([]works.WorkID{id}))
 		item = items[id][0].ID
 		return err
 	})

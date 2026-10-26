@@ -20,8 +20,16 @@ type GrabCells struct {
 // NodeAway is the Waiting code of a Grab whose Node is out of step.
 const NodeAway = "node_away"
 
-func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[files.CellKey]files.GrabCell, error) {
-	rows, err := db.New(r).ListTargetsOfWorks(ctx, ws)
+func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
+	q := db.New(r)
+	rows, err := works.Read(ws, func() ([]db.ListTargetsOfWorksRow, error) {
+		rows, err := q.ListEveryGrabTarget(ctx)
+		out := make([]db.ListTargetsOfWorksRow, len(rows))
+		for i, row := range rows {
+			out[i] = db.ListTargetsOfWorksRow(row)
+		}
+		return out, err
+	}, func(ids []works.WorkID) ([]db.ListTargetsOfWorksRow, error) { return q.ListTargetsOfWorks(ctx, ids) })
 	if err != nil {
 		return nil, err
 	}

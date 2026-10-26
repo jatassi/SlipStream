@@ -385,7 +385,7 @@ func timings(t *testing.T, s scenario.Scenario, artist works.Key) map[works.Key]
 	var byID map[works.ItemID]targets.Timing
 	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		byID, err = m.Timings(ctx, r, []works.WorkID{tree.ID})
+		byID, err = m.Timings(ctx, r, works.Only([]works.WorkID{tree.ID}))
 		return err
 	}); err != nil {
 		t.Fatal(err)

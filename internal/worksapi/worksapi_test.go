@@ -45,7 +45,7 @@ import (
 // test.
 type grabbing map[files.CellKey]files.GrabCell
 
-func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[files.CellKey]files.GrabCell, error) {
+func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return g, nil
 }
 

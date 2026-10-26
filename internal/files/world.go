@@ -52,7 +52,7 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 	if err != nil {
 		return world{}, err
 	}
-	ws, err := f.worlds(ctx, r, []works.Bare{tree})
+	ws, err := f.worlds(ctx, r, []works.Bare{tree}, works.Only([]works.WorkID{work}), wholeFiles)
 	if err != nil {
 		return world{}, err
 	}
@@ -60,16 +60,14 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 }
 
 // worlds loads the world of each Work of trees in r, in trees' order,
-// reading each kind of row once for them all. It binds one variable per
-// Work, so trees holds at most works.Batch.
-func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare) ([]world, error) {
-	ids := make([]works.WorkID, len(trees))
+// reading each kind of row once for them all, and their files with read.
+// among names trees' Works.
+func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID], read fileRead) ([]world, error) {
 	byType := map[works.TypeID][]works.WorkID{}
-	for i, t := range trees {
-		ids[i] = t.ID
+	for _, t := range trees {
 		byType[t.ContentType] = append(byType[t.ContentType], t.ID)
 	}
-	goals, err := targets.GoalsOf(ctx, r, ids)
+	goals, err := targets.GoalsOf(ctx, r, among)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +77,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	}
 	timing := map[works.ItemID]targets.Timing{}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
-		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, byType[typ])
+		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, works.Like(among, byType[typ]))
 		if err != nil {
 			return nil, err
 		}
@@ -91,11 +89,11 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 			items = append(items, it.ID)
 		}
 	}
-	seen, err := targets.SeenIn(ctx, r, items)
+	seen, err := targets.SeenIn(ctx, r, works.Like(among, items))
 	if err != nil {
 		return nil, err
 	}
-	grabs, err := f.cfg.Grabs.GrabCells(ctx, r, ids)
+	grabs, err := f.cfg.Grabs.GrabCells(ctx, r, among)
 	if err != nil {
 		return nil, err
 	}
@@ -103,38 +101,90 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	if err != nil {
 		return nil, err
 	}
-	homes, err := roots.HomesOf(ctx, r, ids)
+	homes, err := roots.HomesOf(ctx, r, among)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]world, len(trees))
-	at := make(map[works.WorkID]*world, len(trees))
+	today := f.cfg.Today()
 	for i, t := range trees {
-		out[i] = world{tree: t, goals: goals[t.ID], root: homes[t.ID], fills: map[CellKey]ID{}, grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: f.cfg.Today()}
-		at[t.ID] = &out[i]
+		out[i] = world{tree: t, goals: goals[t.ID], root: homes[t.ID], grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: today}
 	}
-	q := db.New(r)
-	rows, err := q.ListFilesOfWorks(ctx, ids)
-	if err != nil {
+	if err := shelve(ctx, db.New(r), out, among, read, seen); err != nil {
 		return nil, err
+	}
+	return out, nil
+}
+
+// shelve puts each file of ws's Works on its Work's world, oldest first,
+// with its fills, and adds the file's cut to seen. among names ws's Works.
+func shelve(ctx context.Context, q *db.Queries, ws []world, among works.Among[works.WorkID], read fileRead, seen map[works.ItemID][]release.CutKey) error {
+	at := make(map[works.WorkID]*world, len(ws))
+	for i := range ws {
+		at[ws[i].tree.ID] = &ws[i]
+	}
+	rows, err := read(ctx, q, among)
+	if err != nil {
+		return err
 	}
 	of := make(map[ID]*world, len(rows))
 	for _, row := range rows {
 		w := at[row.WorkID]
-		w.files = append(w.files, File(row))
+		w.files = append(w.files, row)
 		of[row.ID] = w
 		if !slices.Contains(seen[row.ItemID], row.Cut) {
 			seen[row.ItemID] = append(seen[row.ItemID], row.Cut)
 		}
 	}
-	fills, err := q.ListFillsOfWorks(ctx, ids)
+	for i := range ws {
+		slices.SortFunc(ws[i].files, func(a, b File) int { return a.ID.Compare(b.ID.UUID) })
+	}
+	fills, err := works.Read(among, func() ([]db.FilesFill, error) { return q.ListEveryFill(ctx) }, func(ids []works.WorkID) ([]db.FilesFill, error) {
+		return q.ListFillsOfWorks(ctx, ids)
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, fill := range fills {
-		of[fill.FileID].fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
+		w := of[fill.FileID]
+		if w.fills == nil {
+			w.fills = map[CellKey]ID{}
+		}
+		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
 	}
-	return out, nil
+	return nil
+}
+
+// fileRead reads the files of among's Works.
+type fileRead func(context.Context, *db.Queries, works.Among[works.WorkID]) ([]File, error)
+
+func wholeFiles(ctx context.Context, q *db.Queries, among works.Among[works.WorkID]) ([]File, error) {
+	rows, err := works.Read(among, func() ([]db.FilesFile, error) { return q.ListEveryFile(ctx) }, func(ids []works.WorkID) ([]db.FilesFile, error) {
+		return q.ListFilesOfWorks(ctx, ids)
+	})
+	out := make([]File, len(rows))
+	for i, row := range rows {
+		out[i] = File(row)
+	}
+	return out, err
+}
+
+// briefFiles reads only what cells and a Rollup read of each file: not its
+// path, probe, Grab or label.
+func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.WorkID]) ([]File, error) {
+	rows, err := works.Read(among, func() ([]db.ListEveryBriefFileRow, error) { return q.ListEveryBriefFile(ctx) }, func(ids []works.WorkID) ([]db.ListEveryBriefFileRow, error) {
+		rows, err := q.ListBriefFilesOfWorks(ctx, ids)
+		out := make([]db.ListEveryBriefFileRow, len(rows))
+		for i, row := range rows {
+			out[i] = db.ListEveryBriefFileRow(row)
+		}
+		return out, err
+	})
+	out := make([]File, len(rows))
+	for i, row := range rows {
+		out[i] = File{ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Size: row.Size, Quality: row.Quality, Extra: row.Extra}
+	}
+	return out, err
 }
 
 // named adds what names reads to w under fills: the Content Type's
@@ -187,9 +237,10 @@ func (w world) byID() map[ID]*File {
 // from its latest Grab, unreleased until the Item is out, else missing; a
 // file in a lost root leaves its cell empty. A cut not seen for the Item
 // makes no cell, so it never counts.
-func cells(w world) []Cell {
+func cells(w world) []Cell { return appendCells(nil, w) }
+
+func appendCells(out []Cell, w world) []Cell {
 	files := w.byID()
-	var out []Cell
 	for _, it := range w.tree.Items {
 		timing := w.timing[it.ID]
 		released := timing.ReleasedBy(w.today)
