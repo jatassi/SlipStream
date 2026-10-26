@@ -221,7 +221,22 @@ type checks struct {
 	n        int
 	limits   engine.Limits
 	discover []bool
+	fetches  int
 	removing func()
+}
+
+func (c *checks) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
+	c.mu.Lock()
+	c.fetches++
+	c.mu.Unlock()
+	return c.Engine.FetchMetadata(p)
+}
+
+// searches is how many metadata searches the engine was asked for.
+func (c *checks) searches() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.fetches
 }
 
 func (c *checks) Add(p engine.AddParams) (engine.Handle, error) {

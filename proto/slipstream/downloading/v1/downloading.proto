@@ -250,7 +250,68 @@ service DownloadingService {
   // Sample samples the downloads volume now and answers once the Node has
   // set its facts with the sample.
   rpc Sample(SampleRequest) returns (SampleResponse);
+  // Resolve answers a magnet link's info dictionary once a peer sent it,
+  // how the search for it stands after a while, or why it ended. A second
+  // call for the same info hash joins the first, and a search's last
+  // answer stays for a call whose answer was lost. It answers Unavailable
+  // while the Node takes no new torrent.
+  rpc Resolve(ResolveRequest) returns (ResolveResponse);
 }
+
+message ResolveRequest {
+  bytes info_hash = 1;
+  // trackers are the magnet link's tr URLs in link order.
+  repeated string trackers = 2;
+  // name is the magnet link's dn, empty for none.
+  string name = 3;
+  // ends_at_unix_ms is when the search ends unless a peer has sent the
+  // metadata: the Controller's deadline for it.
+  int64 ends_at_unix_ms = 4;
+}
+
+message ResolveResponse {
+  oneof answer {
+    // info is the info dictionary a peer sent, whose SHA-1 is info_hash.
+    bytes info = 1;
+    Searching searching = 2;
+    Unresolved unresolved = 3;
+    Held held = 4;
+  }
+}
+
+// Searching is a metadata search still running.
+message Searching {
+  int64 since_unix_ms = 1;
+  // peers are the peers connected now.
+  int32 peers = 2;
+}
+
+// Unresolved is a metadata search that ended without the metadata.
+message Unresolved {
+  UnresolvedReason reason = 1;
+  // most_peers is the most peers connected at once.
+  int32 most_peers = 2;
+  // tracker_message is the last failure reason a tracker responded with,
+  // verbatim.
+  string tracker_message = 3;
+  // error is the engine's error text for UNRESOLVED_REASON_ENGINE_ERROR.
+  string error = 4;
+}
+
+enum UnresolvedReason {
+  UNRESOLVED_REASON_UNSPECIFIED = 0;
+  // UNRESOLVED_REASON_TIMED_OUT: no peer sent the metadata by the
+  // request's ends_at_unix_ms.
+  UNRESOLVED_REASON_TIMED_OUT = 1;
+  // UNRESOLVED_REASON_NO_PEER_SOURCE: the magnet link names no tracker and
+  // the Node's DHT is off.
+  UNRESOLVED_REASON_NO_PEER_SOURCE = 2;
+  UNRESOLVED_REASON_ENGINE_ERROR = 3;
+}
+
+// Held is a torrent of the info hash the Node already holds, whose
+// .torrent the Controller has.
+message Held {}
 
 message SampleRequest {}
 
