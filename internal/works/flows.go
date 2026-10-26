@@ -1,7 +1,6 @@
 package works
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -495,6 +494,9 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 	if err != nil {
 		return false, err
 	}
+	if err := indexTitles(ctx, tx, c, id, p.Label, p.SortLabel); err != nil {
+		return false, err
+	}
 	relabeled := p.Label != row.Label || p.SortLabel != row.SortLabel
 	return relabeled || !row.GoneUpstreamAt.IsZero() || moved || rated || drawn || own, nil
 }
@@ -785,25 +787,14 @@ func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []
 	if t.Fields, err = ordered(reg.specs(TierWork), fs.Work); err != nil {
 		return Tree{}, fmt.Errorf("the Work: %w", err)
 	}
-	rank := map[LevelID]int{}
-	for len(levels) > 0 {
-		n := 1 + slices.IndexFunc(levels[1:], func(l db.WorksLevel) bool { return l.Depth != levels[0].Depth })
-		if n == 0 {
-			n = len(levels)
+	rank := treeOrder(levels, items)
+	for _, l := range levels {
+		values, err := ordered(reg.specs(TierLevel(int(l.Depth))), fs.Levels[l.ID])
+		if err != nil {
+			return Tree{}, fmt.Errorf("level %s: %w", l.Key, err)
 		}
-		depth := levels[:n]
-		levels = levels[n:]
-		slices.SortStableFunc(depth, func(a, b db.WorksLevel) int { return cmp.Compare(rank[a.ParentID], rank[b.ParentID]) })
-		for _, l := range depth {
-			rank[l.ID] = len(rank) + 1
-			values, err := ordered(reg.specs(TierLevel(int(l.Depth))), fs.Levels[l.ID])
-			if err != nil {
-				return Tree{}, fmt.Errorf("level %s: %w", l.Key, err)
-			}
-			t.Levels = append(t.Levels, Level{ID: l.ID, ParentID: l.ParentID, Depth: int(l.Depth), Key: l.Key, Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Fields: values})
-		}
+		t.Levels = append(t.Levels, Level{ID: l.ID, ParentID: l.ParentID, Depth: int(l.Depth), Key: l.Key, Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Fields: values})
 	}
-	slices.SortStableFunc(items, func(a, b db.WorksItem) int { return cmp.Compare(rank[a.LevelID], rank[b.LevelID]) })
 	held := map[ItemID]bool{}
 	for _, it := range items {
 		held[it.ID] = true
