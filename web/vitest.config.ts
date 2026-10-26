@@ -10,6 +10,33 @@ const emulateReducedMotion: BrowserCommand<[reduce: boolean]> = async ({ page },
   await page.emulateMedia({ reducedMotion: reduce ? "reduce" : "no-preference" });
 };
 
+// Chromium restarts a Service Worker after five minutes unless DevTools is
+// attached, and the restart drops MSW's record of which pages it mocks, so
+// every later request reaches Vite instead. Attaching once keeps it up.
+const heldWorkers = new Set<string>();
+
+const holdServiceWorker: BrowserCommand = async ({ page }) => {
+  const browser = page.context().browser();
+  if (browser === null) {
+    throw new Error("the page has no browser to attach to");
+  }
+  const cdp = await browser.newBrowserCDPSession();
+  const { targetInfos } = await cdp.send("Target.getTargets");
+  const workers = targetInfos.filter(
+    ({ type, targetId }) => type === "service_worker" && !heldWorkers.has(targetId),
+  );
+  if (workers.length === 0) {
+    await cdp.detach();
+    return;
+  }
+  await Promise.all(
+    workers.map(async ({ targetId }) => {
+      heldWorkers.add(targetId);
+      await cdp.send("Target.attachToTarget", { targetId, flatten: true });
+    }),
+  );
+};
+
 // A pointer drag in steps, as a hand moves, from one element's centre to
 // another's. Playwright's own drag jumps there in one move.
 const drag: BrowserCommand<[from: string, to: string]> = async (context, from, to) => {
@@ -137,7 +164,7 @@ export default defineConfig((env) =>
         // prefers-reduced-motion: reduce. Tests that want it emulate it.
         provider: playwright({ contextOptions: { reducedMotion: "no-preference" } }),
         instances: [{ browser: "chromium" }],
-        commands: { emulateReducedMotion, drag, swipe, pinch, wheel },
+        commands: { holdServiceWorker, emulateReducedMotion, drag, swipe, pinch, wheel },
         viewport: { width: presets.desktop.width, height: presets.desktop.height },
       },
     },
