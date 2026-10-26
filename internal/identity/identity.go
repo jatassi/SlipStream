@@ -91,6 +91,7 @@ type Service struct {
 	passkeys   live.AccountPublisher[PasskeysChanged]
 	accounts   live.AdminPublisher[AccountsChanged]
 	links      live.AdminPublisher[LinksChanged]
+	address    live.AdminPublisher[AddressChanged]
 	mail       mail.Sender
 	outbox     *mail.Outbox
 	shadow     *shadowLedger
@@ -110,6 +111,7 @@ func New(ctx context.Context, cfg Config) (*Service, error) {
 		passkeys:   PasskeysChangedEvent.Bind(cfg.Hub),
 		accounts:   AccountsChangedEvent.Bind(cfg.Hub),
 		links:      LinksChangedEvent.Bind(cfg.Hub),
+		address:    AddressChangedEvent.Bind(cfg.Hub),
 		mail:       cfg.Mail,
 		outbox:     cfg.Outbox,
 		shadow:     newShadowLedger(),

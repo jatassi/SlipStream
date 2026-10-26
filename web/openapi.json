@@ -1955,6 +1955,10 @@
         ],
         "type": "object"
       },
+      "FirstrunChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
       "GrabsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -3099,6 +3103,10 @@
         "required": [
           "address"
         ],
+        "type": "object"
+      },
+      "IdentityAddressChanged": {
+        "additionalProperties": false,
         "type": "object"
       },
       "IdentityApiKeyMade": {
@@ -17139,6 +17147,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/FirstrunChanged"
+                          },
+                          "event": {
+                            "const": "firstrun.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event firstrun.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/GrabsChanged"
                           },
                           "event": {
@@ -17238,6 +17272,32 @@
                           "event"
                         ],
                         "title": "Event identity.accounts-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/IdentityAddressChanged"
+                          },
+                          "event": {
+                            "const": "identity.address-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event identity.address-changed",
                         "type": "object"
                       },
                       {

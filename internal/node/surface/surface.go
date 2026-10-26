@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclientsapi"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/filesapi"
+	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/health"
@@ -49,6 +50,7 @@ var Events = []live.Event{
 	identity.AccountsChangedEvent,
 	identity.LinksChangedEvent,
 	identity.PasskeysChangedEvent,
+	identity.AddressChangedEvent,
 	nodes.ChangedEvent,
 	nodes.SettingsChangedEvent,
 	nodes.TrafficEvent,
@@ -69,6 +71,7 @@ var Events = []live.Event{
 	tasks.ChangedEvent,
 	tasks.ProgressEvent,
 	health.ChangedEvent,
+	firstrun.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the

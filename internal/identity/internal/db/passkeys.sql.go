@@ -11,6 +11,20 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const anyAdminHasPasskey = `-- name: AnyAdminHasPasskey :one
+SELECT EXISTS (
+    SELECT 1 FROM identity_passkey p JOIN identity_account a ON a.id = p.account_id
+    WHERE a.admin = 1 AND a.disabled_at IS NULL
+)
+`
+
+func (q *Queries) AnyAdminHasPasskey(ctx context.Context) (bool, error) {
+	row := q.db.QueryRowContext(ctx, anyAdminHasPasskey)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const countPasskeysAt = `-- name: CountPasskeysAt :one
 SELECT COUNT(*) FROM identity_passkey
 WHERE account_id = ?1 AND relying_party = ?2
