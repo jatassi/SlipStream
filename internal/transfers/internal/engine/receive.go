@@ -59,6 +59,9 @@ type staged struct {
 	// m is the sender's Manifest of the file as this run first opened it.
 	m        *tv1.Manifest
 	verified bitset
+	// kept is the bytes the resume record holds verified until the run
+	// takes m and decides whether they resume.
+	kept int64
 	// written is the chunks written since the last sync, by their hash.
 	written map[int][32]byte
 	// asked is the chunks some lane asked for and hasn't taken.
@@ -205,10 +208,14 @@ func (r *run) stage() error {
 		if err != nil && !errors.Is(err, storage.ErrNoRows) {
 			return err
 		}
-		s.reported = err == nil && row.Done == 1
+		if err == nil {
+			s.reported = row.Done == 1
+			s.kept = bitset(row.Verified).bytes(row.Size)
+		}
 		rx.files = append(rx.files, s)
 	}
 	rx.folder = folder
+	r.countVerified()
 	return nil
 }
 
@@ -854,13 +861,12 @@ func (rx *receiving) retryAt(now time.Time) time.Time {
 func (r *run) countVerified() {
 	var n int64
 	for _, f := range r.rx.files {
-		if f.reported || f.m == nil {
-			continue
-		}
-		for i := range chunks(f.m.GetSize()) {
-			if f.verified.has(i) {
-				n += chunkLen(f.m.GetSize(), i)
-			}
+		switch {
+		case f.reported:
+		case f.m == nil:
+			n += f.kept
+		default:
+			n += f.verified.bytes(f.m.GetSize())
 		}
 	}
 	r.note(func() { r.rx.verifiedBytes = n })
@@ -873,6 +879,17 @@ func bitsetLen(n int) int { return (n + 7) / 8 }
 
 func (b bitset) set(i int)      { b[i/8] |= 1 << (i % 8) }
 func (b bitset) has(i int) bool { return i/8 < len(b) && b[i/8]&(1<<(i%8)) != 0 }
+
+// bytes is what the chunks set hold of a file of size bytes.
+func (b bitset) bytes(size int64) int64 {
+	var n int64
+	for i := range chunks(size) {
+		if b.has(i) {
+			n += chunkLen(size, i)
+		}
+	}
+	return n
+}
 
 func (b bitset) count() int {
 	n := 0

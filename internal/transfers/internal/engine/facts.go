@@ -72,12 +72,12 @@ func (rx *receiving) sampleRate(now time.Time, moved int64, window time.Duration
 }
 
 // keptFact is what a stopped receiver leaves in facts while its Transfer
-// stays kept: the last wait it saw, if any.
+// stays kept: the bytes it verified and the last wait it saw, if any.
 func (r *run) keptFact() *tv1.Receiving {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.rx == nil || r.rx.failed || r.rx.wait.GetKind() == tv1.Wait_KIND_UNSPECIFIED {
+	if r.rx == nil || r.rx.failed || r.rx.wait.GetKind() == tv1.Wait_KIND_UNSPECIFIED && r.rx.verifiedBytes == 0 {
 		return nil
 	}
-	return &tv1.Receiving{TransferId: r.spec.id.Bytes(), Wait: r.rx.wait, Route: r.r}
+	return &tv1.Receiving{TransferId: r.spec.id.Bytes(), VerifiedBytes: r.rx.verifiedBytes, Wait: r.rx.wait, Route: r.r}
 }

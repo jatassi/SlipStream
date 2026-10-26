@@ -106,8 +106,8 @@ message Receiving {
   // give the Transfer now.
   Route route = 2;
   // active is false for a kept Transfer this Node no longer runs. It then
-  // carries only the last wait it saw, so a Transfer that stepped aside
-  // doesn't flap back.
+  // carries only its verified bytes and the last wait it saw, so a
+  // Transfer that stepped aside keeps its progress and doesn't flap back.
   bool active = 3;
   // verified_bytes is the verified bytes of files not yet reported
   // verified.

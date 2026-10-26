@@ -819,8 +819,8 @@ type Receiving struct {
 	// give the Transfer now.
 	Route Route `protobuf:"varint,2,opt,name=route,proto3,enum=slipstream.transfer.v1.Route" json:"route,omitempty"`
 	// active is false for a kept Transfer this Node no longer runs. It then
-	// carries only the last wait it saw, so a Transfer that stepped aside
-	// doesn't flap back.
+	// carries only its verified bytes and the last wait it saw, so a
+	// Transfer that stepped aside keeps its progress and doesn't flap back.
 	Active bool `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`
 	// verified_bytes is the verified bytes of files not yet reported
 	// verified.

@@ -99,8 +99,8 @@ type Engine struct {
 	mu   sync.Mutex
 	live bool
 	runs map[ID]*run
-	// kept is the last wait of each kept Transfer this Node received and
-	// no longer runs.
+	// kept is the verified bytes and last wait of each kept Transfer this
+	// Node received and no longer runs.
 	kept map[ID]*tv1.Receiving
 }
 
@@ -190,7 +190,8 @@ func (e *Engine) stopAll() {
 	e.stop(stopping)
 }
 
-// stop ends each run and waits for it, keeping a receiver's last wait.
+// stop ends each run and waits for it, keeping a receiver's verified
+// bytes and last wait.
 func (e *Engine) stop(runs []*run) {
 	for _, r := range runs {
 		r.cancel()
