@@ -80,15 +80,13 @@ func (w *Works) RowsIn(ctx context.Context, r storage.Reader[file], s Scope) ([]
 	if err != nil {
 		return nil, err
 	}
-	among := Only(idsOf(works))
-	if s.Whole() {
-		among = Every(among.IDs())
-	}
-	return w.rowsOf(ctx, r, works, among)
+	return w.rowsOf(ctx, r, works, s.Among(idsOf(works)))
 }
 
-// Whole is whether s is every Work.
-func (s Scope) Whole() bool { return s.Type == nil && s.Works == nil }
+// Among is ids, the Works s holds in a snapshot.
+func (s Scope) Among(ids []WorkID) Among[WorkID] {
+	return Among[WorkID]{ids: ids, every: s.Type == nil && s.Works == nil}
+}
 
 func idsOf(works []db.WorksWork) []WorkID {
 	out := make([]WorkID, len(works))
@@ -146,10 +144,7 @@ func (w *Works) rowsOf(ctx context.Context, r storage.Reader[file], works []db.W
 		return nil, err
 	}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
-		reg, ofType := w.types[typ], Only(byType[typ])
-		if among.Every() {
-			ofType = Every(byType[typ])
-		}
+		reg, ofType := w.types[typ], Like(among, byType[typ])
 		if err := listValues(ctx, r, reg, ofType, at); err != nil {
 			return nil, err
 		}

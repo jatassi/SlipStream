@@ -15,6 +15,10 @@ func Every[ID any](ids []ID) Among[ID] { return Among[ID]{ids: ids, every: true}
 
 func Only[ID any](ids []ID) Among[ID] { return Among[ID]{ids: ids} }
 
+// Like is ids, which are every one of their kind, or of a Content Type's,
+// when a is every one of its.
+func Like[ID, J any](a Among[ID], ids []J) Among[J] { return Among[J]{ids: ids, every: a.every} }
+
 func (a Among[ID]) IDs() []ID { return a.ids }
 
 func (a Among[ID]) Every() bool { return a.every }

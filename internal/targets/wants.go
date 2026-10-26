@@ -52,8 +52,8 @@ func GoalsIn(ctx context.Context, r storage.Reader[file], work works.WorkID) (Go
 }
 
 // GoalsOf reads the Goals of each of ws in r, reading every Target and
-// Profile once for all of them: works.ErrNoWork when one of ws has no
-// wants row.
+// Profile once for all of them: works.ErrNoWork when one of ws, listed,
+// has no wants row.
 func GoalsOf(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[works.WorkID]Goals, error) {
 	q := db.New(r)
 	rows, err := works.Read(ws, func() ([]db.TargetsWant, error) { return q.ListEveryWants(ctx) }, func(ids []works.WorkID) ([]db.TargetsWant, error) {

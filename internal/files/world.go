@@ -63,10 +63,8 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 // reading each kind of row once for them all, and their files with read.
 // among names trees' Works.
 func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID], read fileRead) ([]world, error) {
-	ids := make([]works.WorkID, len(trees))
 	byType := map[works.TypeID][]works.WorkID{}
-	for i, t := range trees {
-		ids[i] = t.ID
+	for _, t := range trees {
 		byType[t.ContentType] = append(byType[t.ContentType], t.ID)
 	}
 	goals, err := targets.GoalsOf(ctx, r, among)
@@ -79,11 +77,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	}
 	timing := map[works.ItemID]targets.Timing{}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
-		ofType := works.Only(byType[typ])
-		if among.Every() {
-			ofType = works.Every(byType[typ])
-		}
-		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, ofType)
+		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, works.Like(among, byType[typ]))
 		if err != nil {
 			return nil, err
 		}
@@ -95,11 +89,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 			items = append(items, it.ID)
 		}
 	}
-	listed := works.Only(items)
-	if among.Every() {
-		listed = works.Every(items)
-	}
-	seen, err := targets.SeenIn(ctx, r, listed)
+	seen, err := targets.SeenIn(ctx, r, works.Like(among, items))
 	if err != nil {
 		return nil, err
 	}
