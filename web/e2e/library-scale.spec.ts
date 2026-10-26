@@ -54,7 +54,7 @@ async function scrollToEnd(page: Page) {
 }
 
 // Chromium alone reports long tasks.
-test("a Library of 20,000 Works paints its first poster and scrolls end to end @cdp", async ({
+test("a Library of 20,000 Works paints its first poster and scrolls end to end @cdp @alone", async ({
   adminPage: page,
   world,
 }, testInfo) => {
