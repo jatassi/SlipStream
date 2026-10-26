@@ -172,7 +172,7 @@ func (w *walked) ended(t *testing.T, id string) {
 	})
 }
 
-var grabChangedData = regexp.MustCompile(`^\{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
+var grabChangedData = regexp.MustCompile(`^\{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})","progress":false\}$`)
 
 // grabChanged reads the stream to the next grabs.changed and returns its
 // Grab, which must be work's.
