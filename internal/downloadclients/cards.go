@@ -2,6 +2,7 @@ package downloadclients
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
@@ -31,6 +32,9 @@ type Card struct {
 	// Totals add up the Node's live Torrents', and Torrents counts them.
 	Totals   Totals
 	Torrents int
+	// Volume is the Node's downloads folder volume as last sampled, nil
+	// until the first sample.
+	Volume *Volume
 	// Guard is set while the disk guard holds the Node's new downloads.
 	Guard *Guard
 }
@@ -82,6 +86,10 @@ func (c *Clients) Cards(ctx context.Context) ([]Card, error) {
 		if err != nil {
 			return err
 		}
+		vols, err := volumesIn(ctx, r)
+		if err != nil {
+			return err
+		}
 		for i, node := range downloaders {
 			o, err := nodeOverridesOf(ctx, r, node)
 			if err != nil {
@@ -103,6 +111,9 @@ func (c *Clients) Cards(ctx context.Context) ([]Card, error) {
 			}
 			if g, on := guards[node]; on {
 				cards[i].Guard = &g
+			}
+			if j := slices.IndexFunc(vols, func(v Volume) bool { return v.Node == node }); j >= 0 {
+				cards[i].Volume = &vols[j]
 			}
 		}
 		return nil
