@@ -2013,6 +2013,7 @@ type RemoveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RootId        []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
 	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Recursive     bool                   `protobuf:"varint,3,opt,name=recursive,proto3" json:"recursive,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2059,6 +2060,13 @@ func (x *RemoveRequest) GetPath() string {
 		return x.Path
 	}
 	return ""
+}
+
+func (x *RemoveRequest) GetRecursive() bool {
+	if x != nil {
+		return x.Recursive
+	}
+	return false
 }
 
 type RemoveResponse struct {
@@ -2507,10 +2515,11 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x03 \x01(\tR\x02to\"\"\n" +
 	"\fMoveResponse\x12\x12\n" +
-	"\x04size\x18\x01 \x01(\x03R\x04size\"<\n" +
+	"\x04size\x18\x01 \x01(\x03R\x04size\"Z\n" +
 	"\rRemoveRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x12\n" +
-	"\x04path\x18\x02 \x01(\tR\x04path\"\x10\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x1c\n" +
+	"\trecursive\x18\x03 \x01(\bR\trecursive\"\x10\n" +
 	"\x0eRemoveResponse\"a\n" +
 	"\vListRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x129\n" +

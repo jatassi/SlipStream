@@ -543,6 +543,22 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 	})
 }
 
+func TestRemoveAllRemovesAStagingFolderOnRepeat(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newPlacing(t, false)
+		write(t, filepath.Join(p.folder, StagingDir, "0190", "0.part"), "film")
+		write(t, filepath.Join(p.folder, StagingDir, "0190", "1.part"), "film")
+		for range 2 {
+			if err := p.remote.RemoveAll(t.Context(), p.at, mustRel(t, StagingDir+"/0190")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if names, err := p.remote.List(t.Context(), p.at, Staging); err != nil || len(names) != 0 {
+			t.Errorf("List staging after RemoveAll = %v, %v; want none", names, err)
+		}
+	})
+}
+
 func TestAPlacementIntoAFolderThatStoppedTakingWritesIsNotReady(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)
