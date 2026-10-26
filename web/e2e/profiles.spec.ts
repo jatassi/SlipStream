@@ -131,7 +131,7 @@ test("an Admin adds a movie on a Profile other than the default and sees its Tar
   await page.screenshot({ path: testInfo.outputPath("add-sheet.png") });
   await sheet.getByRole("button", { name: "Add Movie" }).click();
 
-  await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
   await expect(orchardCells(page)).toHaveText("The Quiet OrchardMissingMissing");
   await expectColumns(page, ["Movie", "Status", "2160p"]);
   const workId = /\/works\/([^/]+)$/u.exec(page.url())?.[1];
