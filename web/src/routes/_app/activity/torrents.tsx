@@ -7,11 +7,9 @@ import {
   getListCutsSuspenseQueryOptions,
   getListQualitiesSuspenseQueryOptions,
 } from "../../../api/gen/query/targets/targets";
-import {
-  getListContentTypesSuspenseQueryOptions,
-  getListWorksSuspenseQueryOptions,
-} from "../../../api/gen/query/works/works";
+import { getListContentTypesSuspenseQueryOptions } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
+import { ensureLibrary } from "../../../library/projection";
 import { TorrentsPage } from "../../../torrents/torrents-page";
 import { Skeleton } from "../../../ui/skeleton";
 
@@ -23,7 +21,7 @@ export const Route = createFileRoute("/_app/activity/torrents")({
   loader: ({ context }) =>
     Promise.all([
       ensureQuery(context.queryClient, getListTorrentsSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getListWorksSuspenseQueryOptions()),
+      ensureLibrary(context.queryClient),
       ensureQuery(context.queryClient, getListNodesSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getListQualitiesSuspenseQueryOptions()),
