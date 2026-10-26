@@ -22,18 +22,14 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
     "Added The Quiet Orchard",
   );
-  await expect(page.getByRole("definition")).toHaveText([
-    "The Quiet Orchard",
+  await expect(page.getByText("2021 · Movie · 1h 44m")).toBeVisible();
+  await expect(page.getByRole("region", { name: "About" }).getByRole("definition")).toHaveText([
     "The Quiet Orchard",
     "en",
-    "2021",
-    "2021-04-16",
-    "1h 44m",
-    "Released",
-    "tt9000001",
+    "April 16, 2021",
   ]);
-  await expect(orchardCells(page)).toHaveText("The Quiet OrchardMissingMissing");
-  await expectColumns(page, ["Movie", "Status", "1080p"]);
+  await expect(orchardCells(page)).toContainText("Missing");
+  await expectColumns(page, ["1080p"]);
 
   await navigate(page, "Library");
   await expect(page.getByRole("heading", { name: "T 1", level: 2 })).toBeVisible();

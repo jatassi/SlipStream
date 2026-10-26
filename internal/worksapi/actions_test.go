@@ -506,7 +506,7 @@ func TestSetProfileGivesEveryWorkOneImpactAndKeepsOwnLists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.queue.Change(t.Context(), identity.Admin{}, targets.SetWants{Work: workID(t, w2), Profile: web, Own: &own}, files.Mode{Unwanted: files.Delete}); err != nil {
+	if _, err := s.queue.Change(t.Context(), identity.Admin{}, targets.SetWants{Work: workID(t, w2), Own: &own}, files.Mode{Unwanted: files.Delete}); err != nil {
 		t.Fatal(err)
 	}
 	s.events.take()

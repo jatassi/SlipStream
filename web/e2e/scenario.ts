@@ -4,9 +4,9 @@ export type Scenario =
   | "first-run"
   | "home"
   | "low-space"
+  | "movies"
   | "serving"
   | "targets"
-  | "movies"
   | "scale"
   | "torrents"
   | "cgnat-home";

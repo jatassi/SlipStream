@@ -12,7 +12,7 @@ import { filesStay, namedOf } from "./outcomes";
 /** A Work for the root picker: its files decide whether it can move. */
 export type Rooted = Subject & { readonly files: number };
 
-function freeOf(root: RootsRoot, volumes: readonly RootsNodeVolumes[]): string {
+export function freeOf(root: RootsRoot, volumes: readonly RootsNodeVolumes[]): string {
   const volume = volumes
     .find((group) => group.nodeId === root.nodeId)
     ?.volumes.find((candidate) => candidate.id === root.volumeId);

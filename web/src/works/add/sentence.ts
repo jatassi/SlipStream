@@ -5,19 +5,10 @@ import type {
   WorksFieldValue,
 } from "../../api/gen/model";
 import { countWords } from "../../format";
-import { fieldText } from "../fields";
+import { factTexts } from "../page/facts";
 import type { AddChoices } from "./choices";
 
 const targetNoun = { one: "Target", many: "Targets" } as const;
-
-export function factTexts(type: WorksContentType, fields: readonly WorksFieldValue[]): string[] {
-  return type.fields
-    .filter((spec) => spec.tier === "work" && spec.in.includes("facts"))
-    .flatMap((spec) => {
-      const value = fields.find((field) => field.key === spec.key);
-      return value === undefined ? [] : [fieldText(value)];
-    });
-}
 
 /** The Work's label with its first fact, such as "Heat (1995)". */
 export function labelled(

@@ -17,6 +17,8 @@ type DeleteDialogProps = {
   readonly subjects: readonly Subject[];
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  /** Runs as the Admin confirms, before the request, such as for a page that then leaves without a second toast. */
+  readonly onDeleting?: () => void;
 };
 
 /**
@@ -26,7 +28,7 @@ type DeleteDialogProps = {
  * offline Node can't lose them, so the dialog names it and offers leaving
  * the files instead.
  */
-export function DeleteDialog({ subjects, open, onOpenChange }: DeleteDialogProps) {
+export function DeleteDialog({ subjects, open, onOpenChange, onDeleting }: DeleteDialogProps) {
   const [files, setFiles] = useState<WorksDeletingFiles>("delete");
   const preview = useDeletePreview(subjects, files);
   const named = namedOf(subjects);
@@ -38,7 +40,10 @@ export function DeleteDialog({ subjects, open, onOpenChange }: DeleteDialogProps
       confirmDisabled={(preview.data?.plan.works ?? 0) === 0}
       open={open}
       onOpenChange={onOpenChange}
-      onConfirm={() => act(subjects, { kind: "delete", files })}
+      onConfirm={() => {
+        onDeleting?.();
+        return act(subjects, { kind: "delete", files });
+      }}
     >
       <RadioGroup label="Files" options={choices} value={files} onValueChange={setFiles} />
       <DeletePreview

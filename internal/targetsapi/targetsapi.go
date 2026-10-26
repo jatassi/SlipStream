@@ -232,9 +232,9 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "setWorkWants",
 		Method:  http.MethodPut,
 		Path:    "/works/{workId}/wants",
-		Summary: "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
+		Summary: "Set a Work's own Edition list, or its Profile's, refilling and renaming its files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, profileNotFound, profileWrongType, cutNotFound, ImpactChanged},
+		Errors:  []*api.Code{workNotFound, cutNotFound, ImpactChanged},
 	}, h.setWorkWants)
 }
 
