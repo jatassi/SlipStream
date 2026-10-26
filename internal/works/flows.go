@@ -338,7 +338,11 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 // moved. A source that no longer has the Work marks it gone upstream,
 // changes nothing else, and is ErrGoneUpstream.
 func (w *Works) Refresh(ctx context.Context, by identity.Admin, id WorkID) (Tree, error) {
-	if err := w.refresh(ctx, id, role.NodeID{}); err != nil {
+	changed, err := w.refresh(ctx, id, role.NodeID{})
+	if changed {
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
+	}
+	if err != nil {
 		return Tree{}, err
 	}
 	return w.Get(ctx, by, id)
@@ -350,16 +354,22 @@ func (w *Works) Refresh(ctx context.Context, by identity.Admin, id WorkID) (Tree
 // runner can tell a Node that no longer holds Metadata from a source that
 // failed.
 func (w *Works) RefreshDue(ctx context.Context, id WorkID, via role.NodeID) error {
-	return w.refresh(ctx, id, via)
+	changed, err := w.refresh(ctx, id, via)
+	if changed {
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
+	}
+	return err
 }
 
-func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) error {
+// refresh converges Work id on its source and reports whether it reads
+// differently now, a new gone-upstream mark included.
+func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) (bool, error) {
 	row, err := db.New(w.cfg.Library).GetWork(ctx, id)
 	if errors.Is(err, storage.ErrNoRows) {
-		return ErrNoWork
+		return false, ErrNoWork
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	reg := w.types[row.ContentType]
 	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, Fetching{Purpose: ForRefresh, RatingsReadAt: row.RatingsReadAt, Via: via})
@@ -367,23 +377,19 @@ func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) error {
 		return w.goneUpstream(ctx, id)
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	var changed bool
 	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		changed, err = converge(ctx, tx, reg.catalog, id, p, storage.Now())
 		return err
 	})
-	if err != nil {
-		return err
-	}
-	if changed {
-		w.cfg.Changed.Publish(ctx, ChangedOf(id))
-	}
-	return nil
+	return changed, err
 }
 
-func (w *Works) goneUpstream(ctx context.Context, id WorkID) error {
+// goneUpstream marks Work id gone upstream, reports whether the mark is
+// new, and is ErrGoneUpstream.
+func (w *Works) goneUpstream(ctx context.Context, id WorkID) (bool, error) {
 	var marked bool
 	err := w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -398,12 +404,9 @@ func (w *Works) goneUpstream(ctx context.Context, id WorkID) error {
 		return q.MarkGoneUpstream(ctx, db.MarkGoneUpstreamParams{GoneUpstreamAt: storage.Now(), ID: id})
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
-	if marked {
-		w.cfg.Changed.Publish(ctx, ChangedOf(id))
-	}
-	return ErrGoneUpstream
+	return marked, ErrGoneUpstream
 }
 
 // SetMonitored monitors or unmonitors items, publishing one works.changed
