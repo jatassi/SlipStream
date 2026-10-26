@@ -572,7 +572,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.transfers.lanes_grow", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_LANES_GROW"},
 			{Key: "timings.transfers.lanes_gain", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_LANES_GAIN"},
 			{Key: "timings.transfers.lanes_max", Value: "16", Default: "16", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_LANES_MAX"},
-			{Key: "timings.transfers.ahead", Value: "2", Default: "2", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_AHEAD"},
+			{Key: "timings.transfers.ahead", Value: "4", Default: "4", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_AHEAD"},
 			{Key: "timings.transfers.sync_bytes", Value: "67108864", Default: "67108864", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_SYNC_BYTES"},
 			{Key: "timings.transfers.sync_every", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_SYNC_EVERY"},
 			{Key: "timings.transfers.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_RETRY_MIN"},

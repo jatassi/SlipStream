@@ -89,7 +89,7 @@ func DefaultTimings() Timings {
 		LanesGrow:  10 * time.Second,
 		LanesGain:  10,
 		LanesMax:   16,
-		Ahead:      2,
+		Ahead:      4,
 		SyncBytes:  64 << 20,
 		SyncEvery:  time.Second,
 		RetryMin:   time.Second,
