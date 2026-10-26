@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -33,14 +34,35 @@ type lane struct {
 	// done closes once the run lets the lane go.
 	done    chan struct{}
 	unwatch func() bool
-	// open is the position of the file the lane last opened, -1 for none.
+	// open is the position of the file the lane last opened, -1 for none,
+	// and gen that file's gen when it did.
 	open int
+	gen  int
 	// asked is the chunks of the open file wanted and not yet answered.
 	asked []int
+	// retiring: growth let the lane go, so it asks for nothing more.
+	retiring atomic.Bool
+	// carried counts every byte read and written once a run holds the
+	// lane.
+	carried *atomic.Int64
 }
 
 func newLane(c net.Conn, route tv1.Route, write time.Duration) *lane {
-	return &lane{c: c, r: bufio.NewReader(c), route: route, write: write, done: make(chan struct{}), open: -1}
+	l := &lane{c: c, route: route, write: write, done: make(chan struct{}), open: -1}
+	l.r = bufio.NewReader(l)
+	return l
+}
+
+func (l *lane) Read(b []byte) (int, error) {
+	n, err := l.c.Read(b)
+	l.count(n)
+	return n, err //nolint:wrapcheck // a Reader's errors pass through, io.EOF included
+}
+
+func (l *lane) count(n int) {
+	if l.carried != nil {
+		l.carried.Add(int64(n))
+	}
 }
 
 // read returns the next frame, waiting at most wait, or for as long as it
@@ -103,7 +125,9 @@ func (l *lane) put(b []byte) error {
 	if err := l.c.SetWriteDeadline(time.Now().Add(l.write)); err != nil {
 		return fmt.Errorf("send a frame: %w", err)
 	}
-	if _, err := l.c.Write(b); err != nil {
+	n, err := l.c.Write(b)
+	l.count(n)
+	if err != nil {
 		return fmt.Errorf("send a frame: %w", err)
 	}
 	return nil

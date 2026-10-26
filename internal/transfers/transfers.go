@@ -9,10 +9,12 @@ import (
 	"embed"
 	"errors"
 	"io"
+	"net"
 	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers/internal/db"
 )
@@ -54,6 +56,13 @@ type Timings struct {
 	Dial time.Duration `yaml:"dial"`
 	// Estimate is the window of a receiver's speed average.
 	Estimate time.Duration `yaml:"estimate"`
+	// LanesStart is the lanes a route opens first. Each LanesGrow the
+	// receiver adds one while the last one added raised the rate by at
+	// least LanesGain percent, up to LanesMax.
+	LanesStart int           `yaml:"lanes_start"`
+	LanesGrow  time.Duration `yaml:"lanes_grow"`
+	LanesGain  int           `yaml:"lanes_gain"`
+	LanesMax   int           `yaml:"lanes_max"`
 	// Ahead is the chunks each lane keeps asked for ahead.
 	Ahead int `yaml:"ahead"`
 	// SyncBytes and SyncEvery bound a receiver's batch: it syncs, reads
@@ -83,7 +92,11 @@ func DefaultTimings() Timings {
 		Report:     time.Second,
 		Dial:       30 * time.Second,
 		Estimate:   20 * time.Second,
-		Ahead:      2,
+		LanesStart: 4,
+		LanesGrow:  10 * time.Second,
+		LanesGain:  10,
+		LanesMax:   16,
+		Ahead:      4,
 		SyncBytes:  64 << 20,
 		SyncEvery:  time.Second,
 		RetryMin:   time.Second,
@@ -112,6 +125,9 @@ type Hooks struct {
 	// Sent sees each chunk a Node sends after it hashed it, and may change
 	// it.
 	Sent func(transfer ID, position, index int, data []byte)
+	// Lane wraps each lane a Node engine's run holds, to cut, stall or
+	// throttle it.
+	Lane func(transfer ID, route transferv1.Route, c net.Conn) net.Conn
 }
 
 // Hash is a chunk's BLAKE3-256.

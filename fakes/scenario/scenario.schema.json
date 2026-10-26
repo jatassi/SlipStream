@@ -301,6 +301,19 @@
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             },
+            "lanes_start": {
+              "type": "integer"
+            },
+            "lanes_grow": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "lanes_gain": {
+              "type": "integer"
+            },
+            "lanes_max": {
+              "type": "integer"
+            },
             "ahead": {
               "type": "integer"
             },

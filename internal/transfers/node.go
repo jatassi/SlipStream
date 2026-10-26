@@ -53,11 +53,12 @@ func NewNode(cfg NodeConfig) *Node {
 		Sources: cfg.Sources,
 		Roots:   cfg.Roots,
 		Timings: engine.Timings{
-			Chunk: t.Chunk, Report: t.Report, Dial: t.Dial, Estimate: t.Estimate, Ahead: t.Ahead,
+			Chunk: t.Chunk, Report: t.Report, Dial: t.Dial, Estimate: t.Estimate,
+			LanesStart: t.LanesStart, LanesGrow: t.LanesGrow, LanesGain: t.LanesGain, LanesMax: t.LanesMax, Ahead: t.Ahead,
 			SyncBytes: t.SyncBytes, SyncEvery: t.SyncEvery, RetryMin: t.RetryMin, RetryMax: t.RetryMax,
 			Damaged: t.Damaged, Piece: t.Piece,
 		},
-		Hooks: engine.Hooks{Read: cfg.Hooks.Read, Sent: cfg.Hooks.Sent},
+		Hooks: engine.Hooks{Read: cfg.Hooks.Read, Sent: cfg.Hooks.Sent, Lane: cfg.Hooks.Lane},
 		Log:   cfg.Log,
 	})}
 }

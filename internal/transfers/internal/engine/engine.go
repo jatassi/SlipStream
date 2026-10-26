@@ -1,7 +1,7 @@
 // Package engine is a Node's half of Transfers. It sends and receives the
-// Transfers its intent makes active, one lane per route, checks each chunk
-// against the hash the sender took as it read it, and keeps what a
-// receiver verified across lane breaks and restarts.
+// Transfers its intent makes active, on lanes that grow while they add
+// speed, checks each chunk against the hash the sender took as it read
+// it, and keeps what a receiver verified across lane breaks and restarts.
 package engine
 
 import (
@@ -52,10 +52,15 @@ type Link interface {
 }
 
 type Timings struct {
-	Chunk     time.Duration
-	Report    time.Duration
-	Dial      time.Duration
-	Estimate  time.Duration
+	Chunk      time.Duration
+	Report     time.Duration
+	Dial       time.Duration
+	Estimate   time.Duration
+	LanesStart int
+	LanesGrow  time.Duration
+	// LanesGain is a percentage.
+	LanesGain int
+	LanesMax  int
 	Ahead     int
 	SyncBytes int64
 	SyncEvery time.Duration
@@ -70,6 +75,8 @@ type Hooks struct {
 	Read func(io.ReaderAt) io.ReaderAt
 	// Sent sees each chunk after the sender hashed it, and may change it.
 	Sent func(transfer ID, position, index int, data []byte)
+	// Lane wraps each lane a run holds, to cut, stall or throttle it.
+	Lane func(transfer ID, route tv1.Route, c net.Conn) net.Conn
 }
 
 type Config struct {
@@ -299,10 +306,12 @@ func (e *Engine) start(ctx context.Context, h Holder, sp spec) *run {
 	r := newRun(e, h, sp)
 	r.ctx, r.cancel = context.WithCancel(ctx)
 	if sp.side == tv1.Side_SIDE_RECEIVE {
-		r.rx = &receiving{inbound: make(chan *lane)}
+		r.rx = &receiving{inbound: make(chan *lane), changed: make(chan struct{})}
 		r.wg.Go(r.receive)
 	} else {
-		r.wg.Go(r.dialSends)
+		r.wg.Go(func() {
+			r.runLanes(laneEnd{serve: r.serveSends})
+		})
 	}
 	return r
 }
