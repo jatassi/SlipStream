@@ -61,10 +61,7 @@ type grabView struct {
 		Stage string `json:"stage"`
 	} `json:"history"`
 	Progress *struct {
-		Total    int64 `json:"total"`
-		Transfer *struct {
-			State string `json:"state"`
-		} `json:"transfer"`
+		Total int64 `json:"total"`
 	} `json:"progress"`
 }
 

@@ -734,27 +734,11 @@ func (gr *Grabs) publishProgress(ctx context.Context, s *schedule, now time.Time
 type Progress struct {
 	Done  int64
 	Total int64
-	// Transfer is how a transferring Grab's Transfer stands; zero while
-	// it downloads.
-	Transfer Pace
-}
-
-// Pace is how a Transfer stands: its state, what it waits for, and its
-// rate and estimate.
-type Pace struct {
-	State transfers.State
-	// Wait and WaitNode are zero unless State is Waiting.
-	Wait     transfers.WaitKind
-	WaitNode role.NodeID
-	// Rate is bytes a second, 0 while unknown.
-	Rate int64
-	// Estimate is 0 while unknown.
-	Estimate time.Duration
 }
 
 // progress is each of grabs' progress, when it has one: a downloading
 // Grab's live while its Torrent is sampled, else as its Node last reported
-// it, and a transferring Grab's verified bytes and pace of its Transfer.
+// it, and a transferring Grab's verified bytes of its Transfer.
 func (gr *Grabs) progress(ctx context.Context, grabs []Grab) (map[GrabID]*Progress, error) {
 	out := map[GrabID]*Progress{}
 	var jobs []string
@@ -778,11 +762,7 @@ func (gr *Grabs) progress(ctx context.Context, grabs []Grab) (map[GrabID]*Progre
 	}
 	for _, g := range grabs {
 		if v, ok := views[g.ID.String()]; ok {
-			pace := Pace{State: v.State, Rate: v.Rate, Estimate: v.Estimate}
-			if v.Wait != nil {
-				pace.Wait, pace.WaitNode = v.Wait.Kind, v.Wait.Node
-			}
-			out[g.ID] = &Progress{Done: v.Verified, Total: v.Total, Transfer: pace}
+			out[g.ID] = &Progress{Done: v.Verified, Total: v.Total}
 		}
 	}
 	return out, nil
