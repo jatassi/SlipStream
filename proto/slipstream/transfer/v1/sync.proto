@@ -106,15 +106,16 @@ message Receiving {
   // give the Transfer now.
   Route route = 2;
   // active is false for a kept Transfer this Node no longer runs. It then
-  // carries only the last wait it saw, so a Transfer that stepped aside
-  // doesn't flap back.
+  // carries only its verified bytes and the last wait it saw, so a
+  // Transfer that stepped aside keeps its progress and doesn't flap back.
   bool active = 3;
   // verified_bytes is the verified bytes of files not yet reported
   // verified.
   int64 verified_bytes = 4;
   // rate is verified bytes a second over timings.transfers.estimate.
   int64 rate = 5;
-  // moving is true while bytes move on route.
+  // moving is true while bytes move on route: from the sender's first
+  // answer on a lane, before its first chunk arrives.
   bool moving = 6;
   uint32 lanes = 7;
   uint32 rtt_ms = 8;

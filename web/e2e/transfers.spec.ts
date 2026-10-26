@@ -83,7 +83,7 @@ test.describe("between two Workers", () => {
       .filter({ hasText: "The Quiet Orchard" });
     const copying = row.getByText("Transferring from seedbox", { exact: true });
     await expect(copying).toBeVisible({ timeout: 90_000 });
-    await expect(row.getByText(pace)).toBeVisible();
+    await expect(row.getByText(pace)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/^Receiving The Quiet Orchard from seedbox at /u)).toBeVisible();
     await expectAccessible(page);
     await page.screenshot({ path: testInfo.outputPath("nas-transfers.png"), fullPage: true });

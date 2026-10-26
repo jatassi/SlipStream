@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
 	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -34,18 +35,23 @@ func seedboxNAS(t *testing.T) scenario.Scenario {
 	return s
 }
 
-// parked holds seedbox's sender at the second chunk it sends until
-// release closes, so a test can act while the Transfer is mid-copy, with
-// the first chunk free to arrive.
+// parked holds seedbox's sender at the at-th chunk it sends until release
+// closes, so a test can act while the Transfer is mid-copy.
 type parked struct {
 	reached, release chan struct{}
+	at               int32
 	sends            atomic.Int32
 }
 
-func newParked() *parked { return &parked{reached: make(chan struct{}), release: make(chan struct{})} }
+// newParked parks at the second chunk, with the first free to arrive.
+func newParked() *parked { return parkedAt(2) }
+
+func parkedAt(at int32) *parked {
+	return &parked{reached: make(chan struct{}), release: make(chan struct{}), at: at}
+}
 
 func (p *parked) sent(transfers.ID, int, int, []byte) {
-	if p.sends.Add(1) == 2 {
+	if p.sends.Add(1) == p.at {
 		close(p.reached)
 		<-p.release
 	}
@@ -125,6 +131,68 @@ func TestATransferBetweenWorkersSurvivesASeedboxKillAndAControllerRestart(t *tes
 		expectImported(t, g)
 		expectFromSeedbox(t, w, g)
 		expectPlaced(t, w)
+	})
+}
+
+type transferRow struct {
+	State    string `json:"state"`
+	Reason   string `json:"reason"`
+	Verified int64  `json:"verified"`
+}
+
+// theTransfer is the world's one Transfer as listTransfers reads it, the
+// zero row while it lists none.
+func theTransfer(t *testing.T, a *worldtest.API) transferRow {
+	t.Helper()
+	listed := decode[struct {
+		Transfers []transferRow `json:"transfers"`
+	}](t, "listTransfers", a.Admin("home", http.MethodGet, "/api/v1/transfers", "")).Transfers
+	if len(listed) != 1 {
+		return transferRow{}
+	}
+	return listed[0]
+}
+
+// TestATransferNeedingSpaceKeepsTheBytesNasVerified fills nas's root once
+// nas verified a chunk: the Transfer needs space, and listTransfers still
+// counts the bytes nas keeps for resume.
+func TestATransferNeedingSpaceKeepsTheBytesNasVerified(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newParked()
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+		search(t, w, addOrchard(t, w))
+		<-p.reached
+		a := w.API()
+		eventually(t, "nas verifies a chunk", func() bool { return theTransfer(t, a).Verified > 0 })
+		kept := theTransfer(t, a).Verified
+		lift := w.Disk("nas", filepath.Join(w.Manifest().MediaDir, "movies"), fault.Full{})
+		close(p.release)
+		eventually(t, "the Transfer needs space", func() bool { return theTransfer(t, a).State == "needs_space" })
+		if got := theTransfer(t, a); got.Verified < kept {
+			t.Fatalf("listTransfers = %+v while it needs space, want at least the %d bytes nas verified", got, kept)
+		}
+		lift()
+		expectImported(t, await(t, w))
+	})
+}
+
+// TestATransferWhoseLaneCarriesItsFirstChunkIsTransferring holds
+// seedbox's first chunk on its lane, as a slow send limit does: the lane
+// is up and the sender answered, so the Transfer copies rather than
+// connects.
+func TestATransferWhoseLaneCarriesItsFirstChunkIsTransferring(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := parkedAt(1)
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+		search(t, w, addOrchard(t, w))
+		<-p.reached
+		a := w.API()
+		eventually(t, "the Transfer copies while its first chunk is on the way", func() bool {
+			got := theTransfer(t, a)
+			return got.State == "copying" && got.Reason == "" && got.Verified == 0
+		})
+		close(p.release)
+		expectImported(t, await(t, w))
 	})
 }
 
