@@ -3,12 +3,16 @@ package scenario
 import (
 	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 )
 
-// TMDB is the catalog fake-tmdb serves.
+// TMDB is the catalog fake-tmdb serves: the movies it lists, then the
+// ones it generates.
 type TMDB struct {
-	Movies []TMDBMovie `jsonschema:"required,minItems=1" yaml:"movies"`
+	Movies    []TMDBMovie    `yaml:"movies,omitempty"`
+	Generated *TMDBGenerated `yaml:"generated,omitempty"`
 }
 
 // TMDBMovie is one movie's whole TMDB record. Only id, imdb_id, title and
@@ -112,9 +116,7 @@ var (
 )
 
 func (c TMDB) check(add func(format string, args ...any)) {
-	if len(c.Movies) == 0 {
-		add("tmdb lists no movie")
-	}
+	c.checkGenerated(add)
 	for i, m := range c.Movies {
 		if m.ID < 1 {
 			add("tmdb movie %q has id %d; ids start at 1", m.Title, m.ID)
@@ -135,6 +137,22 @@ func (c TMDB) check(add func(format string, args ...any)) {
 			add("tmdb movie %d runtime %s is not whole minutes", m.ID, m.Runtime)
 		}
 		m.checkRecord(add)
+	}
+}
+
+// checkGenerated checks the generated catalog and keeps listed movies out
+// of its id block, TMDB's and IMDb's alike.
+func (c TMDB) checkGenerated(add func(format string, args ...any)) {
+	if len(c.Movies) == 0 && c.Generated == nil {
+		add("tmdb lists no movie and generates none")
+	}
+	if g := c.Generated; g != nil && (g.Count < 1 || g.Count > MaxGenerated || g.Seed == "") {
+		add("tmdb generated has count %d and seed %q; want a count from 1 to %d and a seed", g.Count, g.Seed, MaxGenerated)
+	}
+	for _, m := range c.Movies {
+		if n, err := strconv.ParseInt(strings.TrimPrefix(m.IMDbID, "tt"), 10, 64); inGeneratedBlock(m.ID) || (err == nil && inGeneratedBlock(n)) {
+			add("tmdb movie %d uses an id from %d to %d, which generated movies hold", m.ID, GeneratedFirstID, GeneratedFirstID+int64(MaxGenerated)-1)
+		}
 	}
 }
 
