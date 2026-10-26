@@ -63,3 +63,11 @@ sql:
           - column: works_disabled_type.content_type
             go_type:
               type: TypeID
+          - column: works_title.work_id
+            go_type:
+              type: WorkID
+          - column: works_add_default.content_type
+            go_type:
+              type: TypeID
+          - column: works_add_default.monitor
+            go_type: bool

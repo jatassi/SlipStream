@@ -8,6 +8,11 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+type WorksAddDefault struct {
+	ContentType TypeID
+	Monitor     bool
+}
+
 type WorksArtwork struct {
 	WorkID WorkID
 	ItemID ItemID
@@ -51,6 +56,18 @@ type WorksRating struct {
 	Scale     float64
 	Votes     *int64
 	FetchedAt storage.Time
+}
+
+type WorksTitle struct {
+	Row    int64
+	WorkID WorkID
+	Labels string
+	Titles string
+}
+
+type WorksTitleIndex struct {
+	Labels string
+	Titles string
 }
 
 type WorksWork struct {
