@@ -59,7 +59,6 @@ function Row({
   );
 }
 
-// Email has no step of its own, so the done screen links its settings while it isn't set up.
 function EmailLine({ onSettings }: { onSettings: (href: string) => void }) {
   if (useGetMailSettingsSuspense().data.host !== "") {
     return null;
