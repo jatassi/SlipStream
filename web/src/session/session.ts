@@ -2,11 +2,17 @@ import { type QueryClient, queryOptions, useSuspenseQuery } from "@tanstack/reac
 
 import { isProblem } from "../api/errors";
 import type {
+  FirstrunFirstRun,
   IdentityAccount,
   IdentitySession,
   IdentitySignedIn,
   SystemStatus,
 } from "../api/gen/model";
+import {
+  finishFirstRun,
+  getFirstRun,
+  getGetFirstRunQueryKey,
+} from "../api/gen/query/firstrun/firstrun";
 import { getGetSessionQueryKey, getSession } from "../api/gen/query/identity/identity";
 import { getGetStatusQueryKey, getStatus } from "../api/gen/query/system/system";
 
@@ -28,6 +34,11 @@ export const statusQuery = queryOptions({
   queryKey: getGetStatusQueryKey(),
   queryFn: ({ signal }) => getStatus({ signal }),
   staleTime: 0,
+});
+
+export const firstRunQuery = queryOptions({
+  queryKey: getGetFirstRunQueryKey(),
+  queryFn: ({ signal }) => getFirstRun({ signal }),
 });
 
 export function useAccount(): IdentityAccount {
@@ -57,4 +68,24 @@ export function markClaimed(queryClient: QueryClient, signedIn: IdentitySignedIn
     (status): SystemStatus | undefined => status && { ...status, claim: "controller" },
   );
   markSignedIn(queryClient, signedIn);
+}
+
+/** A step write answers with first setup as it now stands, which the gate and the frame read. */
+export function adoptFirstRun(queryClient: QueryClient, view: FirstrunFirstRun): void {
+  queryClient.setQueryData(firstRunQuery.queryKey, view);
+}
+
+/**
+ * Finishes first setup, then marks the cached session finished, which the
+ * gate reads as static, so the next route enters the app.
+ */
+export async function finishFirstSetup(queryClient: QueryClient): Promise<void> {
+  await finishFirstRun();
+  markFirstSetupFinished(queryClient);
+}
+
+export function markFirstSetupFinished(queryClient: QueryClient): void {
+  queryClient.setQueryData(sessionQuery.queryKey, (session): IdentitySession | null | undefined =>
+    session?.firstRun === "open" ? { ...session, firstRun: "finished" } : session,
+  );
 }

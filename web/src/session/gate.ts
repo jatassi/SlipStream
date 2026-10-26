@@ -3,13 +3,15 @@ import { type ParsedLocation, redirect } from "@tanstack/react-router";
 
 import { isProblem } from "../api/errors";
 import type {
+  FirstrunFirstRun,
   IdentityAccount,
   IdentitySession,
   SystemStatus,
   SystemStatusClaim,
 } from "../api/gen/model";
+import { type Place, currentPlace, envOf, shownSteps } from "./first-run";
 import { safeRedirect } from "./safe-redirect";
-import { sessionQuery, statusQuery } from "./session";
+import { firstRunQuery, sessionQuery, statusQuery } from "./session";
 
 export type Entry =
   | { readonly kind: "setup" }
@@ -17,6 +19,7 @@ export type Entry =
   | { readonly kind: "worker" }
   | { readonly kind: "unreachable" }
   | { readonly kind: "new-pin"; readonly account: IdentityAccount }
+  | { readonly kind: "first-run"; readonly account: IdentityAccount; readonly at: Place }
   | { readonly kind: "app"; readonly account: IdentityAccount }
   | { readonly kind: "portal"; readonly account: IdentityAccount };
 
@@ -25,25 +28,50 @@ export type EntryKind = Entry["kind"];
 /** What a route lets in: an entry kind, or `link` for a public link page anyone may open. */
 export type Want = EntryKind | "link";
 
+const opensFirstSetup = (session: IdentitySession): boolean =>
+  session.account.admin && session.firstRun === "open";
+
 // A passkey sign-in on a turned-off PIN gives a session that can only set a
-// new PIN, so it enters nowhere else until it does.
-function signedIn({ account, pinRequired }: IdentitySession): Entry {
+// new PIN, so it enters nowhere else until it does. An Admin whose first
+// setup is open stands on its current place until they finish it.
+function signedIn({ account, pinRequired }: IdentitySession, firstSetup: Place | undefined): Entry {
   if (pinRequired) {
     return { kind: "new-pin", account };
+  }
+  if (firstSetup !== undefined) {
+    return { kind: "first-run", account, at: firstSetup };
   }
   return account.admin ? { kind: "app", account } : { kind: "portal", account };
 }
 
-const entries: { readonly [C in SystemStatusClaim]: (session: IdentitySession | null) => Entry } = {
+type Signed = { readonly session: IdentitySession; readonly firstSetup: Place | undefined };
+
+const entries: { readonly [C in SystemStatusClaim]: (signed: Signed | null) => Entry } = {
   unclaimed: () => ({ kind: "setup" }),
-  controller: (session) => (session === null ? { kind: "sign-in" } : signedIn(session)),
+  controller: (signed) =>
+    signed === null ? { kind: "sign-in" } : signedIn(signed.session, signed.firstSetup),
   worker: () => ({ kind: "worker" }),
 };
 
-export const entryOf = (status: SystemStatus, session: IdentitySession | null): Entry =>
-  entries[status.claim](session);
+const firstSetupAt = (
+  status: SystemStatus,
+  session: IdentitySession,
+  view: FirstrunFirstRun | undefined,
+): Place | undefined =>
+  view?.open === true && opensFirstSetup(session)
+    ? currentPlace(shownSteps(view, envOf(status)))
+    : undefined;
 
-type Cell = (href: string, redirect: string | undefined) => string | null;
+export const entryOf = (
+  status: SystemStatus,
+  session: IdentitySession | null,
+  firstRun?: FirstrunFirstRun,
+): Entry =>
+  entries[status.claim](
+    session === null ? null : { session, firstSetup: firstSetupAt(status, session, firstRun) },
+  );
+
+type Cell = (href: string, redirect: string | undefined, entry: Entry) => string | null;
 
 const render: Cell = () => null;
 
@@ -51,6 +79,8 @@ const toSignIn: Cell = (href) => `/sign-in?redirect=${encodeURIComponent(href)}`
 const toRedirect: Cell = (_href, to) => safeRedirect(to);
 const toNewPin: Cell = () => "/new-pin";
 const toServing: Cell = () => "/serving";
+const toFirstSetup: Cell = (_href, _to, entry) =>
+  entry.kind === "first-run" ? `/setup/${entry.at}` : null;
 
 const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } = {
   app: {
@@ -61,6 +91,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: render,
     portal: () => "/portal",
     unreachable: toServing,
+    "first-run": toFirstSetup,
   },
   portal: {
     setup: () => "/setup",
@@ -70,6 +101,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: render,
     portal: render,
     unreachable: toServing,
+    "first-run": toFirstSetup,
   },
   "sign-in": {
     setup: () => "/setup",
@@ -79,6 +111,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: toRedirect,
     portal: toRedirect,
     unreachable: toServing,
+    "first-run": toFirstSetup,
   },
   setup: {
     setup: render,
@@ -88,6 +121,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: () => "/",
     portal: () => "/portal",
     unreachable: toServing,
+    "first-run": toFirstSetup,
   },
   worker: {
     setup: () => "/setup",
@@ -97,6 +131,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: () => "/",
     portal: () => "/portal",
     unreachable: toServing,
+    "first-run": toFirstSetup,
   },
   "new-pin": {
     setup: () => "/setup",
@@ -106,6 +141,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: () => "/",
     portal: () => "/portal",
     unreachable: toServing,
+    "first-run": toFirstSetup,
   },
   unreachable: {
     setup: () => "/setup",
@@ -115,6 +151,17 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: () => "/",
     portal: () => "/portal",
     unreachable: render,
+    "first-run": toFirstSetup,
+  },
+  "first-run": {
+    setup: () => "/setup",
+    "sign-in": toSignIn,
+    worker: () => "/worker",
+    "new-pin": toNewPin,
+    app: () => "/",
+    portal: () => "/portal",
+    unreachable: toServing,
+    "first-run": render,
   },
   link: {
     setup: render,
@@ -124,18 +171,27 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     app: render,
     portal: render,
     unreachable: toServing,
+    "first-run": render,
   },
 };
 
 export const redirectFor = (entry: Entry, want: Want, href: string, to?: string): string | null =>
-  redirects[want][entry.kind](href, to);
+  redirects[want][entry.kind](href, to, entry);
 
 async function entryNow(queryClient: QueryClient): Promise<Entry> {
   try {
     const session = await queryClient.query({ ...sessionQuery, staleTime: "static" });
-    return session === null
-      ? entryOf(await queryClient.query(statusQuery), null)
-      : signedIn(session);
+    if (session === null) {
+      return entryOf(await queryClient.query(statusQuery), null);
+    }
+    if (!opensFirstSetup(session)) {
+      return signedIn(session, undefined);
+    }
+    const [status, firstRun] = await Promise.all([
+      queryClient.query({ ...statusQuery, staleTime: "static" }),
+      queryClient.query({ ...firstRunQuery, staleTime: "static" }),
+    ]);
+    return entryOf(status, session, firstRun);
   } catch (error) {
     if (isProblem(error, "controller_unreachable")) {
       return { kind: "unreachable" };
