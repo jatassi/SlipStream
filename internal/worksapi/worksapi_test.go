@@ -265,10 +265,6 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 	if code != http.StatusOK || masked(again) != strings.Replace(want, `"created":true`, `"created":false`, 1) {
 		t.Fatalf("addWork again = %d %s", code, masked(again))
 	}
-	code, list := s.call(t, http.MethodGet, "/api/v1/works?contentType=fixture", "")
-	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"artwork":[]}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
-		t.Fatalf("listWorks = %d %s, want %s", code, list, want)
-	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
 	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
 		t.Fatalf("searchCatalog = %d %s, want %s", code, search, want)
@@ -286,7 +282,7 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 	if want := `{"inLibrary":false,"work":` + tree + "}\n"; code != http.StatusOK || masked(body) != want {
 		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
-	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/library", "", 200, `{"rows":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog/w2", "", 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 
 	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":false}`)
@@ -337,7 +333,7 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	bad.Tree.Children[0].Children = append(bad.Tree.Children[0].Children, works.Entry{Key: "c1", Label: "Again"})
 	s.fx.Put("w1", bad)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_invalid","title":"The metadata source sent a record SlipStream can't use"}`)
-	expect(t, s, http.MethodGet, "/api/v1/works?contentType=ghost", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
+	expect(t, s, http.MethodGet, "/api/v1/library?contentType=ghost", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String(), "", 404, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 200,
@@ -359,29 +355,6 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused SlipStream's key","detail":"TMDB refused SlipStream's key"}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "is rate limited until 2026-10-19T21:04:00Z", Err: works.ErrUnavailable})
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB: is rate limited until 2026-10-19T21:04:00Z"}`)
-}
-
-func TestRefreshByHandAnswersGoneUpstream409(t *testing.T) {
-	s := serve(t)
-	s.fx.Put("w1", record())
-	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
-	if code != 200 {
-		t.Fatalf("addWork = %d %s", code, body)
-	}
-	work := "/api/v1/works/" + uuids.FindString(body)
-	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrNotFound))
-	gone := `{"status":409,"code":"work_gone_upstream","title":"The metadata source no longer has this Work"}`
-	expect(t, s, http.MethodPost, work+"/refresh", "", 409, gone)
-	expect(t, s, http.MethodPost, work+"/refresh", "", 409, gone)
-	code, body = s.call(t, http.MethodGet, work, "")
-	if code != 200 || strings.Contains(body, `"goneUpstreamAt":null`) || !strings.Contains(body, `"goneUpstreamAt":"`) {
-		t.Fatalf("getWork after the source lost it = %d %s, want goneUpstreamAt set", code, body)
-	}
-	s.fx.Fail("w1", nil)
-	code, body = s.call(t, http.MethodPost, work+"/refresh", "")
-	if code != 200 || !strings.Contains(body, `"goneUpstreamAt":null`) {
-		t.Fatalf("refreshWork once the source has it again = %d %s, want goneUpstreamAt null", code, body)
-	}
 }
 
 var ada = artwork.Ref{Source: "fixture", Shape: artwork.ShapePhoto, Path: "/ada.jpg"}
@@ -436,11 +409,8 @@ func TestTheWorkAPIShowsDateAndBasis(t *testing.T) {
 	}
 	work := "/api/v1/works/" + added.Work.ID
 	s.fx.SetTiming(works.ItemID{UUID: item}, targets.Timing{Released: release.Known(works.Date{Year: 2026, Month: 11, Day: 3}), Basis: "Digital release in United States"})
-	for _, call := range []struct{ method, path string }{{http.MethodGet, work}, {http.MethodPost, work + "/refresh"}} {
-		code, body = s.call(t, call.method, call.path, "")
-		if want := `"availability":{"date":"2026-11-03","basis":"Digital release in United States"}`; code != 200 || !strings.Contains(body, want) {
-			t.Fatalf("%s %s = %d %s, want it to hold %s", call.method, call.path, code, body, want)
-		}
+	if code, body = s.call(t, http.MethodGet, work, ""); code != 200 || !strings.Contains(body, `"availability":{"date":"2026-11-03","basis":"Digital release in United States"}`) {
+		t.Fatalf("getWork = %d %s, want its date and basis", code, body)
 	}
 	s.fx.SetTiming(works.ItemID{UUID: item}, targets.Timing{})
 	if code, body = s.call(t, http.MethodGet, work, ""); code != 200 || !strings.Contains(body, `"availability":null`) {
@@ -508,7 +478,7 @@ func TestAddWorkWantsFromTheProfileItNamesOrTheTypesDefault(t *testing.T) {
 		`{"status":422,"code":"profile_wrong_type","title":"The Profile is for another Content Type"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", add("w1", storage.NewUUID().String()), 422,
 		`{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`)
-	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/library", "", 200, `{"rows":[]}`)
 
 	wants := func(body string) targets.Goals {
 		t.Helper()
@@ -565,11 +535,6 @@ func TestArtworkAnswersAsURLsTheRouteOpens(t *testing.T) {
 		}
 		opens(at.op+"'s Work", tree.Work.Artwork[0].Kind, tree.Work.Artwork[0].URL, photo)
 		opens(at.op+"'s Item", tree.Work.Items[0].Artwork[0].Kind, tree.Work.Items[0].Artwork[0].URL, snap)
-	}
-
-	code, list := s.call(t, http.MethodGet, "/api/v1/works", "")
-	if want := `"artwork":[{"kind":"photo","url":"` + minter.URL(photo) + `"}]`; code != http.StatusOK || !strings.Contains(list, want) || strings.Contains(list, "scarf") {
-		t.Fatalf("listWorks = %d %s, want the Work's own image %s and no Item's", code, list, want)
 	}
 }
 

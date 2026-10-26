@@ -19,9 +19,7 @@ import {
   WorksRootChange,
   WorksSearchResult,
   WorksSettingsChange,
-  WorksTree,
   WorksTypeSettings,
-  WorksWorkList,
   WorksWorkView,
 } from "../slipStream.schemas.zod.ts";
 
@@ -119,17 +117,6 @@ export const ListLibraryQueryParams = zod.object({
 });
 
 export const ListLibraryResponse = WorksLibraryRows;
-
-/**
- * @summary List the Works, or one Content Type's
- */
-export const listWorksQueryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
-
-export const ListWorksQueryParams = zod.object({
-  contentType: zod.string().regex(listWorksQueryContentTypeRegExp).exactOptional(),
-});
-
-export const ListWorksResponse = WorksWorkList;
 
 /**
  * @summary Add a Work by its key with its whole tree, or get the Work already added
@@ -233,12 +220,3 @@ export const GetWorkParams = zod.object({
 });
 
 export const GetWorkResponse = WorksWorkView;
-
-/**
- * @summary Refresh a Work from its metadata source, keeping every id
- */
-export const RefreshWorkParams = zod.object({
-  workId: zod.uuid(),
-});
-
-export const RefreshWorkResponse = WorksTree;

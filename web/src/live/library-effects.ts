@@ -6,18 +6,14 @@ import {
 } from "../api/gen/query/grabs/grabs";
 import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
-import {
-  getGetWorkQueryKey,
-  getListContentTypesQueryKey,
-  getListWorksQueryKey,
-} from "../api/gen/query/works/works";
+import { getGetWorkQueryKey, getListContentTypesQueryKey } from "../api/gen/query/works/works";
 import { noteWork } from "./activity";
 import { everyPath } from "./refresh";
 import { noteRemoved } from "./removed";
 import { dropRows, queueRows, wholeLibrary } from "./rows";
 import type { LiveEffects } from "./types";
 
-const everyWork = everyPath(/^\/api\/v1\/works(\/[^/]+(\/cells)?)?$/u);
+const everyWork = everyPath(/^\/api\/v1\/works\/[^/]+(\/cells)?$/u);
 
 /**
  * The library's events: Works, their files, Grabs and searches. A row of
@@ -28,7 +24,6 @@ export const libraryEffects = {
   "works.changed": ({ workIds }, { queryClient, refresh }) => {
     noteWork("fetch");
     queueRows(queryClient, workIds);
-    refresh({ queryKey: getListWorksQueryKey() });
     for (const workId of workIds) {
       refresh({ queryKey: getGetWorkQueryKey(workId) });
       refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
@@ -38,7 +33,6 @@ export const libraryEffects = {
   "works.removed": ({ workIds }, { queryClient, refresh }) => {
     noteRemoved(queryClient, workIds);
     dropRows(queryClient, workIds);
-    refresh({ queryKey: getListWorksQueryKey() });
     refresh({ queryKey: getListRootsQueryKey() });
     refresh({ queryKey: getGetCountsQueryKey() });
   },

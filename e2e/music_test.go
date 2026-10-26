@@ -174,9 +174,14 @@ func TestMusic(t *testing.T) {
 	}
 	worldtest.Expect(t, "searchCatalog once added", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns(`"`+tr.ID+`"`))
 
-	refresh := "/api/v1/works/" + tr.ID + "/refresh"
-	refreshed := a.Admin("home", http.MethodPost, refresh, "")
-	checkOutline(t, "the refreshed tree", *decode(t, "refreshWork", refreshed, &tree{}), &ids, strings.Join([]string{
+	refresh := func() worldtest.Reply {
+		t.Helper()
+		worldtest.Expect(t, "refreshWorks", a.Admin("home", http.MethodPost, "/api/v1/works/refresh", `{"workIds":["`+tr.ID+`"]}`),
+			worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + tr.ID + `","outcome":"done"}]}` + "\n"})
+		return a.Admin("home", http.MethodGet, "/api/v1/works/"+tr.ID, "")
+	}
+	refreshed := refresh()
+	checkOutline(t, "the refreshed tree", *decode(t, "getWork after refreshWorks", refreshed, &tree{}), &ids, strings.Join([]string{
 		"#1 music The Lanterns (Lanterns, The) " + lanterns + " [country=GB]",
 		"  #2 1 Harbor Lights [released=2001-03-12 kind=Album]",
 		"    #3 1 Tidewater [disc=1 length=205000ms]",
@@ -187,9 +192,9 @@ func TestMusic(t *testing.T) {
 		"    #7 1 Night Ferry [disc=1 length=190000ms]",
 		"    #8 2 Signal Fires [disc=1 length=224000ms]",
 	}, "\n"))
-	twice := a.Admin("home", http.MethodPost, refresh, "")
+	twice := refresh()
 	if twice.Status != http.StatusOK || refreshedAt.ReplaceAllString(twice.Body, "") != refreshedAt.ReplaceAllString(refreshed.Body, "") {
-		t.Fatalf("a second refreshWork = %d\n%s\nwant the first's body apart from refreshedAt\n%s", twice.Status, twice.Body, refreshed.Body)
+		t.Fatalf("getWork after a second refreshWorks = %d\n%s\nwant the first's body apart from refreshedAt\n%s", twice.Status, twice.Body, refreshed.Body)
 	}
 
 	addBay := `{"contentType":"music","key":"` + marrowBay + `","monitor":false}`

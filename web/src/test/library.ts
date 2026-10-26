@@ -1,9 +1,4 @@
-import type {
-  WorksContentType,
-  WorksLibraryRow,
-  WorksListedWork,
-  WorksWorkView,
-} from "../api/gen/model";
+import type { WorksContentType, WorksLibraryRow, WorksWorkView } from "../api/gen/model";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 
 export const cinema: WorksContentType = {
@@ -91,19 +86,6 @@ export const orchard: WorksWorkView = {
   links: [],
   profile: { id: "0199e1f2-7a3b-7c4d-8e5f-000000000001", name: "Films" },
   root: null,
-};
-
-export const orchardListed: WorksListedWork = {
-  id: orchard.id,
-  contentType: orchard.contentType,
-  key: orchard.key,
-  label: orchard.label,
-  sortLabel: orchard.sortLabel,
-  addedAt: orchard.addedAt,
-  refreshedAt: orchard.refreshedAt,
-  goneUpstreamAt: orchard.goneUpstreamAt,
-  fields: orchard.fields,
-  artwork: orchard.artwork,
 };
 
 export const orchardRow: WorksLibraryRow = {

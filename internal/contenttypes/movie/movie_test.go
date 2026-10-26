@@ -549,9 +549,14 @@ func TestPreviewSkipsOMDbAndCommitsNothing(t *testing.T) {
 	if sv.omdbSent.sent.Load() != 0 || sv.tmdbSent.sent.Load() != 1 {
 		t.Fatalf("preview sent %d TMDB and %d OMDb requests, want 1 and none", sv.tmdbSent.sent.Load(), sv.omdbSent.sent.Load())
 	}
-	listed, err := sh.works.List(t.Context(), identity.Admin{}, nil)
-	if err != nil || len(listed) != 0 || sh.sent.n.Load() != 0 {
-		t.Fatalf("after a preview the library lists %v, %v and published %d works.changed, want nothing", listed, err, sh.sent.n.Load())
+	var listed []works.Row
+	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		listed, err = sh.works.RowsIn(ctx, r, works.Scope{})
+		return err
+	})
+	if len(listed) != 0 || sh.sent.n.Load() != 0 {
+		t.Fatalf("after a preview the library lists %v and published %d works.changed, want nothing", listed, sh.sent.n.Load())
 	}
 	if len(preview.Ratings) != 1 || preview.Ratings[0].Source != "tmdb" || !preview.RatingsReadAt.IsZero() {
 		t.Fatalf("preview ratings %+v read at %v, want only TMDB's and no ratings read", preview.Ratings, preview.RatingsReadAt)

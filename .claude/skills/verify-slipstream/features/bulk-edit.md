@@ -14,7 +14,7 @@ An Admin picks Works in the Library, by each poster's or row's checkbox, by a cl
 ## How to get to it (user POV)
 
 - Desktop and phone shells: the Library at `/library` or `/library/movie`; the checkbox on each poster shows on hover, on focus and while picking, and on each table row always.
-- API: `PUT /api/v1/works/monitored`, `PUT /api/v1/works/profile` (with `preview`), `PUT /api/v1/works/root`, `POST /api/v1/works/refresh`, `DELETE /api/v1/works` (with `preview`), each taking `{"workIds": [...]}`.
+- API: `PUT /api/v1/works/monitored`, `PUT /api/v1/works/profile` (with `preview`), `PUT /api/v1/works/root`, `POST /api/v1/works/refresh`, `POST /api/v1/works/delete` (with `preview`), each taking `{"workIds": [...]}`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli

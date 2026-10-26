@@ -58,7 +58,7 @@ Steps:
   $FW exec $RUN --proof metadata-refresh/refresh-detail -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/metadata-refresh/refresh-detail/detail.png
   ```
 
-- **A change upstream.** Read the Work, play `tmdb-change`, and choose `Run now: Metadata refresh` in the top bar. The new run reads `1 Work`, and the Work's `overview` field reads `Revision 1.`. Take the Work's id from `GET /api/v1/works`.
+- **A change upstream.** Read the Work, play `tmdb-change`, and choose `Run now: Metadata refresh` in the top bar. The new run reads `1 Work`, and the Work's `overview` field reads `Revision 1.`. Take the Work's id from `GET /api/v1/library`.
 
   ```sh
   $FW exec $RUN --proof metadata-refresh/refresh-changes -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works/<id>'

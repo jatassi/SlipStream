@@ -302,7 +302,7 @@ func TestAddPrefetchesTheKindsThatAskOnce(t *testing.T) {
 	}
 }
 
-func TestListCarriesEachWorksOwnArtwork(t *testing.T) {
+func TestRowsCarryEachWorksOwnPoster(t *testing.T) {
 	h := newHarness(t)
 	h.fx.Put("w1", rated())
 	h.fx.Put("w2", shelf())
@@ -311,15 +311,11 @@ func TestListCarriesEachWorksOwnArtwork(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	listed, err := h.works.List(t.Context(), admin, nil)
-	if err != nil {
-		t.Fatal(err)
+	got := map[works.Key]artwork.Ref{}
+	for _, r := range h.rows(t) {
+		got[r.Key] = r.Poster
 	}
-	got := map[works.Key]map[string]artwork.Ref{}
-	for _, l := range listed {
-		got[l.Key] = l.Artwork
-	}
-	if want := map[works.Key]map[string]artwork.Ref{"w1": {"photo": photo("/attic.jpg")}, "w2": {}}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("List's artwork = %v, want each Work's own and no Item's: %v", got, want)
+	if want := map[works.Key]artwork.Ref{"w1": photo("/attic.jpg"), "w2": {}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("rows' posters = %v, want each Work's own and no Item's: %v", got, want)
 	}
 }

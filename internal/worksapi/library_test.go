@@ -413,8 +413,8 @@ func TestSearchWorksMatchesEveryTitleIgnoringCaseAndAccents(t *testing.T) {
 		Tree:   works.Fetched{Label: "Amélie", SortLabel: "Amelie", Children: []works.Entry{{Key: "b1", Label: "Box", Children: []works.Entry{{Key: "c1", Label: "Amélie"}}}}},
 		Titles: []string{"Die fabelhafte Welt der Amélie"},
 	})
-	if code, body := s.call(t, http.MethodPost, "/api/v1/works/"+amelie.ID.String()+"/refresh", ""); code != http.StatusOK {
-		t.Fatalf("refreshWork = %d %s", code, body)
+	if code, body := s.call(t, http.MethodPost, "/api/v1/works/refresh", `{"workIds":["`+amelie.ID.String()+`"]}`); code != http.StatusOK || !strings.Contains(body, `"outcome":"done"`) {
+		t.Fatalf("refreshWorks = %d %s", code, body)
 	}
 	if got, _ := s.search(t, "q=fabelhafte"); !slices.Equal(got, ids(amelie)) {
 		t.Fatalf("after a refresh brought a new title, searching it answers %v, want Amélie", got)

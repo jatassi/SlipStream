@@ -229,15 +229,6 @@ func Routes(r *api.Router, shelf Shelf) {
 	}, h.addWork)
 
 	api.Register(o, api.Admin, api.Op{
-		ID:      "listWorks",
-		Method:  http.MethodGet,
-		Path:    "/works",
-		Summary: "List the Works, or one Content Type's",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound},
-	}, h.listWorks)
-
-	api.Register(o, api.Admin, api.Op{
 		ID:      "listLibrary",
 		Method:  http.MethodGet,
 		Path:    "/library",
@@ -306,14 +297,6 @@ func Routes(r *api.Router, shelf Shelf) {
 		Status:  http.StatusOK,
 	}, h.deleteWorks)
 
-	api.Register(o, api.Admin, api.Op{
-		ID:      "refreshWork",
-		Method:  http.MethodPost,
-		Path:    "/works/{workId}/refresh",
-		Summary: "Refresh a Work from its metadata source, keeping every id",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, workGoneUpstream, metadataUnavailable, metadataInvalid, metadataRefused},
-	}, h.refreshWork)
 }
 
 type handlers struct{ shelf Shelf }
