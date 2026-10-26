@@ -115,7 +115,7 @@ var diagramRoots = []string{
 	"web/src/ui/", "web/src/api/", "web/src/shell/",
 	"web/src/format.ts", "web/src/styles.css", "web/src/theme.gen.css",
 	"web/scripts/", "web/vendor/anatomy/", ".claude/skills/anatomy/",
-	"web/vite.config.ts", "web/package.json", "web/bun.lock", "web/tsconfig.json",
+	"web/vite.config.ts", "web/package.json", "web/bun.lock", "web/patches/", "web/tsconfig.json",
 }
 
 // Diagram reports whether a change touches, on either side, anything the
