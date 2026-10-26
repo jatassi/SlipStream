@@ -58,7 +58,7 @@ test("the root dialog shows free space and names the Works with files that stay"
   await expect
     .element(
       dialog.getByText(
-        "Film 2 and Film 3 have files, so they stay in their library roots. Moving a Work with files arrives with Moves.",
+        "Film 2 and Film 3 have files, so they stay in their library roots. Moving a Work that has files isn't supported yet.",
       ),
     )
     .toBeVisible();
@@ -67,7 +67,7 @@ test("the root dialog shows free space and names the Works with files that stay"
   await expect
     .element(
       page.getByText(
-        "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots. Moving a Work with files arrives with Moves.",
+        "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots. Moving a Work that has files isn't supported yet.",
       ),
     )
     .toBeVisible();

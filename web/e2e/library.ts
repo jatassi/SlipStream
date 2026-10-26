@@ -5,6 +5,8 @@ import type { Page } from "@playwright/test";
 import { z } from "zod";
 
 import { type World, expect } from "./fixtures.ts";
+import { isPhone } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 
 const Created = z.object({ id: z.string() });
 const Added = z.object({ work: z.object({ id: z.string() }) });
@@ -63,6 +65,20 @@ export const libraryRows = async (world: World) =>
   Library.parse((await world.api("GET", "/api/v1/library")).body).rows;
 
 export const bar = (page: Page) => page.getByRole("toolbar", { name: "Picked Works" });
+const barMenu = "Actions for the picked Works";
+
+// A phone's bar holds its actions in a sheet.
+export async function barAction(page: Page, name: string) {
+  if (isPhone(page)) {
+    await bar(page).getByRole("button", { name: barMenu }).click();
+    await clickWhenStill(
+      page.getByRole("dialog", { name: barMenu }).getByRole("button", { name, exact: true }),
+    );
+  } else {
+    await bar(page).getByRole("button", { name, exact: true }).click();
+  }
+}
+
 export const toasts = (page: Page) => page.getByRole("region", { name: "Notifications" });
 
 export async function pick(page: Page, ...labels: string[]) {

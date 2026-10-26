@@ -108,3 +108,46 @@ test("a Work on an offline Node is deleted by leaving its files", async () => {
   await expect.element(dialog).not.toBeInTheDocument();
   expect(server.sent.at(-1)).toEqual({ workIds: works.map(({ id }) => id), files: "leave" });
 });
+
+function planServer(plan: WorksDeleted["plan"]) {
+  return http.post("*/api/v1/works/delete", async ({ request }) => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the test's own request body
+    const body = (await request.json()) as WorksDeleting;
+    const answer: WorksDeleted = {
+      plan,
+      outcomes: body.workIds.map((workId) => ({ workId, outcome: "done" })),
+    };
+    return HttpResponse.json(answer);
+  });
+}
+
+test("Works with no files offer no choice for their files", async () => {
+  const works = picked(2);
+  await renderAction(<Opened subjects={works} />, [
+    planServer({ works: 2, files: 0, kept: 0, bytes: 0, downloading: 0 }),
+  ]);
+
+  const dialog = page.getByRole("dialog", { name: "Delete The Quiet Orchard and Film 2?" });
+  await expect
+    .element(dialog.getByText("The Quiet Orchard and Film 2 have no files."))
+    .toBeVisible();
+  await expect.element(dialog.getByRole("radiogroup", { name: "Files" })).not.toBeInTheDocument();
+});
+
+test("one file is counted as one, whichever is chosen", async () => {
+  const works = picked(1);
+  await renderAction(<Opened subjects={works} />, [
+    planServer({ works: 1, files: 1, kept: 0, bytes: 734_003_200, downloading: 0 }),
+  ]);
+
+  const dialog = page.getByRole("dialog", { name: "Delete The Quiet Orchard?" });
+  await expect.element(dialog.getByText("Its file (700 MB) is deleted from disk.")).toBeVisible();
+  await userEvent.click(dialog.getByRole("radio", { name: "Leave files on disk" }));
+  await expect.element(dialog.getByText("Its file (700 MB) stays on disk.")).toBeVisible();
+  await expect.element(dialog.getByText("The next library scan finds it again.")).toBeVisible();
+
+  await userEvent.click(dialog.getByRole("button", { name: "Delete", exact: true }));
+  await expect
+    .element(page.getByText("Deleted The Quiet Orchard. Its file stays on disk."))
+    .toBeVisible();
+});

@@ -55,12 +55,12 @@ const actionCases: { action: WorkAction; done: string; already: string }[] = [
   },
   {
     action: { kind: "delete", files: "delete" },
-    done: "Deleted The Quiet Orchard and its files.",
+    done: "Deleted The Quiet Orchard, with its file.",
     already: "The Quiet Orchard was already deleted.",
   },
   {
     action: { kind: "delete", files: "leave" },
-    done: "Deleted The Quiet Orchard. Its files stay on disk.",
+    done: "Deleted The Quiet Orchard. Its file stays on disk.",
     already: "The Quiet Orchard was already deleted.",
   },
 ];
@@ -84,12 +84,59 @@ test("deleting Works that have no files names no files", () => {
   }
 });
 
+const both = [orchard, second];
+
+const deleteCases: [string, WorkAction, Subject[], number][] = [
+  ["Deleted The Quiet Orchard, with its files.", { kind: "delete", files: "delete" }, [orchard], 3],
+  [
+    `Deleted ${orchard.label} and Film 2, with their one file.`,
+    { kind: "delete", files: "delete" },
+    both,
+    1,
+  ],
+  [
+    `Deleted ${orchard.label} and Film 2, with their files.`,
+    { kind: "delete", files: "delete" },
+    both,
+    4,
+  ],
+  [
+    "Deleted The Quiet Orchard. Its files stay on disk.",
+    { kind: "delete", files: "leave" },
+    [orchard],
+    3,
+  ],
+  [
+    `Deleted ${orchard.label} and Film 2. Their one file stays on disk.`,
+    { kind: "delete", files: "leave" },
+    both,
+    1,
+  ],
+  [
+    `Deleted ${orchard.label} and Film 2. Their files stay on disk.`,
+    { kind: "delete", files: "leave" },
+    both,
+    4,
+  ],
+];
+
+test.each(deleteCases)("%s", (words, action, subjects, files) => {
+  expect(
+    say(
+      action,
+      subjects.map((subject) => done(subject)),
+      subjects,
+      files,
+    ).done,
+  ).toBe(words);
+});
+
 test("every other skip reason has its words", () => {
   const refresh: WorkAction = { kind: "refresh" };
   const skips: [WorksSkippedOutcomeReason, string][] = [
     [
       "work_has_files",
-      "The Quiet Orchard has files, so it stays in its library root. Moving a Work with files arrives with Moves.",
+      "The Quiet Orchard has files, so it stays in its library root. Moving a Work that has files isn't supported yet.",
     ],
     ["work_gone_upstream", "TMDB no longer lists The Quiet Orchard, so it wasn't refreshed."],
     ["work_not_found", "The Quiet Orchard is no longer in the library."],
@@ -118,7 +165,7 @@ test("a few Works alike are named together, and Works with files stay where they
       [orchard, second, third],
     ).done,
   ).toBe(
-    "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots. Moving a Work with files arrives with Moves.",
+    "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots. Moving a Work that has files isn't supported yet.",
   );
 });
 

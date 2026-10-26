@@ -12,7 +12,7 @@ import { liveServer } from "../../../test/live-server";
 // oxlint-disable-next-line import/max-dependencies -- the Work page's Grabs read the Torrents and the live stream too
 import { renderApp } from "../../../test/render-app";
 import { listOf, torrent } from "../../../test/torrents";
-import { failedCells, filled, upgradable } from "../../../test/work-cells";
+import { failedCells, filled, filledTwice, upgradable } from "../../../test/work-cells";
 import { grabbed, searching, unavailable, workServer } from "../../../test/work-server";
 
 const cutRow = () =>
@@ -65,6 +65,18 @@ test("files.changed shows the new file without a reload", async () => {
     .toHaveTextContent(
       "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021) · Fills 1080pWEBDL-1080p · 1920×1080 · 700 MB",
     );
+});
+
+test("a file that fills two Targets names both", async () => {
+  const server = workServer();
+  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
+  await expect.element(cutRow()).toHaveTextContent(missingRow);
+
+  server.fileArrives(filledTwice);
+
+  await expect
+    .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
+    .toMatchTextContent(/· Fills 2160p HDR and 1080p/u);
 });
 
 test("a cell below its Target's cutoff shows upgradable with its file", async () => {
