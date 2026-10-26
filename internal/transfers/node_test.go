@@ -318,6 +318,24 @@ func TestAReceiverRestartedMidFileResumes(t *testing.T) {
 	})
 }
 
+func TestAReceiverRestartedReportsTheBytesItKeepsWhileItConnects(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tr, w := interrupt(t)
+		w[0].halt()
+		before := len(w[1].h.facts())
+		w[1].start()
+		w[1].h.await(t, "the kept chunks reported while connecting", func(_ []*tv1.Result, fs []*tv1.Facts) bool {
+			if len(fs) == before {
+				return false
+			}
+			r := receiving(fs[len(fs)-1], tr.id)
+			return r.GetWait().GetKind() == tv1.Wait_KIND_CONNECTING && r.GetVerifiedBytes() >= 3*chunk
+		})
+		w[0].start()
+		tr.expectArrived()
+	})
+}
+
 func TestATornStagedFileRestartsFromZero(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		tr, w := interrupt(t)
