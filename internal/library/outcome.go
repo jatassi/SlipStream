@@ -25,7 +25,7 @@ type Outcome struct {
 }
 
 // ErrAlready skips a Work that already reads the way an action asks.
-var ErrAlready = errors.New("the Work already reads that way")
+var ErrAlready = errors.New("the Work already has that setting")
 
 func done(w works.WorkID) Outcome { return Outcome{Work: w, Result: Done} }
 

@@ -521,10 +521,9 @@ func TestSetProfileGivesEveryWorkOneImpactAndKeepsOwnLists(t *testing.T) {
 	}
 	expectEvents(t, s, "a preview", "")
 
-	code, reply := s.Call(t, http.MethodPut, "/api/v1/works/profile?confirm=0", body)
-	if code != http.StatusConflict || !strings.Contains(reply, `"code":"impact_changed"`) {
-		t.Fatalf("a save confirming no unwanted file = %d %s, want 409 impact_changed for the whole request", code, reply)
-	}
+	s.Expect(t, http.MethodPut, "/api/v1/works/profile?confirm=0", body, http.StatusConflict,
+		`{"status":409,"code":"impact_changed","title":"The change now does more than its preview showed",`+
+			`"detail":"The save now leaves 1 file unwanted, and the preview showed 0. Preview the change again."}`)
 	expectEvents(t, s, "a refused save", "")
 
 	got, _ = s.act(t, http.MethodPut, "/api/v1/works/profile?confirm=1", body)
@@ -543,10 +542,8 @@ func TestSetProfileGivesEveryWorkOneImpactAndKeepsOwnLists(t *testing.T) {
 		t.Fatalf("%d files stay, want w1's file deleted as the save chose", left)
 	}
 
-	code, reply = s.Call(t, http.MethodPut, "/api/v1/works/profile", ids(w1)+`,"profileId":"`+storage.NewUUID().String()+`"}`)
-	if code != http.StatusUnprocessableEntity || !strings.Contains(reply, `"code":"profile_not_found"`) {
-		t.Fatalf("a Profile no one has = %d %s, want 422 profile_not_found", code, reply)
-	}
+	s.Expect(t, http.MethodPut, "/api/v1/works/profile", ids(w1)+`,"profileId":"`+storage.NewUUID().String()+`"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`)
 }
 
 func TestSetRootSkipsAWorkWithFiles(t *testing.T) {

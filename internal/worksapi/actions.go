@@ -86,7 +86,7 @@ func (h handlers) setWorksProfile(ctx context.Context, by identity.Admin, in *pr
 	}
 	impact, os, err := composer(h.shelf).SetProfile(ctx, by, ws, targets.ProfileID{UUID: u}, in.Mode())
 	if moved, ok := errors.AsType[*files.ImpactChangedError](err); ok {
-		return nil, targetsapi.ImpactChanged.Because(moved.Error())
+		return nil, targetsapi.ImpactRefused(moved)
 	}
 	if err != nil {
 		return nil, answer(err)
