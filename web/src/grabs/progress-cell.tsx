@@ -3,8 +3,7 @@ import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downlo
 import { bytes } from "../format";
 import { useLiveRow } from "../live/torrents";
 import { paceOf } from "../torrents/model";
-import { useTransferOf } from "../transfers/job";
-import { paceLine } from "../transfers/words";
+import { useTransferProgressOf } from "../transfers/job";
 import { Data } from "../ui/data";
 import { LiveBar } from "../ui/live-bar";
 import { MetadataCell } from "./metadata-cell";
@@ -66,15 +65,15 @@ function ReportedProgress({ grab }: { grab: GrabsGrab }) {
 
 // A transfer's speed and time left come from its Transfer.
 function TransferProgress({ grab }: { grab: GrabsGrab }) {
-  const transfer = useTransferOf(grab.id);
+  const transfer = useTransferProgressOf(grab.id);
   if (transfer === undefined) {
     return <ReportedProgress grab={grab} />;
   }
   return (
     <Progress
       grab={grab}
-      progress={{ done: transfer.verified, total: transfer.total }}
-      pace={transfer.state === "copying" ? paceLine(transfer) : ""}
+      progress={{ done: transfer.done, total: transfer.total }}
+      pace={transfer.pace}
     />
   );
 }
