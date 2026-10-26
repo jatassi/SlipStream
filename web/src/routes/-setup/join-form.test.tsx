@@ -64,7 +64,7 @@ const refusals = [
   [
     422,
     "join_code_damaged",
-    "That Join Code is mistyped or cut short. Copy it again from Add a Node on your SlipStream.",
+    "That Join Code is incomplete or has a wrong character. Copy it again from Add a Node on your SlipStream.",
   ],
   [
     403,

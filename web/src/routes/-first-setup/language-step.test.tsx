@@ -27,7 +27,7 @@ test("language and region come from the browser while they hold the defaults, an
   await expect
     .element(
       page.getByText(
-        "Titles and overviews follow the language, and the region picks the certification and decides when a movie counts as out.",
+        "Titles and overviews use this language. The region sets the certification and the release date SlipStream uses for each movie.",
       ),
     )
     .toBeVisible();

@@ -68,7 +68,7 @@ export const screens = {
   passkey: {
     name: "Passkey",
     title: "Add a passkey",
-    why: "Sign in on this device with Face ID, Touch ID or its screen lock instead of your PIN.",
+    why: "Sign in on this device with its fingerprint, face or screen lock. Your PIN still works on any device.",
     settings: "/account?add=passkey",
     load: nothing,
     Body: PasskeyStep,
@@ -86,7 +86,7 @@ export const screens = {
   language: {
     name: "Language and region",
     title: "Language and region",
-    why: "Titles and overviews follow the language, and the region picks the certification and decides when a movie counts as out.",
+    why: "Titles and overviews use this language. The region sets the certification and the release date SlipStream uses for each movie.",
     settings: "/settings/metadata",
     load: async (queryClient) => {
       await freshQuery(queryClient, getGetMetadataSettingsSuspenseQueryOptions());
@@ -126,7 +126,7 @@ export const screens = {
   targets: {
     name: "What SlipStream grabs",
     title: "What SlipStream grabs",
-    why: "Each kind of media grabs what its default Profile's Targets accept until you change them.",
+    why: "SlipStream grabs what each kind of media's default Profile accepts. Change its Targets here or later in Settings.",
     settings: "/settings/targets",
     load: async (queryClient) => {
       await Promise.all([

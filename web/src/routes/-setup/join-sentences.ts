@@ -37,7 +37,7 @@ export const joinSentences: {
 } = {
   invalid: { text: "Enter the Join Code from Add a Node.", next: "retry" },
   join_code_damaged: {
-    text: "That Join Code is mistyped or cut short. Copy it again from Add a Node on your SlipStream.",
+    text: "That Join Code is incomplete or has a wrong character. Copy it again from Add a Node on your SlipStream.",
     next: "retry",
   },
   join_code_unknown: {
