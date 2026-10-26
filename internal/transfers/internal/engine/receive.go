@@ -335,7 +335,7 @@ func (r *run) step(l *lane, f *staged) (heard bool, err error) {
 		return true, nil
 	}
 	delete(f.asked, int(c.GetIndex()))
-	if err := r.keep(l, f, c); err != nil {
+	if err := r.keep(f, c); err != nil {
 		return true, err
 	}
 	t := r.e.cfg.Timings
@@ -464,11 +464,23 @@ func (r *run) request(l *lane, f *staged) (*tv1.Manifest, error) {
 			return nil, fmt.Errorf("the sender's manifest of file %d reads %v", f.position, m)
 		}
 		r.setWait(tv1.Wait_KIND_UNSPECIFIED, "")
+		r.movesOn(l)
 		return m, nil
 	case *tv1.Frame_Absent:
 		return nil, r.absent(f, v.Absent)
 	}
 	return nil, fmt.Errorf("the sender responded to an Open with %T", fr.GetFrame())
+}
+
+// movesOn marks bytes moving on l's route while the intent's route holds
+// it: the sender answered on l, so its chunks follow however slowly.
+func (r *run) movesOn(l *lane) {
+	r.note(func() {
+		if r.rx.moving != l.route && holds(r.r, l.route) {
+			r.rx.moving = l.route
+			r.e.facts.urgent()
+		}
+	})
 }
 
 // absent is the error an Absent answer to f's Open makes: a *failure for
@@ -587,7 +599,7 @@ func (r *run) openStaged(f *staged) error {
 
 // keep checks a chunk against the hash the sender took and writes it at
 // its offset on a match. A mismatch goes back to the queue.
-func (r *run) keep(l *lane, f *staged, c *tv1.Chunk) error {
+func (r *run) keep(f *staged, c *tv1.Chunk) error {
 	i := int(c.GetIndex())
 	sum := blake3.Sum256(c.GetData())
 	if int64(len(c.GetData())) != chunkLen(f.m.GetSize(), i) || !bytes.Equal(sum[:], c.GetHash()) {
@@ -607,10 +619,6 @@ func (r *run) keep(l *lane, f *staged, c *tv1.Chunk) error {
 	r.note(func() {
 		rx.moved += int64(len(c.GetData()))
 		r.win.binding = r.win.binding || c.GetBinding()
-		if rx.moving != l.route && holds(r.r, l.route) {
-			rx.moving = l.route
-			r.e.facts.urgent()
-		}
 	})
 	r.e.facts.progress()
 	return nil
@@ -880,7 +888,7 @@ func bitsetLen(n int) int { return (n + 7) / 8 }
 func (b bitset) set(i int)      { b[i/8] |= 1 << (i % 8) }
 func (b bitset) has(i int) bool { return i/8 < len(b) && b[i/8]&(1<<(i%8)) != 0 }
 
-// bytes is what the chunks set hold of a file of size bytes.
+// bytes is what the set chunks of a file of size bytes hold.
 func (b bitset) bytes(size int64) int64 {
 	var n int64
 	for i := range chunks(size) {

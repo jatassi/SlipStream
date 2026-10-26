@@ -827,7 +827,8 @@ type Receiving struct {
 	VerifiedBytes int64 `protobuf:"varint,4,opt,name=verified_bytes,json=verifiedBytes,proto3" json:"verified_bytes,omitempty"`
 	// rate is verified bytes a second over timings.transfers.estimate.
 	Rate int64 `protobuf:"varint,5,opt,name=rate,proto3" json:"rate,omitempty"`
-	// moving is true while bytes move on route.
+	// moving is true while bytes move on route: from the sender's first
+	// answer on a lane, before its first chunk arrives.
 	Moving  bool   `protobuf:"varint,6,opt,name=moving,proto3" json:"moving,omitempty"`
 	Lanes   uint32 `protobuf:"varint,7,opt,name=lanes,proto3" json:"lanes,omitempty"`
 	RttMs   uint32 `protobuf:"varint,8,opt,name=rtt_ms,json=rttMs,proto3" json:"rtt_ms,omitempty"`

@@ -114,7 +114,8 @@ message Receiving {
   int64 verified_bytes = 4;
   // rate is verified bytes a second over timings.transfers.estimate.
   int64 rate = 5;
-  // moving is true while bytes move on route.
+  // moving is true while bytes move on route: from the sender's first
+  // answer on a lane, before its first chunk arrives.
   bool moving = 6;
   uint32 lanes = 7;
   uint32 rtt_ms = 8;
