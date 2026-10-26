@@ -5,8 +5,11 @@ import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
 import { useListRootsSuspense, useListVolumesSuspense } from "../api/gen/query/roots/roots";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
+import { Section } from "../ui/section";
+import { ContentTypeSwitches } from "../works/content-type-switches";
 import { type Acting, ActingDialogs } from "./acting-dialogs";
 import { RootsGroup, groupsOf } from "./roots-group";
+// oxlint-disable-next-line import/max-dependencies -- the page holds every block of Settings > Library roots
 import { StorageSettings } from "../health/storage-settings";
 import { StorageBlock } from "./storage-block";
 
@@ -20,6 +23,11 @@ export function LibraryRootsSection() {
   const addFor = (groups.find((group) => group.roots.length === 0) ?? groups[0])?.type.id;
   return (
     <div className="flex flex-col gap-4">
+      {contentTypes.length > 1 && (
+        <Section title="Kinds of media">
+          <ContentTypeSwitches />
+        </Section>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink-2">
           A library root is a folder on a Storage Node where SlipStream keeps one Content

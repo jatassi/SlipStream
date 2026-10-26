@@ -1,14 +1,14 @@
 # Setup
 
-A fresh Node opens on its first-run page. A person types the Setup code from the Node's console or log, or opens the setup link that carries it, creates the first Admin with an email, display name and PIN, sees the API key once, and lands on the Library as that Admin.
+A fresh Node opens on its first-run page. A person types the Setup code from the Node's console or log, or opens the setup link that carries it, creates the first Admin with an email, display name and PIN, and lands on the first step of [First setup](./first-run.md) signed in as that Admin.
 
 ## Sub-features
 
 - `setup-code-read` the Setup code is read from the Controller's log, as a real Admin reads it.
 - `setup-wrong-code` a wrong Setup code marks the field invalid with `The Setup code is wrong` and keeps the rest of the form.
 - `setup-link-prefill` the setup link `/setup#code=<code>` fills in the `Setup code` grouped, says `Setup code filled in` under it, and drops the fragment from the address bar (P-282).
-- `setup-create-admin` the right code creates the first Admin and shows the `API key` once.
-- `setup-signed-in` `Continue` lands on the Library at `/library` signed in, the sidebar's `Account` button shows the display name, and `GET /api/v1/status` answers `{"claim":"controller"}`.
+- `setup-create-admin` the right code creates the first Admin and shows no API key.
+- `setup-signed-in` the Admin lands signed in on first setup's first step at `/setup/address`, headed `Where people reach SlipStream`, and `GET /api/v1/status` answers `{"claim":"controller"}`.
 
 ## How to get to it (user POV)
 
@@ -62,7 +62,7 @@ Steps:
   $FW exec $RUN --proof setup/setup-link-prefill -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-link-prefill/form.png
   ```
 
-- **Create the Admin.** In the setup link's tab, fill the rest of the form and choose `Create Admin`. The page shows a read-only `API key` (`ssk_` and 43 characters) and `Continue`.
+- **Create the Admin.** In the setup link's tab, fill the rest of the form and choose `Create Admin`. The page goes straight to first setup at `/setup/address`, headed `Where people reach SlipStream`, and shows no API key.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Email" })' "grace@example.test"
@@ -72,22 +72,20 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("textbox", { name: "PIN again", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop type 1357
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Create Admin" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("textbox", { name: "API key" }).waitFor({ timeout: 10000 }); }'
-  $FW exec $RUN --proof setup/setup-create-admin -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-create-admin/api-key.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("heading", { name: "Where people reach SlipStream", level: 1 }).waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof setup/setup-create-admin -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-create-admin/first-step.png
   ```
 
-- **Continue.** The Library opens at `/library`, the sidebar's `Account` button shows `Grace Hopper` and `Admin`, and the status reads `{"claim":"controller"}`.
+- **Read where it landed.** The address bar reads `/setup/address` and the status reads `{"claim":"controller"}`. [First setup](./first-run.md) carries on from here.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
-  $FW exec $RUN --proof setup/setup-signed-in -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-signed-in/library.png
+  $FW exec $RUN --proof setup/setup-signed-in -- $PW cli -s={runId}-admin-desktop eval 'location.href'
   $FW exec $RUN --proof setup/setup-signed-in -- curl -sS '{nodes.home.url}/api/v1/status'
   ```
 
 ## Gotchas
 
-- The Setup code is single-use. After the Admin exists, `/setup` sends the browser to the Library; relaunch `first-run` to drive setup again.
+- The Setup code is single-use. After the Admin exists, `/setup` sends the browser to first setup's current step, or to the Library once first setup is finished; relaunch `first-run` to drive setup again.
 - Open the setup link with `tab-new`, as the Node's browser hand-off does. A `goto` from `/setup` to `/setup#code=...` is a same-document fragment change, so the page never reads the fragment and the field stays as it was.
-- The API key appears only once. Copy it into the proof by the screenshot; nothing reads it back.
 - The PIN fields split into four digit boxes named `PIN`, `PIN digit 2 of 4` and so on. Click the first box and `type` the digits.
 - The manifest's `admin` and `apiKey` stay empty for the whole run, so `exec` refuses `{apiKey}` with `{apiKey} names nothing in the manifest`, and `bin/sign-in.ts` fails on `first-run`.

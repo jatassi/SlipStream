@@ -10,7 +10,6 @@ import type {
   IdentityAddress,
   IdentityApiKeyMade,
   IdentityCeremony,
-  IdentityClaimed,
   IdentityDeadLink,
   IdentityEmailChangeStarted,
   IdentityIssuedResetLink,
@@ -37,6 +36,9 @@ export const getUpdateOwnAccountResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean()
+    ? { firstRun: faker.helpers.arrayElement(["open", "finished"] as const) }
+    : {}),
   keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
@@ -926,6 +928,9 @@ export const getFinishPasskeySignInResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean()
+    ? { firstRun: faker.helpers.arrayElement(["open", "finished"] as const) }
+    : {}),
   keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
@@ -1015,6 +1020,9 @@ export const getRedeemResetLinkResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean()
+    ? { firstRun: faker.helpers.arrayElement(["open", "finished"] as const) }
+    : {}),
   keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
@@ -1030,6 +1038,9 @@ export const getGetSessionResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean()
+    ? { firstRun: faker.helpers.arrayElement(["open", "finished"] as const) }
+    : {}),
   keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
@@ -1044,6 +1055,9 @@ export const getCreateSessionResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean()
+    ? { firstRun: faker.helpers.arrayElement(["open", "finished"] as const) }
+    : {}),
   keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
@@ -1075,15 +1089,20 @@ export const getListSessionsResponseMock = (
 });
 
 export const getClaimControllerResponseMock = (
-  overrideResponse: Partial<Extract<IdentityClaimed, object>> = {},
-): IdentityClaimed => ({
+  overrideResponse: Partial<Extract<IdentitySignedIn, object>> = {},
+): IdentitySignedIn => ({
   account: {
     admin: faker.datatype.boolean(),
     displayName: faker.string.alpha({ length: { min: 1, max: 100 } }),
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
-  apiKey: faker.helpers.fromRegExp("^ssk_[A-Za-z0-9_-]{43}$"),
+  ...(faker.datatype.boolean()
+    ? { firstRun: faker.helpers.arrayElement(["open", "finished"] as const) }
+    : {}),
+  keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
+  passkeyPrompt: faker.datatype.boolean(),
+  pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
 });
 
@@ -1173,6 +1192,9 @@ export const getRedeemSignupLinkResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean()
+    ? { firstRun: faker.helpers.arrayElement(["open", "finished"] as const) }
+    : {}),
   keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
@@ -2052,10 +2074,10 @@ export const getEndSessionMockHandler = (
 
 export const getClaimControllerMockHandler = (
   overrideResponse?:
-    | IdentityClaimed
+    | IdentitySignedIn
     | ((
         info: Parameters<Parameters<typeof http.post>[1]>[0],
-      ) => Promise<IdentityClaimed> | IdentityClaimed),
+      ) => Promise<IdentitySignedIn> | IdentitySignedIn),
   options?: RequestHandlerOptions,
 ) => {
   return http.post(

@@ -91,9 +91,7 @@ func TestATakenWebPortFallsBackPastTheNodesOwnPorts(t *testing.T) {
 		if got := n.Ready().Listeners.HTTP.String(); got != "127.0.0.1:8486" {
 			t.Fatalf("listeners.http = %s, want 127.0.0.1:8486", got)
 		}
-		key := decode[struct {
-			APIKey string `json:"apiKey"`
-		}](t, c.claim(n.Ready().SetupCode, "1234"), http.StatusCreated).APIKey
+		key := keyOf(t, c, c.claim(n.Ready().SetupCode, "1234"))
 		system := decode[struct {
 			LogsDir string `json:"logsDir"`
 			HTTP    struct {

@@ -77,10 +77,7 @@ test("a card whose disk guard holds leads with new downloads waiting for disk sp
     diskGuard: {
       sentence: "New downloads on seedbox wait for disk space.",
       hint: "/data has 12 GB left, below its error level of 20 GB. Free up space there, or move the downloads folder to a volume with more room. Downloads already running continue.",
-      volume: "/data",
-      free: 12 * gb,
       errorBelow: 20 * gb,
-      sampledAt: "2026-10-23T09:05:00Z",
     },
   };
   renderApp({ path, handlers: downloadClients({ cards: [guarded], thresholds }).handlers });

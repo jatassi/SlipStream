@@ -1,0 +1,27 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: firstrun_step.at
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: firstrun_state.id
+            go_type:
+              type: Singleton
+          - column: firstrun_step.id
+            go_type:
+              type: StepID
+          - column: firstrun_step.outcome
+            go_type:
+              type: Outcome

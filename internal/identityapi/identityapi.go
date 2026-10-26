@@ -21,6 +21,8 @@ type Library interface {
 	// runs claim on the identity service, and once claim succeeds makes the
 	// Node a Controller.
 	ClaimController(ctx context.Context, claim func(*identity.Service) error) error
+	// FirstRunOpen is whether the Controller's first setup is open.
+	FirstRunOpen(ctx context.Context) (bool, error)
 }
 
 // open is the identity service of an operation an Account check admitted,
@@ -54,16 +56,6 @@ type claimBody struct {
 	PIN         string `json:"pin" pattern:"^[0-9]{4}$"`
 }
 
-type claimOutput struct {
-	SetCookie string `header:"Set-Cookie"`
-	Body      claimed
-}
-
-type claimed struct {
-	Account account `json:"account"`
-	APIKey  string  `json:"apiKey" pattern:"^ssk_[A-Za-z0-9_-]{43}$"`
-}
-
 type signInInput struct {
 	Body signInBody
 }
@@ -73,14 +65,33 @@ type signInBody struct {
 	PIN   string `json:"pin" pattern:"^[0-9]{4}$"`
 }
 
-type session struct {
+// Session is the signed-in Account as every session-shaped reply carries
+// it.
+type Session struct {
 	Account     account `json:"account"`
 	PINRequired bool    `json:"pinRequired" doc:"The session must set a new PIN before anything but reading the session and signing out"`
 	KeyPrompt   string  `json:"keyPrompt" enum:"ask,never" doc:"Whether the prompt to add a passkey may show after sign-in"`
+	FirstRun    string  `json:"firstRun,omitempty" enum:"open,finished" doc:"An Admin's first setup; absent for a Member"`
+}
+
+// withFirstRun is the one place a session-shaped reply learns first setup.
+func withFirstRun(ctx context.Context, lib Library, s Session) (Session, error) {
+	if !s.Account.Admin {
+		return s, nil
+	}
+	open, err := lib.FirstRunOpen(ctx)
+	if err != nil {
+		return Session{}, err
+	}
+	s.FirstRun = "finished"
+	if open {
+		s.FirstRun = "open"
+	}
+	return s, nil
 }
 
 type getSessionOutput struct {
-	Body session
+	Body Session
 }
 
 type signedInOutput struct {
@@ -89,17 +100,19 @@ type signedInOutput struct {
 }
 
 type signedIn struct {
-	Account       account `json:"account"`
-	PINRequired   bool    `json:"pinRequired" doc:"The session must set a new PIN before anything but reading the session and signing out"`
-	KeyPrompt     string  `json:"keyPrompt" enum:"ask,never" doc:"Whether the prompt to add a passkey may show after sign-in"`
-	PasskeyPrompt bool    `json:"passkeyPrompt" doc:"Show the prompt to add a passkey for this address, once in this session"`
+	Session
+	PasskeyPrompt bool `json:"passkeyPrompt" doc:"Show the prompt to add a passkey for this address, once in this session. False while first setup is open, because its passkey step asks instead."`
 }
 
-func signedInOf(s identity.SignedIn) *signedInOutput {
+func signedInOf(ctx context.Context, lib Library, s identity.SignedIn) (*signedInOutput, error) {
+	session, err := withFirstRun(ctx, lib, Session{Account: accountOf(s.Profile), PINRequired: s.PINRequired, KeyPrompt: string(s.KeyPrompt)})
+	if err != nil {
+		return nil, err
+	}
 	return &signedInOutput{
 		SetCookie: s.Cookie.String(),
-		Body:      signedIn{Account: accountOf(s.Profile), PINRequired: s.PINRequired, KeyPrompt: string(s.KeyPrompt), PasskeyPrompt: s.PasskeyPrompt},
-	}
+		Body:      signedIn{Session: session, PasskeyPrompt: s.PasskeyPrompt && session.FirstRun != "open"},
+	}, nil
 }
 
 type signOutOutput struct {
@@ -116,12 +129,12 @@ func Routes(r *api.Router, lib Library) {
 		Summary: "Create the first Admin and make this Node a Controller",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{api.JoinPending},
-	}, func(ctx context.Context, c identity.Claim, in *claimInput) (*claimOutput, error) {
+	}, func(ctx context.Context, c identity.Claim, in *claimInput) (*signedInOutput, error) {
 		pin, err := identity.ParsePIN(in.Body.PIN)
 		if err != nil {
 			return nil, err
 		}
-		var res identity.Claimed
+		var res identity.SignedIn
 		err = lib.ClaimController(ctx, func(s *identity.Service) error {
 			var err error
 			res, err = s.ClaimController(ctx, c, in.Body.Email, in.Body.DisplayName, pin)
@@ -136,10 +149,7 @@ func Routes(r *api.Router, lib Library) {
 		if err != nil {
 			return nil, err
 		}
-		return &claimOutput{
-			SetCookie: res.Cookie.String(),
-			Body:      claimed{Account: accountOf(res.Profile), APIKey: res.APIKey.Reveal()},
-		}, nil
+		return signedInOf(ctx, lib, res)
 	})
 
 	api.Register(o, api.Public, api.Op{
@@ -162,7 +172,7 @@ func Routes(r *api.Router, lib Library) {
 		if err != nil {
 			return nil, answer(err)
 		}
-		return signedInOf(got), nil
+		return signedInOf(ctx, lib, got)
 	})
 
 	api.Register(o, api.Public, api.Op{
@@ -189,8 +199,12 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/session",
 		Summary: "Get the signed-in Account",
 		Status:  http.StatusOK,
-	}, func(_ context.Context, b identity.Bearer, _ *struct{}) (*getSessionOutput, error) {
-		return &getSessionOutput{Body: session{Account: accountOf(b.Profile()), PINRequired: b.PINRequired(), KeyPrompt: string(b.KeyPrompt())}}, nil
+	}, func(ctx context.Context, b identity.Bearer, _ *struct{}) (*getSessionOutput, error) {
+		s, err := withFirstRun(ctx, lib, Session{Account: accountOf(b.Profile()), PINRequired: b.PINRequired(), KeyPrompt: string(b.KeyPrompt())})
+		if err != nil {
+			return nil, err
+		}
+		return &getSessionOutput{Body: s}, nil
 	})
 
 	api.Register(o, api.Bearer, api.Op{

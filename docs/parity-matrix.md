@@ -166,7 +166,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-103 | Preview and select items to migrate with Ready, Already in Library and Unknown filters | `POST /arrimport/preview`, `web/src/components/arr-import/` | working | kept | [Import from Radarr and Sonarr](https://github.com/jatassi/SlipStream/issues/180) | planned |
 | P-104 | Execute library migration linking existing files, with live progress and counts | `internal/arrimport/executor.go`, `POST /arrimport/execute` | working | kept | [Import from Radarr and Sonarr](https://github.com/jatassi/SlipStream/issues/180) | planned |
 | P-105 | Config import of clients, indexers, notifications, profiles and naming, API only | `GET /arrimport/config/preview`, `POST /arrimport/config/import` | half-built | kept | [Import from Radarr and Sonarr](https://github.com/jatassi/SlipStream/issues/180) | planned |
-| P-106 | Onboarding wizard built around arr migration, in progress | `docs/Remaining-features.md`, `web/src/components/arr-import/` | half-built | kept | [First-run setup](https://github.com/jatassi/SlipStream/issues/150) | planned |
+| P-106 | Onboarding wizard built around arr migration, in progress | `docs/Remaining-features.md`, `web/src/components/arr-import/` | half-built | kept | [First-run setup](https://github.com/jatassi/SlipStream/issues/150) | shipped |
 
 ## Indexers
 

@@ -170,23 +170,29 @@ type clientsList struct {
 }
 
 type clientCard struct {
-	NodeID    string       `json:"nodeId" format:"uuid"`
-	NodeName  string       `json:"nodeName"`
-	InStep    bool         `json:"inStep" doc:"The Node is in step; while it isn't the card has no client"`
-	Client    *clientFacts `json:"client,omitempty" doc:"The built-in client as it reports itself, absent until it does and while the Node is out of step"`
-	Limits    limits       `json:"limits"`
-	Totals    totals       `json:"totals" doc:"Added up over the Node's live Torrents"`
-	Torrents  int          `json:"torrents" minimum:"0" doc:"The Node's live Torrents"`
-	DiskGuard *diskGuard   `json:"diskGuard,omitempty" doc:"Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level"`
+	NodeID    string           `json:"nodeId" format:"uuid"`
+	NodeName  string           `json:"nodeName"`
+	InStep    bool             `json:"inStep" doc:"The Node is in step; while it isn't the card has no client"`
+	Client    *clientFacts     `json:"client,omitempty" doc:"The built-in client as it reports itself, absent until it does and while the Node is out of step"`
+	Limits    limits           `json:"limits"`
+	Totals    totals           `json:"totals" doc:"Added up over the Node's live Torrents"`
+	Torrents  int              `json:"torrents" minimum:"0" doc:"The Node's live Torrents"`
+	Downloads *downloadsVolume `json:"downloads,omitempty" doc:"The downloads folder's volume as last sampled, absent until the first sample"`
+	DiskGuard *diskGuard       `json:"diskGuard,omitempty" doc:"Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level"`
+}
+
+type downloadsVolume struct {
+	Mount     string    `json:"mount" doc:"As the Node names it, the same as Storage names the volume"`
+	Name      string    `json:"name" doc:"Such as D: (Media)"`
+	Total     int64     `json:"total" minimum:"0" doc:"Bytes"`
+	Free      int64     `json:"free" minimum:"0" doc:"Bytes"`
+	SampledAt time.Time `json:"sampledAt"`
 }
 
 type diskGuard struct {
-	Sentence   string    `json:"sentence" doc:"The guard's sentence, as Health shows it"`
-	Hint       string    `json:"hint" doc:"What explains the sentence: the volume, its free space, its error level and what to do"`
-	Volume     string    `json:"volume" doc:"The downloads folder's volume, as the Node names it"`
-	Free       int64     `json:"free" minimum:"0" doc:"Bytes"`
-	ErrorBelow int64     `json:"errorBelow" minimum:"0" doc:"The volume's error level, in bytes"`
-	SampledAt  time.Time `json:"sampledAt"`
+	Sentence   string `json:"sentence" doc:"The guard's sentence, as Health shows it"`
+	Hint       string `json:"hint" doc:"What explains the sentence: the volume, its free space, its error level and what to do"`
+	ErrorBelow int64  `json:"errorBelow" minimum:"0" doc:"The volume's error level, in bytes"`
 }
 
 type clientFacts struct {
@@ -258,7 +264,10 @@ func cardOf(c downloadclients.Card, name string) clientCard {
 	}
 	if g := c.Guard; g != nil {
 		sentence, hint := g.Words(name)
-		out.DiskGuard = &diskGuard{Sentence: sentence, Hint: hint, Volume: g.Volume.Name, Free: g.Volume.Free, ErrorBelow: g.ErrorBelow.Bytes, SampledAt: g.Volume.SampledAt}
+		out.DiskGuard = &diskGuard{Sentence: sentence, Hint: hint, ErrorBelow: g.ErrorBelow.Bytes}
+	}
+	if v := c.Volume; v != nil {
+		out.Downloads = &downloadsVolume{Mount: v.Mount, Name: v.Name, Total: v.Total, Free: v.Free, SampledAt: v.SampledAt}
 	}
 	if f := c.Facts; f != nil {
 		out.Client = &clientFacts{

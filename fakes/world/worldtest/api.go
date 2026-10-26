@@ -117,6 +117,22 @@ func (a *API) Admin(name, method, path, body string) Reply {
 	return r
 }
 
+// Anyone calls path on the Node named name with no credential, sending
+// body as JSON unless it is empty.
+func (a *API) Anyone(name, method, path, body string) Reply {
+	a.t.Helper()
+	r, _ := a.do(request{node: name, method: method, path: path, body: body, bodyArg: world.Literal(body)})
+	return r
+}
+
+// Keyed calls path on the Node named name with key, an API key the run's
+// manifest doesn't hold.
+func (a *API) Keyed(name, key, method, path, body string) Reply {
+	a.t.Helper()
+	r, _ := a.do(request{node: name, method: method, path: path, body: body, bodyArg: world.Literal(body), headers: []header{{"X-Api-Key", key, world.Literal(key)}}})
+	return r
+}
+
 // Setup calls a Setup operation on the Node named name with its
 // setupCode.
 func (a *API) Setup(name, setupCode, method, path, body string) Reply {

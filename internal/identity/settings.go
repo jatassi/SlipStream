@@ -174,7 +174,8 @@ func (s *Service) Address(ctx context.Context, _ Admin) (Address, error) {
 }
 
 func (s *Service) SetAddress(ctx context.Context, _ Admin, address Address) error {
-	return s.write(ctx, func(ctx context.Context, q *db.Queries, _ *effects) error {
+	return s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
+		fx.addressChanged()
 		return q.SetAddress(ctx, address.origin)
 	})
 }

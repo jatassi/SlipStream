@@ -35,9 +35,15 @@ function TargetPage() {
   const { targetId } = Route.useParams();
   const target = useGetTargetSuspense(targetId).data;
   const qualities = useListQualitiesSuspense().data;
+  const navigate = Route.useNavigate();
   return (
     <Page>
-      <SavedTargetEditor key={target.id} target={target} qualities={qualities} />
+      <SavedTargetEditor
+        key={target.id}
+        target={target}
+        qualities={qualities}
+        onSaved={() => navigate({ to: "/settings/$section", params: { section: "targets" } })}
+      />
     </Page>
   );
 }

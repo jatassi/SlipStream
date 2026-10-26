@@ -177,6 +177,15 @@ func expect(t *testing.T, r reply, status int, body string) {
 	}
 }
 
+// keyOf regenerates the API key with the session claimed's cookie set,
+// since a claim never shows the key.
+func keyOf(t *testing.T, c client, claimed reply) string {
+	t.Helper()
+	return decode[struct {
+		APIKey string `json:"apiKey"`
+	}](t, c.do(call{method: http.MethodPost, path: "/api/v1/api-key", session: sessionOf(t, claimed)}), http.StatusOK).APIKey
+}
+
 func sessionOf(t *testing.T, r reply) string {
 	t.Helper()
 	return sessionLasting(t, r, 30*24*time.Hour)
@@ -249,7 +258,6 @@ func claimThroughTheGate(t *testing.T, c client, code string) claimedNode {
 			ID    string `json:"id"`
 			Admin bool   `json:"admin"`
 		} `json:"account"`
-		APIKey string `json:"apiKey"`
 	}
 	if err := json.Unmarshal([]byte(claimed.body), &res); err != nil || claimed.status != http.StatusCreated || !res.Account.Admin {
 		t.Fatalf("claimController with the typed code = %d %s, want 201 with an Admin", claimed.status, claimed.body)
@@ -258,8 +266,8 @@ func claimThroughTheGate(t *testing.T, c client, code string) claimedNode {
 	return claimedNode{
 		c:        c,
 		account:  res.Account.ID,
-		apiKey:   res.APIKey,
-		signedIn: `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","passkeyPrompt":false}` + "\n",
+		apiKey:   keyOf(t, c, claimed),
+		signedIn: `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","firstRun":"open","passkeyPrompt":false}` + "\n",
 	}
 }
 
@@ -419,7 +427,6 @@ func TestTheAccessWalkPassesOnAStartedNode(t *testing.T) {
 		Account struct {
 			ID string `json:"id"`
 		} `json:"account"`
-		APIKey string `json:"apiKey"`
 	}
 	if err := json.Unmarshal([]byte(r.body), &res); err != nil || r.status != http.StatusCreated {
 		t.Fatalf("claimController = %d %s", r.status, r.body)

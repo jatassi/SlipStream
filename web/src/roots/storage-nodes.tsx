@@ -20,7 +20,11 @@ export function useStorageNodes() {
   };
 }
 
-/** The Storage Node a root goes on, each with its status dot, and how to give the others Storage. */
+/**
+ * The Storage Node a root goes on, each with its status dot, and how to give
+ * the others Storage. With one Storage Node there is no choice to show, and
+ * the root goes on it.
+ */
 export function NodeSelect({
   nodeId,
   onNodeChange,
@@ -31,16 +35,18 @@ export function NodeSelect({
   const { storage, others } = useStorageNodes();
   return (
     <div className="flex flex-col gap-1.5">
-      <Select
-        label="Node"
-        options={storage.map((node) => ({
-          value: node.id,
-          label: node.name,
-          leading: <NodeDot node={node} />,
-        }))}
-        value={nodeId}
-        onValueChange={onNodeChange}
-      />
+      {storage.length > 1 && (
+        <Select
+          label="Node"
+          options={storage.map((node) => ({
+            value: node.id,
+            label: node.name,
+            leading: <NodeDot node={node} />,
+          }))}
+          value={nodeId}
+          onValueChange={onNodeChange}
+        />
+      )}
       {others.map((node) => (
         <p key={node.id} className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
           To put a root on {node.name}, give it Storage in{" "}

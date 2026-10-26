@@ -7,7 +7,7 @@ import { PinField } from "./pin-field";
 import { NewPinPad, PinPad } from "./pin-pad";
 import { TextField } from "./text-field";
 
-function SubmitButton({ label }: { label: string }) {
+export function SubmitButton({ label }: { label: string }) {
   const form = useFormContext();
   return (
     <form.Subscribe selector={(state) => state.isSubmitting}>

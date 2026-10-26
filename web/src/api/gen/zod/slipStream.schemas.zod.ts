@@ -165,26 +165,38 @@ export type DownloadclientsClientFactsOutput = zod.output<typeof Downloadclients
 
 export const downloadclientsDiskGuardErrorBelowMin = 0;
 
-export const downloadclientsDiskGuardFreeMin = 0;
-
 export const DownloadclientsDiskGuard = zod.object({
   errorBelow: zod
     .int()
     .min(downloadclientsDiskGuardErrorBelowMin)
     .describe("The volume's error level, in bytes"),
-  free: zod.int().min(downloadclientsDiskGuardFreeMin).describe("Bytes"),
   hint: zod
     .string()
     .describe(
       "What explains the sentence: the volume, its free space, its error level and what to do",
     ),
-  sampledAt: zod.iso.datetime({ offset: true }),
   sentence: zod.string().describe("The guard's sentence, as Health shows it"),
-  volume: zod.string().describe("The downloads folder's volume, as the Node names it"),
 });
 
 export type DownloadclientsDiskGuard = zod.input<typeof DownloadclientsDiskGuard>;
 export type DownloadclientsDiskGuardOutput = zod.output<typeof DownloadclientsDiskGuard>;
+
+export const downloadclientsDownloadsVolumeFreeMin = 0;
+
+export const downloadclientsDownloadsVolumeTotalMin = 0;
+
+export const DownloadclientsDownloadsVolume = zod.object({
+  free: zod.int().min(downloadclientsDownloadsVolumeFreeMin).describe("Bytes"),
+  mount: zod.string().describe("As the Node names it, the same as Storage names the volume"),
+  name: zod.string().describe("Such as D: (Media)"),
+  sampledAt: zod.iso.datetime({ offset: true }),
+  total: zod.int().min(downloadclientsDownloadsVolumeTotalMin).describe("Bytes"),
+});
+
+export type DownloadclientsDownloadsVolume = zod.input<typeof DownloadclientsDownloadsVolume>;
+export type DownloadclientsDownloadsVolumeOutput = zod.output<
+  typeof DownloadclientsDownloadsVolume
+>;
 
 export const downloadclientsLimitsActiveDownloadsMin = 0;
 
@@ -241,6 +253,9 @@ export const DownloadclientsClientCard = zod.object({
   ),
   diskGuard: DownloadclientsDiskGuard.exactOptional().describe(
     "Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level",
+  ),
+  downloads: DownloadclientsDownloadsVolume.exactOptional().describe(
+    "The downloads folder's volume as last sampled, absent until the first sample",
   ),
   inStep: zod.boolean().describe("The Node is in step; while it isn't the card has no client"),
   limits: DownloadclientsLimits,
@@ -1107,6 +1122,47 @@ export const FilesChanged = zod.object({
 export type FilesChanged = zod.input<typeof FilesChanged>;
 export type FilesChangedOutput = zod.output<typeof FilesChanged>;
 
+export const FirstRunStepInputBody = zod.object({
+  outcome: zod.enum(["done", "skipped"]).describe("done for Continue, skipped for Skip"),
+});
+
+export type FirstRunStepInputBody = zod.input<typeof FirstRunStepInputBody>;
+export type FirstRunStepInputBodyOutput = zod.output<typeof FirstRunStepInputBody>;
+
+export const FirstrunChanged = zod.object({});
+
+export type FirstrunChanged = zod.input<typeof FirstrunChanged>;
+export type FirstrunChangedOutput = zod.output<typeof FirstrunChanged>;
+
+export const FirstrunStepID = zod.enum([
+  "address",
+  "passkey",
+  "media",
+  "language",
+  "roots",
+  "downloads",
+  "targets",
+]);
+
+export type FirstrunStepID = zod.input<typeof FirstrunStepID>;
+export type FirstrunStepIDOutput = zod.output<typeof FirstrunStepID>;
+
+export const FirstrunStepState = zod.object({
+  id: FirstrunStepID,
+  state: zod.enum(["todo", "done", "skipped"]),
+});
+
+export type FirstrunStepState = zod.input<typeof FirstrunStepState>;
+export type FirstrunStepStateOutput = zod.output<typeof FirstrunStepState>;
+
+export const FirstrunFirstRun = zod.object({
+  open: zod.boolean().describe("False once an Admin finished first setup, which never reopens"),
+  steps: zod.array(FirstrunStepState).describe("The shown steps, in order"),
+});
+
+export type FirstrunFirstRun = zod.input<typeof FirstrunFirstRun>;
+export type FirstrunFirstRunOutput = zod.output<typeof FirstrunFirstRun>;
+
 export const GrabsChanged = zod.object({
   grabId: zod.uuid(),
   workId: zod.uuid(),
@@ -1737,6 +1793,11 @@ export const IdentityAddressChange = zod.object({
 export type IdentityAddressChange = zod.input<typeof IdentityAddressChange>;
 export type IdentityAddressChangeOutput = zod.output<typeof IdentityAddressChange>;
 
+export const IdentityAddressChanged = zod.object({});
+
+export type IdentityAddressChanged = zod.input<typeof IdentityAddressChanged>;
+export type IdentityAddressChangedOutput = zod.output<typeof IdentityAddressChanged>;
+
 export const IdentityApiKeyMade = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
 });
@@ -1770,16 +1831,6 @@ export const IdentityClaimBody = zod.object({
 
 export type IdentityClaimBody = zod.input<typeof IdentityClaimBody>;
 export type IdentityClaimBodyOutput = zod.output<typeof IdentityClaimBody>;
-
-export const identityClaimedApiKeyRegExp = new RegExp("^ssk_[A-Za-z0-9_-]{43}$");
-
-export const IdentityClaimed = zod.object({
-  account: IdentityAccount,
-  apiKey: zod.string().regex(identityClaimedApiKeyRegExp),
-});
-
-export type IdentityClaimed = zod.input<typeof IdentityClaimed>;
-export type IdentityClaimedOutput = zod.output<typeof IdentityClaimed>;
 
 export const IdentityDeadLink = zod.object({
   adminName: zod
@@ -1935,6 +1986,10 @@ export type IdentityRegeneratedAPIKeyOutput = zod.output<typeof IdentityRegenera
 
 export const IdentitySession = zod.object({
   account: IdentityAccount,
+  firstRun: zod
+    .enum(["open", "finished"])
+    .exactOptional()
+    .describe("An Admin's first setup; absent for a Member"),
   keyPrompt: zod
     .enum(["ask", "never"])
     .describe("Whether the prompt to add a passkey may show after sign-in"),
@@ -2008,12 +2063,18 @@ export type IdentitySignInBodyOutput = zod.output<typeof IdentitySignInBody>;
 
 export const IdentitySignedIn = zod.object({
   account: IdentityAccount,
+  firstRun: zod
+    .enum(["open", "finished"])
+    .exactOptional()
+    .describe("An Admin's first setup; absent for a Member"),
   keyPrompt: zod
     .enum(["ask", "never"])
     .describe("Whether the prompt to add a passkey may show after sign-in"),
   passkeyPrompt: zod
     .boolean()
-    .describe("Show the prompt to add a passkey for this address, once in this session"),
+    .describe(
+      "Show the prompt to add a passkey for this address, once in this session. False while first setup is open, because its passkey step asks instead.",
+    ),
   pinRequired: zod
     .boolean()
     .describe(
@@ -5204,6 +5265,14 @@ export const LiveEventFilesChanged = zod.object({
 export type LiveEventFilesChanged = zod.input<typeof LiveEventFilesChanged>;
 export type LiveEventFilesChangedOutput = zod.output<typeof LiveEventFilesChanged>;
 
+export const LiveEventFirstrunChanged = zod.object({
+  event: zod.enum(["firstrun.changed"]),
+  data: FirstrunChanged,
+});
+
+export type LiveEventFirstrunChanged = zod.input<typeof LiveEventFirstrunChanged>;
+export type LiveEventFirstrunChangedOutput = zod.output<typeof LiveEventFirstrunChanged>;
+
 export const LiveEventGrabsChanged = zod.object({
   event: zod.enum(["grabs.changed"]),
   data: GrabsChanged,
@@ -5236,6 +5305,16 @@ export const LiveEventIdentityAccountsChanged = zod.object({
 export type LiveEventIdentityAccountsChanged = zod.input<typeof LiveEventIdentityAccountsChanged>;
 export type LiveEventIdentityAccountsChangedOutput = zod.output<
   typeof LiveEventIdentityAccountsChanged
+>;
+
+export const LiveEventIdentityAddressChanged = zod.object({
+  event: zod.enum(["identity.address-changed"]),
+  data: IdentityAddressChanged,
+});
+
+export type LiveEventIdentityAddressChanged = zod.input<typeof LiveEventIdentityAddressChanged>;
+export type LiveEventIdentityAddressChangedOutput = zod.output<
+  typeof LiveEventIdentityAddressChanged
 >;
 
 export const LiveEventIdentityLinksChanged = zod.object({
@@ -5415,10 +5494,12 @@ export type LiveEventWorksTypeChangedOutput = zod.output<typeof LiveEventWorksTy
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventDownloadClientsChanged,
   LiveEventFilesChanged,
+  LiveEventFirstrunChanged,
   LiveEventGrabsChanged,
   LiveEventGrabsSearchChanged,
   LiveEventHealthChanged,
   LiveEventIdentityAccountsChanged,
+  LiveEventIdentityAddressChanged,
   LiveEventIdentityLinksChanged,
   LiveEventIdentityPasskeysChanged,
   LiveEventIdentitySessionsChanged,
