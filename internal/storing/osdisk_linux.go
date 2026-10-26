@@ -102,6 +102,15 @@ func networkMagic(t int64) bool {
 	return false
 }
 
+func stableIDs(st *unix.Statfs_t) bool { return stableMagic(int64(st.Type)) } //nolint:unconvert // Type is int32 on some architectures
+
+// stableMagic is a filesystem whose inode numbers survive a remount by its
+// statfs f_type: vfat and exFAT number files anew on each mount, and a
+// network filesystem's numbers are the server's to change.
+func stableMagic(t int64) bool {
+	return !networkMagic(t) && t != unix.MSDOS_SUPER_MAGIC && t != unix.EXFAT_SUPER_MAGIC
+}
+
 // removable reads the block device's removable flag, which a partition
 // leaves to its disk. The path is not cleaned: the kernel resolves ".."
 // after the device's link.

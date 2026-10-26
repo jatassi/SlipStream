@@ -105,11 +105,7 @@ func (d *testDisk) Stat(ctx context.Context, path string) (Info, error) {
 	if err := d.fault(ctx, "stat", path); err != nil {
 		return nil, err
 	}
-	fi, err := os.Stat(path)
-	if err != nil {
-		return nil, err //nolint:wrapcheck // the OS's own error, as a Disk answers it
-	}
-	return osInfo{fi}, nil
+	return OSDisk{}.Stat(ctx, path)
 }
 
 func (d *testDisk) ReadDir(ctx context.Context, dir string) ([]Entry, error) {
@@ -145,6 +141,20 @@ func (d *testDisk) Open(ctx context.Context, path string) (io.ReadCloser, error)
 	return os.Open(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
+func (d *testDisk) OpenAt(ctx context.Context, path string) (ReadAtCloser, error) {
+	if err := d.fault(ctx, "open", path); err != nil {
+		return nil, err
+	}
+	return OSDisk{}.OpenAt(ctx, path)
+}
+
+func (d *testDisk) OpenWrite(ctx context.Context, path string) (WriteAtFile, error) {
+	if err := d.fault(ctx, "create", path); err != nil {
+		return nil, err
+	}
+	return OSDisk{}.OpenWrite(ctx, path)
+}
+
 func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
 	if err := d.fault(ctx, "create", path); err != nil {
 		return nil, err
@@ -163,6 +173,13 @@ func (d *testDisk) Remove(ctx context.Context, path string) error {
 		return err
 	}
 	return os.Remove(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+}
+
+func (d *testDisk) RemoveAll(ctx context.Context, path string) error {
+	if err := d.fault(ctx, "remove", path); err != nil {
+		return err
+	}
+	return OSDisk{}.RemoveAll(ctx, path)
 }
 
 func (d *testDisk) Rename(ctx context.Context, from, to string) error {

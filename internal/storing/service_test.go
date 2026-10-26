@@ -168,9 +168,11 @@ type listing struct {
 
 type folderInfo struct{}
 
-func (folderInfo) Dir() bool      { return true }
-func (folderInfo) Size() int64    { return 0 }
-func (folderInfo) Same(Info) bool { return false }
+func (folderInfo) Dir() bool          { return true }
+func (folderInfo) Size() int64        { return 0 }
+func (folderInfo) ModTime() time.Time { return time.Time{} }
+func (folderInfo) Same(Info) bool     { return false }
+func (folderInfo) FileID() []byte     { return nil }
 
 func (l listing) Host() Host { return Host{Style: l.style} }
 
