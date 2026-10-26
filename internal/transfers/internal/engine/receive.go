@@ -789,7 +789,7 @@ func (r *run) fail(f *failure) {
 // receiver keeps what it verified, waits with the reason, and tries again
 // after a backoff.
 func (r *run) full(err error) bool {
-	if !noSpace(err) {
+	if !storing.NoSpace(err) {
 		return false
 	}
 	r.setWait(tv1.Wait_KIND_DISK_FULL, err.Error())

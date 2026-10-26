@@ -126,8 +126,8 @@ func playsOnAnOpenWriter(t *testing.T) {
 		t.Fatalf("WriteAt with room = %v", err)
 	}
 	lift := c.cue(fault.Full{})
-	if _, err := w.WriteAt([]byte("film"), 4); !errors.Is(err, syscall.ENOSPC) {
-		t.Fatalf("WriteAt once the volume fills = %v, want ENOSPC", err)
+	if _, err := w.WriteAt([]byte("film"), 4); !storing.NoSpace(err) {
+		t.Fatalf("WriteAt once the volume fills = %v, want no space", err)
 	}
 	if again, err := c.d.OpenWrite(c.ctx, part); err != nil {
 		t.Fatalf("OpenWrite on a full volume = %v, want it to open", err)
@@ -265,12 +265,12 @@ func playsVolumeAndFull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create on a full volume = %v, want it to open", err)
 	}
-	if _, err := f.Write([]byte("x")); !errors.Is(err, syscall.ENOSPC) {
-		t.Fatalf("Write on a full volume = %v, want ENOSPC", err)
+	if _, err := f.Write([]byte("x")); !storing.NoSpace(err) {
+		t.Fatalf("Write on a full volume = %v, want no space", err)
 	}
 	_ = f.Close()
-	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "season")); !errors.Is(err, syscall.ENOSPC) {
-		t.Fatalf("Mkdir on a full volume = %v, want ENOSPC", err)
+	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "season")); !storing.NoSpace(err) {
+		t.Fatalf("Mkdir on a full volume = %v, want no space", err)
 	}
 	lift()
 	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "season")); err != nil {
