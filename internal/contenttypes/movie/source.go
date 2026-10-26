@@ -48,8 +48,8 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 		Label:     r.Title,
 		SortLabel: sortLabelOf(r.Title, ask.Language),
 		Children:  []works.Entry{{Key: itemKey, Label: r.Title}},
-		Ratings:  tmdbRating(tm),
-		Artwork:  artworkOf(tm, ask.Language),
+		Ratings:   tmdbRating(tm),
+		Artwork:   artworkOf(tm, ask.Language),
 	}
 	if ask.Ratings && r.IMDbID != nil {
 		t, err := s.omdb.Title(ctx, ask, string(*r.IMDbID))
