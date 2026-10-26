@@ -7,6 +7,8 @@ import (
 	"math/rand/v2"
 	"net/netip"
 	"time"
+
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
 // Engine is a thin port over a torrent engine. Every policy (when to start,
@@ -80,7 +82,9 @@ type Config struct {
 	// checks whether the default route moved, and moves its listener with
 	// it. Zero checks once, at Open.
 	RouteCheck time.Duration
-	Discovery  Discovery
+	// DHTRouters are the nodes a DHT that Limits turns on joins through.
+	// LSD, UPnP and NAT-PMP are always off.
+	DHTRouters []endpoint.HostPort
 	// AnnounceFloor is the least time between two regular announces to a
 	// tracker, whatever interval it answers: libtorrent's
 	// min_announce_interval. Zero is no floor.
@@ -101,6 +105,9 @@ type Limits struct {
 	Connections int
 	// UTP lets peers connect over uTP as well as TCP, both ways.
 	UTP bool
+	// DHT runs the DHT, which a torrent added with Discover uses to find
+	// peers. Turned on, it looks up each such torrent that runs at once.
+	DHT bool
 	// WatchIncoming sends IncomingPeer for each incoming connection.
 	WatchIncoming bool
 }
@@ -134,10 +141,17 @@ func DefaultSettings() Settings {
 	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881"), Downloads: "downloads"}
 }
 
-// Discovery selects the peer discovery services. Its zero value turns
-// all four off.
-type Discovery struct {
-	DHT, LSD, UPnP, NATPMP bool
+// Endpoints is the torrent section of a Node's endpoints block.
+type Endpoints struct {
+	DHTRouters []endpoint.HostPort `yaml:"dht_routers"`
+}
+
+// DefaultEndpoints are libtorrent's own DHT routers.
+func DefaultEndpoints() Endpoints {
+	return Endpoints{DHTRouters: []endpoint.HostPort{
+		endpoint.MustParseHostPort("dht.libtorrent.org:25401"),
+		endpoint.MustParseHostPort("router.bittorrent.com:6881"),
+	}}
 }
 
 type AddParams struct {
@@ -148,6 +162,10 @@ type AddParams struct {
 	SavePath string
 	// SeedMode trusts the data under SavePath as complete without hashing it.
 	SeedMode bool
+	// Discover lets the torrent find peers through peer exchange, and
+	// through the DHT while Limits.DHT runs it. A private torrent never
+	// does, whatever Discover says.
+	Discover bool
 	Baseline Totals
 }
 

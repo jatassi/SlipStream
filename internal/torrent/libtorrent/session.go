@@ -163,8 +163,14 @@ func dynamicPorts(r *rand.Rand, n int) []uint16 {
 func open(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	addr := C.CString(addressText(ap.Addr()))
 	defer C.free(unsafe.Pointer(addr))
+	routers := make([]string, len(cfg.DHTRouters))
+	for i, r := range cfg.DHTRouters {
+		routers[i] = r.String()
+	}
+	dhtRouters := C.CString(strings.Join(routers, ","))
+	defer C.free(unsafe.Pointer(dhtRouters))
 	var cerr C.lts_error
-	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), C.int32_t(cfg.AnnounceFloor/time.Second), cBool(cfg.PeersShareAddress), &cerr)
+	ses := C.lts_open(addr, C.uint16_t(ap.Port()), dhtRouters, C.int32_t(cfg.AnnounceFloor/time.Second), cBool(cfg.PeersShareAddress), &cerr)
 	if ses == nil {
 		return nil, goError(&cerr)
 	}
@@ -303,6 +309,7 @@ func (s *Session) Add(p engine.AddParams) (engine.Handle, error) {
 		resume_len:      C.size_t(len(p.Resume)),
 		save_path:       savePath,
 		seed_mode:       cBool(p.SeedMode),
+		discover:        cBool(p.Discover),
 		base_uploaded:   C.int64_t(p.Baseline.Uploaded),
 		base_downloaded: C.int64_t(p.Baseline.Downloaded),
 		base_active_s:   C.int64_t(p.Baseline.Active / time.Second),
@@ -346,6 +353,7 @@ func (s *Session) Configure(l engine.Limits) error {
 		connections:    C.int32_t(l.Connections),
 		utp:            cBool(l.UTP),
 		watch_incoming: cBool(l.WatchIncoming),
+		dht:            cBool(l.DHT),
 	}
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_configure(s.ses, &limits, cerr) })
 }
@@ -667,24 +675,6 @@ func goError(e *C.lts_error) *engine.Error {
 		Code:     int(e.code),
 		Text:     C.GoString(&e.text[0]),
 	}
-}
-
-func discoveryBits(d engine.Discovery) C.uint32_t {
-	var bits C.uint32_t
-	for _, b := range []struct {
-		on  bool
-		bit C.uint32_t
-	}{
-		{d.DHT, C.LTS_DISCOVERY_DHT},
-		{d.LSD, C.LTS_DISCOVERY_LSD},
-		{d.UPnP, C.LTS_DISCOVERY_UPNP},
-		{d.NATPMP, C.LTS_DISCOVERY_NATPMP},
-	} {
-		if b.on {
-			bits |= b.bit
-		}
-	}
-	return bits
 }
 
 func cBool(b bool) C.int {

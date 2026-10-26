@@ -45,14 +45,14 @@ struct lts_id;
 static_assert(sizeof(lts_error) == 264, "lts_error layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_status) == 368 && offsetof(lts_status, need_save) == 96 && offsetof(lts_status, error) == 100,
 	"lts_status layout: update TestTheShimStructsMatchGo");
-static_assert(sizeof(lts_add_params) == 80 && offsetof(lts_add_params, seed_mode) == 40 && offsetof(lts_add_params, base_uploaded) == 48,
+static_assert(sizeof(lts_add_params) == 80 && offsetof(lts_add_params, seed_mode) == 40 && offsetof(lts_add_params, discover) == 44 && offsetof(lts_add_params, base_uploaded) == 48,
 	"lts_add_params layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_alert) == 320 && offsetof(lts_alert, error) == 16 && offsetof(lts_alert, payload) == 280 && offsetof(lts_alert, at_ms) == 312,
 	"lts_alert layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_tracker) == 320 && offsetof(lts_tracker, last_error) == 32 && offsetof(lts_tracker, start_sent) == 312,
 	"lts_tracker layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_file) == 24 && offsetof(lts_file, path) == 16, "lts_file layout: update TestTheShimStructsMatchGo");
-static_assert(sizeof(lts_limits) == 32 && offsetof(lts_limits, connections) == 16 && offsetof(lts_limits, watch_incoming) == 24,
+static_assert(sizeof(lts_limits) == 32 && offsetof(lts_limits, connections) == 16 && offsetof(lts_limits, watch_incoming) == 24 && offsetof(lts_limits, dht) == 28,
 	"lts_limits layout: update TestTheShimStructsMatchGo");
 
 // parting_torrent is a torrent removed while a tracker had yet to answer its
@@ -643,6 +643,14 @@ lt::ip_filter every_peer_global() {
 	return f;
 }
 
+// discover lets DHT and peer exchange find the torrent's peers, or keeps
+// both from it, overriding what resume data says.
+void discover(lt::add_torrent_params& atp, bool on) {
+	lt::torrent_flags_t const both = lt::torrent_flags::disable_dht | lt::torrent_flags::disable_pex;
+	if (on) atp.flags &= ~both;
+	else atp.flags |= both;
+}
+
 std::string listen_interface(char const* address, uint16_t port) {
 	if (*address == '\0') return {};
 	lt::address const addr = lt::make_address(address);
@@ -655,16 +663,17 @@ std::string listen_interface(char const* address, uint16_t port) {
 
 extern "C" {
 
-lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err) {
+lts_session* lts_open(char const* address, uint16_t port, char const* dht_routers, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err) {
 	lts_session* s = nullptr;
 	guard(err, [&] {
 		sp p = lt::high_performance_seed();
 		for (auto const& kv : preset_ints) p.set_int(kv.name, kv.value);
 		for (auto const& kv : preset_bools) p.set_bool(kv.name, kv.value);
-		p.set_bool(sp::enable_dht, discovery & LTS_DISCOVERY_DHT);
-		p.set_bool(sp::enable_lsd, discovery & LTS_DISCOVERY_LSD);
-		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
-		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
+		p.set_bool(sp::enable_dht, false);
+		p.set_bool(sp::enable_lsd, false);
+		p.set_bool(sp::enable_upnp, false);
+		p.set_bool(sp::enable_natpmp, false);
+		p.set_str(sp::dht_bootstrap_nodes, dht_routers);
 		p.set_int(sp::min_announce_interval, announce_floor_s);
 		p.set_bool(sp::allow_multiple_connections_per_ip, peers_share_address != 0);
 		p.set_str(sp::listen_interfaces, listen_interface(address, port));
@@ -686,6 +695,7 @@ lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, in
 
 int lts_configure(lts_session* s, lts_limits const* l, lts_error* err) {
 	return guard(err, [&] {
+		bool const dht_was = s->ses.get_settings().get_bool(sp::enable_dht);
 		sp p;
 		p.set_int(sp::download_rate_limit, int(l->download_limit));
 		p.set_int(sp::upload_rate_limit, int(l->upload_limit));
@@ -693,7 +703,14 @@ int lts_configure(lts_session* s, lts_limits const* l, lts_error* err) {
 		p.set_bool(sp::enable_outgoing_utp, l->utp != 0);
 		p.set_bool(sp::enable_incoming_utp, l->utp != 0);
 		p.set_int(sp::alert_mask, alert_mask(l->watch_incoming != 0));
+		p.set_bool(sp::enable_dht, l->dht != 0);
 		s->ses.apply_settings(std::move(p));
+		// A torrent held when DHT starts waits for its next DHT announce,
+		// many minutes away, unless it is told to announce now.
+		if (l->dht == 0 || dht_was) return;
+		for (lt::torrent_handle const& h : s->ses.get_torrents()) {
+			if (!(h.flags() & lt::torrent_flags::disable_dht)) h.force_dht_announce();
+		}
 	});
 }
 
@@ -743,6 +760,7 @@ int lts_add(lts_session* s, lts_add_params const* p, int64_t* torrent, lts_error
 		atp.flags &= ~lt::torrent_flags::auto_managed;
 		atp.flags |= lt::torrent_flags::paused;
 		if (p->seed_mode) atp.flags |= lt::torrent_flags::seed_mode;
+		discover(atp, p->discover != 0);
 		atp.total_uploaded = std::max(atp.total_uploaded, p->base_uploaded);
 		atp.total_downloaded = std::max(atp.total_downloaded, p->base_downloaded);
 		atp.active_time = std::max(atp.active_time, int(p->base_active_s));

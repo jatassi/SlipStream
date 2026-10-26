@@ -49,6 +49,8 @@ type World struct {
 	payloads  map[bencode.InfoHash][]byte
 	transfers map[bencode.InfoHash]rates
 	trackers  map[string]*tracker
+	// lookups counts the DHT lookups of each info hash.
+	lookups map[bencode.InfoHash]int
 	// engines are the open engines.
 	engines []*Engine
 	// taken are ports something other than an engine holds.
@@ -64,8 +66,17 @@ type rates struct{ down, up int64 }
 func NewWorld() *World {
 	return &World{
 		payloads: map[bencode.InfoHash][]byte{}, transfers: map[bencode.InfoHash]rates{},
-		trackers: map[string]*tracker{}, taken: map[netip.AddrPort]bool{},
+		trackers: map[string]*tracker{}, taken: map[netip.AddrPort]bool{}, lookups: map[bencode.InfoHash]int{},
 	}
+}
+
+// Lookups is how many times an engine looked h up in the World's DHT. A
+// torrent looks itself up when it starts running and when its engine's
+// DHT turns on, if it may discover and isn't private, as libtorrent does.
+func (w *World) Lookups(h bencode.InfoHash) int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.lookups[h]
 }
 
 // Open builds an engine listening on cfg's interface, or on its address's
@@ -239,6 +250,7 @@ type torrent struct {
 	files    []engine.File
 	state    engine.State
 	paused   bool
+	discover bool
 	// turning is a pause or resume waiting for no tracker to await an
 	// answer.
 	turning turn
@@ -298,7 +310,7 @@ func (e *Engine) torrent(p engine.AddParams) (*torrent, error) {
 		return nil, &engine.Error{Category: engine.CategoryBdecode, Text: err.Error()}
 	}
 	t := &torrent{
-		e: e, meta: m, raw: r.Metainfo, savePath: p.SavePath, files: files(m.Info), paused: true, needSave: true,
+		e: e, meta: m, raw: r.Metainfo, savePath: p.SavePath, files: files(m.Info), paused: true, needSave: true, discover: p.Discover,
 		totals: engine.Totals{
 			Uploaded:   max(r.Totals.Uploaded, p.Baseline.Uploaded),
 			Downloaded: max(r.Totals.Downloaded, p.Baseline.Downloaded),
@@ -393,6 +405,7 @@ func (t *torrent) settle() {
 				t.check()
 			}
 			t.trackers.start()
+			t.lookUp()
 			t.reschedule()
 		}
 	case noTurn:
@@ -439,11 +452,22 @@ func (e *Engine) Configure(l engine.Limits) error {
 	for _, t := range e.torrents {
 		t.fold()
 	}
+	dhtWas := e.limits.DHT
 	e.limits = l
 	for _, h := range slices.Sorted(maps.Keys(e.torrents)) {
+		if l.DHT && !dhtWas {
+			e.torrents[h].lookUp()
+		}
 		e.torrents[h].reschedule()
 	}
 	return nil
+}
+
+// lookUp looks t up in the World's DHT when t may.
+func (t *torrent) lookUp() {
+	if t.e.limits.DHT && t.discover && !t.meta.Info.Private && !t.paused {
+		t.e.w.lookups[t.meta.InfoHash]++
+	}
 }
 
 func (e *Engine) PostStats() error {

@@ -31,13 +31,6 @@ enum {
 };
 
 enum {
-	LTS_DISCOVERY_DHT = 1 << 0,
-	LTS_DISCOVERY_LSD = 1 << 1,
-	LTS_DISCOVERY_UPNP = 1 << 2,
-	LTS_DISCOVERY_NATPMP = 1 << 3
-};
-
-enum {
 	LTS_STATE_CHECKING_FILES = 1,
 	LTS_STATE_DOWNLOADING_METADATA,
 	LTS_STATE_DOWNLOADING,
@@ -114,6 +107,9 @@ typedef struct {
 	size_t resume_len;
 	const char* save_path;
 	int32_t seed_mode;
+	/* discover clears disable_dht and disable_pex, else sets both, whatever
+	   resume data says. */
+	int32_t discover;
 	int64_t base_uploaded;
 	int64_t base_downloaded;
 	int64_t base_active_s;
@@ -167,14 +163,19 @@ typedef struct {
 	int32_t connections;
 	int32_t utp;
 	int32_t watch_incoming;
+	/* dht runs the DHT. Turned on, it looks up each torrent that may
+	   discover at once. */
+	int32_t dht;
 } lts_limits;
 
 /* Functions that return int return 0 on success and -1 with *err filled. */
 /* announce_floor_s is min_announce_interval, the least interval between two
    regular announces to a tracker. */
 /* A session binds the port it is given or none, and then posts LISTEN_FAILED.
-   An empty address listens nowhere. */
-lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err);
+   An empty address listens nowhere. dht_routers is dht_bootstrap_nodes,
+   host:port pairs separated by commas. The session opens with DHT, LSD, UPnP
+   and NAT-PMP off, and lts_configure turns DHT on. */
+lts_session* lts_open(const char* address, uint16_t port, const char* dht_routers, int32_t announce_floor_s, int32_t peers_share_address, lts_error* err);
 int lts_configure(lts_session* s, const lts_limits* l, lts_error* err);
 /* The peer fingerprint and user agent the session announces with. */
 int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char* user_agent, size_t user_agent_len, lts_error* err);

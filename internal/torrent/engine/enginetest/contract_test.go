@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginecontract"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
@@ -91,6 +92,11 @@ func (h *worlds) Incoming(t *testing.T, e engine.Engine) netip.Addr {
 	from := netip.MustParseAddr("127.0.0.1")
 	h.w.Incoming(to, from)
 	return from
+}
+
+// DHT is the World's DHT, which ignores the routers.
+func (h *worlds) DHT(*testing.T) enginecontract.DHT {
+	return enginecontract.DHT{Routers: []endpoint.HostPort{endpoint.MustParseHostPort("router.example:6881")}, Lookups: h.w.Lookups}
 }
 
 // Until polls each fake second for a fake hour.

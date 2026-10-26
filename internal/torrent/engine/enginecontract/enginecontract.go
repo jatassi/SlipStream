@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
@@ -44,6 +45,15 @@ type Harness interface {
 	// Until waits for cond on the harness's clock, failing t when it takes
 	// too long: what says what it waited for.
 	Until(t *testing.T, what string, cond func() bool)
+	// DHT runs a DHT that engines opened with its Routers join, for as long
+	// as t runs.
+	DHT(t *testing.T) DHT
+}
+
+type DHT struct {
+	Routers []endpoint.HostPort
+	// Lookups is how many get_peers queries for h the DHT received.
+	Lookups func(h bencode.InfoHash) int
 }
 
 type Tracker struct {
@@ -86,6 +96,8 @@ func Run(t *testing.T, h Harness) {
 		{"CloseSendsStoppedOnceAnOutstandingAnnounceIsAnswered", closeSendsStoppedOnceAnOutstandingAnnounceIsAnswered},
 		{"AResumeBeforeStoppedIsAnsweredAnnouncesStartedOnceItIs", aResumeBeforeStoppedIsAnsweredAnnouncesStartedOnceItIs},
 		{"AResumedDownloadReachesThePeerItsPauseDropped", aResumedDownloadReachesThePeerItsPauseDropped},
+		{"DiscoveryOffSendsNoLookup", discoveryOffSendsNoLookup},
+		{"TurningTheDHTOnLooksUpEachTorrentThatMayDiscover", turningTheDHTOnLooksUpEachTorrentThatMayDiscover},
 	} {
 		t.Run(tc.name, func(t *testing.T) { h.Within(t, func(t *testing.T) { tc.test(t, h) }) })
 	}
@@ -697,6 +709,45 @@ func aResumedDownloadReachesThePeerItsPauseDropped(t *testing.T, h Harness) {
 			t.Fatalf("resumed for the %d time, the download got bytes from the peer its pause dropped %s after Resume (%d of %d bytes), want within seconds", round, took, s.Done, s.Wanted)
 		}
 	}
+}
+
+func discoveryOffSendsNoLookup(t *testing.T, h Harness) {
+	d := h.DHT(t)
+	e := h.Open(t, engine.Config{DHTRouters: d.Routers})
+	if err := e.Configure(engine.Limits{Connections: 50, UTP: true, DHT: true}); err != nil {
+		t.Fatal(err)
+	}
+	hidden, found := release(t, "Hidden", ""), release(t, "Found", "")
+	for _, rel := range []struct {
+		released
+		discover bool
+	}{{hidden, false}, {found, true}} {
+		th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true, Discover: rel.discover})
+		if err := e.Resume(th); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.Until(t, "the DHT is asked for the torrent that may discover", func() bool { return d.Lookups(found.hash) > 0 })
+	if n := d.Lookups(hidden.hash); n != 0 {
+		t.Fatalf("the DHT received %d get_peers for a torrent added without Discover, want none", n)
+	}
+}
+
+func turningTheDHTOnLooksUpEachTorrentThatMayDiscover(t *testing.T, h Harness) {
+	d := h.DHT(t)
+	e := h.Open(t, engine.Config{DHTRouters: d.Routers})
+	rel := release(t, "Waiting", "")
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true, Discover: true})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	if n := d.Lookups(rel.hash); n != 0 {
+		t.Fatalf("with the DHT off the DHT received %d get_peers for the torrent, want none", n)
+	}
+	if err := e.Configure(engine.Limits{Connections: 50, UTP: true, DHT: true}); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the DHT turned on is asked for the torrent", func() bool { return d.Lookups(rel.hash) > 0 })
 }
 
 // errTrackerFailure is libtorrent's tracker_failure, a reply with a
