@@ -26,14 +26,19 @@ func open(l Library) *files.Files {
 	return f
 }
 
-var workNotFound = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
+var (
+	workNotFound   = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
+	notImplemented = api.NewCode(http.StatusNotImplemented, "not_implemented", "This route isn't built yet")
+)
 
 type probe struct {
 	Width  int `json:"width" minimum:"0"`
 	Height int `json:"height" minimum:"0"`
 }
 
-type libraryFile struct {
+// LibraryFile is exported so the document carries the fields a listed file
+// embeds.
+type LibraryFile struct {
 	ID      string `json:"id" format:"uuid"`
 	Path    string `json:"path" doc:"Relative to its root, / separated"`
 	Size    int64  `json:"size" minimum:"0"`
@@ -41,8 +46,8 @@ type libraryFile struct {
 	Probe   probe  `json:"probe"`
 }
 
-func fileOf(f files.File) libraryFile {
-	return libraryFile{ID: f.ID.String(), Path: f.Path, Size: f.Size, Quality: f.Quality.String(), Probe: probe{Width: f.Probe.Width, Height: f.Probe.Height}}
+func fileOf(f files.File) LibraryFile {
+	return LibraryFile{ID: f.ID.String(), Path: f.Path, Size: f.Size, Quality: f.Quality.String(), Probe: probe{Width: f.Probe.Width, Height: f.Probe.Height}}
 }
 
 type cell struct{}
@@ -83,13 +88,13 @@ type failedCell struct {
 type upgradableCell struct {
 	CellBase
 	State string      `json:"state" enum:"upgradable"`
-	File  libraryFile `json:"file" doc:"The file filling it, below its Target's cutoff"`
+	File  LibraryFile `json:"file" doc:"The file filling it, below its Target's cutoff"`
 }
 
 type metCell struct {
 	CellBase
 	State string      `json:"state" enum:"met"`
-	File  libraryFile `json:"file" doc:"The file filling it"`
+	File  LibraryFile `json:"file" doc:"The file filling it"`
 }
 
 func variantOf(c files.Cell) api.OneOf[cell] {
@@ -117,13 +122,15 @@ type cellsInput struct {
 }
 
 type itemStatus struct {
-	ItemID string  `json:"itemId" format:"uuid"`
-	Status *string `json:"status" enum:"unreleased,missing,downloading,failed,upgradable,met" doc:"The first state its cells hold, in the glossary's order; null for an Item with no cell"`
+	ItemID string                        `json:"itemId" format:"uuid"`
+	Status api.Nullable[api.Enum[State]] `json:"status" doc:"The first state its cells hold, in the glossary's order; null for an Item with no cell"`
 }
 
 type cellList struct {
-	Cells []api.OneOf[cell] `json:"cells" nullable:"false" doc:"By Item in tree order, then Target in Profile order"`
-	Items []itemStatus      `json:"items" nullable:"false" doc:"Every Item in tree order"`
+	Cells    []api.OneOf[cell] `json:"cells" nullable:"false" doc:"By Item in tree order, then Target in Profile order"`
+	Items    []itemStatus      `json:"items" nullable:"false" doc:"Every Item in tree order"`
+	Summary  summary           `json:"summary" doc:"What the cells add up to for the Work"`
+	NeedsYou []api.OneOf[need] `json:"needsYou" nullable:"false" doc:"What the Work needs from an Admin, failures first"`
 }
 
 type cellListOutput struct{ Body cellList }
@@ -140,6 +147,15 @@ func Routes(r *api.Router, lib Library) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.getWorkCells)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listWorkFiles",
+		Method:  http.MethodGet,
+		Path:    "/works/{workId}/files",
+		Summary: "List a Work's library files with the cells each fills, and the folder they sit in",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, notImplemented},
+	}, h.listWorkFiles)
 }
 
 type handlers struct{ lib Library }
@@ -156,7 +172,7 @@ func (h handlers) getWorkCells(ctx context.Context, by identity.Admin, in *cells
 	if err != nil {
 		return nil, err
 	}
-	out := cellList{Cells: []api.OneOf[cell]{}, Items: []itemStatus{}}
+	out := cellList{Cells: []api.OneOf[cell]{}, Items: []itemStatus{}, Summary: summaryOf(items, cells), NeedsYou: []api.OneOf[need]{}}
 	of := map[works.ItemID][]files.Cell{}
 	for _, c := range cells {
 		out.Cells = append(out.Cells, variantOf(c))
@@ -165,7 +181,7 @@ func (h handlers) getWorkCells(ctx context.Context, by identity.Admin, in *cells
 	for _, it := range items {
 		row := itemStatus{ItemID: it.ID.String()}
 		if s, ok := files.Status(of[it.ID]); ok {
-			row.Status = new(s.String())
+			row.Status = StatusOf(s)
 		}
 		out.Items = append(out.Items, row)
 	}

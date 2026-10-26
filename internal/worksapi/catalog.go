@@ -38,7 +38,7 @@ type recordInput struct {
 
 type previewed struct {
 	InLibrary bool `json:"inLibrary" doc:"Whether the Work is in the library; while it isn't, the ids in work name nothing"`
-	Work      tree `json:"work"`
+	Work      Tree `json:"work"`
 }
 
 type previewedOutput struct{ Body previewed }

@@ -19,16 +19,25 @@ import type {
   WorksContentType,
   WorksContentTypeList,
   WorksDateValue,
+  WorksDeleted,
+  WorksDoneOutcome,
   WorksDurationValue,
+  WorksFailedOutcome,
+  WorksLibraryRows,
   WorksLinkValue,
   WorksNumberValue,
+  WorksOutcomeList,
   WorksPeopleValue,
   WorksPreviewed,
+  WorksProfileChanged,
+  WorksSearchResult,
+  WorksSkippedOutcome,
   WorksTextValue,
   WorksTextsValue,
   WorksTree,
   WorksTypeSettings,
   WorksWorkList,
+  WorksWorkView,
 } from "../../model";
 
 export const getListContentTypesResponseMock = (
@@ -36,6 +45,20 @@ export const getListContentTypesResponseMock = (
 ): WorksContentTypeList => ({
   contentTypes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
+      art: {
+        backdrop: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        poster: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        title: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+      },
       artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -53,7 +76,19 @@ export const getListContentTypesResponseMock = (
       enabled: faker.datatype.boolean(),
       fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
+          art: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
           ...(faker.datatype.boolean() ? { depth: faker.number.int({ min: 1 }) } : {}),
+          in: faker.helpers.arrayElements([
+            "facts",
+            "tagline",
+            "overview",
+            "about",
+            "credits",
+            "details",
+          ] as const),
           key: faker.string.alpha({ length: { min: 10, max: 20 } }),
           kind: faker.helpers.arrayElement([
             "text",
@@ -65,7 +100,16 @@ export const getListContentTypesResponseMock = (
             "link",
           ] as const),
           label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          list: {
+            column: faker.datatype.boolean(),
+            filter: faker.datatype.boolean(),
+            sort: faker.datatype.boolean(),
+          },
           tier: faker.helpers.arrayElement(["work", "level", "item"] as const),
+          with: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
         }),
       ),
       icon: faker.helpers.arrayElement([
@@ -83,6 +127,7 @@ export const getListContentTypesResponseMock = (
         many: faker.string.alpha({ length: { min: 10, max: 20 } }),
         one: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
+      items: faker.helpers.arrayElement(["one", "many"] as const),
       levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           many: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -90,6 +135,10 @@ export const getListContentTypesResponseMock = (
         }),
       ),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      source: faker.string.alpha({ length: { min: 10, max: 20 } }),
       work: {
         many: faker.string.alpha({ length: { min: 10, max: 20 } }),
         one: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -432,6 +481,17 @@ export const getPreviewCatalogRecordResponseMock = (
 export const getSetContentTypeEnabledResponseMock = (
   overrideResponse: Partial<Extract<WorksContentType, object>> = {},
 ): WorksContentType => ({
+  art: {
+    backdrop: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    poster: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    title: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
   artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -443,7 +503,16 @@ export const getSetContentTypeEnabledResponseMock = (
   enabled: faker.datatype.boolean(),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
+      art: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
       ...(faker.datatype.boolean() ? { depth: faker.number.int({ min: 1 }) } : {}),
+      in: faker.helpers.arrayElements([
+        "facts",
+        "tagline",
+        "overview",
+        "about",
+        "credits",
+        "details",
+      ] as const),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement([
         "text",
@@ -455,7 +524,16 @@ export const getSetContentTypeEnabledResponseMock = (
         "link",
       ] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      list: {
+        column: faker.datatype.boolean(),
+        filter: faker.datatype.boolean(),
+        sort: faker.datatype.boolean(),
+      },
       tier: faker.helpers.arrayElement(["work", "level", "item"] as const),
+      with: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
     }),
   ),
   icon: faker.helpers.arrayElement([
@@ -473,6 +551,7 @@ export const getSetContentTypeEnabledResponseMock = (
     many: faker.string.alpha({ length: { min: 10, max: 20 } }),
     one: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
+  items: faker.helpers.arrayElement(["one", "many"] as const),
   levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       many: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -480,6 +559,10 @@ export const getSetContentTypeEnabledResponseMock = (
     }),
   ),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  source: faker.string.alpha({ length: { min: 10, max: 20 } }),
   work: {
     many: faker.string.alpha({ length: { min: 10, max: 20 } }),
     one: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1227,6 +1310,86 @@ export const getUpdateContentTypeSettingsResponseMock = (
   ...overrideResponse,
 });
 
+export const getListLibraryResponseMock = (
+  overrideResponse: Partial<Extract<WorksLibraryRows, object>> = {},
+): WorksLibraryRows => ({
+  rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    availableOn: faker.helpers.arrayElement([
+      faker.helpers.fromRegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"),
+      null,
+    ]),
+    bytes: faker.number.int({ min: 0 }),
+    cells: {
+      ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+    },
+    contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+    failed: faker.number.int({ min: 0 }),
+    files: faker.number.int({ min: 0 }),
+    goneUpstreamAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    id: faker.string.uuid(),
+    itemStatus: {
+      ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+    },
+    items: faker.number.int({ min: 0 }),
+    kept: faker.number.int({ min: 0 }),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    monitored: faker.helpers.arrayElement(["all", "some", "none"] as const),
+    needsYou: faker.number.int({ min: 0 }),
+    posterUrl: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    profileId: faker.string.uuid(),
+    rating: faker.helpers.arrayElement([
+      {
+        scale: faker.number.float({ min: 0, fractionDigits: 2 }),
+        source: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.number.float({ min: 0, fractionDigits: 2 }),
+      },
+      null,
+    ]),
+    refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    rootId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    status: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "unreleased",
+        "missing",
+        "downloading",
+        "failed",
+        "upgradable",
+        "met",
+      ] as const),
+      null,
+    ]),
+    values: {
+      [faker.string.alphanumeric(5)]: faker.helpers.arrayElement([
+        faker.number.float({ fractionDigits: 2 }),
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+      ]),
+    },
+  })),
+  ...overrideResponse,
+});
+
 export const getListWorksResponseWorksTextValueMock = (
   overrideResponse: Partial<WorksTextValue> = {},
 ): WorksTextValue => ({
@@ -1546,6 +1709,18 @@ export const getAddWorkResponseMock = (
         ]),
       }),
     ),
+    links: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        kind: faker.helpers.arrayElement(["page", "trailer"] as const),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.internet.url(),
+      }),
+    ),
+    profile: {
+      id: faker.string.uuid(),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -1557,8 +1732,379 @@ export const getAddWorkResponseMock = (
       }),
     ),
     refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    root: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        nodeId: faker.string.uuid(),
+        path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
     sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
+  ...overrideResponse,
+});
+
+export const getDeleteWorksResponseWorksDoneOutcomeMock = (
+  overrideResponse: Partial<WorksDoneOutcome> = {},
+): WorksDoneOutcome => ({
+  ...{ outcome: faker.helpers.arrayElement(["done"] as const), workId: faker.string.uuid() },
+  ...overrideResponse,
+});
+
+export const getDeleteWorksResponseWorksSkippedOutcomeMock = (
+  overrideResponse: Partial<WorksSkippedOutcome> = {},
+): WorksSkippedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["skipped"] as const),
+    reason: faker.helpers.arrayElement([
+      "already",
+      "work_has_files",
+      "work_gone_upstream",
+      "work_not_found",
+    ] as const),
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getDeleteWorksResponseWorksFailedOutcomeMock = (
+  overrideResponse: Partial<WorksFailedOutcome> = {},
+): WorksFailedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["failed"] as const),
+    problem: {
+      code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getDeleteWorksResponseMock = (
+  overrideResponse: Partial<Extract<WorksDeleted, object>> = {},
+): WorksDeleted => ({
+  outcomes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getDeleteWorksResponseWorksDoneOutcomeMock() },
+      { ...getDeleteWorksResponseWorksSkippedOutcomeMock() },
+      { ...getDeleteWorksResponseWorksFailedOutcomeMock() },
+    ]),
+  ),
+  plan: {
+    bytes: faker.number.int({ min: 0 }),
+    downloading: faker.number.int({ min: 0 }),
+    files: faker.number.int({ min: 0 }),
+    kept: faker.number.int({ min: 0 }),
+    works: faker.number.int({ min: 0 }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetWorksMonitoredResponseWorksDoneOutcomeMock = (
+  overrideResponse: Partial<WorksDoneOutcome> = {},
+): WorksDoneOutcome => ({
+  ...{ outcome: faker.helpers.arrayElement(["done"] as const), workId: faker.string.uuid() },
+  ...overrideResponse,
+});
+
+export const getSetWorksMonitoredResponseWorksSkippedOutcomeMock = (
+  overrideResponse: Partial<WorksSkippedOutcome> = {},
+): WorksSkippedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["skipped"] as const),
+    reason: faker.helpers.arrayElement([
+      "already",
+      "work_has_files",
+      "work_gone_upstream",
+      "work_not_found",
+    ] as const),
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getSetWorksMonitoredResponseWorksFailedOutcomeMock = (
+  overrideResponse: Partial<WorksFailedOutcome> = {},
+): WorksFailedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["failed"] as const),
+    problem: {
+      code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getSetWorksMonitoredResponseMock = (
+  overrideResponse: Partial<Extract<WorksOutcomeList, object>> = {},
+): WorksOutcomeList => ({
+  outcomes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getSetWorksMonitoredResponseWorksDoneOutcomeMock() },
+      { ...getSetWorksMonitoredResponseWorksSkippedOutcomeMock() },
+      { ...getSetWorksMonitoredResponseWorksFailedOutcomeMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
+export const getSetWorksProfileResponseWorksDoneOutcomeMock = (
+  overrideResponse: Partial<WorksDoneOutcome> = {},
+): WorksDoneOutcome => ({
+  ...{ outcome: faker.helpers.arrayElement(["done"] as const), workId: faker.string.uuid() },
+  ...overrideResponse,
+});
+
+export const getSetWorksProfileResponseWorksSkippedOutcomeMock = (
+  overrideResponse: Partial<WorksSkippedOutcome> = {},
+): WorksSkippedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["skipped"] as const),
+    reason: faker.helpers.arrayElement([
+      "already",
+      "work_has_files",
+      "work_gone_upstream",
+      "work_not_found",
+    ] as const),
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getSetWorksProfileResponseWorksFailedOutcomeMock = (
+  overrideResponse: Partial<WorksFailedOutcome> = {},
+): WorksFailedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["failed"] as const),
+    problem: {
+      code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getSetWorksProfileResponseMock = (
+  overrideResponse: Partial<Extract<WorksProfileChanged, object>> = {},
+): WorksProfileChanged => ({
+  impact: {
+    downloading: faker.number.int({ min: 0 }),
+    newlyWanted: faker.number.int({ min: 0 }),
+    ownList: faker.number.int({ min: 0 }),
+    renamed: faker.number.int({ min: 0 }),
+    unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
+    works: faker.number.int({ min: 0 }),
+  },
+  outcomes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getSetWorksProfileResponseWorksDoneOutcomeMock() },
+      { ...getSetWorksProfileResponseWorksSkippedOutcomeMock() },
+      { ...getSetWorksProfileResponseWorksFailedOutcomeMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
+export const getRefreshWorksResponseWorksDoneOutcomeMock = (
+  overrideResponse: Partial<WorksDoneOutcome> = {},
+): WorksDoneOutcome => ({
+  ...{ outcome: faker.helpers.arrayElement(["done"] as const), workId: faker.string.uuid() },
+  ...overrideResponse,
+});
+
+export const getRefreshWorksResponseWorksSkippedOutcomeMock = (
+  overrideResponse: Partial<WorksSkippedOutcome> = {},
+): WorksSkippedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["skipped"] as const),
+    reason: faker.helpers.arrayElement([
+      "already",
+      "work_has_files",
+      "work_gone_upstream",
+      "work_not_found",
+    ] as const),
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getRefreshWorksResponseWorksFailedOutcomeMock = (
+  overrideResponse: Partial<WorksFailedOutcome> = {},
+): WorksFailedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["failed"] as const),
+    problem: {
+      code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getRefreshWorksResponseMock = (
+  overrideResponse: Partial<Extract<WorksOutcomeList, object>> = {},
+): WorksOutcomeList => ({
+  outcomes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getRefreshWorksResponseWorksDoneOutcomeMock() },
+      { ...getRefreshWorksResponseWorksSkippedOutcomeMock() },
+      { ...getRefreshWorksResponseWorksFailedOutcomeMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
+export const getSetWorksRootResponseWorksDoneOutcomeMock = (
+  overrideResponse: Partial<WorksDoneOutcome> = {},
+): WorksDoneOutcome => ({
+  ...{ outcome: faker.helpers.arrayElement(["done"] as const), workId: faker.string.uuid() },
+  ...overrideResponse,
+});
+
+export const getSetWorksRootResponseWorksSkippedOutcomeMock = (
+  overrideResponse: Partial<WorksSkippedOutcome> = {},
+): WorksSkippedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["skipped"] as const),
+    reason: faker.helpers.arrayElement([
+      "already",
+      "work_has_files",
+      "work_gone_upstream",
+      "work_not_found",
+    ] as const),
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getSetWorksRootResponseWorksFailedOutcomeMock = (
+  overrideResponse: Partial<WorksFailedOutcome> = {},
+): WorksFailedOutcome => ({
+  ...{
+    outcome: faker.helpers.arrayElement(["failed"] as const),
+    problem: {
+      code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    workId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
+export const getSetWorksRootResponseMock = (
+  overrideResponse: Partial<Extract<WorksOutcomeList, object>> = {},
+): WorksOutcomeList => ({
+  outcomes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getSetWorksRootResponseWorksDoneOutcomeMock() },
+      { ...getSetWorksRootResponseWorksSkippedOutcomeMock() },
+      { ...getSetWorksRootResponseWorksFailedOutcomeMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
+export const getSearchWorksResponseMock = (
+  overrideResponse: Partial<Extract<WorksSearchResult, object>> = {},
+): WorksSearchResult => ({
+  rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    availableOn: faker.helpers.arrayElement([
+      faker.helpers.fromRegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"),
+      null,
+    ]),
+    bytes: faker.number.int({ min: 0 }),
+    cells: {
+      ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+    },
+    contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+    failed: faker.number.int({ min: 0 }),
+    files: faker.number.int({ min: 0 }),
+    goneUpstreamAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    id: faker.string.uuid(),
+    itemStatus: {
+      ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+      ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+    },
+    items: faker.number.int({ min: 0 }),
+    kept: faker.number.int({ min: 0 }),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    monitored: faker.helpers.arrayElement(["all", "some", "none"] as const),
+    needsYou: faker.number.int({ min: 0 }),
+    posterUrl: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    profileId: faker.string.uuid(),
+    rating: faker.helpers.arrayElement([
+      {
+        scale: faker.number.float({ min: 0, fractionDigits: 2 }),
+        source: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.number.float({ min: 0, fractionDigits: 2 }),
+      },
+      null,
+    ]),
+    refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    rootId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    status: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "unreleased",
+        "missing",
+        "downloading",
+        "failed",
+        "upgradable",
+        "met",
+      ] as const),
+      null,
+    ]),
+    values: {
+      [faker.string.alphanumeric(5)]: faker.helpers.arrayElement([
+        faker.number.float({ fractionDigits: 2 }),
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+      ]),
+    },
+  })),
+  workIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   ...overrideResponse,
 });
 
@@ -1653,8 +2199,8 @@ export const getGetWorkResponseWorksLinkValueMock = (
 });
 
 export const getGetWorkResponseMock = (
-  overrideResponse: Partial<Extract<WorksTree, object>> = {},
-): WorksTree => ({
+  overrideResponse: Partial<Extract<WorksWorkView, object>> = {},
+): WorksWorkView => ({
   addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   artwork: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
@@ -1750,6 +2296,13 @@ export const getGetWorkResponseMock = (
       ]),
     }),
   ),
+  links: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["page", "trailer"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    url: faker.internet.url(),
+  })),
+  profile: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
   ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -1761,6 +2314,14 @@ export const getGetWorkResponseMock = (
     }),
   ),
   refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  root: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      nodeId: faker.string.uuid(),
+      path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 });
@@ -2112,6 +2673,30 @@ export const getUpdateContentTypeSettingsMockHandler = (
   );
 };
 
+export const getListLibraryMockHandler = (
+  overrideResponse?:
+    | WorksLibraryRows
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<WorksLibraryRows> | WorksLibraryRows),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/library",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListLibraryResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListWorksMockHandler = (
   overrideResponse?:
     | WorksWorkList
@@ -2158,10 +2743,156 @@ export const getAddWorkMockHandler = (
   );
 };
 
+export const getDeleteWorksMockHandler = (
+  overrideResponse?:
+    | WorksDeleted
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<WorksDeleted> | WorksDeleted),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/works/delete",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDeleteWorksResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetWorksMonitoredMockHandler = (
+  overrideResponse?:
+    | WorksOutcomeList
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<WorksOutcomeList> | WorksOutcomeList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/works/monitored",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetWorksMonitoredResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetWorksProfileMockHandler = (
+  overrideResponse?:
+    | WorksProfileChanged
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<WorksProfileChanged> | WorksProfileChanged),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/works/profile",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetWorksProfileResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getRefreshWorksMockHandler = (
+  overrideResponse?:
+    | WorksOutcomeList
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<WorksOutcomeList> | WorksOutcomeList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/works/refresh",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getRefreshWorksResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetWorksRootMockHandler = (
+  overrideResponse?:
+    | WorksOutcomeList
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<WorksOutcomeList> | WorksOutcomeList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/works/root",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetWorksRootResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSearchWorksMockHandler = (
+  overrideResponse?:
+    | WorksSearchResult
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<WorksSearchResult> | WorksSearchResult),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/works/search",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSearchWorksResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getGetWorkMockHandler = (
   overrideResponse?:
-    | WorksTree
-    | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<WorksTree> | WorksTree),
+    | WorksWorkView
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<WorksWorkView> | WorksWorkView),
   options?: RequestHandlerOptions,
 ) => {
   return http.get(
@@ -2208,8 +2939,15 @@ export const getWorksMock = () => [
   getSetContentTypeEnabledMockHandler(),
   getGetContentTypeSettingsMockHandler(),
   getUpdateContentTypeSettingsMockHandler(),
+  getListLibraryMockHandler(),
   getListWorksMockHandler(),
   getAddWorkMockHandler(),
+  getDeleteWorksMockHandler(),
+  getSetWorksMonitoredMockHandler(),
+  getSetWorksProfileMockHandler(),
+  getRefreshWorksMockHandler(),
+  getSetWorksRootMockHandler(),
+  getSearchWorksMockHandler(),
   getGetWorkMockHandler(),
   getRefreshWorkMockHandler(),
 ];

@@ -108,7 +108,7 @@ type updateCutInput struct {
 }
 
 type cutChange struct {
-	Impact impact `json:"impact"`
+	Impact Impact `json:"impact"`
 	Cut    cut    `json:"cut"`
 }
 
@@ -116,7 +116,7 @@ type cutChangeOutput struct{ Body cutChange }
 
 func (h handlers) updateCut(ctx context.Context, by identity.Admin, in *updateCutInput) (*cutChangeOutput, error) {
 	key := release.CutKey(in.CutKey)
-	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateCut{Key: key, Spec: in.Body.spec()}, in.mode())
+	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateCut{Key: key, Spec: in.Body.spec()}, in.Mode())
 	if err != nil {
 		return nil, cutRefused(err)
 	}
@@ -128,7 +128,7 @@ func (h handlers) updateCut(ctx context.Context, by identity.Admin, in *updateCu
 	if !ok {
 		return nil, noSuchCut
 	}
-	return &cutChangeOutput{Body: cutChange{Impact: impactOf(i), Cut: cutOf(c)}}, nil
+	return &cutChangeOutput{Body: cutChange{Impact: ImpactOf(i), Cut: cutOf(c)}}, nil
 }
 
 func (h handlers) deleteCut(ctx context.Context, by identity.Admin, in *cutInput) (*struct{}, error) {

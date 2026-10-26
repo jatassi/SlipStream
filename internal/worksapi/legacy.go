@@ -24,7 +24,7 @@ type workList struct {
 
 type workListOutput struct{ Body workList }
 
-type treeOutput struct{ Body tree }
+type treeOutput struct{ Body Tree }
 
 func (h handlers) listWorks(ctx context.Context, by identity.Admin, in *listInput) (*workListOutput, error) {
 	var only *works.TypeID

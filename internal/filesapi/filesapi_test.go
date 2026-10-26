@@ -109,7 +109,8 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"unreleased"}],` +
-		`"items":[{"itemId":"` + scarf + `","status":"missing"},{"itemId":"` + mittens + `","status":"unreleased"}]}` + "\n"
+		`"items":[{"itemId":"` + scarf + `","status":"missing"},{"itemId":"` + mittens + `","status":"unreleased"}],` +
+		`"summary":{"status":"unreleased","cells":{"met":1,"missing":1,"unreleased":3,"upgradable":1},"items":2,"itemStatus":{"missing":1,"unreleased":1}},"needsYou":[]}` + "\n"
 	if code != http.StatusOK || body != want {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)
 	}
@@ -127,7 +128,9 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+bare.ID.String()+"/cells", "", http.StatusOK,
-		`{"cells":[],"items":[{"itemId":"id1","status":null}]}`)
+		`{"cells":[],"items":[{"itemId":"id1","status":null}],"summary":{"status":null,"cells":{},"items":1,"itemStatus":{}},"needsYou":[]}`)
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String()+"/cells", "", http.StatusNotFound,
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
+	s.Expect(t, http.MethodGet, "/api/v1/works/"+bare.ID.String()+"/files", "", http.StatusNotImplemented,
+		`{"status":501,"code":"not_implemented","title":"This route isn't built yet"}`)
 }

@@ -156,7 +156,8 @@ func ratingsOf(rs []works.StoredRating) []rating {
 	return out
 }
 
-type tree struct {
+// Tree is exported so the document carries the fields a Work's view embeds.
+type Tree struct {
 	Work
 	Fields  []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
 	Ratings []rating                `json:"ratings" nullable:"false" doc:"The Work's own, by source"`
@@ -203,8 +204,8 @@ func availabilityOf(t targets.Timing) *availability {
 	return &availability{Date: d.String(), Basis: t.Basis}
 }
 
-func treeOf(m artwork.Minter, t works.Tree, timings map[works.ItemID]targets.Timing) tree {
-	out := tree{Work: workOf(t.Summary), Fields: fieldsOf(m, t.Fields), Ratings: ratingsOf(t.Ratings), Artwork: artOf(m, t.Artwork), Levels: []level{}, Items: []item{}}
+func treeOf(m artwork.Minter, t works.Tree, timings map[works.ItemID]targets.Timing) Tree {
+	out := Tree{Work: workOf(t.Summary), Fields: fieldsOf(m, t.Fields), Ratings: ratingsOf(t.Ratings), Artwork: artOf(m, t.Artwork), Levels: []level{}, Items: []item{}}
 	for _, l := range t.Levels {
 		out.Levels = append(out.Levels, level{
 			ID: l.ID.String(), ParentID: idOrNull(l.ParentID.UUID), Depth: l.Depth, Key: string(l.Key), Label: l.Label,
@@ -221,10 +222,10 @@ func treeOf(m artwork.Minter, t works.Tree, timings map[works.ItemID]targets.Tim
 	return out
 }
 
-func (h handlers) treeOf(ctx context.Context, by identity.Admin, t works.Tree) (tree, error) {
+func (h handlers) treeOf(ctx context.Context, by identity.Admin, t works.Tree) (Tree, error) {
 	timings, err := goals(h.shelf).Timings(ctx, by, t.ContentType, t.ID)
 	if err != nil {
-		return tree{}, err
+		return Tree{}, err
 	}
 	return treeOf(minter(h.shelf), t, timings), nil
 }

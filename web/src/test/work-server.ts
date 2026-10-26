@@ -48,6 +48,8 @@ const missing: FilesCellList = {
     },
   ],
   items: [{ itemId: orchardItemId, status: "missing" }],
+  summary: { status: "missing", cells: { missing: 2 }, items: 1, itemStatus: { missing: 1 } },
+  needsYou: [],
 };
 
 export const filled: FilesCellList = {
@@ -75,6 +77,13 @@ export const filled: FilesCellList = {
     },
   ],
   items: [{ itemId: orchardItemId, status: "downloading" }],
+  summary: {
+    status: "downloading",
+    cells: { downloading: 1, met: 1 },
+    items: 1,
+    itemStatus: { downloading: 1 },
+  },
+  needsYou: [],
 };
 
 export const upgradable: FilesCellList = {
@@ -102,6 +111,13 @@ export const upgradable: FilesCellList = {
     },
   ],
   items: [{ itemId: orchardItemId, status: "missing" }],
+  summary: {
+    status: "missing",
+    cells: { missing: 1, upgradable: 1 },
+    items: 1,
+    itemStatus: { missing: 1 },
+  },
+  needsYou: [],
 };
 
 const otherWork: GrabsGrab = {

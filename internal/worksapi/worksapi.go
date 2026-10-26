@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/targetsapi"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -23,6 +25,9 @@ type Shelf interface {
 	// Targets answers each Item's availability, false unless the Node is a
 	// Controller.
 	Targets() (*targets.Targets, bool)
+	// Library composes the Library's reads and actions, false unless the
+	// Node is a Controller.
+	Library() (*library.Library, bool)
 }
 
 func open(s Shelf) *works.Works {
@@ -49,6 +54,14 @@ func goals(s Shelf) *targets.Targets {
 	return t
 }
 
+func composer(s Shelf) *library.Library {
+	l, ok := s.Library()
+	if !ok {
+		panic("worksapi: an operation ran on a Node that is no Controller")
+	}
+	return l
+}
+
 var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	contentTypeDisabled = api.NewCode(http.StatusConflict, "content_type_disabled", "That Content Type is turned off")
@@ -63,6 +76,7 @@ var (
 	profileWrongType    = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
 	rootWrongType       = api.NewCode(http.StatusUnprocessableEntity, "root_wrong_type", "The root holds another Content Type's Works")
+	notImplemented      = api.NewCode(http.StatusNotImplemented, "not_implemented", "This route isn't built yet")
 )
 
 var codes = []struct {
@@ -82,6 +96,7 @@ var codes = []struct {
 	{targets.ErrProfileWrongType, profileWrongType},
 	{roots.ErrNotFound, rootNotFound},
 	{roots.ErrWrongType, rootWrongType},
+	{library.ErrNotBuilt, notImplemented},
 }
 
 func answer(err error) error {
@@ -135,6 +150,18 @@ func workID(s string) (works.WorkID, error) {
 		return works.WorkID{}, workNotFound
 	}
 	return works.WorkID{UUID: u}, nil
+}
+
+func workIDsOf(ss []string) ([]works.WorkID, error) {
+	out := make([]works.WorkID, len(ss))
+	for i, s := range ss {
+		id, err := workID(s)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = id
+	}
+	return out, nil
 }
 
 func Routes(r *api.Router, shelf Shelf) {
@@ -213,13 +240,76 @@ func Routes(r *api.Router, shelf Shelf) {
 	}, h.listWorks)
 
 	api.Register(o, api.Admin, api.Op{
+		ID:      "listLibrary",
+		Method:  http.MethodGet,
+		Path:    "/library",
+		Summary: "List every Work as a Library row, or one Content Type's, or the named ones",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+	}, h.listLibrary)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "searchWorks",
+		Method:  http.MethodGet,
+		Path:    "/works/search",
+		Summary: "Search the library's Works by every title they go by, best first",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+	}, h.searchWorks)
+
+	api.Register(o, api.Admin, api.Op{
 		ID:      "getWork",
 		Method:  http.MethodGet,
 		Path:    "/works/{workId}",
-		Summary: "Get a Work's tree with each node's fields",
+		Summary: "Get a Work's tree with each node's fields, its links, Profile and root",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.getWork)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setWorksMonitored",
+		Method:  http.MethodPut,
+		Path:    "/works/monitored",
+		Summary: "Monitor every Item of each Work, or none, with an outcome per Work",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notImplemented},
+	}, h.setWorksMonitored)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setWorksProfile",
+		Method:  http.MethodPut,
+		Path:    "/works/profile",
+		Summary: "Give each Work a Profile through one Impact, with an outcome per Work",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{profileNotFound, targetsapi.ImpactChanged, notImplemented},
+	}, h.setWorksProfile)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setWorksRoot",
+		Method:  http.MethodPut,
+		Path:    "/works/root",
+		Summary: "Move each Work without files to a root, with an outcome per Work",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{rootNotFound, notImplemented},
+	}, h.setWorksRoot)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "refreshWorks",
+		Method:  http.MethodPost,
+		Path:    "/works/refresh",
+		Summary: "Refresh each Work from its metadata source, keeping every id, with an outcome per Work",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notImplemented},
+	}, h.refreshWorks)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteWorks",
+		Method:  http.MethodPost,
+		Path:    "/works/delete",
+		Summary: "Remove each Work from the library, deleting its files or leaving them, with an outcome per Work",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notImplemented},
+	}, h.deleteWorks)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "refreshWork",

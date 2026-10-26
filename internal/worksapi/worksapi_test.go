@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
@@ -45,6 +46,10 @@ func (s shelf) Works() (*works.Works, bool)       { return s.w, true }
 func (s shelf) Targets() (*targets.Targets, bool) { return s.t, true }
 
 func (shelf) Minter() (artwork.Minter, bool) { return minter, true }
+
+func (s shelf) Library() (*library.Library, bool) {
+	return library.New(library.Config{Works: s.w, Targets: s.t}), true
+}
 
 var minter = artwork.NewMinter([]byte("worksapi"))
 
@@ -178,7 +183,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],"artwork":[],` +
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
 		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],` +
-		`"availability":{"date":"2000-01-01","basis":""}}]}}` + "\n"
+		`"availability":{"date":"2000-01-01","basis":""}}],"links":[],"profile":{"id":"id4","name":"fixture"},"root":null}}` + "\n"
 	if code != http.StatusOK || masked(body) != want {
 		t.Fatalf("addWork = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -222,6 +227,18 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 	}
 }
 
+// fixtureDescriptors is the fixture Content Type's wire from its fields on.
+const fixtureDescriptors = `"fields":[` +
+	`{"key":"origin","label":"Origin","tier":"work","kind":"text","in":["facts","about"],"list":{"column":true,"sort":true,"filter":true},"with":null,"art":null},` +
+	`{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"count","label":"Count","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"runtime","label":"Runtime","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"tags","label":"Tags","tier":"work","kind":"texts","in":["about"],"list":{"column":true,"sort":false,"filter":true},"with":null,"art":null},` +
+	`{"key":"makers","label":"Makers","tier":"work","kind":"people","in":["credits"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"page","label":"Page","tier":"work","kind":"link","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
+	`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}],` +
+	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"]`
+
 func TestListContentTypesAnswersASession(t *testing.T) {
 	s := serve(t)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/content-types", http.NoBody)
@@ -229,10 +246,7 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	w := httptest.NewRecorder()
 	s.handler.ServeHTTP(w, req)
 	want := `{"contentTypes":[{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
-		`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},` +
-		`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},` +
-		`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}],` +
-		`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}]}]}` + "\n"
+		fixtureDescriptors + `}]}` + "\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}
@@ -255,10 +269,7 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 200,
 		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},`+
-			`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},`+
-			`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},`+
-			`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}],`+
-			`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}]}`)
+			fixtureDescriptors+`}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "", 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	if code, _ := s.call(t, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":true}`); code != 200 {
@@ -478,4 +489,24 @@ func TestArtworkAnswersAsURLsTheRouteOpens(t *testing.T) {
 	if want := `"artwork":[{"kind":"photo","url":"` + minter.URL(photo) + `"}]`; code != http.StatusOK || !strings.Contains(list, want) || strings.Contains(list, "scarf") {
 		t.Fatalf("listWorks = %d %s, want the Work's own image %s and no Item's", code, list, want)
 	}
+}
+
+// The literal routes beside /works/{workId} reach their own stubs.
+func TestEachLibraryRouteReachesItsOwnHandler(t *testing.T) {
+	s := serve(t)
+	ids := `{"workIds":["` + storage.NewUUID().String() + `"]`
+	stub := `{"status":501,"code":"not_implemented","title":"This route isn't built yet"}`
+	for _, c := range []struct{ method, path, body string }{
+		{http.MethodGet, "/api/v1/works/search?q=heat", ""},
+		{http.MethodGet, "/api/v1/library?contentType=fixture", ""},
+		{http.MethodPut, "/api/v1/works/monitored", ids + `,"on":true}`},
+		{http.MethodPut, "/api/v1/works/profile?preview=true", ids + `,"profileId":"` + storage.NewUUID().String() + `"}`},
+		{http.MethodPut, "/api/v1/works/root", ids + `,"rootId":"` + storage.NewUUID().String() + `"}`},
+		{http.MethodPost, "/api/v1/works/refresh", ids + `}`},
+		{http.MethodPost, "/api/v1/works/delete", ids + `,"files":"leave","preview":true}`},
+	} {
+		expect(t, s, c.method, c.path, c.body, http.StatusNotImplemented, stub)
+	}
+	expect(t, s, http.MethodGet, "/api/v1/library?contentType=fixture&workIds="+storage.NewUUID().String(), "", http.StatusUnprocessableEntity,
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.workIds","message":"Use contentType or workIds, not both."}]}`)
 }

@@ -1,7 +1,7 @@
 import type {
   FilesCell,
   FilesCellList,
-  FilesItemStatusStatus,
+  FilesState,
   WorksContentType,
   WorksItem,
   WorksTree,
@@ -23,7 +23,7 @@ function editionsOf(cells: readonly FilesCell[]): [string, FilesCell[]][] {
 function columnsOf(
   type: WorksContentType,
   cells: readonly FilesCell[],
-  statusOf: (itemId: string) => FilesItemStatusStatus,
+  statusOf: (itemId: string) => FilesState | null,
 ): [Column<WorksItem>, ...Column<WorksItem>[]] {
   const targets = [...new Map(cells.map((cell) => [cell.targetId, cell.targetName]))];
   const cellAt = new Map(cells.map((cell) => [`${cell.itemId} ${cell.targetId}`, cell]));
