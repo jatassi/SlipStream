@@ -3,14 +3,16 @@ import { useRouter } from "@tanstack/react-router";
 import type { SettingField as Field } from "../api/gen/model";
 import {
   getGetMetadataSettingsSuspenseQueryOptions,
+  getListMetadataProvidersSuspenseQueryOptions,
   updateMetadataSettings,
   useGetMetadataSettingsSuspense,
 } from "../api/gen/query/metadata/metadata";
-import { freshQuery } from "../api/query-client";
+import { ensureQuery, freshQuery } from "../api/query-client";
 import { Details } from "../ui/details";
 import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 import { ClearCache } from "./metadata-cache";
+import { MetadataProviders } from "./metadata-providers";
 import type { SettingsSection } from "./section";
 
 const chosen = new Set(["metadata.language", "metadata.region"]);
@@ -36,29 +38,32 @@ function MetadataSettings() {
   const language = settings.find((setting) => setting.key === "metadata.language");
   const region = settings.find((setting) => setting.key === "metadata.region");
   return (
-    <Section title="Metadata">
-      <Details
-        summary={`Titles and overviews are in ${optionLabel(language)}, and release dates and certifications come from ${optionLabel(region)}. Pick the language you read and the country you watch in. The other settings suit most libraries.`}
-        action={
-          <div className="my-2 w-full">
+    <>
+      <MetadataProviders />
+      <Section title="Metadata">
+        <Details
+          summary={`Titles and overviews are in ${optionLabel(language)}, and release dates and certifications come from ${optionLabel(region)}. Pick the language you read and the country you watch in. The other settings suit most libraries.`}
+          action={
+            <div className="my-2 w-full">
+              <SettingGroup>
+                {settings
+                  .filter((setting) => chosen.has(setting.key))
+                  .map((setting) => field(setting))}
+              </SettingGroup>
+            </div>
+          }
+        >
+          <div className="mt-2 flex w-full flex-col gap-4">
             <SettingGroup>
               {settings
-                .filter((setting) => chosen.has(setting.key))
+                .filter((setting) => !chosen.has(setting.key))
                 .map((setting) => field(setting))}
             </SettingGroup>
+            <ClearCache />
           </div>
-        }
-      >
-        <div className="mt-2 flex w-full flex-col gap-4">
-          <SettingGroup>
-            {settings
-              .filter((setting) => !chosen.has(setting.key))
-              .map((setting) => field(setting))}
-          </SettingGroup>
-          <ClearCache />
-        </div>
-      </Details>
-    </Section>
+        </Details>
+      </Section>
+    </>
   );
 }
 
@@ -66,7 +71,10 @@ export const metadataSection: SettingsSection = {
   id: "metadata",
   label: "Metadata",
   load: async (queryClient) => {
-    await freshQuery(queryClient, getGetMetadataSettingsSuspenseQueryOptions());
+    await Promise.all([
+      freshQuery(queryClient, getGetMetadataSettingsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListMetadataProvidersSuspenseQueryOptions()),
+    ]);
   },
   component: MetadataSettings,
 };

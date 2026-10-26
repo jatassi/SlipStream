@@ -6,6 +6,7 @@ export const settingsSectionLabels = [
   "Nodes",
   "Download Clients",
   "API key",
+  "Content Types",
   "Library roots",
   "Metadata",
   "Targets",
