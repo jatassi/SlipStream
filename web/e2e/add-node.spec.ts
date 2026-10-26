@@ -19,8 +19,8 @@ async function homePage(page: Page) {
   await expect(page.getByRole("button", { name: "Add a Node", exact: true })).toBeVisible();
 }
 
-// claimWorker is what the first-run page's Join form sends; S25 (First-run
-// setup) owns that form, so the browser tier calls the operation itself.
+// first-run.spec.ts drives the first-run page's Join form. These tests
+// follow the dialog, so seedbox joins through the operation that form sends.
 async function claimSeedbox(world: World, code: string) {
   const seedbox = node(world.manifest, "seedbox");
   const response = await fetch(new URL("/api/v1/setup/worker", seedbox.url), {

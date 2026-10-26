@@ -53,7 +53,8 @@ type Fixtures = {
   startupSequence: boolean;
   runDir: string;
   world: World;
-  newContext: () => Promise<BrowserContext>;
+  /** A context on the named Node's origin, by default the one the test is at. */
+  newContext: (at?: string) => Promise<BrowserContext>;
   adminPage: Page;
 };
 
@@ -89,15 +90,18 @@ function fakeworld(
 
 const SetupCodeRecord = z.object({ msg: z.literal("setup code"), code: z.string() });
 
+// A Node that restarts Unclaimed, as a removed Worker does, logs a new code.
 async function readSetupCode(log: string): Promise<string> {
-  for (const line of (await readFile(log, "utf8")).split("\n")) {
-    const record = line === "" ? null : SetupCodeRecord.safeParse(JSON.parse(line));
-    if (record?.success === true) {
-      return record.data.code;
-    }
-  }
-  throw new Error(`${log} has no setup code record`);
+  const code = (await readFile(log, "utf8"))
+    .split("\n")
+    .map((line) => (line === "" ? null : SetupCodeRecord.safeParse(JSON.parse(line))))
+    .findLast((record) => record?.success === true)?.data.code;
+  return code ?? Promise.reject(new Error(`${log} has no setup code record`));
 }
+
+// Only Chromium reaches a Node by its name, through the host resolver rules.
+const browserURL = (browserName: string, node: ManifestNode): string =>
+  browserName === "chromium" ? node.browserUrl : node.url;
 
 // testCommand runs the test again from the repo root, as a Go test's
 // recorded command does, so a failed run's bundle replays by it.
@@ -194,7 +198,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       manifest,
       node,
       fw: fw(runDir),
-      baseURL: browserName === "chromium" ? node.browserUrl : node.url,
+      baseURL: browserURL(browserName, node),
       admin: () => identity(manifest, "admin"),
       member: () => identity(manifest, "member"),
       setupCode: (name = at) => readSetupCode(nodeOf(manifest, name).log),
@@ -256,11 +260,12 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
           `--host-resolver-rules=${world.manifest.browser.hostResolverRules}`,
         ],
       }));
-    const origin = new URL(world.baseURL).origin;
     const contexts: BrowserContext[] = [];
     const checks: (() => Promise<void>)[] = [];
-    await use(async () => {
-      const context = await browser.newContext({ ...contextOptions, baseURL: world.baseURL });
+    await use(async (name = world.node.name) => {
+      const baseURL = browserURL(browserName, nodeOf(world.manifest, name));
+      const origin = new URL(baseURL).origin;
+      const context = await browser.newContext({ ...contextOptions, baseURL });
       contexts.push(context);
       checks.push(await guard(context, origin));
       if (browserName === "webkit") {

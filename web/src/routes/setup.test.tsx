@@ -1,131 +1,121 @@
-import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
-import { ada, noPasskeys, problem, signedOut } from "../test/handlers";
+import { readPref, writePref } from "../shell/prefs";
 import { renderApp } from "../test/render-app";
+import {
+  forgetKeptCode,
+  joinExisting,
+  rightCode,
+  setupCode,
+  startNew,
+  typeCode,
+  unclaimedNode,
+} from "../test/setup-node";
+import { staleLinkSentence } from "./-setup/use-setup-code";
 
-const unclaimed = [
-  signedOut,
-  getGetStatusMockHandler({ claim: "unclaimed", passkeys: noPasskeys }),
-];
-const signedIn = {
-  account: ada,
-  pinRequired: false,
-  keyPrompt: "ask",
-  firstRun: "open",
-  passkeyPrompt: false,
-};
-
-function claimServer(answer: () => Response) {
-  const claims: unknown[] = [];
-  let claimed = false;
-  const handlers = [
-    http.get("*/api/v1/session", () =>
-      claimed
-        ? HttpResponse.json({ account: ada, pinRequired: false, keyPrompt: "ask" })
-        : problem(401, "signed_out", "Sign in to continue"),
-    ),
-    http.get("*/api/v1/status", () =>
-      HttpResponse.json({ claim: claimed ? "controller" : "unclaimed", passkeys: noPasskeys }),
-    ),
-    http.post("*/api/v1/setup/controller", async ({ request }) => {
-      claims.push({ code: request.headers.get("X-Setup-Code"), body: await request.json() });
-      const response = answer();
-      claimed = response.status === 201;
-      return response;
-    }),
-  ];
-  return { claims, handlers };
-}
-
-async function fillSetup(pinAgain: string) {
-  await userEvent.type(page.getByLabelText("Setup code"), "7k2m q9xd 4hbt");
-  await userEvent.fill(page.getByLabelText("Email"), "ada@example.test");
-  await userEvent.fill(page.getByLabelText("Display name"), "Ada Okafor");
-  await userEvent.click(page.getByRole("textbox", { name: "PIN", exact: true }));
-  await userEvent.keyboard("1234");
-  await userEvent.click(page.getByRole("textbox", { name: "PIN again", exact: true }));
-  await userEvent.keyboard(pinAgain);
-  await userEvent.click(page.getByRole("button", { name: "Create Admin" }));
-}
+forgetKeptCode();
 
 test("an Unclaimed Node sends / to setup", async () => {
-  const { router } = renderApp({ path: "/", handlers: unclaimed });
+  const { router } = renderApp({ path: "/", handlers: unclaimedNode().handlers });
   await expect.element(page.getByRole("heading", { name: "Set up SlipStream" })).toBeVisible();
   expect(router.state.location.href).toBe("/setup");
 });
 
 test("the Setup code shows grouped as it is typed", async () => {
-  renderApp({ path: "/setup", handlers: unclaimed });
-  await userEvent.type(page.getByLabelText("Setup code"), "7k2m q9xd 4hbt");
-  await expect.element(page.getByLabelText("Setup code")).toHaveValue("7K2M-Q9XD-4HBT");
+  renderApp({ path: "/setup", handlers: unclaimedNode().handlers });
+  await userEvent.type(setupCode(), "7k2m q9xd 4hbt");
+  await expect.element(setupCode()).toHaveValue("7K2M-Q9XD-4HBT");
 });
 
-test("a setup link fills in the Setup code and leaves the address bar", async () => {
-  const server = claimServer(() => HttpResponse.json(signedIn, { status: 201 }));
-  const { router } = renderApp({ path: "/setup#code=7K2M-Q9XD-4HBT", handlers: server.handlers });
-  await expect.element(page.getByLabelText("Setup code")).toHaveValue("7K2M-Q9XD-4HBT");
-  await expect
-    .element(page.getByLabelText("Setup code"))
-    .toHaveAccessibleDescription("Setup code filled in");
-  await expect.poll(() => router.state.location.href).toBe("/setup");
+test("a wrong Setup code fails on its own screen before any other field", async () => {
+  const { node, handlers } = unclaimedNode();
+  renderApp({ path: "/setup", handlers });
+  await typeCode("0000 0000 0000");
+  await expect.element(setupCode()).toHaveAccessibleDescription("The Setup code is wrong");
+  await expect.element(page.getByLabelText("Email")).not.toBeInTheDocument();
+  expect(node.headers).toEqual([{ path: "/api/v1/setup/code", code: "000000000000" }]);
+});
+
+test("a right Setup code leads to the choice, with Start a new SlipStream first", async () => {
+  const { node, handlers } = unclaimedNode();
+  renderApp({ path: "/setup", handlers });
+  await typeCode("7k2m q9xd 4hbt");
+  const choices = page.getByRole("list", { name: "What this Node becomes" }).getByRole("button");
+  await expect.element(choices.nth(0)).toHaveAccessibleName("Start a new SlipStream");
+  await expect.element(choices.nth(1)).toHaveAccessibleName("Join an existing SlipStream");
+  expect(readPref("setupCode")).toBe(rightCode);
+  expect(node.headers[0]).toEqual({ path: "/api/v1/setup/code", code: rightCode });
+});
+
+test("a setup link fills in and checks the code, and leaves the address bar", async () => {
+  const { router } = renderApp({
+    path: "/setup#code=7k2m%20q9xd%204hbt",
+    handlers: unclaimedNode().handlers,
+  });
+  await expect.element(page.getByText("Setup code filled in")).toBeVisible();
+  await expect.element(startNew()).toBeVisible();
+  expect(router.state.location.href).toBe("/setup");
   expect(router.history.location.hash).toBe("");
-
-  await userEvent.fill(page.getByLabelText("Email"), "ada@example.test");
-  await userEvent.fill(page.getByLabelText("Display name"), "Ada Okafor");
-  await userEvent.click(page.getByRole("textbox", { name: "PIN", exact: true }));
-  await userEvent.keyboard("1234");
-  await userEvent.click(page.getByRole("textbox", { name: "PIN again", exact: true }));
-  await userEvent.keyboard("1234");
-  await userEvent.click(page.getByRole("button", { name: "Create Admin" }));
-  await expect.poll(() => router.state.location.href).toBe("/library");
-  expect(server.claims).toEqual([
-    {
-      code: "7K2MQ9XD4HBT",
-      body: { email: "ada@example.test", displayName: "Ada Okafor", pin: "1234" },
-    },
-  ]);
 });
 
-test("a setup link's code reads the way a typed one does", async () => {
-  renderApp({ path: "/setup#code=7k2m%20q9xd%204hbt", handlers: unclaimed });
-  await expect.element(page.getByLabelText("Setup code")).toHaveValue("7K2M-Q9XD-4HBT");
+test("a setup link from an earlier start of the Node says so", async () => {
+  renderApp({ path: "/setup#code=AAAA-BBBB-CCCC", handlers: unclaimedNode().handlers });
+  await expect.element(page.getByText(staleLinkSentence)).toBeVisible();
+  await expect.element(setupCode()).toHaveValue("");
 });
 
-test("a typed Setup code says nothing was filled in", async () => {
-  renderApp({ path: "/setup", handlers: unclaimed });
-  await expect.element(page.getByLabelText("Setup code")).toHaveAccessibleDescription("");
+test("a second setup link in the same tab fills in", async () => {
+  const { router } = renderApp({ path: "/setup", handlers: unclaimedNode().handlers });
+  await expect.element(setupCode()).toBeVisible();
+  await router.navigate({ to: "/setup", hash: `code=${rightCode}` });
+  await expect.element(page.getByText("Setup code filled in")).toBeVisible();
+  await expect.poll(() => router.history.location.hash).toBe("");
 });
 
-test("mismatched PINs never reach the server", async () => {
-  const server = claimServer(() => HttpResponse.json(signedIn, { status: 201 }));
-  renderApp({ path: "/setup", handlers: server.handlers });
-  await fillSetup("4321");
-  await expect.element(page.getByText("The PINs don't match")).toBeVisible();
-  expect(server.claims).toEqual([]);
+test("a reload keeps the code this tab already checked", async () => {
+  writePref("setupCode", rightCode);
+  renderApp({ path: "/setup", handlers: unclaimedNode().handlers });
+  await expect.element(startNew()).toBeVisible();
+  await expect.element(setupCode()).not.toBeInTheDocument();
 });
 
-test("a claim signs the first Admin in and enters the app", async () => {
-  const server = claimServer(() => HttpResponse.json(signedIn, { status: 201 }));
-  const { router } = renderApp({ path: "/setup", handlers: server.handlers });
-  await fillSetup("1234");
-  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(server.claims).toEqual([
-    {
-      code: "7K2MQ9XD4HBT",
-      body: { email: "ada@example.test", displayName: "Ada Okafor", pin: "1234" },
-    },
-  ]);
-  expect(router.state.location.href).toBe("/library");
-});
-
-test("a wrong Setup code shows its title under the Setup code field", async () => {
-  const server = claimServer(() => problem(403, "setup_code_wrong", "The Setup code is wrong"));
-  renderApp({ path: "/setup", handlers: server.handlers });
-  await fillSetup("1234");
+test("a kept code the Node no longer takes says the Setup code changed", async () => {
+  writePref("setupCode", "AAAABBBBCCCC");
+  renderApp({ path: "/setup", handlers: unclaimedNode().handlers });
   await expect
-    .element(page.getByLabelText("Setup code"))
-    .toHaveAccessibleDescription("The Setup code is wrong");
+    .element(
+      page.getByText(
+        "This Node restarted, so its Setup code changed. Read the new one from its log.",
+      ),
+    )
+    .toBeVisible();
+  expect(readPref("setupCode")).toBe("");
+});
+
+test("a removed Node leads with the Removed sentence and with Join", async () => {
+  writePref("setupCode", rightCode);
+  const removed = { controller: "home", at: "2026-10-17T09:30:00Z" };
+  renderApp({ path: "/setup", handlers: unclaimedNode(removed).handlers });
+  const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(
+    new Date(removed.at),
+  );
+  await expect
+    .element(
+      page.getByText(
+        `This Node was removed from home on ${day}. Join with a new Join Code to use it again.`,
+      ),
+    )
+    .toBeVisible();
+  const choices = page.getByRole("list", { name: "What this Node becomes" }).getByRole("button");
+  await expect.element(choices.nth(0)).toHaveAccessibleName("Join an existing SlipStream");
+});
+
+test("Back returns to the choice before anything is created", async () => {
+  writePref("setupCode", rightCode);
+  renderApp({ path: "/setup", handlers: unclaimedNode().handlers });
+  await userEvent.click(startNew());
+  await expect.element(page.getByRole("heading", { name: "Start a new SlipStream" })).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Back" }));
+  await expect.element(joinExisting()).toBeVisible();
 });
