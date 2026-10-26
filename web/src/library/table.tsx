@@ -1,5 +1,5 @@
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 
 import { useShell } from "../ui/shell-context";
 import type { Arranged } from "./arrange";
@@ -54,20 +54,33 @@ function TableFrame({
 }
 
 /**
+ * The virtualizer's callbacks, which change only with the order or the
+ * shell: the virtualizer lays out every row again whenever getItemKey
+ * changes.
+ */
+function useRowSizing(order: Arranged["order"], columnCount: number) {
+  const shell = useShell();
+  const rowHeight = rowEstimate[shell] + (shell === "phone" ? stackedLine * columnCount : 0);
+  const estimateSize = useCallback(() => rowHeight, [rowHeight]);
+  const getItemKey = useCallback((index: number) => order[index] ?? index, [order]);
+  return { estimateSize, getItemKey };
+}
+
+/**
  * One row per Work with the columns the view picks, drawn only near the
  * window's view. Below 620px of its own width each row stacks its values
  * under their labels.
  */
 export function LibraryTable({ arranged, columns, names, picking, label }: TableProps) {
-  const shell = useShell();
   const body = useScrollMargin<HTMLTableSectionElement>();
+  const { estimateSize, getItemKey } = useRowSizing(arranged.order, columns.length);
   // oxlint-disable-next-line react/incompatible-library -- this leaf holds the virtualizer so the compiler's bail-out stays here
   const virtualizer = useWindowVirtualizer({
     count: arranged.works.length,
-    estimateSize: () => rowEstimate[shell] + (shell === "phone" ? stackedLine * columns.length : 0),
+    estimateSize,
     overscan: 8,
     scrollMargin: body.margin,
-    getItemKey: (index) => arranged.order[index] ?? index,
+    getItemKey,
   });
   const { tabbable, handlers } = useBrowsing({
     order: arranged.order,

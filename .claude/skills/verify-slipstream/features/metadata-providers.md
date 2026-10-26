@@ -63,22 +63,22 @@ Steps:
 - **The screen.** Open Settings > Metadata, refuse a key in the dialog, then save a good one, test OMDb and remove the key.
 
   ```sh
-  $FW exec $RUN --proof metadata-providers/providers-wire -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/providers'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto {nodes.home.browserUrl}/settings/metadata
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/metadata-providers/providers-screen/desktop.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/metadata-providers/providers-screen/desktop.png
+  $FW exec $RUN --proof metadata-providers/providers-status -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/providers'
+  $FW exec $RUN --proof metadata-providers/providers-screen -- $PW cli -s={runId}-admin-desktop goto {nodes.home.browserUrl}/settings/metadata
+  $FW exec $RUN --proof metadata-providers/providers-screen -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/metadata-providers/providers-screen/desktop.aria.yml
+  $FW exec $RUN --proof metadata-providers/providers-screen -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/metadata-providers/providers-screen/desktop.png
   $FW cue $RUN tmdb-revoke-key '{"key":"typo"}'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("article", { name: "TMDB" }).getByRole("button", { name: "Set key" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog").getByRole("textbox", { name: "Key" })' typo
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Test and save" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/metadata-providers/key-dialog/refused.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog").getByRole("textbox", { name: "Key" })' mine
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Test and save" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/metadata-providers/key-dialog/saved.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("article", { name: "TMDB" }).getByRole("button", { name: "Remove key" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Remove key" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto {nodes.home.browserUrl}/settings/metadata
-  $FW exec $RUN -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/metadata-providers/providers-screen/phone.png
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop click 'getByRole("article", { name: "TMDB" }).getByRole("button", { name: "Set key" })'
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog").getByRole("textbox", { name: "Key" })' typo
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Test and save" })'
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/metadata-providers/key-dialog/refused.aria.yml
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog").getByRole("textbox", { name: "Key" })' mine
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Test and save" })'
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/metadata-providers/key-dialog/saved.aria.yml
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop click 'getByRole("article", { name: "TMDB" }).getByRole("button", { name: "Remove key" })'
+  $FW exec $RUN --proof metadata-providers/key-dialog -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Remove key" })'
+  $FW exec $RUN --proof metadata-providers/providers-screen -- $PW cli -s={runId}-admin-phone goto {nodes.home.browserUrl}/settings/metadata
+  $FW exec $RUN --proof metadata-providers/providers-screen -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/metadata-providers/providers-screen/phone.png
   ```
 
 - **A bundled key (keyed run).** Both read `"key":"bundled"`; after revoking the bundled key at fake-tmdb, a test reads `key_refused`.
@@ -94,4 +94,3 @@ Steps:
 - Status lives in the Controller's memory: a restart starts every provider `unused`, while a saved key survives in library.db.
 - An OMDb test spends one call of the day's allowance, so drive it against the fake only.
 - fake-tmdb's `tmdb-revoke-key` with `{}` revokes only keys it has already seen; name `{"key":""}` to refuse keyless calls before any call.
-- `keySetAt`, `keyPage` and `attribution` are filled by B3 (Add with Remember, metadata screens API). Before it merges they read null, "" and null, so drive the screen steps on a build with B3.

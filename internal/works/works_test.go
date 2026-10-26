@@ -92,6 +92,20 @@ func dropTime(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
+func (h *harness) rows(t *testing.T) []works.Row {
+	t.Helper()
+	var rows []works.Row
+	err := h.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		rows, err = h.works.RowsIn(ctx, r, works.Scope{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rows
+}
+
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	fx := contenttypetest.New()
@@ -200,8 +214,8 @@ func TestAddRunsAlsoInItsWriteOnlyWhenItCreatesTheWork(t *testing.T) {
 	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", also(refuse)); !errors.Is(err, refuse) {
 		t.Fatalf("an add whose Also fails = %v, want its error", err)
 	}
-	if list, err := h.works.List(t.Context(), admin, nil); err != nil || len(list) != 0 {
-		t.Fatalf("after a failed Also the library lists %v, %v; want no Work", list, err)
+	if rows := h.rows(t); len(rows) != 0 {
+		t.Fatalf("after a failed Also the library lists %v, want no Work", rows)
 	}
 	tree, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", also(nil))
 	if err != nil || !created {
@@ -274,9 +288,8 @@ func TestRacingAddsMakeOneWork(t *testing.T) {
 		t.Fatalf("racing adds = (%s %t %v) and (%s %t %v); want one Work, created once", a.tree.ID, a.created, a.err, b.tree.ID, b.created, b.err)
 	}
 	sameIDs(t, a.tree, b.tree)
-	list, err := h.works.List(t.Context(), admin, nil)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("works = %v, %v; want one", list, err)
+	if rows := h.rows(t); len(rows) != 1 {
+		t.Fatalf("works = %v, want one", rows)
 	}
 }
 
@@ -428,8 +441,8 @@ func TestAnInvalidTreeIsRefusedWhole(t *testing.T) {
 	if want := `level=WARN msg="metadata invalid" contentType=fixture key=w1 err="the metadata source sent a record SlipStream can't use: box b2: two Items have key c1"`; strings.TrimSpace(h.log.String()) != want {
 		t.Fatalf("log = %q, want %q", h.log.String(), want)
 	}
-	if list, err := h.works.List(t.Context(), admin, nil); err != nil || len(list) != 0 {
-		t.Fatalf("works = %v, %v; want none", list, err)
+	if rows := h.rows(t); len(rows) != 0 {
+		t.Fatalf("works = %v, want none", rows)
 	}
 }
 
@@ -544,8 +557,12 @@ func TestAnUnregisteredTypeIsNotFound(t *testing.T) {
 	if _, err := h.works.Search(t.Context(), admin, ghost, "x"); !errors.Is(err, works.ErrNoType) {
 		t.Errorf("search = %v, want ErrNoType", err)
 	}
-	if _, err := h.works.List(t.Context(), admin, &ghost); !errors.Is(err, works.ErrNoType) {
-		t.Errorf("list = %v, want ErrNoType", err)
+	err := h.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		_, err := h.works.RowsIn(ctx, r, works.Scope{Type: &ghost})
+		return err
+	})
+	if !errors.Is(err, works.ErrNoType) {
+		t.Errorf("rows = %v, want ErrNoType", err)
 	}
 	if _, err := h.works.SetEnabled(t.Context(), admin, ghost, false); !errors.Is(err, works.ErrNoType) {
 		t.Errorf("set enabled = %v, want ErrNoType", err)

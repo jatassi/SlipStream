@@ -639,69 +639,6 @@ func writeArtwork(ctx context.Context, q *db.Queries, id WorkID, itemIDs map[Key
 	return changed, nil
 }
 
-// Listed is a Work with its own fields, without its levels and Items.
-type Listed struct {
-	Summary
-	Fields []FieldValue
-	// Artwork is the Work's own, keyed by the artwork.Kind's key.
-	Artwork map[string]artwork.Ref
-}
-
-// List lists Works by sort label, then id, with their fields and their
-// own artwork, from one snapshot: every Work, or t's.
-func (w *Works) List(ctx context.Context, _ identity.Admin, t *TypeID) ([]Listed, error) {
-	if t != nil {
-		if _, ok := w.types[*t]; !ok {
-			return nil, ErrNoType
-		}
-	}
-	var out []Listed
-	err := w.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		q := db.New(r)
-		var rows []db.WorksWork
-		var err error
-		if t == nil {
-			rows, err = q.ListWorks(ctx)
-		} else {
-			rows, err = q.ListWorksOfType(ctx, *t)
-		}
-		if err != nil {
-			return err
-		}
-		out = make([]Listed, len(rows))
-		for i, row := range rows {
-			if out[i], err = w.listed(ctx, r, row); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return out, err
-}
-
-func (w *Works) listed(ctx context.Context, r storage.Reader[file], row db.WorksWork) (Listed, error) {
-	reg := w.types[row.ContentType]
-	fs, err := reg.catalog.Fields(ctx, r, row.ID)
-	if err != nil {
-		return Listed{}, fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
-	}
-	values, err := ordered(reg.specs(TierWork), fs.Work)
-	if err != nil {
-		return Listed{}, fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
-	}
-	art, err := db.New(r).ListArtwork(ctx, row.ID)
-	if err != nil {
-		return Listed{}, err
-	}
-	l := Listed{Summary: Summary(row), Fields: values, Artwork: map[string]artwork.Ref{}}
-	for _, a := range art {
-		if a.ItemID.IsZero() {
-			l.Artwork[a.Kind] = refOf(reg.desc, a)
-		}
-	}
-	return l, nil
-}
-
 // Get reads one Work's tree and its display fields from one snapshot.
 func (w *Works) Get(ctx context.Context, _ identity.Admin, id WorkID) (Tree, error) {
 	var tree Tree

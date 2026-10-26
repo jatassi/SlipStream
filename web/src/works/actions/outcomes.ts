@@ -6,6 +6,7 @@ import type {
 import { countWords } from "../../format";
 import {
   type ActionKind,
+  type AnswerOf,
   type Entry,
   type Named,
   type Subject,
@@ -65,11 +66,12 @@ function saidOf<K extends ActionKind>(
   outcome: WorksOutcome,
   subject: Subject,
   action: WorkAction<K>,
+  answer: AnswerOf<K>,
   entry: Entry<K>,
 ): Said {
   switch (outcome.outcome) {
     case "done":
-      return { failed: false, key: "done", say: (named) => entry.done(named, action) };
+      return { failed: false, key: "done", say: (named) => entry.done(named, action, answer) };
     case "skipped": {
       const { reason } = outcome;
       const { source } = subject.type;
@@ -102,18 +104,18 @@ type Group = { readonly said: Said; readonly subjects: Subject[] };
  */
 export function outcomeWords<K extends ActionKind>(
   action: WorkAction<K>,
-  outcomes: readonly WorksOutcome[],
+  answer: AnswerOf<K>,
   subjects: readonly Subject[],
 ): Words {
   const entry = entryOf(action);
   const subjectOf = new Map(subjects.map((subject) => [subject.id, subject]));
   const groups = new Map<string, Group>();
-  for (const outcome of outcomes) {
+  for (const outcome of answer.outcomes) {
     const subject = subjectOf.get(outcome.workId);
     if (subject === undefined) {
       throw new Error(`the answer names ${outcome.workId}, which the request didn't`);
     }
-    const said = saidOf(outcome, subject, action, entry);
+    const said = saidOf(outcome, subject, action, answer, entry);
     const known = groups.get(said.key) ?? { said, subjects: [] };
     known.subjects.push(subject);
     groups.set(said.key, known);

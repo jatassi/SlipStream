@@ -102,11 +102,7 @@ export function NeedsYou({
         ))}
         {upgrades.length > 0 && <Upgrades naming={naming} needs={upgrades} />}
         {waiting.map((need) => (
-          <Waiting
-            key={need.grabId}
-            need={need}
-            grab={grabs.find(({ id }) => id === need.grabId)}
-          />
+          <Waiting key={need.grabId} grab={grabs.find(({ id }) => id === need.grabId)} />
         ))}
         {noRoot && <NoRoot />}
       </div>

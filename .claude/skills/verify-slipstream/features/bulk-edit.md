@@ -9,12 +9,12 @@ An Admin picks Works in the Library, by each poster's or row's checkbox, by a cl
 - `bulk-profile` `Change Profile…` picks a Profile, `Next` opens one Impact for every pick, and saving answers `Changed the Profile of …` (P-039).
 - `bulk-root` `Set library root…` moves the picks without files, and a Work with files stays, as the dialog and the toast say: `The Quiet Orchard has files, so it stays in its library root. Moving a Work with files arrives with Moves.`
 - `bulk-refresh` `Refresh metadata` refreshes every pick and toasts per Work (P-038).
-- `bulk-delete` `Delete…` deletes with the files by default, `Deleted … and their files.`, the files leaving the disk; `Leave files on disk` answers `Deleted …. Their files stay on disk.`, and the Library empties without a reload (P-039, P-242).
+- `bulk-delete` `Delete…` deletes with the files by default, `Deleted … and their files.`, the files leaving the disk; `Leave files on disk` answers `Deleted …. Their files stay on disk.`, Works with no files answer `Deleted ….` whichever is chosen, and the Library empties without a reload (P-039, P-242).
 
 ## How to get to it (user POV)
 
 - Desktop and phone shells: the Library at `/library` or `/library/movie`; the checkbox on each poster shows on hover, on focus and while picking, and on each table row always.
-- API: `PUT /api/v1/works/monitored`, `PUT /api/v1/works/profile` (with `preview`), `PUT /api/v1/works/root`, `POST /api/v1/works/refresh`, `DELETE /api/v1/works` (with `preview`), each taking `{"workIds": [...]}`.
+- API: `PUT /api/v1/works/monitored`, `PUT /api/v1/works/profile` (with `preview`), `PUT /api/v1/works/root`, `POST /api/v1/works/refresh`, `POST /api/v1/works/delete` (with `preview`), each taking `{"workIds": [...]}`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -95,4 +95,3 @@ Steps:
 - `movies` has no library root until one is made, and its Works then sit in no root; a root change needs two roots to move between.
 - The poster's checkbox is invisible until hover or focus, but it still takes a click; `click` on it works without a hover.
 - While picking, a click on a poster picks it rather than opening it; `Done` brings links back.
-- Delete's toast says `and their files` even for Works with no files, since `Delete files from disk` is the default.

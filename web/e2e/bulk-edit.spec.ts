@@ -81,9 +81,8 @@ test("an Admin moves two Works without files to another library root, then delet
   const deleting = page.getByRole("dialog", { name: `Delete ${orchard} and ${saltRoad}?` });
   await deleting.getByRole("radio", { name: "Leave files on disk" }).click();
   await deleting.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(toasts(page)).toContainText(
-    `Deleted ${orchard} and ${saltRoad}. Their files stay on disk.`,
-  );
+  await expect(toasts(page)).toContainText(`Deleted ${orchard} and ${saltRoad}.`);
+  await expect(toasts(page)).not.toContainText("files");
   await expect(page.getByText("No Movies in the library yet.")).toBeVisible();
   expect(await libraryRows(world)).toEqual([]);
 });

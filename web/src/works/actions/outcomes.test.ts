@@ -20,8 +20,12 @@ const failed = ({ id }: Subject, code: string, title: string, detail?: string): 
   problem: { code, title, ...(detail !== undefined && { detail }) },
 });
 
-const say = (action: WorkAction, outcomes: WorksOutcome[], subjects: Subject[]) =>
-  outcomeWords(action, outcomes, subjects);
+const say = (action: WorkAction, outcomes: WorksOutcome[], subjects: Subject[], files = 1) =>
+  outcomeWords(
+    action,
+    { outcomes, plan: { works: subjects.length, files, kept: 0, bytes: 0, downloading: 0 } },
+    subjects,
+  );
 
 const actionCases: { action: WorkAction; done: string; already: string }[] = [
   {
@@ -67,6 +71,17 @@ test.each(actionCases)("$action.kind says what it did and what already read that
     done: each.already,
     failed: [],
   });
+});
+
+test("deleting Works that have no files names no files", () => {
+  for (const files of ["delete", "leave"] as const) {
+    expect(
+      say({ kind: "delete", files }, [done(orchard), done(second)], [orchard, second], 0),
+    ).toEqual({
+      done: `Deleted ${orchard.label} and ${second.label}.`,
+      failed: [],
+    });
+  }
 });
 
 test("every other skip reason has its words", () => {

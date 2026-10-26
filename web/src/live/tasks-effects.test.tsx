@@ -8,7 +8,7 @@ import {
   getListOpenTaskRunsQueryKey,
   getListTasksQueryKey,
 } from "../api/gen/query/tasks/tasks";
-import { getListWorksQueryKey } from "../api/gen/query/works/works";
+import { getListLibraryQueryKey } from "../api/gen/query/works/works";
 import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 
@@ -21,13 +21,13 @@ test("tasks.changed invalidates every tasks query and nothing else", async () =>
     task: getGetTaskQueryKey("housekeeping"),
     settings: getGetTaskSettingsQueryKey(),
     open: getListOpenTaskRunsQueryKey(),
-    works: getListWorksQueryKey(),
+    library: getListLibraryQueryKey(),
   });
 
   server.clients[0]?.send({ event: "tasks.changed", data: { taskId: "" } });
   await expect
     .poll(invalidated)
-    .toEqual({ list: true, task: true, settings: true, open: true, works: false });
+    .toEqual({ list: true, task: true, settings: true, open: true, library: false });
 });
 
 test("a burst of tasks.changed starts one refetch and one more after it, not one per event", async () => {

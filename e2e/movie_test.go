@@ -74,7 +74,7 @@ func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)
 	}
 	var ids []string
-	checkOutline(t, "the added movie", tr, &ids, "#1 movie The Quiet Orchard (The Quiet Orchard) 9000001 [english_title=The Quiet Orchard original_title=The Quiet Orchard original_language=en year=2021 release_date=2021-04-16 runtime=6240000ms status=Released imdb_id=tt9000001]")
+	checkOutline(t, "the added movie", tr, &ids, "#1 movie The Quiet Orchard (Quiet Orchard, The) 9000001 [english_title=The Quiet Orchard original_title=The Quiet Orchard original_language=en year=2021 release_date=2021-04-16 runtime=6240000ms status=Released imdb_id=tt9000001]")
 	if len(tr.Items) != 1 || tr.Items[0].Key != "movie" || tr.Items[0].Label != "The Quiet Orchard" || !tr.Items[0].Monitored || tr.Items[0].LevelID != nil {
 		t.Fatalf("items = %+v, want one monitored Item movie under the Work", tr.Items)
 	}
@@ -359,12 +359,17 @@ func TestAMovieRefreshesAloneAndWithEveryMovieAndKeepsItsRecordOnceGone(t *testi
 	run := moviesAlone(t)
 	a := api(t, run)
 	work := addSaltRoad(t, a)
-	refresh := "/api/v1/works/" + work.ID + "/refresh"
+	refresh := func(why, outcome string) {
+		t.Helper()
+		worldtest.Expect(t, why, a.Admin("home", http.MethodPost, "/api/v1/works/refresh", `{"workIds":["`+work.ID+`"]}`),
+			worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + work.ID + `",` + outcome + `}]}` + "\n"})
+	}
 
 	cue(t, run, "tmdb-change", `{"id":9000005}`)
 	revised := strings.Replace(saltRoadFields, "Two sisters walk the salt road.", "Two sisters walk the salt road. Revision 1.", 1) + awardsField
 	recounted := strings.Replace(work.ratings(), `"votes":410`, `"votes":411`, 1)
-	if got := decode(t, "refreshWork", a.Admin("home", http.MethodPost, refresh, ""), &movieView{}); got.fields() != revised || got.ratings() != recounted {
+	refresh("refreshWorks", `"outcome":"done"`)
+	if got := decode(t, "getWork after refreshWorks", a.Admin("home", http.MethodGet, "/api/v1/works/"+work.ID, ""), &movieView{}); got.fields() != revised || got.ratings() != recounted {
 		t.Fatalf("the refreshed movie reads fields\n%s\nratings %s\nwant\n%s\n%s", got.fields(), got.ratings(), revised, recounted)
 	}
 
@@ -380,7 +385,7 @@ func TestAMovieRefreshesAloneAndWithEveryMovieAndKeepsItsRecordOnceGone(t *testi
 	}
 
 	cue(t, run, "tmdb-delete", `{"id":9000005}`)
-	worldtest.Expect(t, "refreshWork once TMDB deleted it", a.Admin("home", http.MethodPost, refresh, ""), problem(409, "work_gone_upstream", "The metadata source no longer has this Work"))
+	refresh("refreshWorks once TMDB deleted it", `"outcome":"skipped","reason":"work_gone_upstream"`)
 	gone := decode(t, "getWork once gone", a.Admin("home", http.MethodGet, "/api/v1/works/"+work.ID, ""), &movieView{})
 	if gone.GoneUpstreamAt == nil || gone.fields() != revised || gone.ratings() != recounted {
 		t.Fatalf("the gone movie reads goneUpstreamAt %v with fields\n%s\nratings %s\nwant it marked and its record kept", gone.GoneUpstreamAt, gone.fields(), gone.ratings())

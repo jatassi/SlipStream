@@ -124,12 +124,13 @@ test("with two roots the sheet offers each with its free space", async () => {
   await openSheet();
 
   await userEvent.click(sheet().getByRole("combobox", { name: "Library root" }));
+  await expect.element(page.getByRole("option", { name: /^\/mnt\/shelf/u })).toBeVisible();
   expect(
     page
       .getByRole("option")
       .all()
       .map((option) => option.element().textContent),
-  ).toEqual(["/srv/media/films · 1.2 TB free", "/mnt/shelf/films · Not read yet"]);
+  ).toEqual(["/srv/media/films · 1.2 TB free", "/mnt/shelf/films · Free space not read yet"]);
   await userEvent.click(page.getByRole("option", { name: /^\/mnt\/shelf/u }));
   await expect
     .element(sentence())

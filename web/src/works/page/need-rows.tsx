@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 
-import type { FilesUpgradeNeed, FilesWaitingNeed, GrabsGrab } from "../../api/gen/model";
+import type { FilesUpgradeNeed, GrabsGrab } from "../../api/gen/model";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { useStartSearch } from "../../grabs/search";
 import { Button } from "../../ui/button";
@@ -40,12 +40,13 @@ export function Upgrades({
   );
 }
 
-export function Waiting({ need, grab }: { need: FilesWaitingNeed; grab: GrabsGrab | undefined }) {
+/** A Grab whose Node is away, the one reason a Grab waits today. */
+export function Waiting({ grab }: { grab: GrabsGrab | undefined }) {
   const navigate = useNavigate();
   const { nodes } = useListNodesSuspense().data;
   const node = nodes.find(({ id }) => id === grab?.nodeId);
   const release = grab?.releaseTitle ?? "This Work's download";
-  if (need.code !== "node_away" || node === undefined) {
+  if (node === undefined) {
     return (
       <WarningLine
         signal="warn"

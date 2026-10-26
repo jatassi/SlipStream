@@ -61,7 +61,7 @@ const its = ({ one }: Named) => (one ? "its" : "their");
 export type Entry<K extends ActionKind> = {
   readonly post: (workIds: string[], action: WorkAction<K>) => Promise<Answers[K]>;
   /** What the action did to the Works it changed. */
-  readonly done: (named: Named, action: WorkAction<K>) => string;
+  readonly done: (named: Named, action: WorkAction<K>, answer: Answers[K]) => string;
   /** Why it left Works that already read that way as they were. */
   readonly already: (named: Named, action: WorkAction<K>) => string;
   /** The verb after "Couldn't", with the Works after it. */
@@ -100,10 +100,14 @@ export const actions: { readonly [K in ActionKind]: Entry<K> } = {
   },
   delete: {
     post: (workIds, { files }) => deleteWorks({ workIds, files }),
-    done: (named, { files }) =>
-      files === "delete"
+    done: (named, { files }, { plan }) => {
+      if (plan.files === 0) {
+        return `Deleted ${named.words}.`;
+      }
+      return files === "delete"
         ? `Deleted ${named.words} and ${its(named)} files.`
-        : `Deleted ${named.words}. ${named.one ? "Its" : "Their"} files stay on disk.`,
+        : `Deleted ${named.words}. ${named.one ? "Its" : "Their"} files stay on disk.`;
+    },
     already: (named) => `${named.words} ${was(named)} already deleted.`,
     attempt: () => "delete",
   },

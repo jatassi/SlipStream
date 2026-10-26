@@ -17,7 +17,7 @@ A movie's poster, backdrop, title treatment and studio logo, and a person's phot
 ## How to get to it (user POV)
 
 - Desktop and phone shells: the Work page shows the backdrop at `large`, the poster and title treatment at `medium`, and the studio logo and people's photos at `small` (`work-page.md`). Opening an artwork URL with `?size=` in a signed-in tab shows the image.
-- API: `GET /api/v1/works/{id}`, `GET /api/v1/works`, `GET /api/v1/content-types/{contentType}/catalog?query=` (`posterUrl`), then `GET /api/v1/artwork/{token}?size=small|medium|large|original` with the session cookie.
+- API: `GET /api/v1/works/{id}`, `GET /api/v1/library` (`posterUrl`), `GET /api/v1/content-types/{contentType}/catalog?query=` (`posterUrl`), then `GET /api/v1/artwork/{token}?size=small|medium|large|original` with the session cookie.
 
 ## Driving it with fakeworld and playwright cli
 

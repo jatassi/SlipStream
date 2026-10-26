@@ -1112,7 +1112,9 @@ export type FilesUpgradeNeed = zod.input<typeof FilesUpgradeNeed>;
 export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
 export const FilesWaitingNeed = zod.object({
-  code: zod.string().describe("Why the Grab waits, such as needs_transfer"),
+  code: zod
+    .enum(["node_away"])
+    .describe("Why the Grab waits: node_away while its Node is out of step"),
   grabId: zod.uuid(),
   kind: zod.enum(["waiting"]),
 });
@@ -5510,29 +5512,6 @@ export const WorksLibraryRows = zod.object({
 export type WorksLibraryRows = zod.input<typeof WorksLibraryRows>;
 export type WorksLibraryRowsOutput = zod.output<typeof WorksLibraryRows>;
 
-export const worksListedWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
-
-export const WorksListedWork = zod.object({
-  addedAt: zod.iso.datetime({ offset: true }),
-  artwork: zod.array(WorksArt).describe("The Work's own images, by kind"),
-  contentType: zod.string().regex(worksListedWorkContentTypeRegExp),
-  fields: zod.array(WorksFieldValue).describe("The Work's own fields"),
-  goneUpstreamAt: zod.iso
-    .datetime({ offset: true })
-    .nullable()
-    .describe(
-      "When the metadata source last reported that it no longer has this Work; null while it has it",
-    ),
-  id: zod.uuid(),
-  key: zod.string(),
-  label: zod.string(),
-  refreshedAt: zod.iso.datetime({ offset: true }),
-  sortLabel: zod.string(),
-});
-
-export type WorksListedWork = zod.input<typeof WorksListedWork>;
-export type WorksListedWorkOutput = zod.output<typeof WorksListedWork>;
-
 export const worksMonitoredChangeWorkIdsMax = 20000;
 
 export const WorksMonitoredChange = zod.object({
@@ -5725,13 +5704,6 @@ export const WorksTypeSettings = zod.object({
 
 export type WorksTypeSettings = zod.input<typeof WorksTypeSettings>;
 export type WorksTypeSettingsOutput = zod.output<typeof WorksTypeSettings>;
-
-export const WorksWorkList = zod.object({
-  works: zod.array(WorksListedWork).describe("By sort label, then id"),
-});
-
-export type WorksWorkList = zod.input<typeof WorksWorkList>;
-export type WorksWorkListOutput = zod.output<typeof WorksWorkList>;
 
 export const LiveEventDownloadClientsChanged = zod.object({
   event: zod.enum(["download-clients.changed"]),

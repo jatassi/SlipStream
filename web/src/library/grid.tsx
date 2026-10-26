@@ -1,4 +1,5 @@
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useMemo } from "react";
 
 import type { Arranged } from "./arrange";
 import { type GridRow, gridRows } from "./grid-layout";
@@ -78,6 +79,18 @@ function Row({
 }
 
 /**
+ * The grid's rows and the virtualizer's callbacks, which change only with
+ * the Works or the width: the virtualizer lays out every row again whenever
+ * getItemKey changes.
+ */
+function useLayout(arranged: Arranged, perRow: number, width: number) {
+  const layout = useMemo(() => gridRows(arranged, perRow), [arranged, perRow]);
+  const estimateSize = useMemo(() => heightOf(layout.rows, width, perRow), [layout, width, perRow]);
+  const getItemKey = useCallback((index: number) => rowKey(layout.rows[index], index), [layout]);
+  return { layout, estimateSize, getItemKey };
+}
+
+/**
  * The poster grid, drawn only near the window's view so 20,000 Works
  * scroll smoothly, with a heading over each section. Posters load as
  * their row is drawn.
@@ -85,15 +98,15 @@ function Row({
 export function LibraryGrid({ arranged, size, picking }: GridProps) {
   const sized = useWidth<HTMLDivElement>();
   const perRow = Math.max(1, Math.floor((sized.width + gap) / (narrowest[size] + gap)));
-  const layout = gridRows(arranged, perRow);
+  const { layout, estimateSize, getItemKey } = useLayout(arranged, perRow, sized.width);
   const body = useScrollMargin<HTMLDivElement>();
   // oxlint-disable-next-line react/incompatible-library -- this leaf holds the virtualizer so the compiler's bail-out stays here
   const virtualizer = useWindowVirtualizer({
     count: layout.rows.length,
-    estimateSize: heightOf(layout.rows, sized.width, perRow),
+    estimateSize,
     overscan: 3,
     scrollMargin: body.margin,
-    getItemKey: (index) => rowKey(layout.rows[index], index),
+    getItemKey,
   });
   const { tabbable, handlers } = useBrowsing({
     order: arranged.order,

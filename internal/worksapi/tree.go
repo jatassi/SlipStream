@@ -1,13 +1,11 @@
 package worksapi
 
 import (
-	"context"
 	"maps"
 	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
-	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -220,12 +218,4 @@ func treeOf(m artwork.Minter, t works.Tree, timings map[works.ItemID]targets.Tim
 		})
 	}
 	return out
-}
-
-func (h handlers) treeOf(ctx context.Context, by identity.Admin, t works.Tree) (Tree, error) {
-	timings, err := goals(h.shelf).Timings(ctx, by, t.ContentType, t.ID)
-	if err != nil {
-		return Tree{}, err
-	}
-	return treeOf(minter(h.shelf), t, timings), nil
 }
