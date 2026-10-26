@@ -281,7 +281,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	shelf := files.New(files.Config{
-		Library: lib.db, Works: tree, Targets: goals, Grabs: grabs.GrabCells{},
+		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep},
 		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Today:   n.today,
 		Disk:    homes,

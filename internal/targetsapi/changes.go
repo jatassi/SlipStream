@@ -3,6 +3,7 @@ package targetsapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -60,9 +61,22 @@ func (c Changing) Mode() files.Mode {
 // changed answers err from a Change.
 func changed(err error) error {
 	if e, ok := errors.AsType[*files.ImpactChangedError](err); ok {
-		return ImpactChanged.Because(e.Error())
+		return ImpactRefused(e)
 	}
 	return answer(err)
+}
+
+// ImpactRefused is the problem a save that would leave more files
+// unwanted than its preview showed is refused with.
+func ImpactRefused(e *files.ImpactChangedError) error {
+	return ImpactChanged.Because(fmt.Sprintf("The save now leaves %s unwanted, and the preview showed %d. Preview the change again.", filesOf(e.Impact.Unwanted), e.Confirmed))
+}
+
+func filesOf(n int) string {
+	if n == 1 {
+		return "1 file"
+	}
+	return fmt.Sprintf("%d files", n)
 }
 
 type updateTargetInput struct {

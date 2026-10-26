@@ -129,6 +129,8 @@ func (r *Roots) moved() {
 // downloads: offline, or its Storage written off.
 type UnreachableError struct {
 	State State
+	// Node is the Node's name.
+	Node string
 	// Why names the Node and what keeps it, in words.
 	Why string
 }
@@ -158,7 +160,7 @@ func (r *Roots) Reachable(ctx context.Context, rd storage.Reader[file], root Roo
 		return err
 	}
 	if state == WrittenOff {
-		return &UnreachableError{State: state, Why: name + "'s Storage was written off, so the library root there takes no new files."}
+		return &UnreachableError{State: state, Node: name, Why: name + "'s Storage was written off, so the library root there takes no new files."}
 	}
-	return &UnreachableError{State: state, Why: name + " is offline, so the library root there takes no new files."}
+	return &UnreachableError{State: state, Node: name, Why: name + " is offline, so the library root there takes no new files."}
 }

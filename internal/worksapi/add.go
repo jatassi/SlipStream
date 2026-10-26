@@ -59,7 +59,7 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 	if err != nil {
 		return nil, answer(err)
 	}
-	out, err := h.viewOf(ctx, by, a.Tree)
+	out, err := h.view(ctx, by, a.Tree.ID)
 	if err != nil {
 		return nil, err
 	}
