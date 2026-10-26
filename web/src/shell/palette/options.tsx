@@ -9,7 +9,7 @@ import type {
 } from "../../api/gen/model";
 import type { PaletteGroup, PaletteOption } from "../../ui/command-palette";
 import { Poster } from "../../ui/poster";
-import { factTexts } from "../../works/add/sentence";
+import { factTexts } from "../../works/page/facts";
 import { openAddSheet } from "../../works/add/sheet-state";
 import { addLabel, fieldText } from "../../works/fields";
 import type { CommandContext } from "../commands";
