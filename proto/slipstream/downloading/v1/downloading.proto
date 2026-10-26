@@ -54,6 +54,9 @@ message Settings {
   int32 connections = 5;
   bool utp = 6;
   int64 stalled_after_seconds = 7;
+  // dht runs the DHT while the Node holds a torrent or a metadata search
+  // that may use it.
+  bool dht = 8;
 }
 
 // Thresholds decide when a release counts as bad.

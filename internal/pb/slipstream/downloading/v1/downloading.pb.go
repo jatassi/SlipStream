@@ -660,8 +660,11 @@ type Settings struct {
 	Connections         int32 `protobuf:"varint,5,opt,name=connections,proto3" json:"connections,omitempty"`
 	Utp                 bool  `protobuf:"varint,6,opt,name=utp,proto3" json:"utp,omitempty"`
 	StalledAfterSeconds int64 `protobuf:"varint,7,opt,name=stalled_after_seconds,json=stalledAfterSeconds,proto3" json:"stalled_after_seconds,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// dht runs the DHT while the Node holds a torrent or a metadata search
+	// that may use it.
+	Dht           bool `protobuf:"varint,8,opt,name=dht,proto3" json:"dht,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Settings) Reset() {
@@ -741,6 +744,13 @@ func (x *Settings) GetStalledAfterSeconds() int64 {
 		return x.StalledAfterSeconds
 	}
 	return 0
+}
+
+func (x *Settings) GetDht() bool {
+	if x != nil {
+		return x.Dht
+	}
+	return false
 }
 
 // Thresholds decide when a release counts as bad.
@@ -2722,7 +2732,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\aDiscard\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x12!\n" +
-	"\fdelete_files\x18\x03 \x01(\bR\vdeleteFiles\"\x8c\x02\n" +
+	"\fdelete_files\x18\x03 \x01(\bR\vdeleteFiles\"\x9e\x02\n" +
 	"\bSettings\x12%\n" +
 	"\x0edownload_limit\x18\x01 \x01(\x03R\rdownloadLimit\x12!\n" +
 	"\fupload_limit\x18\x02 \x01(\x03R\vuploadLimit\x12)\n" +
@@ -2730,7 +2740,8 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\ractive_checks\x18\x04 \x01(\x05R\factiveChecks\x12 \n" +
 	"\vconnections\x18\x05 \x01(\x05R\vconnections\x12\x10\n" +
 	"\x03utp\x18\x06 \x01(\bR\x03utp\x122\n" +
-	"\x15stalled_after_seconds\x18\a \x01(\x03R\x13stalledAfterSeconds\"v\n" +
+	"\x15stalled_after_seconds\x18\a \x01(\x03R\x13stalledAfterSeconds\x12\x10\n" +
+	"\x03dht\x18\b \x01(\bR\x03dht\"v\n" +
 	"\n" +
 	"Thresholds\x12.\n" +
 	"\x13fault_stall_seconds\x18\x01 \x01(\x03R\x11faultStallSeconds\x128\n" +

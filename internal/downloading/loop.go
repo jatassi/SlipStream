@@ -361,7 +361,8 @@ func (l *loop) configure() {
 	s := l.intent.Intent.GetSettings()
 	limits := engine.Limits{
 		DownloadLimit: s.GetDownloadLimit(), UploadLimit: s.GetUploadLimit(),
-		Connections: int(s.GetConnections()), UTP: s.GetUtp(), WatchIncoming: l.listen.incomingAt.IsZero(),
+		Connections: int(s.GetConnections()), UTP: s.GetUtp(), DHT: s.GetDht() && l.discovering(),
+		WatchIncoming: l.listen.incomingAt.IsZero(),
 	}
 	if l.limits != nil && *l.limits == limits {
 		return
@@ -372,6 +373,22 @@ func (l *loop) configure() {
 	}
 	l.limits = &limits
 }
+
+// discovering reports whether the engine holds a torrent that may use
+// the DHT, which runs only then.
+func (l *loop) discovering() bool {
+	for _, t := range l.torrents {
+		if t.handle != 0 && mayDiscover(t.Private) {
+			return true
+		}
+	}
+	return false
+}
+
+// mayDiscover is the one privacy rule: whether a torrent may find peers
+// through the DHT and peer exchange. A torrent whose info dictionary the
+// client has may unless it's private.
+func mayDiscover(private bool) bool { return !private }
 
 func (l *loop) list(id, hash []byte) *torrent {
 	h := bencode.InfoHash(hash)
@@ -395,7 +412,7 @@ func (l *loop) addFromResume(t *torrent) {
 	if !ok || row.Resume == nil {
 		return
 	}
-	handle, err := l.eng.Add(engine.AddParams{Resume: row.Resume, SavePath: row.SaveFolder})
+	handle, err := l.eng.Add(engine.AddParams{Resume: row.Resume, SavePath: row.SaveFolder, Discover: mayDiscover(row.Private)})
 	if err != nil {
 		l.c.cfg.Log.Warn("can't add a torrent from its resume data, so the Node fetches it again", "info_hash", t.Hash.String(), "err", err.Error())
 		return
@@ -441,7 +458,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	}
 	b := res.GetBaseline()
 	handle, err := l.eng.Add(engine.AddParams{
-		Metainfo: res.GetMetainfo(), SavePath: t.folder,
+		Metainfo: res.GetMetainfo(), SavePath: t.folder, Discover: mayDiscover(t.Private),
 		Baseline: engine.Totals{
 			Uploaded: b.GetUploaded(), Downloaded: b.GetDownloaded(),
 			Active: time.Duration(b.GetActiveSeconds()) * time.Second, Seeding: time.Duration(b.GetSeedingSeconds()) * time.Second,
@@ -469,6 +486,7 @@ func (l *loop) settle(now time.Time) {
 	if l.intent.Intent != nil {
 		l.decide(now)
 		l.noPayload(now)
+		l.configure()
 	}
 	l.report(now)
 	l.publish()
