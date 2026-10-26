@@ -2,7 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 
 import { isProblem } from "../../api/errors";
 import type { DownloadclientsClientCard as Card, SystemNodeConfig } from "../../api/gen/model";
-import { getGetNodeConfigQueryKey, getNodeConfig } from "../../api/gen/query/system/system";
+import {
+  type GetNodeConfigSuspenseQueryError,
+  getGetNodeConfigQueryKey,
+  getNodeConfig,
+} from "../../api/gen/query/system/system";
 import { bytes } from "../../format";
 import { NodeSettingField, PendingRestart, settingOf } from "../../nodes/node-setting";
 import { Button } from "../../ui/button";
@@ -36,7 +40,7 @@ function Folder({ nodeId, config }: { nodeId: string; config: SystemNodeConfig }
 }
 
 function DownloadsFolder({ card }: { card: Card }) {
-  const config = useQuery({
+  const config = useQuery<SystemNodeConfig, GetNodeConfigSuspenseQueryError>({
     queryKey: getGetNodeConfigQueryKey(card.nodeId),
     queryFn: ({ signal }) => getNodeConfig(card.nodeId, { signal }),
     retryOnMount: false,
