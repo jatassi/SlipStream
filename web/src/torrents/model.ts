@@ -190,12 +190,15 @@ export function rateWords(bps: number): string {
   return bps < 1024 ? `${(bps / 1024).toFixed(1)} KB/s` : `${bytes(bps)}/s`;
 }
 
+/** Time left, in whole minutes rounded up: "2 min left". */
+export const leftWords = (seconds: number): string =>
+  `${lengthWords(Math.ceil(seconds / 60) * 60_000)} left`;
+
 function etaWords(live: LiveRow): string {
   if (live.downBps <= 0 || live.done >= live.wanted) {
     return "";
   }
-  const minutes = Math.ceil((live.wanted - live.done) / live.downBps / 60);
-  return `${lengthWords(minutes * 60_000)} left`;
+  return leftWords((live.wanted - live.done) / live.downBps);
 }
 
 /**
