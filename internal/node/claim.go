@@ -298,10 +298,17 @@ func (s surfaceNode) FirstRun() (*firstrun.FirstRun, bool) {
 	return h.firstRun, true
 }
 
-// FirstRunOpen reads first setup, which only a Controller, the one claim
-// with sessions, has.
+var errControllerNotRunning = errors.New("the Controller isn't running")
+
+// FirstRunOpen reads first setup, which only a running Controller has. A
+// claim writes its Admin before the Controller half starts, so a sign-in
+// can land in between.
 func (s surfaceNode) FirstRunOpen(ctx context.Context) (bool, error) {
-	return s.n.half.Load().firstRun.IsOpen(ctx)
+	f, ok := s.FirstRun()
+	if !ok {
+		return false, errControllerNotRunning
+	}
+	return f.IsOpen(ctx)
 }
 
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {

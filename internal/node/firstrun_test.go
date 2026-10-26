@@ -1,6 +1,7 @@
 package node
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -23,5 +24,12 @@ func TestTheFirstRunStepsMatchTheirIDsAndEvents(t *testing.T) {
 	}
 	if !slices.Equal(ids, firstrun.IDs()) {
 		t.Errorf("the list binds %q, want firstrun.IDs %q in order", ids, firstrun.IDs())
+	}
+}
+
+func TestFirstRunOpenRefusesBeforeTheControllerHalfStarts(t *testing.T) {
+	open, err := surfaceNode{n: &Node{}}.FirstRunOpen(t.Context())
+	if open || !errors.Is(err, errControllerNotRunning) {
+		t.Fatalf("FirstRunOpen with no half = %t, %v; want false, errControllerNotRunning", open, err)
 	}
 }
