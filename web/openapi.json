@@ -2018,8 +2018,7 @@
               "transfer_failed",
               "import_failed",
               "node_written_off",
-              "root_changed",
-              "needs_transfer"
+              "root_changed"
             ],
             "type": "string"
           },
@@ -2068,7 +2067,7 @@
             ]
           },
           "history": {
-            "description": "Each stage it entered, oldest first",
+            "description": "Each stage it entered, when it last entered it, oldest first",
             "items": {
               "$ref": "#/components/schemas/GrabsEntered"
             },

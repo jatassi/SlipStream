@@ -1133,7 +1133,6 @@ export const GrabsFailure = zod.object({
     "import_failed",
     "node_written_off",
     "root_changed",
-    "needs_transfer",
   ]),
   message: zod.string(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
@@ -1169,7 +1168,9 @@ export const GrabsGrab = zod.object({
     .uuid()
     .nullable()
     .describe("The Searching Node that fetched the .torrent, null until it did"),
-  history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
+  history: zod
+    .array(GrabsEntered)
+    .describe("Each stage it entered, when it last entered it, oldest first"),
   id: zod.uuid(),
   indexerId: zod.uuid(),
   infoHash: zod

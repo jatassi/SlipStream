@@ -15,7 +15,7 @@ export interface GrabsGrab {
    * @nullable
    */
   fetchNodeId: string | null;
-  /** Each stage it entered, oldest first */
+  /** Each stage it entered, when it last entered it, oldest first */
   history: GrabsEntered[];
   id: string;
   indexerId: string;
