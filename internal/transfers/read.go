@@ -3,6 +3,7 @@ package transfers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -89,4 +90,28 @@ func (t *Transfers) Speeds(ctx context.Context) ([]Pair, error) {
 		}
 	}
 	return out, nil
+}
+
+// JobNames is the name in words of each of vs' jobs, by Transfer, as its
+// purpose's Names reads it.
+func (t *Transfers) JobNames(ctx context.Context, vs []View) (map[ID]string, error) {
+	jobs := map[PurposeKind][]string{}
+	for _, v := range vs {
+		jobs[v.Purpose] = append(jobs[v.Purpose], v.Job)
+	}
+	out := make(map[ID]string, len(vs))
+	err := t.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[storage.Library]) error {
+		names := map[PurposeKind]map[string]string{}
+		for kind, js := range jobs {
+			var err error
+			if names[kind], err = t.purposes[kind].Names(ctx, rd, js); err != nil {
+				return fmt.Errorf("name the %s jobs: %w", kind, err)
+			}
+		}
+		for _, v := range vs {
+			out[v.ID] = names[v.Purpose][v.Job]
+		}
+		return nil
+	})
+	return out, err
 }

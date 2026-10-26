@@ -2937,9 +2937,17 @@ export type NodesLinkOutput = zod.output<typeof NodesLink>;
 
 export const NodesLinkTraffic = zod.object({
   a: zod.uuid().describe("The Controller"),
-  abBps: zod.int().describe("Bytes a second from a to b, TLS records included"),
+  abBps: zod
+    .int()
+    .describe(
+      "Bytes a second from a to b over the link and their Transfer lanes, TLS records included",
+    ),
   b: zod.uuid().describe("The Worker"),
-  baBps: zod.int().describe("Bytes a second from b to a, TLS records included"),
+  baBps: zod
+    .int()
+    .describe(
+      "Bytes a second from b to a over the link and their Transfer lanes, TLS records included",
+    ),
   rttMs: zod.int().describe("The link's round trip; 0 until its first ping is answered"),
 });
 
@@ -4739,6 +4747,182 @@ export const TransfersChanged = zod.object({
 
 export type TransfersChanged = zod.input<typeof TransfersChanged>;
 export type TransfersChangedOutput = zod.output<typeof TransfersChanged>;
+
+export const TransfersDestination = zod.object({
+  kind: zod.enum(["root"]).describe("root is a library root"),
+  nodeId: zod.uuid().describe("The Node that holds the root now"),
+  nodeName: zod.string(),
+  rootId: zod.uuid(),
+});
+
+export type TransfersDestination = zod.input<typeof TransfersDestination>;
+export type TransfersDestinationOutput = zod.output<typeof TransfersDestination>;
+
+export const transfersDetailsLanesMin = 0;
+
+export const transfersDetailsRetriedMin = 0;
+
+export const transfersDetailsRttMsMin = 0;
+
+export const TransfersDetails = zod.object({
+  lanes: zod.int().min(transfersDetailsLanesMin).describe("Connections that carry its chunks now"),
+  retried: zod
+    .int()
+    .min(transfersDetailsRetriedMin)
+    .describe("Chunks asked for again since the receiving Node last started it"),
+  rttMs: zod.int().min(transfersDetailsRttMsMin).describe("The lanes' round trip"),
+});
+
+export type TransfersDetails = zod.input<typeof TransfersDetails>;
+export type TransfersDetailsOutput = zod.output<typeof TransfersDetails>;
+
+export const TransfersEnd = zod.object({
+  nodeId: zod.uuid(),
+  nodeName: zod.string(),
+});
+
+export type TransfersEnd = zod.input<typeof TransfersEnd>;
+export type TransfersEndOutput = zod.output<typeof TransfersEnd>;
+
+export const transfersFilePositionMin = 0;
+
+export const transfersFileSizeMin = 0;
+
+export const TransfersFile = zod.object({
+  name: zod.string(),
+  placed: zod.boolean().describe("Its job moved it to where it belongs"),
+  position: zod.int().min(transfersFilePositionMin),
+  size: zod.int().min(transfersFileSizeMin).describe("Bytes"),
+  verified: zod.boolean().describe("Every byte is verified at the destination"),
+});
+
+export type TransfersFile = zod.input<typeof TransfersFile>;
+export type TransfersFileOutput = zod.output<typeof TransfersFile>;
+
+export const TransfersSettings = zod.object({
+  sendLimit: SettingRateField,
+});
+
+export type TransfersSettings = zod.input<typeof TransfersSettings>;
+export type TransfersSettingsOutput = zod.output<typeof TransfersSettings>;
+
+export const TransfersSettingsPatch = zod.object({
+  sendLimit: zod
+    .int()
+    .nullish()
+    .describe("Bytes a second, 0 for no limit; null resets it to its default"),
+});
+
+export type TransfersSettingsPatch = zod.input<typeof TransfersSettingsPatch>;
+export type TransfersSettingsPatchOutput = zod.output<typeof TransfersSettingsPatch>;
+
+export const transfersSpeedRateMin = 0;
+
+export const TransfersSpeed = zod.object({
+  destinationNodeId: zod.uuid(),
+  rate: zod
+    .int()
+    .min(transfersSpeedRateMin)
+    .describe("Bytes a second, the speed of the last Transfer from the source to the destination"),
+  rateAt: zod.iso.datetime({ offset: true }),
+  route: zod
+    .enum(["receiver_dials", "sender_dials", "node_link"])
+    .exactOptional()
+    .describe("The last route that moved bytes; absent while none has"),
+  routeAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  sourceNodeId: zod.uuid(),
+});
+
+export type TransfersSpeed = zod.input<typeof TransfersSpeed>;
+export type TransfersSpeedOutput = zod.output<typeof TransfersSpeed>;
+
+export const TransfersSpeedList = zod.object({
+  speeds: zod
+    .array(TransfersSpeed)
+    .describe("One for each source and destination that a Transfer moved bytes between"),
+});
+
+export type TransfersSpeedList = zod.input<typeof TransfersSpeedList>;
+export type TransfersSpeedListOutput = zod.output<typeof TransfersSpeedList>;
+
+export const TransfersWait = zod.object({
+  kind: zod.enum([
+    "node_away",
+    "node_other_build",
+    "connecting",
+    "no_route",
+    "root_not_ready",
+    "storage_draining",
+    "source_checking",
+    "source_not_ready",
+  ]),
+  nodeId: zod.uuid().describe("The Node it waits for"),
+});
+
+export type TransfersWait = zod.input<typeof TransfersWait>;
+export type TransfersWaitOutput = zod.output<typeof TransfersWait>;
+
+export const transfersTransferEstimateSecondsMin = 0;
+
+export const transfersTransferRateMin = 0;
+
+export const transfersTransferTotalMin = 0;
+
+export const transfersTransferVerifiedMin = 0;
+
+export const TransfersTransfer = zod.object({
+  destination: TransfersDestination,
+  details: TransfersDetails,
+  estimateSeconds: zod
+    .int()
+    .min(transfersTransferEstimateSecondsMin)
+    .describe("Seconds until its files are verified; 0 while unknown"),
+  files: zod.array(TransfersFile).describe("In the order they copy"),
+  id: zod.uuid(),
+  job: zod.string().describe("The id of the job that asked for it, such as its Grab's"),
+  jobName: zod.string().describe("The job's name, such as a Work's title and year"),
+  purpose: zod.enum(["grab"]).describe("The kind of job that asked for it"),
+  rate: zod
+    .int()
+    .min(transfersTransferRateMin)
+    .describe(
+      "Bytes a second it copies at, else the last speed between its two Nodes; 0 while unknown",
+    ),
+  reason: zod
+    .string()
+    .exactOptional()
+    .describe("Why it isn't copying, as a sentence; absent while it copies"),
+  route: zod
+    .enum(["receiver_dials", "sender_dials", "node_link"])
+    .exactOptional()
+    .describe(
+      "Which Node opens its lanes, or node_link when they run over the Node link; absent unless it's first in line",
+    ),
+  source: TransfersEnd.describe("The Node it copies from"),
+  state: zod
+    .enum(["queued", "waiting", "needs_space", "copying", "failed"])
+    .describe(
+      "copying also covers files that are all verified and wait for their job to place them",
+    ),
+  total: zod.int().min(transfersTransferTotalMin).describe("Bytes"),
+  verified: zod
+    .int()
+    .min(transfersTransferVerifiedMin)
+    .describe("Bytes verified at the destination"),
+  wait: TransfersWait.exactOptional().describe(
+    "What it waits for; absent unless its state is waiting",
+  ),
+});
+
+export type TransfersTransfer = zod.input<typeof TransfersTransfer>;
+export type TransfersTransferOutput = zod.output<typeof TransfersTransfer>;
+
+export const TransfersTransferList = zod.object({
+  transfers: zod.array(TransfersTransfer).describe("Oldest first"),
+});
+
+export type TransfersTransferList = zod.input<typeof TransfersTransferList>;
+export type TransfersTransferListOutput = zod.output<typeof TransfersTransferList>;
 
 export const WorksArt = zod.object({
   kind: zod.string().describe("An artwork kind of the Content Type"),
