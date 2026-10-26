@@ -52,9 +52,14 @@ type cluster struct {
 	homeEnd       *nodeEnd
 	seedboxEnd    *nodeEnd
 	published     *published
+	// stop stops the Controller's loop.
+	stop func()
 
 	mu      sync.Mutex
 	touched []role.NodeID
+	// paused, while set, holds the loop at its next wake, before it judges.
+	paused chan struct{}
+	held   bool
 }
 
 func (r *cluster) Self() role.NodeID { return r.home }
@@ -241,7 +246,16 @@ func newCluster(t *testing.T) *cluster {
 			}
 			return out, err
 		},
-		RootsMoved: func() <-chan struct{} { return nil },
+		RootsMoved: func() <-chan struct{} {
+			r.mu.Lock()
+			paused := r.paused
+			r.held = paused != nil
+			r.mu.Unlock()
+			if paused != nil {
+				<-paused
+			}
+			return nil
+		},
 		Readiness: func(_ context.Context, _ storage.Reader[storage.Library], _ role.NodeID, refs []source.Ref) (map[source.Ref]source.Readiness, error) {
 			out := map[source.Ref]source.Readiness{}
 			for _, ref := range refs {
@@ -273,17 +287,44 @@ func newCluster(t *testing.T) *cluster {
 	r.hold(t, r.homeEnd, role.InProcess(r.controls))
 	r.hold(t, r.seedboxEnd, role.OverLink(r.pair.Worker.Link, r.pair.Controller.Key, linktest.Timings))
 	r.pair.Connect(t)
+	r.stop = r.run(t)
+	synctest.Wait()
+	return r
+}
+
+// run starts the Controller's loop and returns what stops it.
+func (r *cluster) run(t *testing.T) (stop func()) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- r.tr.Run(ctx) }()
-	t.Cleanup(func() {
+	stop = sync.OnceFunc(func() {
 		cancel()
 		if err := <-done; err != nil {
 			t.Error(err)
 		}
 	})
-	synctest.Wait()
-	return r
+	t.Cleanup(stop)
+	return stop
+}
+
+// pause holds the loop at its next wake, before it judges, until resume.
+func (r *cluster) pause() (resume func(t *testing.T)) {
+	paused := make(chan struct{})
+	r.mu.Lock()
+	r.paused = paused
+	r.mu.Unlock()
+	return func(t *testing.T) {
+		t.Helper()
+		r.mu.Lock()
+		held := r.held
+		r.paused, r.held = nil, false
+		r.mu.Unlock()
+		if !held {
+			t.Fatal("the loop never woke while paused")
+		}
+		close(paused)
+	}
 }
 
 func (r *cluster) exec(t *testing.T, query string, args ...any) {
@@ -480,6 +521,59 @@ func TestCancelDeletesTheRecordAndBothEndsLetGo(t *testing.T) {
 		if in, _ := r.homeEnd.now(); len(in.GetKeep()) != 0 {
 			t.Errorf("home keeps %x, want nothing", in.GetKeep())
 		}
+	})
+}
+
+// TestALoopStartedAfterACancelLetsGo cancels a Transfer while the loop is
+// down, as when the Controller restarts after its Nodes' sessions derived
+// their intents: the loop's first pass lets both ends go.
+func TestALoopStartedAfterACancelLetsGo(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		id := r.start(t, "heat", "")
+		r.stop()
+		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, id) }); err != nil {
+			t.Fatal(err)
+		}
+		r.tr.Touch()
+		r.run(t)
+		synctest.Wait()
+		check(t, "seedbox runs", r.seedboxEnd.actives(), nil)
+		if in, _ := r.homeEnd.now(); len(in.GetKeep()) != 0 {
+			t.Errorf("home keeps %x, want nothing", in.GetKeep())
+		}
+		r.fresh(t)
+	})
+}
+
+// TestANodeThatDerivesBetweenPassesLetsGo starts and cancels a Transfer
+// while the loop is busy, and seedbox's session derives in between: the
+// loop's next judgment matches its last, yet seedbox lets go.
+func TestANodeThatDerivesBetweenPassesLetsGo(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		resume := r.pause()
+		var id transfers.ID
+		req := transfers.Request{Purpose: transfers.Grab, Job: "heat", Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: []transfers.FileRequest{{Name: "heat.mkv", Source: source.Torrent{Hash: bencode.InfoHash{1}}, Size: 1 << 20}}}
+		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			var err error
+			id, err = r.tr.Start(ctx, tx, req)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		r.tr.Touch()
+		r.controls.Touch(r.seedbox)
+		synctest.Wait()
+		check(t, "seedbox runs after its session derived", r.seedboxEnd.actives(), []string{"send 0"})
+		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, id) }); err != nil {
+			t.Fatal(err)
+		}
+		r.tr.Touch()
+		resume(t)
+		synctest.Wait()
+		check(t, "seedbox runs", r.seedboxEnd.actives(), nil)
+		r.fresh(t)
 	})
 }
 
