@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -271,6 +272,14 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 		return nil, false
 	}
 	return h.clients, true
+}
+
+func (s surfaceNode) Transfers() (*transfers.Transfers, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.transfers == nil {
+		return nil, false
+	}
+	return h.transfers, true
 }
 
 func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {

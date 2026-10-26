@@ -22,8 +22,8 @@ type Traffic struct {
 type LinkTraffic struct {
 	A     string `json:"a" format:"uuid" doc:"The Controller"`
 	B     string `json:"b" format:"uuid" doc:"The Worker"`
-	ABBps int64  `json:"abBps" doc:"Bytes a second from a to b, TLS records included"`
-	BABps int64  `json:"baBps" doc:"Bytes a second from b to a, TLS records included"`
+	ABBps int64  `json:"abBps" doc:"Bytes a second from a to b over the link and their Transfer lanes, TLS records included"`
+	BABps int64  `json:"baBps" doc:"Bytes a second from b to a over the link and their Transfer lanes, TLS records included"`
 	RTTMs int64  `json:"rttMs" doc:"The link's round trip; 0 until its first ping is answered"`
 }
 
