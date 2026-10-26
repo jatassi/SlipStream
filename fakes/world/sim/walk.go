@@ -36,9 +36,11 @@ const PayloadSize = 4*transfers.ChunkSize + transfers.ChunkSize/2
 // WithWalk runs the skeleton's walk on a Scenario with releases and a
 // library: every Node registers the movie type, fake-tmdb, fake-omdb and
 // fixture-site serve on the network at 127.0.0.1, each Node's engine
-// finishes a seeded release at once with its Payload, each Node probes a
-// release's file at its video's size, and the library is seeded once the
-// Nodes are set up.
+// finishes a seeded release at once with its Payload, its swarm sends a
+// public seeded release's metadata to a magnet link that reaches it
+// through the World's tracker or DHT, each Node probes a release's file
+// at its video's size, and the library is seeded once the Nodes are set
+// up.
 func WithWalk() Option { return func(o *options) { o.walk = true } }
 
 // Listed edits each release fixture-site lists.
@@ -61,11 +63,15 @@ func Payload(release string) []byte {
 type walk struct {
 	mediaDir string
 	site     fake.Address
+	announce string
 	payloads map[bencode.InfoHash][]byte
-	hashes   map[string]bencode.InfoHash
-	probes   map[string]media.Probe
-	cancel   context.CancelFunc
-	done     []chan error
+	// served are the public seeded releases, whose seeders send their
+	// metadata to a magnet link.
+	served []bencode.Metainfo
+	hashes map[string]bencode.InfoHash
+	probes map[string]media.Probe
+	cancel context.CancelFunc
+	done   []chan error
 }
 
 // startWalk serves the walk's fakes on local and points endpoints at them.
@@ -84,6 +90,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		imdb[m.ID] = m.IMDbID
 	}
 	announce := "https://127.0.0.1/announce/" + releases.Passkey(s)
+	w.announce = announce
 	var listing []site.Release
 	for _, r := range s.Releases {
 		payload := Payload(r.Name)
@@ -95,6 +102,13 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		if r.Seeded {
 			w.payloads[hash] = payload
 		}
+		if r.Seeded && r.Public {
+			m, err := bencode.DecodeMetainfo(meta)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.served = append(w.served, m)
+		}
 		w.probes[r.Name+".mkv"] = media.Probe{
 			Duration: time.Duration(r.Video.Seconds) * time.Second, Container: "matroska", Codec: "h264", Width: r.Video.Width, Height: r.Video.Height,
 		}
@@ -104,6 +118,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		}
 		item := site.Release{
 			Name: r.Name, Size: size, InfoHash: hash.String(), TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: meta,
+			Link: r.Link, Trackerless: r.Trackerless,
 		}
 		if listed != nil {
 			listed(&item)
@@ -137,6 +152,10 @@ func (w *walk) serve(ctx context.Context, t *testing.T, local *fault.Host, serve
 	return fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String())}
 }
 
+// Announce is the tracker URL the walk's torrents and magnet links name,
+// which each Node's swarm runs.
+func (w *World) Announce() string { return w.walk.announce }
+
 // InfoHash is the walk's torrent of release.
 func (w *World) InfoHash(release string) bencode.InfoHash { return w.walk.hashes[release] }
 
@@ -155,8 +174,12 @@ func (w *walk) env(n *Node, e *node.Env) {
 	e.Types = contenttype.NewSet(movie.Def)
 	e.Engine = func(cfg engine.Config) (engine.Engine, error) {
 		swarm := enginetest.NewWorld()
+		swarm.Tracker(w.announce, enginetest.TrackerRules{Interval: 30 * time.Minute})
 		for h, payload := range w.payloads {
 			swarm.Payload(h, payload)
+		}
+		for _, m := range w.served {
+			swarm.Serve(m)
 		}
 		n.mu.Lock()
 		n.swarm = swarm
