@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
 // bindFronts binds every front before any fake is built, since the
@@ -198,6 +199,9 @@ func (r *Run) endpoints(name string) (node.EndpointsBlock, error) {
 		listed[k.Key] = true
 	}
 	e := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
+	// No fake serves the DHT yet, so Nodes bootstrap from loopback's
+	// discard port, where nothing responds.
+	e.Torrent.DHTRouters = []endpoint.HostPort{endpoint.MustParseHostPort("127.0.0.1:9")}
 	for _, f := range r.fakes {
 		at, _ := r.table.Find(fault.Target(f.spec.Name), name)
 		f.spec.Endpoints(&e, at)
