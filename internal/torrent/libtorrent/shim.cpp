@@ -327,13 +327,14 @@ void remove_save_path(std::string const& save_path, lts_error* err) {
 	if (ec) fill(err, LTS_CATEGORY_SYSTEM, ec.value(), ec.message());
 }
 
-// tracker_index is url's index in h's tracker list.
+// tracker_index is url's index in h's tracker list, -1 when the list has
+// no such URL.
 int32_t tracker_index(lt::torrent_handle const& h, std::string const& url) {
 	std::vector<lt::announce_entry> const trackers = h.trackers();
 	for (std::size_t i = 0; i < trackers.size(); ++i) {
 		if (trackers[i].url == url) return int32_t(i);
 	}
-	throw std::logic_error("an alert's tracker is not in its torrent's list");
+	return -1;
 }
 
 // metadata is h's torrent_info, which libtorrent leaves null until the
@@ -479,6 +480,7 @@ void convert(lts_session* s, lt::alert* a) {
 		o.torrent = torrent(ta);
 		if (o.torrent == 0) return;
 		o.tracker = tracker_index(ta->handle, ta->tracker_url());
+		if (o.tracker < 0) return;
 		o.event = announce_event(ta->event);
 		o.at_ms = unix_ms(ta->timestamp());
 		break;
@@ -490,6 +492,7 @@ void convert(lts_session* s, lt::alert* a) {
 		o.torrent = torrent(tr);
 		if (o.torrent == 0) return;
 		o.tracker = tracker_index(tr->handle, tr->tracker_url());
+		if (o.tracker < 0) return;
 		o.at_ms = unix_ms(tr->timestamp());
 		break;
 	}
@@ -499,6 +502,7 @@ void convert(lts_session* s, lt::alert* a) {
 		o.torrent = torrent(tw);
 		if (o.torrent == 0) return;
 		o.tracker = tracker_index(tw->handle, tw->tracker_url());
+		if (o.tracker < 0) return;
 		set_text(&o, tw->warning_message());
 		break;
 	}
@@ -509,6 +513,7 @@ void convert(lts_session* s, lt::alert* a) {
 		o.torrent = torrent(te);
 		if (o.torrent == 0) return;
 		o.tracker = tracker_index(te->handle, te->tracker_url());
+		if (o.tracker < 0) return;
 		o.times = te->times_in_row;
 		o.at_ms = unix_ms(te->timestamp());
 		fill(&o.error, te->error);
