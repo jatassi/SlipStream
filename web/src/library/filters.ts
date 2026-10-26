@@ -34,7 +34,6 @@ export type RangeGroup = {
   readonly numberOf: (work: LibraryWork) => number | undefined;
 };
 
-/** Keeps the Works that have it. */
 export type FlagGroup = {
   readonly kind: "flag";
   readonly key: FilterKey;
