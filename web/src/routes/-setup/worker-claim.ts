@@ -62,6 +62,7 @@ export function useJoinOutcome(
     if (code === "setup_code_wrong") {
       restarted();
     } else if (code === "already_claimed") {
+      forgetSetupCode();
       void navigate({ to: "/" });
     }
   }, [code, navigate, restarted]);

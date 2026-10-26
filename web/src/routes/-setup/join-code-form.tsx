@@ -46,6 +46,9 @@ function useJoinForm({ code, restarted }: FormProps, { waiting, refused }: Outco
         } else if (next === "retry") {
           formApi.setErrorMap({ onSubmit: { form: text, fields: {} } });
         } else {
+          if (next === "sign-in") {
+            forgetSetupCode();
+          }
           refused(error.code);
         }
       }

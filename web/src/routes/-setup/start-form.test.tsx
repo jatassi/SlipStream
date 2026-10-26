@@ -50,6 +50,7 @@ test("a lost race to claim says someone set the Node up and offers Sign in", asy
   await fillStart("1234");
   await expect.element(page.getByText("Someone has already set up this Node.")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  expect(readPref("setupCode")).toBe("");
 });
 
 test("Start a new SlipStream is refused while a Join waits, with a way back to the wait", async () => {

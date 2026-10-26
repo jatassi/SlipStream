@@ -1,4 +1,4 @@
-import { HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -60,6 +60,27 @@ test("a reload while waiting for the dial resumes the wait", async () => {
   await expect.element(page.getByLabelText("Node address")).toHaveValue("SLN1-8F2KQ9XD4HBT");
 });
 
+test("a Node claimed elsewhere while this tab waits for the dial forgets the Setup code", async () => {
+  writePref("setupCode", rightCode);
+  const server = unclaimedNode();
+  server.node.join = awaiting;
+  let claimed = false;
+  const { router } = renderApp({
+    path: "/setup",
+    handlers: [
+      http.get("*/api/v1/setup/worker", () =>
+        claimed ? problem(409, "already_claimed", "This Node is already set up") : undefined,
+      ),
+      ...server.handlers,
+    ],
+  });
+  await expect.element(page.getByLabelText("Node address")).toHaveValue("SLN1-8F2KQ9XD4HBT");
+  claimed = true;
+  server.node.claim = "worker";
+  await expect.poll(() => router.state.location.pathname, { timeout: 5000 }).not.toBe("/setup");
+  expect(readPref("setupCode")).toBe("");
+});
+
 const refusals = [
   [
     422,
@@ -106,6 +127,7 @@ test.each(refusals)(
     renderApp({ path: "/setup", handlers: server.handlers });
     await join();
     await expect.element(page.getByText(sentence)).toBeVisible();
+    expect(readPref("setupCode")).toBe(code === "already_claimed" ? "" : rightCode);
   },
 );
 

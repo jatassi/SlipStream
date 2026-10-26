@@ -36,7 +36,10 @@ export function useStartForm(
       } catch (error) {
         if (isProblem(error, "setup_code_wrong")) {
           restarted();
-        } else if (isProblem(error, "already_claimed") || isProblem(error, "join_pending")) {
+        } else if (isProblem(error, "already_claimed")) {
+          forgetSetupCode();
+          refuse(error.code);
+        } else if (isProblem(error, "join_pending")) {
           refuse(error.code);
         } else {
           formApi.setErrorMap({
