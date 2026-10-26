@@ -141,7 +141,8 @@ func memberSession(t *testing.T, a *worldtest.API, as func(method, path, body st
 	var got struct {
 		FirstRun *string `json:"firstRun"`
 	}
-	if decode(t, "getSession as a Member", a.Signed("home", session, http.MethodGet, "/api/v1/session", ""), &got); got.FirstRun != nil {
+	decode(t, "getSession as a Member", a.Signed("home", session, http.MethodGet, "/api/v1/session", ""), &got)
+	if got.FirstRun != nil {
 		t.Fatalf("a Member's session carries firstRun %q", *got.FirstRun)
 	}
 	return session

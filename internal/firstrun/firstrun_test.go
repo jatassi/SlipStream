@@ -35,10 +35,10 @@ func steps(roots, media *atomic.Bool) []firstrun.Step {
 	var out []firstrun.Step
 	for _, id := range firstrun.IDs() {
 		s := firstrun.Step{ID: id}
-		switch id {
-		case firstrun.RootsID:
+		if id == firstrun.RootsID {
 			s.Done, s.Events = fact(roots), []live.Event{pokedEvent}
-		case firstrun.MediaID:
+		}
+		if id == firstrun.MediaID {
 			s.Shows = fact(media)
 		}
 		out = append(out, s)
@@ -61,10 +61,11 @@ func newWorld(t *testing.T, lib *storage.DB[storage.Library]) *world {
 	return w
 }
 
-func view(open bool, states ...any) firstrun.View {
+// view shows ids, each in the state at its index in states.
+func view(open bool, ids []firstrun.StepID, states ...firstrun.State) firstrun.View {
 	v := firstrun.View{Open: open, Steps: []firstrun.StepView{}}
-	for i := 0; i < len(states); i += 2 {
-		v.Steps = append(v.Steps, firstrun.StepView{ID: states[i].(firstrun.StepID), State: states[i+1].(firstrun.State)})
+	for i, id := range ids {
+		v.Steps = append(v.Steps, firstrun.StepView{ID: id, State: states[i]})
 	}
 	return v
 }
@@ -91,20 +92,22 @@ func TestNewPanicsUnlessTheStepsAreIDs(t *testing.T) {
 func TestFirstSetupIsOpenUntilFinishedAndThenSkipsWhatIsLeft(t *testing.T) {
 	ctx := t.Context()
 	w := newWorld(t, storagetest.Library(t, identity.Schema(), firstrun.Schema()))
-	a, p, l, r, d, g := firstrun.AddressID, firstrun.PasskeyID, firstrun.LanguageID, firstrun.RootsID, firstrun.DownloadsID, firstrun.TargetsID
+	a, r, l := firstrun.AddressID, firstrun.RootsID, firstrun.LanguageID
+	six := []firstrun.StepID{a, firstrun.PasskeyID, l, r, firstrun.DownloadsID, firstrun.TargetsID}
+	seven := firstrun.IDs()
 	todo, done, skipped := firstrun.StateTodo, firstrun.StateDone, firstrun.StateSkipped
 
 	got, err := w.fr.View(ctx)
-	if want := view(true, a, todo, p, todo, l, todo, r, todo, d, todo, g, todo); err != nil || !reflect.DeepEqual(got, want) {
+	if want := view(true, six, todo, todo, todo, todo, todo, todo); err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("a fresh View = %+v, %v; want %+v", got, err, want)
 	}
-	if got, err = w.fr.Set(ctx, a, firstrun.OutcomeDone); err != nil {
+	if _, err = w.fr.Set(ctx, a, firstrun.OutcomeDone); err != nil {
 		t.Fatal(err)
 	}
 	if got, err = w.fr.Set(ctx, r, firstrun.OutcomeSkipped); err != nil {
 		t.Fatal(err)
 	}
-	if want := view(true, a, done, p, todo, l, todo, r, skipped, d, todo, g, todo); !reflect.DeepEqual(got, want) {
+	if want := view(true, six, done, todo, todo, skipped, todo, todo); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Set = %+v, want %+v", got, want)
 	}
 	if w.published.n.Load() != 2 {
@@ -117,7 +120,7 @@ func TestFirstSetupIsOpenUntilFinishedAndThenSkipsWhatIsLeft(t *testing.T) {
 	w.roots.Store(true)
 	w.media.Store(true)
 	got, _ = w.fr.View(ctx)
-	if want := view(true, a, done, p, todo, firstrun.MediaID, todo, l, todo, r, done, d, todo, g, todo); !reflect.DeepEqual(got, want) {
+	if want := view(true, seven, done, todo, todo, todo, done, todo, todo); !reflect.DeepEqual(got, want) {
 		t.Fatalf("after roots and media came to hold, View = %+v, want %+v", got, want)
 	}
 	if _, err := w.fr.Set(ctx, "trash", firstrun.OutcomeDone); !errors.Is(err, firstrun.ErrStepUnknown) {
@@ -134,7 +137,7 @@ func TestFirstSetupIsOpenUntilFinishedAndThenSkipsWhatIsLeft(t *testing.T) {
 		t.Errorf("IsOpen after Finish = %v, %v; want false", open, err)
 	}
 	got, _ = w.fr.View(ctx)
-	if want := view(false, a, done, p, skipped, firstrun.MediaID, skipped, l, skipped, r, done, d, skipped, g, skipped); !reflect.DeepEqual(got, want) {
+	if want := view(false, seven, done, skipped, skipped, skipped, done, skipped, skipped); !reflect.DeepEqual(got, want) {
 		t.Fatalf("a finished View = %+v, want %+v", got, want)
 	}
 	if _, err := w.fr.Set(ctx, l, firstrun.OutcomeDone); !errors.Is(err, firstrun.ErrFinished) {
