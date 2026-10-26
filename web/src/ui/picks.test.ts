@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { noPicks, pickedOf, toggle, toggleAll } from "./selection";
+import { noPicks, pickedOf, toggle, toggleAll } from "./picks";
 
 const order = ["a", "b", "c", "d", "e"];
 const ids = (picks: { ids: ReadonlySet<string> }) => [...picks.ids].toSorted();

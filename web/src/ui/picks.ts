@@ -1,5 +1,5 @@
 /**
- * The Torrents picked for a bulk action. The anchor is the last one toggled
+ * The rows picked for a bulk action. The anchor is the last one toggled
  * on its own, where a shift-click range starts.
  */
 export type Picks = { readonly ids: ReadonlySet<string>; readonly anchor: string | undefined };

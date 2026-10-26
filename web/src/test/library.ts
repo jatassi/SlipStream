@@ -1,4 +1,10 @@
-import type { WorksContentType, WorksListedWork, WorksWorkView } from "../api/gen/model";
+import type {
+  WorksContentType,
+  WorksLibraryRow,
+  WorksListedWork,
+  WorksWorkView,
+} from "../api/gen/model";
+import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 
 export const cinema: WorksContentType = {
   id: "cinema",
@@ -99,3 +105,59 @@ export const orchardListed: WorksListedWork = {
   fields: orchard.fields,
   artwork: orchard.artwork,
 };
+
+export const orchardRow: WorksLibraryRow = {
+  id: orchardId,
+  contentType: "cinema",
+  key: orchard.key,
+  label: orchard.label,
+  sortLabel: orchard.sortLabel,
+  addedAt: orchard.addedAt,
+  refreshedAt: orchard.refreshedAt,
+  goneUpstreamAt: null,
+  monitored: "all",
+  profileId: orchard.profile.id,
+  rootId: null,
+  posterUrl: null,
+  rating: null,
+  availableOn: "2021-04-09",
+  bytes: 0,
+  files: 0,
+  kept: 0,
+  status: "missing",
+  cells: { missing: 2 },
+  failed: 0,
+  items: 1,
+  itemStatus: { missing: 1 },
+  needsYou: 0,
+  values: { year: 2021, runtime: 6_720_000 },
+};
+
+/** A cinema row like the Quiet Orchard's, with its own id, key and label. */
+export const libraryRow = (
+  row: Partial<WorksLibraryRow> & Pick<WorksLibraryRow, "id" | "key" | "label">,
+): WorksLibraryRow => ({ ...orchardRow, sortLabel: row.label, ...row });
+
+/**
+ * GET /library over `rows`, which `become` replaces: every row, or the
+ * named ones. `asked` records the ids of each named read.
+ */
+export function libraryServer(initial: readonly WorksLibraryRow[]) {
+  let rows = [...initial];
+  const asked: string[][] = [];
+  return {
+    handler: getListLibraryMockHandler(({ request }) => {
+      const ids = new URL(request.url).searchParams.get("workIds");
+      if (ids === null) {
+        return { rows };
+      }
+      const named = ids.split(",");
+      asked.push(named);
+      return { rows: rows.filter((row) => named.includes(row.id)) };
+    }),
+    asked,
+    become(next: readonly WorksLibraryRow[]) {
+      rows = [...next];
+    },
+  };
+}
