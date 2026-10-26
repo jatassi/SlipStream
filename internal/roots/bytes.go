@@ -92,6 +92,16 @@ func (r *Roots) Remove(ctx context.Context, root ID, rel storing.Rel) error {
 	return r.cfg.Remote.Remove(ctx, at, rel)
 }
 
+// RemoveAll removes the folder rel and everything in it from root on its
+// Node; a folder already gone is removed.
+func (r *Roots) RemoveAll(ctx context.Context, root ID, rel storing.Rel) error {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return err
+	}
+	return r.cfg.Remote.RemoveAll(ctx, at, rel)
+}
+
 func (r *Roots) ListHeld(ctx context.Context, root ID, folder storing.HeldFolder) ([]string, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {

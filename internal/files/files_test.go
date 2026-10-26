@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -64,6 +65,8 @@ type library struct {
 	targets *targets.Targets
 	root    roots.Root
 	held    *roots.Roots
+	// staged is the Transfers with a record.
+	staged map[transfers.ID]bool
 }
 
 func open(t testing.TB) *library {
@@ -102,6 +105,7 @@ func (l *library) files(cells files.Inflight) *files.Files {
 func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 	return files.New(files.Config{
 		Library: l.lib, Works: l.works, Targets: l.targets, Grabs: cells,
+		Transfers: func(context.Context, storage.Reader[storage.Library]) (map[transfers.ID]bool, error) { return l.staged, nil },
 		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Today: func() time.Time { return today },
 		Disk: disk, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay

@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -404,20 +405,27 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 	}
 }
 
-func TestTheQueueSweepsHeldFilesNoFileOrGrabNames(t *testing.T) {
+func TestTheQueueSweepsHeldEntriesNoFileGrabOrTransferNames(t *testing.T) {
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)
 	svc := l.files(files.NoGrabs{})
 	live := l.download(t, svc, tree, 0, release.WEBDL1080p, "live")
 	grab := storage.NewUUID()
-	staged := storing.StagingDir + "/" + grab.String() + ".part"
+	copying, cancelled := transfers.ID{UUID: storage.NewUUID()}, transfers.ID{UUID: storage.NewUUID()}
+	l.staged = map[transfers.ID]bool{copying: true}
+	staged := transfers.StagedRel(copying, 0).String()
 	l.put(t, files.HoldingOf(grab, ".mkv"), "a Grab's download")
-	l.put(t, staged, "a Grab's Transfer")
+	l.put(t, staged, "a Transfer's file")
 	l.put(t, files.HoldingOf(storage.NewUUID(), ".mkv.part"), "a failed Grab's copy")
-	l.put(t, storing.StagingDir+"/"+storage.NewUUID().String()+".part", "a failed Grab's Transfer")
+	l.put(t, transfers.StagedRel(cancelled, 0).String(), "a cancelled Transfer's file")
+	l.put(t, transfers.StagedRel(cancelled, 1).String(), "a cancelled Transfer's second file")
 	l.put(t, storing.HoldingDir+"/stray.txt", "not SlipStream's")
-	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Grab's Transfer"}
-	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed files", func() bool { return maps.Equal(l.onDisk(t), want) })
+	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Transfer's file"}
+	gone := filepath.Join(l.root.Path, filepath.FromSlash(storing.StagingDir), cancelled.String())
+	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed entries", func() bool {
+		_, err := os.Stat(gone)
+		return maps.Equal(l.onDisk(t), want) && errors.Is(err, fs.ErrNotExist)
+	})
 }
 
 func TestASweepWaitsForTheRootsNode(t *testing.T) {

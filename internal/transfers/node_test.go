@@ -17,6 +17,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/zeebo/blake3"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -805,4 +806,13 @@ func (s *sent) counts() map[[2]int]int {
 		out[k] = v
 	}
 	return out
+}
+
+func sum(t *testing.T, path string) [32]byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return blake3.Sum256(b)
 }
