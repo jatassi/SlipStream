@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"log/slog"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/netip"
 	"sync"
@@ -51,6 +52,9 @@ type Side struct {
 	Net func(*fault.Host) link.Network
 	// Streams serves stream kinds beside the link's own.
 	Streams map[link.Kind]func(peer link.Key, s link.Stream)
+	// Lanes serves each lane from a key the Node's Trust admits with
+	// AllowLane. With none the Node refuses every lane.
+	Lanes func(ctx context.Context, peer link.Key, c net.Conn)
 }
 
 type Node struct {
@@ -66,9 +70,9 @@ func (n *Node) Target() link.Target {
 	return link.Target{Key: n.Key, Addresses: n.listening}
 }
 
-// Start runs a Link named name on net at addrs, listening on Port at each.
+// Start runs a Link named name on nw at addrs, listening on Port at each.
 // Its Trust refuses every key until the test sets one.
-func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, side Side) *Node {
+func Start(t testing.TB, nw *fault.Network, name string, addrs []netip.Addr, side Side) *Node {
 	t.Helper()
 	if side.Version == "" {
 		side.Version = "0.0.0-test"
@@ -87,7 +91,7 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 	}
 	seed := sha256.Sum256([]byte("linktest " + name))
 	key := link.NewPrivateKey(seed)
-	n := &Node{Key: key.Public(), Host: net.Host(addrs...), Trust: &Trust{}}
+	n := &Node{Key: key.Public(), Host: nw.Host(addrs...), Trust: &Trust{}}
 	var trust link.Trust = n.Trust
 	if side.Trust != nil {
 		trust = side.Trust
@@ -113,6 +117,9 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 	}
 	for kind, h := range side.Streams {
 		l.HandleStream(kind, h)
+	}
+	if side.Lanes != nil {
+		l.HandleLanes(lanes{n.Trust, side.Lanes})
 	}
 	n.Link = l
 	ctx, cancel := context.WithCancel(context.Background())
@@ -157,14 +164,13 @@ var (
 
 func New(t testing.TB, controller, worker Side) *Pair {
 	t.Helper()
-	net := fault.NewNetwork()
+	nw := fault.NewNetwork()
 	p := &Pair{
-		Net:        net,
-		Controller: Start(t, net, "controller", []netip.Addr{ControllerAddr}, controller),
-		Worker:     Start(t, net, "worker", []netip.Addr{WorkerAddr}, worker),
+		Net:        nw,
+		Controller: Start(t, nw, "controller", []netip.Addr{ControllerAddr}, controller),
+		Worker:     Start(t, nw, "worker", []netip.Addr{WorkerAddr}, worker),
 	}
-	p.Controller.Trust.Set(p.Worker.Key, link.Pinned{})
-	p.Worker.Trust.Set(p.Controller.Key, link.Pinned{})
+	pin(p.Controller, p.Worker)
 	return p
 }
 
@@ -172,12 +178,60 @@ func New(t testing.TB, controller, worker Side) *Pair {
 // see the session live.
 func (p *Pair) Connect(t testing.TB) {
 	t.Helper()
+	connect(t, p.Controller, p.Worker)
+}
+
+// Trio is a Controller on 127.0.0.2 and Workers on 127.0.0.3 and
+// 127.0.0.4. Each Worker and the Controller pin each other. The Workers
+// admit each other to nothing until a test calls AllowLane, as two Workers
+// of one Controller admit each other only to the lanes of their Transfers.
+type Trio struct {
+	Net        *fault.Network
+	Controller *Node
+	Workers    [2]*Node
+}
+
+var OtherWorkerAddr = netip.MustParseAddr("127.0.0.4")
+
+func NewTrio(t testing.TB, controller Side, workers [2]Side) *Trio {
+	t.Helper()
+	nw := fault.NewNetwork()
+	p := &Trio{
+		Net:        nw,
+		Controller: Start(t, nw, "controller", []netip.Addr{ControllerAddr}, controller),
+		Workers: [2]*Node{
+			Start(t, nw, "worker", []netip.Addr{WorkerAddr}, workers[0]),
+			Start(t, nw, "other worker", []netip.Addr{OtherWorkerAddr}, workers[1]),
+		},
+	}
+	for _, w := range p.Workers {
+		pin(p.Controller, w)
+	}
+	return p
+}
+
+// Connect has each Worker keep the Controller and returns once every
+// session is live on both sides.
+func (p *Trio) Connect(t testing.TB) {
+	t.Helper()
+	for _, w := range p.Workers {
+		connect(t, p.Controller, w)
+	}
+}
+
+func pin(controller, worker *Node) {
+	controller.Trust.Set(worker.Key, link.Pinned{})
+	worker.Trust.Set(controller.Key, link.Pinned{})
+}
+
+func connect(t testing.TB, controller, worker *Node) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	atController, atWorker := p.Controller.Subscribe(ctx), p.Worker.Subscribe(ctx)
-	p.Worker.Keep(p.Controller.Target())
-	AwaitLive(t, atWorker, p.Controller.Key)
-	AwaitLive(t, atController, p.Worker.Key)
+	atController, atWorker := controller.Subscribe(ctx), worker.Subscribe(ctx)
+	worker.Keep(controller.Target())
+	AwaitLive(t, atWorker, controller.Key)
+	AwaitLive(t, atController, worker.Key)
 }
 
 // AwaitLive reads changes until key is Live and returns that state.
@@ -192,10 +246,12 @@ func AwaitLive(t testing.TB, changes <-chan link.Change, key link.Key) link.Live
 	return link.Live{}
 }
 
-// Trust admits each key as set, and refuses the rest.
+// Trust admits each key as set, and refuses the rest. It admits a lane
+// only from a key given to AllowLane, whatever Set gave it.
 type Trust struct {
-	mu sync.Mutex
-	m  map[link.Key]link.Admission
+	mu    sync.Mutex
+	m     map[link.Key]link.Admission
+	lanes map[link.Key]bool
 }
 
 func (t *Trust) Set(key link.Key, a link.Admission) {
@@ -215,6 +271,31 @@ func (t *Trust) Admit(key link.Key) link.Admission {
 	}
 	return link.Refused{}
 }
+
+func (t *Trust) AllowLane(key link.Key) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.lanes == nil {
+		t.lanes = map[link.Key]bool{}
+	}
+	t.lanes[key] = true
+}
+
+func (t *Trust) AdmitLane(key link.Key) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.lanes[key]
+}
+
+// lanes admits lanes by its Trust and serves them with serve.
+type lanes struct {
+	trust *Trust
+	serve func(ctx context.Context, peer link.Key, c net.Conn)
+}
+
+func (l lanes) Admit(key link.Key) bool { return l.trust.AdmitLane(key) }
+
+func (l lanes) Serve(ctx context.Context, key link.Key, c net.Conn) { l.serve(ctx, key, c) }
 
 func notAController(context.Context, link.Key, *linkv1.PairRequest) (*linkv1.PairResponse, error) {
 	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Refused{

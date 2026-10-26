@@ -277,7 +277,7 @@ func certificate(t *testing.T, seed [ed25519.SeedSize]byte) (tls.Certificate, ed
 }
 
 func pinned(want ed25519.PublicKey) wire.Accept {
-	return func(key ed25519.PublicKey) error {
+	return func(key ed25519.PublicKey, _ string) error {
 		if !key.Equal(want) {
 			return errors.New("not the pinned key")
 		}
@@ -298,7 +298,7 @@ func measureServer(t *testing.T, a arm) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tc := tls.Server(c, wire.ServerConfig(cert, pinned(clientKey)))
+	tc := tls.Server(c, wire.ServerConfig(cert, wire.LaneALPN("measure"), pinned(clientKey)))
 	if err := tc.HandshakeContext(t.Context()); err != nil {
 		t.Fatal(err)
 	}

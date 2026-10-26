@@ -1,7 +1,9 @@
 // Package link is the Node link: one pinned TLS 1.3 session per peer key,
 // multiplexed into streams that carry ConnectRPC both ways. It owns the
 // Node key, dialing and re-dialing, the frozen Pair and Hello, and the
-// lockstep gate that closes every other service between versions.
+// lockstep gate that closes every other service between versions. Its
+// listener also accepts lanes, pinned TLS connections with no mux that
+// carry a Transfer's chunks, told apart from sessions by ALPN.
 package link
 
 import (
@@ -66,6 +68,9 @@ type Link struct {
 	// kinds serves an accepted stream by the kind it opens with. A kind
 	// with no entry is reset.
 	kinds map[wire.Kind]func(*session, Stream)
+	// lane is the ALPN of this build's lanes, and lanes serves them.
+	lane  string
+	lanes LaneHandler
 	rpc   *wire.Conns
 	http  *http.Server
 
@@ -81,6 +86,9 @@ type Link struct {
 	kept     map[Key]*keeper
 	subs     map[*subscriber]struct{}
 	awaits   map[*await]struct{}
+	// laneTraffic is every lane's bytes by peer key since the link
+	// started. An entry is never removed.
+	laneTraffic map[Key]*traffic
 }
 
 func New(cfg Config) (*Link, error) {
@@ -100,19 +108,21 @@ func New(cfg Config) (*Link, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	l := &Link{
-		cfg:       cfg,
-		self:      cfg.Key.Public(),
-		cert:      cert,
-		mux:       mc,
-		advertise: advertise,
-		rpc:       wire.NewConns(),
-		ctx:       ctx,
-		cancel:    cancel,
-		sessions:  map[*session]struct{}{},
-		live:      map[Key]*session{},
-		kept:      map[Key]*keeper{},
-		subs:      map[*subscriber]struct{}{},
-		awaits:    map[*await]struct{}{},
+		cfg:         cfg,
+		self:        cfg.Key.Public(),
+		cert:        cert,
+		mux:         mc,
+		advertise:   advertise,
+		lane:        wire.LaneALPN(cfg.Node.Version),
+		rpc:         wire.NewConns(),
+		ctx:         ctx,
+		cancel:      cancel,
+		sessions:    map[*session]struct{}{},
+		live:        map[Key]*session{},
+		kept:        map[Key]*keeper{},
+		subs:        map[*subscriber]struct{}{},
+		awaits:      map[*await]struct{}{},
+		laneTraffic: map[Key]*traffic{},
 	}
 	l.kinds = map[wire.Kind]func(*session, Stream){
 		wire.RPC: func(s *session, c Stream) { l.rpc.Push(rpcConn{c, s}) },
@@ -185,17 +195,22 @@ func (l *Link) accepting(ctx context.Context, ln net.Listener) error {
 	}
 }
 
-// accept runs TLS and the mux on c, then gives the peer handshake to say
-// Hello before closing the session. A session from an awaited Controller
-// pairs and says Hello itself within that handshake.
+// accept runs TLS on c. A lane goes to the lane handler. A session runs
+// the mux, then gives the peer handshake to say Hello before closing the
+// session. A session from an awaited Controller pairs and says Hello
+// itself within that handshake.
 func (l *Link) accept(raw net.Conn) {
 	ctx, cancel := context.WithTimeout(l.ctx, l.cfg.Timings.Handshake)
 	defer cancel()
-	c := &counted{Conn: raw}
-	tc := tls.Server(c, wire.ServerConfig(l.cert, l.admit))
+	c := newCounted(raw)
+	tc := tls.Server(c, wire.ServerConfig(l.cert, l.lane, l.admit))
 	if err := tc.HandshakeContext(ctx); err != nil {
 		l.cfg.Log.Debug("link handshake failed", "remote", c.RemoteAddr().String(), "err", err)
 		_ = c.Close()
+		return
+	}
+	if tc.ConnectionState().NegotiatedProtocol == l.lane {
+		l.serveLane(c, tc)
 		return
 	}
 	s, err := l.start(c, tc, false)
@@ -213,10 +228,18 @@ func (l *Link) accept(raw net.Conn) {
 	}
 }
 
-// admit is the accepting side's pin check: an awaited Controller's key,
+// admit is the accepting side's pin check. A lane admits only a key the
+// lane handler admits, and never asks Trust, so a key Trust admits only
+// to Pair can't open one. A session admits an awaited Controller's key,
 // or any key Trust does not refuse.
-func (l *Link) admit(pub ed25519.PublicKey) error {
+func (l *Link) admit(pub ed25519.PublicKey, alpn string) error {
 	k := Key(pub)
+	if alpn == l.lane {
+		if l.lanes == nil || !l.lanes.Admit(k) {
+			return fmt.Errorf("peer key %s is refused a lane", k.Fingerprint())
+		}
+		return nil
+	}
 	if l.isAwaited(k) {
 		return nil
 	}
