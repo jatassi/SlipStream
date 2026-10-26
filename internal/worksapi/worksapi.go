@@ -245,7 +245,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/library",
 		Summary: "List every Work as a Library row, or one Content Type's, or the named ones",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+		Errors:  []*api.Code{contentTypeNotFound},
 	}, h.listLibrary)
 
 	api.Register(o, api.Admin, api.Op{
@@ -254,7 +254,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/search",
 		Summary: "Search the library's Works by every title they go by, best first",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, notImplemented},
+		Errors:  []*api.Code{contentTypeNotFound},
 	}, h.searchWorks)
 
 	api.Register(o, api.Admin, api.Op{

@@ -78,7 +78,7 @@ func serve(t *testing.T) *served {
 	}
 	changed.n = 0
 	shelf := files.New(files.Config{
-		Library: lib, Works: w, Targets: svc, Grabs: grabs.GrabCells{}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
+		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
 	})
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx}
 	_, body := s.Call(t, http.MethodGet, "/api/v1/targets", "")

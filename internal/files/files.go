@@ -166,7 +166,8 @@ func Status(cells []Cell) (State, bool) {
 	return slices.MinFunc(cells, func(a, b Cell) int { return cmp.Compare(a.State, b.State) }).State, true
 }
 
-// GrabState is what the latest Grab for a cell makes of it.
+// GrabState is what the latest Grab for a cell makes of it, zero while
+// the Grab fetches.
 type GrabState uint8
 
 const (
@@ -174,11 +175,20 @@ const (
 	GrabFailed
 )
 
+// GrabCell is the latest Grab of a cell. Waiting is the code of what an
+// unfinished Grab waits on that only an Admin resolves, such as
+// node_away, empty while it waits on nothing.
+type GrabCell struct {
+	State   GrabState
+	Grab    storage.UUID
+	Waiting string
+}
+
 // Inflight is files' view of the Grabs, which grabs implements.
 type Inflight interface {
-	// GrabCells reads the latest Grab state of each cell of ws that a Grab
-	// is in flight for or failed.
-	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[CellKey]GrabState, error)
+	// GrabCells reads the latest Grab of each cell of ws that a Grab
+	// fetches, is in flight for or failed.
+	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[CellKey]GrabCell, error)
 	// Unfinished lists the ids of every Grab not yet imported or failed,
 	// whose download may sit in a root's holding folder.
 	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
@@ -191,7 +201,7 @@ type Inflight interface {
 // NoGrabs is Inflight while nothing grabs.
 type NoGrabs struct{}
 
-func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[CellKey]GrabState, error) {
+func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[CellKey]GrabCell, error) {
 	return nil, nil
 }
 
@@ -205,7 +215,6 @@ func (NoGrabs) Settle(context.Context, *storage.Tx[storage.Library], works.WorkI
 
 type Config struct {
 	Library *storage.DB[file]
-	Works   *works.Works
 	Targets *targets.Targets
 	Grabs   Inflight
 	// Naming names each Content Type's files.
@@ -227,9 +236,9 @@ type Files struct {
 
 func New(cfg Config) *Files { return &Files{cfg: cfg, poke: make(chan struct{}, 1)} }
 
-// WorkCells reads a Work's Items and its cells, works.ErrNoWork when it
-// has none.
-func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.WorkID) ([]works.Item, []Cell, error) {
+// WorkCells reads a Work's Items, its cells and what they add up to,
+// works.ErrNoWork when no Work has the id.
+func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.WorkID) ([]works.Item, []Cell, Rollup, error) {
 	var w world
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
@@ -237,9 +246,10 @@ func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.Work
 		return err
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Rollup{}, err
 	}
-	return w.tree.Items, cells(w), nil
+	cs := cells(w)
+	return w.tree.Items, cs, rollup(w, cs), nil
 }
 
 // Cells computes a Work's cells in r: each Item in tree order, at each

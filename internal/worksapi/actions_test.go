@@ -185,7 +185,7 @@ func shelve(t *testing.T) *shelves {
 		t.Fatal(err)
 	}
 	s.queue = files.New(files.Config{
-		Library: lib, Works: w, Targets: s.goals, Grabs: grabs.GrabCells{},
+		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{},
 		Naming:  map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx},
 		Today:   func() time.Time { return time.Date(2030, time.January, 1, 9, 0, 0, 0, time.UTC) },
 		Disk:    rootstest.Held(t, lib, home, nil, contenttypetest.ID, other),
