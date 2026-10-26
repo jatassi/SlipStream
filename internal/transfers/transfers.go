@@ -77,6 +77,13 @@ type Timings struct {
 	Damaged int `yaml:"damaged"`
 	// Piece is the largest write the send limit paces at once, in bytes.
 	Piece int64 `yaml:"piece"`
+	// RouteRetry is how long a pair starts on a higher route that moved
+	// bytes before it tries the first route again.
+	RouteRetry time.Duration `yaml:"route_retry"`
+	// PairWrite is how often the Controller records a pair's speed.
+	PairWrite time.Duration `yaml:"pair_write"`
+	// Changed is how often the Controller publishes transfers.changed.
+	Changed time.Duration `yaml:"changed"`
 }
 
 func DefaultTimings() Timings {
@@ -96,6 +103,9 @@ func DefaultTimings() Timings {
 		RetryMax:   time.Minute,
 		Damaged:    4,
 		Piece:      64 << 10,
+		RouteRetry: time.Hour,
+		PairWrite:  time.Minute,
+		Changed:    time.Second,
 	}
 }
 

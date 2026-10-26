@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
+	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -76,9 +77,10 @@ type half struct {
 	clients  *downloadclients.Clients
 	tasks    *tasks.Scheduler
 	health   *health.Health
-	// transfers receives files on the Controller, and source serves them
-	// on a Worker.
-	transfers *transfers.Receiver
+	// transfers judges every Transfer and receiver receives files, on the
+	// Controller, and source serves them on a Worker.
+	transfers *transfers.Transfers
+	receiver  *transfers.Receiver
 	source    *transfers.Source
 	// serving proxies to the Controller while a Worker holds Serving.
 	serving *serving.Worker
@@ -95,9 +97,11 @@ func (n *Node) startController(ctx context.Context) error {
 	holder := n.openHolder(client)
 	opened := n.openLibraries()
 	var (
-		downloads *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
-		side      *nodes.Service
-		cluster   *rpc.Cluster
+		downloads    *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
+		transferring *role.Control[*tv1.Intent, *tv1.Facts, *tv1.Result]
+		side         *nodes.Service
+		cluster      *rpc.Cluster
+		library      *roots.Roots
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -120,11 +124,26 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
+	copies := transfers.New(transfers.ControllerConfig{
+		Library: lib.db,
+		Touch:   func(nodes ...role.NodeID) { transferring.Touch(nodes...) },
+		Facts:   func(id role.NodeID) (*tv1.Facts, bool) { return transferring.Facts(id) },
+		Board:   func() transfers.Board { return transfers.BoardOf(side.Board()) },
+		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
+			return roots.DestinationsIn(ctx, r, ids, stored, side)
+		},
+		RootsMoved: func() <-chan struct{} { return library.Watch() },
+		Readiness:  clients.ReadinessIn,
+		Moved:      clients.Moved,
+		Sample:     func(ctx context.Context, id role.NodeID) error { return library.Sample(ctx, id) },
+		Hub:        n.hub,
+		Changed:    transfers.ChangedEvent.Bind(n.hub),
+		Timings:    n.cfg.Timings.Transfers,
+		Log:        n.rootLog.With("subsystem", "transfers"),
+	})
+	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	arrivals := roots.NewArrivals()
-	var (
-		systems *nodesystem.Nodes
-		library *roots.Roots
-	)
+	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
@@ -135,7 +154,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored, transferring}, n.env.Test.Served...),
 		Owners:          owners(),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
@@ -145,8 +164,12 @@ func (n *Node) startController(ctx context.Context) error {
 		Facts: func(id role.NodeID, scope string) {
 			arrivals.Note(id, scope)
 			clients.Arrived(id, scope)
+			copies.Noted(id, scope)
 		},
-		Applied: clients.Applied,
+		Applied: func(id role.NodeID, scope string) {
+			clients.Applied(id, scope)
+			copies.Applied(id, scope)
+		},
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
@@ -349,7 +372,8 @@ func (n *Node) startController(ctx context.Context) error {
 		grabs:     pipeline,
 		clients:   clients,
 		tasks:     scheduler,
-		transfers: receiver,
+		transfers: copies,
+		receiver:  receiver,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
@@ -359,6 +383,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("roots", library.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
+	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("metadata", meta.Run)
@@ -564,6 +589,10 @@ func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatc
 	return []role.Held{
 		downloading.Def.Hold(n.downloads.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloads.Release),
 		storing.Def.Hold(n.store.Run, n.store.Release),
+		transfers.Def.Hold(func(ctx context.Context, _ role.Holder[*tv1.Intent, *tv1.Facts, *tv1.Result]) error {
+			<-ctx.Done()
+			return nil
+		}, func(context.Context) error { return nil }),
 	}
 }
 

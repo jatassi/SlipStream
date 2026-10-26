@@ -10274,6 +10274,28 @@
         ],
         "type": "object"
       },
+      "TransfersChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transferIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "transferIds",
+          "nodeIds"
+        ],
+        "type": "object"
+      },
       "WorksAdded": {
         "additionalProperties": false,
         "properties": {
@@ -17680,6 +17702,32 @@
                           "event"
                         ],
                         "title": "Event torrents.live",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/TransfersChanged"
+                          },
+                          "event": {
+                            "const": "transfers.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event transfers.changed",
                         "type": "object"
                       },
                       {
