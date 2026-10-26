@@ -2,7 +2,6 @@ import "../styles.css";
 
 import { faker } from "@faker-js/faker";
 import { afterAll, beforeAll, beforeEach, onTestFinished } from "vitest";
-import { commands } from "vitest/browser";
 
 import { writePref } from "../shell/prefs";
 import { unmountApps } from "./render-app";
@@ -11,7 +10,6 @@ import { worker } from "./worker";
 
 declare module "vitest/browser" {
   interface BrowserCommands {
-    holdServiceWorker: () => Promise<void>;
     emulateReducedMotion: (reduce: boolean) => Promise<void>;
     drag: (from: string, to: string) => Promise<void>;
     swipe: (
@@ -36,7 +34,6 @@ beforeAll(async () => {
     quiet: true,
     onUnhandledFrame: "error",
   });
-  await commands.holdServiceWorker();
 });
 
 // onTestFinished hooks run last-registered first: a test's own hooks release
