@@ -29,7 +29,7 @@ export function LinkWords({
             <p>
               {sample === undefined
                 ? "The link is up. No traffic is reported yet."
-                : `The link carries ${megabits(sample.baBps)} to ${landing.controller} and ${megabits(sample.abBps)} to ${worker.name}.`}
+                : `${worker.name} sends ${landing.controller} ${megabits(sample.baBps)} and receives ${megabits(sample.abBps)}. This includes the link and every Transfer between them.`}
             </p>
             {link.rttMs !== undefined && (
               <p className="mt-2 text-ink-3">Each round trip takes {link.rttMs} ms.</p>

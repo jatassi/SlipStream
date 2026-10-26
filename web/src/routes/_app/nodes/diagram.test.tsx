@@ -191,3 +191,23 @@ test("a click on a link selects the link it pressed, though the click's point mi
   }
   await expect.element(page.getByRole("complementary", { name: "home and vps" })).toBeVisible();
 });
+
+test("a link's Inspector counts the link and its Transfers in what each end sends", async () => {
+  const sample = (at: string) => ({
+    at,
+    links: [{ a: ids.home, b: ids.vps, abBps: 250_000, baBps: 6_000_000, rttMs: 24 }],
+    nodes: [],
+  });
+  takeTraffic(sample("2026-10-26T14:00:00Z"));
+  takeTraffic(sample("2026-10-26T14:00:01Z"));
+  renderApp({ path: "/nodes", handlers: dragServer().handlers });
+  await expect.element(diagram()).toBeVisible();
+  await userEvent.click(
+    page.elementLocator(document.querySelector(`[data-link="${ids.vps}"]`) ?? document.body),
+  );
+  await expect
+    .element(page.getByRole("complementary", { name: "home and vps" }))
+    .toMatchTextContent(
+      "vps sends home 48.0 Mbit/s and receives 2.0 Mbit/s. This includes the link and every Transfer between them.",
+    );
+});
