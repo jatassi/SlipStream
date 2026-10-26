@@ -49,7 +49,7 @@ test("the passkey step adds a passkey and moves on, with the frame's Skip as its
 test("a passkey added elsewhere leaves Continue in place of Add a passkey", async () => {
   stubPasskeys();
   const server = open([done("address"), done("passkey"), todo("language")]);
-  await expect.element(page.getByText("Your Account has a passkey.")).toBeVisible();
+  await expect.element(page.getByText("An Admin of this SlipStream has a passkey.")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Add a passkey" })).not.toBeInTheDocument();
   await userEvent.click(page.getByRole("button", { name: "Continue" }));
   await expect.element(stepHeading("Language and region")).toBeVisible();

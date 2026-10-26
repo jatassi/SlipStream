@@ -21,7 +21,7 @@ export function PasskeyStep({ step, nav }: StepBodyProps) {
   }
   return (
     <>
-      <p>Your Account has a passkey.</p>
+      <p>An Admin of this SlipStream has a passkey.</p>
       <StepFooter nav={nav} />
     </>
   );
