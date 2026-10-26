@@ -569,8 +569,9 @@ void convert(lts_session* s, lt::alert* a) {
 		auto* mr = static_cast<lt::metadata_received_alert*>(a);
 		o.kind = LTS_ALERT_METADATA_RECEIVED;
 		o.torrent = torrent(mr);
+		if (o.torrent == 0) return;
 		std::shared_ptr<lt::torrent_info const> ti = mr->handle.torrent_file();
-		if (o.torrent == 0 || !ti) return;
+		if (!ti) return;
 		lt::span<char const> const info = ti->info_section();
 		o.payload = std::malloc(std::size_t(info.size()));
 		if (o.payload == nullptr) throw std::bad_alloc();
