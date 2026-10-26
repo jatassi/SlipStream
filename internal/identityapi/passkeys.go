@@ -150,7 +150,7 @@ func finishPasskeySignIn(lib Library) func(context.Context, identity.Anyone, *fi
 		if err != nil {
 			return nil, answer(err)
 		}
-		return signedInOf(got), nil
+		return signedInOf(ctx, lib, got)
 	}
 }
 

@@ -1,8 +1,9 @@
 import { useRouter } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { z } from "zod";
 
 import { setAddress, useGetAddressSuspense } from "../api/gen/query/identity/identity";
-import { submitErrors, useAppForm } from "../ui/form";
+import { SubmitButton, submitErrors, useAppForm } from "../ui/form";
 import { toast } from "../ui/toast";
 
 const addressForm = z.object({ address: z.string().trim().min(1, "Enter an address") });
@@ -27,24 +28,38 @@ function describe(address: string, saved: string): string {
     : "Signup, Reset and email links use this address.";
 }
 
-export function AddressSection() {
+type Saves = {
+  onSaved: () => Promise<void>;
+  /** Runs in place of a save when the field still holds the saved address. */
+  onUnchanged?: (() => Promise<void>) | undefined;
+};
+
+function useAddressForm({ onSaved, onUnchanged }: Saves) {
   const { address, suggestedAddress } = useGetAddressSuspense().data;
-  const router = useRouter();
   const form = useAppForm({
     defaultValues: { address: address === "" ? suggestedAddress : address },
     validators: { onSubmit: addressForm },
     onSubmit: async ({ value, formApi }) => {
+      if (onUnchanged !== undefined && value.address === address) {
+        await onUnchanged();
+        return;
+      }
       const saved = await setAddress(addressForm.parse(value)).catch((error: unknown) => {
         formApi.setErrorMap({ onSubmit: submitErrors(error, { address_ip: "address" }) });
         return null;
       });
       if (saved !== null) {
         formApi.reset({ address: saved.address });
-        toast("Saved the address");
-        await router.invalidate();
+        await onSaved();
       }
     },
   });
+  return { form, address };
+}
+
+/** The address with the suggestion filled in while none is set; `children` hold its submit. */
+export function AddressForm({ children, ...saves }: Saves & { children: ReactNode }) {
+  const { form, address } = useAddressForm(saves);
   return (
     <form
       noValidate
@@ -67,10 +82,24 @@ export function AddressSection() {
           )}
         </form.AppField>
         <form.FormAlert />
-        <div>
-          <form.SubmitButton label="Save" />
-        </div>
+        {children}
       </form.AppForm>
     </form>
+  );
+}
+
+export function AddressSection() {
+  const router = useRouter();
+  return (
+    <AddressForm
+      onSaved={async () => {
+        toast("Saved the address");
+        await router.invalidate();
+      }}
+    >
+      <div>
+        <SubmitButton label="Save" />
+      </div>
+    </AddressForm>
   );
 }

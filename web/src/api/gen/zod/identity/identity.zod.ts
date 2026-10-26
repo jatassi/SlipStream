@@ -11,7 +11,6 @@ import {
   IdentityApiKeyMade,
   IdentityCeremony,
   IdentityClaimBody,
-  IdentityClaimed,
   IdentityEmailChangeStarted,
   IdentityIssuedResetLink,
   IdentityIssuedSignupLink,
@@ -348,7 +347,7 @@ export const EndSessionResponse = zod.void();
  */
 export const ClaimControllerBody = IdentityClaimBody;
 
-export const ClaimControllerResponse = IdentityClaimed;
+export const ClaimControllerResponse = IdentitySignedIn;
 
 /**
  * @summary List the Signup links nobody has used yet

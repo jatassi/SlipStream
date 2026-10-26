@@ -218,6 +218,10 @@
             "$ref": "#/components/schemas/DownloadclientsDiskGuard",
             "description": "Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level"
           },
+          "downloads": {
+            "$ref": "#/components/schemas/DownloadclientsDownloadsVolume",
+            "description": "The downloads folder's volume as last sampled, absent until the first sample"
+          },
           "inStep": {
             "description": "The Node is in step; while it isn't the card has no client",
             "type": "boolean"
@@ -380,35 +384,55 @@
             "minimum": 0,
             "type": "integer"
           },
-          "free": {
-            "description": "Bytes",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
           "hint": {
             "description": "What explains the sentence: the volume, its free space, its error level and what to do",
             "type": "string"
           },
-          "sampledAt": {
-            "format": "date-time",
-            "type": "string"
-          },
           "sentence": {
             "description": "The guard's sentence, as Health shows it",
-            "type": "string"
-          },
-          "volume": {
-            "description": "The downloads folder's volume, as the Node names it",
             "type": "string"
           }
         },
         "required": [
           "sentence",
           "hint",
-          "volume",
+          "errorBelow"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsDownloadsVolume": {
+        "additionalProperties": false,
+        "properties": {
+          "free": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mount": {
+            "description": "As the Node names it, the same as Storage names the volume",
+            "type": "string"
+          },
+          "name": {
+            "description": "Such as D: (Media)",
+            "type": "string"
+          },
+          "sampledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "total": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mount",
+          "name",
+          "total",
           "free",
-          "errorBelow",
           "sampledAt"
         ],
         "type": "object"
@@ -1955,6 +1979,81 @@
         ],
         "type": "object"
       },
+      "FirstRunStepInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "description": "done for Continue, skipped for Skip",
+            "enum": [
+              "done",
+              "skipped"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "type": "object"
+      },
+      "FirstrunChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "FirstrunFirstRun": {
+        "additionalProperties": false,
+        "properties": {
+          "open": {
+            "description": "False once an Admin finished first setup, which never reopens",
+            "type": "boolean"
+          },
+          "steps": {
+            "description": "The shown steps, in order",
+            "items": {
+              "$ref": "#/components/schemas/FirstrunStepState"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "open",
+          "steps"
+        ],
+        "type": "object"
+      },
+      "FirstrunStepID": {
+        "enum": [
+          "address",
+          "passkey",
+          "media",
+          "language",
+          "roots",
+          "downloads",
+          "targets"
+        ],
+        "type": "string"
+      },
+      "FirstrunStepState": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/FirstrunStepID"
+          },
+          "state": {
+            "enum": [
+              "todo",
+              "done",
+              "skipped"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ],
+        "type": "object"
+      },
       "GrabsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -3101,6 +3200,10 @@
         ],
         "type": "object"
       },
+      "IdentityAddressChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
       "IdentityApiKeyMade": {
         "additionalProperties": false,
         "properties": {
@@ -3153,23 +3256,6 @@
           "email",
           "displayName",
           "pin"
-        ],
-        "type": "object"
-      },
-      "IdentityClaimed": {
-        "additionalProperties": false,
-        "properties": {
-          "account": {
-            "$ref": "#/components/schemas/IdentityAccount"
-          },
-          "apiKey": {
-            "pattern": "^ssk_[A-Za-z0-9_-]{43}$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "account",
-          "apiKey"
         ],
         "type": "object"
       },
@@ -3503,6 +3589,14 @@
           "account": {
             "$ref": "#/components/schemas/IdentityAccount"
           },
+          "firstRun": {
+            "description": "An Admin's first setup; absent for a Member",
+            "enum": [
+              "open",
+              "finished"
+            ],
+            "type": "string"
+          },
           "keyPrompt": {
             "description": "Whether the prompt to add a passkey may show after sign-in",
             "enum": [
@@ -3748,6 +3842,14 @@
           "account": {
             "$ref": "#/components/schemas/IdentityAccount"
           },
+          "firstRun": {
+            "description": "An Admin's first setup; absent for a Member",
+            "enum": [
+              "open",
+              "finished"
+            ],
+            "type": "string"
+          },
           "keyPrompt": {
             "description": "Whether the prompt to add a passkey may show after sign-in",
             "enum": [
@@ -3757,7 +3859,7 @@
             "type": "string"
           },
           "passkeyPrompt": {
-            "description": "Show the prompt to add a passkey for this address, once in this session",
+            "description": "Show the prompt to add a passkey for this address, once in this session. False while first setup is open, because its passkey step asks instead.",
             "type": "boolean"
           },
           "pinRequired": {
@@ -3766,10 +3868,10 @@
           }
         },
         "required": [
+          "passkeyPrompt",
           "account",
           "pinRequired",
-          "keyPrompt",
-          "passkeyPrompt"
+          "keyPrompt"
         ],
         "type": "object"
       },
@@ -14577,6 +14679,7 @@
                         "code": {
                           "enum": [
                             "content_type_in_use",
+                            "content_type_last",
                             "worker_node"
                           ],
                           "type": "string"
@@ -17139,6 +17242,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/FirstrunChanged"
+                          },
+                          "event": {
+                            "const": "firstrun.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event firstrun.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/GrabsChanged"
                           },
                           "event": {
@@ -17238,6 +17367,32 @@
                           "event"
                         ],
                         "title": "Event identity.accounts-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/IdentityAddressChanged"
+                          },
+                          "event": {
+                            "const": "identity.address-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event identity.address-changed",
                         "type": "object"
                       },
                       {
@@ -17933,6 +18088,472 @@
           "live"
         ],
         "x-slipstream-access": "account"
+      }
+    },
+    "/first-run": {
+      "get": {
+        "operationId": "getFirstRun",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirstrunFirstRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get first setup's steps",
+        "tags": [
+          "firstrun"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/first-run/finish": {
+      "post": {
+        "operationId": "finishFirstRun",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Finish first setup for good",
+        "tags": [
+          "firstrun"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/first-run/steps/{id}": {
+      "put": {
+        "operationId": "setFirstRunStep",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FirstRunStepInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirstrunFirstRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "step_unknown"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "first_run_finished",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Mark a first setup step done or skipped",
+        "tags": [
+          "firstrun"
+        ],
+        "x-slipstream-access": "admin"
       }
     },
     "/grabs": {
@@ -31935,6 +32556,127 @@
         "x-slipstream-access": "account"
       }
     },
+    "/setup/code": {
+      "post": {
+        "operationId": "checkSetupCode",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "setup_code_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "already_claimed",
+                            "setup_busy"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "setupCode": []
+          }
+        ],
+        "summary": "Check the Setup code without changing anything",
+        "tags": [
+          "firstrun"
+        ],
+        "x-slipstream-access": "setup"
+      }
+    },
     "/setup/controller": {
       "post": {
         "operationId": "claimController",
@@ -31953,7 +32695,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IdentityClaimed"
+                  "$ref": "#/components/schemas/IdentitySignedIn"
                 }
               }
             },

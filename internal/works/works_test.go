@@ -484,7 +484,9 @@ func TestSearchMarksWorksAlreadyAdded(t *testing.T) {
 }
 
 func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
-	h := newHarness(t)
+	fx := contenttypetest.New()
+	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx}, fx.SourceAs(contenttypetest.ID, "other"))
+	h.fx = fx
 	h.fx.Put("w1", shelf())
 	off, err := h.works.SetEnabled(t.Context(), admin, contenttypetest.ID, false)
 	if err != nil || off.Enabled || off.ID != contenttypetest.ID || off.Name != "Fixture" {
@@ -497,8 +499,8 @@ func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 		t.Fatalf("published %v, want one works.content-types-changed for fixture", got)
 	}
 	types, err := h.works.Types(t.Context())
-	if err != nil || len(types) != 1 || types[0].Enabled {
-		t.Fatalf("types = %+v, %v; want fixture off", types, err)
+	if err != nil || len(types) != 2 || types[0].Enabled || !types[1].Enabled {
+		t.Fatalf("types = %+v, %v; want fixture off and other on", types, err)
 	}
 	if _, err := h.works.Search(t.Context(), admin, contenttypetest.ID, "attic"); !errors.Is(err, works.ErrTypeOff) {
 		t.Fatalf("search of an off type = %v, want ErrTypeOff", err)
@@ -531,6 +533,27 @@ func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 	}
 	if got := h.types.take(); len(got) != 0 {
 		t.Fatalf("a refused turn-off published %v", got)
+	}
+}
+
+func TestTheOnlyTypeOnStaysOn(t *testing.T) {
+	fx := contenttypetest.New()
+	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx}, fx.SourceAs(contenttypetest.ID, "other"))
+	if _, err := h.works.SetEnabled(t.Context(), admin, "other", false); err != nil {
+		t.Fatal(err)
+	}
+	h.types.take()
+	if _, err := h.works.SetEnabled(t.Context(), admin, contenttypetest.ID, false); !errors.Is(err, works.ErrLastType) {
+		t.Fatalf("turning off the only type on = %v, want ErrLastType", err)
+	}
+	if got := h.types.take(); len(got) != 0 {
+		t.Fatalf("a refused turn-off published %v", got)
+	}
+	if _, err := h.works.SetEnabled(t.Context(), admin, "other", false); err != nil {
+		t.Fatalf("turning off a type already off = %v, want no change", err)
+	}
+	if enabled, err := works.Enabled(t.Context(), h.lib, contenttypetest.ID); err != nil || !enabled {
+		t.Fatalf("Enabled = %t, %v; want the only type on still on", enabled, err)
 	}
 }
 

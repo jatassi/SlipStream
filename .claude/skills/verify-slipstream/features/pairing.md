@@ -204,7 +204,7 @@ Steps:
 Preconditions:
 
 - A fresh `cgnat-home` run with doctor passing and the `{runId}-admin-desktop` and `{runId}-admin-phone` sessions signed in.
-- `SETUP` holds seedbox's Setup code, read as in **Join from the first-run page's API**. The browser stands in for the first-run page's Join form through `POST /api/v1/setup/worker`.
+- `SETUP` holds seedbox's Setup code, read as in **Join from the first-run page's API**. The browser calls `POST /api/v1/setup/worker` directly; the first-run page's Join form itself is proven in `first-run.md`.
 
 Steps:
 

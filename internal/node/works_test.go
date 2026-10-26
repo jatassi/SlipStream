@@ -26,12 +26,7 @@ func TestAControllerBuildsItsContentTypesOnce(t *testing.T) {
 	}
 	c := client{t: t, c: &http.Client{}, base: "http://" + n.Ready().Listeners.HTTP.String()}
 	claimed := c.claim(n.Ready().SetupCode, "1234")
-	var res struct {
-		APIKey string `json:"apiKey"`
-	}
-	if err := json.Unmarshal([]byte(claimed.body), &res); err != nil || claimed.status != http.StatusCreated {
-		t.Fatalf("claimController = %d %s", claimed.status, claimed.body)
-	}
+	apiKey := keyOf(t, c, claimed)
 	opens := fx.Opens()
 	if len(opens) != 1 || len(fx.Libraries()) != 1 {
 		t.Fatalf("the Controller built the fixture's provider half %d times and library half %d times, want each once", len(opens), len(fx.Libraries()))
@@ -49,7 +44,7 @@ func TestAControllerBuildsItsContentTypesOnce(t *testing.T) {
 	if err := json.Unmarshal([]byte(r.body), &list); err != nil || r.status != http.StatusOK || len(list.ContentTypes) != 1 || list.ContentTypes[0].ID != "fixture" || !list.ContentTypes[0].Enabled {
 		t.Fatalf("listContentTypes = %d %s, want fixture on", r.status, r.body)
 	}
-	if r := c.admin(res.APIKey, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`); r.status != http.StatusOK {
+	if r := c.admin(apiKey, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`); r.status != http.StatusOK {
 		t.Fatalf("addWork = %d %s", r.status, r.body)
 	}
 	n.Stop()

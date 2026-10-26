@@ -1,10 +1,13 @@
 # yaml-language-server: $schema=../scenario.schema.json
 description: >-
-  One Node left Unclaimed, so a person or a recipe reads the Setup code from
-  its log.
+  Two Nodes left Unclaimed. A person or a recipe reads home's Setup code from
+  its log and starts a new SlipStream there, then joins den to it through
+  den's first-run page.
 seed: first-run
 nodes:
   - name: home
+    setup: none
+  - name: den
     setup: none
 timings:
   node:

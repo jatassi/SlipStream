@@ -20,6 +20,7 @@ type effects struct {
 	passkeys map[AccountID]struct{}
 	accounts bool
 	links    bool
+	address  bool
 	notices  []mail.Message
 }
 
@@ -63,6 +64,8 @@ func (fx *effects) regate(account AccountID) {
 func (fx *effects) accountsChanged() { fx.accounts = true }
 
 func (fx *effects) linksChanged() { fx.links = true }
+
+func (fx *effects) addressChanged() { fx.address = true }
 
 // notice records an email that goes out after the commit, which nobody
 // waits for.
@@ -112,6 +115,9 @@ func (s *Service) write(ctx context.Context, fn func(ctx context.Context, q *db.
 	}
 	if fx.links {
 		s.links.Publish(ctx, LinksChanged{})
+	}
+	if fx.address {
+		s.address.Publish(ctx, AddressChanged{})
 	}
 	for _, m := range fx.notices {
 		s.outbox.Post(m)

@@ -1,5 +1,6 @@
 import type { DownloadclientsClientFacts } from "./downloadclientsClientFacts.ts";
 import type { DownloadclientsDiskGuard } from "./downloadclientsDiskGuard.ts";
+import type { DownloadclientsDownloadsVolume } from "./downloadclientsDownloadsVolume.ts";
 import type { DownloadclientsLimits } from "./downloadclientsLimits.ts";
 import type { DownloadclientsTotals } from "./downloadclientsTotals.ts";
 
@@ -8,6 +9,8 @@ export interface DownloadclientsClientCard {
   client?: DownloadclientsClientFacts;
   /** Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level */
   diskGuard?: DownloadclientsDiskGuard;
+  /** The downloads folder's volume as last sampled, absent until the first sample */
+  downloads?: DownloadclientsDownloadsVolume;
   /** The Node is in step; while it isn't the card has no client */
   inStep: boolean;
   limits: DownloadclientsLimits;

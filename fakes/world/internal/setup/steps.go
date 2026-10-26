@@ -29,7 +29,8 @@ type Claims struct {
 
 // Steps sets up every ready Node as its Scenario Node says, over c, ready
 // holding each Node's readiness in Scenario order. 9a claims the
-// controller Node with the Scenario's Admin. 9b joins each join Node in
+// controller Node with the Scenario's Admin and finishes its first setup,
+// so recipes land in the app. 9b joins each join Node in
 // order through its own Setup code with a Join Code the Controller mints.
 // Then one set gives every Node that lists Roles its Roles. 9c fails
 // unless each Node the set names is linked and has applied its new
@@ -95,8 +96,14 @@ func TCPOnly(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 func claimController(ctx context.Context, c *http.Client, s scenario.Scenario, ready node.Ready) (apiKey, id string, err error) {
 	base := url(ready)
 	admin := s.Admin
-	apiKey, err = nodeapi.ClaimController(ctx, c, base, ready.SetupCode, nodeapi.Admin{Email: admin.Email, DisplayName: admin.DisplayName, PIN: admin.PIN})
+	session, err := nodeapi.ClaimController(ctx, c, base, ready.SetupCode, nodeapi.Admin{Email: admin.Email, DisplayName: admin.DisplayName, PIN: admin.PIN})
 	if err != nil {
+		return "", "", err
+	}
+	if apiKey, err = nodeapi.RegenerateAPIKey(ctx, c, base, session); err != nil {
+		return "", "", err
+	}
+	if err := nodeapi.FinishFirstRun(ctx, c, base, apiKey); err != nil {
 		return "", "", err
 	}
 	rows, err := nodeapi.ListNodes(ctx, c, base, apiKey)

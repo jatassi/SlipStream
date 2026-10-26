@@ -161,7 +161,7 @@ func TestAChangedRoleReGatesTheAccountsOpenTabs(t *testing.T) {
 	if got := ending(t, sub); got != "live.access-changed" {
 		t.Fatalf("Grace's stream = %q, want access-changed", got)
 	}
-	expect(t, n.getSession(g), 200, `{"account":{"id":"`+grace+`","email":"grace@example.com","displayName":"Grace Hopper","admin":true},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
+	expect(t, n.getSession(g), 200, `{"account":{"id":"`+grace+`","email":"grace@example.com","displayName":"Grace Hopper","admin":true},"pinRequired":false,"keyPrompt":"ask","firstRun":"finished"}`+"\n")
 	if w := n.as(g, http.MethodGet, "/api/v1/accounts", ""); w.Code != http.StatusOK {
 		t.Fatalf("Grace listing Accounts as an Admin = %d %s", w.Code, w.Body)
 	}
@@ -319,7 +319,7 @@ func TestDeletingAnAccountEndsItsSessionsAndFreesItsEmail(t *testing.T) {
 func TestYourAccountChangesItsNameAndThePasskeyPrompt(t *testing.T) {
 	n := newNode(t)
 	res, a := n.claimed()
-	want := `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Ada","admin":true},"pinRequired":false,"keyPrompt":"never"}` + "\n"
+	want := `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Ada","admin":true},"pinRequired":false,"keyPrompt":"never","firstRun":"finished"}` + "\n"
 	expect(t, n.as(a, http.MethodPatch, "/api/v1/account", `{"displayName":"Ada","keyPrompt":"never"}`), 200, want)
 	expect(t, n.getSession(a), 200, want)
 }

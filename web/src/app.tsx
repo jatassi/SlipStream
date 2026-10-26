@@ -23,7 +23,7 @@ type Parts = {
 // The pages that show a session. A tab whose session read already came back
 // signed out still follows the others to Sign in from one of these, and stays
 // put anywhere else.
-const sessionPages = new Set<string>(["/_app", "/portal", "/new-pin"]);
+const sessionPages = new Set<string>(["/_app", "/portal", "/new-pin", "/setup_/$step"]);
 
 function end({ queryClient, router, live }: Parts, reason: SessionEndReason): boolean {
   const session = queryClient.getQueryData(sessionQuery.queryKey);
