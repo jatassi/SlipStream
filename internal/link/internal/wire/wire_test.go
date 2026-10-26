@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net"
 	"net/netip"
+	"strings"
 	"testing"
 	"testing/synctest"
 
@@ -46,7 +47,27 @@ func rsaCertificate(t *testing.T) tls.Certificate {
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
 
-func anyKey(ed25519.PublicKey) error { return nil }
+func anyKey(ed25519.PublicKey, string) error { return nil }
+
+var lane = wire.LaneALPN("0.0.0-test")
+
+// The release build stamps the Node's version with git describe: the
+// release tag, vX.Y.Z with an optional pre-release, then for a commit
+// past the tag the commits since it and the commit's hash, at most
+// SHA-256's 64 hex digits. An ALPN protocol name holds at most 255 bytes,
+// and Go refuses to offer a longer one.
+func TestTheLongestReleaseBuildNamesALane(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		build := "v65535.65535.65535-beta.65535-4294967295-g" + strings.Repeat("f", 64)
+		longest := wire.LaneALPN(build)
+		clientCert, _ := ed25519Certificate(t)
+		serverCert, _ := ed25519Certificate(t)
+		state, clientErr, serverErr := handshake(t, wire.LaneConfig(clientCert, longest, anyKey), wire.ServerConfig(serverCert, longest, anyKey))
+		if clientErr != nil || serverErr != nil || state.NegotiatedProtocol != longest {
+			t.Fatalf("a lane of a %d-byte protocol name negotiated %q: %v, %v", len(longest), state.NegotiatedProtocol, clientErr, serverErr)
+		}
+	})
+}
 
 // conns dials 127.0.0.3 from 127.0.0.2 over an in-memory network.
 func conns(t *testing.T) (client, server net.Conn) {
@@ -116,28 +137,28 @@ func TestPinCheckRefusals(t *testing.T) {
 		{
 			name:      "the server presents an RSA certificate",
 			client:    wire.ClientConfig(good, anyKey),
-			server:    wire.ServerConfig(rsaCert, anyKey),
+			server:    wire.ServerConfig(rsaCert, lane, anyKey),
 			clientErr: "peer certificate holds a *rsa.PublicKey, and the link pins only Ed25519 keys",
 			servErr:   "remote error: tls: bad certificate",
 		},
 		{
 			name:      "the client presents an RSA certificate",
 			client:    wire.ClientConfig(rsaCert, anyKey),
-			server:    wire.ServerConfig(good, anyKey),
+			server:    wire.ServerConfig(good, lane, anyKey),
 			clientErr: "remote error: tls: bad certificate",
 			servErr:   "peer certificate holds a *rsa.PublicKey, and the link pins only Ed25519 keys",
 		},
 		{
 			name:      "the server presents two certificates",
 			client:    wire.ClientConfig(good, anyKey),
-			server:    wire.ServerConfig(two, anyKey),
+			server:    wire.ServerConfig(two, lane, anyKey),
 			clientErr: "peer presented 2 certificates, and the link pins exactly one",
 			servErr:   "remote error: tls: bad certificate",
 		},
 		{
 			name:      "the client presents no certificate",
 			client:    noCert,
-			server:    wire.ServerConfig(good, anyKey),
+			server:    wire.ServerConfig(good, lane, anyKey),
 			clientErr: "remote error: tls: certificate required",
 			servErr:   "tls: client didn't provide a certificate",
 		},
@@ -159,7 +180,7 @@ type seen struct {
 	refuse bool
 }
 
-func (s *seen) accept(key ed25519.PublicKey) error {
+func (s *seen) accept(key ed25519.PublicKey, _ string) error {
 	s.keys = append(s.keys, key)
 	if s.refuse {
 		return errors.New("refused by the pin check")
@@ -174,7 +195,7 @@ func TestResumedSessionsStillRunThePinCheck(t *testing.T) {
 		var atClient, atServer seen
 		clientCfg := wire.ClientConfig(clientCert, atClient.accept)
 		clientCfg.ClientSessionCache = tls.NewLRUClientSessionCache(1)
-		serverCfg := wire.ServerConfig(serverCert, atServer.accept)
+		serverCfg := wire.ServerConfig(serverCert, lane, atServer.accept)
 
 		if _, clientErr, serverErr := handshake(t, clientCfg, serverCfg); clientErr != nil || serverErr != nil {
 			t.Fatalf("first handshake: %v, %v", clientErr, serverErr)
