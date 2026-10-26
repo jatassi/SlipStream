@@ -23,7 +23,6 @@ import type {
   ListWorkFiles409,
   ListWorkFiles422,
   ListWorkFiles500,
-  ListWorkFiles501,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -238,7 +237,6 @@ export const getListWorkFilesSuspenseQueryOptions = <
     | ListWorkFiles409
     | ListWorkFiles422
     | ListWorkFiles500
-    | ListWorkFiles501
   >,
 >(
   workId: string,
@@ -277,7 +275,6 @@ export type ListWorkFilesSuspenseQueryError = ErrorType<
   | ListWorkFiles409
   | ListWorkFiles422
   | ListWorkFiles500
-  | ListWorkFiles501
 >;
 
 export function useListWorkFilesSuspense<
@@ -289,7 +286,6 @@ export function useListWorkFilesSuspense<
     | ListWorkFiles409
     | ListWorkFiles422
     | ListWorkFiles500
-    | ListWorkFiles501
   >,
 >(
   workId: string,
@@ -310,7 +306,6 @@ export function useListWorkFilesSuspense<
     | ListWorkFiles409
     | ListWorkFiles422
     | ListWorkFiles500
-    | ListWorkFiles501
   >,
 >(
   workId: string,
@@ -331,7 +326,6 @@ export function useListWorkFilesSuspense<
     | ListWorkFiles409
     | ListWorkFiles422
     | ListWorkFiles500
-    | ListWorkFiles501
   >,
 >(
   workId: string,
@@ -356,7 +350,6 @@ export function useListWorkFilesSuspense<
     | ListWorkFiles409
     | ListWorkFiles422
     | ListWorkFiles500
-    | ListWorkFiles501
   >,
 >(
   workId: string,

@@ -85,7 +85,7 @@ func TestTakingEveryTargetAwayKeepsTheFileAsKeptAndPuttingThemBackRestoresIt(t *
 	if disk := s.onDisk(t); !maps.Equal(disk, back) {
 		t.Fatalf("the root holds %v, want the WEB-DL filling again, named after Web", disk)
 	}
-	_, cells, err := s.svc.WorkCells(t.Context(), admin, s.tree.ID)
+	_, cells, _, err := s.svc.WorkCells(t.Context(), admin, s.tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func (l *library) snapshot(t *testing.T, svc *files.Files, ws ...works.WorkID) s
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, cells, err := svc.WorkCells(t.Context(), admin, w)
+		_, cells, _, err := svc.WorkCells(t.Context(), admin, w)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -319,7 +319,7 @@ func TestATargetRefusingTheVideoCodecAFileWasProbedAtLetsGoOfIt(t *testing.T) {
 			if disk := l.onDisk(t); !maps.Equal(disk, c.disk) {
 				t.Fatalf("under %s the root holds %v, want %v", c.choice, disk, c.disk)
 			}
-			_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+			_, cells, _, err := svc.WorkCells(t.Context(), admin, tree.ID)
 			if err != nil {
 				t.Fatal(err)
 			}

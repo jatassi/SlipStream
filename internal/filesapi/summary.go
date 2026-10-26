@@ -3,6 +3,7 @@ package filesapi
 import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -13,19 +14,16 @@ type summary struct {
 	ItemStatus api.Counts[State]             `json:"itemStatus" doc:"Its Items by status; an Item with no cell isn't counted"`
 }
 
-func summaryOf(items []works.Item, cells []files.Cell) summary {
-	out := summary{Cells: api.Counts[State]{}, Items: len(items), ItemStatus: api.Counts[State]{}}
-	if s, ok := files.Status(cells); ok {
-		out.Status = StatusOf(s)
-	}
-	of := map[works.ItemID][]files.Cell{}
-	for _, c := range cells {
-		out.Cells[c.State.String()]++
-		of[c.Item.ID] = append(of[c.Item.ID], c)
-	}
-	for _, it := range items {
-		if s, ok := files.Status(of[it.ID]); ok {
-			out.ItemStatus[s.String()]++
+func summaryOf(r files.Rollup) summary {
+	return summary{Status: StatusOf(r.Status), Cells: CountsOf(r.Cells), Items: r.Items, ItemStatus: CountsOf(r.ByItem)}
+}
+
+// CountsOf is c on the wire, a State with none left out.
+func CountsOf(c files.Counts) api.Counts[State] {
+	out := api.Counts[State]{}
+	for s, n := range c {
+		if n > 0 {
+			out[files.State(s).String()] = n
 		}
 	}
 	return out
@@ -61,4 +59,39 @@ type waitingNeed struct {
 
 type noRootNeed struct {
 	Kind string `json:"kind" enum:"no_root" doc:"The Work has no root. Its downloads wait until it has one"`
+}
+
+var needVariants = map[files.NeedKind]func(files.Need) any{
+	files.NeedFailed: func(n files.Need) any {
+		return failedNeed{Kind: "failed", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), TargetID: n.Target.String(), Waiting: targetIDs(n.Waiting), GrabID: n.Grab.String()}
+	},
+	files.NeedUpgrade: func(n files.Need) any {
+		return upgradeNeed{Kind: "upgrade", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), Upgrades: targetIDs(n.Upgrades)}
+	},
+	files.NeedWaiting: func(n files.Need) any { return waitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code} },
+	files.NeedNoRoot:  func(files.Need) any { return noRootNeed{Kind: "no_root"} },
+}
+
+func needsOf(ns []files.Need) []api.OneOf[need] {
+	out := make([]api.OneOf[need], len(ns))
+	for i, n := range ns {
+		out[i] = api.NewOneOf[need](needVariants[n.Kind](n))
+	}
+	return out
+}
+
+func itemIDs(ids []works.ItemID) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.String()
+	}
+	return out
+}
+
+func targetIDs(ids []targets.TargetID) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.String()
+	}
+	return out
 }
