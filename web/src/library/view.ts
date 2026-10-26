@@ -1,8 +1,4 @@
-import type {
-  WorksContentType,
-  WorksLibraryRowMonitored,
-  WorksListing,
-} from "../api/gen/model";
+import type { WorksContentType, WorksLibraryRowMonitored, WorksListing } from "../api/gen/model";
 import type { ListValue } from "./rows";
 
 export const layouts = ["grid", "table"] as const;
@@ -152,3 +148,7 @@ export function defaultView(types: readonly WorksContentType[]): LibraryView {
     q: "",
   };
 }
+
+/** What a Library calls its Works: its one type's word for them, or "Works" on "All". */
+export const nounOf = (types: readonly WorksContentType[]) =>
+  (types.length === 1 ? types[0]?.work.many : undefined) ?? "Works";

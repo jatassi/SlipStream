@@ -8,7 +8,10 @@ export type ViewScope = string;
  * The view to open on when the address names none: the one last used for
  * this Library in this browser, with the address's search kept.
  */
-export function rememberedSearch(scope: ViewScope, search: LibrarySearch): LibrarySearch | undefined {
+export function rememberedSearch(
+  scope: ViewScope,
+  search: LibrarySearch,
+): LibrarySearch | undefined {
   if (viewKeys(search).length > 0) {
     return undefined;
   }

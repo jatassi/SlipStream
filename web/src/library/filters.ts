@@ -145,7 +145,10 @@ const fieldGroups: { readonly [K in ListKind]: (field: SharedField) => FilterGro
 
 /** The filter groups a Library offers: the core ones, then each field its types mark filterable. */
 export function groupsFor(types: readonly WorksContentType[]): readonly FilterGroup[] {
-  return [...coreGroups, ...sharedFields(types, "filter").map((field) => fieldGroups[field.kind](field))];
+  return [
+    ...coreGroups,
+    ...sharedFields(types, "filter").map((field) => fieldGroups[field.kind](field)),
+  ];
 }
 
 const inside = (value: number | undefined, { min, max }: { min?: number; max?: number }) =>

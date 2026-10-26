@@ -45,10 +45,15 @@ function compare(a: Comparable, b: Comparable): number {
 
 type Keyed = { readonly work: LibraryWork; readonly value: Comparable | undefined };
 
-function sortedBy(works: readonly LibraryWork[], sort: SortDef, reverse: boolean, ctx: ArrangeContext) {
+function sortedBy(
+  works: readonly LibraryWork[],
+  sort: SortDef,
+  reverse: boolean,
+  ctx: ArrangeContext,
+) {
   const direction = (sort.natural === "asc" ? 1 : -1) * (reverse ? -1 : 1);
   const keyed: Keyed[] = works.map((work) => ({ work, value: sort.value(work, ctx) }));
-  return keyed.sort((a, b) => {
+  return keyed.toSorted((a, b) => {
     if (a.value === undefined || b.value === undefined) {
       if (a.value !== b.value) {
         return a.value === undefined ? 1 : -1;
@@ -93,7 +98,9 @@ export function arrange(
   const ofTypes = works.filter((work) => typeIds.has(work.type.id));
   const keep = matcherOf(view.filters, scope.groups);
   const { matched } = ctx;
-  const shown = ofTypes.filter((work) => (matched === undefined || matched.has(work.id)) && keep(work));
+  const shown = ofTypes.filter(
+    (work) => (matched === undefined || matched.has(work.id)) && keep(work),
+  );
   const sort = scope.sorts.find((each) => each.key === view.sort) ?? scope.sorts[0];
   if (sort === undefined) {
     throw new Error("a Library offers no sort");

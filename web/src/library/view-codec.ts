@@ -24,8 +24,18 @@ import {
  */
 export type LibrarySearch = Readonly<Record<string, string | 1>>;
 
-const texts = ["view", "size", "cols", "sort", "status", "monitored", "profile", "root", "q"];
-const flags = ["rev", "needs"];
+const texts: ReadonlySet<string> = new Set([
+  "view",
+  "size",
+  "cols",
+  "sort",
+  "status",
+  "monitored",
+  "profile",
+  "root",
+  "q",
+]);
+const flags: ReadonlySet<string> = new Set(["rev", "needs"]);
 
 const textOf = (value: unknown) =>
   typeof value === "string" || typeof value === "number" ? String(value) : undefined;
@@ -39,10 +49,10 @@ export function librarySearch(raw: unknown): LibrarySearch {
   }
   return Object.fromEntries(
     Object.entries(raw).flatMap(([key, value]): [string, string | 1][] => {
-      if (flags.includes(key)) {
+      if (flags.has(key)) {
         return flagOf(value) ? [[key, 1]] : [];
       }
-      const text = texts.includes(key) || key.startsWith("f.") ? textOf(value) : undefined;
+      const text = texts.has(key) || key.startsWith("f.") ? textOf(value) : undefined;
       return text === undefined || text === "" ? [] : [[key, text]];
     }),
   );
@@ -77,7 +87,11 @@ function pickOf(group: FilterGroup, text: string | undefined): Pick | undefined 
   const [, min, max] = rangePattern.exec(text) ?? [];
   return min === undefined && max === undefined
     ? undefined
-    : { kind: "range", min: min === undefined ? undefined : Number(min), max: max === undefined ? undefined : Number(max) };
+    : {
+        kind: "range",
+        min: min === undefined ? undefined : Number(min),
+        max: max === undefined ? undefined : Number(max),
+      };
 }
 
 function textOfPick(key: FilterKey, pick: Pick): string | 1 {
@@ -105,8 +119,11 @@ function filtersOf(search: LibrarySearch, groups: readonly FilterGroup[]): Filte
   );
 }
 
-const oneOf = <T extends string>(choices: readonly T[], value: string | undefined, fallback: T): T =>
-  choices.find((choice) => choice === value) ?? fallback;
+const oneOf = <T extends string>(
+  choices: readonly T[],
+  value: string | undefined,
+  fallback: T,
+): T => choices.find((choice) => choice === value) ?? fallback;
 
 /** The view an address names for these types, dropping what they no longer declare. */
 export function decodeView(search: LibrarySearch, types: readonly WorksContentType[]): LibraryView {
@@ -119,7 +136,11 @@ export function decodeView(search: LibrarySearch, types: readonly WorksContentTy
     layout: oneOf(layouts, textAt(search, "view"), fallback.layout),
     size: oneOf(posterSizes, textAt(search, "size"), fallback.size),
     columns: columns ?? fallback.columns,
-    sort: oneOf<SortKey>(sorts.map(({ key }) => key), textAt(search, "sort"), fallback.sort),
+    sort: oneOf<SortKey>(
+      sorts.map(({ key }) => key),
+      textAt(search, "sort"),
+      fallback.sort,
+    ),
     reverse: search["rev"] === 1,
     filters: filtersOf(search, groups),
     q: textAt(search, "q") ?? "",
@@ -133,7 +154,7 @@ const sameColumns = (a: readonly ColumnKey[], b: readonly ColumnKey[]) =>
 export function encodeView(view: LibraryView, types: readonly WorksContentType[]): LibrarySearch {
   const fallback = defaultView(types);
   const { groups } = scopeOf(types);
-  const filters = groups.flatMap((group) => {
+  const filters = groups.flatMap((group): [string, string | 1][] => {
     const pick = view.filters[group.key];
     return pick === undefined ? [] : [[paramOf(group.key), textOfPick(group.key, pick)]];
   });

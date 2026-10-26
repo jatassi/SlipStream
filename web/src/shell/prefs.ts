@@ -39,8 +39,8 @@ const views: Kind<Values["libraryViews"]> = {
   area: "browser",
   fallback: {},
   parse: (raw) => {
-    const stored: unknown = JSON.parse(raw);
-    return typeof stored === "object" && stored !== null ? { ...stored } : {};
+    const read: unknown = JSON.parse(raw);
+    return typeof read === "object" && read !== null ? { ...read } : {};
   },
   serialize: (value) => JSON.stringify(value),
 };

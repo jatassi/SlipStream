@@ -46,6 +46,7 @@ beforeEach(() => {
   writePref("startupOff", false);
   writePref("lastEmail", "");
   writePref("showHiddenFolders", false);
+  writePref("libraryViews", {});
   onTestFinished(() => {
     worker.resetHandlers();
   });

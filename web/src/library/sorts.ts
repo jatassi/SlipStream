@@ -61,9 +61,10 @@ function ranked<W extends string>(order: readonly W[], words: (word: W) => strin
 const byStatus = ranked(statusOrder, (status) => statusMarks[status].word, "No status");
 const byMonitored = ranked(monitoredOrder, (monitored) => monitoredWords[monitored], "");
 
+const two = (part: number) => String(part).padStart(2, "0");
+
 /** The local day and time, which sorts as text and opens with the day dateSections reads. */
 function localStamp(date: Date): string {
-  const two = (part: number) => String(part).padStart(2, "0");
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}T${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`;
 }
 
@@ -186,10 +187,8 @@ const fieldSorts: {
 /** The sorts a Library offers: the core ones, then each field its types mark sortable. */
 export function sortsFor(types: readonly WorksContentType[]): readonly SortDef[] {
   const core = Object.values(coreSorts).filter((sort) => sort.key !== "rating" || rated(types));
-  const fields = sharedFields(types, "sort").map((field) => ({
-    key: fieldKey(field.key),
-    label: field.label,
-    ...fieldSorts[field.kind](field),
-  }));
+  const fields = sharedFields(types, "sort").map((field): SortDef =>
+    Object.assign({ key: fieldKey(field.key), label: field.label }, fieldSorts[field.kind](field)),
+  );
   return [...core, ...fields];
 }

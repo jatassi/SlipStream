@@ -15,15 +15,10 @@ export const stepOf = (key: string): Step | undefined => steps[key];
 
 const clamp = (index: number, count: number) => Math.min(Math.max(index, 0), count - 1);
 
-// The poster row `by` rows of posters away, skipping section headings.
+// The next row of posters above or below, skipping section headings.
 function posterRow({ rows }: GridLayout, from: number, by: -1 | 1) {
-  for (let at = from + by; at >= 0 && at < rows.length; at += by) {
-    const row = rows[at];
-    if (row?.kind === "posters") {
-      return row;
-    }
-  }
-  return undefined;
+  const ahead = by === 1 ? rows.slice(from + 1) : rows.slice(0, from).toReversed();
+  return ahead.find((row) => row.kind === "posters");
 }
 
 /**
@@ -44,7 +39,7 @@ export function gridMove(layout: GridLayout, index: number, step: Step, count: n
     return clamp(index, count);
   }
   const next = posterRow(layout, at, step === "up" ? -1 : 1);
-  if (next === undefined) {
+  if (next?.kind !== "posters") {
     return index;
   }
   return next.first + Math.min(index - row.first, next.ids.length - 1);

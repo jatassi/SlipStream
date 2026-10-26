@@ -12,7 +12,10 @@ export type GridLayout = {
 };
 
 /** Each section's heading row, then its Works in rows of `perRow`. */
-export function gridRows({ order, sections }: Pick<Arranged, "order" | "sections">, perRow: number): GridLayout {
+export function gridRows(
+  { order, sections }: Pick<Arranged, "order" | "sections">,
+  perRow: number,
+): GridLayout {
   const rows: GridRow[] = [];
   const rowAt: number[] = [];
   for (const { section, start, count } of sections) {
