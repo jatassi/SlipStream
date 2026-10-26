@@ -5,30 +5,44 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 // GrabCells is files.Inflight over the Grabs: each cell takes its latest
-// Grab's state, downloading once past fetching and failed once failed.
-type GrabCells struct{}
+// Grab, downloading once past fetching and failed once failed. An
+// unfinished Grab whose Node is out of step waits on it, node_away.
+type GrabCells struct {
+	InStep func(role.NodeID) bool
+}
 
-func (GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[files.CellKey]files.GrabState, error) {
+// NodeAway is the Waiting code of a Grab whose Node is out of step.
+const NodeAway = "node_away"
+
+func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[files.CellKey]files.GrabCell, error) {
 	rows, err := db.New(r).ListTargetsOfWorks(ctx, ws)
 	if err != nil {
 		return nil, err
 	}
-	out := map[files.CellKey]files.GrabState{}
+	out := map[files.CellKey]files.GrabCell{}
 	for _, row := range rows {
 		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
+		cell := files.GrabCell{Grab: row.ID.UUID}
 		switch row.Stage {
-		case Failed:
-			out[key] = files.GrabFailed
-		case Fetching, Imported:
+		case Imported:
 			delete(out, key)
+			continue
+		case Failed:
+			cell.State = files.GrabFailed
 		case Downloading, Probing, Transferring, Importing:
-			out[key] = files.GrabDownloading
+			cell.State = files.GrabDownloading
+		case Fetching:
 		}
+		if row.Stage != Failed && !g.InStep(row.NodeID) {
+			cell.Waiting = NodeAway
+		}
+		out[key] = cell
 	}
 	return out, nil
 }

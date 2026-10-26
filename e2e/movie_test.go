@@ -105,6 +105,7 @@ type movieView struct {
 	Fields         json.RawMessage `json:"fields"`
 	Ratings        json.RawMessage `json:"ratings"`
 	Artwork        []artRef        `json:"artwork"`
+	Links          json.RawMessage `json:"links"`
 }
 
 type artRef struct {
@@ -226,7 +227,15 @@ func TestAMovieIsAddedWithItsWholeRecordFromThePreviewsOneFetch(t *testing.T) {
 	if stored.fields() != added.fields() || stored.ratings() != added.ratings() {
 		t.Fatalf("getWork reads fields\n%s\nratings %s\nwant what the add answered", stored.fields(), stored.ratings())
 	}
+	if want := saltRoadLinks; string(stored.Links) != want {
+		t.Fatalf("getWork links to\n%s\nwant\n%s", stored.Links, want)
+	}
 }
+
+const saltRoadLinks = `[{"key":"imdb","label":"IMDb","url":"https://www.imdb.invalid/title/tt9000005","kind":"page"},` +
+	`{"key":"tmdb","label":"TMDB","url":"https://www.tmdb.invalid/movie/9000005","kind":"page"},` +
+	`{"key":"trakt","label":"Trakt","url":"https://trakt.invalid/search/tmdb/9000005?id_type=movie","kind":"page"},` +
+	`{"key":"trailer","label":"Trailer","url":"https://www.youtube.invalid/watch?v=sa1tR0adTr","kind":"trailer"}]`
 
 type served struct {
 	status      int

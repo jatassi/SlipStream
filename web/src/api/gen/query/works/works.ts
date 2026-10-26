@@ -51,7 +51,6 @@ import type {
   ListLibrary409,
   ListLibrary422,
   ListLibrary500,
-  ListLibrary501,
   ListLibraryParams,
   ListWorks401,
   ListWorks403,
@@ -94,7 +93,6 @@ import type {
   SearchWorks409,
   SearchWorks422,
   SearchWorks500,
-  SearchWorks501,
   SearchWorksParams,
   SetContentTypeEnabled401,
   SetContentTypeEnabled403,
@@ -1131,7 +1129,6 @@ export const getListLibrarySuspenseQueryOptions = <
     | ListLibrary409
     | ListLibrary422
     | ListLibrary500
-    | ListLibrary501
   >,
 >(
   params?: ListLibraryParams,
@@ -1168,7 +1165,6 @@ export type ListLibrarySuspenseQueryError = ErrorType<
   | ListLibrary409
   | ListLibrary422
   | ListLibrary500
-  | ListLibrary501
 >;
 
 export function useListLibrarySuspense<
@@ -1180,7 +1176,6 @@ export function useListLibrarySuspense<
     | ListLibrary409
     | ListLibrary422
     | ListLibrary500
-    | ListLibrary501
   >,
 >(
   params: undefined | ListLibraryParams,
@@ -1199,7 +1194,6 @@ export function useListLibrarySuspense<
     | ListLibrary409
     | ListLibrary422
     | ListLibrary500
-    | ListLibrary501
   >,
 >(
   params?: ListLibraryParams,
@@ -1220,7 +1214,6 @@ export function useListLibrarySuspense<
     | ListLibrary409
     | ListLibrary422
     | ListLibrary500
-    | ListLibrary501
   >,
 >(
   params?: ListLibraryParams,
@@ -1245,7 +1238,6 @@ export function useListLibrarySuspense<
     | ListLibrary409
     | ListLibrary422
     | ListLibrary500
-    | ListLibrary501
   >,
 >(
   params?: ListLibraryParams,
@@ -2211,7 +2203,6 @@ export const getSearchWorksSuspenseQueryOptions = <
     | SearchWorks409
     | SearchWorks422
     | SearchWorks500
-    | SearchWorks501
   >,
 >(
   params: SearchWorksParams,
@@ -2248,7 +2239,6 @@ export type SearchWorksSuspenseQueryError = ErrorType<
   | SearchWorks409
   | SearchWorks422
   | SearchWorks500
-  | SearchWorks501
 >;
 
 export function useSearchWorksSuspense<
@@ -2260,7 +2250,6 @@ export function useSearchWorksSuspense<
     | SearchWorks409
     | SearchWorks422
     | SearchWorks500
-    | SearchWorks501
   >,
 >(
   params: SearchWorksParams,
@@ -2279,7 +2268,6 @@ export function useSearchWorksSuspense<
     | SearchWorks409
     | SearchWorks422
     | SearchWorks500
-    | SearchWorks501
   >,
 >(
   params: SearchWorksParams,
@@ -2300,7 +2288,6 @@ export function useSearchWorksSuspense<
     | SearchWorks409
     | SearchWorks422
     | SearchWorks500
-    | SearchWorks501
   >,
 >(
   params: SearchWorksParams,
@@ -2325,7 +2312,6 @@ export function useSearchWorksSuspense<
     | SearchWorks409
     | SearchWorks422
     | SearchWorks500
-    | SearchWorks501
   >,
 >(
   params: SearchWorksParams,

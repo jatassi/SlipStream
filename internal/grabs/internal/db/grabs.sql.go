@@ -721,7 +721,7 @@ func (q *Queries) ListTargetsOfWork(ctx context.Context, workID works.WorkID) ([
 }
 
 const listTargetsOfWorks = `-- name: ListTargetsOfWorks :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_target.target_id
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id IN (/*SLICE:work_ids*/?)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
@@ -732,6 +732,7 @@ type ListTargetsOfWorksRow struct {
 	ItemID   works.ItemID
 	Edition  targets.Edition
 	Stage    Stage
+	NodeID   role.NodeID
 	TargetID targets.TargetID
 }
 
@@ -759,6 +760,7 @@ func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID
 			&i.ItemID,
 			&i.Edition,
 			&i.Stage,
+			&i.NodeID,
 			&i.TargetID,
 		); err != nil {
 			return nil, err
