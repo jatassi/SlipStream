@@ -15,8 +15,9 @@ import (
 
 // Resolve answers once a peer sent the info dictionary of the magnet link
 // req names, once Timings.ResolveHold passed with how the search stands,
-// or once the search ended without it. A second call for the same info
-// hash joins the first.
+// or once the search ended without it. A call for the same magnet link
+// joins its search. A call whose link names other trackers may discover
+// otherwise, so it waits for that search to end and then starts its own.
 func (c *Client) Resolve(ctx context.Context, req *dlv1.ResolveRequest) (*dlv1.ResolveResponse, error) {
 	if len(req.GetInfoHash()) != len(bencode.InfoHash{}) {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is 20 bytes, not %d", len(req.GetInfoHash()))
@@ -67,8 +68,9 @@ type search struct {
 	// trackerSaid is the last failure reason a tracker responded with.
 	trackerSaid string
 	waiting     []chan answer
-	// next are the calls that came once end could no longer answer them,
-	// for a search that starts once this one's torrent is Removed.
+	// next are the calls this search doesn't answer: their link names other
+	// trackers, or they came once end could no longer answer them. They are
+	// placed again once its torrent is Removed.
 	next []ask
 	// end is what every waiting call gets once the engine torrent is
 	// Removed, nil for a search nobody asked about.
@@ -129,7 +131,7 @@ func (l *loop) place(a ask, now time.Time) bool {
 	case s.phase == kept:
 		a.reply <- answer{res: s.end}
 		return false
-	case s.phase == ending && !answersAnyCall(s.end):
+	case s.phase == looking && !slices.Equal(s.link.Trackers, a.link.Trackers), s.phase == ending && !answersAnyCall(s.end):
 		s.next = append(s.next, a)
 		return true
 	}

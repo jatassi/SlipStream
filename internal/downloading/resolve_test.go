@@ -293,3 +293,34 @@ func TestACallAfterASearchTimedOutGetsASearchOfItsOwn(t *testing.T) {
 		}
 	})
 }
+
+func TestACallWhoseLinkNamesATrackerNeverRidesATrackerlessSearch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := newFile(t, "Orchard.mkv")
+		c := n.start()
+		c.send(withDHT(true))
+
+		since := time.Now()
+		trackerless := resolve(c, linkOf(f), time.Now().Add(timings.ResolveHold/2))
+		pending(t, trackerless, "while no peer sent the metadata")
+		tracked := resolve(c, linkOf(f, trackerURL), time.Now().Add(wait))
+		pending(t, tracked, "while the trackerless search runs")
+		if started := announcesOf(n.world, f, "started", since); started != 0 {
+			t.Errorf("the tracker heard started %d times while the trackerless search ran, want none", started)
+		}
+		time.Sleep(timings.ResolveHold/2 + 2*time.Second)
+		if u := unresolvedOf(t, await(t, trackerless)); u.GetReason() != dlv1.UnresolvedReason_UNRESOLVED_REASON_TIMED_OUT {
+			t.Errorf("the trackerless call got %v at its deadline, want timed out", u)
+		}
+		if started := announcesOf(n.world, f, "started", since); started != 1 {
+			t.Errorf("the tracker the link names heard started %d times once the trackerless search ended, want once", started)
+		}
+		lookups := n.world.Lookups(f.hash)
+		n.serve(f)
+		infoOf(t, await(t, tracked))
+		if got := n.world.Lookups(f.hash); got != lookups {
+			t.Errorf("the DHT looked up the hash %d times for a link that names a tracker, want none", got-lookups)
+		}
+	})
+}
