@@ -22,13 +22,25 @@ const neverMatches = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAA
 
 func Member(t testing.TB, lib *storage.DB[storage.Library], email string) identity.AccountID {
 	t.Helper()
+	return account(t, lib, email, false)
+}
+
+// Admin adds an enabled Admin, as a claim does, without a session or an
+// API key.
+func Admin(t testing.TB, lib *storage.DB[storage.Library], email string) identity.AccountID {
+	t.Helper()
+	return account(t, lib, email, true)
+}
+
+func account(t testing.TB, lib *storage.DB[storage.Library], email string, admin bool) identity.AccountID {
+	t.Helper()
 	id := identity.AccountID{UUID: storage.NewUUID()}
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return db.New(tx).InsertAccount(ctx, db.InsertAccountParams{
 			ID:          id,
 			Email:       email,
 			DisplayName: "Member",
-			Admin:       false,
+			Admin:       admin,
 			PinHash:     neverMatches,
 			CreatedAt:   storage.Now(),
 		})
