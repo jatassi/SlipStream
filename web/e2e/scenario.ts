@@ -4,6 +4,7 @@ export type Scenario =
   | "first-run"
   | "home"
   | "low-space"
+  | "movies"
   | "serving"
   | "targets"
   | "torrents"

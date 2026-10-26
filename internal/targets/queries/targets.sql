@@ -136,7 +136,7 @@ SELECT count(*) FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) AND e
 UPDATE targets_wants SET profile_id = sqlc.arg(to_profile) WHERE profile_id = sqlc.arg(from_profile);
 
 -- name: SetWants :exec
-UPDATE targets_wants SET profile_id = sqlc.arg(profile_id), editions = sqlc.narg(editions) WHERE work_id = sqlc.arg(work_id);
+UPDATE targets_wants SET editions = sqlc.narg(editions) WHERE work_id = sqlc.arg(work_id);
 
 -- name: InsertProfileCut :exec
 INSERT INTO targets_profile_cut (profile_id, position, cut) VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(cut));

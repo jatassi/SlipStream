@@ -192,8 +192,7 @@ func wrongType(err error) error {
 }
 
 type newWants struct {
-	ProfileID string                         `json:"profileId" format:"uuid"`
-	Editions  api.Patch[api.OneOf[editions]] `json:"editions" doc:"The Work's own Edition list, or null for its Profile's"`
+	Editions api.Patch[api.OneOf[editions]] `json:"editions" doc:"The Work's own Edition list, or null for its Profile's"`
 }
 
 type setWantsInput struct {
@@ -215,11 +214,7 @@ func (h handlers) setWorkWants(ctx context.Context, by identity.Admin, in *setWa
 		return nil, workNotFound
 	}
 	work := works.WorkID{UUID: u}
-	p, err := storage.ParseUUID(in.Body.ProfileID)
-	if err != nil {
-		return nil, profileNotFound
-	}
-	c := targets.SetWants{Work: work, Profile: targets.ProfileID{UUID: p}}
+	c := targets.SetWants{Work: work}
 	if own := in.Body.Editions.Value(); own != nil {
 		list, err := editionsFrom(*own)
 		if err != nil {
@@ -228,11 +223,8 @@ func (h handlers) setWorkWants(ctx context.Context, by identity.Admin, in *setWa
 		c.Own = &list
 	}
 	i, err := shelf(h.goals).Change(ctx, by, c, in.Mode())
-	switch {
-	case errors.Is(err, targets.ErrNoProfile):
-		return nil, profileNotFound
-	case err != nil:
-		return nil, wrongType(changed(err))
+	if err != nil {
+		return nil, changed(err)
 	}
 	g, err := open(h.goals).Goals(ctx, by, work)
 	if err != nil {

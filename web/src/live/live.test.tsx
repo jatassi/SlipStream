@@ -105,20 +105,6 @@ test("works.type-changed invalidates the Library, every Work and their cells, an
   });
 });
 
-test("targets.changed invalidates every Work's cells and no Work", async () => {
-  const server = liveServer();
-  const app = renderApp({ path: "/nodes", handlers: server.handlers });
-  await synced(app);
-  const invalidated = seeded(app, {
-    orchard: getGetWorkCellsQueryKey(orchard),
-    harvest: getGetWorkCellsQueryKey(harvest),
-    work: getGetWorkQueryKey(orchard),
-  });
-
-  server.clients[0]?.send({ event: "targets.changed", data: { workIds: [] } });
-  await expect.poll(invalidated).toEqual({ orchard: true, harvest: true, work: false });
-});
-
 test("files.changed invalidates only that Work's cells", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });

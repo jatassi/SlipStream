@@ -4379,7 +4379,6 @@ export const TargetsNewWants = zod.object({
   editions: zod
     .union([TargetsEditions, zod.null()])
     .describe("The Work's own Edition list, or null for its Profile's"),
-  profileId: zod.uuid(),
 });
 
 export type TargetsNewWants = zod.input<typeof TargetsNewWants>;

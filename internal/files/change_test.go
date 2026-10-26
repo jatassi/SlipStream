@@ -208,7 +208,7 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 	s := shelved(t)
 	bluray := s.target(t, "Bluray", []release.Quality{release.Bluray1080p})
 	discs := s.profile(t, "Discs", bluray)
-	got := s.change(t, s.svc, targets.SetWants{Work: s.tree.ID, Profile: discs}, keeping)
+	got := s.change(t, s.svc, targets.SetProfiles{Works: []works.WorkID{s.tree.ID}, Profile: discs}, keeping)
 	if want := (files.Impact{Works: 1, Unwanted: 1, Bytes: 5, NewlyWanted: 2}); got != want {
 		t.Fatalf("moving the Work to Discs = %+v, want %+v", got, want)
 	}
@@ -229,8 +229,8 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 		{targets.DeleteProfile{ID: s.both, To: s.both}, targets.ErrMovesToItself},
 		{targets.DeleteProfile{ID: discs, To: hds}, targets.ErrNoProfile},
 		{targets.DeleteProfile{ID: s.both, To: discs}, targets.ErrNoReplacement},
-		{targets.SetWants{Work: s.tree.ID, Profile: discs}, targets.ErrNoProfile},
-		{targets.SetWants{Work: works.WorkID{UUID: storage.NewUUID()}, Profile: hds}, works.ErrNoWork},
+		{targets.SetProfiles{Works: []works.WorkID{s.tree.ID}, Profile: discs}, targets.ErrNoProfile},
+		{targets.SetWants{Work: works.WorkID{UUID: storage.NewUUID()}}, works.ErrNoWork},
 	} {
 		if _, err := s.svc.Change(t.Context(), admin, c.change, deleting); !errors.Is(err, c.want) {
 			t.Errorf("%+v: err = %v, want %v", c.change, err, c.want)

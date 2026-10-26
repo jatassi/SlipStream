@@ -7,7 +7,7 @@ import { Button } from "../../ui/button";
 import { Chip } from "../../ui/chip";
 import { List, ListRow } from "../../ui/list";
 import { Poster } from "../../ui/poster";
-import { factTexts } from "./sentence";
+import { factTexts } from "../page/facts";
 import { openAddSheet } from "./sheet-state";
 
 const shown = 25;
