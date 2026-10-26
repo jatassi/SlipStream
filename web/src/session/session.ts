@@ -3,6 +3,7 @@ import { type QueryClient, queryOptions, useSuspenseQuery } from "@tanstack/reac
 import { isProblem } from "../api/errors";
 import type {
   FirstrunFirstRun,
+  FirstrunStepID,
   IdentityAccount,
   IdentitySession,
   IdentitySignedIn,
@@ -12,6 +13,7 @@ import {
   finishFirstRun,
   getFirstRun,
   getGetFirstRunQueryKey,
+  setFirstRunStep,
 } from "../api/gen/query/firstrun/firstrun";
 import { getGetSessionQueryKey, getSession } from "../api/gen/query/identity/identity";
 import { getGetStatusQueryKey, getStatus } from "../api/gen/query/system/system";
@@ -73,6 +75,28 @@ export function markClaimed(queryClient: QueryClient, signedIn: IdentitySignedIn
 /** A step write answers with first setup as it now stands, which the gate and the frame read. */
 export function adoptFirstRun(queryClient: QueryClient, view: FirstrunFirstRun): void {
   queryClient.setQueryData(firstRunQuery.queryKey, view);
+}
+
+/**
+ * Stores a step's outcome and answers true. Once another tab has finished
+ * first setup, it reads the finished view instead and answers false, and the
+ * page follows the finish into the app.
+ */
+export async function storeStep(
+  queryClient: QueryClient,
+  id: FirstrunStepID,
+  outcome: "done" | "skipped",
+): Promise<boolean> {
+  try {
+    adoptFirstRun(queryClient, await setFirstRunStep(id, { outcome }));
+    return true;
+  } catch (error) {
+    if (!isProblem(error, "first_run_finished")) {
+      throw error;
+    }
+    await queryClient.query({ ...firstRunQuery, staleTime: 0 });
+    return false;
+  }
 }
 
 /**

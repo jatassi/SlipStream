@@ -1,4 +1,4 @@
-import { HttpResponse, http, sse } from "msw";
+import { HttpResponse, delay, http, sse } from "msw";
 import { page } from "vitest/browser";
 
 import type {
@@ -8,7 +8,7 @@ import type {
   MailSettings,
 } from "../api/gen/model";
 import { SetFirstRunStepBody } from "../api/gen/zod/firstrun/firstrun.zod";
-import { type LiveMap, ada } from "./handlers";
+import { type LiveMap, ada, problem } from "./handlers";
 
 type Client = Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"];
 
@@ -26,16 +26,25 @@ const mailSet: MailSettings = {
   username: "slipstream",
 };
 
+const skipTodo = (step: FirstrunStepState): FirstrunStepState =>
+  step.state === "todo" ? { id: step.id, state: "skipped" } : step;
+
 /**
  * An Admin's open first setup on the Controller: the session says so, each
- * step write stores its outcome, and Finish skips every todo step. A test
- * changes `state` and sends firstrun.changed to play another tab's write.
+ * step write stores its outcome, and Finish skips every todo step and sends
+ * firstrun.changed before it responds, as the server does. A test changes
+ * `state` and sends firstrun.changed to play another tab's write.
  */
 export function firstSetup(steps: readonly FirstrunStepState[]) {
   const state: FirstrunFirstRun = { open: true, steps: [...steps] };
   const writes: { id: string; outcome: string }[] = [];
   const finishes: number[] = [];
   const clients: Client[] = [];
+  const send = (message: Parameters<Client["send"]>[0]) => {
+    for (const client of clients) {
+      client.send(message);
+    }
+  };
   const handlers = [
     http.get("*/api/v1/session", () =>
       HttpResponse.json({
@@ -51,17 +60,15 @@ export function firstSetup(steps: readonly FirstrunStepState[]) {
       const id = String(params["id"]);
       const { outcome } = SetFirstRunStepBody.parse(await request.json());
       writes.push({ id, outcome });
-      state.steps = state.steps.map((step) =>
-        step.id === id ? { id: step.id, state: outcome } : step,
-      );
+      state.steps = state.steps.map((step) => (step.id === id ? { id, state: outcome } : step));
       return HttpResponse.json(state);
     }),
-    http.post("*/api/v1/first-run/finish", () => {
+    http.post("*/api/v1/first-run/finish", async () => {
       finishes.push(Date.now());
       state.open = false;
-      state.steps = state.steps.map((step) =>
-        step.state === "todo" ? { id: step.id, state: "skipped" } : step,
-      );
+      state.steps = state.steps.map(skipTodo);
+      send({ event: "firstrun.changed", data: {} });
+      await delay(100);
       return new HttpResponse(null, { status: 204 });
     }),
     sse<LiveMap>("*/api/v1/events", ({ client }) => {
@@ -69,18 +76,15 @@ export function firstSetup(steps: readonly FirstrunStepState[]) {
       client.send({ event: "live.resync", data: {} });
     }),
   ];
-  return {
-    handlers,
-    state,
-    writes,
-    finishes,
-    send: (message: Parameters<Client["send"]>[0]) => {
-      for (const client of clients) {
-        client.send(message);
-      }
-    },
-  };
+  return { handlers, state, writes, finishes, send };
 }
+
+/** A step write that finds first setup finished in another browser, unannounced to this tab. */
+export const finishedElsewhere = (state: FirstrunFirstRun) =>
+  http.put("*/api/v1/first-run/steps/:id", () => {
+    state.open = false;
+    return problem(409, "first_run_finished", "First setup is already finished");
+  });
 
 export const stepHeading = (name: string) => page.getByRole("heading", { name, level: 1 });
 

@@ -1,11 +1,12 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Navigate, createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { envOf, placeAt, shownSteps } from "../session/first-run";
 import { requireEntry } from "../session/gate";
 import { usePasskeySupport } from "../session/passkey";
 import {
+  finishFirstSetup,
   firstRunQuery,
   markFirstSetupFinished,
   sessionQuery,
@@ -34,18 +35,35 @@ export const Route = createFileRoute("/setup_/$step")({
   component: FirstSetup,
 });
 
-// Another tab or browser finished first setup, and this one follows it into
-// the app. The tab that finished marked its session first, so it stays put.
-function useFollowFinish(open: boolean) {
+/**
+ * Follows a finish from another tab or browser into the Library, and returns
+ * this tab's own way out: finish, then go to `href`. While this tab finishes,
+ * the firstrun.changed its finish sends doesn't move it.
+ */
+function useFinish(open: boolean) {
   const queryClient = useQueryClient();
   const navigate = Route.useNavigate();
+  const leaving = useRef(false);
   useEffect(() => {
-    if (open || queryClient.getQueryData(sessionQuery.queryKey)?.firstRun !== "open") {
+    if (
+      open ||
+      leaving.current ||
+      queryClient.getQueryData(sessionQuery.queryKey)?.firstRun !== "open"
+    ) {
       return;
     }
     markFirstSetupFinished(queryClient);
     void navigate({ to: "/library", replace: true });
   }, [open, queryClient, navigate]);
+  return async (href: string) => {
+    leaving.current = true;
+    try {
+      await finishFirstSetup(queryClient);
+    } finally {
+      leaving.current = false;
+    }
+    await navigate({ href });
+  };
 }
 
 function FirstSetup() {
@@ -53,16 +71,16 @@ function FirstSetup() {
   const view = useSuspenseQuery(firstRunQuery).data;
   const passkeys = usePasskeySupport();
   const shown = shownSteps(view, { passkeys: passkeys.available });
-  useFollowFinish(view.open);
+  const leave = useFinish(view.open);
   const place = placeAt(shown, at);
   const step = shown.find((candidate) => candidate.id === place);
   return (
     <>
       {place === at ? (
         step === undefined ? (
-          <DonePage shown={shown} />
+          <DonePage shown={shown} leave={leave} />
         ) : (
-          <StepPage step={step} shown={shown} />
+          <StepPage step={step} shown={shown} leave={leave} />
         )
       ) : (
         <Navigate to="/setup/$step" params={{ step: place }} replace />

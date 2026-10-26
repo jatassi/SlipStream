@@ -3,7 +3,14 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { getListContentTypesMockHandler } from "../../api/gen/query/works/works.msw";
-import { done, firstSetup, skipped, stepHeading, todo } from "../../test/first-setup";
+import {
+  done,
+  finishedElsewhere,
+  firstSetup,
+  skipped,
+  stepHeading,
+  todo,
+} from "../../test/first-setup";
 import { cinema } from "../../test/library";
 import { nodesAre } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
@@ -98,11 +105,16 @@ test("the done screen lists each step as set or skipped, and Go to Library finis
   expect(server.finishes).toHaveLength(1);
 });
 
-test("a skipped step's link finishes first setup and opens its place in Settings", async () => {
+test("a skipped step's link finishes first setup and opens its place in Settings, and only there", async () => {
   const { app, server } = open("/setup/done", [done("address"), skipped("media"), done("roots")]);
+  const visited: string[] = [];
+  app.router.subscribe("onResolved", ({ toLocation }) => {
+    visited.push(toLocation.pathname);
+  });
   await userEvent.click(page.getByRole("link", { name: "Set it in Settings" }));
   await expect.poll(() => pathname(app)).toBe("/settings/library-roots");
   expect(server.finishes).toHaveLength(1);
+  expect(visited).not.toContain("/library");
 });
 
 test("with email not set up, the done screen links its settings, and the link finishes first setup", async () => {
@@ -128,6 +140,22 @@ test("with email set up, the done screen leaves it out", async () => {
   open("/setup/done", [done("address"), done("roots")]);
   await expect.element(stepHeading("First setup")).toBeVisible();
   await expect.element(page.getByText("Email isn't set up.")).not.toBeInTheDocument();
+});
+
+test("a tab that missed another browser's finish follows it into the Library on its next Continue", async () => {
+  const server = firstSetup([done("address"), todo("media"), todo("roots")]);
+  const app = renderApp({
+    path: "/setup/media",
+    handlers: [finishedElsewhere(server.state), ...server.handlers, ...world],
+  });
+  await expect.element(stepHeading("Kinds of media")).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Continue" }));
+  await expect.poll(() => pathname(app)).toBe("/library");
+  await expect
+    .element(page.getByText("First setup is already finished"))
+    .not.toBeInTheDocument();
+  expect(server.writes).toEqual([]);
+  expect(server.finishes).toEqual([]);
 });
 
 test("a tab follows another browser's finish into the Library", async () => {
