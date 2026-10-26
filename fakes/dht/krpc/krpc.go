@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/netip"
 	"sync"
@@ -125,7 +126,11 @@ func (s *Server) answer(origin, id string, from netip.AddrPort, msg []byte) (map
 		}
 		q.InfoHash = h
 		if method == "announce_peer" {
-			q.Port = announcedPort(args, from)
+			port, ok := announcedPort(args, from)
+			if !ok {
+				return failure(t, protocolError, "port isn't between 1 and 65535"), true
+			}
+			q.Port = port
 			break
 		}
 		r["token"] = id[:4]
@@ -155,12 +160,15 @@ func infoHash(args map[string]any) (bencode.InfoHash, bool) {
 	return h, true
 }
 
-func announcedPort(args map[string]any, from netip.AddrPort) uint16 {
+func announcedPort(args map[string]any, from netip.AddrPort) (uint16, bool) {
 	if implied, _ := args["implied_port"].(int64); implied != 0 {
-		return from.Port()
+		return from.Port(), true
 	}
 	port, _ := args["port"].(int64)
-	return uint16(port) //nolint:gosec // a port a peer sent, kept as it reads
+	if port < 1 || port > math.MaxUint16 {
+		return 0, false
+	}
+	return uint16(port), true
 }
 
 // compact is BEP 5's compact peer info: 6 bytes for an IPv4 address and

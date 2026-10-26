@@ -148,6 +148,9 @@ func TestPingFindNodeAndAnnouncePeerAreAnsweredAndRecorded(t *testing.T) {
 	}
 	ask(t, c, home, "announce_peer", map[string]any{"info_hash": string(seeded[:]), "port": 6881, "token": "x"})
 	ask(t, c, home, "announce_peer", map[string]any{"info_hash": string(lonely[:]), "port": 1, "implied_port": 1, "token": "x"})
+	if e := ask(t, c, home, "announce_peer", map[string]any{"info_hash": string(seeded[:]), "port": 70000, "token": "x"}); e["y"] != "e" {
+		t.Errorf("an announce of port 70000 answered %q, want an error", e)
+	}
 	if e := ask(t, c, home, "sample_infohashes", map[string]any{"target": id}); e["y"] != "e" || !reflect.DeepEqual(e["e"], []any{int64(204), "Method Unknown"}) {
 		t.Errorf("an unknown method answered %q, want error 204", e)
 	}
