@@ -1490,22 +1490,6 @@ func (q *Queries) SetUnknownPrivacy(ctx context.Context, arg SetUnknownPrivacyPa
 	return err
 }
 
-const trackerNameTaken = `-- name: TrackerNameTaken :one
-SELECT EXISTS (SELECT 1 FROM indexers_tracker WHERE name = ?1 AND id IS NOT ?2)
-`
-
-type TrackerNameTakenParams struct {
-	Name   string
-	Except TrackerID
-}
-
-func (q *Queries) TrackerNameTaken(ctx context.Context, arg TrackerNameTakenParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, trackerNameTaken, arg.Name, arg.Except)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const updateIndexer = `-- name: UpdateIndexer :execrows
 UPDATE indexers_indexer SET
     name = ?1, home_node_id = ?2, is_on = ?3, auto_search = ?4,

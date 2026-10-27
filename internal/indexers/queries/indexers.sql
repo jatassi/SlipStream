@@ -207,9 +207,6 @@ SELECT * FROM indexers_tracker WHERE id = sqlc.arg(id);
 INSERT INTO indexers_tracker (id, name, privacy, created_at)
 VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(privacy), sqlc.arg(created_at));
 
--- name: TrackerNameTaken :one
-SELECT EXISTS (SELECT 1 FROM indexers_tracker WHERE name = sqlc.arg(name) AND id IS NOT sqlc.arg(except));
-
 -- name: RenameTracker :execrows
 UPDATE indexers_tracker SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
 

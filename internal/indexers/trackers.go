@@ -72,19 +72,19 @@ func (x *Indexers) Tracker(ctx context.Context, by identity.Admin, id TrackerID)
 }
 
 // RenameTracker names Tracker id name. Its keys stay, so every Release
-// that reached it still does. It fails with ErrNoTracker or
-// ErrTrackerNameTaken.
+// that reached it still does. It fails with ErrNoTracker, or with
+// ErrTrackerNameTaken when another Tracker's name is the same once case
+// and punctuation are ignored, as matching reads names.
 func (x *Indexers) RenameTracker(ctx context.Context, _ identity.Admin, id TrackerID, name string) error {
 	err := x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		taken, err := q.TrackerNameTaken(ctx, db.TrackerNameTakenParams{Name: name, Except: id})
+		all, err := trackersIn(ctx, tx)
 		if err != nil {
 			return err
 		}
-		if taken {
+		if slices.ContainsFunc(all, func(t Tracker) bool { return t.ID != id && sameName(t.Name, name) }) {
 			return ErrTrackerNameTaken
 		}
-		n, err := q.RenameTracker(ctx, db.RenameTrackerParams{Name: name, ID: id})
+		n, err := db.New(tx).RenameTracker(ctx, db.RenameTrackerParams{Name: name, ID: id})
 		if err == nil && n == 0 {
 			return ErrNoTracker
 		}
@@ -286,6 +286,17 @@ func namesOf(name string, keys ...string) []string {
 		}
 	}
 	return slices.DeleteFunc(out, func(n string) bool { return n == "" })
+}
+
+// sameName reports whether Tracker names a and b are the same once case
+// and punctuation are ignored, or exactly the same when either folds to
+// nothing.
+func sameName(a, b string) bool {
+	fa, fb := fold(a), fold(b)
+	if fa == "" || fb == "" {
+		return a == b
+	}
+	return fa == fb
 }
 
 // fold is s in lower case with only its letters and digits.

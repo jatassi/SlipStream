@@ -92,8 +92,13 @@ func TestARenameAndAMergeSurviveTheNextTake(t *testing.T) {
 		t.Fatalf("Alder's sourceless Release reached %+v and Birch's %+v, want a Tracker named for each feed", alder, birch)
 	}
 
-	if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, "Birch"); !errors.Is(err, indexers.ErrTrackerNameTaken) {
-		t.Fatalf("renaming Alder onto Birch = %v, want ErrTrackerNameTaken", err)
+	for _, taken := range []string{"Birch", "birch", "B.I.R.C.H!"} {
+		if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, taken); !errors.Is(err, indexers.ErrTrackerNameTaken) {
+			t.Fatalf("renaming Alder to %q beside Birch = %v, want ErrTrackerNameTaken", taken, err)
+		}
+	}
+	if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, "alder"); err != nil {
+		t.Fatalf("renaming Alder to its own name in lower case = %v, want it saved", err)
 	}
 	if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, "Alder Site"); err != nil {
 		t.Fatal(err)
