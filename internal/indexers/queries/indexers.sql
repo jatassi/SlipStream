@@ -26,10 +26,14 @@ UPDATE indexers_indexer SET
 WHERE id = sqlc.arg(id);
 
 -- name: ListIndexers :many
-SELECT * FROM indexers_indexer ORDER BY name;
+SELECT sqlc.embed(i), d.summary AS definition_summary
+FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
+ORDER BY i.name;
 
 -- name: GetIndexer :one
-SELECT * FROM indexers_indexer WHERE id = sqlc.arg(id);
+SELECT sqlc.embed(i), d.summary AS definition_summary
+FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
+WHERE i.id = sqlc.arg(id);
 
 -- name: DeleteIndexer :execrows
 DELETE FROM indexers_indexer WHERE id = sqlc.arg(id);

@@ -242,42 +242,50 @@ func (q *Queries) GetDefinition(ctx context.Context, arg GetDefinitionParams) (I
 }
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media, search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain, secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at FROM indexers_indexer WHERE id = ?1
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary
+FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
+WHERE i.id = ?1
 `
 
-func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (IndexersIndexer, error) {
+type GetIndexerRow struct {
+	IndexersIndexer   IndexersIndexer
+	DefinitionSummary *string
+}
+
+func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, error) {
 	row := q.db.QueryRowContext(ctx, getIndexer, id)
-	var i IndexersIndexer
+	var i GetIndexerRow
 	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Kind,
-		&i.HomeNodeID,
-		&i.IsOn,
-		&i.AutoSearch,
-		&i.Rss,
-		&i.AllowFailover,
-		&i.Priority,
-		&i.Categories,
-		&i.Media,
-		&i.SearchLimit,
-		&i.SearchWindow,
-		&i.GrabLimit,
-		&i.GrabWindow,
-		&i.DefinitionID,
-		&i.DefinitionSha,
-		&i.BaseAddress,
-		&i.Plain,
-		&i.SecretsSealed,
-		&i.FeedHost,
-		&i.TrackerName,
-		&i.AllowNoSize,
-		&i.RssReading,
-		&i.Caps,
-		&i.Notes,
-		&i.Revision,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.IndexersIndexer.ID,
+		&i.IndexersIndexer.Name,
+		&i.IndexersIndexer.Kind,
+		&i.IndexersIndexer.HomeNodeID,
+		&i.IndexersIndexer.IsOn,
+		&i.IndexersIndexer.AutoSearch,
+		&i.IndexersIndexer.Rss,
+		&i.IndexersIndexer.AllowFailover,
+		&i.IndexersIndexer.Priority,
+		&i.IndexersIndexer.Categories,
+		&i.IndexersIndexer.Media,
+		&i.IndexersIndexer.SearchLimit,
+		&i.IndexersIndexer.SearchWindow,
+		&i.IndexersIndexer.GrabLimit,
+		&i.IndexersIndexer.GrabWindow,
+		&i.IndexersIndexer.DefinitionID,
+		&i.IndexersIndexer.DefinitionSha,
+		&i.IndexersIndexer.BaseAddress,
+		&i.IndexersIndexer.Plain,
+		&i.IndexersIndexer.SecretsSealed,
+		&i.IndexersIndexer.FeedHost,
+		&i.IndexersIndexer.TrackerName,
+		&i.IndexersIndexer.AllowNoSize,
+		&i.IndexersIndexer.RssReading,
+		&i.IndexersIndexer.Caps,
+		&i.IndexersIndexer.Notes,
+		&i.IndexersIndexer.Revision,
+		&i.IndexersIndexer.CreatedAt,
+		&i.IndexersIndexer.UpdatedAt,
+		&i.DefinitionSummary,
 	)
 	return i, err
 }
@@ -694,48 +702,56 @@ func (q *Queries) ListDefinitionKeys(ctx context.Context) ([]ListDefinitionKeysR
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media, search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain, secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at FROM indexers_indexer ORDER BY name
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary
+FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
+ORDER BY i.name
 `
 
-func (q *Queries) ListIndexers(ctx context.Context) ([]IndexersIndexer, error) {
+type ListIndexersRow struct {
+	IndexersIndexer   IndexersIndexer
+	DefinitionSummary *string
+}
+
+func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
 	rows, err := q.db.QueryContext(ctx, listIndexers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []IndexersIndexer
+	var items []ListIndexersRow
 	for rows.Next() {
-		var i IndexersIndexer
+		var i ListIndexersRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Kind,
-			&i.HomeNodeID,
-			&i.IsOn,
-			&i.AutoSearch,
-			&i.Rss,
-			&i.AllowFailover,
-			&i.Priority,
-			&i.Categories,
-			&i.Media,
-			&i.SearchLimit,
-			&i.SearchWindow,
-			&i.GrabLimit,
-			&i.GrabWindow,
-			&i.DefinitionID,
-			&i.DefinitionSha,
-			&i.BaseAddress,
-			&i.Plain,
-			&i.SecretsSealed,
-			&i.FeedHost,
-			&i.TrackerName,
-			&i.AllowNoSize,
-			&i.RssReading,
-			&i.Caps,
-			&i.Notes,
-			&i.Revision,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.IndexersIndexer.ID,
+			&i.IndexersIndexer.Name,
+			&i.IndexersIndexer.Kind,
+			&i.IndexersIndexer.HomeNodeID,
+			&i.IndexersIndexer.IsOn,
+			&i.IndexersIndexer.AutoSearch,
+			&i.IndexersIndexer.Rss,
+			&i.IndexersIndexer.AllowFailover,
+			&i.IndexersIndexer.Priority,
+			&i.IndexersIndexer.Categories,
+			&i.IndexersIndexer.Media,
+			&i.IndexersIndexer.SearchLimit,
+			&i.IndexersIndexer.SearchWindow,
+			&i.IndexersIndexer.GrabLimit,
+			&i.IndexersIndexer.GrabWindow,
+			&i.IndexersIndexer.DefinitionID,
+			&i.IndexersIndexer.DefinitionSha,
+			&i.IndexersIndexer.BaseAddress,
+			&i.IndexersIndexer.Plain,
+			&i.IndexersIndexer.SecretsSealed,
+			&i.IndexersIndexer.FeedHost,
+			&i.IndexersIndexer.TrackerName,
+			&i.IndexersIndexer.AllowNoSize,
+			&i.IndexersIndexer.RssReading,
+			&i.IndexersIndexer.Caps,
+			&i.IndexersIndexer.Notes,
+			&i.IndexersIndexer.Revision,
+			&i.IndexersIndexer.CreatedAt,
+			&i.IndexersIndexer.UpdatedAt,
+			&i.DefinitionSummary,
 		); err != nil {
 			return nil, err
 		}

@@ -132,10 +132,12 @@ func (d catalogDriver) Fetch(ctx context.Context, s *Site, link Link) (Got, erro
 }
 
 // Test signs in when the definition signs in, with answer when the Admin
-// answered a captcha, then reads the newest items.
+// answered a captcha, then reads the newest items. A sign-in that shows a
+// captcha runs only with an answer, or when this Node holds no session,
+// so a Test without one reads with the session held.
 func (d catalogDriver) Test(ctx context.Context, s *Site, answer *CaptchaAnswer) (Report, error) {
-	if s.def.Summary().Login != cardigann.NoLogin {
-		if err := d.signIn(ctx, s, nil, true, answer); err != nil {
+	if sum := s.def.Summary(); sum.Login != cardigann.NoLogin {
+		if err := d.signIn(ctx, s, nil, answer != nil || !sum.Captcha, answer); err != nil {
 			return Report{}, err
 		}
 	}

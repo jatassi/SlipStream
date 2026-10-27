@@ -161,6 +161,10 @@ type Form struct {
 	// Session is a definition whose Indexers hold a login session.
 	Session bool
 	Captcha bool
+	// Cookie is a definition that signs in with a browser cookie the
+	// Admin pastes with its User-Agent. Its cookie setting is left out of
+	// Fields.
+	Cookie bool
 	// Solver is a definition that asks for a Challenge solver.
 	Solver bool
 }
@@ -176,14 +180,9 @@ type FormField struct {
 func (x *Indexers) Form(ctx context.Context, _ identity.Admin, id string) (Form, error) {
 	var f Form
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		q := db.New(r)
-		def, err := q.GetCustom(ctx, db.DefinitionID(id))
-		switch {
-		case err == nil:
-			f.Entry, err = customEntry(def)
-		case errors.Is(err, storage.ErrNoRows):
-			f.Entry, def, err = catalogEntry(ctx, q, id)
-		}
+		var def db.IndexersDefinition
+		var err error
+		f.Entry, def, err = lookup(ctx, db.New(r), id)
 		if err != nil {
 			return err
 		}
@@ -191,14 +190,31 @@ func (x *Indexers) Form(ctx context.Context, _ identity.Admin, id string) (Form,
 		if err != nil || !ok {
 			return err
 		}
-		f.Links, f.Session, f.Captcha = s.Links, s.Login == cardigann.SessionLogin, s.Captcha
+		f.Links, f.Session, f.Captcha, f.Cookie = s.Links, s.Login == cardigann.SessionLogin, s.Captcha, s.Uses.Has(cardigann.LoginCookie)
 		for _, field := range s.Fields {
-			f.Fields = append(f.Fields, FormField{Field: field, Sealed: Sealed(field)})
 			f.Solver = f.Solver || field.Type == cardigann.InfoFlareSolverrField
+			if stored(field) && !settable(s, field) {
+				continue
+			}
+			f.Fields = append(f.Fields, FormField{Field: field, Sealed: Sealed(field)})
 		}
 		return nil
 	})
 	return f, err
+}
+
+// lookup is definition id as an Indexer added now pins it: the custom
+// definition with the id, else the catalog's entry and stored version.
+func lookup(ctx context.Context, q *db.Queries, id string) (Entry, db.IndexersDefinition, error) {
+	def, err := q.GetCustom(ctx, db.DefinitionID(id))
+	switch {
+	case err == nil:
+		e, err := customEntry(def)
+		return e, def, err
+	case errors.Is(err, storage.ErrNoRows):
+		return catalogEntry(ctx, q, id)
+	}
+	return Entry{}, db.IndexersDefinition{}, err
 }
 
 // catalogEntry is the catalog's entry id and its stored version:

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -147,8 +148,9 @@ func TestRoute(t *testing.T) {
 	inGrace := nodes.Absence{Since: t0}
 	lapsed := nodes.Absence{Since: t0, Lapsed: true}
 	feed := Indexer{Kind: Torznab, Home: home}
-	catalog := Indexer{Kind: Catalog, Home: home}
-	failover := Indexer{Kind: Catalog, Home: home, AllowFailover: true}
+	catalog := Indexer{Kind: Catalog, Home: home, Source: Definition{Login: cardigann.SessionLogin}}
+	failover := Indexer{Kind: Catalog, Home: home, Source: Definition{Login: cardigann.SessionLogin}, AllowFailover: true}
+	keyed := Indexer{Kind: Catalog, Home: home, Source: Definition{Login: cardigann.StatelessLogin}}
 	both := []role.NodeID{seed, home}
 	for _, tc := range []struct {
 		name string
@@ -162,6 +164,7 @@ func TestRoute(t *testing.T) {
 		{"wait inside the grace", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: inGrace}}, feed, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0}},
 		{"a feed moves past the grace", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, feed, Status{}, seed, nil},
 		{"a session stays past the grace", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, catalog, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
+		{"a catalog Indexer that keeps no session moves past the grace", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, keyed, Status{}, seed, nil},
 		{"failover moves a session", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, failover, Status{}, seed, nil},
 		{"a wait for home never moves", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, feed, Status{State: HomeOnly}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
 		{"no other holder", roster{holders: []role.NodeID{home}, away: map[role.NodeID]nodes.Absence{home: lapsed}}, feed, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
@@ -212,7 +215,7 @@ func TestAFetchDropsOnlyWhenItWouldWaitForTheAdmin(t *testing.T) {
 	inGrace := roster{holders: []role.NodeID{home, seed}, away: map[role.NodeID]nodes.Absence{home: {Since: t0}}}
 	later := t0.Add(time.Minute)
 	feed := Indexer{Kind: Torznab, Home: home}
-	catalog := Indexer{Kind: Catalog, Home: home}
+	catalog := Indexer{Kind: Catalog, Home: home, Source: Definition{Login: cardigann.SessionLogin}}
 	for _, tc := range []struct {
 		name string
 		r    roster

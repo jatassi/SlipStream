@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/newznab"
@@ -128,6 +129,10 @@ type Definition struct {
 	BaseAddress string
 	// Plain is the select and checkbox values and the username.
 	Plain map[string]string
+	// Login and Captcha are the pinned version's, read from its summary:
+	// NoLogin and false while that version doesn't load.
+	Login   cardigann.LoginClass
+	Captcha bool
 }
 
 // Feed is a Torznab or RSS feed.
@@ -195,6 +200,8 @@ type Timings struct {
 	// CatalogRequest is how long one request to the Indexer catalog may
 	// take.
 	CatalogRequest time.Duration `yaml:"catalog_request"`
+	// Captcha is how long a captcha attempt stays open for its answer.
+	Captcha time.Duration `yaml:"captcha"`
 }
 
 func DefaultTimings() Timings {
@@ -204,7 +211,7 @@ func DefaultTimings() Timings {
 			time.Minute, 5 * time.Minute, 15 * time.Minute, 30 * time.Minute, time.Hour,
 			3 * time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour,
 		},
-		PackageShare: 25, CatalogRequest: 2 * time.Minute,
+		PackageShare: 25, CatalogRequest: 2 * time.Minute, Captcha: 5 * time.Minute,
 	}
 }
 
@@ -312,14 +319,17 @@ type Config struct {
 }
 
 type Indexers struct {
-	cfg  Config
-	late background
+	cfg      Config
+	late     background
+	attempts attempts
 
 	mu   sync.Mutex
 	next chan struct{}
 }
 
-func New(cfg Config) *Indexers { return &Indexers{cfg: cfg, next: make(chan struct{})} }
+func New(cfg Config) *Indexers {
+	return &Indexers{cfg: cfg, next: make(chan struct{}), attempts: attempts{byID: map[string]attempt{}}}
+}
 
 // Changed is closed at the next change of an Indexer or its status.
 func (x *Indexers) Changed() <-chan struct{} {
@@ -381,7 +391,7 @@ func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	}
 	out := make([]Indexer, len(rows))
 	for i, row := range rows {
-		if out[i], err = indexerOf(row); err != nil {
+		if out[i], err = indexerOf(row.IndexersIndexer, row.DefinitionSummary); err != nil {
 			return nil, err
 		}
 	}
@@ -397,10 +407,12 @@ func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 	if err != nil {
 		return Indexer{}, err
 	}
-	return indexerOf(row)
+	return indexerOf(row.IndexersIndexer, row.DefinitionSummary)
 }
 
-func indexerOf(row db.IndexersIndexer) (Indexer, error) {
+// indexerOf is row as an Indexer, with its pinned definition's summary,
+// nil for a feed or a version that doesn't load.
+func indexerOf(row db.IndexersIndexer, summary *string) (Indexer, error) {
 	idx := Indexer{
 		ID: row.ID, Name: row.Name, Kind: Kind(row.Kind), Home: row.HomeNodeID, On: row.IsOn, AutoSearch: row.AutoSearch,
 		RSS: row.Rss, AllowFailover: row.AllowFailover, Priority: int(row.Priority),
@@ -412,6 +424,13 @@ func indexerOf(row db.IndexersIndexer) (Indexer, error) {
 		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), BaseAddress: deref(row.BaseAddress)}
 		if err := decode(row.Plain, &d.Plain); err != nil {
 			return Indexer{}, fmt.Errorf("indexer %s: plain: %w", row.ID, err)
+		}
+		if summary != nil {
+			var s cardigann.Summary
+			if err := decode(*summary, &s); err != nil {
+				return Indexer{}, fmt.Errorf("indexer %s: definition summary: %w", row.ID, err)
+			}
+			d.Login, d.Captcha = s.Login, s.Captcha
 		}
 		idx.Source = d
 	} else {

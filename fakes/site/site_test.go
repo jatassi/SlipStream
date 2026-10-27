@@ -187,7 +187,7 @@ func created(t *testing.T) (faketest.Served, *indexers.Indexers, *storage.DB[sto
 		Timings:   indexers.DefaultTimings(),
 		Log:       slog.New(slog.DiscardHandler),
 	})
-	v, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", Address: site.URL(f.Address), APIKey: site.APIKey(s), On: true, AutoSearch: true})
+	v, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", Address: site.URL(f.Address), APIKey: site.APIKey(s), On: true, AutoSearch: true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
 	}
 
 	wrong := "wrong"
-	_, err = x.Update(t.Context(), identity.Admin{}, idx.ID, indexers.Edit{APIKey: &wrong})
+	_, err = x.Update(t.Context(), identity.Admin{}, idx.ID, indexers.Edit{APIKey: &wrong}, nil)
 	var failed *indexers.TestFailedError
 	want := "Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."
 	if !errors.As(err, &failed) || failed.Outcome.Cause != searching.AccountRefused || failed.Sentence != want {

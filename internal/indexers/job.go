@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
@@ -19,6 +20,9 @@ type job struct {
 	use  Use
 	node role.NodeID
 	wire searching.Job
+	// untracked is a job with no query row, whose answer is never
+	// recorded.
+	untracked bool
 }
 
 // answer is a as record reads it.
@@ -53,6 +57,11 @@ func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, n
 		w.RSS.AllowNoSize = f.AllowNoSize
 	}
 	if d, ok := idx.Source.(Definition); ok {
+		def, err := db.New(x.cfg.Library).GetDefinition(ctx, db.GetDefinitionParams{ID: db.DefinitionID(d.ID), Sha: d.SHA})
+		if err != nil {
+			return job{}, fmt.Errorf("read Indexer %s's definition: %w", idx.ID, err)
+		}
+		w.Definition = &searching.Definition{YAML: def.Yaml, SHA: d.SHA}
 		w.Address = d.BaseAddress
 		w.Settings = map[string]string{}
 		for k, v := range d.Plain {
@@ -70,6 +79,16 @@ var kindOnWire = map[Kind]searching.Kind{Catalog: searching.Catalog, Torznab: se
 // routed is the job running c for idx as query q on the Node idx routes
 // to now, or *WaitError while no Node may take it. The caller reserved q.
 func (x *Indexers) routed(ctx context.Context, q QueryID, idx Indexer, u Use, c searching.Call) (job, error) {
+	node, err := x.where(ctx, idx)
+	if err != nil {
+		return job{}, err
+	}
+	return x.prepare(ctx, q, idx, u, node, c)
+}
+
+// where is the Node a call for idx goes to now, or *WaitError while no
+// Node may take it.
+func (x *Indexers) where(ctx context.Context, idx Indexer) (role.NodeID, error) {
 	var st Status
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
@@ -77,13 +96,13 @@ func (x *Indexers) routed(ctx context.Context, q QueryID, idx Indexer, u Use, c 
 		return err
 	})
 	if err != nil {
-		return job{}, err
+		return role.NodeID{}, err
 	}
 	node, wait := route(x.cfg.Roster, idx, st)
 	if wait != nil {
-		return job{}, &WaitError{Outcome: *wait}
+		return role.NodeID{}, &WaitError{Outcome: *wait}
 	}
-	return x.prepare(ctx, q, idx, u, node, c)
+	return node, nil
 }
 
 // run asks j's Node and records its answer, returning it with the status
@@ -128,6 +147,9 @@ func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
 		case err == nil && poll.Answer != nil:
 			return *poll.Answer, nil
 		case !deadline.IsZero() && !time.Now().Before(deadline):
+			if j.untracked {
+				return searching.Answer{}, ErrLate
+			}
 			if !x.late.goOn(func(ctx context.Context) { x.settle(ctx, remote, j) }) {
 				x.cfg.Log.Warn("An Indexer's late job won't be recorded because the Indexers are stopping", "indexer", j.idx.ID.String(), "job", j.q.String())
 			}
