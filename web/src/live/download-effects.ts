@@ -5,7 +5,7 @@ import {
 } from "../api/gen/query/downloadclients/downloadclients";
 import { getGetTopologyQueryKey } from "../api/gen/query/nodes/nodes";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
-import { spliceTorrents } from "./torrents-splice";
+import { torrentsSplicer } from "./torrents-splice";
 import { takeTorrents } from "./torrents";
 import { transferEffects } from "./transfer-effects";
 import type { LiveEffects } from "./types";
@@ -13,7 +13,7 @@ import type { LiveEffects } from "./types";
 export const downloadEffects = {
   ...transferEffects,
   "torrents.changed": (data, { queryClient, refresh }) => {
-    void spliceTorrents(queryClient, data.ids);
+    torrentsSplicer.queue(queryClient, data.ids);
     refresh({ queryKey: getGetTopologyQueryKey() });
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh({ queryKey: getListDownloadClientsQueryKey() });

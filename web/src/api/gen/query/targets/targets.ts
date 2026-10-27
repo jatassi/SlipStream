@@ -2328,7 +2328,7 @@ export const getSetWorkWantsUrl = (workId: string, params?: SetWorkWantsParams) 
 };
 
 /**
- * @summary Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact
+ * @summary Set a Work's own Edition list, or its Profile's, refilling and renaming its files, or preview the change's Impact
  */
 export const setWorkWants = async (
   workId: string,
@@ -2425,7 +2425,7 @@ export type SetWorkWantsMutationVariables = {
 };
 
 /**
- * @summary Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact
+ * @summary Set a Work's own Edition list, or its Profile's, refilling and renaming its files, or preview the change's Impact
  */
 export const useSetWorkWants = <
   TError = ErrorType<

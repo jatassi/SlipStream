@@ -12,18 +12,27 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/filesapi"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -32,19 +41,63 @@ import (
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
 
+// grabbing is the Grabs as files sees them: each cell's latest, set by a
+// test.
+type grabbing map[files.CellKey]files.GrabCell
+
+func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
+	return g, nil
+}
+
+func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
+	return nil, nil
+}
+
+func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
+	return 0, nil
+}
+
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
+// recorder keeps every event published to it.
+type recorder[T any] struct {
+	mu   sync.Mutex
+	sent []T
+}
+
+func (r *recorder[T]) Publish(_ context.Context, v T) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.sent = append(r.sent, v)
+}
+
+// take is what was published since the last take.
+func (r *recorder[T]) take() []T {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := r.sent
+	r.sent = nil
+	return out
+}
+
 type shelf struct {
-	w *works.Works
-	t *targets.Targets
+	lib *storage.DB[storage.Library]
+	w   *works.Works
+	t   *targets.Targets
+	f   *files.Files
+	l   *library.Library
 }
 
 func (s shelf) Works() (*works.Works, bool)       { return s.w, true }
 func (s shelf) Targets() (*targets.Targets, bool) { return s.t, true }
 
 func (shelf) Minter() (artwork.Minter, bool) { return minter, true }
+
+func (s shelf) Files() (*files.Files, bool) { return s.f, true }
+
+func (s shelf) Library() (*library.Library, bool) { return s.l, true }
 
 var minter = artwork.NewMinter([]byte("worksapi"))
 
@@ -57,14 +110,28 @@ func (named) Describe(t works.TypeID) (works.Description, bool) {
 
 type server struct {
 	handler http.Handler
+	lib     *storage.DB[storage.Library]
 	fx      *contenttypetest.Fixture
+	works   *works.Works
 	goals   *targets.Targets
-	apiKey  string
-	session string
-	log     *bytes.Buffer
+	grabs   grabbing
+	homes   *roots.Roots
+	// targetsChanged and rootsChanged record targets.changed and
+	// roots.changed.
+	targetsChanged *recorder[targets.Changed]
+	rootsChanged   *recorder[roots.Changed]
+	apiKey         string
+	session        string
+	log            *bytes.Buffer
 }
 
 func serve(t *testing.T) *server {
+	t.Helper()
+	return serveAt(t, time.Now)
+}
+
+// serveAt serves worksapi over a library whose day is today's.
+func serveAt(t *testing.T, today func() time.Time) *server {
 	t.Helper()
 	logged := &bytes.Buffer{}
 	log := slog.New(slog.NewTextHandler(logged, &slog.HandlerOptions{ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
@@ -73,7 +140,7 @@ func serve(t *testing.T) *server {
 		}
 		return a
 	}}))
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	keys, err := secret.Open(t.Context(), lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +171,7 @@ func serve(t *testing.T) *server {
 		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
-		Changed:      discard[works.WorkChanged]{},
+		Changed:      discard[works.Changed]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
 		TypeChanged:  discard[works.TypeChanged]{},
 		Log:          log,
@@ -112,15 +179,26 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
+	targetsChanged, rootsChanged := &recorder[targets.Changed]{}, &recorder[roots.Changed]{}
 	goals, err := targets.Open(t.Context(), targets.Config{
-		Library: lib, Works: named{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx, "other": fx}, Changed: discard[targets.Changed]{},
+		Library: lib, Works: named{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx, "other": fx}, Changed: targetsChanged,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	rootsCfg := rootstest.Config(t, lib, contenttypetest.ID)
+	rootsCfg.Changed = rootsChanged
+	homes, err := roots.Open(t.Context(), rootsCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
-	worksapi.Routes(r, shelf{w, goals})
-	return &server{handler: r.Handler(), fx: fx, goals: goals, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
+	cells := grabbing{}
+	shelved := files.New(files.Config{Library: lib, Targets: goals, Grabs: cells, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: today})
+	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved})}
+	worksapi.Routes(r, sh)
+	filesapi.Routes(r, sh)
+	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {
@@ -178,7 +256,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],"artwork":[],` +
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
 		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],` +
-		`"availability":{"date":"2000-01-01","basis":""}}]}}` + "\n"
+		`"availability":{"date":"2000-01-01","basis":""}}],"links":[],"profile":{"id":"id4","name":"fixture"},"root":null}}` + "\n"
 	if code != http.StatusOK || masked(body) != want {
 		t.Fatalf("addWork = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -186,10 +264,6 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 	code, again := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
 	if code != http.StatusOK || masked(again) != strings.Replace(want, `"created":true`, `"created":false`, 1) {
 		t.Fatalf("addWork again = %d %s", code, masked(again))
-	}
-	code, list := s.call(t, http.MethodGet, "/api/v1/works?contentType=fixture", "")
-	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"artwork":[]}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
-		t.Fatalf("listWorks = %d %s, want %s", code, list, want)
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
 	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
@@ -208,10 +282,10 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 	if want := `{"inLibrary":false,"work":` + tree + "}\n"; code != http.StatusOK || masked(body) != want {
 		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
-	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/library", "", 200, `{"rows":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog/w2", "", 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 
-	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":false}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork = %d %s", code, body)
 	}
@@ -222,6 +296,18 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 	}
 }
 
+// fixtureDescriptors is the fixture Content Type's wire from its fields on.
+const fixtureDescriptors = `"fields":[` +
+	`{"key":"origin","label":"Origin","tier":"work","kind":"text","in":["facts","about"],"list":{"column":true,"sort":true,"filter":true},"with":null,"art":null},` +
+	`{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"count","label":"Count","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"runtime","label":"Runtime","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"tags","label":"Tags","tier":"work","kind":"texts","in":["about"],"list":{"column":true,"sort":false,"filter":true},"with":null,"art":null},` +
+	`{"key":"makers","label":"Makers","tier":"work","kind":"people","in":["credits"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"page","label":"Page","tier":"work","kind":"link","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
+	`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}],` +
+	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"]`
+
 func TestListContentTypesAnswersASession(t *testing.T) {
 	s := serve(t)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/content-types", http.NoBody)
@@ -229,10 +315,7 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	w := httptest.NewRecorder()
 	s.handler.ServeHTTP(w, req)
 	fixture := `{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
-		`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},` +
-		`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},` +
-		`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}],` +
-		`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}]}`
+		fixtureDescriptors + `}`
 	want := `{"contentTypes":[` + fixture + "," + strings.Replace(fixture, `"id":"fixture"`, `"id":"other"`, 1) + "]}\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
@@ -251,15 +334,12 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	bad.Tree.Children[0].Children = append(bad.Tree.Children[0].Children, works.Entry{Key: "c1", Label: "Again"})
 	s.fx.Put("w1", bad)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_invalid","title":"The metadata source sent a record SlipStream can't use"}`)
-	expect(t, s, http.MethodGet, "/api/v1/works?contentType=ghost", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
+	expect(t, s, http.MethodGet, "/api/v1/library?contentType=ghost", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String(), "", 404, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 200,
 		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},`+
-			`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},`+
-			`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},`+
-			`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}],`+
-			`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}]}`)
+			fixtureDescriptors+`}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "", 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	expect(t, s, http.MethodPut, "/api/v1/content-types/other/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_last","title":"Turn on another Content Type before turning this one off"}`)
@@ -277,29 +357,6 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused SlipStream's key","detail":"TMDB refused SlipStream's key"}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "is rate limited until 2026-10-19T21:04:00Z", Err: works.ErrUnavailable})
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB: is rate limited until 2026-10-19T21:04:00Z"}`)
-}
-
-func TestRefreshByHandAnswersGoneUpstream409(t *testing.T) {
-	s := serve(t)
-	s.fx.Put("w1", record())
-	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
-	if code != 200 {
-		t.Fatalf("addWork = %d %s", code, body)
-	}
-	work := "/api/v1/works/" + uuids.FindString(body)
-	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrNotFound))
-	gone := `{"status":409,"code":"work_gone_upstream","title":"The metadata source no longer has this Work"}`
-	expect(t, s, http.MethodPost, work+"/refresh", "", 409, gone)
-	expect(t, s, http.MethodPost, work+"/refresh", "", 409, gone)
-	code, body = s.call(t, http.MethodGet, work, "")
-	if code != 200 || strings.Contains(body, `"goneUpstreamAt":null`) || !strings.Contains(body, `"goneUpstreamAt":"`) {
-		t.Fatalf("getWork after the source lost it = %d %s, want goneUpstreamAt set", code, body)
-	}
-	s.fx.Fail("w1", nil)
-	code, body = s.call(t, http.MethodPost, work+"/refresh", "")
-	if code != 200 || !strings.Contains(body, `"goneUpstreamAt":null`) {
-		t.Fatalf("refreshWork once the source has it again = %d %s, want goneUpstreamAt null", code, body)
-	}
 }
 
 var ada = artwork.Ref{Source: "fixture", Shape: artwork.ShapePhoto, Path: "/ada.jpg"}
@@ -354,11 +411,8 @@ func TestTheWorkAPIShowsDateAndBasis(t *testing.T) {
 	}
 	work := "/api/v1/works/" + added.Work.ID
 	s.fx.SetTiming(works.ItemID{UUID: item}, targets.Timing{Released: release.Known(works.Date{Year: 2026, Month: 11, Day: 3}), Basis: "Digital release in United States"})
-	for _, call := range []struct{ method, path string }{{http.MethodGet, work}, {http.MethodPost, work + "/refresh"}} {
-		code, body = s.call(t, call.method, call.path, "")
-		if want := `"availability":{"date":"2026-11-03","basis":"Digital release in United States"}`; code != 200 || !strings.Contains(body, want) {
-			t.Fatalf("%s %s = %d %s, want it to hold %s", call.method, call.path, code, body, want)
-		}
+	if code, body = s.call(t, http.MethodGet, work, ""); code != 200 || !strings.Contains(body, `"availability":{"date":"2026-11-03","basis":"Digital release in United States"}`) {
+		t.Fatalf("getWork = %d %s, want its date and basis", code, body)
 	}
 	s.fx.SetTiming(works.ItemID{UUID: item}, targets.Timing{})
 	if code, body = s.call(t, http.MethodGet, work, ""); code != 200 || !strings.Contains(body, `"availability":null`) {
@@ -368,21 +422,30 @@ func TestTheWorkAPIShowsDateAndBasis(t *testing.T) {
 
 func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 	s := serve(t)
-	depth := func(value int, isDefault bool) string {
-		return fmt.Sprintf(`{"settings":[{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,`+
-			`"kind":"count","value":%d,"running":%d,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`, isDefault, value, value)
+	settings := func(monitor string, depth int, isDefault bool) string {
+		return `{"settings":[` + monitor + fmt.Sprintf(`,{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,`+
+			`"kind":"count","value":%d,"running":%d,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`, isDefault, depth, depth)
 	}
-	settings := "/api/v1/content-types/fixture/settings"
-	expect(t, s, http.MethodGet, settings, "", 200, depth(3, true))
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":5}}`, 200, depth(5, false))
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":12}}`, 422,
+	on, off := addMonitorField(true, true), addMonitorField(false, false)
+	path := "/api/v1/content-types/fixture/settings"
+	expect(t, s, http.MethodGet, path, "", 200, settings(on, 3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.depth":5}}`, 200, settings(on, 5, false))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.depth":12}}`, 422,
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 and 9 boxes."}`)
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.width":2}}`, 422,
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.width":2}}`, 422,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
-	expect(t, s, http.MethodGet, settings, "", 200, depth(5, false))
-	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":null}}`, 200, depth(3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.width":2}}`, 422,
+		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
+	expect(t, s, http.MethodGet, path, "", 200, settings(on, 5, false))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.depth":null}}`, 200, settings(off, 3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":null}}`, 200, settings(on, 3, true))
 	expect(t, s, http.MethodGet, "/api/v1/content-types/ghost/settings", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodPatch, "/api/v1/content-types/ghost/settings", `{"values":{}}`, 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
+}
+
+// addMonitorField is fixture.add.monitor on the wire.
+func addMonitorField(value, isDefault bool) string {
+	return fmt.Sprintf(`{"key":"fixture.add.monitor","label":"New shelves are monitored","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"switch","value":%t,"running":%t,"default":true}`, isDefault, value, value)
 }
 
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {
@@ -417,7 +480,7 @@ func TestAddWorkWantsFromTheProfileItNamesOrTheTypesDefault(t *testing.T) {
 		`{"status":422,"code":"profile_wrong_type","title":"The Profile is for another Content Type"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", add("w1", storage.NewUUID().String()), 422,
 		`{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`)
-	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/library", "", 200, `{"rows":[]}`)
 
 	wants := func(body string) targets.Goals {
 		t.Helper()
@@ -475,9 +538,11 @@ func TestArtworkAnswersAsURLsTheRouteOpens(t *testing.T) {
 		opens(at.op+"'s Work", tree.Work.Artwork[0].Kind, tree.Work.Artwork[0].URL, photo)
 		opens(at.op+"'s Item", tree.Work.Items[0].Artwork[0].Kind, tree.Work.Items[0].Artwork[0].URL, snap)
 	}
+}
 
-	code, list := s.call(t, http.MethodGet, "/api/v1/works", "")
-	if want := `"artwork":[{"kind":"photo","url":"` + minter.URL(photo) + `"}]`; code != http.StatusOK || !strings.Contains(list, want) || strings.Contains(list, "scarf") {
-		t.Fatalf("listWorks = %d %s, want the Work's own image %s and no Item's", code, list, want)
-	}
+// listLibrary takes a type or a list of ids, never both.
+func TestTheLibraryTakesATypeOrIdsNotBoth(t *testing.T) {
+	s := serve(t)
+	expect(t, s, http.MethodGet, "/api/v1/library?contentType=fixture&workIds="+storage.NewUUID().String(), "", http.StatusUnprocessableEntity,
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.workIds","message":"Use contentType or workIds, not both."}]}`)
 }

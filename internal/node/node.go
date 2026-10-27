@@ -232,7 +232,7 @@ type Node struct {
 	claimed *Stack
 
 	libMu sync.Mutex
-	lib   atomic.Pointer[library]
+	lib   atomic.Pointer[libraryDB]
 	half  atomic.Pointer[half]
 	// claimMu serializes claims, so a Controller claim and a Join never
 	// interleave.

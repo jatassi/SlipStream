@@ -27,12 +27,15 @@ type Endpoints struct {
 	// Images is the image host. SlipStream never asks TMDB's configuration
 	// for it.
 	Images endpoint.URL `yaml:"images"`
+	// KeyPage is where an Admin gets a key, opened in the browser only.
+	KeyPage endpoint.URL `yaml:"key_page"`
 }
 
 func DefaultEndpoints() Endpoints {
 	return Endpoints{
-		API:    endpoint.MustParseURL("https://api.themoviedb.org/3"),
-		Images: endpoint.MustParseURL("https://image.tmdb.org/t/p"),
+		API:     endpoint.MustParseURL("https://api.themoviedb.org/3"),
+		Images:  endpoint.MustParseURL("https://image.tmdb.org/t/p"),
+		KeyPage: endpoint.MustParseURL("https://www.themoviedb.org/settings/api"),
 	}
 }
 
@@ -60,15 +63,19 @@ func New(lines *metadata.Lines, e Endpoints, t Timings) *Client {
 }
 
 // Provider is TMDB as the call layer knows it: the key is the api_key
-// query parameter, and Classify reads TMDB's error bodies.
+// query parameter, and Classify reads TMDB's error bodies. Its
+// attribution is the credit TMDB's terms require, with the logo the web
+// app bundles as "tmdb".
 func (c *Client) Provider() metadata.Provider {
 	return metadata.Provider{
-		ID:       ID,
-		Label:    "TMDB",
-		Rate:     rate.Every(c.timings.Interval),
-		Burst:    c.timings.Burst,
-		Key:      func(q url.Values, key string) { q.Set("api_key", key) },
-		Classify: classify,
+		ID:          ID,
+		Label:       "TMDB",
+		Rate:        rate.Every(c.timings.Interval),
+		Burst:       c.timings.Burst,
+		Key:         func(q url.Values, key string) { q.Set("api_key", key) },
+		Classify:    classify,
+		KeyPage:     c.endpoints.KeyPage.String(),
+		Attribution: &metadata.Attribution{Text: "This product uses the TMDB API but is not endorsed or certified by TMDB.", Logo: "tmdb"},
 	}
 }
 

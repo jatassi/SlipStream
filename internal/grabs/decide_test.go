@@ -150,7 +150,8 @@ func TestClassify(t *testing.T) {
 		{"versions differ", live, link.ErrMismatched, wait{cause: link.ErrMismatched}},
 		{"call lost", live, rpc.Errorf(rpc.CodeUnavailable, "the link died"), wait{cause: rpc.Errorf(rpc.CodeUnavailable, "the link died")}},
 		{"torrent not re-added", live, downloading.ErrNotPresent, wait{cause: downloading.ErrNotPresent}},
-		{"refused by ffprobe", live, rpc.Errorf(rpc.CodeFailedPrecondition, "ffprobe: exit status 1"), fail{ProbeFailed, "failed_precondition: ffprobe: exit status 1"}},
+		{"refused by ffprobe", live, rpc.Errorf(rpc.CodeFailedPrecondition, "ffprobe: exit status 1"), fail{ProbeFailed, "ffprobe: exit status 1"}},
+		{"refused by the Indexer", live, &indexers.UnavailableError{Err: rpc.Errorf(rpc.CodeAborted, "the Indexer responded with status 500")}, fail{ProbeFailed, "The Indexer responded with status 500."}},
 		{"stopping", canceled, link.ErrDisconnected, stopped{}},
 	} {
 		got := classify(c.ctx, c.err, ProbeFailed)
@@ -176,5 +177,25 @@ func TestAJobWaitingOnTheRosterDoesNotWakeTheReconciler(t *testing.T) {
 	s.retryAt[due] = now.Add(time.Minute)
 	if got := s.next(now, nil, false, DefaultTimings()); got != time.Minute {
 		t.Fatalf("with a job not running due in a minute, the reconciler sleeps %s, want a minute", got)
+	}
+}
+
+func TestAJobWhoseGrabVanishedLeavesTheReconcilerIdle(t *testing.T) {
+	now := time.Now()
+	vanished, open := storage.NewUUID(), storage.NewUUID()
+	s := schedule{
+		inflight: map[storage.UUID]bool{}, attempts: map[storage.UUID]int{vanished: 3, open: 1},
+		retryAt: map[storage.UUID]time.Time{vanished: now.Add(-time.Second), open: now.Add(time.Minute)},
+		shown:   map[GrabID]Progress{{UUID: vanished}: {Done: 1, Total: 2}},
+	}
+	s.keep(nil, []Grab{{ID: GrabID{UUID: open}}})
+	if got := s.next(now, nil, false, DefaultTimings()); got != time.Minute {
+		t.Fatalf("after a waiting Grab vanished with its Work, the reconciler sleeps %s, want a minute until the open one's retry", got)
+	}
+	if _, ok := s.attempts[vanished]; ok {
+		t.Errorf("the vanished Grab keeps %d attempts, want none", s.attempts[vanished])
+	}
+	if len(s.shown) != 0 {
+		t.Errorf("the vanished Grab's progress stays shown: %v", s.shown)
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -33,7 +34,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-type library struct {
+type libraryDB struct {
 	db     *storage.DB[storage.Library]
 	sealer *secret.Sealer
 	minter artwork.Minter
@@ -42,7 +43,7 @@ type library struct {
 	ids    *identity.Service
 }
 
-func (l *library) close(ctx context.Context) error {
+func (l *libraryDB) close(ctx context.Context) error {
 	return errors.Join(l.outbox.Close(ctx), l.db.Close())
 }
 
@@ -56,7 +57,7 @@ type libraryFiles struct {
 
 // openLibraryFiles is where a running Node and `slipstream admin reset`
 // offline both open library.db.
-func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
+func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
 	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, preMigrationHook, f.timings.Storage, f.log.With("subsystem", "storage"))
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
 	}
 	sealer := keys.Sealer()
 	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: f.timings.Mail})
-	lib := &library{db: db, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
+	lib := &libraryDB{db: db, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
 	lib.ids, err = identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: f.hub, Mail: smtp, Outbox: lib.outbox})
 	if err != nil {
 		return nil, errors.Join(err, lib.close(ctx))
@@ -78,7 +79,7 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
 // openLibrary opens library.db and what opens with it once. A Node opens
 // it at start only if library.db exists, and otherwise when it is claimed
 // as a Controller.
-func (n *Node) openLibrary(ctx context.Context) (*library, error) {
+func (n *Node) openLibrary(ctx context.Context) (*libraryDB, error) {
 	n.libMu.Lock()
 	defer n.libMu.Unlock()
 	if lib := n.lib.Load(); lib != nil {
@@ -257,6 +258,14 @@ func (s surfaceNode) Files() (*files.Files, bool) {
 		return nil, false
 	}
 	return h.files, true
+}
+
+func (s surfaceNode) Library() (*library.Library, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.library == nil {
+		return nil, false
+	}
+	return h.library, true
 }
 
 func (s surfaceNode) Grabs() (*grabs.Grabs, bool) {

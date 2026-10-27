@@ -393,19 +393,18 @@ func TestMovingTheWorkToAnotherProfileRenamesItsFileAfterTheTargetItFills(t *tes
 	web := created(t, w.a.Admin("home", http.MethodPost, "/api/v1/targets", `{"name":"Web","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p"}`))
 	small := created(t, w.a.Admin("home", http.MethodPost, "/api/v1/profiles",
 		`{"name":"Small","contentType":"movie","targets":[{"targetId":"`+web+`","sourcing":"download"}],"editions":{"kind":"any"}}`))
-	wants := "/api/v1/works/" + w.work + "/wants"
-	body := `{"profileId":"` + small + `","editions":null}`
+	body := `{"workIds":["` + w.work + `"],"profileId":"` + small + `"}`
 	moved := "works=1 ownList=0 unwanted=0 renamed=1 newlyWanted=0 downloading=0"
 
-	w.put(t, wants+"?preview=true", body, moved)
+	w.put(t, "/api/v1/works/profile?preview=true", body, moved)
 	w.holds(t, release)
-	w.put(t, wants+"?confirm=0", body, moved)
+	w.put(t, "/api/v1/works/profile?confirm=0", body, moved)
 	name := "The Quiet Orchard (2021)/The Quiet Orchard (2021) - Web.mkv"
 	holdsOnly(t, w.m, "movies/"+name)
 	if got, _ := w.cells(t).summary(t); !slices.Equal(got, []string{"Web met webdl-1080p " + name}) {
 		t.Fatalf("after the move the cells are %q, want the WEB-DL filling Web", got)
 	}
-	worldtest.Expect(t, "getWorkWants", w.a.Admin("home", http.MethodGet, wants, ""), worldtest.Reply{
+	worldtest.Expect(t, "getWorkWants", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/wants", ""), worldtest.Reply{
 		Status: 200, Body: `{"profileId":"` + small + `","profileName":"Small","editions":{"kind":"any"},"from":"profile"}` + "\n",
 	})
 }

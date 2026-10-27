@@ -27,6 +27,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
@@ -705,7 +706,23 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 		return err
 	}
 	r.log.Info("library seeded")
+	if w := r.scenario.Library.Works; w != nil {
+		start := time.Now()
+		n, err := setup.Works(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims)
+		if err != nil {
+			return err
+		}
+		added := worksAdded{ContentType: w.ContentType, Count: n, Seconds: time.Since(start).Seconds()}
+		r.record(events.WorksAdded, added)
+		r.log.Info("works added", "contentType", added.ContentType, "count", added.Count, "seconds", added.Seconds)
+	}
 	return nil
+}
+
+type worksAdded struct {
+	ContentType string  `json:"contentType"`
+	Count       int     `json:"count"`
+	Seconds     float64 `json:"seconds"`
 }
 
 func (r *Run) ready() []node.Ready {

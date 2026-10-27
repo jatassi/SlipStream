@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { env } from "node:process";
 
 import {
@@ -10,7 +10,6 @@ import {
   test as base,
   expect,
 } from "@playwright/test";
-import { z } from "zod";
 
 import { type Fakeworld, fw } from "../harness/fakeworld.ts";
 import {
@@ -24,9 +23,10 @@ import {
 import { signIn } from "../harness/sign-in.ts";
 import { expectAccessible } from "./accessible.ts";
 import { startupPlayedScript } from "../harness/startup.ts";
-// oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { overrideNewPageWithWarmUp, warmUp } from "./warm-up.ts";
+// oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import type { Scenario } from "./scenario.ts";
+import { readSetupCode } from "./setup-code.ts";
 import { waitForSheets } from "./sheets.ts";
 import { pageErrors } from "./page-errors.ts";
 
@@ -49,6 +49,8 @@ export type World = {
 
 type Fixtures = {
   scenario: Scenario;
+  /** How long fakeworld may take to bring the Scenario up, and to stop it. */
+  launchSeconds: number;
   at: string;
   startupSequence: boolean;
   runDir: string;
@@ -68,7 +70,8 @@ declare global {
   }
 }
 
-const launchTimeout = 60;
+// The scale Scenario adds 20,000 Works before it is up.
+const slowestLaunch = 1800;
 
 function binary(variable: "TEST_SLIPSTREAM_BINARY" | "TEST_FAKEWORLD_BINARY"): string {
   const path = env[variable];
@@ -86,17 +89,6 @@ function fakeworld(
       resolve({ ok: error === null, stdout, stderr });
     });
   });
-}
-
-const SetupCodeRecord = z.object({ msg: z.literal("setup code"), code: z.string() });
-
-// A Node that restarts Unclaimed, as a removed Worker does, logs a new code.
-async function readSetupCode(log: string): Promise<string> {
-  const code = (await readFile(log, "utf8"))
-    .split("\n")
-    .map((line) => (line === "" ? null : SetupCodeRecord.safeParse(JSON.parse(line))))
-    .findLast((record) => record?.success === true)?.data.code;
-  return code ?? Promise.reject(new Error(`${log} has no setup code record`));
 }
 
 // Only Chromium reaches a Node by its name, through the host resolver rules.
@@ -145,6 +137,8 @@ async function guard(context: BrowserContext, origin: string): Promise<() => Pro
 export const test = base.extend<Fixtures, WorkerFixtures>({
   scenario: ["single-machine", { option: true }],
 
+  launchSeconds: [60, { option: true }],
+
   // Each test opens a new tab, which plays the startup sequence over the
   // page, so only tests that use it ask for it.
   startupSequence: [false, { option: true }],
@@ -152,7 +146,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
   at: ["home", { option: true }],
 
   runDir: [
-    async ({ scenario }, use, testInfo) => {
+    async ({ scenario, launchSeconds }, use, testInfo) => {
       const runDir = testInfo.outputPath("run");
       const start = await fakeworld([
         "start",
@@ -163,7 +157,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         "--run-dir",
         runDir,
         "--timeout",
-        `${launchTimeout}s`,
+        `${launchSeconds}s`,
         "--test-command",
         testCommand(testInfo),
       ]);
@@ -171,7 +165,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         throw new Error(`fakeworld start: ${start.stderr}`);
       }
       await use(runDir);
-      const stop = await fakeworld(["stop", runDir, "--timeout", `${launchTimeout}s`]);
+      const stop = await fakeworld(["stop", runDir, "--timeout", `${launchSeconds}s`]);
       await testInfo.attach("fakeworld stop", {
         body: stop.stdout,
         contentType: "application/json",
@@ -184,7 +178,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         await rm(runDir, { recursive: true });
       }
     },
-    { timeout: (launchTimeout + 10) * 1000 },
+    { timeout: (2 * slowestLaunch + 10) * 1000 },
   ],
 
   world: async ({ runDir, browserName, at }, use) => {

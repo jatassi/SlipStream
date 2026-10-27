@@ -147,7 +147,7 @@ func (l *library) paths(t *testing.T, ws ...works.WorkID) map[string]string {
 	out := map[string]string{}
 	disk := l.onDisk(t)
 	for _, w := range ws {
-		_, cells, err := l.files(files.NoGrabs{}).WorkCells(t.Context(), admin, w)
+		_, cells, _, err := l.files(files.NoGrabs{}).WorkCells(t.Context(), admin, w)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -170,7 +170,7 @@ func TestOneFileFillsEveryTargetItWinsAndSitsOnDiskOnce(t *testing.T) {
 	f := l.download(t, svc, tree, 0, release.WEBDL1080p, "webdl")
 	l.settle(t, svc)
 
-	_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	_, cells, _, err := svc.WorkCells(t.Context(), admin, tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestAnUpgradeTakesThePathOfTheFileItLeavesFillingNothing(t *testing.T) {
 	if got := l.onDisk(t); !maps.Equal(got, map[string]string{"Shelf w1/Shelf w1 - Scarf - Best.mkv": "bluray"}) {
 		t.Fatalf("after the upgrade the root holds %v, want the Bluray alone at the name", got)
 	}
-	_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	_, cells, _, err := svc.WorkCells(t.Context(), admin, tree.ID)
 	if err != nil || cells[0].File == nil || cells[0].File.ID != bluray.ID || cells[0].State != files.Met || fileCount(t, l) != 1 {
 		t.Fatalf("after the upgrade cells = %s, %v; want the Bluray meeting Best and one file", lines(cells), err)
 	}
@@ -515,7 +515,7 @@ func (l *library) runUntil(t *testing.T, svc *files.Files, what string, done fun
 
 type unfinished []storage.UUID
 
-func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[files.CellKey]files.GrabState, error) {
+func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return nil, nil
 }
 
@@ -580,7 +580,7 @@ func TestAFileInALostRootFillsNoCellAndItsQueueWaits(t *testing.T) {
 	svc := l.files(files.NoGrabs{})
 	f := l.download(t, svc, tree, 0, release.WEBDL1080p, "scarf")
 	l.writeOff(t)
-	_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	_, cells, _, err := svc.WorkCells(t.Context(), admin, tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -624,7 +624,7 @@ func TestAFileInALostRootFillsNoCellAndItsQueueWaits(t *testing.T) {
 	if got := l.onDisk(t); got[f.Path] != "scarf" {
 		t.Fatalf("the root holds %v, want the file at %s", got, f.Path)
 	}
-	_, cells, err = svc.WorkCells(t.Context(), admin, tree.ID)
+	_, cells, _, err = svc.WorkCells(t.Context(), admin, tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

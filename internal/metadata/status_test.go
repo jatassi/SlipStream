@@ -215,6 +215,31 @@ func TestNoKeyMeansKeylessCalls(t *testing.T) {
 	}
 }
 
+func TestTheKeySetTimeIsKeptWithTheKey(t *testing.T) {
+	f := open(t, roster{may: []role.NodeID{home}}, home)
+	if got := f.status(t).KeySetAt; !got.IsZero() {
+		t.Fatalf("with no Admin key the set time is %v, want none", got)
+	}
+	before := time.Now().Truncate(time.Microsecond)
+	if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", "mine"); err != nil {
+		t.Fatal(err)
+	}
+	set := f.status(t).KeySetAt
+	if set.Before(before) || set.After(time.Now()) {
+		t.Fatalf("the key's set time is %v, want between %v and now", set, before)
+	}
+	f.restart(t)
+	if got := f.status(t).KeySetAt; !got.Equal(set) {
+		t.Fatalf("after a restart the key's set time is %v, want %v", got, set)
+	}
+	if _, err := f.m.ClearKey(t.Context(), identity.Admin{}, "tmdb"); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.status(t).KeySetAt; !got.IsZero() {
+		t.Fatalf("once the Admin's key is cleared its set time is %v, want none", got)
+	}
+}
+
 func TestSetKeyRefusesAKeyTheProviderRefuses(t *testing.T) {
 	f := open(t, roster{may: []role.NodeID{home}}, home)
 	f.hosts[home].set(false, "typo")

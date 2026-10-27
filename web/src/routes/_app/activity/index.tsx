@@ -6,12 +6,10 @@ import {
   getListQualitiesSuspenseQueryOptions,
   getListTargetsSuspenseQueryOptions,
 } from "../../../api/gen/query/targets/targets";
-import {
-  getListContentTypesSuspenseQueryOptions,
-  getListWorksSuspenseQueryOptions,
-} from "../../../api/gen/query/works/works";
+import { getListContentTypesSuspenseQueryOptions } from "../../../api/gen/query/works/works";
 import { getListTransfersSuspenseQueryOptions } from "../../../api/gen/query/transfers/transfers";
 import { ensureQuery } from "../../../api/query-client";
+import { ensureLibrary } from "../../../library/projection";
 import { Jobs } from "../../../grabs/jobs";
 import { Skeleton } from "../../../ui/skeleton";
 
@@ -20,7 +18,7 @@ export const Route = createFileRoute("/_app/activity/")({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       ensureQuery(queryClient, getListGrabsSuspenseQueryOptions()),
-      ensureQuery(queryClient, getListWorksSuspenseQueryOptions()),
+      ensureLibrary(queryClient),
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(queryClient, getListTorrentsSuspenseQueryOptions()),
       ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),

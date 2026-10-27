@@ -32,22 +32,26 @@ const ID works.TypeID = "fixture"
 var Description = works.Description{
 	Name:   "Fixture",
 	Icon:   works.IconShapes,
+	Source: "Fixture source",
 	Work:   works.Noun{One: "Shelf", Many: "Shelves"},
 	Levels: []works.Noun{{One: "Box", Many: "Boxes"}},
 	Item:   works.Noun{One: "Thing", Many: "Things"},
+	Items:  works.ItemsMany,
 	Fields: []works.FieldSpec{
-		{Key: "origin", Label: "Origin", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "packed", Label: "Packed", Tier: works.TierLevel(1), Kind: works.KindDate},
-		{Key: "count", Label: "Count", Tier: works.TierItem, Kind: works.KindNumber},
-		{Key: "runtime", Label: "Runtime", Tier: works.TierItem, Kind: works.KindDuration},
-		{Key: "tags", Label: "Tags", Tier: works.TierWork, Kind: works.KindTexts},
-		{Key: "makers", Label: "Makers", Tier: works.TierWork, Kind: works.KindPeople},
-		{Key: "page", Label: "Page", Tier: works.TierWork, Kind: works.KindLink},
+		{Key: "origin", Label: "Origin", Tier: works.TierWork, Kind: works.KindText, In: []works.Place{works.PlaceFacts, works.PlaceAbout}, List: works.ListColumn | works.ListSort | works.ListFilter},
+		{Key: "packed", Label: "Packed", Tier: works.TierLevel(1), Kind: works.KindDate, In: []works.Place{works.PlaceFacts}},
+		{Key: "count", Label: "Count", Tier: works.TierItem, Kind: works.KindNumber, In: []works.Place{works.PlaceDetails}},
+		{Key: "runtime", Label: "Runtime", Tier: works.TierItem, Kind: works.KindDuration, In: []works.Place{works.PlaceFacts}},
+		{Key: "tags", Label: "Tags", Tier: works.TierWork, Kind: works.KindTexts, In: []works.Place{works.PlaceAbout}, List: works.ListColumn | works.ListFilter},
+		{Key: "makers", Label: "Makers", Tier: works.TierWork, Kind: works.KindPeople, In: []works.Place{works.PlaceCredits}},
+		{Key: "page", Label: "Page", Tier: works.TierWork, Kind: works.KindLink, In: []works.Place{works.PlaceDetails}},
 	},
 	Artwork: []artwork.Kind{
 		{Key: "photo", Label: "Photo", Shape: artwork.ShapePoster, Prefetch: artwork.SizeMedium},
 		{Key: "snap", Label: "Snap", Item: true, Shape: artwork.ShapeBackdrop},
 	},
+	Art:     works.ArtRoles{Poster: "photo"},
+	Ratings: []works.RatingSource{"tmdb", "imdb"},
 }
 
 type Endpoints struct {
@@ -59,6 +63,8 @@ type Record struct {
 	WorkFields  []works.FieldValue
 	LevelFields map[works.Key][]works.FieldValue
 	ItemFields  map[works.Key][]works.FieldValue
+	// Titles are the Work's titles beyond its label, which Titles answers.
+	Titles []string
 }
 
 // Fixture is the library half, and each provider half it opens reads its
@@ -71,6 +77,7 @@ type Fixture struct {
 	fetches   map[works.Key]int
 	calls     []Call
 	stored    map[works.WorkID]works.FieldSet
+	titles    map[works.WorkID][]string
 	hold      *hold
 	opened    []Opened
 	libraries []contenttype.LibraryDeps
@@ -116,6 +123,7 @@ func New() *Fixture {
 		fails:   map[works.Key]error{},
 		fetches: map[works.Key]int{},
 		stored:  map[works.WorkID]works.FieldSet{},
+		titles:  map[works.WorkID][]string{},
 		timings: map[works.ItemID]targets.Timing{},
 		growing: map[works.WorkID]bool{},
 	}
@@ -131,7 +139,7 @@ func (f *Fixture) Def() contenttype.Def[Endpoints] {
 			f.opened = append(f.opened, Opened{Deps: d, Endpoints: e})
 			return &source{f: f, open: len(f.opened) - 1}
 		},
-		Library: func(d contenttype.LibraryDeps) contenttype.Library {
+		Library: func(d contenttype.LibraryDeps, _ Endpoints) contenttype.Library {
 			f.mu.Lock()
 			defer f.mu.Unlock()
 			f.libraries = append(f.libraries, d)
@@ -365,8 +373,9 @@ func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at wo
 	if !ok {
 		fs = works.FieldSet{Levels: map[works.LevelID][]works.FieldValue{}, Items: map[works.ItemID][]works.FieldValue{}}
 	}
-	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields)
+	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields) || !slices.Equal(f.titles[at.Work], r.Titles)
 	fs.Work = r.WorkFields
+	f.titles[at.Work] = r.Titles
 	for key, id := range at.Levels {
 		changed = changed || !reflect.DeepEqual(fs.Levels[id], r.LevelFields[key])
 		fs.Levels[id] = r.LevelFields[key]
@@ -385,6 +394,32 @@ func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w
 	fs := f.stored[w]
 	return works.FieldSet{Work: fs.Work, Levels: maps.Clone(fs.Levels), Items: maps.Clone(fs.Items)}, nil
 }
+
+// ListFields answers each Work's stored Work-tier fields that Description
+// lists.
+func (f *Fixture) ListFields(_ context.Context, _ storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[works.WorkID][]works.FieldValue, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := map[works.WorkID][]works.FieldValue{}
+	for _, w := range ws.IDs() {
+		for _, v := range f.stored[w].Work {
+			if slices.ContainsFunc(Description.Fields, func(s works.FieldSpec) bool { return s.Tier == works.TierWork && s.Key == v.Key && s.List != 0 }) {
+				out[w] = append(out[w], v)
+			}
+		}
+	}
+	return out, nil
+}
+
+// Titles answers the stored record's Titles.
+func (f *Fixture) Titles(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.titles[w]), nil
+}
+
+// Links answers none: a Shelf links nowhere.
+func (*Fixture) Links(works.Key, []works.FieldValue) []works.WebLink { return nil }
 
 // Depth is the Fixture's one setting. It is held in memory, so a Write
 // that fails after ApplySettings still keeps it.
@@ -453,11 +488,11 @@ func (f *Fixture) SetCuts(cuts []release.Cut) {
 
 // Timings answers every stored Item of ws: its SetTiming, else Released
 // and an unknown runtime.
-func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := map[works.ItemID]targets.Timing{}
-	for _, w := range ws {
+	for _, w := range ws.IDs() {
 		for id := range f.stored[w].Items {
 			t, ok := f.timings[id]
 			if !ok {

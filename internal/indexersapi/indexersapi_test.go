@@ -172,7 +172,7 @@ func TestEachIndexersErrorAnswersItsProblem(t *testing.T) {
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, "wrong"), http.StatusUnprocessableEntity,
 		`{"status":422,"code":"indexer_refused","title":"The Indexer refused the request","detail":"error 100: Invalid API Key"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body("/elsewhere", s.key), http.StatusBadGateway,
-		`{"status":502,"code":"indexer_unavailable","title":"The Indexer didn't respond","detail":"the Indexer responded with status 404"}`)
+		`{"status":502,"code":"indexer_unavailable","title":"The Indexer didn't respond","detail":"The Indexer responded with status 404."}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", `{"name":"Fixture Site","url":"ftp://example.test/torznab","apiKey":"k"}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.url","message":"expected string to match pattern ^https?://[^/?#]+(/[^?#]*)?$"}]}`)
 	if code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, s.key)); code != http.StatusCreated {
@@ -190,7 +190,7 @@ func TestEachIndexersErrorAnswersItsProblem(t *testing.T) {
 
 	down := serve(t, []role.NodeID{worker}, worker)
 	down.owner.Expect(t, http.MethodPost, "/api/v1/indexers", down.body(site.TorznabPath, down.key), http.StatusBadGateway,
-		`{"status":502,"code":"indexer_unavailable","title":"The Indexer didn't respond","detail":"no live link session to the peer"}`)
+		`{"status":502,"code":"indexer_unavailable","title":"The Indexer didn't respond","detail":"No live link session to the peer."}`)
 	for _, x := range []*served{none, down} {
 		if _, list := x.owner.Call(t, http.MethodGet, "/api/v1/indexers", ""); list != `{"indexers":[]}`+"\n" || len(x.changed.ids) != 0 {
 			t.Fatalf("after a failed create the list is %s with %d events, want none", list, len(x.changed.ids))

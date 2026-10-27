@@ -257,6 +257,63 @@ func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 	return err
 }
 
+const listBriefFilesOfWorks = `-- name: ListBriefFilesOfWorks :many
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListBriefFilesOfWorksRow struct {
+	ID      FileID
+	WorkID  works.WorkID
+	ItemID  works.ItemID
+	Cut     release.CutKey
+	RootID  roots.ID
+	Size    int64
+	Quality release.Quality
+	Extra   int64
+}
+
+func (q *Queries) ListBriefFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListBriefFilesOfWorksRow, error) {
+	query := listBriefFilesOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBriefFilesOfWorksRow
+	for rows.Next() {
+		var i ListBriefFilesOfWorksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Cut,
+			&i.RootID,
+			&i.Size,
+			&i.Quality,
+			&i.Extra,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDoomed = `-- name: ListDoomed :many
 SELECT file_id, root_id, path, sits FROM files_doomed ORDER BY file_id
 `
@@ -275,6 +332,125 @@ func (q *Queries) ListDoomed(ctx context.Context) ([]FilesDoomed, error) {
 			&i.RootID,
 			&i.Path,
 			&i.Sits,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryBriefFile = `-- name: ListEveryBriefFile :many
+SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file ORDER BY rowid
+`
+
+type ListEveryBriefFileRow struct {
+	ID      FileID
+	WorkID  works.WorkID
+	ItemID  works.ItemID
+	Cut     release.CutKey
+	RootID  roots.ID
+	Size    int64
+	Quality release.Quality
+	Extra   int64
+}
+
+func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryBriefFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryBriefFileRow
+	for rows.Next() {
+		var i ListEveryBriefFileRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Cut,
+			&i.RootID,
+			&i.Size,
+			&i.Quality,
+			&i.Extra,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryFile = `-- name: ListEveryFile :many
+SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file ORDER BY rowid
+`
+
+func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilesFile
+	for rows.Next() {
+		var i FilesFile
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Cut,
+			&i.RootID,
+			&i.Path,
+			&i.Size,
+			&i.Probe,
+			&i.GrabID,
+			&i.Quality,
+			&i.Label,
+			&i.Extra,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryFill = `-- name: ListEveryFill :many
+SELECT file_id, target_id, item_id, edition FROM files_fill ORDER BY rowid
+`
+
+func (q *Queries) ListEveryFill(ctx context.Context) ([]FilesFill, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryFill)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilesFill
+	for rows.Next() {
+		var i FilesFill
+		if err := rows.Scan(
+			&i.FileID,
+			&i.TargetID,
+			&i.ItemID,
+			&i.Edition,
 		); err != nil {
 			return nil, err
 		}

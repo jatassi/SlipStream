@@ -57,7 +57,7 @@ func TestCensusListsEndpointsStillAtADefaultHost(t *testing.T) {
 }
 
 func TestCensusOfTheDefaultsListsTheCoreEndpoints(t *testing.T) {
-	if got, want := Census(Defaults(noTypes, install.Dev), noTypes, install.Dev), []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers"}; !slices.Equal(got, want) {
+	if got, want := Census(Defaults(noTypes, install.Dev), noTypes, install.Dev), []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers"}; !slices.Equal(got, want) {
 		t.Fatalf("census = %#v, want %#v", got, want)
 	}
 }

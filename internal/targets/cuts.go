@@ -201,7 +201,7 @@ func (t *Targets) CreateCut(ctx context.Context, _ identity.Admin, s CutSpec) (L
 	if err != nil {
 		return ListedCut{}, err
 	}
-	t.cfg.Changed.Publish(ctx, Changed{})
+	t.cfg.Changed.Publish(ctx, changedOf(nil))
 	return made, nil
 }
 
@@ -260,7 +260,7 @@ func (t *Targets) DeleteCut(ctx context.Context, _ identity.Admin, k release.Cut
 	if err != nil {
 		return err
 	}
-	t.cfg.Changed.Publish(ctx, Changed{})
+	t.cfg.Changed.Publish(ctx, changedOf(nil))
 	return nil
 }
 

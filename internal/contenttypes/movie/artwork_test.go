@@ -64,7 +64,7 @@ func TestAddPrefetchesPosterMediumAndBackdropLarge(t *testing.T) {
 	meta := metadatatest.Artwork(t, lib, map[works.TypeID]metadata.Source{movie.Def.ID(): src}, client, metadata.DefaultTimings())
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{movie.Def.ID(): library()}, Timings: works.DefaultTimings(),
-		Source: meta, Artwork: meta, Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+		Source: meta, Artwork: meta, Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)

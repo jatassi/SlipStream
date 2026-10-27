@@ -31,7 +31,19 @@ type (
 	ProfileID = db.ProfileID
 )
 
-type Changed struct{}
+// Changed names the Works whose cells may read differently now, none when
+// the change moved no Work.
+type Changed struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
+func changedOf(ws []works.WorkID) Changed {
+	out := Changed{WorkIDs: make([]string, len(ws))}
+	for i, w := range ws {
+		out.WorkIDs[i] = w.String()
+	}
+	return out
+}
 
 var ChangedEvent = live.AdminEvent[Changed]("targets.changed")
 
@@ -80,8 +92,11 @@ type Describer interface {
 
 type Targets struct{ cfg Config }
 
-// Publish sends targets.changed, for a Change files applied and committed.
-func (t *Targets) Publish(ctx context.Context) { t.cfg.Changed.Publish(ctx, Changed{}) }
+// Publish sends targets.changed naming ws, for a Change files applied and
+// committed.
+func (t *Targets) Publish(ctx context.Context, ws []works.WorkID) {
+	t.cfg.Changed.Publish(ctx, changedOf(ws))
+}
 
 // CreateTarget checks s and creates its Target.
 func (t *Targets) CreateTarget(ctx context.Context, _ identity.Admin, s Spec) (Target, error) {
@@ -96,7 +111,7 @@ func (t *Targets) CreateTarget(ctx context.Context, _ identity.Admin, s Spec) (T
 	if err != nil {
 		return Target{}, err
 	}
-	t.cfg.Changed.Publish(ctx, Changed{})
+	t.cfg.Changed.Publish(ctx, changedOf(nil))
 	return target, nil
 }
 
@@ -200,7 +215,7 @@ func (t *Targets) DuplicateTarget(ctx context.Context, _ identity.Admin, id Targ
 	if err != nil {
 		return Target{}, err
 	}
-	t.cfg.Changed.Publish(ctx, Changed{})
+	t.cfg.Changed.Publish(ctx, changedOf(nil))
 	return copied, nil
 }
 
@@ -234,7 +249,7 @@ func (t *Targets) DeleteTarget(ctx context.Context, _ identity.Admin, id TargetI
 	if err != nil {
 		return err
 	}
-	t.cfg.Changed.Publish(ctx, Changed{})
+	t.cfg.Changed.Publish(ctx, changedOf(nil))
 	return nil
 }
 

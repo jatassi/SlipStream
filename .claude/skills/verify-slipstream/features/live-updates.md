@@ -58,3 +58,4 @@ Steps:
 - The page reconnects on its own; reloading it would prove a fresh connection, not the reconnect.
 - The supervisor's capture re-opens on the Node's next `node.ready`, never on a timer, so a killed Node with no start leaves the capture closed.
 - `first-run` has no Admin until setup, so its run captures no stream.
+- `works.changed`, `works.removed` and `targets.changed` name their Works in `workIds`, so a bulk action sends one event. `grabs.changed` carries `progress`, true when only a download's progress moved.
