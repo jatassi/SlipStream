@@ -55,7 +55,7 @@ type foundDate struct {
 
 // fuzzyDate is TryParseDateOrTime with USDate. The UTC offset it may find
 // is dropped, as FromFuzzyTime returns the plain DateTime.
-func fuzzyDate(s string, clock clock) (time.Time, bool, error) {
+func fuzzyDate(s string, clock Clock) (time.Time, bool, error) {
 	d, ok, err := findDate(s, clock)
 	if err != nil {
 		return time.Time{}, false, err
@@ -78,7 +78,7 @@ func fuzzyDate(s string, clock clock) (time.Time, bool, error) {
 	return time.Time{}, false, nil
 }
 
-func findDate(s string, clock clock) (foundDate, bool, error) {
+func findDate(s string, clock Clock) (foundDate, bool, error) {
 	m, err := dateNumeric.FindStringMatch(s)
 	if err != nil {
 		return foundDate{}, false, fmt.Errorf("read %q as a date: %w", s, err)

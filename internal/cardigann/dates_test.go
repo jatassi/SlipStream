@@ -7,7 +7,7 @@ import (
 
 var (
 	testZone  = time.FixedZone("UTC+2", 2*3600)
-	testClock = clock{Now: time.Date(2026, 10, 27, 15, 4, 5, 0, time.UTC), Location: testZone}
+	testClock = Clock{Now: time.Date(2026, 10, 27, 15, 4, 5, 0, time.UTC), Location: testZone}
 )
 
 func local(y int, mo time.Month, d, h, mi, s int) time.Time {

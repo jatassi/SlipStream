@@ -17,7 +17,7 @@ import (
 // its input.
 type env struct {
 	Scope   scope
-	Clock   clock
+	Clock   Clock
 	charset charset
 }
 

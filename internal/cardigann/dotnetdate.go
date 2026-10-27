@@ -10,7 +10,7 @@ import (
 // "yyyy-MM-dd HH:mm:ss zzz". A date with an offset is moved into the
 // clock's zone; one without is read as the clock's local time. A part the
 // format omits takes today's date.
-func parseExact(s, format string, clock clock) (time.Time, bool) {
+func parseExact(s, format string, clock Clock) (time.Time, bool) {
 	p := exactParser{in: s, format: format, r: newDateResult()}
 	if !p.run() || p.pos != len(p.in) {
 		return time.Time{}, false
@@ -297,7 +297,7 @@ func (p *exactParser) parseK() bool {
 
 // resolve fills the parts the format omitted from today, applies AM and
 // PM, checks the date and the day of the week, and places the time.
-func (r *dateResult) resolve(clock clock) (time.Time, bool) {
+func (r *dateResult) resolve(clock Clock) (time.Time, bool) {
 	now := clock.local()
 	switch {
 	case r.year < 0 && r.month < 0 && r.day < 0:
