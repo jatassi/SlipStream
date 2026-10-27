@@ -245,13 +245,16 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 			return err
 		}
 		rows, err := db.New(r).ListSearchIndexersOfSearch(ctx, run.ID)
+		if err != nil {
+			return err
+		}
 		for _, row := range rows {
 			if row.Outcome == nil {
 				asked = append(asked, row)
 				s.Asked = append(s.Asked, indexers.Line{Indexer: row.IndexerID, Name: row.IndexerName, Query: row.QueryID})
 			}
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		return gr.searchWaits(ctx, run, err)

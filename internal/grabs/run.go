@@ -602,8 +602,7 @@ func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advan
 		params.Next = Failed
 		params.FailedStage, params.FailureCode, params.FailureMessage = &g.Stage, &o.code, new(o.msg)
 	case dropped:
-		params.Next = Failed
-		params.FailedStage, params.FailureCode, params.FailureMessage = &g.Stage, &o.code, new(o.msg)
+		return advanceParams(g, fail(o), now)
 	}
 	return params, advance{}, nil
 }
