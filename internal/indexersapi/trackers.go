@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	trackerNotFound  = api.NewCode(http.StatusNotFound, "tracker_not_found", "No Tracker has that id")
+	trackerNotFound  = api.NewCode(http.StatusNotFound, "tracker_not_found", "That Tracker no longer exists. It may have been merged into another Tracker.")
 	trackerNameTaken = api.NewCode(http.StatusConflict, "tracker_name_taken", "Another Tracker has that name")
 	trackerMergeSelf = api.NewCode(http.StatusUnprocessableEntity, "tracker_merge_self", "A Tracker can't be merged into itself")
 )

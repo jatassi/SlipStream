@@ -149,7 +149,7 @@ function writeHandlers(server: Server) {
   ];
 }
 
-const noTracker = () => problem(404, "tracker_not_found", "No Tracker has that id");
+const noTracker = () => problem(404, "tracker_not_found", "That Tracker no longer exists. It may have been merged into another Tracker.");
 
 const findTracker = ({ state }: Server, id: unknown) =>
   state.trackers.find((tracker) => tracker.id === id);
