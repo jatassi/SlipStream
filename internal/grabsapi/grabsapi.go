@@ -98,7 +98,7 @@ type refusal struct {
 type search struct {
 	ID         string     `json:"id" format:"uuid"`
 	ItemID     string     `json:"itemId" format:"uuid"`
-	IndexerID  string     `json:"indexerId" format:"uuid"`
+	IndexerID  *string    `json:"indexerId" format:"uuid" doc:"The Indexer the run asked, null until it asked or once the Indexer is deleted"`
 	StartedAt  time.Time  `json:"startedAt"`
 	FinishedAt *time.Time `json:"finishedAt" doc:"Null while the run searches"`
 	Outcome    *string    `json:"outcome" enum:"grabbed,nothing_acceptable,indexer_unavailable,indexer_refused" doc:"Null while the run searches"`
@@ -116,7 +116,7 @@ type searchListOutput struct{ Body searchList }
 
 func searchOf(s grabs.Search) search {
 	out := search{
-		ID: s.ID.String(), ItemID: s.ItemID.String(), IndexerID: s.Indexer.String(), StartedAt: s.Started, Candidates: s.Candidates,
+		ID: s.ID.String(), ItemID: s.ItemID.String(), IndexerID: idOrNil(s.Indexer.UUID), StartedAt: s.Started, Candidates: s.Candidates,
 		Refused: []refusal{}, Notes: reasonsOf(s.Notes),
 	}
 	for _, r := range s.Refused {
@@ -133,9 +133,16 @@ func searchOf(s grabs.Search) search {
 	return out
 }
 
+func idOrNil(id storage.UUID) *string {
+	if id.IsZero() {
+		return nil
+	}
+	return new(id.String())
+}
+
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
+	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
 	Message string `json:"message"`
 }
 
@@ -163,7 +170,7 @@ type grab struct {
 	ReleaseTitle string          `json:"releaseTitle"`
 	Quality      string          `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
 	ReleaseSize  int64           `json:"releaseSize" minimum:"0"`
-	IndexerID    string          `json:"indexerId" format:"uuid"`
+	IndexerID    *string         `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
 	NodeID       string          `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
 	FetchNodeID  *string         `json:"fetchNodeId" format:"uuid" doc:"The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did"`
 	TorrentID    *string         `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
@@ -179,7 +186,7 @@ type grab struct {
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: v.Release.Indexer.String(), NodeID: v.Node.String(),
+		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Release.Indexer.UUID), NodeID: v.Node.String(),
 		Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
 	}
 	if !v.FetchNode.IsZero() {

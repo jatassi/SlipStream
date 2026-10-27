@@ -1,7 +1,15 @@
-// Package indexers owns the Indexers. The Controller keeps each Indexer.
-// The Node it routes to runs its protocol (package searching), and this
-// package sends that Node a job and reads the typed answer. It never
-// parses a site's response (ADR 0017).
+// Package indexers owns every Indexer, its status, its sessions on each
+// Node, its limits, the Indexer catalog and the Trackers Indexers reach.
+// The Controller keeps all of it. Every protocol runs on the Node an
+// Indexer routes to (package searching): this package sends that Node a
+// job and records the typed answer. It never parses a site's response
+// (ADR 0017).
+//
+// Each record has one writer. Status is written only by record, from a
+// job's answer, through the pure next. A session is upserted only when it
+// was earned later than the stored one. A limit is a count of reserved
+// indexers_query rows, reserved inside a Write, so concurrent calls never
+// pass it.
 package indexers
 
 import (
@@ -11,15 +19,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
-	"github.com/jatassi/slipstream/internal/magnet"
-	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -33,7 +39,123 @@ var schemaFiles embed.FS
 
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("indexers", schemaFiles) }
 
-type ID = db.IndexerID
+type (
+	ID        = db.IndexerID
+	TrackerID = db.TrackerID
+	QueryID   = db.QueryID
+)
+
+// Kind is how an Indexer is reached.
+type Kind string
+
+const (
+	Catalog Kind = "catalog"
+	Torznab Kind = "torznab"
+	RSS     Kind = "rss"
+)
+
+// DefaultPriority is an Indexer's priority until an Admin sets one.
+const DefaultPriority = 25
+
+// Indexer is one Indexer as the Controller keeps it.
+type Indexer struct {
+	ID            ID
+	Name          string
+	Kind          Kind
+	Home          role.NodeID
+	On            bool
+	AutoSearch    bool
+	RSS           bool
+	AllowFailover bool
+	// Priority is 1 to 50, lower wins.
+	Priority int
+	// Categories is nil for every category the Indexer advertises.
+	Categories []newznab.ID
+	// Media is the Content Types an RSS feed serves, nil for every other
+	// kind.
+	Media    []works.TypeID
+	Searches Limit
+	Grabs    Limit
+	Source   Source
+	// Secrets is one sealed Secrets.
+	Secrets secret.Sealed
+	// FeedHost is shown in place of a feed's sealed address.
+	FeedHost string
+	Caps     Caps
+	// Notes are what a pin move changed, for the Indexer page.
+	Notes    []string
+	Revision int64
+	Created  time.Time
+}
+
+// Limit is how many calls an Indexer takes in a sliding window. A zero
+// Count is no limit.
+type Limit struct {
+	Count int
+	Per   Window
+}
+
+type Window string
+
+const (
+	Hour Window = "hour"
+	Day  Window = "day"
+)
+
+func (w Window) Duration() time.Duration {
+	if w == Day {
+		return 24 * time.Hour
+	}
+	return time.Hour
+}
+
+// Source is a Definition or a Feed.
+type Source interface{ source() }
+
+type Origin string
+
+const (
+	FromCatalog Origin = "catalog"
+	FromCustom  Origin = "custom"
+)
+
+// Definition is the definition version a catalog Indexer pins and its
+// plain settings.
+type Definition struct {
+	ID, SHA     string
+	BaseAddress string
+	// Plain is the select and checkbox values and the username.
+	Plain map[string]string
+}
+
+// Feed is a Torznab or RSS feed.
+type Feed struct {
+	// Tracker is the Tracker name the Admin gave, for an RSS feed or a
+	// Torznab feed whose items name no source.
+	Tracker     string
+	AllowNoSize bool
+}
+
+func (Definition) source() {}
+func (Feed) source()       {}
+
+// Secrets are an Indexer's sealed values, opened only to put on the wire.
+type Secrets struct {
+	// Address is a feed's whole address, which may carry a passkey.
+	Address string            `json:"address,omitempty"`
+	APIKey  string            `json:"apiKey,omitempty"`
+	Fields  map[string]string `json:"fields,omitempty"`
+}
+
+var secretsColumn = secret.NewColumn("indexers_indexer.secrets_sealed")
+
+// Caps are an Indexer's search modes, keyed by their t= value, each with
+// the parameters it takes in the order the Indexer lists them, and its
+// categories.
+type Caps struct {
+	Modes      map[string][]string `json:"modes"`
+	Categories []newznab.ID        `json:"categories,omitempty"`
+}
 
 // Facet is how a Content Type's Items are searched. A type that can't be
 // searched answers the zero Terms.
@@ -55,58 +177,54 @@ type Timings struct {
 	Job time.Duration `yaml:"job"`
 	// Poll is the least gap between two Run calls of one job.
 	Poll time.Duration `yaml:"poll"`
+	// Limited is how long a limited Indexer waits when the site gave no
+	// Retry-After.
+	Limited time.Duration `yaml:"limited"`
+	// Ladder is how long a failing Indexer backs off at each rung.
+	Ladder []time.Duration `yaml:"ladder"`
 }
 
-func DefaultTimings() Timings { return Timings{Job: 2 * time.Minute, Poll: time.Second} }
-
-const protocol = "torznab"
-
-// Caps are an Indexer's search modes, keyed by their t= value, each with
-// the parameters it takes in the order the Indexer lists them.
-type Caps struct {
-	Modes map[string][]string `json:"modes"`
-}
-
-// Indexer is a Torznab Indexer and the Node that reaches it.
-type Indexer struct {
-	ID       ID
-	Name     string
-	Protocol string
-	URL      string
-	// Key is zero when the migration that sealed keys dropped it, until an
-	// Admin enters it again.
-	Key       secret.Sealed
-	HomeNode  role.NodeID
-	Caps      Caps
-	CreatedAt time.Time
+func DefaultTimings() Timings {
+	return Timings{
+		Job: 2 * time.Minute, Poll: time.Second, Limited: time.Minute,
+		Ladder: []time.Duration{
+			time.Minute, 5 * time.Minute, 15 * time.Minute, 30 * time.Minute, time.Hour,
+			3 * time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour,
+		},
+	}
 }
 
 type Changed struct {
 	IndexerID string `json:"indexerId" format:"uuid"`
 }
 
-var ChangedEvent = live.AdminEvent[Changed]("indexers.changed")
+type StatusChanged struct {
+	IndexerID string `json:"indexerId" format:"uuid"`
+}
 
-type Publisher interface {
-	Publish(ctx context.Context, v Changed)
+var (
+	ChangedEvent       = live.AdminEvent[Changed]("indexers.changed")
+	StatusChangedEvent = live.AdminEvent[StatusChanged]("indexers.status-changed")
+)
+
+type Publisher[T any] interface {
+	Publish(ctx context.Context, v T)
 }
 
 var (
 	ErrNameTaken       = errors.New("another Indexer has that name")
 	ErrNoSearchingNode = errors.New("no Node holds Searching")
-	ErrAPIKeyDropped   = errors.New("the Indexer's API key was dropped")
 	ErrNoIndexer       = errors.New("no such Indexer")
+	ErrNotSearching    = errors.New("that Node doesn't hold Searching")
 	// ErrLate is a job that passed its deadline.
 	ErrLate = errors.New("the Indexer didn't respond in time")
 )
 
-// UnavailableError is a call that didn't reach the Indexer, brought back
-// nothing usable, or met a site that limited or failed it. A site that
-// stopped the Indexer is a *searching.Stopped.
+// UnavailableError is a call that didn't reach the Indexer's site: its
+// Node's link was down, mismatched or lost the call, or the Node no longer
+// holds Searching.
 type UnavailableError struct {
-	// Wait is true when no Node could take the call, or its link was down,
-	// mismatched or lost the call: the same call may succeed once the
-	// roster changes.
+	// Wait is true when the same call may succeed once the roster changes.
 	Wait bool
 	Err  error
 }
@@ -115,127 +233,70 @@ func (e *UnavailableError) Error() string { return "the Indexer is unavailable: 
 
 func (e *UnavailableError) Unwrap() error { return e.Err }
 
-// Roster is the Nodes and the Roles they hold.
-type Roster interface {
-	Self() role.NodeID
-	// Pick is prefer when it may take new r work, else the Controller when
-	// it may, else the first Node by id that may.
-	Pick(r role.Name, prefer role.NodeID) (role.NodeID, bool)
-	// Route is where r work homed on home goes now, or why it waits.
-	Route(r role.Name, home role.NodeID) (role.NodeID, error)
-	// Away is how node stands while it is assigned r and out of step.
-	Away(r role.Name, node role.NodeID) (nodes.Absence, bool)
-}
+// WaitError is a call no Node may take now, and why.
+type WaitError struct{ Outcome Outcome }
+
+func (e *WaitError) Error() string { return "the Indexer waits for its home Node" }
 
 type Config struct {
 	Library *storage.DB[file]
-	// Sealer opens an Indexer's key only to put it on the wire.
+	// Sealer opens an Indexer's secrets and sessions only to put them on
+	// the wire.
 	Sealer *secret.Sealer
 	Roster Roster
 	// Searching reaches the Searching service on a Node.
 	Searching func(role.NodeID) searching.Remote
-	Changed   Publisher
+	Changed   Publisher[Changed]
+	Status    Publisher[StatusChanged]
 	Timings   Timings
-	Log       *slog.Logger
+	// Zone is the zone of the times inside sentences.
+	Zone *time.Location
+	Log  *slog.Logger
 }
 
-type Indexers struct{ cfg Config }
+type Indexers struct {
+	cfg  Config
+	late background
+}
 
 func New(cfg Config) *Indexers { return &Indexers{cfg: cfg} }
 
-// Draft is an Indexer as an Admin enters it.
-type Draft struct {
-	Name   string
-	URL    string
-	APIKey string
+// Run keeps late jobs polled until ctx ends, then waits for the ones still
+// polling, which end with ctx.
+func (x *Indexers) Run(ctx context.Context) error {
+	x.late.run(ctx)
+	return nil
 }
 
-// Create saves d once its home Node has read its caps. The home Node is
-// ADR 0017's default: this Node when it holds Searching, else the first
-// Node paired that does.
-func (x *Indexers) Create(ctx context.Context, _ identity.Admin, d Draft) (Indexer, error) {
-	switch taken, err := db.New(x.cfg.Library).NameTaken(ctx, d.Name); {
-	case err != nil:
-		return Indexer{}, err
-	case taken:
-		return Indexer{}, ErrNameTaken
-	}
-	home, err := x.home()
-	if err != nil {
-		return Indexer{}, err
-	}
-	idx := Indexer{ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Protocol: protocol, URL: d.URL, HomeNode: home}
-	idx.Key = x.cfg.Sealer.Seal([]byte(d.APIKey), apiKeyColumn.Row(idx.ID.String()))
-	if idx.Caps, err = x.caps(ctx, idx); err != nil {
-		return Indexer{}, err
-	}
-	caps, err := json.Marshal(idx.Caps)
-	if err != nil {
-		return Indexer{}, fmt.Errorf("encode the caps: %w", err)
-	}
-	created := storage.Now()
-	idx.CreatedAt = created.Time()
-	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		switch taken, err := q.NameTaken(ctx, d.Name); {
-		case err != nil:
-			return err
-		case taken:
-			return ErrNameTaken
-		}
-		return q.InsertIndexer(ctx, db.InsertIndexerParams{
-			ID: idx.ID, Name: idx.Name, Protocol: protocol, Url: idx.URL, ApiKeySealed: idx.Key, HomeNodeID: home, Caps: string(caps), CreatedAt: created,
-		})
-	})
-	if err != nil {
-		return Indexer{}, err
-	}
-	x.cfg.Changed.Publish(ctx, Changed{IndexerID: idx.ID.String()})
-	return idx, nil
+// background runs work on the Indexers' own context while Run runs, so a
+// shutdown waits for it rather than leaking it.
+type background struct {
+	mu  sync.Mutex
+	ctx context.Context
+	wg  sync.WaitGroup
 }
 
-// SetAPIKey enters Indexer id's key again, once its home Node has read the
-// caps with it.
-func (x *Indexers) SetAPIKey(ctx context.Context, _ identity.Admin, id ID, key string) (Indexer, error) {
-	idx, err := Get(ctx, x.cfg.Library, id)
-	if errors.Is(err, storage.ErrNoRows) {
-		return Indexer{}, ErrNoIndexer
-	}
-	if err != nil {
-		return Indexer{}, err
-	}
-	idx.Key = x.cfg.Sealer.Seal([]byte(key), apiKeyColumn.Row(idx.ID.String()))
-	if idx.Caps, err = x.caps(ctx, idx); err != nil {
-		return Indexer{}, err
-	}
-	caps, err := json.Marshal(idx.Caps)
-	if err != nil {
-		return Indexer{}, fmt.Errorf("encode the caps: %w", err)
-	}
-	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		n, err := db.New(tx).SetIndexerKey(ctx, db.SetIndexerKeyParams{ApiKeySealed: idx.Key, Caps: string(caps), ID: id})
-		if err == nil && n == 0 {
-			return ErrNoIndexer
-		}
-		return err
-	})
-	if err != nil {
-		return Indexer{}, err
-	}
-	x.cfg.Changed.Publish(ctx, Changed{IndexerID: idx.ID.String()})
-	return idx, nil
+func (b *background) run(ctx context.Context) {
+	b.mu.Lock()
+	b.ctx = ctx
+	b.mu.Unlock()
+	<-ctx.Done()
+	b.mu.Lock()
+	b.ctx = nil
+	b.mu.Unlock()
+	b.wg.Wait()
 }
 
-func (x *Indexers) home() (role.NodeID, error) {
-	if node, ok := x.cfg.Roster.Pick(role.Searching, x.cfg.Roster.Self()); ok {
-		return node, nil
+// goOn runs f on Run's context, reporting false when Run isn't running.
+func (b *background) goOn(f func(ctx context.Context)) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.ctx == nil {
+		return false
 	}
-	return role.NodeID{}, ErrNoSearchingNode
-}
-
-// List lists every Indexer by name.
-func (x *Indexers) List(ctx context.Context, _ identity.Admin) ([]Indexer, error) {
-	return All(ctx, x.cfg.Library)
+	ctx := b.ctx
+	b.wg.Go(func() { f(ctx) })
+	return true
 }
 
 // All reads every Indexer in r, by name.
@@ -246,171 +307,159 @@ func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	}
 	out := make([]Indexer, len(rows))
 	for i, row := range rows {
-		if out[i], err = indexer(row); err != nil {
+		if out[i], err = indexerOf(row); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
 }
 
-// Get reads Indexer id in r.
+// Get reads Indexer id in r: ErrNoIndexer when there is none.
 func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 	row, err := db.New(r).GetIndexer(ctx, id)
+	if errors.Is(err, storage.ErrNoRows) {
+		return Indexer{}, ErrNoIndexer
+	}
 	if err != nil {
 		return Indexer{}, err
 	}
-	return indexer(row)
+	return indexerOf(row)
 }
 
-func indexer(row db.IndexersIndexer) (Indexer, error) {
-	idx := Indexer{ID: row.ID, Name: row.Name, Protocol: row.Protocol, URL: row.Url, Key: row.ApiKeySealed, HomeNode: row.HomeNodeID, CreatedAt: row.CreatedAt.Time()}
-	if err := json.Unmarshal([]byte(row.Caps), &idx.Caps); err != nil {
-		return Indexer{}, fmt.Errorf("indexer %s: decode the caps: %w", row.ID, err)
+func indexerOf(row db.IndexersIndexer) (Indexer, error) {
+	idx := Indexer{
+		ID: row.ID, Name: row.Name, Kind: Kind(row.Kind), Home: row.HomeNodeID, On: row.IsOn, AutoSearch: row.AutoSearch,
+		RSS: row.Rss, AllowFailover: row.AllowFailover, Priority: int(row.Priority),
+		Searches: Limit{Count: int(row.SearchLimit), Per: Window(row.SearchWindow)},
+		Grabs:    Limit{Count: int(row.GrabLimit), Per: Window(row.GrabWindow)},
+		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Revision: row.Revision, Created: row.CreatedAt.Time(),
+	}
+	if row.DefinitionID != nil {
+		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), BaseAddress: deref(row.BaseAddress)}
+		if err := decode(row.Plain, &d.Plain); err != nil {
+			return Indexer{}, fmt.Errorf("indexer %s: plain: %w", row.ID, err)
+		}
+		idx.Source = d
+	} else {
+		idx.Source = Feed{Tracker: deref(row.TrackerName), AllowNoSize: row.AllowNoSize}
+	}
+	for _, f := range []struct {
+		raw *string
+		v   any
+	}{{row.Categories, &idx.Categories}, {row.Media, &idx.Media}, {&row.Caps, &idx.Caps}, {&row.Notes, &idx.Notes}} {
+		if f.raw == nil {
+			continue
+		}
+		if err := decode(*f.raw, f.v); err != nil {
+			return Indexer{}, fmt.Errorf("indexer %s: %w", row.ID, err)
+		}
 	}
 	return idx, nil
 }
 
-// caps are idx's search modes, as its home Node's Test read them.
-func (x *Indexers) caps(ctx context.Context, idx Indexer) (Caps, error) {
-	a, _, err := x.run(ctx, idx, searching.TestCall{})
-	if err != nil {
-		return Caps{}, err
+// row is idx as indexers_indexer holds it.
+func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
+	p := db.InsertIndexerParams{
+		ID: idx.ID, Name: idx.Name, Kind: string(idx.Kind), HomeNodeID: idx.Home, IsOn: idx.On, AutoSearch: idx.AutoSearch,
+		Rss: idx.RSS, AllowFailover: idx.AllowFailover, Priority: int64(idx.Priority),
+		SearchLimit: int64(idx.Searches.Count), SearchWindow: string(window(idx.Searches.Per)),
+		GrabLimit: int64(idx.Grabs.Count), GrabWindow: string(window(idx.Grabs.Per)),
+		SecretsSealed: idx.Secrets, FeedHost: orNil(idx.FeedHost), Plain: "{}", Notes: "[]",
+		Revision: idx.Revision, CreatedAt: storage.FromTime(idx.Created), UpdatedAt: updated,
 	}
-	return Caps{Modes: a.Report.Capabilities.Modes}, nil
-}
-
-// Release is one normalized Release from one Indexer.
-type Release struct {
-	Indexer ID
-	searching.Release
-}
-
-// Search asks the Node idx routes through to search for terms. It fails
-// with *searching.Stopped or *UnavailableError.
-func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Release, error) {
-	a, _, err := x.run(ctx, idx, searching.SearchCall{Query: Query(idx.Caps, terms)})
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Release, len(a.Releases))
-	for i, r := range a.Releases {
-		out[i] = Release{Indexer: idx.ID, Release: r}
-	}
-	return out, nil
-}
-
-// Query is the query for terms under caps: terms' mode with the first id
-// parameter caps list for that mode, else a free-text search. It chooses
-// by declared capability, so it never retries.
-func Query(c Caps, terms Terms) searching.Query {
-	for _, p := range c.Modes[terms.Mode] {
-		if id, ok := terms.IDs[p]; ok {
-			return searching.Query{Mode: terms.Mode, IDs: map[string]string{p: id}}
+	switch s := idx.Source.(type) {
+	case Definition:
+		p.DefinitionID, p.DefinitionSha, p.BaseAddress = &s.ID, &s.SHA, &s.BaseAddress
+		plain, err := encode(s.Plain)
+		if err != nil {
+			return db.InsertIndexerParams{}, err
 		}
+		p.Plain = *plain
+	case Feed:
+		p.TrackerName, p.AllowNoSize = orNil(s.Tracker), s.AllowNoSize
 	}
-	return searching.Query{Mode: "search", Text: terms.Query}
-}
-
-// Got is what a release's link leads to: a Torrent or a Magnet.
-type Got interface{ got() }
-
-// Torrent is a .torrent's bytes as the Indexer sent them, and the
-// Searching Node that fetched them.
-type Torrent struct {
-	Raw  []byte
-	Node role.NodeID
-}
-
-// Magnet is a magnet link: the release's own, or the one its link
-// redirected to.
-type Magnet struct{ Link magnet.Link }
-
-func (Torrent) got() {}
-func (Magnet) got()  {}
-
-// Fetch is what link leads to. A magnet link needs no Node. Any other
-// link goes to the Node idx routes through, which may fetch it from any
-// host and follow it to a magnet link. It fails with *searching.Stopped,
-// *UnavailableError, *magnet.InvalidError or bencode.ErrV2Only.
-func (x *Indexers) Fetch(ctx context.Context, idx Indexer, link searching.Link) (Got, error) {
-	if link.IsMagnet() {
-		return parseMagnet(link)
+	var err error
+	if p.Categories, err = encode(idx.Categories); err != nil {
+		return db.InsertIndexerParams{}, err
 	}
-	a, node, err := x.run(ctx, idx, searching.FetchCall{Link: link})
+	if p.Media, err = encode(idx.Media); err != nil {
+		return db.InsertIndexerParams{}, err
+	}
+	caps, err := json.Marshal(idx.Caps)
 	if err != nil {
-		return nil, err
+		return db.InsertIndexerParams{}, fmt.Errorf("encode the caps: %w", err)
 	}
-	switch got := a.Got.(type) {
-	case searching.Torrent:
-		return Torrent{Raw: got.Raw, Node: node}, nil
-	case searching.Magnet:
-		return parseMagnet(got.Link)
+	p.Caps = string(caps)
+	if len(idx.Notes) > 0 {
+		notes, err := encode(idx.Notes)
+		if err != nil {
+			return db.InsertIndexerParams{}, err
+		}
+		p.Notes = *notes
 	}
-	return nil, &UnavailableError{Err: errors.New("the Searching Node's response holds neither a .torrent nor a magnet link")}
+	return p, nil
 }
 
-func parseMagnet(link searching.Link) (Got, error) {
-	l, err := link.Magnet()
-	if err != nil {
-		return nil, err
+func window(w Window) Window {
+	if w == "" {
+		return Hour
 	}
-	return Magnet{Link: l}, nil
+	return w
 }
 
-// Waiting is the absence of idx's home Node while idx's calls wait for it:
-// out of step, but not yet past the offline grace.
-func (x *Indexers) Waiting(idx Indexer) (nodes.Absence, bool) {
-	a, away := x.cfg.Roster.Away(role.Searching, idx.HomeNode)
-	return a, away && !a.Lapsed
+// encode is v as JSON, nil for a nil slice or map.
+func encode[T any](v T) (*string, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("encode %T: %w", v, err)
+	}
+	if string(b) == "null" {
+		return nil, nil
+	}
+	s := string(b)
+	return &s, nil
 }
 
-// run sends call on idx to the Node idx routes through now, routed afresh
-// each time so it goes home once home is back, and the Node that ran it.
-// An outcome other than ok fails it: a stop as *searching.Stopped, any
-// other as *UnavailableError.
-func (x *Indexers) run(ctx context.Context, idx Indexer, call searching.Call) (searching.Answer, role.NodeID, error) {
-	node, err := x.cfg.Roster.Route(role.Searching, idx.HomeNode)
-	if err != nil {
-		return searching.Answer{}, role.NodeID{}, &UnavailableError{Wait: true, Err: err}
+func decode(raw string, v any) error {
+	if err := json.Unmarshal([]byte(raw), v); err != nil {
+		return fmt.Errorf("decode %T: %w", v, err)
 	}
-	job, err := x.job(idx, call)
-	if err != nil {
-		return searching.Answer{}, role.NodeID{}, err
-	}
-	a, err := x.ask(ctx, node, job)
-	if err != nil {
-		return searching.Answer{}, role.NodeID{}, unavailable(err)
-	}
-	if stopped, ok := errors.AsType[*searching.Stopped](a.Outcome); ok {
-		return searching.Answer{}, role.NodeID{}, stopped
-	}
-	if a.Outcome != nil {
-		return searching.Answer{}, role.NodeID{}, &UnavailableError{Err: a.Outcome}
-	}
-	return a, node, nil
+	return nil
 }
 
-var apiKeyColumn = secret.NewColumn("indexers_indexer.api_key_sealed")
-
-// job is call on idx as the Node runs it, and the one place an Indexer's
-// key is opened, for the length of one job. A dropped key fails as an
-// *UnavailableError the same call can't recover from.
-func (x *Indexers) job(idx Indexer, call searching.Call) (searching.Job, error) {
-	if !idx.Key.Set() {
-		return searching.Job{}, &UnavailableError{Err: ErrAPIKeyDropped}
+func deref(s *string) string {
+	if s == nil {
+		return ""
 	}
-	key, err := x.cfg.Sealer.Open(idx.Key, apiKeyColumn.Row(idx.ID.String()))
-	if err != nil {
-		return searching.Job{}, fmt.Errorf("indexer %s: %w", idx.ID, err)
-	}
-	return searching.Job{
-		ID: storage.NewUUID().String(), Indexer: idx.ID.String(), Kind: searching.Torznab, Address: idx.URL, APIKey: string(key), Call: call,
-	}, nil
+	return *s
 }
 
-func unavailable(err error) error {
-	if why, ok := rpc.NotSent(err); ok {
-		return &UnavailableError{Wait: why != rpc.NotHolder, Err: err}
+func orNil(s string) *string {
+	if s == "" {
+		return nil
 	}
-	return &UnavailableError{Wait: rpc.Lost(err), Err: err}
+	return &s
+}
+
+// open is idx's secrets in clear.
+func (x *Indexers) open(idx Indexer) (Secrets, error) {
+	plain, err := x.cfg.Sealer.Open(idx.Secrets, secretsColumn.Row(idx.ID.String()))
+	if err != nil {
+		return Secrets{}, fmt.Errorf("indexer %s: open the secrets: %w", idx.ID, err)
+	}
+	var s Secrets
+	err = decode(string(plain), &s)
+	return s, err
+}
+
+func (x *Indexers) seal(id ID, s Secrets) (secret.Sealed, error) {
+	b, err := json.Marshal(s) //nolint:gosec // G117: sealed below
+	if err != nil {
+		return secret.Sealed{}, fmt.Errorf("encode the secrets: %w", err)
+	}
+	return x.cfg.Sealer.Seal(b, secretsColumn.Row(id.String())), nil
+}
+
+func (x *Indexers) changed(ctx context.Context, id ID) {
+	x.cfg.Changed.Publish(ctx, Changed{IndexerID: id.String()})
 }

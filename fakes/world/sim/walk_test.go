@@ -533,10 +533,10 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	})
 }
 
-// TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts cuts seedbox,
-// the one Node that holds Searching, off: before the offline grace no Node
-// may search, so createIndexer answers 409.
-func TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts(t *testing.T) {
+// TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest cuts seedbox, the
+// one Node that holds Searching and so the default home, off: before the
+// offline grace the Test waits for it, so createIndexer answers 502.
+func TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Library.Indexers = nil
@@ -547,9 +547,9 @@ func TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts(t *testing.T) {
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
 		worldtest.Expect(t, "createIndexer", w.API().Admin("home", http.MethodPost, "/api/v1/indexers",
-			`{"name":"Fixture Site","url":"http://127.0.0.1:1/torznab","apiKey":"key"}`), worldtest.Reply{
-			Status: http.StatusConflict,
-			Body:   `{"status":409,"code":"no_searching_node","title":"No Node holds Searching. Give one the Searching Role first."}` + "\n",
+			`{"kind":"torznab","name":"Fixture Site","address":"http://127.0.0.1:1/torznab","apiKey":"key"}`), worldtest.Reply{
+			Status: http.StatusBadGateway,
+			Body:   `{"status":502,"code":"indexer_unavailable","title":"The Test couldn't run","detail":"seedbox has been offline since 00:00. Test again once it's back."}` + "\n",
 		})
 	})
 }

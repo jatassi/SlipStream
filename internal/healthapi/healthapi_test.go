@@ -52,6 +52,7 @@ func serve(t *testing.T) *ownertest.Owner {
 		Categories: []health.Category{
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: answer(health.Answer{})}},
+			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"}, Source: health.Source{Answer: answer(health.Answer{
 				Items: []health.Item{{Key: "housekeeping", Level: health.Warn, Says: health.Says{Subject: "Housekeeping", Text: "Housekeeping failed.", Action: health.RunAction("housekeeping")}}},
 			})}},
@@ -89,6 +90,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`{"label":"Warning level","text":"100 GB (global)"},{"label":"Error level","text":"20 GB (global)"},{"label":"Sampled","at":"T"}],"action":{"kind":"check"},"since":"T","changedAt":"T","unsure":false}]},`+
 			`{"id":"nodes","label":"Nodes","phrase":"Nodes","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"download-clients","label":"Download Clients","phrase":"download clients","level":null,"canCheck":false,"items":[]},`+
+			`{"id":"indexers","label":"Indexers","phrase":"Indexers","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"scheduled-tasks","label":"Scheduled tasks","phrase":"scheduled tasks","level":"warn","canCheck":false,"items":[{"key":"housekeeping","level":"warn","subject":"Housekeeping",`+
 			`"text":"Housekeeping failed.","detail":[],"action":{"kind":"run","taskId":"housekeeping"},"since":"T","changedAt":"T","unsure":false}]}]}`)
 
@@ -102,7 +104,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 		`{"status":404,"code":"no_check","title":"There is no Check now for that"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/storage/items/nothing/check", "", http.StatusNotFound,
 		`{"status":404,"code":"health_item_not_found","title":"The category has no item with that key"}`)
-	s.Expect(t, http.MethodPost, "/api/v1/system/health/indexers/check", "", http.StatusNotFound,
+	s.Expect(t, http.MethodPost, "/api/v1/system/health/widgets/check", "", http.StatusNotFound,
 		`{"status":404,"code":"health_category_not_found","title":"No Health category has that id"}`)
 }
 

@@ -7,11 +7,43 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+const completeQuery = `-- name: CompleteQuery :execrows
+UPDATE indexers_query SET
+    started_at = ?1, completed_at = ?2, node_id = ?3,
+    outcome = ?4, releases = ?5
+WHERE id = ?6 AND completed_at IS NULL
+`
+
+type CompleteQueryParams struct {
+	StartedAt   storage.Time
+	CompletedAt storage.Time
+	NodeID      role.NodeID
+	Outcome     *string
+	Releases    *int64
+	ID          QueryID
+}
+
+func (q *Queries) CompleteQuery(ctx context.Context, arg CompleteQueryParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, completeQuery,
+		arg.StartedAt,
+		arg.CompletedAt,
+		arg.NodeID,
+		arg.Outcome,
+		arg.Releases,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
 
 const countHomedOn = `-- name: CountHomedOn :one
 SELECT count(*) FROM indexers_indexer WHERE home_node_id = ?1
@@ -24,8 +56,29 @@ func (q *Queries) CountHomedOn(ctx context.Context, homeNodeID role.NodeID) (int
 	return count, err
 }
 
+const deleteIndexer = `-- name: DeleteIndexer :execrows
+DELETE FROM indexers_indexer WHERE id = ?1
+`
+
+func (q *Queries) DeleteIndexer(ctx context.Context, id IndexerID) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteIndexer, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteSessions = `-- name: DeleteSessions :exec
+DELETE FROM indexers_session WHERE indexer_id = ?1
+`
+
+func (q *Queries) DeleteSessions(ctx context.Context, indexerID IndexerID) error {
+	_, err := q.db.ExecContext(ctx, deleteSessions, indexerID)
+	return err
+}
+
 const getIndexer = `-- name: GetIndexer :one
-SELECT id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at FROM indexers_indexer WHERE id = ?1
+SELECT id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media, search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain, secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at FROM indexers_indexer WHERE id = ?1
 `
 
 func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (IndexersIndexer, error) {
@@ -34,48 +87,194 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (IndexersIndexer
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Protocol,
-		&i.Url,
-		&i.ApiKeySealed,
+		&i.Kind,
 		&i.HomeNodeID,
+		&i.IsOn,
+		&i.AutoSearch,
+		&i.Rss,
+		&i.AllowFailover,
+		&i.Priority,
+		&i.Categories,
+		&i.Media,
+		&i.SearchLimit,
+		&i.SearchWindow,
+		&i.GrabLimit,
+		&i.GrabWindow,
+		&i.DefinitionID,
+		&i.DefinitionSha,
+		&i.BaseAddress,
+		&i.Plain,
+		&i.SecretsSealed,
+		&i.FeedHost,
+		&i.TrackerName,
+		&i.AllowNoSize,
+		&i.RssReading,
 		&i.Caps,
+		&i.Notes,
+		&i.Revision,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSession = `-- name: GetSession :one
+SELECT indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at FROM indexers_session WHERE indexer_id = ?1 AND node_id = ?2
+`
+
+type GetSessionParams struct {
+	IndexerID IndexerID
+	NodeID    role.NodeID
+}
+
+func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (IndexersSession, error) {
+	row := q.db.QueryRowContext(ctx, getSession, arg.IndexerID, arg.NodeID)
+	var i IndexersSession
+	err := row.Scan(
+		&i.IndexerID,
+		&i.NodeID,
+		&i.CookiesSealed,
+		&i.UserAgent,
+		&i.Pasted,
+		&i.EarnedAt,
+	)
+	return i, err
+}
+
+const getStatus = `-- name: GetStatus :one
+SELECT indexer_id, state, rung, until_at, since_at, cause, text, node_id, solver_tried, last_failure, last_failure_at, success_at, revision FROM indexers_status WHERE indexer_id = ?1
+`
+
+func (q *Queries) GetStatus(ctx context.Context, indexerID IndexerID) (IndexersStatus, error) {
+	row := q.db.QueryRowContext(ctx, getStatus, indexerID)
+	var i IndexersStatus
+	err := row.Scan(
+		&i.IndexerID,
+		&i.State,
+		&i.Rung,
+		&i.UntilAt,
+		&i.SinceAt,
+		&i.Cause,
+		&i.Text,
+		&i.NodeID,
+		&i.SolverTried,
+		&i.LastFailure,
+		&i.LastFailureAt,
+		&i.SuccessAt,
+		&i.Revision,
 	)
 	return i, err
 }
 
 const insertIndexer = `-- name: InsertIndexer :exec
-INSERT INTO indexers_indexer (id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+INSERT INTO indexers_indexer (
+    id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media,
+    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain,
+    secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at)
+VALUES (
+    ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9, ?10, ?11, ?12,
+    ?13, ?14, ?15, ?16, ?17,
+    ?18, ?19, ?20, ?21, ?22,
+    ?23, ?24, ?25, ?26, ?27, ?28,
+    ?29)
 `
 
 type InsertIndexerParams struct {
-	ID           IndexerID
-	Name         string
-	Protocol     string
-	Url          string
-	ApiKeySealed secret.Sealed
-	HomeNodeID   role.NodeID
-	Caps         string
-	CreatedAt    storage.Time
+	ID            IndexerID
+	Name          string
+	Kind          string
+	HomeNodeID    role.NodeID
+	IsOn          bool
+	AutoSearch    bool
+	Rss           bool
+	AllowFailover bool
+	Priority      int64
+	Categories    *string
+	Media         *string
+	SearchLimit   int64
+	SearchWindow  string
+	GrabLimit     int64
+	GrabWindow    string
+	DefinitionID  *string
+	DefinitionSha *string
+	BaseAddress   *string
+	Plain         string
+	SecretsSealed secret.Sealed
+	FeedHost      *string
+	TrackerName   *string
+	AllowNoSize   bool
+	RssReading    *string
+	Caps          string
+	Notes         string
+	Revision      int64
+	CreatedAt     storage.Time
+	UpdatedAt     storage.Time
 }
 
 func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) error {
 	_, err := q.db.ExecContext(ctx, insertIndexer,
 		arg.ID,
 		arg.Name,
-		arg.Protocol,
-		arg.Url,
-		arg.ApiKeySealed,
+		arg.Kind,
 		arg.HomeNodeID,
+		arg.IsOn,
+		arg.AutoSearch,
+		arg.Rss,
+		arg.AllowFailover,
+		arg.Priority,
+		arg.Categories,
+		arg.Media,
+		arg.SearchLimit,
+		arg.SearchWindow,
+		arg.GrabLimit,
+		arg.GrabWindow,
+		arg.DefinitionID,
+		arg.DefinitionSha,
+		arg.BaseAddress,
+		arg.Plain,
+		arg.SecretsSealed,
+		arg.FeedHost,
+		arg.TrackerName,
+		arg.AllowNoSize,
+		arg.RssReading,
 		arg.Caps,
+		arg.Notes,
+		arg.Revision,
 		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const insertQuery = `-- name: InsertQuery :exec
+INSERT INTO indexers_query (id, indexer_id, use, reserved_at, revision, sha)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+`
+
+type InsertQueryParams struct {
+	ID         QueryID
+	IndexerID  IndexerID
+	Use        string
+	ReservedAt storage.Time
+	Revision   int64
+	Sha        *string
+}
+
+func (q *Queries) InsertQuery(ctx context.Context, arg InsertQueryParams) error {
+	_, err := q.db.ExecContext(ctx, insertQuery,
+		arg.ID,
+		arg.IndexerID,
+		arg.Use,
+		arg.ReservedAt,
+		arg.Revision,
+		arg.Sha,
 	)
 	return err
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at FROM indexers_indexer ORDER BY name
+SELECT id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media, search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain, secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at FROM indexers_indexer ORDER BY name
 `
 
 func (q *Queries) ListIndexers(ctx context.Context) ([]IndexersIndexer, error) {
@@ -90,12 +289,160 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]IndexersIndexer, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Protocol,
-			&i.Url,
-			&i.ApiKeySealed,
+			&i.Kind,
 			&i.HomeNodeID,
+			&i.IsOn,
+			&i.AutoSearch,
+			&i.Rss,
+			&i.AllowFailover,
+			&i.Priority,
+			&i.Categories,
+			&i.Media,
+			&i.SearchLimit,
+			&i.SearchWindow,
+			&i.GrabLimit,
+			&i.GrabWindow,
+			&i.DefinitionID,
+			&i.DefinitionSha,
+			&i.BaseAddress,
+			&i.Plain,
+			&i.SecretsSealed,
+			&i.FeedHost,
+			&i.TrackerName,
+			&i.AllowNoSize,
+			&i.RssReading,
 			&i.Caps,
+			&i.Notes,
+			&i.Revision,
 			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQueries = `-- name: ListQueries :many
+SELECT id, indexer_id, use, reserved_at, started_at, completed_at, node_id, outcome, releases, revision, sha FROM indexers_query WHERE indexer_id = ?1
+ORDER BY reserved_at DESC, id DESC
+LIMIT ?3 OFFSET ?2
+`
+
+type ListQueriesParams struct {
+	IndexerID IndexerID
+	Off       int64
+	Lim       int64
+}
+
+func (q *Queries) ListQueries(ctx context.Context, arg ListQueriesParams) ([]IndexersQuery, error) {
+	rows, err := q.db.QueryContext(ctx, listQueries, arg.IndexerID, arg.Off, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IndexersQuery
+	for rows.Next() {
+		var i IndexersQuery
+		if err := rows.Scan(
+			&i.ID,
+			&i.IndexerID,
+			&i.Use,
+			&i.ReservedAt,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.NodeID,
+			&i.Outcome,
+			&i.Releases,
+			&i.Revision,
+			&i.Sha,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSessions = `-- name: ListSessions :many
+SELECT indexer_id, node_id, pasted, earned_at FROM indexers_session ORDER BY indexer_id, earned_at DESC
+`
+
+type ListSessionsRow struct {
+	IndexerID IndexerID
+	NodeID    role.NodeID
+	Pasted    bool
+	EarnedAt  storage.Time
+}
+
+func (q *Queries) ListSessions(ctx context.Context) ([]ListSessionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSessionsRow
+	for rows.Next() {
+		var i ListSessionsRow
+		if err := rows.Scan(
+			&i.IndexerID,
+			&i.NodeID,
+			&i.Pasted,
+			&i.EarnedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStatuses = `-- name: ListStatuses :many
+SELECT indexer_id, state, rung, until_at, since_at, cause, text, node_id, solver_tried, last_failure, last_failure_at, success_at, revision FROM indexers_status ORDER BY indexer_id
+`
+
+func (q *Queries) ListStatuses(ctx context.Context) ([]IndexersStatus, error) {
+	rows, err := q.db.QueryContext(ctx, listStatuses)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IndexersStatus
+	for rows.Next() {
+		var i IndexersStatus
+		if err := rows.Scan(
+			&i.IndexerID,
+			&i.State,
+			&i.Rung,
+			&i.UntilAt,
+			&i.SinceAt,
+			&i.Cause,
+			&i.Text,
+			&i.NodeID,
+			&i.SolverTried,
+			&i.LastFailure,
+			&i.LastFailureAt,
+			&i.SuccessAt,
+			&i.Revision,
 		); err != nil {
 			return nil, err
 		}
@@ -111,14 +458,98 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]IndexersIndexer, error) {
 }
 
 const nameTaken = `-- name: NameTaken :one
-SELECT EXISTS (SELECT 1 FROM indexers_indexer WHERE name = ?1)
+SELECT EXISTS (SELECT 1 FROM indexers_indexer WHERE name = ?1 AND id IS NOT ?2)
 `
 
-func (q *Queries) NameTaken(ctx context.Context, name string) (bool, error) {
-	row := q.db.QueryRowContext(ctx, nameTaken, name)
+type NameTakenParams struct {
+	Name   string
+	Except IndexerID
+}
+
+func (q *Queries) NameTaken(ctx context.Context, arg NameTakenParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, nameTaken, arg.Name, arg.Except)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const offerSession = `-- name: OfferSession :execrows
+INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+ON CONFLICT (indexer_id, node_id) DO UPDATE SET
+    cookies_sealed = excluded.cookies_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted, earned_at = excluded.earned_at
+WHERE excluded.earned_at > indexers_session.earned_at
+`
+
+type OfferSessionParams struct {
+	IndexerID     IndexerID
+	NodeID        role.NodeID
+	CookiesSealed secret.Sealed
+	UserAgent     string
+	Pasted        bool
+	EarnedAt      storage.Time
+}
+
+func (q *Queries) OfferSession(ctx context.Context, arg OfferSessionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, offerSession,
+		arg.IndexerID,
+		arg.NodeID,
+		arg.CookiesSealed,
+		arg.UserAgent,
+		arg.Pasted,
+		arg.EarnedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const putStatus = `-- name: PutStatus :exec
+INSERT INTO indexers_status (
+    indexer_id, state, rung, until_at, since_at, cause, text, node_id, solver_tried, last_failure, last_failure_at, success_at, revision)
+VALUES (
+    ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9, ?10, ?11, ?12, ?13)
+ON CONFLICT (indexer_id) DO UPDATE SET
+    state = excluded.state, rung = excluded.rung, until_at = excluded.until_at, since_at = excluded.since_at, cause = excluded.cause,
+    text = excluded.text, node_id = excluded.node_id, solver_tried = excluded.solver_tried, last_failure = excluded.last_failure,
+    last_failure_at = excluded.last_failure_at, success_at = excluded.success_at, revision = excluded.revision
+`
+
+type PutStatusParams struct {
+	IndexerID     IndexerID
+	State         string
+	Rung          int64
+	UntilAt       storage.Time
+	SinceAt       storage.Time
+	Cause         *string
+	Text          *string
+	NodeID        role.NodeID
+	SolverTried   bool
+	LastFailure   *string
+	LastFailureAt storage.Time
+	SuccessAt     storage.Time
+	Revision      int64
+}
+
+func (q *Queries) PutStatus(ctx context.Context, arg PutStatusParams) error {
+	_, err := q.db.ExecContext(ctx, putStatus,
+		arg.IndexerID,
+		arg.State,
+		arg.Rung,
+		arg.UntilAt,
+		arg.SinceAt,
+		arg.Cause,
+		arg.Text,
+		arg.NodeID,
+		arg.SolverTried,
+		arg.LastFailure,
+		arg.LastFailureAt,
+		arg.SuccessAt,
+		arg.Revision,
+	)
+	return err
 }
 
 const rehome = `-- name: Rehome :exec
@@ -135,18 +566,166 @@ func (q *Queries) Rehome(ctx context.Context, arg RehomeParams) error {
 	return err
 }
 
-const setIndexerKey = `-- name: SetIndexerKey :execrows
-UPDATE indexers_indexer SET api_key_sealed = ?1, caps = ?2 WHERE id = ?3
+const reservedOfSince = `-- name: ReservedOfSince :many
+SELECT reserved_at FROM indexers_query
+WHERE indexer_id = ?1 AND reserved_at > ?2 AND use IN (/*SLICE:uses*/?)
+ORDER BY reserved_at
 `
 
-type SetIndexerKeyParams struct {
-	ApiKeySealed secret.Sealed
-	Caps         string
-	ID           IndexerID
+type ReservedOfSinceParams struct {
+	IndexerID IndexerID
+	Since     storage.Time
+	Uses      []string
 }
 
-func (q *Queries) SetIndexerKey(ctx context.Context, arg SetIndexerKeyParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, setIndexerKey, arg.ApiKeySealed, arg.Caps, arg.ID)
+func (q *Queries) ReservedOfSince(ctx context.Context, arg ReservedOfSinceParams) ([]storage.Time, error) {
+	query := reservedOfSince
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.IndexerID)
+	queryParams = append(queryParams, arg.Since)
+	if len(arg.Uses) > 0 {
+		for _, v := range arg.Uses {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:uses*/?", strings.Repeat(",?", len(arg.Uses))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:uses*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []storage.Time
+	for rows.Next() {
+		var reserved_at storage.Time
+		if err := rows.Scan(&reserved_at); err != nil {
+			return nil, err
+		}
+		items = append(items, reserved_at)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reservedSince = `-- name: ReservedSince :many
+SELECT indexer_id, use, reserved_at FROM indexers_query
+WHERE use IN ('search', 'recent', 'fetch') AND reserved_at > ?1
+ORDER BY reserved_at
+`
+
+type ReservedSinceRow struct {
+	IndexerID  IndexerID
+	Use        string
+	ReservedAt storage.Time
+}
+
+func (q *Queries) ReservedSince(ctx context.Context, since storage.Time) ([]ReservedSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, reservedSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReservedSinceRow
+	for rows.Next() {
+		var i ReservedSinceRow
+		if err := rows.Scan(&i.IndexerID, &i.Use, &i.ReservedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setCaps = `-- name: SetCaps :exec
+UPDATE indexers_indexer SET caps = ?1 WHERE id = ?2
+`
+
+type SetCapsParams struct {
+	Caps string
+	ID   IndexerID
+}
+
+func (q *Queries) SetCaps(ctx context.Context, arg SetCapsParams) error {
+	_, err := q.db.ExecContext(ctx, setCaps, arg.Caps, arg.ID)
+	return err
+}
+
+const updateIndexer = `-- name: UpdateIndexer :execrows
+UPDATE indexers_indexer SET
+    name = ?1, home_node_id = ?2, is_on = ?3, auto_search = ?4,
+    rss = ?5, allow_failover = ?6, priority = ?7,
+    categories = ?8, media = ?9, search_limit = ?10,
+    search_window = ?11, grab_limit = ?12, grab_window = ?13,
+    base_address = ?14, plain = ?15, secrets_sealed = ?16,
+    feed_host = ?17, tracker_name = ?18, allow_no_size = ?19,
+    caps = ?20, revision = ?21, updated_at = ?22
+WHERE id = ?23
+`
+
+type UpdateIndexerParams struct {
+	Name          string
+	HomeNodeID    role.NodeID
+	IsOn          bool
+	AutoSearch    bool
+	Rss           bool
+	AllowFailover bool
+	Priority      int64
+	Categories    *string
+	Media         *string
+	SearchLimit   int64
+	SearchWindow  string
+	GrabLimit     int64
+	GrabWindow    string
+	BaseAddress   *string
+	Plain         string
+	SecretsSealed secret.Sealed
+	FeedHost      *string
+	TrackerName   *string
+	AllowNoSize   bool
+	Caps          string
+	Revision      int64
+	UpdatedAt     storage.Time
+	ID            IndexerID
+}
+
+func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateIndexer,
+		arg.Name,
+		arg.HomeNodeID,
+		arg.IsOn,
+		arg.AutoSearch,
+		arg.Rss,
+		arg.AllowFailover,
+		arg.Priority,
+		arg.Categories,
+		arg.Media,
+		arg.SearchLimit,
+		arg.SearchWindow,
+		arg.GrabLimit,
+		arg.GrabWindow,
+		arg.BaseAddress,
+		arg.Plain,
+		arg.SecretsSealed,
+		arg.FeedHost,
+		arg.TrackerName,
+		arg.AllowNoSize,
+		arg.Caps,
+		arg.Revision,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	if err != nil {
 		return 0, err
 	}

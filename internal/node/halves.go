@@ -246,7 +246,9 @@ func (n *Node) startController(ctx context.Context) error {
 			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
 		Changed: indexers.ChangedEvent.Bind(n.hub),
+		Status:  indexers.StatusChangedEvent.Bind(n.hub),
 		Timings: n.cfg.Timings.Indexers,
+		Zone:    n.zone(),
 		Log:     n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
@@ -298,6 +300,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Targets:   goals,
 		Files:     shelf,
 		Indexers:  registry,
+		Sealer:    lib.sealer,
 		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
 		Roster:    side,
 		Downloads: clients,
@@ -363,6 +366,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.setHalf(h)
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("roots", library.Run)
+	n.claimed.Go("indexers", registry.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("files", shelf.Run)

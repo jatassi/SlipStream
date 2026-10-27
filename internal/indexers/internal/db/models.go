@@ -5,18 +5,142 @@
 package db
 
 import (
+	"database/sql"
+
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+type IndexersCatalog struct {
+	ID          DefinitionID
+	File        string
+	Sha         string
+	Name        string
+	Description string
+	Privacy     string
+	Language    string
+	Categories  string
+}
+
+type IndexersCatalogState struct {
+	One          int64
+	RefreshedAt  storage.Time
+	LastModified sql.NullString
+	Address      sql.NullString
+}
+
+type IndexersDefinition struct {
+	ID        DefinitionID
+	Sha       string
+	File      string
+	Origin    string
+	Yaml      []byte
+	Summary   sql.NullString
+	Refusal   sql.NullString
+	FetchedAt storage.Time
+}
+
 type IndexersIndexer struct {
-	ID           IndexerID
-	Name         string
-	Protocol     string
-	Url          string
-	ApiKeySealed secret.Sealed
-	HomeNodeID   role.NodeID
-	Caps         string
-	CreatedAt    storage.Time
+	ID            IndexerID
+	Name          string
+	Kind          string
+	HomeNodeID    role.NodeID
+	IsOn          bool
+	AutoSearch    bool
+	Rss           bool
+	AllowFailover bool
+	Priority      int64
+	Categories    *string
+	Media         *string
+	SearchLimit   int64
+	SearchWindow  string
+	GrabLimit     int64
+	GrabWindow    string
+	DefinitionID  *string
+	DefinitionSha *string
+	BaseAddress   *string
+	Plain         string
+	SecretsSealed secret.Sealed
+	FeedHost      *string
+	TrackerName   *string
+	AllowNoSize   bool
+	RssReading    *string
+	Caps          string
+	Notes         string
+	Revision      int64
+	CreatedAt     storage.Time
+	UpdatedAt     storage.Time
+}
+
+type IndexersNode struct {
+	NodeID               role.NodeID
+	SolverAddress        string
+	SolverTimeoutSeconds sql.NullInt64
+}
+
+type IndexersQuery struct {
+	ID          QueryID
+	IndexerID   IndexerID
+	Use         string
+	ReservedAt  storage.Time
+	StartedAt   storage.Time
+	CompletedAt storage.Time
+	NodeID      role.NodeID
+	Outcome     *string
+	Releases    *int64
+	Revision    int64
+	Sha         *string
+}
+
+type IndexersReach struct {
+	IndexerID IndexerID
+	TrackerID TrackerID
+}
+
+type IndexersSession struct {
+	IndexerID     IndexerID
+	NodeID        role.NodeID
+	CookiesSealed secret.Sealed
+	UserAgent     string
+	Pasted        bool
+	EarnedAt      storage.Time
+}
+
+type IndexersSetting struct {
+	ID                 Singleton
+	LongBackoffSeconds sql.NullInt64
+}
+
+type IndexersStatus struct {
+	IndexerID     IndexerID
+	State         string
+	Rung          int64
+	UntilAt       storage.Time
+	SinceAt       storage.Time
+	Cause         *string
+	Text          *string
+	NodeID        role.NodeID
+	SolverTried   bool
+	LastFailure   *string
+	LastFailureAt storage.Time
+	SuccessAt     storage.Time
+	Revision      int64
+}
+
+type IndexersTracker struct {
+	ID        TrackerID
+	Name      string
+	Privacy   string
+	CreatedAt storage.Time
+}
+
+type IndexersTrackerHost struct {
+	TrackerID TrackerID
+	Host      string
+}
+
+type IndexersTrackerKey struct {
+	Key       string
+	TrackerID TrackerID
 }

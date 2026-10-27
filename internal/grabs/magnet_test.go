@@ -21,13 +21,16 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -85,12 +88,15 @@ type roster struct {
 	changed chan struct{}
 }
 
-func (r *roster) Self() role.NodeID                                 { return r.node }
-func (r *roster) Pick(role.Name, role.NodeID) (role.NodeID, bool)   { return r.node, true }
-func (r *roster) Route(role.Name, role.NodeID) (role.NodeID, error) { return r.node, nil }
-func (*roster) Away(role.Name, role.NodeID) (nodes.Absence, bool)   { return nodes.Absence{}, false }
-func (*roster) InStep(role.NodeID) bool                             { return true }
-func (*roster) WrittenOff(role.Name, role.NodeID) bool              { return false }
+func (r *roster) Self() role.NodeID                                  { return r.node }
+func (r *roster) Pick(role.Name, role.NodeID) (role.NodeID, bool)    { return r.node, true }
+func (r *roster) Route(role.Name, role.NodeID) (role.NodeID, error)  { return r.node, nil }
+func (*roster) Away(role.Name, role.NodeID) (nodes.Absence, bool)    { return nodes.Absence{}, false }
+func (*roster) InStep(role.NodeID) bool                              { return true }
+func (*roster) WrittenOff(role.Name, role.NodeID) bool               { return false }
+func (r *roster) Holding(role.Name) []role.NodeID                    { return []role.NodeID{r.node} }
+func (*roster) Name(role.NodeID) string                              { return "home" }
+func (*roster) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role.NodeID{}, false }
 
 func (r *roster) Changed() <-chan struct{} {
 	r.mu.Lock()
@@ -131,7 +137,7 @@ type pipeline struct {
 	changed *published
 	node    role.NodeID
 	work    works.WorkID
-	indexer storage.UUID
+	indexer indexers.ID
 }
 
 func newPipeline(t *testing.T, answers ...answer) *pipeline {
@@ -139,13 +145,16 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	lib := storagetest.Library(t, schemas()...)
 	p := &pipeline{
 		t: t, lib: lib, swarm: &swarm{answers: answers}, changed: &published{},
-		node: role.NodeID{UUID: storage.NewUUID()}, indexer: storage.NewUUID(),
+		node: role.NodeID{UUID: storage.NewUUID()}, indexer: indexers.ID{UUID: storage.NewUUID()},
 	}
 	p.roster = &roster{node: p.node, changed: make(chan struct{})}
-	run(t, lib,
-		sql(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, p.node),
-		sql(`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, p.indexer, p.node),
-	)
+	sealer := secrettest.Sealer(t)
+	run(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if err := nodestest.Insert(ctx, tx, p.node, "home"); err != nil {
+			return err
+		}
+		return indexerstest.Torznab(ctx, tx, sealer, p.indexer, "Fixture Site", p.node, "https://site.test/api", "k")
+	})
 	rootstest.Root(t, lib, p.node, contenttypetest.ID, t.TempDir())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
@@ -167,9 +176,11 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	}
 	p.work = tree.ID
 	p.g = grabs.New(grabs.Config{
-		Library: lib, Works: w,
-		Indexers: indexers.New(indexers.Config{Library: lib, Roster: p.roster, Changed: discard[indexers.Changed]{}}),
-		Roster:   p.roster, Downloads: p.swarm,
+		Library: lib, Works: w, Sealer: sealer,
+		Indexers: indexers.New(indexers.Config{
+			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{},
+		}),
+		Roster: p.roster, Downloads: p.swarm,
 		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, Log: slog.New(slog.DiscardHandler),
@@ -180,7 +191,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 func schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
 		secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(),
+		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(),
 	}
 }
 
@@ -192,7 +203,7 @@ func (p *pipeline) grab(link string, hint *bencode.InfoHash) grabs.GrabID {
 		h = hint[:]
 	}
 	run(p.t, p.lib, sql(`INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
-		release_link, release_info_hash, stage, created_at, updated_at)
+		release_magnet, release_info_hash, stage, created_at, updated_at)
 		SELECT ?, work_id, id, 'any', 'search', ?, ?, 'The.Attic.1080p.WEB', 4096, ?, ?, 'fetching', ?, ? FROM works_item`,
 		id, p.indexer, p.node, link, h, storage.Now(), storage.Now()))
 	return grabs.GrabID{UUID: id}

@@ -37,7 +37,7 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 		}
 		return lib
 	}
-	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
 	target, grab := storage.NewUUID(), storage.NewUUID()
 	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		node, indexer, work, item := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
@@ -70,7 +70,7 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	g := grabs.New(grabs.Config{Library: lib})
 	held := func() []targets.TargetID {

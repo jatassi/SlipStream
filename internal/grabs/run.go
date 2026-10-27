@@ -19,7 +19,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/media"
-	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -140,21 +139,31 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 		root, err = roots.OfWork(ctx, r, g.WorkID)
 		return err
 	})
+	if errors.Is(err, indexers.ErrNoIndexer) {
+		return fail{IndexerRemoved, "The Indexer was removed before the .torrent was fetched"}
+	}
 	if err != nil {
 		return local(ctx, err)
 	}
 	if _, err := gr.cfg.Roster.Route(role.Downloading, root.Node); err != nil {
 		return wait{cause: err, roster: true}
 	}
-	got, err := gr.cfg.Indexers.Fetch(ctx, idx, g.Release.Link)
+	link, err := gr.link(g)
+	if err != nil {
+		return local(ctx, err)
+	}
+	got, err := gr.cfg.Indexers.Fetch(ctx, idx, link)
 	if errors.Is(err, bencode.ErrV2Only) {
 		return fail{TorrentV2Only, err.Error()}
 	}
 	if _, invalid := errors.AsType[*magnet.InvalidError](err); invalid {
 		return fail{MagnetInvalid, err.Error()}
 	}
-	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
+	if _, waits := errors.AsType[*indexers.WaitError](err); waits {
 		return wait{cause: err, roster: true}
+	}
+	if _, limited := errors.AsType[*indexers.LimitError](err); limited {
+		return wait{cause: err}
 	}
 	if err != nil {
 		return classify(ctx, err, TorrentUnreachable)
@@ -836,7 +845,7 @@ func (gr *Grabs) open(ctx context.Context) ([]Search, []Grab, error) {
 			return err
 		}
 		for _, run := range runs {
-			s, err := searchOf(run, nil)
+			s, err := searchOf(run, nil, nil)
 			if err != nil {
 				return err
 			}

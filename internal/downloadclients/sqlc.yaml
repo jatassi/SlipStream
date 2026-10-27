@@ -15,6 +15,11 @@ sql:
           - column: downloadclients_torrent.id
             go_type:
               type: TorrentID
+          - column: downloadclients_torrent.tracker_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: TrackerID
+              pointer: true
           - column: "*.node_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/role

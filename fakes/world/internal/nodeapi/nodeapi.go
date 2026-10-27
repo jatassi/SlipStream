@@ -194,17 +194,18 @@ func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentTyp
 }
 
 // CreateIndexer creates an Indexer and returns its id.
-func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, url, indexerKey string) (string, error) {
+func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, address, indexerKey string) (string, error) {
 	var indexer struct {
 		ID string `json:"id"`
 	}
 	err := call(ctx, c, request{
 		what: "create Indexer " + name, method: http.MethodPost, url: baseURL + "/api/v1/indexers",
 		header: apiKeyHeader(apiKey), body: struct {
-			Name   string `json:"name"`
-			URL    string `json:"url"`
-			APIKey string `json:"apiKey"`
-		}{name, url, indexerKey}, want: http.StatusCreated,
+			Kind    string `json:"kind"`
+			Name    string `json:"name"`
+			Address string `json:"address"`
+			APIKey  string `json:"apiKey"`
+		}{"torznab", name, address, indexerKey}, want: http.StatusCreated,
 	}, &indexer)
 	return indexer.ID, err
 }

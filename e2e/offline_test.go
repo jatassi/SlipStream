@@ -22,25 +22,24 @@ func (w *walked) navAlert(t *testing.T) string {
 	return *c.Alerts.Nodes
 }
 
-// indexerWaits is how the one Indexer's home Node stands while the
-// Indexer waits for it, or "none".
+// indexerWaits is why the one Indexer's searches wait, or "none".
 func (w *walked) indexerWaits(t *testing.T) string {
 	t.Helper()
 	var list struct {
 		Indexers []struct {
-			Waiting *struct {
-				Standing string `json:"standing"`
-			} `json:"waiting"`
+			Waits *struct {
+				Kind string `json:"kind"`
+			} `json:"waits"`
 		} `json:"indexers"`
 	}
 	decode(t, "listIndexers", w.a.Admin("home", http.MethodGet, "/api/v1/indexers", ""), &list)
 	if len(list.Indexers) != 1 {
 		t.Fatalf("listIndexers lists %d Indexers, want 1", len(list.Indexers))
 	}
-	if list.Indexers[0].Waiting == nil {
+	if list.Indexers[0].Waits == nil {
 		return "none"
 	}
-	return list.Indexers[0].Waiting.Standing
+	return list.Indexers[0].Waits.Kind
 }
 
 func (w *walked) expectSearch(t *testing.T, when, want string) searchView {

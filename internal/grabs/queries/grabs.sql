@@ -1,9 +1,9 @@
 -- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link,
-    release_info_hash, stage, created_at, updated_at)
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
+    release_link_sealed, release_magnet, release_info_hash, stage, created_at, updated_at)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), 'search', sqlc.arg(indexer_id), sqlc.arg(node_id),
-    sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link), sqlc.narg(release_info_hash), 'fetching',
-    sqlc.arg(created_at), sqlc.arg(created_at));
+    sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
+    sqlc.narg(release_info_hash), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
 
 -- name: InsertTarget :exec
 INSERT INTO grabs_target (grab_id, position, target_id) VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(target_id));
@@ -57,8 +57,20 @@ WHERE torrent_id IN (sqlc.slice(torrent_ids))
 ORDER BY created_at, id;
 
 -- name: InsertSearch :exec
-INSERT INTO grabs_search (id, work_id, item_id, indexer_id, started_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(indexer_id), sqlc.arg(started_at));
+INSERT INTO grabs_search (id, work_id, item_id, started_at)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(started_at));
+
+-- name: InsertSearchIndexer :exec
+INSERT INTO grabs_search_indexer (search_id, position, indexer_id, indexer_name, query_id, outcome, releases, until_at, since_at,
+    node_id, lapsed, cause, text)
+VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(indexer_name), sqlc.narg(query_id), sqlc.narg(outcome),
+    sqlc.narg(releases), sqlc.narg(until_at), sqlc.narg(since_at), sqlc.narg(node_id), sqlc.narg(lapsed), sqlc.narg(cause), sqlc.narg(text));
+
+-- name: ListSearchIndexersOfWork :many
+SELECT grabs_search_indexer.* FROM grabs_search_indexer
+JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
+WHERE grabs_search.work_id = sqlc.arg(work_id)
+ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position;
 
 -- name: FinishSearch :exec
 UPDATE grabs_search SET finished_at = sqlc.arg(finished_at), outcome = sqlc.arg(outcome), candidates = sqlc.arg(candidates),

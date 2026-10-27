@@ -38,8 +38,8 @@ var Fake = fake.Spec{
 	Entered:   indexers,
 }
 
-// indexers are the Indexers an Admin added, each dialed from its home
-// Node.
+// indexers are the Indexers an Admin added, each dialed at its feed's
+// host from its home Node.
 func indexers(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 	body, err := get("/api/v1/indexers")
 	if err != nil {
@@ -48,7 +48,7 @@ func indexers(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 	var list struct {
 		Indexers []struct {
 			Name       string `json:"name"`
-			URL        string `json:"url"`
+			FeedHost   string `json:"feedHost"`
 			HomeNodeID string `json:"homeNodeId"`
 		} `json:"indexers"`
 	}
@@ -57,7 +57,7 @@ func indexers(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 	}
 	out := make([]fake.Entered, len(list.Indexers))
 	for i, ix := range list.Indexers {
-		out[i] = fake.Entered{What: "Indexer " + ix.Name, URL: ix.URL, NodeID: ix.HomeNodeID}
+		out[i] = fake.Entered{What: "Indexer " + ix.Name, URL: "https://" + ix.FeedHost, NodeID: ix.HomeNodeID}
 	}
 	return out, nil
 }

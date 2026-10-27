@@ -29,12 +29,24 @@ import (
 
 type library = *storage.DB[storage.Library]
 
-// openAt opens the library at path with grabs migrated by g, after every
-// set it stands on.
-func openAt(t *testing.T, path string, g storage.Schema[storage.Library]) library {
+// openAt opens the library at path with every set migrated in the
+// order the Node runs them.
+func openAt(t *testing.T, path string) library {
 	t.Helper()
-	schemas := []storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		health.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), g, files.Schema()}
+	return openSets(t, path, downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+}
+
+// openBefore opens the library at path as it stood before S26 (Indexers
+// and Trackers), with grabs migrated by g.
+func openBefore(t *testing.T, path string, g storage.Schema[storage.Library]) library {
+	t.Helper()
+	return openSets(t, path, indexers.Schema().Through(2), downloadclients.Schema().Through(3), g, files.Schema())
+}
+
+func openSets(t *testing.T, path string, last ...storage.Schema[storage.Library]) library {
+	t.Helper()
+	schemas := append([]storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
+		health.Schema(), roots.Schema()}, last...)
 	lib, err := storage.OpenLibrary(t.Context(), path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +141,7 @@ func intentOf(t *testing.T, lib library, node role.NodeID) []bencode.InfoHash {
 // still fetching has none.
 func TestMigrationTurnsGrabTorrentsIntoTorrents(t *testing.T) {
 	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	old := openAt(t, path, grabs.Schema().Through(4))
+	old := openBefore(t, path, grabs.Schema().Through(4))
 	addAttic(t, old)
 	box, home, indexer := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
 	first, second, dropped, completed, fetching := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
@@ -151,7 +163,7 @@ func TestMigrationTurnsGrabTorrentsIntoTorrents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := openAt(t, path, grabs.Schema())
+	lib := openAt(t, path)
 	t.Cleanup(func() { _ = lib.Close() })
 	for _, c := range []struct {
 		grab, torrent storage.UUID
@@ -195,20 +207,19 @@ func TestMigrationTurnsGrabTorrentsIntoTorrents(t *testing.T) {
 // downloaded a Torrent: the Grab goes with the Work, and the Torrent stays
 // in its Node's intent.
 func TestDeletingAWorkKeepsItsTorrentSeeding(t *testing.T) {
-	lib := openAt(t, filepath.Join(t.TempDir(), storage.LibraryFile), grabs.Schema())
+	lib := openAt(t, filepath.Join(t.TempDir(), storage.LibraryFile))
 	t.Cleanup(func() { _ = lib.Close() })
 	work := addAttic(t, lib)
-	box, indexer, grab, torrent := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	box, grab, torrent := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
 	hash := []byte("aaaaaaaaaaaaaaaaaaaa")
 	run(t, lib,
 		sql(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'seedbox', 0)`, box),
-		sql(`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, box),
 		sql(`INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, wanted,
 			added_order, added_at) VALUES (?, ?, ?, x'00', 'The.Attic.1080p.WEB', 4096, 1, '[]', 'fixture', 'started', 1, 0)`, torrent, box, hash),
-		sql(`INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link,
+		sql(`INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id, release_title, release_size,
 			stage, torrent_id, created_at, updated_at)
-			SELECT ?, work_id, id, 'any', 'search', ?, ?, 'The.Attic.1080p.WEB', 4096, 'https://site.test/dl/1', 'downloading', ?, 0, 0
-			FROM works_item`, grab, indexer, box, torrent),
+			SELECT ?, work_id, id, 'any', 'search', ?, 'The.Attic.1080p.WEB', 4096, 'downloading', ?, 0, 0
+			FROM works_item`, grab, box, torrent),
 	)
 	run(t, lib, sql(`DELETE FROM works_work WHERE id = ?`, work))
 

@@ -23,9 +23,12 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -150,19 +153,9 @@ func TestTheAPIKeyFollowsTheSeed(t *testing.T) {
 	}
 }
 
-type alone struct{ self role.NodeID }
+type discard[T any] struct{}
 
-func (a alone) Self() role.NodeID { return a.self }
-
-func (a alone) Pick(role.Name, role.NodeID) (role.NodeID, bool) { return a.self, true }
-
-func (a alone) Route(role.Name, role.NodeID) (role.NodeID, error) { return a.self, nil }
-
-func (alone) Away(role.Name, role.NodeID) (nodes.Absence, bool) { return nodes.Absence{}, false }
-
-type discard struct{}
-
-func (discard) Publish(context.Context, indexers.Changed) {}
+func (discard[T]) Publish(context.Context, T) {}
 
 // created is the site served in f as an Indexer created on one Node that
 // spaces nothing.
@@ -173,20 +166,28 @@ func created(t *testing.T) (faketest.Served, *indexers.Indexers, indexers.Indexe
 	timings := searching.DefaultTimings()
 	timings.Floor = 0
 	home := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
+	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), indexers.Schema())
+	self := role.NodeID{UUID: storage.NewUUID()}
+	if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return nodestest.Insert(ctx, tx, self, "home")
+	}); err != nil {
+		t.Fatal(err)
+	}
 	x := indexers.New(indexers.Config{
-		Library:   storagetest.Library(t, indexers.Schema()),
+		Library:   lib,
 		Sealer:    secrettest.Sealer(t),
-		Roster:    alone{role.NodeID{UUID: storage.NewUUID()}},
+		Roster:    indexerstest.Alone(self),
 		Searching: func(role.NodeID) searching.Remote { return home },
-		Changed:   discard{},
+		Changed:   discard[indexers.Changed]{},
+		Status:    discard[indexers.StatusChanged]{},
 		Timings:   indexers.DefaultTimings(),
 		Log:       slog.New(slog.DiscardHandler),
 	})
-	idx, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", URL: site.URL(f.Address), APIKey: site.APIKey(s)})
+	v, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", Address: site.URL(f.Address), APIKey: site.APIKey(s)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return f, x, idx
+	return f, x, v.Indexer
 }
 
 func TestTheSearchingServiceReadsTheSite(t *testing.T) {
@@ -195,10 +196,11 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("movie caps = %v, want %v", got, want)
 	}
 
-	found, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
-	if err != nil {
-		t.Fatal(err)
+	a, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
+	if err != nil || a.Outcome.Kind != indexers.Found {
+		t.Fatalf("Search = %+v, %v; want found", a.Outcome, err)
 	}
+	found := a.Releases
 	var got []string
 	for _, r := range found {
 		got = append(got, r.Title+" "+r.InfoHash.String()+" "+strconv.Itoa(r.Seeders)+" "+r.IDs["tmdbid"]+" "+r.IDs["imdbid"])
@@ -215,7 +217,8 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten {
 		t.Fatalf("Fetch = %+v, %v, want the .torrent %q", fetched, err, rewritten)
 	}
-	magnets, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}})
+	m, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}})
+	magnets := m.Releases
 	if err != nil || len(magnets) != 2 {
 		t.Fatalf("Search for the magnet releases = %+v, %v; want two", magnets, err)
 	}
@@ -250,10 +253,12 @@ func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
 		t.Fatalf("a missing torrent = %v, want an unavailable error that does not wait", err)
 	}
 
-	_, err = x.SetAPIKey(t.Context(), identity.Admin{}, idx.ID, "wrong")
-	var stopped *searching.Stopped
-	if !errors.As(err, &stopped) || stopped.Cause != searching.AccountRefused || err.Error() != "the Indexer refused the account: Invalid API Key" {
-		t.Fatalf("a wrong key = %v, want account_refused", err)
+	wrong := "wrong"
+	_, err = x.Update(t.Context(), identity.Admin{}, idx.ID, indexers.Edit{APIKey: &wrong})
+	var failed *indexers.TestFailedError
+	want := "Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."
+	if !errors.As(err, &failed) || failed.Outcome.Cause != searching.AccountRefused || failed.Sentence != want {
+		t.Fatalf("a wrong key = %v, want account_refused with %q", err, want)
 	}
 }
 
