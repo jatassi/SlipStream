@@ -102,14 +102,14 @@ type queryPage struct {
 }
 
 // TestHousekeepingDeletesIndexerQueriesPastTheirKeep keeps Indexer
-// queries 2 days in place of 30. It tests Fixture Site, then lets 3 days
-// pass, in which the health check tests it every 6 hours. After
+// queries 12 hours in place of 30 days. It tests Fixture Site, then lets
+// 18 hours pass, in which the health check tests it every 6 hours. After
 // Housekeeping, the first Test's row is gone and every row left is from
-// the last 2 days.
+// the last 12 hours.
 func TestHousekeepingDeletesIndexerQueriesPastTheirKeep(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
-		s.Timings.Indexers.KeepQueries = 2 * 24 * time.Hour
+		s.Timings.Indexers.KeepQueries = 12 * time.Hour
 		w := sim.Launch(t, s, sim.WithWalk(), inUTC)
 		a := w.API()
 		synctest.Wait()
@@ -118,7 +118,7 @@ func TestHousekeepingDeletesIndexerQueriesPastTheirKeep(t *testing.T) {
 			t.Fatalf("testIndexer = %d %s, want 200", r.Status, r.Body)
 		}
 		first := decode[queryPage](t, "listIndexerQueries", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id+"/queries", "")).Queries[0].ID
-		time.Sleep(3 * 24 * time.Hour)
+		time.Sleep(18 * time.Hour)
 		synctest.Wait()
 		runNow(t, a, "housekeeping")
 		synctest.Wait()
@@ -129,7 +129,7 @@ func TestHousekeepingDeletesIndexerQueriesPastTheirKeep(t *testing.T) {
 			for _, q := range page.Queries {
 				rows++
 				if q.ID == first || q.ReservedAt.Before(cutoff) {
-					t.Fatalf("after Housekeeping a query from %s is kept, want none older than 2 days", q.ReservedAt)
+					t.Fatalf("after Housekeeping a query from %s is kept, want none older than 12 hours", q.ReservedAt)
 				}
 			}
 			if page.NextOffset == nil {
@@ -138,7 +138,7 @@ func TestHousekeepingDeletesIndexerQueriesPastTheirKeep(t *testing.T) {
 			offset = *page.NextOffset
 		}
 		if rows == 0 {
-			t.Error("Housekeeping deleted every query, want the last 2 days' health checks kept")
+			t.Error("Housekeeping deleted every query, want the last 12 hours' health checks kept")
 		}
 	})
 }
