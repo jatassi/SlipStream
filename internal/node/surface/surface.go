@@ -64,6 +64,7 @@ var Events = []live.Event{
 	roots.VolumesChangedEvent,
 	indexers.ChangedEvent,
 	indexers.StatusChangedEvent,
+	indexers.CatalogChangedEvent,
 	files.ChangedEvent,
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,
