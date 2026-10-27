@@ -71,7 +71,6 @@ var unported = []Feature{
 	LoginForm, LoginPost, LoginCookie, LoginGet, LoginOneURL,
 	LoginSelectorInputs, LoginGetSelectorInputs, LoginSubmitPath, LoginCookies, LoginHeaders,
 	LoginError, LoginTest, LoginTestPath, LoginCaptcha,
-	DownloadSelectors, DownloadBefore, DownloadInfohash, DownloadPost, DownloadHeaders, NoTestLinkTorrent,
 }
 
 type featureCheck struct {

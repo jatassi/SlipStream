@@ -2,6 +2,7 @@ package cardigann
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -230,6 +231,9 @@ func (c *checker) download(d *downloadBlock) {
 		field(fmt.Sprintf("download.selectors[%d].selector", i), &d.Selectors[i])
 	}
 	if d.Infohash != nil {
+		if d.Infohash.Hash == nil || d.Infohash.Title == nil {
+			c.fail(unrunnable(errors.New("infohash without hash or title"), "its download infohash block needs both a hash and a title selector"))
+		}
 		field("download.infohash.hash.selector", d.Infohash.Hash)
 		field("download.infohash.title.selector", d.Infohash.Title)
 	}

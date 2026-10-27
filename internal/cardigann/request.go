@@ -130,15 +130,12 @@ func (x *Search) request(p *searchPathBlock) (Request, bool, error) {
 	if req.URL, err = url.Parse(target); err != nil {
 		return Request{}, false, fmt.Errorf("read the address %q: %w", target, err)
 	}
-	for _, h := range x.d.def.Search.Headers {
-		if len(h.Value) == 0 {
-			continue
-		}
-		v, err := h.Value[0].Eval(sc, nil)
-		if err != nil {
-			return Request{}, false, fmt.Errorf("header %s: %w", h.Key, err)
-		}
-		req.Header.Set(h.Key, v)
+	h, err := templateHeaders(x.d.def.Search.Headers, sc)
+	if err != nil {
+		return Request{}, false, err
+	}
+	for k, v := range h {
+		req.Header[k] = v
 	}
 	return req, true, nil
 }

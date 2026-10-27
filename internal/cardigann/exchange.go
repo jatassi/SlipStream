@@ -21,7 +21,8 @@ type Request struct {
 	Header http.Header
 	Body   []byte
 	// FollowRedirects is whether the caller follows redirects before it
-	// feeds the response back.
+	// feeds the response back. A redirect to a magnet link isn't followed:
+	// the caller feeds back the redirect response itself.
 	FollowRedirects bool
 	// ReplaceCookies is whether the response's cookies replace the site's
 	// jar, as a Prowlarr login does.
