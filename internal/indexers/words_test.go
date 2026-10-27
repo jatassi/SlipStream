@@ -23,7 +23,7 @@ func TestStatusWords(t *testing.T) {
 	stop := func(c Cause, text string) View {
 		return View{
 			Status: Status{State: Stopped, Cause: c, Text: text, Node: seed, Success: t0},
-			Waits:  &Outcome{Kind: IsStopped, Cause: c, Text: text},
+			Waits:  &Outcome{Kind: IsStopped, Cause: c, Text: text, Node: seed},
 		}
 	}
 	for _, tc := range []struct {
@@ -62,7 +62,7 @@ func TestStatusWords(t *testing.T) {
 		},
 		{
 			"challenge the solver couldn't clear",
-			View{Status: Status{State: Stopped, Node: seed, SolverTried: true}, Waits: &Outcome{Kind: IsStopped, Cause: searching.ChallengeUnsolved}},
+			View{Status: Status{State: Stopped, Node: seed, SolverTried: true}, Waits: &Outcome{Kind: IsStopped, Cause: searching.ChallengeUnsolved, Node: seed}},
 			"Stopped because seedbox's Challenge solver couldn't clear TorrentLeech's challenge.", "Paste a browser cookie with Edit.",
 		},
 		{

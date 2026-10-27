@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
@@ -18,9 +19,11 @@ import (
 
 // candidate is one listed release and its Facts: the title's quality and
 // cut, the Indexer's advertised size, and the searched Item as Coverage.
+// at is its position among the run's Releases.
 type candidate struct {
 	Release indexers.Release
 	Facts   release.Facts
+	at      int
 }
 
 // candidateOf reads a listed release's Facts with cuts, every cut its
@@ -43,6 +46,7 @@ type Pick struct {
 	Edition targets.Edition
 	Targets []targets.TargetID
 	Notes   []Reason
+	at      int
 }
 
 // WrongWork is a release carrying an id that names another Work, and
@@ -65,15 +69,47 @@ type Refusal struct {
 	Reasons []Reason
 }
 
-// decide picks the best candidate for open, one Item's cells a search may
-// fill, in Edition then Profile order. Each candidate is judged against
-// the Target of every open cell its cut can fill, any cell under any cut,
-// and the file filling the cell; one with an id that differs from the
-// same id in terms, whose cut no open cell wants, or grabbable for none,
-// is refused with every reason. The rest rank by the first open cell they are
-// grabbable for, then their tier there, then seeders and size descending,
-// then title, so ties replay.
-func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) (*Pick, []Refusal) {
+// dedupe is candidates with each Release listed twice counted once: the
+// same info hash, or the same title and size when either lacks one. The
+// copy from the Indexer with the better priority stays, the first of a
+// tie.
+func dedupe(candidates []candidate) []candidate {
+	sorted := slices.Clone(candidates)
+	slices.SortStableFunc(sorted, func(a, b candidate) int { return cmp.Compare(a.Release.Priority, b.Release.Priority) })
+	hashes, named, unhashed := map[bencode.InfoHash]bool{}, map[titleSize]bool{}, map[titleSize]bool{}
+	var out []candidate
+	for _, c := range sorted {
+		r := c.Release
+		name := titleSize{r.Title, r.Size}
+		if r.InfoHash == nil && named[name] || r.InfoHash != nil && (hashes[*r.InfoHash] || unhashed[name]) {
+			continue
+		}
+		named[name] = true
+		if r.InfoHash == nil {
+			unhashed[name] = true
+		} else {
+			hashes[*r.InfoHash] = true
+		}
+		out = append(out, c)
+	}
+	slices.SortFunc(out, func(a, b candidate) int { return cmp.Compare(a.at, b.at) })
+	return out
+}
+
+type titleSize struct {
+	title string
+	size  int64
+}
+
+// decide ranks the candidates grabbable for open, one Item's cells a
+// search may fill, in Edition then Profile order. Each candidate is judged
+// against the Target of every open cell its cut can fill, any cell under
+// any cut, and the file filling the cell; one with an id that differs from
+// the same id in terms, whose cut no open cell wants, or grabbable for
+// none, is refused with every reason. The rest rank by the first open cell
+// they are grabbable for, then their tier there, then their Indexer's
+// priority, then seeders and size descending, then title, so ties replay.
+func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) ([]Pick, []Refusal) {
 	var keep []ranked
 	var refused []Refusal
 	for _, c := range candidates {
@@ -92,19 +128,21 @@ func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) (*P
 		}
 		keep = append(keep, r)
 	}
-	if len(keep) == 0 {
-		return nil, refused
-	}
-	best := slices.MinFunc(keep, func(a, b ranked) int {
+	slices.SortStableFunc(keep, func(a, b ranked) int {
 		return cmp.Or(
 			cmp.Compare(a.cell, b.cell),
 			cmp.Compare(a.rank, b.rank),
+			cmp.Compare(a.pick.Release.Priority, b.pick.Release.Priority),
 			cmp.Compare(b.pick.Release.Seeders, a.pick.Release.Seeders),
 			cmp.Compare(b.pick.Release.Size, a.pick.Release.Size),
 			strings.Compare(a.pick.Release.Title, b.pick.Release.Title),
 		)
 	})
-	return &best.pick, refused
+	picks := make([]Pick, len(keep))
+	for i, r := range keep {
+		picks[i] = r.pick
+	}
+	return picks, refused
 }
 
 // ranked is a candidate as decide ranks it: the pick it would make, the
@@ -117,7 +155,7 @@ type ranked struct {
 // judged judges c against the Target of every open cell its cut can fill,
 // and answers every reason given.
 func judged(open []files.Cell, c candidate) (ranked, []Reason) {
-	r := ranked{pick: Pick{Release: c.Release}, cell: -1}
+	r := ranked{pick: Pick{Release: c.Release, at: c.at}, cell: -1}
 	var reasons []Reason
 	for i, cell := range open {
 		if !cell.Edition.Takes(c.Facts.Cut) {

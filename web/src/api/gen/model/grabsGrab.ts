@@ -1,5 +1,6 @@
 import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
+import type { GrabsFetchWait } from "./grabsFetchWait.ts";
 import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
 import type { GrabsMetadataSearch } from "./grabsMetadataSearch.ts";
@@ -16,6 +17,8 @@ export interface GrabsGrab {
    * @nullable
    */
   fetchNodeId: string | null;
+  /** Why fetching the .torrent waits on its Indexer, absent unless it does */
+  fetchWait?: GrabsFetchWait;
   /** Each stage it entered, oldest first */
   history: GrabsEntered[];
   id: string;

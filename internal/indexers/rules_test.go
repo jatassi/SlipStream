@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
+	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
@@ -168,7 +169,7 @@ func TestRoute(t *testing.T) {
 		{"a session homed off the holders waits", roster{holders: []role.NodeID{seed}}, catalog, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			to, wait := route(tc.r, tc.idx, tc.st, holdsSession(tc.idx))
+			to, wait := route(tc.r, tc.idx, tc.st)
 			if to != tc.to || !reflect.DeepEqual(wait, tc.wait) {
 				t.Fatalf("route = %s, %+v; want %s, %+v", to, wait, tc.to, tc.wait)
 			}
@@ -201,6 +202,38 @@ func TestGate(t *testing.T) {
 			to, wait := gate(idx, tc.st, tc.used, r, tc.u, t0)
 			if to != tc.to || !reflect.DeepEqual(wait, tc.wait) {
 				t.Fatalf("gate = %s, %+v; want %s, %+v", to, wait, tc.to, tc.wait)
+			}
+		})
+	}
+}
+
+func TestAFetchDropsOnlyWhenItWouldWaitForTheAdmin(t *testing.T) {
+	lapsed := roster{holders: []role.NodeID{home, seed}, away: map[role.NodeID]nodes.Absence{home: {Since: t0, Lapsed: true}}}
+	inGrace := roster{holders: []role.NodeID{home, seed}, away: map[role.NodeID]nodes.Absence{home: {Since: t0}}}
+	later := t0.Add(time.Minute)
+	feed := Indexer{Kind: Torznab, Home: home}
+	catalog := Indexer{Kind: Catalog, Home: home}
+	for _, tc := range []struct {
+		name string
+		r    roster
+		idx  Indexer
+		st   Status
+		want error
+	}{
+		{"fetches while ok", roster{holders: []role.NodeID{home}}, feed, Status{State: OK}, nil},
+		{"drops once stopped", roster{holders: []role.NodeID{home}}, feed, Status{State: Stopped, Cause: searching.AccountRefused}, &DropError{Why: DropStopped}},
+		{"waits while limited", roster{holders: []role.NodeID{home}}, feed, Status{State: Limited, Until: later}, &WaitError{Outcome: Outcome{Kind: IsLimited, Until: later}}},
+		{"waits while failing", roster{holders: []role.NodeID{home}}, feed, Status{State: Failing, Until: later}, &WaitError{Outcome: Outcome{Kind: IsFailing, Until: later}}},
+		{"waits for home inside the grace", inGrace, catalog, Status{}, &WaitError{Outcome: Outcome{Kind: Waiting, Node: home, Since: t0}}},
+		{"drops a session past the grace", lapsed, catalog, Status{}, &DropError{Why: DropHomeOffline}},
+		{"a feed moves past the grace", lapsed, feed, Status{}, nil},
+		{"drops a wait for home past the grace", lapsed, feed, Status{State: HomeOnly}, &DropError{Why: DropHomeOffline}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			x := &Indexers{cfg: Config{Roster: tc.r}}
+			var got any = x.fetchGate(tc.idx, tc.st, t0)
+			if want := any(tc.want); !reflect.DeepEqual(got, want) {
+				t.Fatalf("fetchGate = %#v, want %#v", got, want)
 			}
 		})
 	}
@@ -359,5 +392,49 @@ func TestASessionReplayOrAnOlderOneChangesNothing(t *testing.T) {
 	offer(newer)
 	if got, err = x.session(t.Context(), lib, idx.ID, home); err != nil || !reflect.DeepEqual(got.Cookies, newer.Cookies) {
 		t.Fatalf("session after a newer answer = %+v, %v; want the newer", got, err)
+	}
+}
+
+func TestQueryTakesEveryIDTheModeListsElseText(t *testing.T) {
+	caps := Caps{Modes: map[string][]string{
+		"search":   {"q"},
+		"tvsearch": {"q", "season", "tvdbid", "imdbid"},
+	}}
+	ids := map[string]string{"imdbid": "tt0000901", "tvdbid": "901", "tmdbid": "77"}
+	for _, tc := range []struct {
+		name  string
+		terms Terms
+		want  searching.Query
+	}{
+		{"every id the caps list", Terms{Mode: "tvsearch", IDs: ids, Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "901", "imdbid": "tt0000901"}}},
+		{"an id the type lacks is skipped", Terms{Mode: "tvsearch", IDs: map[string]string{"imdbid": "tt0000901"}, Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"imdbid": "tt0000901"}}},
+		{"no id the caps list", Terms{Mode: "tvsearch", IDs: map[string]string{"tmdbid": "901"}, Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
+		{"a mode the caps lack", Terms{Mode: "book", IDs: ids, Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := query(caps, tc.terms); !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("query = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestServedIsTheIndexersCategoriesInTheTypesFamilies(t *testing.T) {
+	movies := []newznab.ID{2000}
+	for _, tc := range []struct {
+		name string
+		idx  Indexer
+		want []newznab.ID
+	}{
+		{"every advertised category", Indexer{Caps: Caps{Categories: []newznab.ID{2000, 2040, 5000}}}, []newznab.ID{2000, 2040}},
+		{"the categories set on it", Indexer{Categories: []newznab.ID{2040, 5040}, Caps: Caps{Categories: []newznab.ID{2000, 2040, 5000}}}, []newznab.ID{2040}},
+		{"none of the type's", Indexer{Caps: Caps{Categories: []newznab.ID{5000, 5040}}}, nil},
+		{"none advertised", Indexer{}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := served(tc.idx, movies); !slices.Equal(got, tc.want) {
+				t.Fatalf("served = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

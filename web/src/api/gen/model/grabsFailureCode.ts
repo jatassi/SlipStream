@@ -1,6 +1,8 @@
 export type GrabsFailureCode =
   | "indexer_unavailable"
   | "indexer_removed"
+  | "indexer_stopped"
+  | "home_offline"
   | "torrent_unreachable"
   | "magnet_invalid"
   | "no_metadata"

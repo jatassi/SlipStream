@@ -63,12 +63,14 @@ type fail struct {
 
 // wait retries the same step once a backoff has passed and, when the
 // Grab's Node is out of step or roster is set, the roster has changed; when
-// root is set, once it is closed or the roster has changed. It never fails
-// the Grab.
+// root is set, once it is closed or the roster has changed. When until is
+// set, it retries at once at until or the Indexers' next change. It never
+// fails the Grab.
 type wait struct {
 	cause  error
 	roster bool
 	root   <-chan struct{}
+	until  time.Time
 }
 
 // stopped commits nothing: the step runs again at the next start.
@@ -129,19 +131,15 @@ func local(ctx context.Context, err error) outcome {
 // download, so the file lands by a hard link. While no Node may take
 // either, it waits for the roster to change.
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
-	var idx indexers.Indexer
+	if g.Ticket.Indexer.IsZero() {
+		return dropOf[indexers.DropRemoved]
+	}
 	var root roots.Root
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		if idx, err = indexers.Get(ctx, r, g.Release.Indexer); err != nil {
-			return err
-		}
 		root, err = roots.OfWork(ctx, r, g.WorkID)
 		return err
 	})
-	if errors.Is(err, indexers.ErrNoIndexer) {
-		return fail{IndexerRemoved, "The Indexer was removed before the .torrent was fetched"}
-	}
 	if err != nil {
 		return local(ctx, err)
 	}
@@ -152,18 +150,18 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return local(ctx, err)
 	}
-	got, err := gr.cfg.Indexers.Fetch(ctx, idx, link)
+	got, err := gr.cfg.Indexers.Fetch(ctx, g.Ticket, link)
 	if errors.Is(err, bencode.ErrV2Only) {
 		return fail{TorrentV2Only, err.Error()}
 	}
 	if _, invalid := errors.AsType[*magnet.InvalidError](err); invalid {
 		return fail{MagnetInvalid, err.Error()}
 	}
-	if _, waits := errors.AsType[*indexers.WaitError](err); waits {
-		return wait{cause: err, roster: true}
+	if drop, ok := errors.AsType[*indexers.DropError](err); ok {
+		return dropOf[drop.Why]
 	}
-	if _, limited := errors.AsType[*indexers.LimitError](err); limited {
-		return wait{cause: err}
+	if w, ok := errors.AsType[*indexers.WaitError](err); ok {
+		return wait{cause: err, roster: w.Outcome.Kind == indexers.Waiting, until: w.Outcome.Until}
 	}
 	if err != nil {
 		return classify(ctx, err, TorrentUnreachable)
@@ -441,6 +439,8 @@ var errLeft = errors.New("the Grab left the stage")
 func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	now := storage.Now()
 	var params db.AdvanceParams
+	var taken *Grab
+	var reran *Search
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		o, err := confirm(ctx, tx, g, o)
 		if err != nil {
@@ -456,7 +456,14 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 			}
 		}
 		params = p
-		return gr.record(ctx, tx, g, params, a, now)
+		if err := gr.record(ctx, tx, g, params, a, now); err != nil {
+			return err
+		}
+		if g.Stage != Fetching {
+			return nil
+		}
+		taken, reran, err = gr.left(ctx, tx, g, o)
+		return err
 	})
 	switch {
 	case errors.Is(err, files.ErrRootChanged):
@@ -470,6 +477,12 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 		g.Node = params.NodeID
 	}
 	gr.entered(ctx, g, params.Next)
+	if reran != nil {
+		gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: reran.ID.String(), WorkID: reran.WorkID.String()})
+	}
+	if taken != nil {
+		gr.cfg.Changed.Publish(ctx, Changed{GrabID: taken.ID.String(), WorkID: taken.WorkID.String()})
+	}
 	return nil
 }
 
@@ -588,6 +601,8 @@ func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advan
 	case fail:
 		params.Next = Failed
 		params.FailedStage, params.FailureCode, params.FailureMessage = &g.Stage, &o.code, new(o.msg)
+	case dropped:
+		return advanceParams(g, fail(o), now)
 	}
 	return params, advance{}, nil
 }
@@ -625,6 +640,9 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 		return rerun
 	case wait:
 		gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", o.cause.Error())
+		if !o.until.IsZero() {
+			return gr.waitUntil(ctx, o.until)
+		}
 		changed := gr.cfg.Roster.Changed()
 		if o.roster || o.root != nil || !gr.cfg.Roster.InStep(g.Node) {
 			select {
@@ -648,6 +666,20 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 		return waited
 	}
 	return committed
+}
+
+// waitUntil waits until until or the Indexers' next change, so a Grab
+// whose fetch waits on its Indexer's status tries again once it may.
+func (gr *Grabs) waitUntil(ctx context.Context, until time.Time) result {
+	t := time.NewTimer(time.Until(until))
+	defer t.Stop()
+	select {
+	case <-t.C:
+	case <-gr.cfg.Indexers.Changed():
+	case <-ctx.Done():
+		return halted
+	}
+	return rerun
 }
 
 type report struct {

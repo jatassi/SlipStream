@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // stopWords is what a stop means and how the Admin clears it from the
@@ -95,8 +96,9 @@ func (x *Indexers) inZone(t time.Time) time.Time {
 	return t.In(zone)
 }
 
-// stoppedWords is a stop as the Indexer's status: %[1]s is the Indexer,
-// %[2]s the site's own words, %[3]s the Node it was met on.
+// stoppedWords is a stop in words, as the Indexer's status and its line in
+// a search: %[1]s is the Indexer, %[2]s the site's own words, %[3]s the
+// Node it was met on.
 var stoppedWords = map[Cause]string{
 	searching.CredentialsRejected:  "Stopped because %[1]s rejected the username or password.",
 	searching.CaptchaNeeded:        "Stopped because %[1]s needs a captcha to sign in again.",
@@ -147,7 +149,7 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	name := v.Name
 	switch w.Kind {
 	case IsStopped:
-		node := x.cfg.Roster.Name(v.Status.Node)
+		node := x.cfg.Roster.Name(w.Node)
 		stopped, fix := stoppedWords[w.Cause], stoppedFixes[w.Cause]
 		if v.Status.SolverTried {
 			stopped, fix = solverTriedStopped, solverTriedFix
@@ -172,4 +174,57 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	case Found, NoReleases, Late, NoCategories, Removed:
 	}
 	return name + " is working.", ""
+}
+
+// Line is how Indexer name stood in a search of an Item of Content Type
+// typ: o in words, or "Searching" while its job runs and o is nil.
+func (x *Indexers) Line(name string, typ works.TypeID, o *Outcome) string {
+	if o == nil {
+		return "Searching"
+	}
+	switch o.Kind {
+	case Found:
+		if o.Releases == 1 {
+			return "Found 1 Release"
+		}
+		return fmt.Sprintf("Found %d Releases", o.Releases)
+	case NoReleases:
+		return "No Releases"
+	case IsLimited, LimitReached:
+		if o.Until.IsZero() {
+			return "Limit reached"
+		}
+		return "Limit reached until " + x.clock(o.Until)
+	case Waiting:
+		return "Waiting for " + x.cfg.Roster.Name(o.Node)
+	case IsFailing:
+		return x.retries(name+" isn't responding.", o.Until)
+	case IsStopped:
+		return fmt.Sprintf(stoppedWords[o.Cause], name, o.Text, x.cfg.Roster.Name(o.Node))
+	case NoCategories:
+		d, _ := x.cfg.Works.Describe(typ)
+		return "Skipped because it has no " + strings.ToLower(d.Work.One) + " categories"
+	case Late:
+		return "Didn't finish in time"
+	case Removed:
+		return "Deleted since this search"
+	}
+	return string(o.Kind)
+}
+
+// fetchWaitWords is why a fetch from Indexer name waits, o being the
+// gate's limited, failing or waiting Outcome.
+func (x *Indexers) fetchWaitWords(name string, o Outcome) string {
+	if o.Kind == Waiting {
+		return fmt.Sprintf("Waiting for %s to fetch the .torrent from %s.", x.cfg.Roster.Name(o.Node), name)
+	}
+	return x.retries("Waiting to fetch the .torrent from "+name+".", o.Until)
+}
+
+// retries is sentence followed by when SlipStream retries, at until.
+func (x *Indexers) retries(sentence string, until time.Time) string {
+	if until.IsZero() {
+		return sentence + " SlipStream retries automatically."
+	}
+	return sentence + " SlipStream retries at " + x.clock(until) + "."
 }

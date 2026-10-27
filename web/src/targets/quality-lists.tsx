@@ -83,7 +83,7 @@ export function QualityLists({ draft, onChange }: SectionProps<TargetDraft>) {
       ) : (
         <RankedList
           label="Qualities"
-          caption="A release that ranks above the file a Target holds replaces it, until the file reaches the cutoff."
+          caption="A Release that ranks above the file a Target holds replaces it, until the file reaches the cutoff."
           rows={draft.order}
           ties
           name={name}

@@ -180,3 +180,6 @@ SELECT * FROM indexers_tracker ORDER BY name;
 SELECT indexers_reach.indexer_id, indexers_reach.tracker_id
 FROM indexers_reach JOIN indexers_indexer ON indexers_indexer.id = indexers_reach.indexer_id
 ORDER BY indexers_indexer.name;
+
+-- name: QueryCompleted :one
+SELECT EXISTS (SELECT 1 FROM indexers_query WHERE id = sqlc.arg(id) AND completed_at IS NOT NULL);

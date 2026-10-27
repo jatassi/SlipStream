@@ -2132,6 +2132,8 @@
             "enum": [
               "indexer_unavailable",
               "indexer_removed",
+              "indexer_stopped",
+              "home_offline",
               "torrent_unreachable",
               "magnet_invalid",
               "no_metadata",
@@ -2174,6 +2176,28 @@
         ],
         "type": "object"
       },
+      "GrabsFetchWait": {
+        "additionalProperties": false,
+        "properties": {
+          "sentence": {
+            "description": "Why the fetch waits, such as Waiting to fetch the .torrent from TorrentLeech. SlipStream retries at 14:20.",
+            "type": "string"
+          },
+          "until": {
+            "description": "When SlipStream retries; null while it waits for the Indexer's home Node",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sentence",
+          "until"
+        ],
+        "type": "object"
+      },
       "GrabsGrab": {
         "additionalProperties": false,
         "properties": {
@@ -2196,6 +2220,10 @@
               "string",
               "null"
             ]
+          },
+          "fetchWait": {
+            "$ref": "#/components/schemas/GrabsFetchWait",
+            "description": "Why fetching the .torrent waits on its Indexer, absent unless it does"
           },
           "history": {
             "description": "Each stage it entered, oldest first",
@@ -2448,7 +2476,7 @@
         "additionalProperties": false,
         "properties": {
           "candidates": {
-            "description": "The releases in the Indexer's response",
+            "description": "The Releases the Indexers found, each Release listed twice counted once",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -2462,7 +2490,7 @@
             ]
           },
           "grabId": {
-            "description": "The Grab the run made, null when none",
+            "description": "The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none",
             "format": "uuid",
             "type": [
               "string",
@@ -2473,20 +2501,19 @@
             "format": "uuid",
             "type": "string"
           },
-          "indexerId": {
-            "description": "The Indexer the run asked, null until it asked or once the Indexer is deleted",
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
+          "indexers": {
+            "description": "Each Indexer the run asked or skipped, by priority",
+            "items": {
+              "$ref": "#/components/schemas/GrabsSearchIndexer"
+            },
+            "type": "array"
           },
           "itemId": {
             "format": "uuid",
             "type": "string"
           },
           "notes": {
-            "description": "The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for",
+            "description": "The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for",
             "items": {
               "$ref": "#/components/schemas/GrabsReason"
             },
@@ -2496,9 +2523,7 @@
             "description": "Null while the run searches",
             "enum": [
               "grabbed",
-              "nothing_acceptable",
-              "indexer_unavailable",
-              "indexer_refused"
+              "nothing_acceptable"
             ],
             "type": [
               "string",
@@ -2506,7 +2531,7 @@
             ]
           },
           "refused": {
-            "description": "The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused",
+            "description": "The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused",
             "items": {
               "$ref": "#/components/schemas/GrabsRefusal"
             },
@@ -2520,8 +2545,8 @@
         "required": [
           "id",
           "itemId",
-          "indexerId",
           "startedAt",
+          "indexers",
           "finishedAt",
           "outcome",
           "candidates",
@@ -2546,6 +2571,60 @@
         "required": [
           "searchId",
           "workId"
+        ],
+        "type": "object"
+      },
+      "GrabsSearchIndexer": {
+        "additionalProperties": false,
+        "properties": {
+          "indexerId": {
+            "description": "Null once the Indexer is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The Indexer's name when the run started",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "Null while its search runs",
+            "enum": [
+              "found",
+              "no_releases",
+              "limited",
+              "failing",
+              "stopped",
+              "waiting",
+              "late",
+              "limit_reached",
+              "no_categories",
+              "removed"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releases": {
+            "description": "The Releases it found",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sentence": {
+            "description": "The outcome in words, such as Limit reached until 14:05",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexerId",
+          "name",
+          "outcome",
+          "releases",
+          "sentence"
         ],
         "type": "object"
       },
@@ -4724,7 +4803,7 @@
             "type": "boolean"
           },
           "nodeId": {
-            "description": "Set for waiting: the Node waited for",
+            "description": "Set for waiting: the Node waited for; for stopped: the Node the stop was met on",
             "format": "uuid",
             "type": [
               "string",

@@ -182,6 +182,7 @@ func (x *Indexers) record(ctx context.Context, q QueryID, idx ID, a answer) (Sta
 		return Status{}, fmt.Errorf("record an answer of Indexer %s: %w", idx, err)
 	}
 	if st.State != "" {
+		x.moved()
 		x.cfg.Status.Publish(ctx, StatusChanged{IndexerID: idx.String()})
 	}
 	return st, nil

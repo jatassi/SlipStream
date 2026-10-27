@@ -100,7 +100,7 @@ function Search({ q, onQChange, className }: ToolbarProps & { className: string 
   return (
     <SearchField
       label="Search torrents"
-      placeholder="Search by Work or release"
+      placeholder="Search by Work or Release"
       value={q}
       onValueChange={onQChange}
       className={className}

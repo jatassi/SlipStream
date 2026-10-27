@@ -19,12 +19,15 @@ export function List({ label, children }: { label: string; children: ReactNode }
 export function ListRow({
   title,
   meta,
+  detail,
   leading,
   trailing,
   render,
 }: {
   title: ReactNode;
   meta?: ReactNode;
+  /** Lines below the meta line, which wrap instead of truncating. */
+  detail?: ReactNode;
   leading?: ReactNode;
   trailing?: ReactNode;
   render?: useRender.RenderProp;
@@ -47,6 +50,7 @@ export function ListRow({
               {title}
             </span>
             {meta !== undefined && <span className="truncate text-meta text-ink-3">{meta}</span>}
+            {detail}
           </span>
           {trailing !== undefined && <span className="shrink-0 text-ink-3">{trailing}</span>}
         </>

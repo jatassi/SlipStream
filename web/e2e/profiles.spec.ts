@@ -51,12 +51,12 @@ async function chooseCutsWithoutStandard(page: Page) {
   await expect(sentence).toHaveText("Every Item always wants Standard.");
   await pick(page, "Add cut", "Extended");
   await expect(sentence).toHaveText(
-    "Every Item always wants Standard. It wants Extended only once a release or file of that cut has been seen for it.",
+    "Every Item always wants Standard. It wants Extended only once a Release or file of that cut has been seen for it.",
   );
   await page.getByRole("button", { name: "Remove Standard" }).click();
   await expect(page.getByText("No Standard")).toBeVisible();
   await expect(sentence).toHaveText(
-    "Every Item wants Extended outright, even where no release of it has been seen. A release that names no cut is Standard, which this list doesn't want.",
+    "Every Item wants Extended outright, even where no Release of it has been seen. A Release that names no cut is Standard, which this list doesn't want.",
   );
 }
 

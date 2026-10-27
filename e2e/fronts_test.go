@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/events"
@@ -15,10 +16,33 @@ import (
 )
 
 type searchView struct {
-	ID         string  `json:"id"`
-	Outcome    *string `json:"outcome"`
-	Candidates int     `json:"candidates"`
-	GrabID     *string `json:"grabId"`
+	ID         string     `json:"id"`
+	Indexers   []lineView `json:"indexers"`
+	Outcome    *string    `json:"outcome"`
+	Candidates int        `json:"candidates"`
+	GrabID     *string    `json:"grabId"`
+}
+
+// lineView is one Indexer's line in a search.
+type lineView struct {
+	IndexerID string  `json:"indexerId"`
+	Name      string  `json:"name"`
+	Outcome   *string `json:"outcome"`
+	Releases  int     `json:"releases"`
+	Sentence  string  `json:"sentence"`
+}
+
+// lines is each of s's Indexer lines as its name, outcome and sentence.
+func (s searchView) lines() []string {
+	var out []string
+	for _, l := range s.Indexers {
+		outcome := "asking"
+		if l.Outcome != nil {
+			outcome = *l.Outcome
+		}
+		out = append(out, l.Name+" "+outcome+": "+l.Sentence)
+	}
+	return out
 }
 
 // searched reads w's Work's searches until the run id has finished.
@@ -114,14 +138,16 @@ func TestHeldSwarmCompletesWhenCleared(t *testing.T) {
 	checkPlaced(t, w.m, 1)
 }
 
-func TestA429FromTheIndexerFailsOneSearch(t *testing.T) {
+func TestA429FromTheIndexerLimitsOneSearch(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
-	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 1}, "status=429,retry-after=30s")
+	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 1}, "status=429,retry-after=2s")
 
 	first := w.searched(t, w.search(t))
-	if first.Outcome == nil || *first.Outcome != "indexer_unavailable" || first.Candidates != 0 || first.GrabID != nil {
-		t.Fatalf("the first search ended %+v, want indexer_unavailable with no candidates and no Grab", first)
+	lines := first.lines()
+	if *first.Outcome != "nothing_acceptable" || first.Candidates != 0 || first.GrabID != nil ||
+		len(lines) != 1 || !strings.HasPrefix(lines[0], "Fixture Site limited: Limit reached until ") {
+		t.Fatalf("the first search ended %+v with lines %q, want nothing_acceptable with Fixture Site limited", first, lines)
 	}
 	fired, err := events.Select(w.m.RunDir, events.Query{Kind: events.FaultFired})
 	if err != nil {
@@ -131,13 +157,14 @@ func TestA429FromTheIndexerFailsOneSearch(t *testing.T) {
 	for _, r := range fired {
 		got = append(got, r.Node+" "+string(r.Data))
 	}
-	if want := []string{`seedbox {"rule":"indexer-429","target":"fixture-site","fault":"status=429,retry-after=30s","match":1}`}; !slices.Equal(got, want) {
+	if want := []string{`seedbox {"rule":"indexer-429","target":"fixture-site","fault":"status=429,retry-after=2s","match":1}`}; !slices.Equal(got, want) {
 		t.Fatalf("fault.fired records = %q, want %q", got, want)
 	}
 
+	worldtest.Until(t, "the Indexer waits out Retry-After", func() (bool, error) { return w.indexerWaits(t) == "none", nil })
 	second := w.searched(t, w.search(t))
-	if second.Outcome == nil || *second.Outcome != "grabbed" || second.GrabID == nil {
-		t.Fatalf("the second search ended %+v, want grabbed", second)
+	if *second.Outcome != "grabbed" || second.GrabID == nil {
+		t.Fatalf("the second search ended %+v with lines %q, want grabbed", second, second.lines())
 	}
 }
 

@@ -10,7 +10,7 @@ export interface IndexersOutcome {
   /** Waiting past the offline grace */
   lapsed: boolean;
   /**
-   * Set for waiting: the Node waited for
+   * Set for waiting: the Node waited for; for stopped: the Node the stop was met on
    * @nullable
    */
   nodeId: string | null;

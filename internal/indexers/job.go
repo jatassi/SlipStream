@@ -63,45 +63,39 @@ func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, n
 
 var kindOnWire = map[Kind]searching.Kind{Catalog: searching.Catalog, Torznab: searching.Torznab, RSS: searching.RSS}
 
-// call runs c for idx on the Node idx routes to now and records the
-// answer. It reserves the job's query row first, refusing with
-// *LimitError at idx's limit, and fails with *WaitError while no Node may
-// take it, *UnavailableError when the Node couldn't run it, or ErrLate.
-// The answer's own outcome is in the answer, and st is the status record
-// wrote, zero when the answer was from an older revision.
-func (x *Indexers) call(ctx context.Context, idx Indexer, u Use, c searching.Call) (searching.Answer, job, Status, error) {
-	var node role.NodeID
-	var q QueryID
-	err := x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		st, err := status(ctx, tx, idx.ID)
-		if err != nil {
-			return err
-		}
-		to, wait := route(x.cfg.Roster, idx, st, holdsSession(idx))
-		if wait != nil {
-			return &WaitError{Outcome: *wait}
-		}
-		node = to
-		q, err = reserve(ctx, tx, idx, u, storage.Now())
+// routed is the job running c for idx as query q on the Node idx routes
+// to now, or *WaitError while no Node may take it. The caller reserved q.
+func (x *Indexers) routed(ctx context.Context, q QueryID, idx Indexer, u Use, c searching.Call) (job, error) {
+	var st Status
+	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		st, err = status(ctx, r, idx.ID)
 		return err
 	})
 	if err != nil {
-		return searching.Answer{}, job{}, Status{}, err
+		return job{}, err
 	}
-	j, err := x.prepare(ctx, q, idx, u, node, c)
-	if err != nil {
-		x.lose(ctx, q)
-		return searching.Answer{}, job{}, Status{}, err
+	node, wait := route(x.cfg.Roster, idx, st)
+	if wait != nil {
+		return job{}, &WaitError{Outcome: *wait}
 	}
+	return x.prepare(ctx, q, idx, u, node, c)
+}
+
+// run asks j's Node and records its answer, returning it with the status
+// record wrote, zero when the answer was from an older revision. It fails
+// with *UnavailableError when the Node couldn't run it, completing its
+// query as lost, or ErrLate, which settle records once the Node answers.
+func (x *Indexers) run(ctx context.Context, j job) (searching.Answer, Status, error) {
 	a, err := x.ask(ctx, j)
 	if err != nil {
 		if !errors.Is(err, ErrLate) {
-			x.lose(ctx, q)
+			x.lose(ctx, j.q)
 		}
-		return searching.Answer{}, j, Status{}, err
+		return searching.Answer{}, Status{}, err
 	}
-	st, err := x.record(context.WithoutCancel(ctx), j.q, idx.ID, j.answer(a))
-	return a, j, st, err
+	st, err := x.record(context.WithoutCancel(ctx), j.q, j.idx.ID, j.answer(a))
+	return a, st, err
 }
 
 // lose completes q as lost: its job never answered.

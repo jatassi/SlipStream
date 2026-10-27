@@ -60,6 +60,8 @@ const (
 const (
 	IndexerUnavailable Code = "indexer_unavailable"
 	IndexerRemoved     Code = "indexer_removed"
+	IndexerStopped     Code = "indexer_stopped"
+	HomeOffline        Code = "home_offline"
 	TorrentUnreachable Code = "torrent_unreachable"
 	TorrentInvalid     Code = "torrent_invalid"
 	InfohashMismatch   Code = "infohash_mismatch"
@@ -82,11 +84,6 @@ const needsTransferWords = "The Work's library root is on another Worker, and mo
 const (
 	Grabbed           Outcome = "grabbed"
 	NothingAcceptable Outcome = "nothing_acceptable"
-	// SearchIndexerUnavailable and SearchIndexerRefused are a run that
-	// found nothing because its Indexer couldn't search or stopped, read
-	// from the Indexer's outcome.
-	SearchIndexerUnavailable Outcome = "indexer_unavailable"
-	SearchIndexerRefused     Outcome = "indexer_refused"
 )
 
 type Timings struct {
@@ -221,8 +218,6 @@ func New(cfg Config) *Grabs {
 type Release struct {
 	Title string
 	Size  int64
-	// Indexer is zero once the Indexer is deleted.
-	Indexer indexers.ID
 	// InfoHash is the Indexer's infohash attribute, nil when it sent none.
 	InfoHash *bencode.InfoHash
 	// link is the sealed .torrent link the Grab fetches, else magnet.
@@ -284,6 +279,9 @@ type Grab struct {
 	Edition targets.Edition
 	Targets []targets.TargetID
 	Release Release
+	// Ticket is the Grab's Indexer, zero once the Indexer is deleted, and
+	// the grab Take reserved on it.
+	Ticket indexers.Ticket
 	// Node downloads the release: the Indexer's home Node until the fetch,
 	// then the Downloading Node the fetch handed the .torrent to.
 	Node role.NodeID
@@ -357,7 +355,8 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel related) (Grab, error) {
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
-		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
+		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
+		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
 	}

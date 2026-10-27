@@ -1,4 +1,4 @@
-import type { GrabsGrab, GrabsMetadataSearch } from "../api/gen/model";
+import type { GrabsFetchWait, GrabsGrab, GrabsMetadataSearch } from "../api/gen/model";
 import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { bytes, countWords, sinceWords } from "../format";
 import { useLiveRow } from "../live/torrents";
@@ -80,7 +80,14 @@ function MetadataCell({ search }: { search: GrabsMetadataSearch }) {
   );
 }
 
+function FetchWaitCell({ wait }: { wait: GrabsFetchWait }) {
+  return <span className="block max-w-[240px] text-meta text-ink-3">{wait.sentence}</span>;
+}
+
 export function ProgressCell({ grab }: { grab: GrabsGrab }) {
+  if (grab.fetchWait !== undefined) {
+    return <FetchWaitCell wait={grab.fetchWait} />;
+  }
   if (grab.metadata !== undefined) {
     return <MetadataCell search={grab.metadata} />;
   }

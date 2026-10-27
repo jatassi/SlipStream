@@ -62,7 +62,7 @@ function trackerSentence(row: Row, { clock }: Place): string {
   const { host } = trackerLine(row.tracker, clock);
   const tracker = row.tracker;
   if (tracker?.status === "unregistered") {
-    return `${host} reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another release.`;
+    return `${host} reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another Release.`;
   }
   const said =
     tracker?.message === undefined
@@ -110,8 +110,8 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
   switch (row.state) {
     case "failed":
       return row.error === undefined
-        ? "The torrent client stopped it. Remove it, then search for another release."
-        : `The torrent client stopped it with the error "${row.error}". Remove it, then search for another release.`;
+        ? "The torrent client stopped it. Remove it, then search for another Release."
+        : `The torrent client stopped it with the error "${row.error}". Remove it, then search for another Release.`;
     case "tracker-error":
       return trackerSentence(row, place);
     case "checking":
@@ -125,7 +125,7 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
     case "paused":
       return heldSentence(row, place);
     case "stalled":
-      return "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this release, mark it failed.";
+      return "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this Release, mark it failed.";
     case "downloading":
     case "seeding":
       return movingSentence(row, live);

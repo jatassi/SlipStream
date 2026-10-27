@@ -37,23 +37,29 @@ func defaultHome(r Roster) (role.NodeID, error) {
 // counts as signing in until its definition's session class is read.
 func holdsSession(idx Indexer) bool { return idx.Kind == Catalog }
 
+// portable reports whether idx's calls may go to a Node other than its
+// home: it is stateless or allows failover, and isn't waiting for home.
+func portable(idx Indexer, st Status) bool {
+	return (!holdsSession(idx) || idx.AllowFailover) && st.State != HomeOnly
+}
+
 // route is where one call for idx goes now, or the Waiting outcome: home
 // while home may take it; inside the offline grace, wait; past it, a
 // holder other than home, the Controller covering included, when idx is
-// stateless or allows failover and isn't waiting for home, else wait. The
-// stored home never changes. Pure over the roster.
-func route(r Roster, idx Indexer, st Status, session bool) (role.NodeID, *Outcome) {
+// portable, else wait. The stored home never changes. Pure over the
+// roster.
+func route(r Roster, idx Indexer, st Status) (role.NodeID, *Outcome) {
 	home := idx.Home
-	portable := (!session || idx.AllowFailover) && st.State != HomeOnly
+	moves := portable(idx, st)
 	if a, away := r.Away(role.Searching, home); away {
-		if a.Lapsed && portable {
+		if a.Lapsed && moves {
 			if to, ok := r.PickOther(role.Searching, home); ok {
 				return to, nil
 			}
 		}
 		return role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: a.Since, Lapsed: a.Lapsed}
 	}
-	if to, ok := r.Pick(role.Searching, home); ok && (to == home || portable) {
+	if to, ok := r.Pick(role.Searching, home); ok && (to == home || moves) {
 		return to, nil
 	}
 	return role.NodeID{}, &Outcome{Kind: Waiting, Node: home}
@@ -86,7 +92,7 @@ type Outcome struct {
 	Since  time.Time
 	Node   role.NodeID
 	Lapsed bool
-	// Cause and Text are set for stopped.
+	// Cause and Text are set for stopped, and Node is where it was met.
 	Cause Cause
 	Text  string
 }
@@ -98,7 +104,7 @@ type Outcome struct {
 func gate(idx Indexer, st Status, used Usage, r Roster, u Use, now time.Time) (role.NodeID, *Outcome) {
 	switch {
 	case st.State == Stopped:
-		return role.NodeID{}, &Outcome{Kind: IsStopped, Cause: st.Cause, Text: st.Text}
+		return role.NodeID{}, &Outcome{Kind: IsStopped, Cause: st.Cause, Text: st.Text, Node: st.Node}
 	case st.State == Limited && now.Before(st.Until):
 		return role.NodeID{}, &Outcome{Kind: IsLimited, Until: st.Until}
 	case st.State == Failing && now.Before(st.Until):
@@ -107,7 +113,7 @@ func gate(idx Indexer, st Status, used Usage, r Roster, u Use, now time.Time) (r
 	if until := used.free(u); now.Before(until) {
 		return role.NodeID{}, &Outcome{Kind: LimitReached, Until: until}
 	}
-	return route(r, idx, st, holdsSession(idx))
+	return route(r, idx, st)
 }
 
 func (u Usage) free(use Use) time.Time {

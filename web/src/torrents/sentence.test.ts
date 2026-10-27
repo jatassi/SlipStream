@@ -89,19 +89,19 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a stall offers the way out",
     { state: "stalled" },
     undefined,
-    "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this release, mark it failed.",
+    "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this Release, mark it failed.",
   ],
   [
     "the engine's words for a failure",
     { state: "failed", error: "no space left on device" },
     undefined,
-    'The torrent client stopped it with the error "no space left on device". Remove it, then search for another release.',
+    'The torrent client stopped it with the error "no space left on device". Remove it, then search for another Release.',
   ],
   [
     "an unregistered torrent",
     { state: "tracker-error", tracker: { host: "beacon.example", status: "unregistered" } },
     undefined,
-    "beacon.example reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another release.",
+    "beacon.example reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another Release.",
   ],
   [
     "a tracker's own words and its retry",

@@ -5,66 +5,62 @@ import { Data } from "../ui/data";
 import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
-import { useWaiting } from "./waiting";
 
 const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
-  grabbed: "Grabbed a release",
+  grabbed: "Grabbed a Release",
   nothing_acceptable: "Found nothing acceptable",
-  indexer_unavailable: "The Indexer didn't respond",
-  indexer_refused: "The Indexer refused the search",
 };
 
-const found = (count: number) => (count === 1 ? "1 release found" : `${count} releases found`);
+const found = (count: number) => (count === 1 ? "1 Release found" : `${count} Releases found`);
 
-function SearchRow({ search, waiting }: { search: GrabsSearch; waiting: string | undefined }) {
+function IndexerLines({ search }: { search: GrabsSearch }) {
+  return (
+    <ul aria-label="Indexers" className="flex flex-col gap-0.5 py-1 text-meta text-ink-3">
+      {search.indexers.map((line, at) => (
+        <li key={line.indexerId ?? at} className="flex flex-wrap gap-x-2">
+          <span className="text-ink-2">{line.name}</span>
+          <span>{line.sentence}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SearchRow({ search }: { search: GrabsSearch }) {
   const time = (
     <span className="text-meta">
       <Data>{clock(search.startedAt)}</Data>
     </span>
   );
-  if (search.outcome === null) {
-    return (
-      <ListRow
-        title="Searching"
-        trailing={
+  return (
+    <ListRow
+      title={search.outcome === null ? "Searching" : outcomeText[search.outcome]}
+      meta={search.outcome === null ? undefined : found(search.candidates)}
+      detail={search.indexers.length === 0 ? undefined : <IndexerLines search={search} />}
+      trailing={
+        search.outcome === null ? (
           <span className="flex items-center gap-3">
             <Spinner />
             {time}
           </span>
-        }
-      />
-    );
-  }
-  return (
-    <ListRow
-      title={outcomeText[search.outcome]}
-      meta={
-        search.outcome === "indexer_unavailable"
-          ? waiting
-          : search.outcome === "indexer_refused"
-            ? undefined
-            : found(search.candidates)
+        ) : (
+          time
+        )
       }
-      trailing={time}
     />
   );
 }
 
 export function Searches({ workId }: { workId: string }) {
   const { searches } = useListSearchesSuspense(workId).data;
-  const waiting = useWaiting();
   return (
     <Section title="Searches" count={searches.length}>
       {searches.length === 0 ? (
-        <p className="text-ink-3">No searches yet. Search looks for a release on every Indexer.</p>
+        <p className="text-ink-3">No searches yet. Search looks for a Release on every Indexer.</p>
       ) : (
         <List label="Searches">
           {searches.map((search) => (
-            <SearchRow
-              key={search.id}
-              search={search}
-              waiting={search.indexerId === null ? undefined : waiting.get(search.indexerId)}
-            />
+            <SearchRow key={search.id} search={search} />
           ))}
         </List>
       )}
