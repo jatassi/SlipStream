@@ -2339,6 +2339,9 @@ export type IndexersFailureOutput = zod.output<typeof IndexersFailure>;
 
 export const IndexersPin = zod.object({
   baseAddress: zod.string(),
+  fetchedAt: zod.iso
+    .datetime({ offset: true })
+    .describe("When SlipStream downloaded the pinned version"),
   id: zod.string(),
   values: zod
     .record(zod.string(), zod.string())

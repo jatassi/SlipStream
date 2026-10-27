@@ -941,6 +941,7 @@ export const getListIndexersResponseMock = (
       definition: faker.helpers.arrayElement([
         {
           baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
           values: {
             [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1113,6 +1114,7 @@ export const getCreateIndexerResponseMock = (
   definition: faker.helpers.arrayElement([
     {
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1287,6 +1289,7 @@ export const getGetIndexerResponseMock = (
   definition: faker.helpers.arrayElement([
     {
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1434,6 +1437,7 @@ export const getUpdateIndexerResponseMock = (
   definition: faker.helpers.arrayElement([
     {
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),

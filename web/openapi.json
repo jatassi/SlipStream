@@ -5096,6 +5096,11 @@
           "baseAddress": {
             "type": "string"
           },
+          "fetchedAt": {
+            "description": "When SlipStream downloaded the pinned version",
+            "format": "date-time",
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -5114,6 +5119,7 @@
         "required": [
           "id",
           "version",
+          "fetchedAt",
           "baseAddress",
           "values"
         ],

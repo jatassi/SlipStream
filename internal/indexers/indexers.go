@@ -128,7 +128,9 @@ const (
 // Definition is the definition version a catalog Indexer pins and its
 // plain settings.
 type Definition struct {
-	ID, SHA     string
+	ID, SHA string
+	// Fetched is when SlipStream downloaded the pinned version.
+	Fetched     time.Time
 	BaseAddress string
 	// Plain is the select and checkbox values and the username.
 	Plain map[string]string
@@ -403,7 +405,7 @@ func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	}
 	out := make([]Indexer, len(rows))
 	for i, row := range rows {
-		if out[i], err = indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.Pasted); err != nil {
+		if out[i], err = indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.DefinitionFetchedAt, row.Pasted); err != nil {
 			return nil, err
 		}
 	}
@@ -419,13 +421,13 @@ func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 	if err != nil {
 		return Indexer{}, err
 	}
-	return indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.Pasted)
+	return indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.DefinitionFetchedAt, row.Pasted)
 }
 
 // indexerOf is row as an Indexer, with its pinned definition's summary,
 // nil for a feed or a version that doesn't load, and whether a pasted
 // cookie is stored for it.
-func indexerOf(row db.IndexersIndexer, summary *string, pasted bool) (Indexer, error) {
+func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pasted bool) (Indexer, error) {
 	idx := Indexer{
 		ID: row.ID, Name: row.Name, Kind: Kind(row.Kind), Home: row.HomeNodeID, On: row.IsOn, AutoSearch: row.AutoSearch,
 		RSS: row.Rss, AllowFailover: row.AllowFailover, Priority: int(row.Priority),
@@ -434,7 +436,7 @@ func indexerOf(row db.IndexersIndexer, summary *string, pasted bool) (Indexer, e
 		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Pasted: pasted, Revision: row.Revision, Created: row.CreatedAt.Time(),
 	}
 	if row.DefinitionID != nil {
-		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), BaseAddress: deref(row.BaseAddress)}
+		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), Fetched: fetched.Time(), BaseAddress: deref(row.BaseAddress)}
 		if err := decode(row.Plain, &d.Plain); err != nil {
 			return Indexer{}, fmt.Errorf("indexer %s: plain: %w", row.ID, err)
 		}

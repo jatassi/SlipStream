@@ -26,13 +26,13 @@ UPDATE indexers_indexer SET
 WHERE id = sqlc.arg(id);
 
 -- name: ListIndexers :many
-SELECT sqlc.embed(i), d.summary AS definition_summary,
+SELECT sqlc.embed(i), d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 ORDER BY i.name;
 
 -- name: GetIndexer :one
-SELECT sqlc.embed(i), d.summary AS definition_summary,
+SELECT sqlc.embed(i), d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 WHERE i.id = sqlc.arg(id);

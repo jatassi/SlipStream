@@ -136,6 +136,7 @@ type outcome struct {
 type pin struct {
 	ID          string            `json:"id"`
 	Version     string            `json:"version" doc:"The pinned version's git blob sha"`
+	FetchedAt   time.Time         `json:"fetchedAt" doc:"When SlipStream downloaded the pinned version"`
 	BaseAddress string            `json:"baseAddress"`
 	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
 }
@@ -235,7 +236,7 @@ func indexerOf(v indexers.View) indexer {
 	case indexers.Definition:
 		values := map[string]string{}
 		maps.Copy(values, s.Plain)
-		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, BaseAddress: s.BaseAddress, Values: values})
+		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, FetchedAt: s.Fetched, BaseAddress: s.BaseAddress, Values: values})
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))

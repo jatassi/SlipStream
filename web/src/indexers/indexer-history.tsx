@@ -77,10 +77,18 @@ const words = (text: string): ReactNode => <span>{text}</span>;
 type Row = readonly [string, ReactNode];
 
 function machineryOf(indexer: IndexersIndexer, nodes: readonly NodesNode[]): Row[] {
-  const { status, feedHost } = indexer;
+  const { status, feedHost, definition } = indexer;
   const failure = status.lastFailure;
   return [
     ...(feedHost === null ? [] : [["Feed host", feedHost] as const]),
+    ...(definition === null
+      ? []
+      : [
+          [
+            "Definition",
+            words(`${definition.id}, the version from ${clock(definition.fetchedAt)}`),
+          ] as const,
+        ]),
     ["Session", words(sessionWords(indexer, nodes))],
     ["State", status.state],
     ["Backoff step", String(status.rung)],

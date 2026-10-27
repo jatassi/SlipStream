@@ -242,16 +242,17 @@ func (q *Queries) GetDefinition(ctx context.Context, arg GetDefinitionParams) (I
 }
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 WHERE i.id = ?1
 `
 
 type GetIndexerRow struct {
-	IndexersIndexer   IndexersIndexer
-	DefinitionSummary *string
-	Pasted            bool
+	IndexersIndexer     IndexersIndexer
+	DefinitionSummary   *string
+	DefinitionFetchedAt storage.Time
+	Pasted              bool
 }
 
 func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, error) {
@@ -288,6 +289,7 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, 
 		&i.IndexersIndexer.CreatedAt,
 		&i.IndexersIndexer.UpdatedAt,
 		&i.DefinitionSummary,
+		&i.DefinitionFetchedAt,
 		&i.Pasted,
 	)
 	return i, err
@@ -705,16 +707,17 @@ func (q *Queries) ListDefinitionKeys(ctx context.Context) ([]ListDefinitionKeysR
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 ORDER BY i.name
 `
 
 type ListIndexersRow struct {
-	IndexersIndexer   IndexersIndexer
-	DefinitionSummary *string
-	Pasted            bool
+	IndexersIndexer     IndexersIndexer
+	DefinitionSummary   *string
+	DefinitionFetchedAt storage.Time
+	Pasted              bool
 }
 
 func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
@@ -757,6 +760,7 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
 			&i.IndexersIndexer.CreatedAt,
 			&i.IndexersIndexer.UpdatedAt,
 			&i.DefinitionSummary,
+			&i.DefinitionFetchedAt,
 			&i.Pasted,
 		); err != nil {
 			return nil, err
