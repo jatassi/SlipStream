@@ -236,6 +236,7 @@ func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 			{Key: "torrent.listen", Value: "127.0.0.1:0", Default: "0.0.0.0:6881", Source: "env", Env: "SLIPSTREAM_TORRENT_LISTEN"},
 			{Key: "http.listen", Value: "127.0.0.1:0", Default: "[::]:8484", Source: "env", Env: "SLIPSTREAM_HTTP_LISTEN"},
 			{Key: "link.listen", Value: "127.0.0.1:0", Default: "[::]:8485", Source: "env", Env: "SLIPSTREAM_LINK_LISTEN"},
+			{Key: "endpoints.indexers.catalog", Value: "https://127.0.0.1:9/master", Default: "https://indexers.prowlarr.com/master", Source: "env", Env: "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG"},
 		}
 		if !slices.Equal(c.ready.Overrides, want) {
 			t.Errorf("overrides = %+v, want %+v", c.ready.Overrides, want)
