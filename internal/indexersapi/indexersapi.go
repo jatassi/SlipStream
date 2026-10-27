@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/newznab"
@@ -35,7 +36,7 @@ var (
 	indexerNameTaken   = api.NewCode(http.StatusConflict, "indexer_name_taken", "Another Indexer has that name")
 	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node holds Searching. Give one the Searching Role first.")
 	nodeNotSearching   = api.NewCode(http.StatusConflict, "node_not_searching", "That Node doesn't stand in Searching")
-	indexerTestFailed  = api.NewCode(http.StatusUnprocessableEntity, "indexer_test_failed", "The Indexer's Test failed")
+	indexerTestFailed  = api.NewCarrying[captchaImage](http.StatusUnprocessableEntity, "indexer_test_failed", "The Indexer's Test failed", "captcha")
 	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Test couldn't run")
 	indexerNotFound    = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )
@@ -45,7 +46,11 @@ func answer(x *indexers.Indexers, err error) error {
 	var wait *indexers.WaitError
 	var unavailable *indexers.UnavailableError
 	var refused *indexers.FeedRefusedError
+	var unrunnable *cardigann.Unrunnable
+	var value *indexers.ValueError
 	switch {
+	case errors.As(err, &failed) && failed.Captcha != nil:
+		return indexerTestFailed.Explained(failed.Sentence, captchaOf(*failed.Captcha))
 	case errors.As(err, &failed):
 		return indexerTestFailed.Because(failed.Sentence)
 	case errors.As(err, &refused):
@@ -64,6 +69,20 @@ func answer(x *indexers.Indexers, err error) error {
 		return api.Invalid.On("media", "Choose one or more of SlipStream's Content Types for the feed.")
 	case errors.Is(err, indexers.ErrCookie):
 		return api.Invalid.On("cookie.cookie", "Paste the cookie as name=value pairs separated by semicolons.")
+	case errors.Is(err, indexers.ErrCookieNeeded):
+		return api.Invalid.On("cookie", "Paste the cookie and User-Agent of a browser signed in to the site.")
+	case errors.Is(err, indexers.ErrNotALink):
+		return api.Invalid.On("baseAddress", "Choose one of the definition's addresses.")
+	case errors.As(err, &value):
+		return api.Invalid.On("values."+value.Field, value.Sentence)
+	case errors.Is(err, indexers.ErrCaptchaExpired):
+		return captchaExpired
+	case errors.Is(err, indexers.ErrNoCaptcha):
+		return captchaNotShown
+	case errors.Is(err, indexers.ErrCatalogUnavailable):
+		return catalogUnavailable
+	case errors.As(err, &unrunnable), errors.Is(err, indexers.ErrNoDefinition):
+		return catalogAnswer(err)
 	}
 	return err
 }
@@ -114,6 +133,13 @@ type outcome struct {
 	Text     *string    `json:"text" doc:"Set for stopped: the site's own words"`
 }
 
+type pin struct {
+	ID          string            `json:"id"`
+	Version     string            `json:"version" doc:"The pinned version's git blob sha"`
+	BaseAddress string            `json:"baseAddress"`
+	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
+}
+
 type session struct {
 	NodeID   string    `json:"nodeId" format:"uuid"`
 	Pasted   bool      `json:"pasted" doc:"Seeded from a browser cookie an Admin pasted"`
@@ -143,6 +169,7 @@ type indexer struct {
 	Waits           api.Nullable[outcome] `json:"waits" doc:"Why its searches wait now, null when they don't"`
 	Session         api.Nullable[session] `json:"session" doc:"Its newest session on any Node, null for none"`
 	FeedHost        *string               `json:"feedHost" doc:"The host of a feed's address, which is never returned"`
+	Definition      api.Nullable[pin]     `json:"definition" doc:"A catalog Indexer's definition; null for a feed"`
 	SearchModes     []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
 	Revision        int64                 `json:"revision" minimum:"1"`
 	CreatedAt       time.Time             `json:"createdAt"`
@@ -202,8 +229,13 @@ func indexerOf(v indexers.View) indexer {
 			out.Media = append(out.Media, string(m))
 		}
 	}
-	if f, ok := v.Source.(indexers.Feed); ok {
-		out.AllowNoSize = f.AllowNoSize
+	switch s := v.Source.(type) {
+	case indexers.Feed:
+		out.AllowNoSize = s.AllowNoSize
+	case indexers.Definition:
+		values := map[string]string{}
+		maps.Copy(values, s.Plain)
+		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, BaseAddress: s.BaseAddress, Values: values})
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))
@@ -248,23 +280,27 @@ type pastedCookie struct {
 }
 
 type newIndexer struct {
-	Kind            string        `json:"kind" enum:"torznab,rss" doc:"The kinds SlipStream can add so far"`
-	Name            string        `json:"name" minLength:"1" maxLength:"100"`
-	Address         string        `json:"address" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address. Write-only"`
-	APIKey          string        `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
-	TrackerName     string        `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
-	Media           []string      `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
-	AllowNoSize     bool          `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
-	Cookie          *pastedCookie `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one. Write-only"`
-	HomeNodeID      string        `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
-	On              bool          `json:"on,omitempty" default:"true"`
-	AutomaticSearch bool          `json:"automaticSearch,omitempty" default:"true"`
-	RSS             bool          `json:"rss,omitempty" default:"true"`
-	AllowFailover   bool          `json:"allowFailover,omitempty"`
-	Priority        int           `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
-	Categories      []int         `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
-	Searches        *limit        `json:"searches,omitempty"`
-	Grabs           *limit        `json:"grabs,omitempty"`
+	Kind            string            `json:"kind" enum:"catalog,torznab,rss"`
+	Name            string            `json:"name" minLength:"1" maxLength:"100"`
+	Definition      string            `json:"definition,omitempty" maxLength:"200" doc:"A catalog Indexer's definition id; required for one"`
+	BaseAddress     string            `json:"baseAddress,omitempty" maxLength:"2048" doc:"One of the definition's addresses; absent for its first"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only"`
+	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this draft"`
+	Address         string            `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only"`
+	APIKey          string            `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
+	TrackerName     string            `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
+	Media           []string          `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
+	AllowNoSize     bool              `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"`
+	HomeNodeID      string            `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
+	On              bool              `json:"on,omitempty" default:"true"`
+	AutomaticSearch bool              `json:"automaticSearch,omitempty" default:"true"`
+	RSS             bool              `json:"rss,omitempty" default:"true"`
+	AllowFailover   bool              `json:"allowFailover,omitempty"`
+	Priority        int               `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
+	Categories      []int             `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
+	Searches        *limit            `json:"searches,omitempty"`
+	Grabs           *limit            `json:"grabs,omitempty"`
 }
 
 func (n newIndexer) draft() (indexers.Draft, error) {
@@ -272,7 +308,8 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 		return indexers.Draft{}, err
 	}
 	d := indexers.Draft{
-		Kind: indexers.Kind(n.Kind), Name: n.Name, Address: n.Address, APIKey: n.APIKey, Tracker: n.TrackerName, Media: media(n.Media),
+		Kind: indexers.Kind(n.Kind), Name: n.Name, Definition: n.Definition, BaseAddress: n.BaseAddress, Values: n.Values,
+		Address: n.Address, APIKey: n.APIKey, Tracker: n.TrackerName, Media: media(n.Media),
 		AllowNoSize: n.AllowNoSize, Cookie: cookieIn(n.Cookie), On: n.On, AutoSearch: n.AutomaticSearch, RSS: n.RSS,
 		AllowFailover: n.AllowFailover, Priority: n.Priority, Categories: indexers.CategoriesOf(n.Categories),
 	}
@@ -292,31 +329,34 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 	return d, nil
 }
 
-// fitsKind refuses a field n's kind doesn't take.
+// misfit is a field that doesn't fit an Indexer's kind when wrong holds.
+type misfit struct {
+	field   string
+	wrong   bool
+	message string
+}
+
+// fitsKind refuses a field n's kind doesn't take, and one it needs that n
+// leaves out.
 func (n newIndexer) fitsKind() error {
+	catalog, rss := n.Kind == string(indexers.Catalog), n.Kind == string(indexers.RSS)
 	var errs []api.FieldError
-	refuse := func(field, message string) {
-		errs = append(errs, api.FieldError{Location: "body." + field, Message: message})
-	}
-	if n.Kind == string(indexers.RSS) {
-		if n.APIKey != "" {
-			refuse("apiKey", "An RSS feed takes no API key. Put a passkey in its address.")
-		}
-		if n.Categories != nil {
-			refuse("categories", "An RSS feed takes Content Types in place of categories.")
-		}
-		if n.TrackerName == "" {
-			refuse("trackerName", "Name the Tracker the RSS feed reaches.")
-		}
-	} else {
-		if n.Media != nil {
-			refuse("media", "A Torznab feed takes categories in place of Content Types.")
-		}
-		if n.AllowNoSize {
-			refuse("allowNoSize", "Only an RSS feed may have items with no size.")
-		}
-		if n.Cookie != nil {
-			refuse("cookie", "Only an RSS feed takes a cookie.")
+	for _, m := range []misfit{
+		{"definition", catalog && n.Definition == "", "Choose a definition from the Indexer catalog."},
+		{"address", catalog && n.Address != "", "A catalog Indexer takes one of its definition's addresses as baseAddress."},
+		{"apiKey", catalog && n.APIKey != "", "A catalog Indexer takes its API key as one of its values."},
+		{"trackerName", catalog && n.TrackerName != "", "A catalog Indexer's Tracker is named after its definition."},
+		{"definition", !catalog && (n.Definition != "" || n.BaseAddress != "" || n.Values != nil), "Only a catalog Indexer takes a definition, its addresses and its values."},
+		{"address", !catalog && n.Address == "", "Enter the feed's address."},
+		{"media", !rss && n.Media != nil, "Only an RSS feed takes Content Types in place of categories."},
+		{"allowNoSize", !rss && n.AllowNoSize, "Only an RSS feed may have items with no size."},
+		{"apiKey", rss && n.APIKey != "", "An RSS feed takes no API key. Put a passkey in its address."},
+		{"categories", rss && n.Categories != nil, "An RSS feed takes Content Types in place of categories."},
+		{"trackerName", rss && n.TrackerName == "", "Name the Tracker the RSS feed reaches."},
+		{"cookie", n.Kind == string(indexers.Torznab) && n.Cookie != nil, "A Torznab feed takes no cookie."},
+	} {
+		if m.wrong {
+			errs = append(errs, api.FieldError{Location: "body." + m.field, Message: m.message})
 		}
 	}
 	if errs != nil {
@@ -348,21 +388,24 @@ func limitIn(l limit) indexers.Limit {
 }
 
 type indexerEdit struct {
-	Name            *string          `json:"name,omitempty" minLength:"1" maxLength:"100"`
-	HomeNodeID      *string          `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching"`
-	Address         *string          `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"Write-only"`
-	APIKey          *string          `json:"apiKey,omitempty" maxLength:"256" doc:"Write-only"`
-	On              api.Patch[bool]  `json:"on,omitempty" doc:"Null resets it to on"`
-	AutomaticSearch api.Patch[bool]  `json:"automaticSearch,omitempty" doc:"Null resets it to on"`
-	RSS             api.Patch[bool]  `json:"rss,omitempty" doc:"Null resets it to on"`
-	AllowFailover   api.Patch[bool]  `json:"allowFailover,omitempty" doc:"Null resets it to off"`
-	Priority        api.Patch[int]   `json:"priority,omitempty" minimum:"1" maximum:"50" doc:"Null resets it to 25"`
-	Categories      api.Patch[[]int] `json:"categories,omitempty" doc:"Null for every category it advertises"`
-	Searches        api.Patch[limit] `json:"searches,omitempty" doc:"Null turns the limit off"`
-	Grabs           api.Patch[limit] `json:"grabs,omitempty" doc:"Null turns the limit off"`
-	Media           *[]string        `json:"media,omitempty" doc:"An RSS feed's Content Types"`
-	AllowNoSize     *bool            `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
-	Cookie          *pastedCookie    `json:"cookie,omitempty" doc:"A new browser cookie for an RSS feed. Write-only"`
+	Name            *string           `json:"name,omitempty" minLength:"1" maxLength:"100"`
+	HomeNodeID      *string           `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching"`
+	Address         *string           `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"Write-only"`
+	APIKey          *string           `json:"apiKey,omitempty" maxLength:"256" doc:"Write-only"`
+	On              api.Patch[bool]   `json:"on,omitempty" doc:"Null resets it to on"`
+	AutomaticSearch api.Patch[bool]   `json:"automaticSearch,omitempty" doc:"Null resets it to on"`
+	RSS             api.Patch[bool]   `json:"rss,omitempty" doc:"Null resets it to on"`
+	AllowFailover   api.Patch[bool]   `json:"allowFailover,omitempty" doc:"Null resets it to off"`
+	Priority        api.Patch[int]    `json:"priority,omitempty" minimum:"1" maximum:"50" doc:"Null resets it to 25"`
+	Categories      api.Patch[[]int]  `json:"categories,omitempty" doc:"Null for every category it advertises"`
+	Searches        api.Patch[limit]  `json:"searches,omitempty" doc:"Null turns the limit off"`
+	Grabs           api.Patch[limit]  `json:"grabs,omitempty" doc:"Null turns the limit off"`
+	Media           *[]string         `json:"media,omitempty" doc:"An RSS feed's Content Types"`
+	AllowNoSize     *bool             `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A new browser cookie. Write-only"`
+	BaseAddress     *string           `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value"`
+	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this Indexer, for the Test the change runs"`
 }
 
 // patched is p's value, def for null, nil when absent.
@@ -381,7 +424,7 @@ func (e indexerEdit) edit() (indexers.Edit, error) {
 		Name: e.Name, Address: e.Address, APIKey: e.APIKey,
 		On: patched(e.On, true), AutoSearch: patched(e.AutomaticSearch, true), RSS: patched(e.RSS, true),
 		AllowFailover: patched(e.AllowFailover, false), Priority: patched(e.Priority, indexers.DefaultPriority),
-		AllowNoSize: e.AllowNoSize, Cookie: cookieIn(e.Cookie),
+		AllowNoSize: e.AllowNoSize, Cookie: cookieIn(e.Cookie), BaseAddress: e.BaseAddress, Values: e.Values,
 	}
 	if e.Media != nil {
 		m := media(*e.Media)
@@ -475,7 +518,8 @@ type indexerListOutput struct{ Body indexerList }
 func Routes(r *api.Router, registry Registry) {
 	o := r.Owner("indexers", api.Admin)
 	h := handlers{registry}
-	tested := []*api.Code{indexerTestFailed, indexerUnavailable}
+	tested := []*api.Code{indexerTestFailed.Code, indexerUnavailable, captchaExpired}
+	drafted := append([]*api.Code{noSearchingNode, nodeNotSearching, definitionNotFound, catalogUnavailable, definitionUnloadable}, tested...)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "listIndexers", Method: http.MethodGet, Path: "/indexers", Summary: "List the Indexers", Status: http.StatusOK,
@@ -492,16 +536,16 @@ func Routes(r *api.Router, registry Registry) {
 		Path:    "/indexers",
 		Summary: "Add an Indexer once its Test passed on the Node it searches from",
 		Status:  http.StatusCreated,
-		Errors:  append([]*api.Code{indexerNameTaken, noSearchingNode, nodeNotSearching}, tested...),
+		Errors:  append([]*api.Code{indexerNameTaken}, drafted...),
 	}, h.createIndexer)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "updateIndexer",
 		Method:  http.MethodPatch,
 		Path:    "/indexers/{id}",
-		Summary: "Change an Indexer, testing it first when the change is to its home, address or API key",
+		Summary: "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings",
 		Status:  http.StatusOK,
-		Errors:  append([]*api.Code{indexerNotFound, indexerNameTaken, nodeNotSearching}, tested...),
+		Errors:  append([]*api.Code{indexerNotFound, indexerNameTaken, nodeNotSearching, definitionUnloadable}, tested...),
 	}, h.updateIndexer)
 
 	api.Register(o, api.Admin, api.Op{
@@ -528,8 +572,26 @@ func Routes(r *api.Router, registry Registry) {
 		Path:    "/indexers/test",
 		Summary: "Test an Indexer without saving it",
 		Status:  http.StatusOK,
-		Errors:  append([]*api.Code{noSearchingNode, nodeNotSearching}, tested...),
+		Errors:  drafted,
 	}, h.testIndexerDraft)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCaptchaDraft",
+		Method:  http.MethodPost,
+		Path:    "/indexers/captcha",
+		Summary: "Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from",
+		Status:  http.StatusOK,
+		Errors:  append([]*api.Code{captchaNotShown}, drafted...),
+	}, h.captchaDraft)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCaptcha",
+		Method:  http.MethodPost,
+		Path:    "/indexers/{id}/captcha",
+		Summary: "Load the captcha of an Indexer's sign-in, from the Node it searches from",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{indexerNotFound, captchaNotShown, indexerTestFailed.Code, indexerUnavailable},
+	}, h.captcha)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listIndexerQueries",
@@ -666,7 +728,7 @@ func (h handlers) createIndexer(ctx context.Context, by identity.Admin, in *crea
 		return nil, err
 	}
 	xs := open(h.registry)
-	v, err := xs.Create(ctx, by, d)
+	v, err := xs.Create(ctx, by, d, answerIn(in.Body.Captcha))
 	if err != nil {
 		return nil, answer(xs, err)
 	}
@@ -683,7 +745,7 @@ func (h handlers) updateIndexer(ctx context.Context, by identity.Admin, in *upda
 		return nil, err
 	}
 	xs := open(h.registry)
-	v, err := xs.Update(ctx, by, id, e)
+	v, err := xs.Update(ctx, by, id, e, answerIn(in.Body.Captcha))
 	if err != nil {
 		return nil, answer(xs, err)
 	}
@@ -699,13 +761,17 @@ func (h handlers) deleteIndexer(ctx context.Context, by identity.Admin, in *idIn
 	return nil, answer(xs, xs.Delete(ctx, by, id))
 }
 
-func (h handlers) testIndexer(ctx context.Context, by identity.Admin, in *idInput) (*reportOutput, error) {
+func (h handlers) testIndexer(ctx context.Context, by identity.Admin, in *testIndexerInput) (*reportOutput, error) {
 	id, err := parseID(in.ID)
 	if err != nil {
 		return nil, err
 	}
+	var c *indexers.CaptchaAnswer
+	if in.Body != nil {
+		c = answerIn(in.Body.Captcha)
+	}
 	xs := open(h.registry)
-	r, err := xs.Test(ctx, by, id)
+	r, err := xs.Test(ctx, by, id, c)
 	if err != nil {
 		return nil, answer(xs, err)
 	}
@@ -718,7 +784,7 @@ func (h handlers) testIndexerDraft(ctx context.Context, by identity.Admin, in *c
 		return nil, err
 	}
 	xs := open(h.registry)
-	r, err := xs.TestDraft(ctx, by, d)
+	r, err := xs.TestDraft(ctx, by, d, answerIn(in.Body.Captcha))
 	if err != nil {
 		return nil, answer(xs, err)
 	}

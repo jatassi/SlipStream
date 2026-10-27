@@ -141,7 +141,7 @@ func TestHeldSwarmCompletesWhenCleared(t *testing.T) {
 func TestA429FromTheIndexerLimitsOneSearch(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
-	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 1}, "status=429,retry-after=2s")
+	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "status=429,retry-after=2s")
 
 	first := w.searched(t, w.search(t))
 	lines := first.lines()

@@ -378,7 +378,7 @@ func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.xs.Update(f.ctx, admin, stopping, indexers.Edit{Priority: new(10)}); err != nil {
+	if _, err := f.xs.Update(f.ctx, admin, stopping, indexers.Edit{Priority: new(10)}, nil); err != nil {
 		t.Fatal(err)
 	}
 	rootstest.Root(t, f.lib, f.home, contenttypetest.ID, t.TempDir())

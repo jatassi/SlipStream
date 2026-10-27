@@ -1,8 +1,11 @@
 package setup
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,12 +42,86 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 	if err := goals(ctx, c, s.Library, controller, apiKey); err != nil {
 		return err
 	}
+	return addIndexers(ctx, c, s, claims, controller, sites[site.Fake.Name])
+}
+
+// addIndexers adds the Scenario's Indexers as an Admin would, each on its
+// site of fixture-site at at. Catalog Indexers wait for the Indexer
+// catalog's first refresh.
+func addIndexers(ctx context.Context, c *http.Client, s scenario.Scenario, claims Claims, controller string, at fake.Address) error {
+	if slices.ContainsFunc(s.Library.Indexers, func(ix scenario.LibraryIndexer) bool { return ix.Kind == "catalog" }) {
+		if err := catalogRefreshed(ctx, c, s, controller, claims.APIKey); err != nil {
+			return err
+		}
+	}
 	for _, ix := range s.Library.Indexers {
-		if _, err := nodeapi.CreateIndexer(ctx, c, controller, apiKey, ix.Name, site.URL(sites[ix.Site]), site.APIKey(s)); err != nil {
+		body := nodeapi.NewIndexer{Kind: ix.Kind, Name: ix.Name, AllowFailover: ix.AllowFailover}
+		if ix.Home != "" {
+			body.HomeNodeID = claims.Members[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == ix.Home })].ID
+		}
+		switch ix.Kind {
+		case "torznab":
+			body.Address, body.APIKey = site.URL(at), site.APIKey(s)
+		case "rss":
+			body.Address, body.TrackerName, body.Media = site.RSSURL(at, ""), ix.Tracker, ix.Media
+		case "catalog":
+			if err := catalogBody(ctx, c, s, ix, controller, claims.APIKey, &body); err != nil {
+				return err
+			}
+		}
+		if _, err := nodeapi.CreateIndexer(ctx, c, controller, claims.APIKey, body); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// catalogBody fills in body what an Admin enters for catalog Indexer ix:
+// its definition, the seed's credentials beside ix's settings, Cinder's
+// pasted cookie, and the code its captcha shows when its sign-in shows one.
+func catalogBody(ctx context.Context, c *http.Client, s scenario.Scenario, ix scenario.LibraryIndexer, controller, apiKey string, body *nodeapi.NewIndexer) error {
+	values, cookie := site.Credentials(s, ix.Site, s.Home(ix))
+	maps.Copy(values, ix.Settings)
+	body.Definition, body.Values = cmp.Or(ix.Definition, ix.Site), values
+	if cookie != "" {
+		body.Cookie = &nodeapi.PastedCookie{Cookie: cookie, UserAgent: site.BrowserUserAgent}
+	}
+	captcha, err := nodeapi.SignInCaptcha(ctx, c, controller, apiKey, body.Definition)
+	if err != nil || !captcha {
+		return err
+	}
+	body.Captcha, err = answered(ctx, c, controller, apiKey, *body)
+	return err
+}
+
+// catalogRefreshed waits for the Indexer catalog's first refresh, which
+// the Controller runs at start, on the Admin's event stream.
+func catalogRefreshed(ctx context.Context, c *http.Client, s scenario.Scenario, controller, apiKey string) error {
+	if s.Admin == nil {
+		return errors.New("wait for the Indexer catalog: the Scenario has no Admin to read the event stream as")
+	}
+	session, err := nodeapi.SignIn(ctx, c, controller, s.Admin.Email, s.Admin.PIN)
+	if err != nil {
+		return err
+	}
+	if err := nodeapi.AwaitCatalog(ctx, c, controller, apiKey, session); err != nil {
+		return err
+	}
+	return nodeapi.SignOut(ctx, c, controller, session)
+}
+
+// answered is the answer to a captcha of ix's sign-in: the code its image
+// shows, as an Admin types it.
+func answered(ctx context.Context, c *http.Client, controller, apiKey string, ix nodeapi.NewIndexer) (*nodeapi.CaptchaAnswer, error) {
+	attempt, img, err := nodeapi.IndexerCaptcha(ctx, c, controller, apiKey, ix)
+	if err != nil {
+		return nil, err
+	}
+	code, err := site.CaptchaText(img)
+	if err != nil {
+		return nil, fmt.Errorf("read Indexer %s's captcha: %w", ix.Name, err)
+	}
+	return &nodeapi.CaptchaAnswer{Attempt: attempt, Answer: code}, nil
 }
 
 // goals creates lib's Targets, replacing the rules of one whose name a

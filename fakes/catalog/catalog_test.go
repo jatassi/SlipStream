@@ -26,7 +26,10 @@ func base(f faketest.Served) string { return f.Address.URL(catalog.Base) }
 func TestFakeCatalogConforms(t *testing.T) {
 	inBothTiers(t, func(t *testing.T, f faketest.Served) {
 		r := conformance.Run(t, conformance.Target{Base: base(f), Client: f.Client})
-		want := map[string]cardigann.LoginClass{"larkspur": cardigann.SessionLogin, "quarry": cardigann.StatelessLogin, "cinder": cardigann.SessionLogin}
+		want := map[string]cardigann.LoginClass{
+			"larkspur": cardigann.SessionLogin, "quarry": cardigann.StatelessLogin, "cinder": cardigann.SessionLogin,
+			"marsh": cardigann.SessionLogin, "ferry": cardigann.SessionLogin,
+		}
 		for id, class := range want {
 			if got, ok := r.Classes[id]; !ok || got != class {
 				t.Errorf("%s loads with class %v (%t), want %v", id, got, ok, class)

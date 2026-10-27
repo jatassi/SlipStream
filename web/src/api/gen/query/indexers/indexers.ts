@@ -23,10 +23,13 @@ import type {
   AddCustomDefinition500,
   CreateIndexer401,
   CreateIndexer403,
+  CreateIndexer404,
   CreateIndexer409,
+  CreateIndexer410,
   CreateIndexer422,
   CreateIndexer500,
   CreateIndexer502,
+  CreateIndexer503,
   DeleteCustomDefinition401,
   DeleteCustomDefinition403,
   DeleteCustomDefinition404,
@@ -52,6 +55,22 @@ import type {
   GetIndexer409,
   GetIndexer422,
   GetIndexer500,
+  GetIndexerCaptcha401,
+  GetIndexerCaptcha403,
+  GetIndexerCaptcha404,
+  GetIndexerCaptcha409,
+  GetIndexerCaptcha422,
+  GetIndexerCaptcha500,
+  GetIndexerCaptcha502,
+  GetIndexerCaptchaDraft401,
+  GetIndexerCaptchaDraft403,
+  GetIndexerCaptchaDraft404,
+  GetIndexerCaptchaDraft409,
+  GetIndexerCaptchaDraft410,
+  GetIndexerCaptchaDraft422,
+  GetIndexerCaptchaDraft500,
+  GetIndexerCaptchaDraft502,
+  GetIndexerCaptchaDraft503,
   GetIndexerCatalog401,
   GetIndexerCatalog403,
   GetIndexerCatalog409,
@@ -66,6 +85,7 @@ import type {
   GetTracker409,
   GetTracker422,
   GetTracker500,
+  IndexersCaptchaImage,
   IndexersCatalogAddress,
   IndexersCatalogEntry,
   IndexersCustomDefinition,
@@ -79,6 +99,7 @@ import type {
   IndexersReport,
   IndexersSettings,
   IndexersSettingsChange,
+  IndexersTestBody,
   IndexersTracker,
   IndexersTrackerList,
   ListIndexerQueries401,
@@ -119,19 +140,24 @@ import type {
   TestIndexer403,
   TestIndexer404,
   TestIndexer409,
+  TestIndexer410,
   TestIndexer422,
   TestIndexer500,
   TestIndexer502,
   TestIndexerDraft401,
   TestIndexerDraft403,
+  TestIndexerDraft404,
   TestIndexerDraft409,
+  TestIndexerDraft410,
   TestIndexerDraft422,
   TestIndexerDraft500,
   TestIndexerDraft502,
+  TestIndexerDraft503,
   UpdateIndexer401,
   UpdateIndexer403,
   UpdateIndexer404,
   UpdateIndexer409,
+  UpdateIndexer410,
   UpdateIndexer422,
   UpdateIndexer500,
   UpdateIndexer502,
@@ -1226,10 +1252,13 @@ export const getCreateIndexerMutationOptions = <
   TError = ErrorType<
     | CreateIndexer401
     | CreateIndexer403
+    | CreateIndexer404
     | CreateIndexer409
+    | CreateIndexer410
     | CreateIndexer422
     | CreateIndexer500
     | CreateIndexer502
+    | CreateIndexer503
   >,
   TContext = unknown,
 >(options?: {
@@ -1270,10 +1299,13 @@ export type CreateIndexerMutationBody = IndexersNewIndexer;
 export type CreateIndexerMutationError = ErrorType<
   | CreateIndexer401
   | CreateIndexer403
+  | CreateIndexer404
   | CreateIndexer409
+  | CreateIndexer410
   | CreateIndexer422
   | CreateIndexer500
   | CreateIndexer502
+  | CreateIndexer503
 >;
 export type CreateIndexerMutationVariables = { data: IndexersNewIndexer };
 
@@ -1284,10 +1316,13 @@ export const useCreateIndexer = <
   TError = ErrorType<
     | CreateIndexer401
     | CreateIndexer403
+    | CreateIndexer404
     | CreateIndexer409
+    | CreateIndexer410
     | CreateIndexer422
     | CreateIndexer500
     | CreateIndexer502
+    | CreateIndexer503
   >,
   TContext = unknown,
 >(
@@ -1308,6 +1343,144 @@ export const useCreateIndexer = <
   TContext
 > => {
   return useMutation(getCreateIndexerMutationOptions(options), queryClient);
+};
+export const getGetIndexerCaptchaDraftUrl = () => {
+  return `/api/v1/indexers/captcha`;
+};
+
+/**
+ * @summary Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from
+ */
+export const getIndexerCaptchaDraft = async (
+  indexersNewIndexer: IndexersNewIndexer,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersCaptchaImage> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersCaptchaImage>(getGetIndexerCaptchaDraftUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersNewIndexer),
+  });
+};
+
+export const getGetIndexerCaptchaDraftMutationKey = () => ["getIndexerCaptchaDraft"] as const;
+
+export const getGetIndexerCaptchaDraftMutationOptions = <
+  TError = ErrorType<
+    | GetIndexerCaptchaDraft401
+    | GetIndexerCaptchaDraft403
+    | GetIndexerCaptchaDraft404
+    | GetIndexerCaptchaDraft409
+    | GetIndexerCaptchaDraft410
+    | GetIndexerCaptchaDraft422
+    | GetIndexerCaptchaDraft500
+    | GetIndexerCaptchaDraft502
+    | GetIndexerCaptchaDraft503
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+    TError,
+    GetIndexerCaptchaDraftMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+  TError,
+  GetIndexerCaptchaDraftMutationVariables,
+  TContext
+> => {
+  const mutationKey = getGetIndexerCaptchaDraftMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+    GetIndexerCaptchaDraftMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getIndexerCaptchaDraft(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetIndexerCaptchaDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getIndexerCaptchaDraft>>
+>;
+export type GetIndexerCaptchaDraftMutationBody = IndexersNewIndexer;
+export type GetIndexerCaptchaDraftMutationError = ErrorType<
+  | GetIndexerCaptchaDraft401
+  | GetIndexerCaptchaDraft403
+  | GetIndexerCaptchaDraft404
+  | GetIndexerCaptchaDraft409
+  | GetIndexerCaptchaDraft410
+  | GetIndexerCaptchaDraft422
+  | GetIndexerCaptchaDraft500
+  | GetIndexerCaptchaDraft502
+  | GetIndexerCaptchaDraft503
+>;
+export type GetIndexerCaptchaDraftMutationVariables = { data: IndexersNewIndexer };
+
+/**
+ * @summary Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from
+ */
+export const useGetIndexerCaptchaDraft = <
+  TError = ErrorType<
+    | GetIndexerCaptchaDraft401
+    | GetIndexerCaptchaDraft403
+    | GetIndexerCaptchaDraft404
+    | GetIndexerCaptchaDraft409
+    | GetIndexerCaptchaDraft410
+    | GetIndexerCaptchaDraft422
+    | GetIndexerCaptchaDraft500
+    | GetIndexerCaptchaDraft502
+    | GetIndexerCaptchaDraft503
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+      TError,
+      GetIndexerCaptchaDraftMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+  TError,
+  GetIndexerCaptchaDraftMutationVariables,
+  TContext
+> => {
+  return useMutation(getGetIndexerCaptchaDraftMutationOptions(options), queryClient);
 };
 export const getTestIndexerDraftUrl = () => {
   return `/api/v1/indexers/test`;
@@ -1353,10 +1526,13 @@ export const getTestIndexerDraftMutationOptions = <
   TError = ErrorType<
     | TestIndexerDraft401
     | TestIndexerDraft403
+    | TestIndexerDraft404
     | TestIndexerDraft409
+    | TestIndexerDraft410
     | TestIndexerDraft422
     | TestIndexerDraft500
     | TestIndexerDraft502
+    | TestIndexerDraft503
   >,
   TContext = unknown,
 >(options?: {
@@ -1399,10 +1575,13 @@ export type TestIndexerDraftMutationBody = IndexersNewIndexer;
 export type TestIndexerDraftMutationError = ErrorType<
   | TestIndexerDraft401
   | TestIndexerDraft403
+  | TestIndexerDraft404
   | TestIndexerDraft409
+  | TestIndexerDraft410
   | TestIndexerDraft422
   | TestIndexerDraft500
   | TestIndexerDraft502
+  | TestIndexerDraft503
 >;
 export type TestIndexerDraftMutationVariables = { data: IndexersNewIndexer };
 
@@ -1413,10 +1592,13 @@ export const useTestIndexerDraft = <
   TError = ErrorType<
     | TestIndexerDraft401
     | TestIndexerDraft403
+    | TestIndexerDraft404
     | TestIndexerDraft409
+    | TestIndexerDraft410
     | TestIndexerDraft422
     | TestIndexerDraft500
     | TestIndexerDraft502
+    | TestIndexerDraft503
   >,
   TContext = unknown,
 >(
@@ -1671,7 +1853,7 @@ export const getUpdateIndexerUrl = (id: string) => {
 };
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address or API key
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
  */
 export const updateIndexer = async (
   id: string,
@@ -1713,6 +1895,7 @@ export const getUpdateIndexerMutationOptions = <
     | UpdateIndexer403
     | UpdateIndexer404
     | UpdateIndexer409
+    | UpdateIndexer410
     | UpdateIndexer422
     | UpdateIndexer500
     | UpdateIndexer502
@@ -1758,6 +1941,7 @@ export type UpdateIndexerMutationError = ErrorType<
   | UpdateIndexer403
   | UpdateIndexer404
   | UpdateIndexer409
+  | UpdateIndexer410
   | UpdateIndexer422
   | UpdateIndexer500
   | UpdateIndexer502
@@ -1765,7 +1949,7 @@ export type UpdateIndexerMutationError = ErrorType<
 export type UpdateIndexerMutationVariables = { id: string; data: IndexersIndexerEdit };
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address or API key
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
  */
 export const useUpdateIndexer = <
   TError = ErrorType<
@@ -1773,6 +1957,7 @@ export const useUpdateIndexer = <
     | UpdateIndexer403
     | UpdateIndexer404
     | UpdateIndexer409
+    | UpdateIndexer410
     | UpdateIndexer422
     | UpdateIndexer500
     | UpdateIndexer502
@@ -1796,6 +1981,117 @@ export const useUpdateIndexer = <
   TContext
 > => {
   return useMutation(getUpdateIndexerMutationOptions(options), queryClient);
+};
+export const getGetIndexerCaptchaUrl = (id: string) => {
+  return `/api/v1/indexers/${id}/captcha`;
+};
+
+/**
+ * @summary Load the captcha of an Indexer's sign-in, from the Node it searches from
+ */
+export const getIndexerCaptcha = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersCaptchaImage> => {
+  return apiFetch<IndexersCaptchaImage>(getGetIndexerCaptchaUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGetIndexerCaptchaMutationKey = () => ["getIndexerCaptcha"] as const;
+
+export const getGetIndexerCaptchaMutationOptions = <
+  TError = ErrorType<
+    | GetIndexerCaptcha401
+    | GetIndexerCaptcha403
+    | GetIndexerCaptcha404
+    | GetIndexerCaptcha409
+    | GetIndexerCaptcha422
+    | GetIndexerCaptcha500
+    | GetIndexerCaptcha502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getIndexerCaptcha>>,
+    TError,
+    GetIndexerCaptchaMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getIndexerCaptcha>>,
+  TError,
+  GetIndexerCaptchaMutationVariables,
+  TContext
+> => {
+  const mutationKey = getGetIndexerCaptchaMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getIndexerCaptcha>>,
+    GetIndexerCaptchaMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return getIndexerCaptcha(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetIndexerCaptchaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getIndexerCaptcha>>
+>;
+
+export type GetIndexerCaptchaMutationError = ErrorType<
+  | GetIndexerCaptcha401
+  | GetIndexerCaptcha403
+  | GetIndexerCaptcha404
+  | GetIndexerCaptcha409
+  | GetIndexerCaptcha422
+  | GetIndexerCaptcha500
+  | GetIndexerCaptcha502
+>;
+export type GetIndexerCaptchaMutationVariables = { id: string };
+
+/**
+ * @summary Load the captcha of an Indexer's sign-in, from the Node it searches from
+ */
+export const useGetIndexerCaptcha = <
+  TError = ErrorType<
+    | GetIndexerCaptcha401
+    | GetIndexerCaptcha403
+    | GetIndexerCaptcha404
+    | GetIndexerCaptcha409
+    | GetIndexerCaptcha422
+    | GetIndexerCaptcha500
+    | GetIndexerCaptcha502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof getIndexerCaptcha>>,
+      TError,
+      GetIndexerCaptchaMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof getIndexerCaptcha>>,
+  TError,
+  GetIndexerCaptchaMutationVariables,
+  TContext
+> => {
+  return useMutation(getGetIndexerCaptchaMutationOptions(options), queryClient);
 };
 export const getListIndexerQueriesUrl = (id: string, params?: ListIndexerQueriesParams) => {
   const normalizedParams = new URLSearchParams();
@@ -1988,11 +2284,33 @@ export const getTestIndexerUrl = (id: string) => {
  */
 export const testIndexer = async (
   id: string,
+  indexersTestBody?: IndexersTestBody,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<IndexersReport> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return apiFetch<IndexersReport>(getTestIndexerUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersTestBody),
   });
 };
 
@@ -2004,6 +2322,7 @@ export const getTestIndexerMutationOptions = <
     | TestIndexer403
     | TestIndexer404
     | TestIndexer409
+    | TestIndexer410
     | TestIndexer422
     | TestIndexer500
     | TestIndexer502
@@ -2034,26 +2353,27 @@ export const getTestIndexerMutationOptions = <
     Awaited<ReturnType<typeof testIndexer>>,
     TestIndexerMutationVariables
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return testIndexer(id, requestOptions);
+    return testIndexer(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
 export type TestIndexerMutationResult = NonNullable<Awaited<ReturnType<typeof testIndexer>>>;
-
+export type TestIndexerMutationBody = IndexersTestBody | undefined;
 export type TestIndexerMutationError = ErrorType<
   | TestIndexer401
   | TestIndexer403
   | TestIndexer404
   | TestIndexer409
+  | TestIndexer410
   | TestIndexer422
   | TestIndexer500
   | TestIndexer502
 >;
-export type TestIndexerMutationVariables = { id: string };
+export type TestIndexerMutationVariables = { id: string; data?: IndexersTestBody };
 
 /**
  * @summary Test an Indexer from the Node it searches from. A pass clears its backoff and any stop.
@@ -2064,6 +2384,7 @@ export const useTestIndexer = <
     | TestIndexer403
     | TestIndexer404
     | TestIndexer409
+    | TestIndexer410
     | TestIndexer422
     | TestIndexer500
     | TestIndexer502

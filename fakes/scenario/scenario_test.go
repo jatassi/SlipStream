@@ -39,7 +39,7 @@ func movieLibrary() *Library {
 	return &Library{
 		StorageLevels: &LibraryLevels{},
 		Roots:         []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
-		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
+		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Kind: "torznab", Site: "torznab"}},
 	}
 }
 
@@ -87,7 +87,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (cgnat-home, first-run, home, low-space, magnets, movies, music, serving, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, first-run, home, low-space, magnets, movies, music, serving, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
@@ -342,7 +342,8 @@ library:
       folder: movies
   indexers:
     - name: Fixture Site
-      site: fixture-site
+      kind: torznab
+      site: torznab
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)

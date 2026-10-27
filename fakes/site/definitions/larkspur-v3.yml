@@ -90,3 +90,10 @@ search:
       text: 1
     uploadvolumefactor:
       text: 1
+
+download:
+  before:
+    path: thanks.php
+    method: post
+    inputs:
+      id: "{{ .DownloadUri.Query.id }}"

@@ -93,7 +93,7 @@ func TestEachRSSPlayLandsInItsTest(t *testing.T) {
 		{fault.Malformed{}, "*searching.Failing read the feed: failed to detect feed type"},
 		{fault.Status{Code: 503}, "*searching.Failing the Indexer responded with status 503"},
 	} {
-		if _, err := f.Faults.Set(fault.Rule{ID: "feed", Target: fault.Target(site.Fake.Name), Route: "rss", Fault: tc.fault}); err != nil {
+		if _, err := f.Faults.Set(fault.Rule{ID: "feed", Target: fault.Target(site.Fake.Name), Route: "brook.rss", Fault: tc.fault}); err != nil {
 			t.Fatal(err)
 		}
 		other := searchingNode(f)
@@ -185,19 +185,19 @@ func TestAnRSSFeedIsAddedWithItsCookieAndReading(t *testing.T) {
 		cookie := *brook.Cookie
 		d.Cookie = &cookie
 		tc.edit(&d)
-		if _, err := x.Create(t.Context(), identity.Admin{}, d); err == nil || err.Error() != tc.want {
+		if _, err := x.Create(t.Context(), identity.Admin{}, d, nil); err == nil || err.Error() != tc.want {
 			t.Errorf("Create = %v, want %s", err, tc.want)
 		}
 	}
 	d := brook
 	d.Address = site.RSSURL(f.Address, site.PlayNoSize)
-	_, err := x.Create(t.Context(), identity.Admin{}, d)
+	_, err := x.Create(t.Context(), identity.Admin{}, d, nil)
 	var refused *indexers.FeedRefusedError
 	if want := "Some items have no size. Turn on Allow items with no size to use the feed anyway."; !errors.As(err, &refused) || refused.Sentence != want {
 		t.Fatalf("Create of a feed with no sizes = %v, want %q", err, want)
 	}
 
-	v, err := x.Create(t.Context(), identity.Admin{}, brook)
+	v, err := x.Create(t.Context(), identity.Admin{}, brook, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

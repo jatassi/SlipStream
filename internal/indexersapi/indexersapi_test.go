@@ -153,7 +153,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
 		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
-		`"waits":null,"session":null,"feedHost":"` + feedHost + `",` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
+		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
 }
 
 const on = `"on":true,"automaticSearch":true,"rss":true,"allowFailover":false`

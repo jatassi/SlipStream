@@ -4054,6 +4054,51 @@
         ],
         "type": "object"
       },
+      "IndexersCaptchaAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "description": "The code the captcha shows",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "attempt": {
+            "description": "The attempt the captcha was loaded with",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "answer"
+        ],
+        "type": "object"
+      },
+      "IndexersCaptchaImage": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "description": "Send it back with the code the image shows",
+            "type": "string"
+          },
+          "expiresAt": {
+            "description": "When the attempt closes. Load a new captcha after it.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "image": {
+            "description": "The captcha as a data URL",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "image",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
       "IndexersCatalogAddress": {
         "additionalProperties": false,
         "properties": {
@@ -4256,6 +4301,10 @@
             "description": "Signing in asks for an image captcha",
             "type": "boolean"
           },
+          "cookie": {
+            "description": "Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field",
+            "type": "boolean"
+          },
           "entry": {
             "$ref": "#/components/schemas/IndexersCatalogEntry"
           },
@@ -4288,7 +4337,8 @@
           "fields",
           "session",
           "captcha",
-          "solver"
+          "solver",
+          "cookie"
         ],
         "type": "object"
       },
@@ -4337,6 +4387,17 @@
           "createdAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersPin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A catalog Indexer's definition; null for a feed"
           },
           "feedHost": {
             "description": "The host of a feed's address, which is never returned",
@@ -4477,6 +4538,7 @@
           "waits",
           "session",
           "feedHost",
+          "definition",
           "searchModes",
           "revision",
           "createdAt"
@@ -4566,6 +4628,15 @@
               "null"
             ]
           },
+          "baseAddress": {
+            "description": "A catalog Indexer's: one of its definition's addresses",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "captcha": {
+            "$ref": "#/components/schemas/IndexersCaptchaAnswer",
+            "description": "The answer to a captcha loaded for this Indexer, for the Test the change runs"
+          },
           "categories": {
             "description": "Null for every category it advertises",
             "items": {
@@ -4579,7 +4650,7 @@
           },
           "cookie": {
             "$ref": "#/components/schemas/IndexersPastedCookie",
-            "description": "A new browser cookie for an RSS feed. Write-only"
+            "description": "A new browser cookie. Write-only"
           },
           "grabs": {
             "anyOf": [
@@ -4643,6 +4714,13 @@
               }
             ],
             "description": "Null turns the limit off"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
+            "type": "object"
           }
         },
         "type": "object"
@@ -4731,7 +4809,7 @@
         "additionalProperties": false,
         "properties": {
           "address": {
-            "description": "A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address. Write-only",
+            "description": "A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only",
             "maxLength": 2048,
             "pattern": "^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$",
             "type": "string"
@@ -4752,6 +4830,15 @@
             "default": true,
             "type": "boolean"
           },
+          "baseAddress": {
+            "description": "One of the definition's addresses; absent for its first",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "captcha": {
+            "$ref": "#/components/schemas/IndexersCaptchaAnswer",
+            "description": "The answer to a captcha loaded for this draft"
+          },
           "categories": {
             "description": "Newznab category ids; absent for every category it advertises",
             "items": {
@@ -4765,7 +4852,12 @@
           },
           "cookie": {
             "$ref": "#/components/schemas/IndexersPastedCookie",
-            "description": "A browser cookie for an RSS feed that needs one. Write-only"
+            "description": "A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"
+          },
+          "definition": {
+            "description": "A catalog Indexer's definition id; required for one",
+            "maxLength": 200,
+            "type": "string"
           },
           "grabs": {
             "$ref": "#/components/schemas/IndexersLimit"
@@ -4776,8 +4868,8 @@
             "type": "string"
           },
           "kind": {
-            "description": "The kinds SlipStream can add so far",
             "enum": [
+              "catalog",
               "torznab",
               "rss"
             ],
@@ -4820,12 +4912,18 @@
             "description": "The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name",
             "maxLength": 100,
             "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only",
+            "type": "object"
           }
         },
         "required": [
           "kind",
-          "name",
-          "address"
+          "name"
         ],
         "type": "object"
       },
@@ -4940,6 +5038,35 @@
         },
         "required": [
           "cookie"
+        ],
+        "type": "object"
+      },
+      "IndexersPin": {
+        "additionalProperties": false,
+        "properties": {
+          "baseAddress": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The settings saved in plain, by name. Sealed settings are never returned",
+            "type": "object"
+          },
+          "version": {
+            "description": "The pinned version's git blob sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "baseAddress",
+          "values"
         ],
         "type": "object"
       },
@@ -5259,6 +5386,16 @@
         "required": [
           "indexerId"
         ],
+        "type": "object"
+      },
+      "IndexersTestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "captcha": {
+            "$ref": "#/components/schemas/IndexersCaptchaAnswer",
+            "description": "The answer to a captcha loaded for this Indexer"
+          }
+        },
         "type": "object"
       },
       "IndexersTracker": {
@@ -22340,6 +22477,31 @@
             },
             "description": "Forbidden"
           },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
           "409": {
             "content": {
               "application/problem+json": {
@@ -22368,7 +22530,7 @@
             },
             "description": "Conflict"
           },
-          "422": {
+          "410": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22380,6 +22542,35 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "definition_unloadable",
                             "indexer_test_failed",
                             "invalid"
                           ],
@@ -22443,6 +22634,31 @@
               }
             },
             "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "security": [
@@ -22456,6 +22672,283 @@
           }
         ],
         "summary": "Add an Indexer once its Test passed on the Node it searches from",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/captcha": {
+      "post": {
+        "operationId": "getIndexerCaptchaDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersNewIndexer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersCaptchaImage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_searching_node",
+                            "node_not_searching",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "captcha_not_shown",
+                            "definition_unloadable",
+                            "indexer_test_failed",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from",
         "tags": [
           "indexers"
         ],
@@ -22538,6 +23031,31 @@
             },
             "description": "Forbidden"
           },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
           "409": {
             "content": {
               "application/problem+json": {
@@ -22565,7 +23083,7 @@
             },
             "description": "Conflict"
           },
-          "422": {
+          "410": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22577,6 +23095,35 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "definition_unloadable",
                             "indexer_test_failed",
                             "invalid"
                           ],
@@ -22640,6 +23187,31 @@
               }
             },
             "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "security": [
@@ -23177,7 +23749,7 @@
             },
             "description": "Conflict"
           },
-          "422": {
+          "410": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23189,6 +23761,35 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "definition_unloadable",
                             "indexer_test_failed",
                             "invalid"
                           ],
@@ -23264,7 +23865,232 @@
             "apiKey": []
           }
         ],
-        "summary": "Change an Indexer, testing it first when the change is to its home, address or API key",
+        "summary": "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/{id}/captcha": {
+      "post": {
+        "operationId": "getIndexerCaptcha",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersCaptchaImage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "captcha_not_shown",
+                            "indexer_test_failed",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Load the captcha of an Indexer's sign-in, from the Node it searches from",
         "tags": [
           "indexers"
         ],
@@ -23492,6 +24318,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersTestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -23605,6 +24440,31 @@
             },
             "description": "Conflict"
           },
+          "410": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -23615,6 +24475,9 @@
                     },
                     {
                       "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
                         "code": {
                           "enum": [
                             "indexer_test_failed",

@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/magnet"
 )
 
@@ -25,9 +25,12 @@ type Site struct {
 	APIKey     string
 	Categories []int
 	RSS        RSSReading
-	svc        *Service
-	run        *run
-	slot       *slot
+	// def is a catalog Indexer's definition, and delay its request delay.
+	def   *cardigann.Definition
+	delay time.Duration
+	svc   *Service
+	run   *run
+	slot  *slot
 }
 
 // Purpose is what a request fetches, which sets its body cap.
@@ -54,26 +57,56 @@ type Response struct {
 	Status int
 	Header http.Header
 	Body   []byte
+	// URL is where the response came from, after any redirect.
+	URL *url.URL
 	// Magnet is the magnet link the request redirected to, zero otherwise.
 	Magnet Link
+	// Cookies is whether the request carried any of the session's cookies.
+	Cookies bool
 }
 
-// Do sends req through this Node's transport. It waits for the host's
-// turn, caps the body, follows at most 10 redirects to any host, stopping
-// at one to a magnet link, and turns a 429 into *Limited and a 5xx, a
-// timeout or a connection failure into *Failing. It returns any other
-// response for the driver to read. Credentials go only where the driver
-// puts them, cookies only to their own hosts, and neither its errors nor
-// its log lines carry the URL.
+// Do sends req through this Node's transport with the Indexer's session
+// on this Node: its cookies, each only to its own host, and its
+// User-Agent. A cookie a response sets joins the session. It waits for
+// the host's turn, caps the body, follows at most 10 redirects to any
+// host, stopping at one to a magnet link, and turns a browser challenge
+// into *Stopped, a 429 into *Limited and a 5xx, a timeout or a connection
+// failure into *Failing. It returns any other response for the driver to
+// read. Credentials go only where the driver puts them, and neither its
+// errors nor its log lines carry the URL.
 func (s *Site) Do(ctx context.Context, req *http.Request, p Purpose) (*Response, error) {
-	if err := s.svc.spacer.wait(ctx, req.URL.Host); err != nil {
+	held := s.slot.held()
+	j := newJar(nil)
+	if held != nil {
+		j = newJar(held.Cookies)
+	}
+	res, err := s.send(ctx, req, p, j, true)
+	if cookies, changed := j.held(); changed && held != nil {
+		s.slot.keep(held, cookies)
+	}
+	return res, err
+}
+
+// send is Do with the cookies of j, following redirects only when follow
+// is set.
+func (s *Site) send(ctx context.Context, req *http.Request, p Purpose, j *jar, follow bool) (*Response, error) {
+	if err := s.svc.spacer.wait(ctx, req.URL.Host, s.delay); err != nil {
 		return nil, err
 	}
 	s.run.start()
 	ctx, cancel := context.WithTimeout(ctx, s.svc.cfg.Timings.Request)
 	defer cancel()
+	if held := s.slot.held(); held != nil && held.UserAgent != "" {
+		req.Header.Set("User-Agent", held.UserAgent)
+	}
+	client := *s.svc.client
+	client.Jar = j
+	if !follow {
+		client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	}
+	cookies := len(j.Cookies(req.URL)) > 0
 	sent := time.Now()
-	res, err := s.svc.client.Do(req.WithContext(ctx))
+	res, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		err = withoutURL(err)
 		s.svc.cfg.Log.Debug("A request to an Indexer failed", "indexer", s.Indexer, "method", req.Method, "host", req.URL.Host, "err", err.Error())
@@ -89,12 +122,14 @@ func (s *Site) Do(ctx context.Context, req *http.Request, p Purpose) (*Response,
 	switch {
 	case int64(len(body)) > p.limit():
 		return nil, &Failing{Err: fmt.Errorf("the Indexer's response is over %d bytes", p.limit())}
+	case challenged(res, body):
+		return nil, &Stopped{Cause: ChallengeUnsolved}
 	case res.StatusCode == http.StatusTooManyRequests:
 		return nil, &Limited{RetryAfter: retryAfter(res.Header.Get("Retry-After"), time.Now())}
 	case res.StatusCode >= http.StatusInternalServerError:
 		return nil, &Failing{Err: fmt.Errorf("the Indexer responded with status %d", res.StatusCode)}
 	}
-	out := &Response{Status: res.StatusCode, Header: res.Header, Body: body}
+	out := &Response{Status: res.StatusCode, Header: res.Header, Body: body, URL: res.Request.URL, Cookies: cookies}
 	if to := res.Header.Get("Location"); isRedirect(res.StatusCode) && magnet.Is(to) {
 		out.Magnet = LinkOf(to)
 	}
@@ -137,22 +172,23 @@ func withoutURL(err error) error {
 	return err
 }
 
-// spacer spaces the requests to each host by Floor, across every Indexer
-// on this Node.
+// spacer spaces the requests to each host by Floor, or a definition's
+// longer request delay, across every Indexer on this Node.
 type spacer struct {
 	floor time.Duration
 	mu    sync.Mutex
 	next  map[string]time.Time
 }
 
-// wait waits for host's turn and takes it.
-func (s *spacer) wait(ctx context.Context, host string) error {
+// wait waits for host's turn and takes it, keeping the next request at
+// least delay or the floor after it.
+func (s *spacer) wait(ctx context.Context, host string, delay time.Duration) error {
 	s.mu.Lock()
 	at := time.Now()
 	if next := s.next[host]; next.After(at) {
 		at = next
 	}
-	s.next[host] = at.Add(s.floor)
+	s.next[host] = at.Add(max(s.floor, delay))
 	s.mu.Unlock()
 	t := time.NewTimer(time.Until(at))
 	defer t.Stop()
@@ -171,7 +207,6 @@ func fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 	if err != nil {
 		return nil, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
 	}
-	s.withSession(req)
 	res, err := s.Do(ctx, req, Download)
 	switch {
 	case err != nil:
@@ -182,41 +217,4 @@ func fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 		return nil, &Failing{Err: fmt.Errorf("the Indexer responded with status %d", res.Status)}
 	}
 	return Torrent{Raw: res.Body}, nil
-}
-
-// withSession puts the Indexer's session on this Node on req: its
-// User-Agent and the cookies of req's host. It returns how many cookies
-// it put.
-func (s *Site) withSession(req *http.Request) int {
-	session := s.slot.held()
-	if session == nil {
-		return 0
-	}
-	if session.UserAgent != "" {
-		req.Header.Set("User-Agent", session.UserAgent)
-	}
-	n := 0
-	now := time.Now()
-	for _, c := range session.Cookies {
-		if c.matches(req.URL, now) {
-			req.AddCookie(&http.Cookie{Name: c.Name, Value: c.Value}) //nolint:gosec // a request's cookie carries only its name and value
-			n++
-		}
-	}
-	return n
-}
-
-// matches reports whether c goes with a request to u at now: u's host is
-// its domain, or under it unless it is host-only, and it hasn't expired.
-func (c Cookie) matches(u *url.URL, now time.Time) bool {
-	host, domain := strings.ToLower(u.Hostname()), strings.ToLower(strings.TrimPrefix(c.Domain, "."))
-	switch {
-	case !c.Expires.IsZero() && !c.Expires.After(now):
-		return false
-	case c.Secure && u.Scheme != "https":
-		return false
-	case host == domain:
-		return true
-	}
-	return !c.HostOnly && strings.HasSuffix(host, "."+domain)
 }

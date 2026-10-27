@@ -117,7 +117,7 @@ func (x *Indexers) healthCheck(ctx context.Context, key tasks.UnitKey) error {
 	if !checked(st) {
 		return nil
 	}
-	_, err = x.testSaved(ctx, id)
+	_, _, err = x.testSaved(ctx, id, nil)
 	var failed *TestFailedError
 	var refused *FeedRefusedError
 	switch {

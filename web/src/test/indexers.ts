@@ -44,6 +44,7 @@ export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "
     waits: null,
     session: null,
     feedHost: "prowlarr.lan:9696",
+    definition: null,
     searchModes: [{ mode: "search", params: ["q"] }],
     revision: 3,
     createdAt: "2026-10-20T08:00:00Z",

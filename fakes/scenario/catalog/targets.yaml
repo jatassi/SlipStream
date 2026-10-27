@@ -60,4 +60,4 @@ library:
       tiers: [[bluray-1080p, remux-1080p], [hdtv-1080p, webrip-1080p, webdl-1080p], [bluray-720p], [hdtv-720p, webrip-720p, webdl-720p]]
       cutoff: bluray-1080p
   profiles: [{name: Films, content_type: movie, targets: [1080p, HD], default: true}]
-  indexers: [{name: Fixture Site, site: fixture-site}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

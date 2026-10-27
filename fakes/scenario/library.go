@@ -125,11 +125,35 @@ type LibraryProfile struct {
 	Default     bool     `yaml:"default,omitempty"`
 }
 
-// LibraryIndexer is a Torznab Indexer on the named site fake, with the
-// site's URL and API key.
+// LibraryIndexer is one Indexer an Admin adds, on a site of fixture-site.
+// Its address, keys and credentials derive from the seed.
 type LibraryIndexer struct {
-	Name string `jsonschema:"required"                   yaml:"name"`
-	Site string `jsonschema:"required,enum=fixture-site" yaml:"site"`
+	Name string `jsonschema:"required"                              yaml:"name"`
+	Kind string `jsonschema:"required,enum=catalog,enum=torznab,enum=rss" yaml:"kind"`
+	// Site is the fixture-site site's label: torznab for a Torznab feed,
+	// brook for an RSS feed, or a catalog site such as larkspur.
+	Site string `jsonschema:"required" yaml:"site"`
+	// Definition is a catalog Indexer's definition id, the site's label
+	// when empty.
+	Definition string `yaml:"definition,omitempty"`
+	// Home is the Node it searches from. Every Indexer names one when
+	// several Nodes hold Searching.
+	Home string `yaml:"home,omitempty"`
+	// Settings are a catalog Indexer's plain settings by name, beside the
+	// credentials the seed gives.
+	Settings map[string]string `yaml:"settings,omitempty"`
+	// Tracker and Media are an RSS feed's.
+	Tracker       string   `yaml:"tracker,omitempty"`
+	Media         []string `yaml:"media,omitempty"`
+	AllowFailover bool     `yaml:"allow_failover,omitempty"`
+}
+
+// FixtureSites are the labels of fixture-site's sites by the kind of
+// Indexer each serves.
+var FixtureSites = map[string][]string{
+	"torznab": {"torznab"},
+	"rss":     {"brook"},
+	"catalog": {"larkspur", "quarry", "cinder", "marsh", "ferry"},
 }
 
 var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
@@ -202,8 +226,14 @@ func (l Library) checkIndexers(add func(format string, args ...any)) {
 			add("library has two indexers named %s", ix.Name)
 		}
 		names = append(names, ix.Name)
-		if ix.Site != "fixture-site" {
-			add("library indexer %s is on site %q, which no fake serves", ix.Name, ix.Site)
+		if !slices.Contains(FixtureSites[ix.Kind], ix.Site) {
+			add("library indexer %s is a %s Indexer on site %q, which fixture-site doesn't serve as one", ix.Name, ix.Kind, ix.Site)
+		}
+		if ix.Kind == "rss" && (ix.Tracker == "" || len(ix.Media) == 0) {
+			add("library indexer %s is an RSS feed with no tracker or media", ix.Name)
+		}
+		if ix.Kind != "catalog" && (ix.Definition != "" || ix.Settings != nil) {
+			add("library indexer %s takes a definition or settings, which only a catalog Indexer has", ix.Name)
 		}
 	}
 }

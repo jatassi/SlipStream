@@ -52,9 +52,9 @@ func checkMedia(idx Indexer, types map[works.TypeID]Facet) error {
 	return nil
 }
 
-// pasted is c as a session on the Node idx is tested from, its cookies
-// bound to the feed's host, nil when c is.
-func pasted(c *PastedCookie, idx Indexer) (*searching.Session, error) {
+// pasted is c as a session on the Node an Indexer is tested from, its
+// cookies bound to host, nil when c is.
+func pasted(c *PastedCookie, host string) (*searching.Session, error) {
 	if c == nil {
 		return nil, nil
 	}
@@ -62,7 +62,7 @@ func pasted(c *PastedCookie, idx Indexer) (*searching.Session, error) {
 	if err != nil {
 		return nil, ErrCookie
 	}
-	host := (&url.URL{Host: idx.FeedHost}).Hostname()
+	host = (&url.URL{Host: host}).Hostname()
 	s := &searching.Session{UserAgent: c.UserAgent, Pasted: true, Earned: time.Now()}
 	for _, ck := range cookies {
 		s.Cookies = append(s.Cookies, searching.Cookie{Name: ck.Name, Value: ck.Value, Domain: host, Path: "/", HostOnly: true})

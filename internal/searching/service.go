@@ -20,6 +20,9 @@ func (s *Service) Run(ctx context.Context, req *searchv1.RunRequest) (*searchv1.
 	if s.drivers[job.Kind] == nil {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "this Node runs no %s Indexer", job.Kind)
 	}
+	if (job.Kind == Catalog) != (job.Definition != nil) {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a catalog Indexer's job carries its definition, and no other job carries one")
+	}
 	r := s.jobs.join(job.ID, func(r *run) Answer { return s.do(job, site, r) })
 	hold := time.NewTimer(s.cfg.Timings.Hold)
 	defer hold.Stop()
@@ -45,6 +48,14 @@ func (s *Service) do(job Job, site *Site, r *run) Answer {
 	site.svc, site.run, site.slot = s, r, s.sessions.slot(job)
 	d := s.drivers[job.Kind]
 	var a Answer
+	if job.Kind == Catalog {
+		def, err := s.defs.load(*job.Definition)
+		if err != nil {
+			a.Outcome = &Stopped{Cause: DefinitionUnloadable, Text: err.Error()}
+			return a
+		}
+		site.def, site.delay = def, def.Summary().RequestDelay
+	}
 	var err error
 	switch c := job.Call.(type) {
 	case SearchCall:
@@ -55,8 +66,13 @@ func (s *Service) do(job Job, site *Site, r *run) Answer {
 		a.Got, err = d.Fetch(ctx, site, c.Link)
 	case TestCall:
 		var report Report
-		if report, err = d.Test(ctx, site); err == nil {
+		if report, err = d.Test(ctx, site, c.Captcha); err == nil {
 			a.Report = &report
+		}
+	case CaptchaCall:
+		var captcha Captcha
+		if captcha, err = d.Captcha(ctx, site); err == nil {
+			a.Captcha = &captcha
 		}
 	}
 	a.Outcome = outcomeOf(ctx, err, s.cfg.Timings.JobCap)

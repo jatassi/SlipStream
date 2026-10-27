@@ -3,6 +3,7 @@ package searching
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -57,7 +58,7 @@ func (d torznabDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
 }
 
 // Test reads the caps, then the newest page, and the sources it names.
-func (d torznabDriver) Test(ctx context.Context, s *Site) (Report, error) {
+func (d torznabDriver) Test(ctx context.Context, s *Site, _ *CaptchaAnswer) (Report, error) {
 	body, err := d.api(ctx, s, url.Values{"t": {"caps"}})
 	if err != nil {
 		return Report{}, err
@@ -81,6 +82,10 @@ func (d torznabDriver) Test(ctx context.Context, s *Site) (Report, error) {
 
 // Fetch downloads link from wherever it is, without the feed's key: a
 // link carries its own.
+func (torznabDriver) Captcha(context.Context, *Site) (Captcha, error) {
+	return Captcha{}, &Failing{Err: errors.New("a Torznab feed shows no captcha")}
+}
+
 func (torznabDriver) Fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 	return fetch(ctx, s, link)
 }

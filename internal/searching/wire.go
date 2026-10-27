@@ -98,6 +98,9 @@ func encodeJob(j Job) *searchv1.Job {
 		Settings: j.Settings, ApiKey: j.APIKey, Session: encodeSession(j.Session), Categories: int32s(j.Categories),
 		Rss: encodeReading(j.RSS),
 	}}
+	if d := j.Definition; d != nil {
+		w.Site.Definition = &searchv1.Definition{Yaml: d.YAML, Sha: d.SHA}
+	}
 	switch c := j.Call.(type) {
 	case SearchCall:
 		q := c.Query
@@ -110,6 +113,11 @@ func encodeJob(j Job) *searchv1.Job {
 		w.Call = &searchv1.Job_Fetch{Fetch: &searchv1.FetchCall{Link: c.Link.raw}}
 	case TestCall:
 		w.Call = &searchv1.Job_Test{Test: &searchv1.TestCall{}}
+		if a := c.Captcha; a != nil {
+			w.GetTest().Captcha = &searchv1.CaptchaAnswer{PreLogin: a.PreLogin, Text: a.Text}
+		}
+	case CaptchaCall:
+		w.Call = &searchv1.Job_Captcha{Captcha: &searchv1.CaptchaCall{}}
 	}
 	return w
 }
@@ -122,6 +130,9 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 		ID: w.GetId(), Indexer: s.GetIndexerId(), Revision: s.GetRevision(), Kind: kindOnWire[s.GetKind()], Address: s.GetAddress(),
 		Settings: s.GetSettings(), APIKey: s.GetApiKey(), Session: decodeSession(s.GetSession()), Categories: ints(s.GetCategories()),
 		RSS: decodeReading(s.GetRss()),
+	}
+	if d := s.GetDefinition(); d != nil {
+		j.Definition = &Definition{YAML: d.GetYaml(), SHA: d.GetSha()}
 	}
 	if j.ID == "" {
 		return Job{}, nil, errors.New("the job has no id")
@@ -142,7 +153,13 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 		}
 		j.Call = FetchCall{Link: LinkOf(c.Fetch.GetLink())}
 	case *searchv1.Job_Test:
-		j.Call = TestCall{}
+		var t TestCall
+		if a := c.Test.GetCaptcha(); a != nil {
+			t.Captcha = &CaptchaAnswer{PreLogin: a.GetPreLogin(), Text: a.GetText()}
+		}
+		j.Call = t
+	case *searchv1.Job_Captcha:
+		j.Call = CaptchaCall{}
 	default:
 		return Job{}, nil, errors.New("the job names no call this Node runs")
 	}
@@ -187,6 +204,10 @@ func encodeAnswer(a Answer) *searchv1.Answer {
 		if a.Report.RSS != nil {
 			w.GetTest().Rss = encodeReading(*a.Report.RSS)
 		}
+	case a.Captcha != nil:
+		w.Result = &searchv1.Answer_Captcha{Captcha: &searchv1.CaptchaImage{
+			Image: a.Captcha.Image, ContentType: a.Captcha.ContentType, PreLogin: a.Captcha.PreLogin,
+		}}
 	}
 	return w
 }
@@ -225,6 +246,8 @@ func decodeAnswer(w *searchv1.Answer) (Answer, error) {
 			reading := decodeReading(w)
 			a.Report.RSS = &reading
 		}
+	case *searchv1.Answer_Captcha:
+		a.Captcha = &Captcha{Image: r.Captcha.GetImage(), ContentType: r.Captcha.GetContentType(), PreLogin: r.Captcha.GetPreLogin()}
 	}
 	return a, nil
 }

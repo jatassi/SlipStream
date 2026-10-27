@@ -1,9 +1,9 @@
 // Package searching is the Searching Role's holder half: the indexer
 // contract every kind implements on the Node an Indexer routes to. The
-// Controller sends a Job (one search, recent-items call, fetch or Test)
-// with the Indexer's address, opened settings and this Node's session.
-// The Node spaces requests per host, runs the kind's protocol and answers
-// normalized Releases with one outcome. It keeps only memory: each
+// Controller sends a Job (one search, recent-items call, fetch, Test or
+// captcha) with the Indexer's address, opened settings, definition and
+// this Node's session. The Node signs in, spaces requests per host, runs
+// the kind's protocol and answers normalized Releases with one outcome. It keeps only memory: each
 // Indexer's newest session, the per-host spacing, and the jobs running or
 // just answered.
 package searching
@@ -12,6 +12,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/jatassi/slipstream/internal/cardigann"
 )
 
 type Config struct {
@@ -36,12 +38,15 @@ type Timings struct {
 	Keep time.Duration `yaml:"keep"`
 	// Results is the most Releases a Torznab search pages to.
 	Results int `yaml:"results"`
+	// Relogins is how many times a job signs in again after a response
+	// reads as signed out.
+	Relogins int `yaml:"relogins"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
 		Request: 30 * time.Second, Floor: 2 * time.Second, Hold: 20 * time.Second,
-		JobCap: 10 * time.Minute, Keep: 2 * time.Minute, Results: 1000,
+		JobCap: 10 * time.Minute, Keep: 2 * time.Minute, Results: 1000, Relogins: 1,
 	}
 }
 
@@ -52,6 +57,7 @@ type Service struct {
 	jobs     *jobs
 	sessions *sessions
 	spacer   *spacer
+	defs     *definitions
 	drivers  map[Kind]Driver
 }
 
@@ -65,6 +71,11 @@ func New(cfg Config) *Service {
 		jobs:     &jobs{keep: cfg.Timings.Keep, byID: map[string]*run{}},
 		sessions: &sessions{by: map[string]*slot{}},
 		spacer:   &spacer{floor: cfg.Timings.Floor, next: map[string]time.Time{}},
-		drivers:  map[Kind]Driver{Torznab: torznabDriver{results: cfg.Timings.Results}, RSS: rssDriver{}},
+		defs:     &definitions{bySHA: map[string]*cardigann.Definition{}},
+		drivers: map[Kind]Driver{
+			Catalog: catalogDriver{relogins: cfg.Timings.Relogins},
+			Torznab: torznabDriver{results: cfg.Timings.Results},
+			RSS:     rssDriver{},
+		},
 	}
 }

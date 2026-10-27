@@ -10,7 +10,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
-	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
@@ -19,12 +18,7 @@ import (
 // the same Releases. fields are more JSON fields of its draft.
 func (w *walked) addMirror(t *testing.T, fields string) string {
 	t.Helper()
-	i := slices.IndexFunc(w.m.Fronts, func(f world.Front) bool { return f.Target == "fixture-site" && f.Node == "seedbox" })
-	if i < 0 {
-		t.Fatal("the manifest lists no fixture-site front for seedbox")
-	}
-	body := `{"kind":"torznab","name":"Fixture Mirror","address":"` + strings.TrimSuffix(w.m.Fronts[i].URL, "/") + site.TorznabPath +
-		`","apiKey":"` + site.APIKey(w.s) + `","on":true,"automaticSearch":true,"priority":10` + fields + `}`
+	body := `{"kind":"torznab","name":"Fixture Mirror","address":"https://` + site.Host(site.Torznab) + site.TorznabPath + `","apiKey":"` + site.APIKey(w.s) + `","on":true,"automaticSearch":true,"priority":10` + fields + `}`
 	reply := w.a.Admin("home", http.MethodPost, "/api/v1/indexers", body)
 	if reply.Status != http.StatusCreated {
 		t.Fatalf("createIndexer = %d %s, want 201", reply.Status, reply.Body)
@@ -78,7 +72,7 @@ func TestTwoSearchesAtOnceAskEveryIndexerWithinItsSearchLimit(t *testing.T) {
 			t.Fatalf("updateIndexer %s = %d %s, want 200", ix.Name, r.Status, r.Body)
 		}
 	}
-	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 2}, "slow-body=1KiB/s")
+	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 2}, "slow-body=1KiB/s")
 
 	first, second := w.search(t), w.search(t)
 	skipped := w.searched(t, second)
@@ -105,7 +99,7 @@ func TestAnIndexerTheSiteLimitsLeavesTheOtherToAnswer(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
 	w.addMirror(t, "")
-	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 1}, "status=429,retry-after=30s")
+	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "status=429,retry-after=30s")
 
 	s := w.searched(t, w.search(t))
 	lines := s.lines()
@@ -133,7 +127,7 @@ func TestAnIndexerPastTheJobDeadlineIsLateAndItsAnswerStillLands(t *testing.T) {
 	s.Timings.Searching.Hold = time.Second
 	w := beginIn(t, s, worldtest.LaunchScenario(t, s))
 	w.addMirror(t, "")
-	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 1}, "slow-body=256B/s")
+	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "slow-body=256B/s")
 
 	run := w.searched(t, w.search(t))
 	lines := run.lines()

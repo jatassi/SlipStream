@@ -39,7 +39,9 @@ func (*stall) Recent(context.Context, *Site) ([]Release, error) { panic("not ask
 
 func (*stall) Fetch(context.Context, *Site, Link) (Got, error) { panic("not asked") }
 
-func (*stall) Test(context.Context, *Site) (Report, error) { panic("not asked") }
+func (*stall) Test(context.Context, *Site, *CaptchaAnswer) (Report, error) { panic("not asked") }
+
+func (*stall) Captcha(context.Context, *Site) (Captcha, error) { panic("not asked") }
 
 var testTimings = Timings{Request: time.Minute, Hold: 20 * time.Second, JobCap: 10 * time.Minute, Keep: 2 * time.Minute, Results: 1000}
 
@@ -132,17 +134,25 @@ func TestACallCutShortLeavesItsJobRunning(t *testing.T) {
 	})
 }
 
-func TestTheSpacerSpacesEachHostByTheFloor(t *testing.T) {
+func TestTheSpacerSpacesEachHostByTheFloorOrALongerDelay(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		sp := &spacer{floor: 2 * time.Second, next: map[string]time.Time{}}
 		began := time.Now()
 		for _, host := range []string{"a.test", "b.test", "a.test", "a.test"} {
-			if err := sp.wait(t.Context(), host); err != nil {
+			if err := sp.wait(t.Context(), host, time.Second); err != nil {
 				t.Fatal(err)
 			}
 		}
 		if waited := time.Since(began); waited != 4*time.Second {
 			t.Fatalf("three requests to a.test and one to b.test took %s, want 4s", waited)
+		}
+		for range 2 {
+			if err := sp.wait(t.Context(), "c.test", 3*time.Second); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if waited := time.Since(began); waited != 7*time.Second {
+			t.Fatalf("two requests to c.test with a 3s delay took %s in all, want 7s", waited)
 		}
 	})
 }

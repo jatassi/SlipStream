@@ -23,9 +23,12 @@ type Driver interface {
 	Search(ctx context.Context, s *Site, q Query) ([]Release, error)
 	Recent(ctx context.Context, s *Site) ([]Release, error)
 	Fetch(ctx context.Context, s *Site, link Link) (Got, error)
-	// Test reads the Indexer's capabilities and its newest items. Zero
-	// items pass.
-	Test(ctx context.Context, s *Site) (Report, error)
+	// Test signs in when the Indexer signs in, with answer when the
+	// Admin answered a captcha, then reads its capabilities and its
+	// newest items. Zero items pass.
+	Test(ctx context.Context, s *Site, answer *CaptchaAnswer) (Report, error)
+	// Captcha fetches the sign-in page's captcha.
+	Captcha(ctx context.Context, s *Site) (Captcha, error)
 }
 
 // Job is one call for one Indexer, everything a Node needs for it, since a
@@ -38,7 +41,9 @@ type Job struct {
 	Revision int64
 	Kind     Kind
 	// Address is the Indexer's base address.
-	Address    string
+	Address string
+	// Definition is a catalog Indexer's, nil for every other kind.
+	Definition *Definition
 	Settings   map[string]string
 	APIKey     string
 	Session    *Session
@@ -48,20 +53,47 @@ type Job struct {
 	Call Call
 }
 
-// Call is what a Job asks: a SearchCall, RecentCall, FetchCall or TestCall.
+// Definition is the Cardigann definition version a catalog Indexer runs.
+type Definition struct {
+	YAML []byte
+	SHA  string
+}
+
+// Call is what a Job asks: a SearchCall, RecentCall, FetchCall, TestCall
+// or CaptchaCall.
 type Call interface{ call() }
 
 type (
 	SearchCall struct{ Query Query }
 	RecentCall struct{}
 	FetchCall  struct{ Link Link }
-	TestCall   struct{}
+	// TestCall signs in with Captcha when the Admin answered one.
+	TestCall    struct{ Captcha *CaptchaAnswer }
+	CaptchaCall struct{}
 )
 
-func (SearchCall) call() {}
-func (RecentCall) call() {}
-func (FetchCall) call()  {}
-func (TestCall) call()   {}
+func (SearchCall) call()  {}
+func (RecentCall) call()  {}
+func (FetchCall) call()   {}
+func (TestCall) call()    {}
+func (CaptchaCall) call() {}
+
+// Captcha is a sign-in page's captcha image and the state a sign-in with
+// its answer resumes from.
+type Captcha struct {
+	// Image is empty when the sign-in page shows no captcha this time.
+	Image       []byte
+	ContentType string
+	// PreLogin is opaque: the sign-in page's cookies, its form's action and
+	// its inputs.
+	PreLogin []byte
+}
+
+// CaptchaAnswer is an Admin's answer to a Captcha.
+type CaptchaAnswer struct {
+	PreLogin []byte
+	Text     string
+}
 
 // Query is one search as the Controller built it from a Work's terms and
 // the Indexer's capabilities.
@@ -90,6 +122,7 @@ type Answer struct {
 	Releases []Release
 	Got      Got
 	Report   *Report
+	Captcha  *Captcha
 }
 
 // Release is one listing, normalized. The Node filters nothing beyond the

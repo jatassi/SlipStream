@@ -5,13 +5,17 @@
 package nodeapi
 
 import (
+	"bufio"
 	"bytes"
+	"cmp"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -193,21 +197,148 @@ func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentTyp
 	return root.ID, err
 }
 
-// CreateIndexer creates an Indexer and returns its id.
-func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, address, indexerKey string) (string, error) {
+// NewIndexer is an Indexer as an Admin adds it.
+type NewIndexer struct {
+	Kind          string            `json:"kind"`
+	Name          string            `json:"name"`
+	HomeNodeID    string            `json:"homeNodeId,omitempty"`
+	Definition    string            `json:"definition,omitempty"`
+	Values        map[string]string `json:"values,omitempty"`
+	Address       string            `json:"address,omitempty"`
+	APIKey        string            `json:"apiKey,omitempty"`
+	TrackerName   string            `json:"trackerName,omitempty"`
+	Media         []string          `json:"media,omitempty"`
+	Cookie        *PastedCookie     `json:"cookie,omitempty"`
+	AllowFailover bool              `json:"allowFailover,omitempty"`
+	Captcha       *CaptchaAnswer    `json:"captcha,omitempty"`
+}
+
+type PastedCookie struct {
+	Cookie    string `json:"cookie"`
+	UserAgent string `json:"userAgent"`
+}
+
+type CaptchaAnswer struct {
+	Attempt string `json:"attempt"`
+	Answer  string `json:"answer"`
+}
+
+// CreateIndexer creates ix and returns its id.
+func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey string, ix NewIndexer) (string, error) {
 	var indexer struct {
 		ID string `json:"id"`
 	}
 	err := call(ctx, c, request{
-		what: "create Indexer " + name, method: http.MethodPost, url: baseURL + "/api/v1/indexers",
-		header: apiKeyHeader(apiKey), body: struct {
-			Kind    string `json:"kind"`
-			Name    string `json:"name"`
-			Address string `json:"address"`
-			APIKey  string `json:"apiKey"`
-		}{"torznab", name, address, indexerKey}, want: http.StatusCreated,
+		what: "create Indexer " + ix.Name, method: http.MethodPost, url: baseURL + "/api/v1/indexers",
+		header: apiKeyHeader(apiKey), body: ix, want: http.StatusCreated,
 	}, &indexer)
 	return indexer.ID, err
+}
+
+// IndexerCaptcha loads the captcha of ix's sign-in and returns its attempt
+// and its image.
+func IndexerCaptcha(ctx context.Context, c *http.Client, baseURL, apiKey string, ix NewIndexer) (attempt string, image []byte, err error) {
+	var captcha struct {
+		Attempt string `json:"attempt"`
+		Image   string `json:"image"`
+	}
+	err = call(ctx, c, request{
+		what: "load Indexer " + ix.Name + "'s captcha", method: http.MethodPost, url: baseURL + "/api/v1/indexers/captcha",
+		header: apiKeyHeader(apiKey), body: ix, want: http.StatusOK,
+	}, &captcha)
+	if err != nil {
+		return "", nil, err
+	}
+	_, data, ok := strings.Cut(captcha.Image, ";base64,")
+	if !ok {
+		return "", nil, fmt.Errorf("load Indexer %s's captcha: the image isn't a base64 data URL", ix.Name)
+	}
+	if image, err = base64.StdEncoding.DecodeString(data); err != nil {
+		return "", nil, fmt.Errorf("load Indexer %s's captcha: %w", ix.Name, err)
+	}
+	return captcha.Attempt, image, nil
+}
+
+// SignInCaptcha reports whether signing in with definition id asks for a
+// captcha. It fails while the Indexer catalog hasn't been downloaded.
+func SignInCaptcha(ctx context.Context, c *http.Client, baseURL, apiKey, id string) (bool, error) {
+	var form struct {
+		Captcha bool `json:"captcha"`
+	}
+	err := call(ctx, c, request{
+		what: "get definition " + id, method: http.MethodGet, url: baseURL + "/api/v1/indexer-catalog/" + id,
+		header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, &form)
+	return form.Captcha, err
+}
+
+// CatalogRefreshed reports whether a refresh has read the Indexer catalog.
+func CatalogRefreshed(ctx context.Context, c *http.Client, baseURL, apiKey string) (bool, error) {
+	var catalog struct {
+		RefreshedAt *string `json:"refreshedAt"`
+	}
+	err := call(ctx, c, request{
+		what: "get the Indexer catalog", method: http.MethodGet, url: baseURL + "/api/v1/indexer-catalog",
+		header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, &catalog)
+	return catalog.RefreshedAt != nil, err
+}
+
+// AwaitCatalog returns once a refresh has read the Indexer catalog. It
+// reads session's event stream until indexers.catalog-changed, and checks
+// the catalog when the stream's first message ends, so a refresh that
+// finished before the stream opened counts too.
+func AwaitCatalog(ctx context.Context, c *http.Client, baseURL, apiKey string, session *http.Cookie) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/events", http.NoBody)
+	if err != nil {
+		return fmt.Errorf("open the event stream: %w", err)
+	}
+	req.Header.Set("Cookie", session.String())
+	res, err := c.Do(req)
+	if err != nil {
+		return fmt.Errorf("open the event stream: %w", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		reply, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("open the event stream: %d %s", res.StatusCode, bytes.TrimSpace(reply))
+	}
+	lines := bufio.NewScanner(res.Body)
+	checked := false
+	for lines.Scan() {
+		switch line := lines.Text(); {
+		case line == "event: indexers.catalog-changed":
+			return nil
+		case line == "" && !checked:
+			checked = true
+			if done, err := CatalogRefreshed(ctx, c, baseURL, apiKey); err != nil || done {
+				return err
+			}
+		}
+	}
+	return fmt.Errorf("the event stream ended before the Indexer catalog refreshed: %w", cmp.Or(lines.Err(), ctx.Err(), io.ErrUnexpectedEOF))
+}
+
+// SignIn signs in as the Account with email and pin and returns its
+// session cookie.
+func SignIn(ctx context.Context, c *http.Client, baseURL, email, pin string) (*http.Cookie, error) {
+	var cookies []*http.Cookie
+	err := call(ctx, c, request{
+		what: "sign in as " + email, method: http.MethodPost, url: baseURL + "/api/v1/session",
+		body: struct {
+			Email string `json:"email"`
+			PIN   string `json:"pin"`
+		}{email, pin}, want: http.StatusOK, cookies: &cookies,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, ck := range cookies {
+		if ck.Name == identity.CookieName {
+			return ck, nil
+		}
+	}
+	return nil, fmt.Errorf("sign in as %s: no session cookie", email)
 }
 
 // CreateTarget creates the Scenario Target t and returns its id.

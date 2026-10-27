@@ -217,8 +217,8 @@ func TestTheFirstRefreshFetchesPackageZipAndListsEveryDefinition(t *testing.T) {
 	for _, e := range c.Entries {
 		names = append(names, e.Name)
 	}
-	if !slices.Equal(names, []string{"Broken", "Cinder", "Larkspur", "Quarry"}) || c.Notice != "" || c.Refreshed.IsZero() {
-		t.Errorf("Catalog lists %q with notice %q, refreshed %v; want the four by name", names, c.Notice, c.Refreshed)
+	if !slices.Equal(names, []string{"Broken", "Cinder", "Ferry", "Larkspur", "Marsh", "Quarry"}) || c.Notice != "" || c.Refreshed.IsZero() {
+		t.Errorf("Catalog lists %q with notice %q, refreshed %v; want the six by name", names, c.Notice, c.Refreshed)
 	}
 	broken, _ := w.entry(t, "broken")
 	if broken.Reason != "it has no links" || len(broken.Categories) != 0 {
@@ -275,11 +275,11 @@ func TestACorruptZipFetchesEveryFileAlone(t *testing.T) {
 	w := newCatalogWorld(t)
 	w.cue(t, catalog.CorruptZip.Name, nil)
 	w.mustRefresh(t)
-	if got, want := w.sent.take(), []string{"", "package.zip", "broken", "cinder", "larkspur", "quarry"}; !slices.Equal(got, want) {
+	if got, want := w.sent.take(), []string{"", "package.zip", "broken", "cinder", "ferry", "larkspur", "marsh", "quarry"}; !slices.Equal(got, want) {
 		t.Errorf("a refresh with a corrupt zip sent %q, want %q", got, want)
 	}
-	if len(w.catalog(t).Entries) != 4 {
-		t.Errorf("the catalog lists %d definitions, want 4", len(w.catalog(t).Entries))
+	if len(w.catalog(t).Entries) != 6 {
+		t.Errorf("the catalog lists %d definitions, want 6", len(w.catalog(t).Entries))
 	}
 }
 

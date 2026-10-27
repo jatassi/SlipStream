@@ -47,12 +47,29 @@ var refusalWords = map[searching.RSSRefusal]string{
 	searching.RSSNoSize:       "Some items have no size. Turn on Allow items with no size to use the feed anyway.",
 }
 
+// refusedSignIn is a sign-in the site refused in its own words, which may
+// be about the captcha's code as well as the password.
+const (
+	refusedSignInSaid    = "%[1]s refused the sign-in with '%[2]s'."
+	refusedSignInFormFix = "Check the username, password and any code, then test again."
+	refusedSignInItemFix = "Check the username, password and any code on the Indexer, then test it."
+)
+
+// refusedSignIn reports whether a stop with cause and the site's own text
+// is a sign-in the site refused in its own words.
+func refusedSignIn(cause Cause, text string) bool {
+	return cause == searching.CredentialsRejected && text != ""
+}
+
 // TestFailedError is a Test the site answered with an outcome other than
 // ok.
 type TestFailedError struct {
 	Outcome Outcome
 	// Sentence is the cause and its fix, for the form.
 	Sentence string
+	// Captcha is a new one to answer when the Test failed at a sign-in
+	// that shows a captcha.
+	Captcha *Captcha
 }
 
 func (e *TestFailedError) Error() string { return "the Indexer's Test ended " + string(e.Outcome.Kind) }
@@ -67,8 +84,11 @@ func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer,
 	switch {
 	case errors.As(a.Outcome, &stopped):
 		said, fix := stopSaid[stopped.Cause], stopFormFixes[stopped.Cause]
-		if stopped.SolverTried {
+		switch {
+		case stopped.SolverTried:
 			said, fix = solverTriedSaid, "Paste a browser cookie and test again."
+		case refusedSignIn(stopped.Cause, stopped.Text):
+			said, fix = refusedSignInSaid, refusedSignInFormFix
 		}
 		sentence = fmt.Sprintf(said+" "+fix, idx.Name, stopped.Text, x.cfg.Roster.Name(node))
 	case errors.As(a.Outcome, &limited):
@@ -142,9 +162,19 @@ var stoppedFixes = map[Cause]string{
 }
 
 const (
-	solverTriedStopped = "Stopped because %[3]s's Challenge solver couldn't clear %[1]s's challenge."
-	solverTriedFix     = "Paste a browser cookie with Edit."
+	solverTriedStopped   = "Stopped because %[3]s's Challenge solver couldn't clear %[1]s's challenge."
+	solverTriedFix       = "Paste a browser cookie with Edit."
+	refusedSignInStopped = "Stopped because %[1]s refused the sign-in with '%[2]s'."
 )
+
+// stoppedFormat is the stoppedWords format of a stop with cause and the
+// site's own text.
+func stoppedFormat(cause Cause, text string) string {
+	if refusedSignIn(cause, text) {
+		return refusedSignInStopped
+	}
+	return stoppedWords[cause]
+}
 
 // words is v's status as a sentence, and what the Admin can do about it,
 // "" when nothing.
@@ -170,7 +200,7 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	switch w.Kind {
 	case IsStopped:
 		node := x.cfg.Roster.Name(w.Node)
-		stopped, fix := stoppedWords[w.Cause], stoppedFixes[w.Cause]
+		stopped, fix := stoppedFormat(w.Cause, w.Text), stoppedFixes[w.Cause]
 		if v.Status.SolverTried {
 			stopped, fix = solverTriedStopped, solverTriedFix
 		}
@@ -220,7 +250,7 @@ func (x *Indexers) Line(name string, typ works.TypeID, o *Outcome) string {
 	case IsFailing:
 		return x.retries(name+" isn't responding.", o.Until)
 	case IsStopped:
-		return fmt.Sprintf(stoppedWords[o.Cause], name, o.Text, x.cfg.Roster.Name(o.Node))
+		return fmt.Sprintf(stoppedFormat(o.Cause, o.Text), name, o.Text, x.cfg.Roster.Name(o.Node))
 	case NoCategories:
 		d, _ := x.cfg.Works.Describe(typ)
 		return "Skipped because it has no " + strings.ToLower(d.Work.One) + " categories"
@@ -264,8 +294,11 @@ var stopItemFixes = map[Cause]string{
 // stopItemWords is the Health item of Indexer name stopped at st.
 func (x *Indexers) stopItemWords(name string, st Status) string {
 	said, fix := stopSaid[st.Cause], stopItemFixes[st.Cause]
-	if st.SolverTried {
+	switch {
+	case st.SolverTried:
 		said, fix = solverTriedSaid, "Paste a browser cookie on the Indexer."
+	case refusedSignIn(st.Cause, st.Text):
+		said, fix = refusedSignInSaid, refusedSignInItemFix
 	}
 	return fmt.Sprintf(said+" "+fix, name, st.Text, x.cfg.Roster.Name(st.Node))
 }

@@ -2155,6 +2155,33 @@ export const IdentitySignupLinkURL = zod.object({
 export type IdentitySignupLinkURL = zod.input<typeof IdentitySignupLinkURL>;
 export type IdentitySignupLinkURLOutput = zod.output<typeof IdentitySignupLinkURL>;
 
+export const indexersCaptchaAnswerAnswerMax = 64;
+
+export const indexersCaptchaAnswerAttemptMax = 64;
+
+export const IndexersCaptchaAnswer = zod.object({
+  answer: zod.string().max(indexersCaptchaAnswerAnswerMax).describe("The code the captcha shows"),
+  attempt: zod
+    .string()
+    .min(1)
+    .max(indexersCaptchaAnswerAttemptMax)
+    .describe("The attempt the captcha was loaded with"),
+});
+
+export type IndexersCaptchaAnswer = zod.input<typeof IndexersCaptchaAnswer>;
+export type IndexersCaptchaAnswerOutput = zod.output<typeof IndexersCaptchaAnswer>;
+
+export const IndexersCaptchaImage = zod.object({
+  attempt: zod.string().describe("Send it back with the code the image shows"),
+  expiresAt: zod.iso
+    .datetime({ offset: true })
+    .describe("When the attempt closes. Load a new captcha after it."),
+  image: zod.string().describe("The captcha as a data URL"),
+});
+
+export type IndexersCaptchaImage = zod.input<typeof IndexersCaptchaImage>;
+export type IndexersCaptchaImageOutput = zod.output<typeof IndexersCaptchaImage>;
+
 export const indexersCatalogAddressAddressMax = 2048;
 
 export const IndexersCatalogAddress = zod.object({
@@ -2255,6 +2282,11 @@ export type IndexersDefinitionFieldOutput = zod.output<typeof IndexersDefinition
 
 export const IndexersDefinitionForm = zod.object({
   captcha: zod.boolean().describe("Signing in asks for an image captcha"),
+  cookie: zod
+    .boolean()
+    .describe(
+      "Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field",
+    ),
   entry: IndexersCatalogEntry,
   fields: zod
     .array(IndexersDefinitionField)
@@ -2276,6 +2308,18 @@ export const IndexersFailure = zod.object({
 
 export type IndexersFailure = zod.input<typeof IndexersFailure>;
 export type IndexersFailureOutput = zod.output<typeof IndexersFailure>;
+
+export const IndexersPin = zod.object({
+  baseAddress: zod.string(),
+  id: zod.string(),
+  values: zod
+    .record(zod.string(), zod.string())
+    .describe("The settings saved in plain, by name. Sealed settings are never returned"),
+  version: zod.string().describe("The pinned version's git blob sha"),
+});
+
+export type IndexersPin = zod.input<typeof IndexersPin>;
+export type IndexersPinOutput = zod.output<typeof IndexersPin>;
 
 export const indexersLimitUseCountMin = 0;
 
@@ -2406,6 +2450,9 @@ export const IndexersIndexer = zod.object({
     .nullable()
     .describe("Newznab category ids; null for every category it advertises"),
   createdAt: zod.iso.datetime({ offset: true }),
+  definition: zod
+    .union([IndexersPin, zod.null()])
+    .describe("A catalog Indexer's definition; null for a feed"),
   feedHost: zod
     .string()
     .nullable()
@@ -2510,6 +2557,8 @@ export const indexersIndexerEditAddressRegExp = new RegExp(
 );
 export const indexersIndexerEditApiKeyMax = 256;
 
+export const indexersIndexerEditBaseAddressMax = 2048;
+
 export const indexersIndexerEditNameMax = 100;
 
 export const indexersIndexerEditPriorityMax = 50;
@@ -2525,10 +2574,16 @@ export const IndexersIndexerEdit = zod.object({
   allowNoSize: zod.boolean().exactOptional().describe("An RSS feed's"),
   apiKey: zod.string().max(indexersIndexerEditApiKeyMax).exactOptional().describe("Write-only"),
   automaticSearch: zod.boolean().nullish().describe("Null resets it to on"),
-  categories: zod.array(zod.int()).nullish().describe("Null for every category it advertises"),
-  cookie: IndexersPastedCookie.exactOptional().describe(
-    "A new browser cookie for an RSS feed. Write-only",
+  baseAddress: zod
+    .string()
+    .max(indexersIndexerEditBaseAddressMax)
+    .exactOptional()
+    .describe("A catalog Indexer's: one of its definition's addresses"),
+  captcha: IndexersCaptchaAnswer.exactOptional().describe(
+    "The answer to a captcha loaded for this Indexer, for the Test the change runs",
   ),
+  categories: zod.array(zod.int()).nullish().describe("Null for every category it advertises"),
+  cookie: IndexersPastedCookie.exactOptional().describe("A new browser cookie. Write-only"),
   grabs: zod
     .union([IndexersLimit, zod.null()])
     .exactOptional()
@@ -2548,6 +2603,12 @@ export const IndexersIndexerEdit = zod.object({
     .union([IndexersLimit, zod.null()])
     .exactOptional()
     .describe("Null turns the limit off"),
+  values: zod
+    .record(zod.string(), zod.string())
+    .exactOptional()
+    .describe(
+      "A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
+    ),
 });
 
 export type IndexersIndexerEdit = zod.input<typeof IndexersIndexerEdit>;
@@ -2568,6 +2629,10 @@ export const indexersNewIndexerAddressRegExp = new RegExp(
 export const indexersNewIndexerApiKeyMax = 256;
 
 export const indexersNewIndexerAutomaticSearchDefault = true;
+export const indexersNewIndexerBaseAddressMax = 2048;
+
+export const indexersNewIndexerDefinitionMax = 200;
+
 export const indexersNewIndexerNameMax = 100;
 
 export const indexersNewIndexerOnDefault = true;
@@ -2582,8 +2647,9 @@ export const IndexersNewIndexer = zod.object({
     .string()
     .max(indexersNewIndexerAddressMax)
     .regex(indexersNewIndexerAddressRegExp)
+    .exactOptional()
     .describe(
-      "A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address. Write-only",
+      "A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only",
     ),
   allowFailover: zod.boolean().exactOptional(),
   allowNoSize: zod.boolean().exactOptional().describe("Use an RSS feed whose items have no size"),
@@ -2593,19 +2659,32 @@ export const IndexersNewIndexer = zod.object({
     .exactOptional()
     .describe("A Torznab feed's. Write-only"),
   automaticSearch: zod.boolean().default(indexersNewIndexerAutomaticSearchDefault),
+  baseAddress: zod
+    .string()
+    .max(indexersNewIndexerBaseAddressMax)
+    .exactOptional()
+    .describe("One of the definition's addresses; absent for its first"),
+  captcha: IndexersCaptchaAnswer.exactOptional().describe(
+    "The answer to a captcha loaded for this draft",
+  ),
   categories: zod
     .array(zod.int())
     .nullish()
     .describe("Newznab category ids; absent for every category it advertises"),
   cookie: IndexersPastedCookie.exactOptional().describe(
-    "A browser cookie for an RSS feed that needs one. Write-only",
+    "A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only",
   ),
+  definition: zod
+    .string()
+    .max(indexersNewIndexerDefinitionMax)
+    .exactOptional()
+    .describe("A catalog Indexer's definition id; required for one"),
   grabs: IndexersLimit.exactOptional(),
   homeNodeId: zod
     .uuid()
     .exactOptional()
     .describe("A Node that holds Searching; absent for the default home"),
-  kind: zod.enum(["torznab", "rss"]).describe("The kinds SlipStream can add so far"),
+  kind: zod.enum(["catalog", "torznab", "rss"]),
   media: zod
     .array(zod.string())
     .nullish()
@@ -2627,6 +2706,12 @@ export const IndexersNewIndexer = zod.object({
     .exactOptional()
     .describe(
       "The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name",
+    ),
+  values: zod
+    .record(zod.string(), zod.string())
+    .exactOptional()
+    .describe(
+      "A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only",
     ),
 });
 
@@ -2891,6 +2976,15 @@ export const IndexersStatusChanged = zod.object({
 
 export type IndexersStatusChanged = zod.input<typeof IndexersStatusChanged>;
 export type IndexersStatusChangedOutput = zod.output<typeof IndexersStatusChanged>;
+
+export const IndexersTestBody = zod.object({
+  captcha: IndexersCaptchaAnswer.exactOptional().describe(
+    "The answer to a captcha loaded for this Indexer",
+  ),
+});
+
+export type IndexersTestBody = zod.input<typeof IndexersTestBody>;
+export type IndexersTestBodyOutput = zod.output<typeof IndexersTestBody>;
 
 export const IndexersTracker = zod.object({
   hosts: zod.array(zod.string()).describe("The announce hosts of its private torrents"),
