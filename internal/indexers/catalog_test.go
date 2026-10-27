@@ -34,8 +34,8 @@ import (
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
-	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // recorder keeps the path of every request the catalog client sends.
