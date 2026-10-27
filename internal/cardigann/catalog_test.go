@@ -176,3 +176,59 @@ func TestCatalogYTS(t *testing.T) {
 		t.Errorf("Releases =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+// TestCatalogDownloads runs every definition's download exchange, the
+// unported gate lifted, with its settings at their defaults, answering
+// each request with a .torrent file. Every request must build. A
+// definition whose selectors find no link, or whose infohash block reads
+// an empty hash, in that response is counted, and any other failure is an
+// error.
+func TestCatalogDownloads(t *testing.T) {
+	everyFeaturePorted(t)
+	file := torrentResponse(t)
+	definitions, blocks, requests := 0, 0, 0
+	outcomes := map[string]int{}
+	for _, f := range catalogFiles(t) {
+		name, src := catalogFile(t, f)
+		d, err := Load(src)
+		if err != nil {
+			continue
+		}
+		definitions++
+		if d.def.Download != nil {
+			blocks++
+		}
+		x := d.Download(Settings{}, mustURL(t, d.siteLink(Settings{})+"download-torrent-1/info/1?id=1"), testClock)
+		for req, ok := x.Next(); ok; req, ok = x.Next() {
+			requests++
+			if req.URL.Host == "" {
+				t.Errorf("%s: a request has no host: %s", name, req.URL)
+			}
+			if x.Feed(file) != nil {
+				break
+			}
+		}
+		outcome, err := downloadOutcome(x.Result())
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+		outcomes[outcome]++
+	}
+	t.Logf("%d definitions, %d with a download block: %d requests, %d torrents, %d magnets, %d whose selectors found no link, %d with an empty info hash",
+		definitions, blocks, requests, outcomes["torrent"], outcomes["magnet"], outcomes["no link"], outcomes["no hash"])
+}
+
+func downloadOutcome(got Got, err error) (string, error) {
+	switch {
+	case err == nil:
+		if _, ok := got.(Magnet); ok {
+			return "magnet", nil
+		}
+		return "torrent", nil
+	case err.Error() == "no download selector matched the download page":
+		return "no link", nil
+	case strings.HasPrefix(err.Error(), "read the download page's info hash"):
+		return "no hash", nil
+	}
+	return "failed", err
+}
