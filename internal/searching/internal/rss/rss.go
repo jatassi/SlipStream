@@ -232,7 +232,7 @@ func elementSize(it *gofeed.Item) int64 {
 }
 
 var (
-	sizeIn     = regexp.MustCompile(`(?i)\b(\d+(?:[.,]\d+)?)\s*([KMGT]i?B|B|bytes)\b`)
+	sizeIn    = regexp.MustCompile(`(?i)\b(\d+(?:[.,]\d+)?)\s*([KMGT]i?B|B|bytes)\b`)
 	seedersIn = regexp.MustCompile(`(?i)\bseed(?:s|ers?)\b\W{0,3}(\d+)|(\d+)\s*seed(?:s|ers?)\b`)
 )
 

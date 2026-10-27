@@ -121,12 +121,7 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View
 		if err := db.New(tx).InsertIndexer(ctx, p); err != nil {
 			return err
 		}
-		if session != nil {
-			if err := x.offer(ctx, tx, idx.ID, node, *session); err != nil {
-				return err
-			}
-		}
-		return x.recordTest(ctx, tx, q, node, idx, a, created)
+		return x.recordTest(ctx, tx, q, node, idx, a, session, created)
 	})
 	if err != nil {
 		return View{}, err
@@ -178,9 +173,6 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit)
 	if idx, err = x.edited(idx, e); err != nil {
 		return View{}, err
 	}
-	if err := checkMedia(idx, x.cfg.MediaTypes); err != nil {
-		return View{}, err
-	}
 	session, err := pasted(e.Cookie, idx)
 	if err != nil {
 		return View{}, err
@@ -219,12 +211,8 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit)
 			return ErrNoIndexer
 		case !e.tested():
 			return nil
-		case session != nil:
-			if err := x.offer(ctx, tx, id, node, *session); err != nil {
-				return err
-			}
 		}
-		return x.recordTest(ctx, tx, q, node, idx, a, now)
+		return x.recordTest(ctx, tx, q, node, idx, a, session, now)
 	})
 	if err != nil {
 		return View{}, err
@@ -271,7 +259,7 @@ func (x *Indexers) edited(idx Indexer, e Edit) (Indexer, error) {
 		idx.Source = f
 	}
 	idx.Revision++
-	return idx, nil
+	return idx, checkMedia(idx, x.cfg.MediaTypes)
 }
 
 func set[T any](to, v *T) {
@@ -340,10 +328,16 @@ func (x *Indexers) test(ctx context.Context, idx Indexer, session *searching.Ses
 }
 
 // recordTest saves a passing Test of idx as query row q, with its status,
-// session and caps, inside the Write that saves idx.
-func (x *Indexers) recordTest(ctx context.Context, tx *storage.Tx[file], q QueryID, node role.NodeID, idx Indexer, a searching.Answer, now storage.Time) error {
+// session and caps, and the session pasted for it unless nil, inside the
+// Write that saves idx.
+func (x *Indexers) recordTest(ctx context.Context, tx *storage.Tx[file], q QueryID, node role.NodeID, idx Indexer, a searching.Answer, session *searching.Session, now storage.Time) error {
 	if err := insertQuery(ctx, tx, q, idx, UseTest, now); err != nil {
 		return err
+	}
+	if session != nil {
+		if err := x.offer(ctx, tx, idx.ID, node, *session); err != nil {
+			return err
+		}
 	}
 	j := job{q: q, idx: idx, use: UseTest, node: node}
 	_, err := x.recordIn(ctx, tx, q, idx.ID, j.answer(a), now)

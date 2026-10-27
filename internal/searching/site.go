@@ -199,7 +199,7 @@ func (s *Site) withSession(req *http.Request) int {
 	now := time.Now()
 	for _, c := range session.Cookies {
 		if c.matches(req.URL, now) {
-			req.AddCookie(&http.Cookie{Name: c.Name, Value: c.Value})
+			req.AddCookie(&http.Cookie{Name: c.Name, Value: c.Value}) //nolint:gosec // a request's cookie carries only its name and value
 			n++
 		}
 	}

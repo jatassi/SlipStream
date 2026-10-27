@@ -256,15 +256,15 @@ type newIndexer struct {
 	Media           []string      `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
 	AllowNoSize     bool          `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
 	Cookie          *pastedCookie `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one. Write-only"`
-	HomeNodeID      string `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
-	On              bool   `json:"on,omitempty" default:"true"`
-	AutomaticSearch bool   `json:"automaticSearch,omitempty" default:"true"`
-	RSS             bool   `json:"rss,omitempty" default:"true"`
-	AllowFailover   bool   `json:"allowFailover,omitempty"`
-	Priority        int    `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
-	Categories      []int  `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
-	Searches        *limit `json:"searches,omitempty"`
-	Grabs           *limit `json:"grabs,omitempty"`
+	HomeNodeID      string        `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
+	On              bool          `json:"on,omitempty" default:"true"`
+	AutomaticSearch bool          `json:"automaticSearch,omitempty" default:"true"`
+	RSS             bool          `json:"rss,omitempty" default:"true"`
+	AllowFailover   bool          `json:"allowFailover,omitempty"`
+	Priority        int           `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
+	Categories      []int         `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
+	Searches        *limit        `json:"searches,omitempty"`
+	Grabs           *limit        `json:"grabs,omitempty"`
 }
 
 func (n newIndexer) draft() (indexers.Draft, error) {
@@ -295,7 +295,9 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 // fitsKind refuses a field n's kind doesn't take.
 func (n newIndexer) fitsKind() error {
 	var errs []api.FieldError
-	refuse := func(field, message string) { errs = append(errs, api.FieldError{Location: "body." + field, Message: message}) }
+	refuse := func(field, message string) {
+		errs = append(errs, api.FieldError{Location: "body." + field, Message: message})
+	}
 	if n.Kind == string(indexers.RSS) {
 		if n.APIKey != "" {
 			refuse("apiKey", "An RSS feed takes no API key. Put a passkey in its address.")

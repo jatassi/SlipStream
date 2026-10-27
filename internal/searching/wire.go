@@ -221,8 +221,8 @@ func decodeAnswer(w *searchv1.Answer) (Answer, error) {
 			Capabilities: Capabilities{Modes: modes, Categories: ints(r.Test.GetCapabilities().GetCategories())},
 			Items:        int(r.Test.GetItems()), Sources: r.Test.GetSources(), Refusal: refusalOnWire[r.Test.GetRefusal()],
 		}
-		if rss := r.Test.GetRss(); rss != nil {
-			reading := decodeReading(rss)
+		if w := r.Test.GetRss(); w != nil {
+			reading := decodeReading(w)
 			a.Report.RSS = &reading
 		}
 	}
