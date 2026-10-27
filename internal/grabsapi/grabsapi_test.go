@@ -3,6 +3,7 @@ package grabsapi_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
@@ -93,6 +94,10 @@ func (l *lapsing) InStep(role.NodeID) bool         { return !l.lapsed.Load() }
 // site answers every search with a 1080p and a 720p release, and every
 // .torrent fetch with bytes that aren't bencode.
 type site struct{}
+
+func (site) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the site has no Challenge solver")
+}
 
 func (site) Run(_ context.Context, job searching.Job) (searching.Poll, error) {
 	var a searching.Answer
@@ -345,6 +350,10 @@ func (f *atticFixture) failed(t *testing.T, n int) map[string]failedGrab {
 type mirrors struct {
 	titles  map[string]string
 	stopped string
+}
+
+func (mirrors) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the mirrors have no Challenge solver")
 }
 
 func (m mirrors) Run(_ context.Context, job searching.Job) (searching.Poll, error) {

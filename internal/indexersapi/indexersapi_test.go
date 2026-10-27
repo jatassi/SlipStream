@@ -47,6 +47,10 @@ func (r registry) Indexers() (*indexers.Indexers, bool) { return r.x, true }
 // disconnected is a Node whose link is down.
 type disconnected struct{}
 
+func (disconnected) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, link.ErrDisconnected
+}
+
 func (disconnected) Run(context.Context, searching.Job) (searching.Poll, error) {
 	return searching.Poll{}, link.ErrDisconnected
 }

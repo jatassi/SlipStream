@@ -36,6 +36,10 @@ type scripted struct {
 	jobs    []searching.Job
 }
 
+func (*scripted) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the scripted Node has no Challenge solver")
+}
+
 func (n *scripted) Run(_ context.Context, j searching.Job) (searching.Poll, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()

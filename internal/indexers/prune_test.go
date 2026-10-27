@@ -24,6 +24,10 @@ func (passing) Run(context.Context, searching.Job) (searching.Poll, error) {
 	return searching.Poll{Started: now, Answer: &searching.Answer{Started: now}}, nil
 }
 
+func (passing) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the passing Node has no Challenge solver")
+}
+
 // onTwo is saved's Fixture Site with seed holding Searching beside home,
 // and a session on each pasted for it.
 func onTwo(t *testing.T) (*Indexers, *storage.DB[file], Indexer) {

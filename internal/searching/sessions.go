@@ -17,10 +17,11 @@ type sessions struct {
 
 type slot struct {
 	revision int64
-	// signing holds a token while a sign-in runs.
-	signing chan struct{}
-	mu      sync.Mutex
-	session *Session
+	// signing holds a token while a sign-in runs, and solving while a
+	// Challenge solver clears a page.
+	signing, solving chan struct{}
+	mu               sync.Mutex
+	session          *Session
 }
 
 // slot is the Indexer's slot for job, holding the newer of the cached
@@ -29,7 +30,7 @@ func (ss *sessions) slot(job Job) *slot {
 	ss.mu.Lock()
 	sl := ss.by[job.Indexer]
 	if sl == nil || sl.revision < job.Revision {
-		sl = &slot{revision: job.Revision, signing: make(chan struct{}, 1)}
+		sl = &slot{revision: job.Revision, signing: make(chan struct{}, 1), solving: make(chan struct{}, 1)}
 		ss.by[job.Indexer] = sl
 	}
 	ss.mu.Unlock()
@@ -85,6 +86,20 @@ func (sl *slot) keep(base *Session, cookies []Cookie) {
 	kept := *sl.session
 	kept.Cookies = cookies
 	sl.session = &kept
+}
+
+// cleared has the session send c's cookies, in place of any of the same
+// name, domain and path, and c's User-Agent, as a session earned when c
+// was. A slot with no session starts one.
+func (sl *slot) cleared(c clearance) {
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	var s Session
+	if sl.session != nil {
+		s = *sl.session
+	}
+	s.Cookies, s.UserAgent, s.Earned = withCookies(s.Cookies, c.cookies), c.userAgent, c.at
+	sl.session = &s
 }
 
 // signIn runs fn, one at a time for the Indexer on this Node, and holds

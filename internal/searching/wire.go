@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching/internal/rss"
 )
 
@@ -18,6 +19,10 @@ type Remote interface {
 	// Run starts job on the Node, or joins its run there. It answers
 	// within the Node's hold: the job's Answer, or how the job stands.
 	Run(ctx context.Context, job Job) (Poll, error)
+	// ReachSolver has the Node send GET {address}/health to s and
+	// answers the status it got. It fails with *SolverUnreachable when
+	// the Node couldn't reach s.
+	ReachSolver(ctx context.Context, s Solver) (int, error)
 }
 
 // Poll is one Run call's result: the Answer once the job ended, else when
@@ -50,6 +55,17 @@ func (r remote) Run(ctx context.Context, job Job) (Poll, error) {
 		return Poll{Started: answer.Started, Answer: &answer}, nil
 	}
 	return Poll{}, errors.New("the Node's response to Run holds neither a result nor a start time")
+}
+
+func (r remote) ReachSolver(ctx context.Context, s Solver) (int, error) {
+	res, err := r.h.ReachSolver(ctx, &searchv1.ReachSolverRequest{Address: s.Address, TimeoutMs: s.Timeout.Milliseconds()})
+	if rpc.CodeOf(err) == rpc.CodeFailedPrecondition {
+		return 0, &SolverUnreachable{Cause: rpc.MessageOf(err)}
+	}
+	if err != nil {
+		return 0, err
+	}
+	return int(res.GetStatus()), nil
 }
 
 var kindOnWire = map[searchv1.Kind]Kind{
@@ -101,6 +117,9 @@ func encodeJob(j Job) *searchv1.Job {
 	if d := j.Definition; d != nil {
 		w.Site.Definition = &searchv1.Definition{Yaml: d.YAML, Sha: d.SHA}
 	}
+	if v := j.Solver; v != nil {
+		w.Site.Solver = &searchv1.Solver{Address: v.Address, TimeoutMs: v.Timeout.Milliseconds()}
+	}
 	switch c := j.Call.(type) {
 	case SearchCall:
 		q := c.Query
@@ -134,6 +153,12 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	if d := s.GetDefinition(); d != nil {
 		j.Definition = &Definition{YAML: d.GetYaml(), SHA: d.GetSha()}
 	}
+	if v := s.GetSolver(); v != nil {
+		if _, err := httpURL(v.GetAddress()); err != nil {
+			return Job{}, nil, fmt.Errorf("the Challenge solver's address: %w", err)
+		}
+		j.Solver = &Solver{Address: v.GetAddress(), Timeout: time.Duration(v.GetTimeoutMs()) * time.Millisecond}
+	}
 	if j.ID == "" {
 		return Job{}, nil, errors.New("the job has no id")
 	}
@@ -163,7 +188,10 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	default:
 		return Job{}, nil, errors.New("the job names no call this Node runs")
 	}
-	site := &Site{Indexer: j.Indexer, Revision: j.Revision, Address: address, Settings: j.Settings, APIKey: j.APIKey, Categories: j.Categories, RSS: j.RSS}
+	site := &Site{
+		Indexer: j.Indexer, Revision: j.Revision, Address: address, Settings: j.Settings, APIKey: j.APIKey, Categories: j.Categories, RSS: j.RSS,
+		solver: j.Solver,
+	}
 	return j, site, nil
 }
 

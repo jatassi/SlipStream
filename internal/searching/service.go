@@ -2,6 +2,7 @@ package searching
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,9 +37,21 @@ func (s *Service) Run(ctx context.Context, req *searchv1.RunRequest) (*searchv1.
 	}
 }
 
-// ReachSolver lands with the Challenge solver.
-func (s *Service) ReachSolver(context.Context, *searchv1.ReachSolverRequest) (*searchv1.ReachSolverResponse, error) {
-	return nil, rpc.Errorf(rpc.CodeUnimplemented, "this Node reaches no Challenge solver yet")
+// ReachSolver sends GET {address}/health to a Challenge solver from this
+// Node, within the solver's timeout, and answers the status. A solver the
+// Node can't reach fails the call with FailedPrecondition and the cause.
+func (s *Service) ReachSolver(ctx context.Context, req *searchv1.ReachSolverRequest) (*searchv1.ReachSolverResponse, error) {
+	if _, err := httpURL(req.GetAddress()); err != nil {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "the Challenge solver's address: %v", err)
+	}
+	status, err := reachSolver(ctx, s.client, req.GetAddress(), time.Duration(req.GetTimeoutMs())*time.Millisecond)
+	if u, ok := errors.AsType[*SolverUnreachable](err); ok {
+		return nil, rpc.Errorf(rpc.CodeFailedPrecondition, "%s", u.Cause)
+	}
+	if err != nil {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
+	}
+	return &searchv1.ReachSolverResponse{Status: int32(status)}, nil //nolint:gosec // an HTTP status fits
 }
 
 // do runs job on its own context, bounded by Timings.JobCap.

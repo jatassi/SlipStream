@@ -41,6 +41,10 @@ func (s *site) answer(outcome error) {
 	s.outcome = outcome
 }
 
+func (*site) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the site has no Challenge solver")
+}
+
 func (s *site) Run(context.Context, searching.Job) (searching.Poll, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
