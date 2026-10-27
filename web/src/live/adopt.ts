@@ -8,6 +8,9 @@ import type {
   HealthSettings,
   HealthVolume,
   HealthVolumeList,
+  IndexersIndexer,
+  IndexersIndexerList,
+  IndexersSettings,
   RootsRootSettings,
   SystemNodeConfig,
   TasksOverview,
@@ -24,6 +27,11 @@ import {
   getGetSystemHealthQueryKey,
   getListHealthVolumesQueryKey,
 } from "../api/gen/query/health/health";
+import {
+  getGetIndexerQueryKey,
+  getGetIndexerSettingsQueryKey,
+  getListIndexersQueryKey,
+} from "../api/gen/query/indexers/indexers";
 import { getGetRootSettingsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
 import { getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
@@ -110,4 +118,24 @@ export function adoptContentType(queryClient: QueryClient, saved: WorksContentTy
         contentTypes: list.contentTypes.map((type) => (type.id === saved.id ? saved : type)),
       },
   );
+}
+
+export function adoptIndexer(queryClient: QueryClient, saved: IndexersIndexer) {
+  queryClient.setQueryData(getGetIndexerQueryKey(saved.id), saved);
+  queryClient.setQueryData<IndexersIndexerList>(
+    getListIndexersQueryKey(),
+    (list) =>
+      list && { indexers: list.indexers.map((shown) => (shown.id === saved.id ? saved : shown)) },
+  );
+}
+
+export function dropIndexer(queryClient: QueryClient, id: string) {
+  queryClient.setQueryData<IndexersIndexerList>(
+    getListIndexersQueryKey(),
+    (list) => list && { indexers: list.indexers.filter((shown) => shown.id !== id) },
+  );
+}
+
+export function adoptIndexerSettings(queryClient: QueryClient, settings: IndexersSettings) {
+  queryClient.setQueryData(getGetIndexerSettingsQueryKey(), settings);
 }
