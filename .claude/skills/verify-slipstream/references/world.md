@@ -64,6 +64,8 @@ The `omdb` fake's `omdb-revoke-key` refuses `{"key": "…"}`, or every key it ha
 
 `fixture-site-list` with `{"release": "<name>"}` lists a release the Scenario marks `unlisted: true`, so a search after the cue finds it and one before does not. The `targets` Scenario holds its Bluray back this way until its WEB-DL is imported.
 
+`fixture-site-rss-item` with `{"release": "<name>"}` lists an `unlisted: true` release in Brook's RSS feed only, at `https://brook.fixture-site.fake.localhost/rss`. Brook's `?play=` takes `no-items`, `no-link`, `repeated-guid` or `no-size`, and any `brook_session` cookie other than the Scenario's gets 403.
+
 ## Captures and the event log
 
 `events.jsonl` in the run dir is the one ordered log of the run: launch, Node lifecycle, `node.error` lines, front opens and closes with bytes each way, faults, cues, steps, SSE messages and captures. Readers read the file, so they work on a live run, a stopped one and a downloaded CI bundle.
