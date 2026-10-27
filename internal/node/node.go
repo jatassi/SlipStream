@@ -223,7 +223,10 @@ type Node struct {
 	// client.
 	torrent   engine.Engine
 	downloads *downloading.Client
-	store     *storing.Store
+	// store is the Node's Storage over disk, which Transfers read and
+	// write through too.
+	store *storing.Store
+	disk  storing.Disk
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start.
 	claimed *Stack
@@ -519,6 +522,7 @@ func (n *Node) startStorage(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("open the disk: %w", err)
 	}
+	n.disk = disk
 	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloads, Downloads: n.downloads.Folders, Timings: cfg.Timings.Storing})
 	return nil
 }

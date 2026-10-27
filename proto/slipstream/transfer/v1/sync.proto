@@ -1,0 +1,191 @@
+// The Transfers sync channel (internal/transfers), which every claimed
+// Node holds: the intent the Controller derives for each Node, the facts a
+// Node reports about the Transfers it runs, and the results it reports
+// once.
+syntax = "proto3";
+
+package slipstream.transfer.v1;
+
+// Intent is what one Node sends and receives now, with every default
+// applied.
+message Intent {
+  // send_limit is bytes a second across every lane this Node sends, 0 for
+  // none.
+  int64 send_limit = 1;
+  // active is the Transfers the Controller made active that this Node
+  // sends or receives, oldest first. Queued and stepped-aside Transfers
+  // stay out, so nobody dials for them.
+  repeated Active active = 2;
+  // keep is every Transfer id whose staging this Node holds, active or
+  // not, failed included, sorted. A staging folder neither list names
+  // goes.
+  repeated bytes keep = 3;
+}
+
+message Active {
+  bytes transfer_id = 1;
+  Side side = 2;
+  Peer peer = 3;
+  Route route = 4;
+  // destination is set for the receiver only.
+  Destination destination = 5;
+  // files is every file not yet verified at the destination's place and
+  // not placed, in order.
+  repeated File files = 6;
+}
+
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_SEND = 1;
+  SIDE_RECEIVE = 2;
+}
+
+// Peer is the other end of an active Transfer.
+message Peer {
+  bytes key = 1;
+  // addresses are the Admin's reverse-dial addresses, then the link
+  // addresses the peer last advertised. Empty when the peer is the
+  // Controller: a Worker dials its Controller where it keeps its link.
+  repeated string addresses = 2;
+}
+
+// Route is who opens a Transfer's lanes. BOTH_DIAL is the no-route wait
+// between two Workers: each end keeps trying its own direction at its
+// retry pace.
+enum Route {
+  ROUTE_UNSPECIFIED = 0;
+  ROUTE_RECEIVER_DIALS = 1;
+  ROUTE_SENDER_DIALS = 2;
+  ROUTE_NODE_LINK = 3;
+  ROUTE_BOTH_DIAL = 4;
+}
+
+message Destination {
+  oneof kind {
+    RootDestination root = 1;
+  }
+}
+
+// RootDestination is a library root at one place: a re-home bumps the
+// place, so staging from an earlier place never counts.
+message RootDestination {
+  bytes root_id = 1;
+  int64 place = 2;
+}
+
+message File {
+  uint32 position = 1;
+  Source source = 2;
+  int64 size = 3;
+}
+
+// Source is the file a sender reads.
+message Source {
+  oneof ref {
+    TorrentPayload torrent = 1;
+  }
+}
+
+message TorrentPayload {
+  bytes info_hash = 1;
+  uint32 file_index = 2;
+}
+
+// Facts are latest wins, sent at most once per timings.transfers.report
+// while bytes move, and at once on a wait or route change.
+message Facts {
+  repeated Receiving receiving = 1;
+  repeated Sending sending = 2;
+}
+
+// Receiving is one Transfer this Node receives, or kept from receiving.
+message Receiving {
+  bytes transfer_id = 1;
+  // route is the route of the intent this fact is about. The Controller
+  // reads gave_up and moving only while it matches the route it would
+  // give the Transfer now.
+  Route route = 2;
+  // active is false for a kept Transfer this Node no longer runs. It then
+  // carries only its verified bytes and the last wait it saw, so a
+  // Transfer that stepped aside keeps its progress and doesn't flap back.
+  bool active = 3;
+  // verified_bytes is the verified bytes of files not yet reported
+  // verified.
+  int64 verified_bytes = 4;
+  // rate is verified bytes a second over timings.transfers.estimate.
+  int64 rate = 5;
+  // moving is true while bytes move on route: from the sender's first
+  // answer on a lane, before its first chunk arrives.
+  bool moving = 6;
+  uint32 lanes = 7;
+  uint32 rtt_ms = 8;
+  uint32 retried = 9;
+  // gave_up is every route this end dials that failed to connect within
+  // timings.transfers.dial since its run started.
+  repeated Route gave_up = 10;
+  Wait wait = 11;
+}
+
+// Sending is one Transfer this Node sends.
+message Sending {
+  bytes transfer_id = 1;
+  Route route = 2;
+  repeated Route gave_up = 3;
+  // binding is true when the send limit held a chunk back since the last
+  // facts.
+  bool binding = 4;
+}
+
+// Wait is why a receiver can't copy now. detail is the OS or engine
+// text.
+message Wait {
+  Kind kind = 1;
+  string detail = 2;
+
+  enum Kind {
+    // KIND_UNSPECIFIED is no wait.
+    KIND_UNSPECIFIED = 0;
+    KIND_CONNECTING = 1;
+    // KIND_SOURCE_NOT_READY is the sender's Absent not_ready.
+    KIND_SOURCE_NOT_READY = 2;
+    // KIND_ROOT_NOT_READY is the Storage holder's gate refusing the root.
+    KIND_ROOT_NOT_READY = 3;
+    // KIND_DISK_FULL is a staged write that ran out of space.
+    KIND_DISK_FULL = 4;
+  }
+}
+
+// Result is applied exactly once. One for a Transfer or file the
+// Controller no longer has, has failed, or that this Node no longer
+// receives does nothing.
+message Result {
+  oneof result {
+    FileVerified verified = 1;
+    Failed failed = 2;
+  }
+}
+
+// FileVerified is a file synced, closed and verified at place, the
+// destination's place it was staged at.
+message FileVerified {
+  bytes transfer_id = 1;
+  uint32 position = 2;
+  int64 place = 3;
+}
+
+message Failed {
+  bytes transfer_id = 1;
+  Code code = 2;
+  // position is the file the failure names.
+  uint32 position = 3;
+  // detail is the engine's text, or "read_back" for a file damaged only
+  // when read back from the destination's disk.
+  string detail = 4;
+
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    CODE_SOURCE_GONE = 1;
+    CODE_SOURCE_FAILED = 2;
+    CODE_DAMAGED = 3;
+  }
+}

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  Three Nodes. The Controller home holds neither Downloading nor Storage.
+  The Worker seedbox pairs by Join Code and holds Searching and Downloading.
+  The Worker nas pairs by Join Code and holds Storage with the Movies root,
+  so a Grab downloaded on seedbox reaches nas's root through a Transfer
+  between the two Workers. The release is a 60 second video of about
+  36 MB, so its Transfer spans nine chunks and reads copying between
+  them.
+seed: seedbox-nas
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+  - name: nas
+    setup: join
+    roles: [storage]
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 60}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies, node: nas}]
+  indexers: [{name: Fixture Site, site: fixture-site}]

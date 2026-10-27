@@ -131,7 +131,9 @@ type pipeline struct {
 	changed *published
 	node    role.NodeID
 	work    works.WorkID
+	root    roots.ID
 	indexer storage.UUID
+	copies  *transfers.Transfers
 }
 
 func newPipeline(t *testing.T, answers ...answer) *pipeline {
@@ -146,7 +148,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		sql(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, p.node),
 		sql(`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, p.indexer, p.node),
 	)
-	rootstest.Root(t, lib, p.node, contenttypetest.ID, t.TempDir())
+	p.root = rootstest.Root(t, lib, p.node, contenttypetest.ID, t.TempDir()).ID
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -166,11 +168,12 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		t.Fatal(err)
 	}
 	p.work = tree.ID
+	p.copies = transfers.New(transfers.ControllerConfig{Library: lib})
 	p.g = grabs.New(grabs.Config{
 		Library: lib, Works: w,
 		Indexers: indexers.New(indexers.Config{Library: lib, Roster: p.roster, Changed: discard[indexers.Changed]{}}),
 		Roster:   p.roster, Downloads: p.swarm,
-		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
+		Transfers: p.copies,
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, Log: slog.New(slog.DiscardHandler),
 	})
@@ -180,7 +183,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 func schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
 		secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(),
+		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), transfers.LibrarySchema(),
 	}
 }
 

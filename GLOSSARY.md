@@ -175,8 +175,20 @@ The check that tells the admin whether each Exposure can be reached from the int
 _Avoid_: Port check, firewall check, connectivity test
 
 **Transfer**:
-A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination.
+A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination. The Controller records each Transfer, and the job that asked for it places its files once verified.
 _Avoid_: Sync, mirror, push; target for the destination
+
+**Lane**:
+One TLS connection, or one stream on the Node link, that carries a Transfer's chunks. A Transfer has one or more.
+_Avoid_: Channel, pipe
+
+**Send limit**:
+A Node's cap on the bandwidth its Transfers send, across all of them.
+_Avoid_: Throttle, upload limit (that is the torrent client's)
+
+**Staging folder**:
+The folder on the destination's filesystem where the receiving Node writes a Transfer's files until the job that asked for the Transfer places them.
+_Avoid_: Temp folder, incoming, holding (that is import's)
 
 **Library root**:
 A folder on one Storage Node that holds Works of one Content Type, recorded on the Controller. A Work's folder is stored relative to its root, so editing the root's Node and path re-homes every Work in it.

@@ -56,6 +56,8 @@ const (
 	shipped     = "go-yamux"
 	controlArm  = "hashicorp-default"
 	uhdPeak     = 144.0
+	tunedRmem   = "4096 131072 67108864"
+	tunedWmem   = "4096 16384 67108864"
 )
 
 var (
@@ -120,7 +122,7 @@ type result struct {
 func measureAll(t *testing.T) {
 	var results []result
 	for _, rtt := range rtts {
-		topology(t, rtt)
+		topology(t, delayed(t, rtt))
 		for _, a := range arms {
 			r := measureArm(t, a)
 			r.RTT = rtt
@@ -153,17 +155,16 @@ func windowMbits(bytes float64, rtt time.Duration) float64 {
 	return bytes * 8 / rtt.Seconds() / 1e6
 }
 
-// topology makes the two namespaces for rtt, removing them at cleanup.
-// Each end knows the other's MAC, so the first connection does not wait a
-// round trip for ARP through the delay.
-func topology(t *testing.T, rtt time.Duration) {
+// topology makes the two namespaces, removing them at cleanup, and shapes
+// each end's device. Each end knows the other's MAC, so the first
+// connection does not wait a round trip for ARP through the delay.
+func topology(t *testing.T, shape func(ns, dev string)) {
 	cleanup := func() {
 		_ = exec.CommandContext(context.Background(), "ip", "netns", "del", serverNS).Run()
 		_ = exec.CommandContext(context.Background(), "ip", "netns", "del", clientNS).Run()
 	}
 	cleanup()
 	t.Cleanup(cleanup)
-	half := fmt.Sprintf("%dus", rtt.Microseconds()/2)
 	ip(t, "netns", "add", serverNS)
 	ip(t, "netns", "add", clientNS)
 	ip(t, "link", "add", serverDev, "netns", serverNS, "address", serverMAC, "type", "veth", "peer", "name", clientDev, "netns", clientNS, "address", clientMAC)
@@ -173,9 +174,21 @@ func topology(t *testing.T, rtt time.Duration) {
 		ip(t, "-n", ns, "neigh", "add", peer, "lladdr", peerMAC, "dev", dev, "nud", "permanent")
 		ip(t, "-n", ns, "link", "set", dev, "up")
 		ip(t, "-n", ns, "link", "set", "lo", "up")
-		ip(t, "netns", "exec", ns, "tc", "qdisc", "add", "dev", dev, "root", "netem", "delay", half, "limit", "100000")
-		ip(t, "netns", "exec", ns, "sysctl", "-q", "-w", "net.ipv4.tcp_rmem=4096 131072 67108864", "net.ipv4.tcp_wmem=4096 16384 67108864")
+		shape(ns, dev)
 	}
+}
+
+// delayed delays each end by half of rtt and raises the socket buffer
+// limits to 64 MiB.
+func delayed(t *testing.T, rtt time.Duration) func(ns, dev string) {
+	return func(ns, dev string) {
+		ip(t, "netns", "exec", ns, "tc", "qdisc", "add", "dev", dev, "root", "netem", "delay", half(rtt), "limit", "100000")
+		ip(t, "netns", "exec", ns, "sysctl", "-q", "-w", "net.ipv4.tcp_rmem="+tunedRmem, "net.ipv4.tcp_wmem="+tunedWmem)
+	}
+}
+
+func half(rtt time.Duration) string {
+	return fmt.Sprintf("%dus", rtt.Microseconds()/2)
 }
 
 func ip(t *testing.T, args ...string) {
@@ -187,14 +200,34 @@ func ip(t *testing.T, args ...string) {
 
 // measureArm runs a's server and client in their namespaces.
 func measureArm(t *testing.T, a arm) result {
+	out, server := spawn(t, "TestMeasureStream", a.name)
+	var r result
+	b, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(b, &r); err != nil {
+		t.Fatal(err)
+	}
+	if usage, ok := server.SysUsage().(*syscall.Rusage); ok {
+		r.ServerRSS = usage.Maxrss << 10
+	}
+	r.Drops = drops(t, serverNS, serverDev) + "/" + drops(t, clientNS, clientDev)
+	return r
+}
+
+// spawn re-runs test as the server and then the client of arm, each in its
+// namespace. It returns the file the client wrote its result to and the
+// server's exit state.
+func spawn(t *testing.T, test, arm string) (string, *os.ProcessState) {
 	self, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := filepath.Join(t.TempDir(), "result.json")
 	child := func(ns, role string) *exec.Cmd {
-		cmd := exec.CommandContext(t.Context(), "ip", "netns", "exec", ns, self, "-test.run", "^TestMeasureStream$")
-		cmd.Env = append(os.Environ(), roleEnv+"="+role, armEnv+"="+a.name, outEnv+"="+out)
+		cmd := exec.CommandContext(t.Context(), "ip", "netns", "exec", ns, self, "-test.run", "^"+test+"$")
+		cmd.Env = append(os.Environ(), roleEnv+"="+role, armEnv+"="+arm, outEnv+"="+out)
 		return cmd
 	}
 	server := child(serverNS, "server")
@@ -207,28 +240,16 @@ func measureArm(t *testing.T, a arm) result {
 		t.Fatal(err)
 	}
 	if err := awaitReady(ready); err != nil {
-		t.Fatalf("%s server: %v", a.name, err)
+		t.Fatalf("%s server: %v", arm, err)
 	}
-	go func() { _, _ = io.Copy(io.Discard, ready) }()
-	if out, err := child(clientNS, "client").CombinedOutput(); err != nil {
-		t.Fatalf("%s client: %v\n%s", a.name, err, out)
+	go func() { _, _ = io.Copy(os.Stderr, ready) }()
+	if b, err := child(clientNS, "client").CombinedOutput(); err != nil {
+		t.Fatalf("%s client: %v\n%s", arm, err, b)
 	}
 	if err := server.Wait(); err != nil {
-		t.Fatalf("%s server: %v", a.name, err)
+		t.Fatalf("%s server: %v", arm, err)
 	}
-	var r result
-	b, err := os.ReadFile(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(b, &r); err != nil {
-		t.Fatal(err)
-	}
-	if usage, ok := server.ProcessState.SysUsage().(*syscall.Rusage); ok {
-		r.ServerRSS = usage.Maxrss << 10
-	}
-	r.Drops = drops(t, serverNS, serverDev) + "/" + drops(t, clientNS, clientDev)
-	return r
+	return out, server.ProcessState
 }
 
 // awaitReady reads the server's output up to its "ready" line.
@@ -277,7 +298,7 @@ func certificate(t *testing.T, seed [ed25519.SeedSize]byte) (tls.Certificate, ed
 }
 
 func pinned(want ed25519.PublicKey) wire.Accept {
-	return func(key ed25519.PublicKey) error {
+	return func(key ed25519.PublicKey, _ string) error {
 		if !key.Equal(want) {
 			return errors.New("not the pinned key")
 		}
@@ -298,7 +319,7 @@ func measureServer(t *testing.T, a arm) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tc := tls.Server(c, wire.ServerConfig(cert, pinned(clientKey)))
+	tc := tls.Server(c, wire.ServerConfig(cert, wire.LaneALPN("measure"), pinned(clientKey)))
 	if err := tc.HandshakeContext(t.Context()); err != nil {
 		t.Fatal(err)
 	}

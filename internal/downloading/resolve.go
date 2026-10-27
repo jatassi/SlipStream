@@ -113,7 +113,7 @@ func (l *loop) place(a ask, now time.Time) bool {
 		return false
 	}
 	if l.torrents[h] != nil {
-		a.reply <- answer{res: held()}
+		a.reply <- answer{res: alreadyHeld()}
 		return false
 	}
 	s := l.searches[h]
@@ -285,7 +285,7 @@ func (l *loop) yield(h bencode.InfoHash) bool {
 	if s == nil || s.handle == 0 {
 		return false
 	}
-	l.end(s, held())
+	l.end(s, alreadyHeld())
 	return true
 }
 
@@ -313,7 +313,7 @@ func notTaking() *dlv1.ResolveResponse {
 	return &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_NotTaking{NotTaking: &dlv1.NotTaking{}}}
 }
 
-func held() *dlv1.ResolveResponse {
+func alreadyHeld() *dlv1.ResolveResponse {
 	return &dlv1.ResolveResponse{Answer: &dlv1.ResolveResponse_Held{Held: &dlv1.Held{}}}
 }
 

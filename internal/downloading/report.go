@@ -133,11 +133,13 @@ func (l *loop) fill(t *torrent, r *dlv1.TorrentReport, now time.Time) *dlv1.Torr
 	return r
 }
 
+func (t *torrent) checking() bool { return t.Phase == plan.Checking || checking(t.status.State) }
+
 func (t *torrent) engineState() dlv1.EngineState {
 	switch {
 	case t.failed != "":
 		return dlv1.EngineState_ENGINE_STATE_FAILED
-	case t.Phase == plan.Checking || checking(t.status.State):
+	case t.checking():
 		return dlv1.EngineState_ENGINE_STATE_CHECKING
 	case t.Complete:
 		return dlv1.EngineState_ENGINE_STATE_SEEDING

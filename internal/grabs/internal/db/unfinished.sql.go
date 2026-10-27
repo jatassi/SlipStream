@@ -55,3 +55,40 @@ func (q *Queries) CountUnfinishedOfWorks(ctx context.Context, workIds []works.Wo
 	}
 	return items, nil
 }
+
+const listGrabsOfWorks = `-- name: ListGrabsOfWorks :many
+SELECT id FROM grabs_grab WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+`
+
+func (q *Queries) ListGrabsOfWorks(ctx context.Context, workIds []works.WorkID) ([]GrabID, error) {
+	query := listGrabsOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabID
+	for rows.Next() {
+		var id GrabID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

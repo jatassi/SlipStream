@@ -1,11 +1,12 @@
-import type { GrabsGrab, GrabsMetadataSearch } from "../api/gen/model";
+import type { GrabsGrab } from "../api/gen/model";
 import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
-import { bytes, countWords, sinceWords } from "../format";
+import { bytes } from "../format";
 import { useLiveRow } from "../live/torrents";
-import { useNow } from "../tasks/use-now";
 import { paceOf } from "../torrents/model";
+import { useTransferProgressOf } from "../transfers/job";
 import { Data } from "../ui/data";
 import { LiveBar } from "../ui/live-bar";
+import { MetadataCell } from "./metadata-cell";
 import { movesBytes, stageWord } from "./stages";
 
 const percent = ({ done, total }: { done: number; total: number }) =>
@@ -62,21 +63,18 @@ function ReportedProgress({ grab }: { grab: GrabsGrab }) {
   );
 }
 
-const peer = { one: "peer", many: "peers" };
-
-function MetadataCell({ search }: { search: GrabsMetadataSearch }) {
-  const reading = { now: useNow(60_000), zone: undefined };
+// A transfer's speed and time left come from its Transfer.
+function TransferProgress({ grab }: { grab: GrabsGrab }) {
+  const transfer = useTransferProgressOf(grab.id);
+  if (transfer === undefined) {
+    return <ReportedProgress grab={grab} />;
+  }
   return (
-    <span className="flex max-w-[240px] flex-col gap-0.5">
-      <span>
-        {search.peers === 0
-          ? "Looking for peers"
-          : `Getting metadata from ${countWords(search.peers, peer)}`}
-      </span>
-      <span className="text-meta text-ink-3">
-        Fails at <Data>{sinceWords(search.endsAt, reading)}</Data> if no peer sends the metadata
-      </span>
-    </span>
+    <Progress
+      grab={grab}
+      progress={{ done: transfer.done, total: transfer.total }}
+      pace={transfer.pace}
+    />
   );
 }
 
@@ -87,9 +85,12 @@ export function ProgressCell({ grab }: { grab: GrabsGrab }) {
   if (!movesBytes(grab)) {
     return null;
   }
-  return grab.stage === "downloading" && grab.torrentId !== null ? (
-    <LiveProgress grab={grab} torrentId={grab.torrentId} />
-  ) : (
+  if (grab.stage === "transferring") {
+    return <TransferProgress grab={grab} />;
+  }
+  return grab.torrentId === null ? (
     <ReportedProgress grab={grab} />
+  ) : (
+    <LiveProgress grab={grab} torrentId={grab.torrentId} />
   );
 }

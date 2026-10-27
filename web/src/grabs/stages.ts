@@ -132,9 +132,4 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The Work moved to another library root after this download was planned.",
     recovery: searchAgain,
   },
-  needs_transfer: {
-    cause:
-      "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet.",
-    recovery: "Tick Downloading on the Node that holds the root, then search again.",
-  },
 };

@@ -528,7 +528,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-360 | Test-only music Content Type that proves the Content Type contract in the offline suite and never ships | - | not started | kept | [Content Type contract and the music test type](https://github.com/jatassi/SlipStream/issues/133) | planned |
 | P-361 | Generic Torznab indexer that reads any Torznab feed, such as one Prowlarr or Jackett indexer | - | not started | kept | [Indexers and Trackers](https://github.com/jatassi/SlipStream/issues/151) | planned |
 | P-362 | Several Nodes in one install: Pairing by Join Code, Roles and Role Groups, the Nodes canvas and Roster | - | not started | kept | [Nodes, Pairing and Roles](https://github.com/jatassi/SlipStream/issues/140) | planned |
-| P-363 | Transfers of finished files between Nodes with resume and bandwidth caps | - | not started | kept | [Transfers between Nodes](https://github.com/jatassi/SlipStream/issues/156) | planned |
+| P-363 | Transfers of finished files between Nodes with resume and bandwidth caps | - | not started | kept | [Transfers between Nodes](https://github.com/jatassi/SlipStream/issues/156) | shipped |
 | P-364 | Site-specific indexers ported from Prowlarr's C# indexers | - | not started | kept | [Ported site indexers](https://github.com/jatassi/SlipStream/issues/152) | planned |
 | P-365 | Playback report of which players transcoded, why, and which Target would have played | - | not started | kept | [Playback report](https://github.com/jatassi/SlipStream/issues/161) | planned |
 | P-366 | Member access to Media Servers from onboarding: Share on Plex, Jellyfin and Emby accounts | - | not started | kept | [Member access to Media Servers](https://github.com/jatassi/SlipStream/issues/168) | planned |

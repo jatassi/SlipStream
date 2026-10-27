@@ -21,3 +21,23 @@ func UnfinishedOf(ctx context.Context, r storage.Reader[storage.Library], ws []w
 	}
 	return out, nil
 }
+
+// CancelTransfersIn cancels in tx the Transfer of each Grab of ws, for a
+// delete whose Write takes those Grabs with their Works. Call
+// TouchTransfers after the commit.
+func (gr *Grabs) CancelTransfersIn(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error {
+	ids, err := db.New(tx).ListGrabsOfWorks(ctx, ws)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if err := gr.cancelTransfer(ctx, tx, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// TouchTransfers tells the Transfers loop a delete's Write canceled
+// Transfers.
+func (gr *Grabs) TouchTransfers() { gr.cfg.Transfers.Touch() }

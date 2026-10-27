@@ -12,7 +12,8 @@ INSERT INTO grabs_target (grab_id, position, target_id) VALUES (sqlc.arg(grab_id
 INSERT INTO grabs_fill (grab_id, position, target_id) VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(target_id));
 
 -- name: InsertStage :exec
-INSERT INTO grabs_stage (grab_id, stage, entered_at) VALUES (sqlc.arg(grab_id), sqlc.arg(stage), sqlc.arg(entered_at));
+INSERT INTO grabs_stage (grab_id, stage, entered_at) VALUES (sqlc.arg(grab_id), sqlc.arg(stage), sqlc.arg(entered_at))
+ON CONFLICT (grab_id, stage) DO UPDATE SET entered_at = excluded.entered_at;
 
 -- name: Advance :execrows
 UPDATE grabs_grab SET

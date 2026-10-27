@@ -46,6 +46,8 @@ type loop struct {
 
 	run   *attached
 	local *storage.DB[storage.Local]
+	// intended is set at the first intent and stays through a release.
+	intended bool
 	// rows is the local rows, read when the first run attaches.
 	rows   map[bencode.InfoHash]db.DownloadingTorrent
 	intent role.Snapshot[*dlv1.Intent]
@@ -332,7 +334,7 @@ func (l *loop) detach(run *attached) {
 // held, added back from its resume data when the Node has any; each held
 // one neither lists is discarded with its files kept.
 func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
-	l.intent = s
+	l.intent, l.intended = s, true
 	l.configure()
 	l.cadence(time.Duration(s.Intent.GetSampleEverySeconds()) * time.Second)
 	for _, t := range l.torrents {
@@ -687,14 +689,20 @@ func (l *loop) tick() {
 	l.sendFacts()
 }
 
-// publish stores the finished torrents and the save folders for Path,
-// Seeding and Folders. Loop publishes before it asks the engine to remove
-// a torrent, as the engine forgets the handle Path would use at once.
+// publish stores each torrent's state and the save folders for Path,
+// Open, Seeding and Folders. Loop publishes before it asks the engine to
+// remove a torrent, as the engine forgets the handle Path would use at
+// once.
 func (l *loop) publish() {
-	p := &published{finished: map[bencode.InfoHash]finished{}, folders: []string{l.c.cfg.Dir}}
+	p := &published{intended: l.intended, torrents: make(map[bencode.InfoHash]held, len(l.torrents)), folders: []string{l.c.cfg.Dir}}
 	for _, t := range l.torrents {
-		if t.handle != 0 && t.Complete && t.Phase != plan.Parting {
-			p.finished[t.Hash] = finished{handle: t.handle, folder: t.folder}
+		h := held{live: t.Discard == plan.Kept, folder: t.folder, complete: t.Complete, checking: t.checking(), failed: t.failed}
+		if t.Phase != plan.Parting {
+			h.handle = t.handle
+		}
+		p.torrents[t.Hash] = h
+		if h.finished() {
+			p.seeding++
 		}
 		if t.folder != "" && !inside(l.c.cfg.Dir, t.folder) && !slices.Contains(p.folders, t.folder) {
 			p.folders = append(p.folders, t.folder)

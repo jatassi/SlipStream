@@ -2521,8 +2521,7 @@
               "transfer_failed",
               "import_failed",
               "node_written_off",
-              "root_changed",
-              "needs_transfer"
+              "root_changed"
             ],
             "type": "string"
           },
@@ -2571,7 +2570,7 @@
             ]
           },
           "history": {
-            "description": "Each stage it entered, oldest first",
+            "description": "Each stage it entered, when it last entered it, oldest first",
             "items": {
               "$ref": "#/components/schemas/GrabsEntered"
             },
@@ -5702,7 +5701,7 @@
             "type": "string"
           },
           "abBps": {
-            "description": "Bytes a second from a to b, TLS records included",
+            "description": "Bytes a second from a to b over the link and their Transfer lanes, TLS records included",
             "format": "int64",
             "type": "integer"
           },
@@ -5712,7 +5711,7 @@
             "type": "string"
           },
           "baBps": {
-            "description": "Bytes a second from b to a, TLS records included",
+            "description": "Bytes a second from b to a over the link and their Transfer lanes, TLS records included",
             "format": "int64",
             "type": "integer"
           },
@@ -10847,6 +10846,378 @@
           "kind",
           "text",
           "href"
+        ],
+        "type": "object"
+      },
+      "TransfersChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transferIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "transferIds",
+          "nodeIds"
+        ],
+        "type": "object"
+      },
+      "TransfersDestination": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "root is a library root",
+            "enum": [
+              "root"
+            ],
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node that holds the root now",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeName": {
+            "type": "string"
+          },
+          "rootId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "rootId",
+          "nodeId",
+          "nodeName"
+        ],
+        "type": "object"
+      },
+      "TransfersDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "lanes": {
+            "description": "Connections that carry its chunks now",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "retried": {
+            "description": "Chunks asked for again since the receiving Node last started it",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rttMs": {
+            "description": "The lanes' round trip",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lanes",
+          "rttMs",
+          "retried"
+        ],
+        "type": "object"
+      },
+      "TransfersEnd": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "nodeName"
+        ],
+        "type": "object"
+      },
+      "TransfersFile": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "placed": {
+            "description": "Its job moved it to where it belongs",
+            "type": "boolean"
+          },
+          "position": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "verified": {
+            "description": "Every byte is verified at the destination",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "position",
+          "name",
+          "size",
+          "verified",
+          "placed"
+        ],
+        "type": "object"
+      },
+      "TransfersSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "sendLimit": {
+            "$ref": "#/components/schemas/SettingRateField"
+          }
+        },
+        "required": [
+          "sendLimit"
+        ],
+        "type": "object"
+      },
+      "TransfersSettingsPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "sendLimit": {
+            "description": "Bytes a second, 0 for no limit; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "TransfersSpeed": {
+        "additionalProperties": false,
+        "properties": {
+          "destinationNodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rate": {
+            "description": "Bytes a second, the speed of the last Transfer from the source to the destination",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rateAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "route": {
+            "description": "The last route that moved bytes; absent while none has",
+            "enum": [
+              "receiver_dials",
+              "sender_dials",
+              "node_link"
+            ],
+            "type": "string"
+          },
+          "routeAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sourceNodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceNodeId",
+          "destinationNodeId",
+          "rate",
+          "rateAt"
+        ],
+        "type": "object"
+      },
+      "TransfersSpeedList": {
+        "additionalProperties": false,
+        "properties": {
+          "speeds": {
+            "description": "One for each source and destination that a Transfer moved bytes between",
+            "items": {
+              "$ref": "#/components/schemas/TransfersSpeed"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "speeds"
+        ],
+        "type": "object"
+      },
+      "TransfersTransfer": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/TransfersDestination"
+          },
+          "details": {
+            "$ref": "#/components/schemas/TransfersDetails"
+          },
+          "estimateSeconds": {
+            "description": "Seconds until its files are verified; 0 while unknown",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "description": "In the order they copy",
+            "items": {
+              "$ref": "#/components/schemas/TransfersFile"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "job": {
+            "description": "The id of the job that asked for it, such as its Grab's",
+            "type": "string"
+          },
+          "jobName": {
+            "description": "The job's name, such as a Work's title and year",
+            "type": "string"
+          },
+          "purpose": {
+            "description": "The kind of job that asked for it",
+            "enum": [
+              "grab"
+            ],
+            "type": "string"
+          },
+          "rate": {
+            "description": "Bytes a second it copies at, else the last speed between its two Nodes; 0 while unknown",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reason": {
+            "description": "Why it isn't copying, as a sentence; absent while it copies",
+            "type": "string"
+          },
+          "route": {
+            "description": "Which Node opens its lanes, or node_link when they run over the Node link; absent unless it's first in line",
+            "enum": [
+              "receiver_dials",
+              "sender_dials",
+              "node_link"
+            ],
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TransfersEnd",
+            "description": "The Node it copies from"
+          },
+          "state": {
+            "description": "copying also covers files that are all verified and wait for their job to place them",
+            "enum": [
+              "queued",
+              "waiting",
+              "needs_space",
+              "copying",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "total": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "verified": {
+            "description": "Bytes verified at the destination",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "wait": {
+            "$ref": "#/components/schemas/TransfersWait",
+            "description": "What it waits for; absent unless its state is waiting"
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "job",
+          "jobName",
+          "source",
+          "destination",
+          "state",
+          "verified",
+          "total",
+          "rate",
+          "estimateSeconds",
+          "files",
+          "details"
+        ],
+        "type": "object"
+      },
+      "TransfersTransferList": {
+        "additionalProperties": false,
+        "properties": {
+          "transfers": {
+            "description": "Oldest first",
+            "items": {
+              "$ref": "#/components/schemas/TransfersTransfer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "transfers"
+        ],
+        "type": "object"
+      },
+      "TransfersWait": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "node_away",
+              "node_other_build",
+              "connecting",
+              "no_route",
+              "root_not_ready",
+              "storage_draining",
+              "source_checking",
+              "source_not_ready"
+            ],
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node it waits for",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "nodeId"
         ],
         "type": "object"
       },
@@ -19323,6 +19694,32 @@
                           "event"
                         ],
                         "title": "Event torrents.live",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/TransfersChanged"
+                          },
+                          "event": {
+                            "const": "transfers.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event transfers.changed",
                         "type": "object"
                       },
                       {
@@ -40787,6 +41184,917 @@
         "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
         "tags": [
           "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/transfers": {
+      "get": {
+        "operationId": "listTransfers",
+        "parameters": [
+          {
+            "description": "Only Transfers this Node sends or receives",
+            "explode": false,
+            "in": "query",
+            "name": "nodeId",
+            "schema": {
+              "description": "Only Transfers this Node sends or receives",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only Transfers with a file from this torrent, by its v1 info hash in hex",
+            "explode": false,
+            "in": "query",
+            "name": "infoHash",
+            "schema": {
+              "description": "Only Transfers with a file from this torrent, by its v1 info hash in hex",
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfersTransferList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Transfers between Nodes, with each one's state, progress and speed",
+        "tags": [
+          "transfers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/transfers/nodes/{nodeId}/settings": {
+      "get": {
+        "operationId": "getTransferSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfersSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Node's Transfer settings",
+        "tags": [
+          "transfers"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "setTransferSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransfersSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfersSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change a Node's Transfer settings, which the Node applies at once",
+        "tags": [
+          "transfers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/transfers/speeds": {
+      "get": {
+        "operationId": "listTransferSpeeds",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfersSpeedList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the recent speed and route of each pair of Nodes a Transfer moved bytes between",
+        "tags": [
+          "transfers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/transfers/{id}": {
+      "get": {
+        "operationId": "getTransfer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfersTransfer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "transfer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Transfer with its state, progress, speed and files",
+        "tags": [
+          "transfers"
         ],
         "x-slipstream-access": "admin"
       }

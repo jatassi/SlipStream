@@ -1,4 +1,5 @@
 import {
+  ArrowDataTransferHorizontalIcon,
   Download04Icon,
   Globe02Icon,
   InformationCircleIcon,
@@ -19,8 +20,8 @@ export type NodeSection = {
   readonly label: string;
   readonly icon: IconSvgElement;
   readonly to: Extract<RoutePath, `/nodes/$nodeId${string}`>;
-  /** Whether a Node has the section; absent, every Node has it. */
-  readonly shows?: (node: NodesNode) => boolean;
+  /** Whether a Node, among every paired Node, has the section; absent, every Node has it. */
+  readonly shows?: (node: NodesNode, nodes: readonly NodesNode[]) => boolean;
 };
 
 /** A Node that stands in the Role in any state: holding it, away, covering, draining or writing it off. */
@@ -45,6 +46,13 @@ export const nodeSections = [
     to: "/nodes/$nodeId/torrent-client",
     shows: standsIn("downloading"),
   },
+  {
+    id: "transfers",
+    label: "Transfers",
+    icon: ArrowDataTransferHorizontalIcon,
+    to: "/nodes/$nodeId/transfers",
+    shows: (_node, nodes) => nodes.length > 1,
+  },
   { id: "logs", label: "Logs", icon: TextAlignLeftIcon, to: "/nodes/$nodeId/logs" },
   {
     id: "log-settings",
@@ -57,8 +65,8 @@ export const nodeSections = [
 export type NodeSectionId = (typeof nodeSections)[number]["id"];
 
 /** The sections a Node has, in order. */
-export const sectionsFor = (node: NodesNode): readonly NodeSection[] =>
-  nodeSections.filter((section: NodeSection) => section.shows?.(node) ?? true);
+export const sectionsFor = (node: NodesNode, nodes: readonly NodesNode[]): readonly NodeSection[] =>
+  nodeSections.filter((section: NodeSection) => section.shows?.(node, nodes) ?? true);
 
 export function sectionOf(id: NodeSectionId): NodeSection {
   const section = nodeSections.find((candidate) => candidate.id === id);
@@ -70,14 +78,15 @@ export function sectionOf(id: NodeSectionId): NodeSection {
 
 /** The palette's Go to command for each section of the Node the browser talks to. */
 export function useNodeSectionCommands(): Command[] {
-  const self = useQuery({
+  const nodes = useQuery({
     queryKey: getListNodesQueryKey(),
     queryFn: ({ signal }) => listNodes({ signal }),
-  }).data?.nodes.find((node) => node.self);
-  if (self === undefined) {
+  }).data?.nodes;
+  const self = nodes?.find((node) => node.self);
+  if (nodes === undefined || self === undefined) {
     return [];
   }
-  return sectionsFor(self).map((section) => ({
+  return sectionsFor(self, nodes).map((section) => ({
     id: `go-node-${section.id}`,
     label: `Go to ${section.label}`,
     meta: self.name,

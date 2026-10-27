@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"slices"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
+	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -80,10 +82,10 @@ type half struct {
 	tasks    *tasks.Scheduler
 	health   *health.Health
 	firstRun *firstrun.FirstRun
-	// transfers receives files on the Controller, and source serves them
-	// on a Worker.
-	transfers *transfers.Receiver
-	source    *transfers.Source
+	// transfers judges every Transfer, on a Controller, and copier sends
+	// and receives this Node's, on every Node.
+	transfers *transfers.Transfers
+	copier    *transfers.Node
 	// serving proxies to the Controller while a Worker holds Serving.
 	serving *serving.Worker
 }
@@ -99,9 +101,11 @@ func (n *Node) startController(ctx context.Context) error {
 	holder := n.openHolder(client)
 	opened := n.openLibraries()
 	var (
-		downloads *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
-		side      *nodes.Service
-		cluster   *rpc.Cluster
+		downloads    *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
+		transferring *role.Control[*tv1.Intent, *tv1.Facts, *tv1.Result]
+		side         *nodes.Service
+		cluster      *rpc.Cluster
+		homes        *roots.Roots
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -124,11 +128,26 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
+	copies := transfers.New(transfers.ControllerConfig{
+		Library: lib.db,
+		Touch:   func(nodes ...role.NodeID) { transferring.Touch(nodes...) },
+		Facts:   func(id role.NodeID) (*tv1.Facts, bool) { return transferring.Facts(id) },
+		Board:   func() transfers.Board { return transfers.BoardOf(side.Board()) },
+		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
+			return roots.DestinationsIn(ctx, r, ids, stored, side)
+		},
+		RootsMoved: func() <-chan struct{} { return homes.Watch() },
+		Readiness:  clients.ReadinessIn,
+		Moved:      clients.Moved,
+		Sample:     func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
+		Hub:        n.hub,
+		Changed:    transfers.ChangedEvent.Bind(n.hub),
+		Timings:    n.cfg.Timings.Transfers,
+		Log:        n.rootLog.With("subsystem", "transfers"),
+	})
+	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	arrivals := roots.NewArrivals()
-	var (
-		systems *nodesystem.Nodes
-		homes   *roots.Roots
-	)
+	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
@@ -139,7 +158,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored, transferring}, n.env.Test.Served...),
 		Owners:          owners(),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
@@ -149,8 +168,12 @@ func (n *Node) startController(ctx context.Context) error {
 		Facts: func(id role.NodeID, scope string) {
 			arrivals.Note(id, scope)
 			clients.Arrived(id, scope)
+			copies.Noted(id, scope)
 		},
-		Applied: clients.Applied,
+		Applied: func(id role.NodeID, scope string) {
+			clients.Applied(id, scope)
+			copies.Applied(id, scope)
+		},
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
@@ -168,7 +191,7 @@ func (n *Node) startController(ctx context.Context) error {
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
 	cluster = rpc.NewCluster(dispatch, side)
-	holding, local, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil)
+	holding, local, copier, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil)
 	if err != nil {
 		return err
 	}
@@ -283,7 +306,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	shelf := files.New(files.Config{
-		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep},
+		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep}, Transfers: transfers.LiveIn,
 		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Today:   n.today,
 		Disk:    homes,
@@ -291,8 +314,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
 	})
-	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf})
-	receiver := transfers.NewReceiver(transfers.Config{Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers})
 	pipeline := grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
@@ -306,9 +327,7 @@ func (n *Node) startController(ctx context.Context) error {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
 		Roots:         homes,
-		Staging:       n.store,
-		Controller:    side.Self(),
-		Transfers:     receiver,
+		Transfers:     copies,
 		Timings:       n.cfg.Timings.Grabs,
 		Rand:          n.grabsRand,
 		Changed:       grabs.ChangedEvent.Bind(n.hub),
@@ -317,6 +336,8 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
+	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline})
+
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
 	scheduler, err := tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
@@ -356,7 +377,8 @@ func (n *Node) startController(ctx context.Context) error {
 		grabs:     pipeline,
 		clients:   clients,
 		tasks:     scheduler,
-		transfers: receiver,
+		transfers: copies,
+		copier:    copier,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
@@ -367,6 +389,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("roots", homes.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
+	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("metadata", meta.Run)
@@ -465,7 +488,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	front := serving.NewWorker(n.link, controller.Key, n.cfg.Timings.Serving, n.rootLog.With("subsystem", "serving"))
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, func(r role.Name) bool { return holding.Holds(r) })
-	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
+	holding, local, copier, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
 	if err != nil {
 		return err
 	}
@@ -481,12 +504,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
 	rec, _ := side.Record()
-	n.setHalf(&half{self: rec.NodeID, peers: side, dispatch: dispatch, holding: holding, serving: front, source: transfers.NewSource(transfers.SourceConfig{
-		Payloads:   n.downloads,
-		Controller: controller.Key,
-		Hooks:      n.env.Test.Transfers,
-		Log:        n.rootLog.With("subsystem", "transfers"),
-	})})
+	n.setHalf(&half{self: rec.NodeID, peers: side, dispatch: dispatch, holding: holding, serving: front, copier: copier})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
 	n.claimed.Go("serving", front.Follow)
@@ -509,28 +527,39 @@ func (n *Node) removed(ctx context.Context) {
 }
 
 // startHolding opens local.db and runs the holder half toward upstream,
-// holding the half's own Roles beside every Node's. Its Roles call the
-// Controller through dispatch.
-func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held) (*role.Holding, *storage.DB[storage.Local], error) {
+// holding the half's own Roles beside every Node's, and the Node's
+// Transfers engine over local.db. Its Roles call the Controller through
+// dispatch.
+func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held) (*role.Holding, *storage.DB[storage.Local], *transfers.Node, error) {
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	n.claimed.OnStop("local.db", func(context.Context) error { return local.Close() })
 	n.claimed.OnStop("torrent resume data", n.downloads.Shutdown(local))
+	copier := transfers.NewNode(transfers.NodeConfig{
+		Local:   local,
+		Disk:    n.disk,
+		Link:    n.link,
+		Sources: n.downloads,
+		Roots:   n.store,
+		Timings: n.cfg.Timings.Transfers,
+		Hooks:   n.env.Test.Transfers,
+		Log:     n.rootLog.With("subsystem", "transfers"),
+	})
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
 		Local:    local,
 		Upstream: upstream,
-		Held:     slices.Concat(n.heldRoles(local, dispatch), own, n.env.Test.held(local)),
+		Held:     slices.Concat(n.heldRoles(local, dispatch, copier), own, n.env.Test.held(local)),
 		Timings:  n.cfg.Timings.Role,
 		Rand:     n.roleRand,
 		Log:      n.rootLog.With("subsystem", "role"),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	n.claimed.Go("role", holding.Run)
-	return holding, local, nil
+	return holding, local, copier, nil
 }
 
 // setHalf records the half that started and reports the Node's host
@@ -568,11 +597,13 @@ func owners() []nodes.Owner {
 	}
 }
 
-// heldRoles is every Role this binary runs, one held line each.
-func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatch) []role.Held {
+// heldRoles is every Role this binary runs, and the Node-wide channels
+// every Node holds, one held line each.
+func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatch, copier *transfers.Node) []role.Held {
 	return []role.Held{
 		downloading.Def.Hold(n.downloads.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloads.Release),
 		storing.Def.Hold(n.store.Run, n.store.Release),
+		transfers.Def.Hold(copier.Run, copier.Release),
 	}
 }
 
@@ -594,9 +625,8 @@ func (p claimPeers) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReq
 	return notAController(), nil
 }
 
-// claimStreams serves Transfer streams with the Worker half's source, and
-// Serve streams from a Node that serves on the Controller, and resets
-// them on any other Node.
+// claimStreams serves Serve streams from a Node that serves on the
+// Controller, and resets them on any other Node.
 type claimStreams struct{ n *Node }
 
 func (c claimStreams) serve(peer link.Key, s link.Stream) {
@@ -617,9 +647,31 @@ func (n *Node) servingWorker() *serving.Worker {
 	return nil
 }
 
-func (c claimStreams) transfer(peer link.Key, s link.Stream) {
-	if h := c.n.half.Load(); h != nil && h.source != nil {
-		h.source.Serve(peer, s)
+// claimLanes serves lanes, and route 3's Transfer streams, with the
+// half's Transfers engine, and refuses them while the Node is Unclaimed.
+type claimLanes struct{ n *Node }
+
+func (c claimLanes) copier() *transfers.Node {
+	if h := c.n.half.Load(); h != nil {
+		return h.copier
+	}
+	return nil
+}
+
+func (c claimLanes) Admit(key link.Key) bool {
+	t := c.copier()
+	return t != nil && t.Admit(key)
+}
+
+func (c claimLanes) Serve(ctx context.Context, key link.Key, conn net.Conn) {
+	if t := c.copier(); t != nil {
+		t.Serve(ctx, key, conn)
+	}
+}
+
+func (c claimLanes) stream(key link.Key, s link.Stream) {
+	if t := c.copier(); t != nil {
+		t.ServeStream(key, s)
 		return
 	}
 	_ = s.Reset()

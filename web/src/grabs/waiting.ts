@@ -13,6 +13,7 @@ import {
   getListNodesSuspenseQueryOptions,
   useListNodesSuspense,
 } from "../api/gen/query/nodes/nodes";
+import { getListTransfersSuspenseQueryOptions } from "../api/gen/query/transfers/transfers";
 import { ensureQuery } from "../api/query-client";
 import { waitingLine } from "../nodes/standing";
 import { useNow } from "../tasks/use-now";
@@ -25,6 +26,7 @@ export async function loadWorkGrabs(queryClient: QueryClient, workId: string): P
     ensureQuery(queryClient, getListTorrentsSuspenseQueryOptions()),
     ensureQuery(queryClient, getListIndexersSuspenseQueryOptions()),
     ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
+    ensureQuery(queryClient, getListTransfersSuspenseQueryOptions()),
   ]);
 }
 

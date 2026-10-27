@@ -431,6 +431,9 @@ func TestRoleDefsWired(t *testing.T) {
 		"internal/downloading/downloading.go:5: [role-defs-wired] internal/downloading.Def is not served in internal/node",
 		"internal/fetching/fetching.go:6: [role-defs-wired] role downloading is declared twice",
 		"internal/fetching/fetching.go:7: [role-defs-wired] internal/fetching.Named names its Role without a role constant",
+		"internal/moving/moving.go:5: [role-defs-wired] internal/moving.Def is not served in internal/node's startController",
+		"internal/relaying/relaying.go:5: [role-defs-wired] internal/relaying.Def is not held in internal/node's heldRoles",
+		"internal/sharing/sharing.go:5: [role-defs-wired] internal/sharing.Def names its Role without a role constant",
 	})
 }
 

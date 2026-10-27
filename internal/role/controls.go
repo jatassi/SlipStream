@@ -61,7 +61,8 @@ type ControlsConfig struct {
 	// each Role whose results it applied. It must not block.
 	Applied func(node NodeID, scope string)
 	// Touched is called after a Role's Control.Touch, with the Role's name
-	// and the Nodes touched. It must not block.
+	// and the Nodes touched, and never for a Node-wide channel's. It must
+	// not block.
 	Touched func(scope string, nodes []NodeID)
 	// InStep is called when node's Sync session attaches and when it ends,
 	// and Seen after each frame its holder sends after Open. Neither may
@@ -80,13 +81,16 @@ type ControlsConfig struct {
 type Controls struct {
 	cfg    ControlsConfig
 	served map[string]Served
+	// wide is the served Node-wide channels, which every Node holds.
+	wide []Served
 
 	mu       sync.Mutex
 	sessions map[NodeID]*controlSession
 	facts    map[NodeID]map[string]*anypb.Any
 }
 
-// NewControls serves each Role's Control. A Role served twice panics.
+// NewControls serves each Control. A scope served twice panics, as does a
+// Node-wide channel named as the node scope or a Role.
 func NewControls(cfg ControlsConfig, served ...Served) *Controls {
 	c := &Controls{
 		cfg:      cfg,
@@ -97,6 +101,12 @@ func NewControls(cfg ControlsConfig, served ...Served) *Controls {
 	for _, s := range served {
 		if _, dup := c.served[s.scope()]; dup {
 			panic("role: " + s.scope() + " is served twice")
+		}
+		if s.nodeWide() {
+			if _, role := lookup(Name(s.scope())); role || s.scope() == nodeScope {
+				panic("role: the Node-wide channel " + s.scope() + " has the name of a Role or the node scope")
+			}
+			c.wide = append(c.wide, s)
 		}
 		s.bind(c)
 		c.served[s.scope()] = s
@@ -157,9 +167,6 @@ func (c *Controls) touch(scope string, nodes []NodeID) {
 		}
 	}
 	c.mu.Unlock()
-	if scope != nodeScope && c.cfg.Touched != nil {
-		c.cfg.Touched(scope, nodes)
-	}
 }
 
 // NodeFacts is node's node-scope facts, false while it has no session.
@@ -480,8 +487,8 @@ func (c *Controls) sync(ctx context.Context, sess *controlSession, s controlStre
 }
 
 // derive is node's intent for the scopes in dirty, as sync reads it: the
-// scopes of the Roles it holds, then of those it drains, then the node
-// scope.
+// scopes of the Roles it holds, then of those it drains, then of every
+// Node-wide channel, then the node scope.
 func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]bool) ([]*nodev1.Intent, error) {
 	all := dirty == nil || dirty[nodeScope]
 	scope, err := c.cfg.Scope(ctx, c.cfg.Library, node)
@@ -497,16 +504,21 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		intents = append(intents, &nodev1.Intent{Scope: scope, Version: v, Payload: mustAny(msg)})
 		return nil
 	}
+	var held []Served
 	for _, name := range slices.Concat(scope.Holds, scope.Draining) {
-		srv := c.served[string(name)]
-		if srv == nil || !all && !dirty[string(name)] {
+		if srv := c.served[string(name)]; srv != nil {
+			held = append(held, srv)
+		}
+	}
+	for _, srv := range slices.Concat(held, c.wide) {
+		if !all && !dirty[srv.scope()] {
 			continue
 		}
-		msg, err := srv.deriveAny(ctx, c.cfg.Library, node)
+		msg, err := c.deriveIn(ctx, srv, node)
 		if err != nil {
-			return nil, fmt.Errorf("derive %s intent: %w", name, err)
+			return nil, fmt.Errorf("derive %s intent: %w", srv.scope(), err)
 		}
-		if err := add(string(name), msg); err != nil {
+		if err := add(srv.scope(), msg); err != nil {
 			return nil, err
 		}
 	}
@@ -516,6 +528,18 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		}
 	}
 	return intents, nil
+}
+
+// deriveIn derives srv's intent for node from one library snapshot, so
+// every table it reads agrees.
+func (c *Controls) deriveIn(ctx context.Context, srv Served, node NodeID) (proto.Message, error) {
+	var msg proto.Message
+	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		msg, err = srv.deriveAny(ctx, r, node)
+		return err
+	})
+	return msg, err
 }
 
 func nodeIntent(s NodeScope) *nodev1.NodeIntent {

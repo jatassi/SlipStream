@@ -141,38 +141,37 @@ func TestA429FromTheIndexerFailsOneSearch(t *testing.T) {
 	}
 }
 
+// TestALinkCutMidTransferResumes cuts every link/seedbox connection at
+// 256 KiB until one is cut, then lets the Transfer finish. The rule can't
+// play once: the Controller's own lanes can dial before seedbox's intent
+// names the Transfer, and seedbox closes those before they carry it.
 func TestALinkCutMidTransferResumes(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
-	link := string(world.LinkTarget("home"))
+	link := string(world.LinkTarget("seedbox"))
 	completed := &events.Query{Kind: tracker.Announces.Kind, Match: map[string]string{"event": "completed"}}
-	w.setFault(t, fault.Rule{ID: "link-cut", Target: fault.Target(link), Times: 1, After: completed}, "cut=256KiB")
+	w.setFault(t, fault.Rule{ID: "link-cut", Target: fault.Target(link), After: completed}, "cut=256KiB")
 	s := w.searched(t, w.search(t))
 	if s.Outcome == nil || *s.Outcome != "grabbed" || s.GrabID == nil {
 		t.Fatalf("the search ended %+v, want grabbed", s)
+	}
+	cut, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: "front.close", Match: map[string]string{"target": link, "cause": "cut"}})
+	if err != nil {
+		t.Fatalf("no link/seedbox connection was cut: %v", err)
+	}
+	if _, err := w.run.ClearFault(worldtest.Context(t), "link-cut"); err != nil {
+		t.Fatal(err)
+	}
+	var carried struct{ Out int64 }
+	if err := json.Unmarshal(cut.Data, &carried); err != nil || carried.Out < 256<<10 {
+		t.Fatalf("the cut connection carried %s, want the Transfer's 256 KiB from seedbox", cut.Data)
 	}
 	w.ended(t, *s.GrabID)
 	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v with %+v, want %v", w.grab.stages(), w.grab.Failure, want)
 	}
-	fired, err := events.Select(w.m.RunDir, events.Query{Kind: events.FaultFired})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(fired) != 1 || string(fired[0].Data) != `{"rule":"link-cut","target":"link/home","fault":"cut=256KiB","match":1}` {
-		t.Fatalf("fault.fired records = %+v, want link-cut once", fired)
-	}
-	onLink := map[string]string{"target": link}
-	cut, err := events.Select(w.m.RunDir, events.Query{Kind: "front.close", Match: map[string]string{"target": link, "cause": "cut"}, After: fired[0].Seq})
-	if err != nil || len(cut) != 1 {
-		t.Fatalf("link/home closed by the cut %+v, %v; want once", cut, err)
-	}
-	var carried struct{ In int64 }
-	if err := json.Unmarshal(cut[0].Data, &carried); err != nil || carried.In < 256<<10 {
-		t.Fatalf("the cut connection carried %s, want the Transfer's 256 KiB from seedbox", cut[0].Data)
-	}
-	if _, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: "front.open", Match: onLink, After: cut[0].Seq}); err != nil {
-		t.Fatalf("no front.open on link/home after the cut: %v", err)
+	if _, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: "front.open", Match: map[string]string{"target": link}, After: cut.Seq}); err != nil {
+		t.Fatalf("no front.open on link/seedbox after the cut: %v", err)
 	}
 	checkPlaced(t, w.m, 1)
 }

@@ -631,6 +631,63 @@ func (q *Queries) ListKept(ctx context.Context, nodeID role.NodeID) ([]ListKeptR
 	return items, nil
 }
 
+const listSources = `-- name: ListSources :many
+SELECT info_hash, name, removed_reason, report FROM downloadclients_torrent
+WHERE node_id = ?1 AND info_hash IN (/*SLICE:hashes*/?)
+ORDER BY added_order
+`
+
+type ListSourcesParams struct {
+	NodeID role.NodeID
+	Hashes [][]byte
+}
+
+type ListSourcesRow struct {
+	InfoHash      []byte
+	Name          string
+	RemovedReason *string
+	Report        *string
+}
+
+func (q *Queries) ListSources(ctx context.Context, arg ListSourcesParams) ([]ListSourcesRow, error) {
+	query := listSources
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.NodeID)
+	if len(arg.Hashes) > 0 {
+		for _, v := range arg.Hashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:hashes*/?", strings.Repeat(",?", len(arg.Hashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:hashes*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSourcesRow
+	for rows.Next() {
+		var i ListSourcesRow
+		if err := rows.Scan(
+			&i.InfoHash,
+			&i.Name,
+			&i.RemovedReason,
+			&i.Report,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnparted = `-- name: ListUnparted :many
 SELECT id FROM downloadclients_torrent WHERE node_id = ?1 AND parted_at IS NULL ORDER BY id
 `

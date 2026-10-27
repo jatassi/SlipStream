@@ -69,3 +69,12 @@ func kindOf(st *unix.Statfs_t) Kind {
 func networkFSName(name string) bool {
 	return name == "nfs" || name == "smbfs" || name == "afpfs" || name == "webdav"
 }
+
+func stableIDs(st *unix.Statfs_t) bool { return stableFSName(unix.ByteSliceToString(st.Fstypename[:])) }
+
+// stableFSName is a filesystem whose inode numbers survive a remount: msdos
+// and exfat number files by where their entries lie, and a network
+// filesystem's numbers are the server's to change.
+func stableFSName(name string) bool {
+	return !networkFSName(name) && name != "msdos" && name != "exfat"
+}

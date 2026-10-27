@@ -15,7 +15,8 @@ import (
 
 type (
 	// Full fills the folder's volume: free reads 0, and new folders and
-	// file writes fail with ENOSPC.
+	// file writes fail with the OS's own disk-full error, positional
+	// writes on a file opened before the rule too.
 	Full struct{}
 	// Unmounted makes the folder a mount point with nothing mounted: it
 	// lists empty, and everything beneath it, its marker too, is absent.
@@ -195,7 +196,7 @@ func (d *disk) ReadDir(ctx context.Context, dir string) ([]storing.Entry, error)
 func (d *disk) Mkdir(ctx context.Context, path string) error {
 	pl, err := d.write(ctx, "mkdir", path)
 	if err == nil && pl.full {
-		err = failed("mkdir", path, syscall.ENOSPC)
+		err = failed("mkdir", path, storing.ErrNoSpace)
 	}
 	if err != nil {
 		return err
@@ -208,6 +209,34 @@ func (d *disk) Open(ctx context.Context, path string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	return d.base.Open(ctx, path)
+}
+
+// OpenAt plays the plan on each read as well as on the open, so a folder
+// that hangs or unmounts mid-read reaches a reader already open. A hung
+// read waits until the rule clears or ctx ends.
+func (d *disk) OpenAt(ctx context.Context, path string) (storing.ReadAtCloser, error) {
+	if _, err := d.read(ctx, "open", path); err != nil {
+		return nil, err
+	}
+	f, err := d.base.OpenAt(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	return readAtFile{ReadAtCloser: f, d: d, ctx: ctx, path: path}, nil
+}
+
+type readAtFile struct {
+	storing.ReadAtCloser
+	d    *disk
+	ctx  context.Context //nolint:containedctx // the open's context bounds a hung read
+	path string
+}
+
+func (f readAtFile) ReadAt(p []byte, off int64) (int, error) {
+	if _, err := f.d.read(f.ctx, "read", f.path); err != nil {
+		return 0, err
+	}
+	return f.ReadAtCloser.ReadAt(p, off) //nolint:wrapcheck // the base disk answers as it would unfaulted
 }
 
 func (d *disk) Create(ctx context.Context, path string) (storing.File, error) {
@@ -227,13 +256,67 @@ type fullFile struct {
 	path string
 }
 
-func (f fullFile) Write([]byte) (int, error) { return 0, failed("write", f.path, syscall.ENOSPC) }
+func (f fullFile) Write([]byte) (int, error) { return 0, failed("write", f.path, storing.ErrNoSpace) }
+
+// OpenWrite plays the plan on each write, truncate and sync as well as on
+// the open, so a folder that fills, turns read-only, hangs or unmounts
+// reaches a file already open. A hung call waits until the rule clears or
+// ctx ends.
+func (d *disk) OpenWrite(ctx context.Context, path string) (storing.WriteAtFile, error) {
+	if _, err := d.write(ctx, "open", path); err != nil {
+		return nil, err
+	}
+	f, err := d.base.OpenWrite(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	return writeAtFile{WriteAtFile: f, d: d, ctx: ctx, path: path}, nil
+}
+
+type writeAtFile struct {
+	storing.WriteAtFile
+	d    *disk
+	ctx  context.Context //nolint:containedctx // the open's context bounds a hung write
+	path string
+}
+
+func (f writeAtFile) WriteAt(p []byte, off int64) (int, error) {
+	pl, err := f.d.write(f.ctx, "write", f.path)
+	if err == nil && pl.full {
+		err = failed("write", f.path, storing.ErrNoSpace)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return f.WriteAtFile.WriteAt(p, off) //nolint:wrapcheck // the base disk answers as it would unfaulted
+}
+
+func (f writeAtFile) Truncate(size int64) error {
+	if _, err := f.d.write(f.ctx, "truncate", f.path); err != nil {
+		return err
+	}
+	return f.WriteAtFile.Truncate(size)
+}
+
+func (f writeAtFile) Sync() error {
+	if _, err := f.d.read(f.ctx, "sync", f.path); err != nil {
+		return err
+	}
+	return f.WriteAtFile.Sync()
+}
 
 func (d *disk) Remove(ctx context.Context, path string) error {
 	if _, err := d.write(ctx, "remove", path); err != nil {
 		return err
 	}
 	return d.base.Remove(ctx, path)
+}
+
+func (d *disk) RemoveAll(ctx context.Context, path string) error {
+	if _, err := d.write(ctx, "remove", path); err != nil {
+		return err
+	}
+	return d.base.RemoveAll(ctx, path)
 }
 
 func (d *disk) Rename(ctx context.Context, from, to string) error {

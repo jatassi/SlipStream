@@ -40,6 +40,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -147,7 +148,7 @@ type shelves struct {
 func shelve(t *testing.T) *shelves {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), transfers.LibrarySchema())
 	s := &shelves{lib: lib, fx: contenttypetest.New(), roster: &roster{offline: map[role.NodeID]bool{}}, events: &events{names: map[string]string{}}, byKey: map[string]string{}}
 	s.exec(t, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0), (?, randomblob(32), 'seedbox', 0)`, home, seedbox)
 	byWorks := func(v works.Changed) []string { return v.WorkIDs }
@@ -185,7 +186,7 @@ func shelve(t *testing.T) *shelves {
 		t.Fatal(err)
 	}
 	s.queue = files.New(files.Config{
-		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{},
+		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{}, Transfers: transfers.LiveIn,
 		Naming:  map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx},
 		Today:   func() time.Time { return time.Date(2030, time.January, 1, 9, 0, 0, 0, time.UTC) },
 		Disk:    rootstest.Held(t, lib, home, nil, contenttypetest.ID, other),
@@ -194,7 +195,7 @@ func shelve(t *testing.T) *shelves {
 		Log:     slog.New(slog.DiscardHandler),
 	})
 	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{
-		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue,
+		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Grabs: noGrabs{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })
 	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})

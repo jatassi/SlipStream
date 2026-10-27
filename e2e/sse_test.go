@@ -38,10 +38,13 @@ func TestSSEIsCapturedFromLaunch(t *testing.T) {
 	if err != nil || len(ready) != 1 {
 		t.Fatalf("run.ready records %+v, %v; want one", ready, err)
 	}
+	opening, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: events.SSEMessage, Match: map[string]string{"as": world.AdminIdentity}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	launched := messages(t, w.m.RunDir, 0)
-	before := messages(t, w.m.RunDir, ready[0].Seq)
-	if want := (sseView{world.AdminIdentity, "home", "live.resync", "{}"}); len(launched) == len(before) || launched[0] != want {
-		t.Fatalf("the captured stream starts %+v with %d of %d messages before run.ready, want %+v first and before it", launched[0], len(launched)-len(before), len(launched), want)
+	if want := (sseView{world.AdminIdentity, "home", "live.resync", "{}"}); opening.Seq > ready[0].Seq || launched[0] != want {
+		t.Fatalf("the captured stream starts %+v at seq %d, want %+v first and before run.ready at seq %d", launched[0], opening.Seq, want, ready[0].Seq)
 	}
 	changed := sseView{world.AdminIdentity, "home", "grabs.changed", `{"grabId":"` + w.grab.ID + `","workId":"` + w.work + `","progress":false}`}
 	found := false

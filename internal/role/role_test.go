@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
+	probev1 "github.com/jatassi/slipstream/internal/pb/slipstream/probe/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/role/roletest"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -36,13 +37,13 @@ const redialed = 2 * time.Minute
 
 var discard = slog.New(slog.DiscardHandler)
 
-// cluster is a Controller holding the probe's control half and a Worker,
-// over linktest.
+// cluster is a Controller holding the control halves of the probe and the
+// wide probe, and a Worker, over linktest.
 type cluster struct {
 	pair                   *linktest.Pair
 	lib                    *storage.DB[storage.Library]
 	controls               *role.Controls
-	probe                  *roletest.Control
+	probe, wide            *roletest.Control
 	controllerID, workerID role.NodeID
 
 	mu       sync.Mutex
@@ -50,6 +51,8 @@ type cluster struct {
 	draining map[role.NodeID][]role.Name
 	// applied is what each Applied call found committed.
 	applied []string
+	// touched is the scope of each Touched call.
+	touched []string
 }
 
 func (c *cluster) Self() role.NodeID { return c.controllerID }
@@ -96,6 +99,27 @@ func (c *cluster) setIntent(t *testing.T, node role.NodeID, value string) {
 	}
 }
 
+func (c *cluster) setWide(t *testing.T, node role.NodeID, value string) {
+	t.Helper()
+	if err := c.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return roletest.SetWide(ctx, tx, node, value)
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (c *cluster) noteTouched(scope string, _ []role.NodeID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.touched = append(c.touched, scope)
+}
+
+func (c *cluster) touchedScopes() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.touched)
+}
+
 // noteApplied records the results of node committed when Applied runs.
 func (c *cluster) noteApplied(node role.NodeID, scope string) {
 	ns, err := roletest.Applied(context.Background(), c.lib, node)
@@ -121,30 +145,42 @@ func newCluster(t *testing.T, controllerVersion, workerVersion string) *cluster 
 		pair:         linktest.New(t, linktest.Side{Version: controllerVersion, Lockstep: lockstep}, linktest.Side{Version: workerVersion}),
 		lib:          storagetest.Library(t, role.LibrarySchema(), roletest.Schema()),
 		probe:        roletest.Serve(),
+		wide:         roletest.ServeWide(),
 		controllerID: role.NodeID{UUID: storage.NewUUID()},
 		workerID:     role.NodeID{UUID: storage.NewUUID()},
 		assigned:     map[role.NodeID][]role.Name{},
 		draining:     map[role.NodeID][]role.Name{},
 	}
-	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Applied: c.noteApplied, Stall: 45 * time.Second, Log: discard}, c.probe)
+	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Applied: c.noteApplied, Touched: c.noteTouched, Stall: 45 * time.Second, Log: discard}, c.probe, c.wide)
 	lockstep.Handle(c.controls.Handler())
 	return c
 }
 
-// holder is one running holder half with the probe.
+// holder is one running holder half with the probe and the wide probe.
 type holder struct {
 	*role.Holding
-	probe *roletest.Probe
-	stop  func()
+	probe, wide *roletest.Probe
+	stop        func()
 }
 
 func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local], held ...role.Held) *holder {
 	t.Helper()
-	probe := roletest.NewProbe(local)
+	return startHolder(t, local, role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key, linktest.Timings), held...)
+}
+
+// startController starts the Controller's own holder half, in process.
+func (c *cluster) startController(t *testing.T, local *storage.DB[storage.Local]) *holder {
+	t.Helper()
+	return startHolder(t, local, role.InProcess(c.controls))
+}
+
+func startHolder(t *testing.T, local *storage.DB[storage.Local], upstream role.Upstream, held ...role.Held) *holder {
+	t.Helper()
+	probe, wide := roletest.NewProbe(local), roletest.NewProbe(local)
 	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
 		Local:    local,
-		Upstream: role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key, linktest.Timings),
-		Held:     append([]role.Held{probe.Held()}, held...),
+		Upstream: upstream,
+		Held:     append([]role.Held{probe.Held(), wide.HeldWide()}, held...),
 		Timings:  timings,
 		Rand:     rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:      discard,
@@ -163,7 +199,7 @@ func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local], he
 		<-done
 	})
 	t.Cleanup(stop)
-	return &holder{Holding: h, probe: probe, stop: stop}
+	return &holder{Holding: h, probe: probe, wide: wide, stop: stop}
 }
 
 func check(t *testing.T, what, got, want string) {
@@ -373,6 +409,96 @@ func TestARoleWithNoIntentRunsWhileHeld(t *testing.T) {
 			t.Errorf("let go, Serving ran %d times and was released %d times, want once each", r, rel)
 		}
 	})
+}
+
+// TestANodeWideChannelRunsFromClaimUntilReset holds the wide probe on the
+// Controller and a Worker that hold no Role: it runs on both from their
+// first intent, whatever Roles the Worker then holds or drains, never shows
+// in their facts, and is released by a reset but not by a shutdown.
+func TestANodeWideChannelRunsFromClaimUntilReset(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.setWide(t, c.workerID, "on the Worker")
+		c.setWide(t, c.controllerID, "on the Controller")
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		self := c.startController(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+		check(t, "the Worker's wide probe", snapshot(t, w.wide), `"on the Worker" live may start true`)
+		check(t, "the Controller's wide probe", snapshot(t, self.wide), `"on the Controller" live may start true`)
+		check(t, "the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
+		check(t, "the Controller's facts", nodeFacts(c, c.controllerID), "assigned [] running [] restarting []")
+
+		c.assign(c.workerID, roletest.Name)
+		synctest.Wait()
+		check(t, "holding the probe, the Worker's facts", nodeFacts(c, c.workerID), "assigned [probe] running [probe] restarting []")
+		c.assign(c.workerID)
+		c.drain(c.workerID, roletest.Name)
+		synctest.Wait()
+		check(t, "draining the probe, the Worker's wide probe", snapshot(t, w.wide), `"on the Worker" live may start true`)
+		c.drain(c.workerID)
+		synctest.Wait()
+		if starts, releases := w.wide.Starts(), w.wide.Releases(); starts != 1 || releases != 0 {
+			t.Errorf("as the Worker's Roles changed, its wide probe started %d times and was released %d times, want once and never", starts, releases)
+		}
+
+		if err := w.Reset(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if starts, releases := w.wide.Starts(), w.wide.Releases(); starts != 1 || releases != 1 {
+			t.Errorf("after the reset the Worker's wide probe started %d times and was released %d times, want once each", starts, releases)
+		}
+		self.stop()
+		if got := self.wide.Releases(); got != 0 {
+			t.Errorf("after a shutdown the Controller's wide probe was released %d times, want never", got)
+		}
+	})
+}
+
+// TestANodeWideScopeIsDerivedWhenTouched changes the Worker's wide probe
+// value without a Touch: the lag shows, a Role's Touch does not send it,
+// and the wide Touch does, without calling Touched.
+func TestANodeWideScopeIsDerivedWhenTouched(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.setWide(t, c.workerID, "first")
+		c.assign(c.workerID, roletest.Name)
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+		check(t, "the wide probe", snapshot(t, w.wide), `"first" live may start true`)
+
+		c.setWide(t, c.workerID, "second")
+		lags, err := c.controls.Lagging(t.Context())
+		if want := []role.Lag{{Node: c.workerID, Scope: string(roletest.WideName)}}; err != nil || !slices.Equal(lags, want) {
+			t.Errorf("changed without Touch, the lags are %v (%v), want %v", lags, err, want)
+		}
+		c.probe.Touch(c.workerID)
+		synctest.Wait()
+		check(t, "after the probe's Touch, the wide probe", snapshot(t, w.wide), `"first" live may start true`)
+
+		c.wide.Touch(c.workerID)
+		synctest.Wait()
+		check(t, "after the wide Touch, the wide probe", snapshot(t, w.wide), `"second" live may start true`)
+		roletest.CheckFresh(t, c.controls, map[role.NodeID]string{c.workerID: "the Worker"})
+		if got, want := c.touchedScopes(), []string{"probe"}; !slices.Equal(got, want) {
+			t.Errorf("Touched saw %q, want %q", got, want)
+		}
+	})
+}
+
+func TestANodeWideChannelCannotTakeTheNameOfARoleOrTheNodeScope(t *testing.T) {
+	for _, name := range []role.Wide{role.Wide(role.Searching), "node"} {
+		t.Run(string(name), func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("NewControls served a Node-wide channel named %s", name)
+				}
+			}()
+			role.NewControls(role.ControlsConfig{}, role.WideDef[*probev1.Intent, *probev1.Facts, *probev1.Result]{Name: name}.Serve(nil, nil))
+		})
+	}
 }
 
 // TestARestartedWorkerStartsFromItsCachedIntent restarts a Worker cut off

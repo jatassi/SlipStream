@@ -4,6 +4,8 @@
 package library
 
 import (
+	"context"
+
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -17,6 +19,14 @@ type Config struct {
 	Targets *targets.Targets
 	Roots   *roots.Roots
 	Files   *files.Files
+	Grabs   Grabs
+}
+
+// Grabs cancels the Transfers of a deleted Work's Grabs: in the delete's
+// Write, then a touch once it commits.
+type Grabs interface {
+	CancelTransfersIn(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
+	TouchTransfers()
 }
 
 type Library struct {

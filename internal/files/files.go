@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -217,6 +218,9 @@ type Config struct {
 	Library *storage.DB[file]
 	Targets *targets.Targets
 	Grabs   Inflight
+	// Transfers is every Transfer with a record, read in r: the staging
+	// folders the sweep keeps. transfers.LiveIn is it.
+	Transfers func(ctx context.Context, r storage.Reader[storage.Library]) (map[transfers.ID]bool, error)
 	// Naming names each Content Type's files.
 	Naming map[works.TypeID]naming.Facet
 	// Today is the time now in the Controller's zone, whose calendar date

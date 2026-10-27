@@ -195,7 +195,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	cells := grabbing{}
 	shelved := files.New(files.Config{Library: lib, Targets: goals, Grabs: cells, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: today})
-	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved})}
+	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Grabs: noGrabs{}})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
 	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
@@ -546,3 +546,12 @@ func TestTheLibraryTakesATypeOrIdsNotBoth(t *testing.T) {
 	expect(t, s, http.MethodGet, "/api/v1/library?contentType=fixture&workIds="+storage.NewUUID().String(), "", http.StatusUnprocessableEntity,
 		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.workIds","message":"Use contentType or workIds, not both."}]}`)
 }
+
+// noGrabs is a library with no Grab Transfers to cancel.
+type noGrabs struct{}
+
+func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
+	return nil
+}
+
+func (noGrabs) TouchTransfers() {}

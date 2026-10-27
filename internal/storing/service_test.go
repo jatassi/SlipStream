@@ -168,9 +168,11 @@ type listing struct {
 
 type folderInfo struct{}
 
-func (folderInfo) Dir() bool      { return true }
-func (folderInfo) Size() int64    { return 0 }
-func (folderInfo) Same(Info) bool { return false }
+func (folderInfo) Dir() bool          { return true }
+func (folderInfo) Size() int64        { return 0 }
+func (folderInfo) ModTime() time.Time { return time.Time{} }
+func (folderInfo) Same(Info) bool     { return false }
+func (folderInfo) FileID() []byte     { return nil }
 
 func (l listing) Host() Host { return Host{Style: l.style} }
 
@@ -537,6 +539,22 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 		}
 		if err := p.remote.Remove(t.Context(), p.at, final); !errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("removing it again = %v, want fs.ErrNotExist", err)
+		}
+	})
+}
+
+func TestRemoveAllRemovesAStagingFolderOnRepeat(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newPlacing(t, false)
+		write(t, filepath.Join(p.folder, StagingDir, "0190", "0.part"), "film")
+		write(t, filepath.Join(p.folder, StagingDir, "0190", "1.part"), "film")
+		for range 2 {
+			if err := p.remote.RemoveAll(t.Context(), p.at, mustRel(t, StagingDir+"/0190")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if names, err := p.remote.List(t.Context(), p.at, Staging); err != nil || len(names) != 0 {
+			t.Errorf("List staging after RemoveAll = %v, %v; want none", names, err)
 		}
 	})
 }

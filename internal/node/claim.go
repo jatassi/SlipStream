@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -283,6 +284,14 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 	return h.clients, true
 }
 
+func (s surfaceNode) Transfers() (*transfers.Transfers, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.transfers == nil {
+		return nil, false
+	}
+	return h.transfers, true
+}
+
 func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {
 	h := s.n.half.Load()
 	if h == nil || h.tasks == nil {
@@ -324,6 +333,15 @@ func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func
 	return s.n.join(ctx, code, awaiting)
 }
 
-func (s surfaceNode) Pending() (pairing.Pending, bool) { return s.n.pairing.Pending() }
+// Pending holds a joined claim at awaiting-dial until the Worker half
+// runs, so a page that opens the Worker page on joined finds getServing
+// answering.
+func (s surfaceNode) Pending() (pairing.Pending, bool) {
+	p, ok := s.n.pairing.Pending()
+	if ok && p.State == pairing.JoinedState && s.n.half.Load() == nil {
+		p.State, p.Joined = pairing.AwaitingDial, nil
+	}
+	return p, ok
+}
 
 func (s surfaceNode) Removal() (pairing.Removal, bool) { return s.n.pairing.Removal() }

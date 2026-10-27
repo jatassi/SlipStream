@@ -1,20 +1,19 @@
-// Package transfers copies one file of a torrent from the Node that holds
-// it to the Node that receives it, over a kind-2 link stream. The receiver
-// drives: it asks for every chunk it hasn't verified, checks each against
-// the source's BLAKE3 hash, and records it in local.db, so a broken stream
-// resumes from the last verified chunk.
+// Package transfers copies files between Nodes for the jobs that ask:
+// the Controller records each Transfer a purpose starts and judges its
+// live state, and every Node sends and receives the Transfers its intent
+// makes active, chunk by verified chunk, resuming from what it verified.
 package transfers
 
 import (
 	"embed"
-	"errors"
 	"io"
-	"slices"
+	"net"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/bencode"
+	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers/internal/db"
+	"github.com/jatassi/slipstream/internal/transfers/internal/engine"
 )
 
 type file = storage.Local
@@ -22,73 +21,91 @@ type file = storage.Local
 //go:embed schema/*.sql
 var schemaFiles embed.FS
 
+// Schema is the transfers local set: what a receiver staged and verified.
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("transfers", schemaFiles) }
 
-// ID is a Transfer's: the Grab's it serves, one Transfer per Grab.
+// ID is a Transfer's own id, never its job's.
 type ID = db.TransferID
 
-const ChunkSize = 4 << 20
+// ChunkSize is every chunk's size but a file's last.
+const ChunkSize = engine.ChunkSize
 
-var (
-	// ErrBroken is a stream that ended or stalled mid-Transfer. Receive
-	// again resumes from the verified chunks.
-	ErrBroken = errors.New("transfers: the stream broke")
-	// ErrNotPresent is a source that doesn't hold the file yet.
-	ErrNotPresent = errors.New("transfers: the source doesn't hold the file")
-)
-
-// FailedError is a Transfer that retrying can't finish.
-type FailedError struct{ Reason string }
-
-func (e *FailedError) Error() string { return "transfers: " + e.Reason }
-
+// Timings are protocol internals, config only.
 type Timings struct {
-	// Chunk bounds the wait for each frame from the source.
+	// Chunk bounds the wait for each next byte from a lane, so a lane
+	// that stops moving is redialed however slow it is, and each write
+	// to a lane.
 	Chunk time.Duration `yaml:"chunk"`
+	// Report is the most often a Node sends facts while bytes move.
+	Report time.Duration `yaml:"report"`
+	// Dial is how long a route this end dials may fail before it gives
+	// the route up.
+	Dial time.Duration `yaml:"dial"`
+	// Estimate is the window of a receiver's speed average.
+	Estimate time.Duration `yaml:"estimate"`
+	// LanesStart is the lanes a route opens first. Each LanesGrow the
+	// receiver adds one while the last one added raised the rate by at
+	// least LanesGain percent, up to LanesMax.
+	LanesStart int           `yaml:"lanes_start"`
+	LanesGrow  time.Duration `yaml:"lanes_grow"`
+	LanesGain  int           `yaml:"lanes_gain"`
+	LanesMax   int           `yaml:"lanes_max"`
+	// Ahead is the chunks each lane keeps asked for ahead.
+	Ahead int `yaml:"ahead"`
+	// SyncBytes and SyncEvery bound a receiver's batch: it syncs, reads
+	// back and records its chunks at whichever comes first.
+	SyncBytes int64         `yaml:"sync_bytes"`
+	SyncEvery time.Duration `yaml:"sync_every"`
+	// RetryMin and RetryMax bound the backoff of a chunk, a dial or a
+	// source that isn't ready.
+	RetryMin time.Duration `yaml:"retry_min"`
+	RetryMax time.Duration `yaml:"retry_max"`
+	// Damaged is how many failed checks of one chunk fail the Transfer.
+	Damaged int `yaml:"damaged"`
+	// Piece is the largest write the send limit paces at once, in bytes.
+	Piece int64 `yaml:"piece"`
+	// RouteRetry is how long a pair starts on a higher route that moved
+	// bytes before it tries the first route again.
+	RouteRetry time.Duration `yaml:"route_retry"`
+	// PairWrite is how often the Controller records a pair's speed.
+	PairWrite time.Duration `yaml:"pair_write"`
+	// Changed is how often the Controller publishes transfers.changed.
+	Changed time.Duration `yaml:"changed"`
 }
 
-func DefaultTimings() Timings { return Timings{Chunk: 30 * time.Second} }
-
-// Payloads finds a torrent's file on this Node.
-type Payloads interface {
-	Path(hash bencode.InfoHash, index int) (string, error)
-}
-
-// Hooks are the simulation tier's view into a Source. Production leaves
-// them zero.
-type Hooks struct {
-	// Read wraps the file each chunk is read from, so a test can change
-	// the bytes or fail a read.
-	Read func(io.ReaderAt) io.ReaderAt
-	// Wanted sees each Want the Source answers.
-	Wanted func(hash bencode.InfoHash, index int, chunks []int)
-}
-
-// Hash is a chunk's BLAKE3-256.
-type Hash [32]byte
-
-// Manifest is a file's size and the hash of each ChunkSize chunk, the
-// last one short.
-type Manifest struct {
-	Size   int64
-	Hashes []Hash
-}
-
-func chunkCount(size int64) int { return int((size + ChunkSize - 1) / ChunkSize) }
-
-func (m Manifest) offset(i int) int64 { return int64(i) * ChunkSize }
-
-func (m Manifest) chunkLen(i int) int64 { return min(ChunkSize, m.Size-m.offset(i)) }
-
-func (m Manifest) equal(o Manifest) bool { return m.Size == o.Size && slices.Equal(m.Hashes, o.Hashes) }
-
-// plan is the chunks to ask for: every one not verified, in order.
-func plan(chunks int, verified map[int]bool) []int {
-	var want []int
-	for i := range chunks {
-		if !verified[i] {
-			want = append(want, i)
-		}
+func DefaultTimings() Timings {
+	return Timings{
+		Chunk:      30 * time.Second,
+		Report:     time.Second,
+		Dial:       30 * time.Second,
+		Estimate:   20 * time.Second,
+		LanesStart: 4,
+		LanesGrow:  10 * time.Second,
+		LanesGain:  10,
+		LanesMax:   16,
+		Ahead:      4,
+		SyncBytes:  64 << 20,
+		SyncEvery:  time.Second,
+		RetryMin:   time.Second,
+		RetryMax:   time.Minute,
+		Damaged:    4,
+		Piece:      64 << 10,
+		RouteRetry: time.Hour,
+		PairWrite:  time.Minute,
+		Changed:    time.Second,
 	}
-	return want
+}
+
+// Hooks are the simulation tier's view into a Node's sender. Production
+// leaves them zero.
+type Hooks struct {
+	// Read wraps the file each chunk is read from, so a test can fail a
+	// read.
+	Read func(io.ReaderAt) io.ReaderAt
+	// Sent sees each chunk a Node sends after it hashed it, and may change
+	// it.
+	Sent func(transfer ID, position, index int, data []byte)
+	// Lane wraps each lane a Node engine's run holds, to cut, stall or
+	// throttle it.
+	Lane func(transfer ID, route transferv1.Route, c net.Conn) net.Conn
 }

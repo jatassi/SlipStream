@@ -21,7 +21,7 @@ func (l *Link) RawStream(ctx context.Context, key Key, kind Kind) (Stream, error
 // UnwelcomedStream dials t and opens a stream of kind over that session
 // with no Pair or Hello.
 func (l *Link) UnwelcomedStream(ctx context.Context, t Target, kind Kind) (Stream, error) {
-	s, err := l.race(ctx, t.Addresses, func(Key) error { return nil })
+	s, err := l.dialSession(ctx, t.Addresses, func(Key) error { return nil })
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (l *Link) UnwelcomedStream(ctx context.Context, t Target, kind Kind) (Strea
 // UnwelcomedClient dials t and calls over that session with no Pair or
 // Hello: what a key the peer admits only to Pair could send.
 func (l *Link) UnwelcomedClient(ctx context.Context, t Target) (*connect.Client, error) {
-	s, err := l.race(ctx, t.Addresses, func(Key) error { return nil })
+	s, err := l.dialSession(ctx, t.Addresses, func(Key) error { return nil })
 	if err != nil {
 		return nil, err
 	}

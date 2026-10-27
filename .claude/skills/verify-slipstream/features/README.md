@@ -7,7 +7,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
 - The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
-- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, `serving` is `home` with Serving on seedbox too, `movies` is `home` with a full movie record and OMDb's ratings to read, and `low-space` is one Controller whose volume is below both Storage levels.
+- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, `serving` is `home` with Serving on seedbox too, `movies` is `home` with a full movie record and OMDb's ratings to read, `low-space` is one Controller whose volume is below both Storage levels, and `seedbox-nas` is the Controller home with the Worker seedbox downloading and the Worker nas holding the Movies root.
 
 ## Conventions
 
@@ -71,4 +71,5 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Tasks](./tasks.md) covers the Tasks page, a task's detail page, Run now and Cancel, the header capsule and the phone's running list, cadence and Schedule settings, and Housekeeping going Partial and back when seedbox stops and starts.
 - [Metadata refresh](./metadata-refresh.md) covers the Metadata refresh task listed once a Work exists, its tiers and changes switch under `When it runs`, a TMDB change refreshed by the next run, refresh all over the API with 409 `task_running` while a run is open, and a Work gone upstream failing with its cause.
 - [Health](./health.md) covers the Health page with nothing wrong and with a Worker offline past the grace, the Health nav dot, Check all and Check now with what it couldn't reach, the Storage levels on the page and per volume from Library roots, the Library roots row's dot and `Open Health` on `low-space`, Download Clients' bind failure and disk guard items, and the API under `GET /api/v1/system/health` with the counts' alerts and `health.changed`.
+- [Transfers](./transfers.md) covers a Grab on seedbox copied to nas's root on `seedbox-nas`: each Node's Transfers section with its sentence, send limit, rows, Details and recent speeds, Activity's Transfer words and pace, a cut on `link/seedbox`, Needs space from nas's volume levels, waiting for a stopped seedbox, and the file landing whole.
 - [Live updates](./live-updates.md) covers the reconnecting line, reconnecting after `fakeworld node kill` and `start`, and the captured stream.

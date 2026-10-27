@@ -38,7 +38,7 @@ type Test struct {
 	Started func(Half)
 	// Lockstep wraps the handler the link serves lockstep requests with.
 	Lockstep func(http.Handler) http.Handler
-	// Transfers sees into a Worker's Transfer source.
+	// Transfers sees into what this Node sends in a Transfer.
 	Transfers transfers.Hooks
 	// BeforeStep sees each Grab step on the Controller before it runs.
 	BeforeStep func(context.Context, grabs.Stage)

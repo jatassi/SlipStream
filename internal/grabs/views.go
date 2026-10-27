@@ -11,8 +11,9 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// View is a Grab with its live download progress, nil when none, and
-// its metadata search, nil unless it fetches from a magnet link.
+// View is a Grab with its live download or Transfer progress, nil when
+// none, and its metadata search, nil unless it fetches from a magnet
+// link.
 type View struct {
 	Grab
 	Progress *Progress
@@ -37,11 +38,7 @@ func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]View, len(grabs))
-	for i, g := range grabs {
-		out[i] = gr.view(g, wait)
-	}
-	return out, nil
+	return gr.views(ctx, grabs, wait)
 }
 
 // Moving counts the Grabs not yet imported or failed.
@@ -80,11 +77,23 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 	if err != nil {
 		return View{}, err
 	}
-	return gr.view(g, wait), nil
+	views, err := gr.views(ctx, []Grab{g}, wait)
+	if err != nil {
+		return View{}, err
+	}
+	return views[0], nil
 }
 
-func (gr *Grabs) view(g Grab, wait time.Duration) View {
-	return View{Grab: g, Progress: gr.progress(g), Metadata: gr.metadataSearch(g, wait)}
+func (gr *Grabs) views(ctx context.Context, grabs []Grab, wait time.Duration) ([]View, error) {
+	progress, err := gr.progress(ctx, grabs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]View, len(grabs))
+	for i, g := range grabs {
+		out[i] = View{Grab: g, Progress: progress[g.ID], Metadata: gr.metadataSearch(g, wait)}
+	}
+	return out, nil
 }
 
 func metadataWaitIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
