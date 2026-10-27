@@ -60,6 +60,12 @@ import type {
   GetIndexerSettings403,
   GetIndexerSettings409,
   GetIndexerSettings500,
+  GetTracker401,
+  GetTracker403,
+  GetTracker404,
+  GetTracker409,
+  GetTracker422,
+  GetTracker500,
   IndexersCatalogAddress,
   IndexersCatalogEntry,
   IndexersCustomDefinition,
@@ -73,6 +79,7 @@ import type {
   IndexersReport,
   IndexersSettings,
   IndexersSettingsChange,
+  IndexersTracker,
   IndexersTrackerList,
   ListIndexerQueries401,
   ListIndexerQueries403,
@@ -89,6 +96,20 @@ import type {
   ListTrackers403,
   ListTrackers409,
   ListTrackers500,
+  MergeTracker401,
+  MergeTracker403,
+  MergeTracker404,
+  MergeTracker409,
+  MergeTracker422,
+  MergeTracker500,
+  MergeTrackerInputBody,
+  RenameTracker401,
+  RenameTracker403,
+  RenameTracker404,
+  RenameTracker409,
+  RenameTracker422,
+  RenameTracker500,
+  RenameTrackerInputBody,
   SetCatalogAddress401,
   SetCatalogAddress403,
   SetCatalogAddress409,
@@ -2178,3 +2199,382 @@ export function useListTrackersSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getGetTrackerUrl = (id: string) => {
+  return `/api/v1/trackers/${id}`;
+};
+
+/**
+ * @summary Get a Tracker
+ */
+export const getTracker = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersTracker> => {
+  return apiFetch<IndexersTracker>(getGetTrackerUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTrackerQueryKey = (id: string) => {
+  return [`/api/v1/trackers/${id}`] as const;
+};
+
+export const getGetTrackerSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTracker>>,
+  TError = ErrorType<
+    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTrackerQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTracker>>> = ({ signal }) =>
+    getTracker(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetTrackerSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getTracker>>>;
+export type GetTrackerSuspenseQueryError = ErrorType<
+  GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
+>;
+
+export function useGetTrackerSuspense<
+  TData = Awaited<ReturnType<typeof getTracker>>,
+  TError = ErrorType<
+    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTrackerSuspense<
+  TData = Awaited<ReturnType<typeof getTracker>>,
+  TError = ErrorType<
+    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTrackerSuspense<
+  TData = Awaited<ReturnType<typeof getTracker>>,
+  TError = ErrorType<
+    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get a Tracker
+ */
+
+export function useGetTrackerSuspense<
+  TData = Awaited<ReturnType<typeof getTracker>>,
+  TError = ErrorType<
+    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetTrackerSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getRenameTrackerUrl = (id: string) => {
+  return `/api/v1/trackers/${id}`;
+};
+
+/**
+ * @summary Rename a Tracker. Every Indexer and Release that reached it still does.
+ */
+export const renameTracker = async (
+  id: string,
+  renameTrackerInputBody: RenameTrackerInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersTracker> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersTracker>(getRenameTrackerUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(renameTrackerInputBody),
+  });
+};
+
+export const getRenameTrackerMutationKey = () => ["renameTracker"] as const;
+
+export const getRenameTrackerMutationOptions = <
+  TError = ErrorType<
+    | RenameTracker401
+    | RenameTracker403
+    | RenameTracker404
+    | RenameTracker409
+    | RenameTracker422
+    | RenameTracker500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameTracker>>,
+    TError,
+    RenameTrackerMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renameTracker>>,
+  TError,
+  RenameTrackerMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRenameTrackerMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renameTracker>>,
+    RenameTrackerMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return renameTracker(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenameTrackerMutationResult = NonNullable<Awaited<ReturnType<typeof renameTracker>>>;
+export type RenameTrackerMutationBody = RenameTrackerInputBody;
+export type RenameTrackerMutationError = ErrorType<
+  | RenameTracker401
+  | RenameTracker403
+  | RenameTracker404
+  | RenameTracker409
+  | RenameTracker422
+  | RenameTracker500
+>;
+export type RenameTrackerMutationVariables = { id: string; data: RenameTrackerInputBody };
+
+/**
+ * @summary Rename a Tracker. Every Indexer and Release that reached it still does.
+ */
+export const useRenameTracker = <
+  TError = ErrorType<
+    | RenameTracker401
+    | RenameTracker403
+    | RenameTracker404
+    | RenameTracker409
+    | RenameTracker422
+    | RenameTracker500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof renameTracker>>,
+      TError,
+      RenameTrackerMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof renameTracker>>,
+  TError,
+  RenameTrackerMutationVariables,
+  TContext
+> => {
+  return useMutation(getRenameTrackerMutationOptions(options), queryClient);
+};
+export const getMergeTrackerUrl = (id: string) => {
+  return `/api/v1/trackers/${id}/merge`;
+};
+
+/**
+ * @summary Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.
+ */
+export const mergeTracker = async (
+  id: string,
+  mergeTrackerInputBody: MergeTrackerInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersTracker> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersTracker>(getMergeTrackerUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(mergeTrackerInputBody),
+  });
+};
+
+export const getMergeTrackerMutationKey = () => ["mergeTracker"] as const;
+
+export const getMergeTrackerMutationOptions = <
+  TError = ErrorType<
+    | MergeTracker401
+    | MergeTracker403
+    | MergeTracker404
+    | MergeTracker409
+    | MergeTracker422
+    | MergeTracker500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mergeTracker>>,
+    TError,
+    MergeTrackerMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mergeTracker>>,
+  TError,
+  MergeTrackerMutationVariables,
+  TContext
+> => {
+  const mutationKey = getMergeTrackerMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mergeTracker>>,
+    MergeTrackerMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return mergeTracker(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MergeTrackerMutationResult = NonNullable<Awaited<ReturnType<typeof mergeTracker>>>;
+export type MergeTrackerMutationBody = MergeTrackerInputBody;
+export type MergeTrackerMutationError = ErrorType<
+  | MergeTracker401
+  | MergeTracker403
+  | MergeTracker404
+  | MergeTracker409
+  | MergeTracker422
+  | MergeTracker500
+>;
+export type MergeTrackerMutationVariables = { id: string; data: MergeTrackerInputBody };
+
+/**
+ * @summary Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.
+ */
+export const useMergeTracker = <
+  TError = ErrorType<
+    | MergeTracker401
+    | MergeTracker403
+    | MergeTracker404
+    | MergeTracker409
+    | MergeTracker422
+    | MergeTracker500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof mergeTracker>>,
+      TError,
+      MergeTrackerMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof mergeTracker>>,
+  TError,
+  MergeTrackerMutationVariables,
+  TContext
+> => {
+  return useMutation(getMergeTrackerMutationOptions(options), queryClient);
+};

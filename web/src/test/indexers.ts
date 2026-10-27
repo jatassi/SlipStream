@@ -22,7 +22,9 @@ const okStatus: IndexersIndexer["status"] = {
   successAt: "2026-10-26T09:12:00Z",
 };
 
-export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "id" | "name">) {
+export function indexer(
+  over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "id" | "name">,
+) {
   return {
     kind: "torznab",
     homeNodeId: homeId,
@@ -66,7 +68,11 @@ export const torrentLeech = indexer({
   feedHost: null,
   trackerIds: [torrentLeechTrackerId],
   searches: { count: 10, per: "hour", used: 4, freeAt: null },
-  session: { nodeId: seedboxId, pasted: false, earnedAt: "2026-10-26T08:00:00Z" },
+  session: {
+    nodeId: seedboxId,
+    pasted: false,
+    earnedAt: "2026-10-26T08:00:00Z",
+  },
 });
 
 export const prowlarr = indexer({
@@ -103,11 +109,20 @@ export const larkspur = indexer({
 });
 
 export const trackers: IndexersTracker[] = [
-  { id: aitherTrackerId, name: "Aither", privacy: "private", indexerIds: [prowlarrId] },
+  {
+    id: aitherTrackerId,
+    name: "Aither",
+    privacy: "private",
+    hosts: [],
+    keys: ["prowlarr:" + prowlarrId + ":3"],
+    indexerIds: [prowlarrId],
+  },
   {
     id: torrentLeechTrackerId,
     name: "TorrentLeech",
     privacy: "private",
+    hosts: [],
+    keys: ["definition:torrentleech"],
     indexerIds: [prowlarrId, torrentLeechId],
   },
 ];
