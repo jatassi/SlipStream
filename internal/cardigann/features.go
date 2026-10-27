@@ -67,7 +67,12 @@ const (
 
 // unported are the features a definition may use that SlipStream can't run
 // yet. Load refuses a definition that uses one.
-var unported = []Feature{}
+var unported = []Feature{
+	LoginForm, LoginPost, LoginCookie, LoginGet, LoginOneURL,
+	LoginSelectorInputs, LoginGetSelectorInputs, LoginSubmitPath, LoginCookies, LoginHeaders,
+	LoginError, LoginTest, LoginTestPath, LoginCaptcha,
+	DownloadSelectors, DownloadBefore, DownloadInfohash, DownloadPost, DownloadHeaders, NoTestLinkTorrent,
+}
 
 type featureCheck struct {
 	feature Feature

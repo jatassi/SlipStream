@@ -9,14 +9,14 @@ import (
 	"github.com/dlclark/regexp2"
 )
 
-// clock is the current time and the zone a date without an offset is read
+// Clock is the current time and the zone a date without an offset is read
 // in: Prowlarr's DateTime.Now and its host's local zone.
-type clock struct {
+type Clock struct {
 	Now      time.Time
 	Location *time.Location
 }
 
-func (c clock) local() time.Time { return c.Now.In(c.Location) }
+func (c Clock) local() time.Time { return c.Now.In(c.Location) }
 
 // formatRFC1123Z writes t as Prowlarr's Rfc1123ZPattern,
 // "ddd, dd MMM yyyy HH':'mm':'ss z", the form dateparse, timeago and
@@ -36,7 +36,7 @@ const rfc1123ZFormat = "ddd, dd MMM yyyy HH':'mm':'ss z"
 // parseDateLayout is ParseDateTimeGoLang (DateTimeUtil.cs:256-327): the
 // layout is first read as a .NET custom format when it holds a y, h or d,
 // then rewritten from Go's reference-date tokens to .NET's and read again.
-func parseDateLayout(value, layout string, clock clock) (time.Time, error) {
+func parseDateLayout(value, layout string, clock Clock) (time.Time, error) {
 	value = strings.TrimSpace(value)
 	lower := strings.ToLower(layout)
 	if strings.ContainsAny(lower, "yhd") {
@@ -90,7 +90,7 @@ var timeAgoUnits = []struct {
 }
 
 // fromTimeAgo is DateTimeUtil.FromTimeAgo: "2 hours 1 day" ago from now.
-func fromTimeAgo(s string, clock clock) (time.Time, error) {
+func fromTimeAgo(s string, clock Clock) (time.Time, error) {
 	s = strings.ToLower(s)
 	if strings.Contains(s, "now") {
 		return clock.local(), nil
@@ -150,7 +150,7 @@ var (
 // RFC1123Z form the date filters write, a Unix time, "now", a time ago,
 // today, yesterday or tomorrow at a time, a weekday at a time, and
 // otherwise DateTimeRoutines' fuzzy US-date parser.
-func parseDate(s string, clock clock) (time.Time, error) {
+func parseDate(s string, clock Clock) (time.Time, error) {
 	s = strings.TrimSpace(s)
 	if t, ok := parseExact(s, rfc1123ZFormat, clock); ok {
 		return t, nil
@@ -194,7 +194,7 @@ type relativeDay struct {
 
 // parse reads "today 14:22" and the like: the UTC date at the given time,
 // read as local time, as Prowlarr builds it from DateTime.UtcNow.Date.
-func (r relativeDay) parse(s string, clock clock) (time.Time, bool, error) {
+func (r relativeDay) parse(s string, clock Clock) (time.Time, bool, error) {
 	m, err := r.re.FindStringMatch(s)
 	if err != nil {
 		return time.Time{}, false, fmt.Errorf("read the date %q: %w", s, err)
@@ -209,7 +209,7 @@ func (r relativeDay) parse(s string, clock clock) (time.Time, bool, error) {
 	return t.AddDate(0, 0, r.days), true, nil
 }
 
-func parseWeekdayAt(s string, clock clock) (time.Time, bool, error) {
+func parseWeekdayAt(s string, clock Clock) (time.Time, bool, error) {
 	m, err := weekdayAtRe.FindStringMatch(s)
 	if err != nil {
 		return time.Time{}, false, fmt.Errorf("read the date %q: %w", s, err)
@@ -228,7 +228,7 @@ func parseWeekdayAt(s string, clock clock) (time.Time, bool, error) {
 	return t, true, nil
 }
 
-func utcDateAt(clockTime string, clock clock) (time.Time, error) {
+func utcDateAt(clockTime string, clock Clock) (time.Time, error) {
 	u := clock.Now.UTC()
 	day := time.Date(u.Year(), u.Month(), u.Day(), 0, 0, 0, 0, clock.Location)
 	if strings.TrimSpace(clockTime) == "" {
@@ -270,7 +270,7 @@ func parseTimeOfDay(s string) (h, m, sec int, err error) {
 	return h, m, sec, nil
 }
 
-func addMissingYear(s string, clock clock) string {
+func addMissingYear(s string, clock Clock) string {
 	year := strconv.Itoa(clock.local().Year())
 	if m, _ := noYearRe.FindStringMatch(s); m != nil {
 		date := m.GroupByNumber(1).String()
