@@ -21,9 +21,8 @@ import (
 	"github.com/jatassi/slipstream/internal/indexersapi"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
-	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -77,12 +76,10 @@ func (r roster) Away(_ role.Name, node role.NodeID) (nodes.Absence, bool) {
 }
 
 // disconnected is a home Node whose link is down.
-type disconnected struct {
-	searchv1connect.UnimplementedSearchingServiceHandler
-}
+type disconnected struct{}
 
-func (disconnected) Caps(context.Context, *searchv1.CapsRequest) (*searchv1.CapsResponse, error) {
-	return nil, link.ErrDisconnected
+func (disconnected) Run(context.Context, searching.Job) (searching.Poll, error) {
+	return searching.Poll{}, link.ErrDisconnected
 }
 
 var (
@@ -115,12 +112,14 @@ func fixtureSite(t *testing.T) faketest.Served {
 func serveOn(t *testing.T, fixture faketest.Served, lib *storage.DB[storage.Library], r roster, down role.NodeID) *served {
 	t.Helper()
 	srv := &served{key: site.APIKey(fixtureScenario), changed: &published{}, site: fixture}
-	home := indexers.NewHome(srv.site.Client, indexers.Timings{Request: 5 * time.Second})
+	timings := searching.DefaultTimings()
+	timings.Floor = 0
+	home := searching.RemoteOf(searching.New(searching.Config{HTTP: srv.site.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
 	x := indexers.New(indexers.Config{
 		Library: lib,
 		Sealer:  secrettest.Sealer(t),
 		Roster:  r,
-		Searching: func(n role.NodeID) searchv1connect.SearchingServiceHandler {
+		Searching: func(n role.NodeID) searching.Remote {
 			srv.asked = append(srv.asked, n)
 			if n == down {
 				return disconnected{}
@@ -128,6 +127,8 @@ func serveOn(t *testing.T, fixture faketest.Served, lib *storage.DB[storage.Libr
 			return home
 		},
 		Changed: srv.changed,
+		Timings: indexers.DefaultTimings(),
+		Log:     slog.New(slog.DiscardHandler),
 	})
 	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { indexersapi.Routes(r, registry{x}) })
 	return srv
@@ -170,7 +171,7 @@ func TestAnIndexerIsCreatedOnItsHomeNodeAndListed(t *testing.T) {
 func TestEachIndexersErrorAnswersItsProblem(t *testing.T) {
 	s := serve(t, []role.NodeID{self}, role.NodeID{})
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, "wrong"), http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_refused","title":"The Indexer refused the request","detail":"error 100: Invalid API Key"}`)
+		`{"status":422,"code":"indexer_refused","title":"The Indexer refused the request","detail":"Invalid API Key"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body("/elsewhere", s.key), http.StatusBadGateway,
 		`{"status":502,"code":"indexer_unavailable","title":"The Indexer didn't respond","detail":"the Indexer responded with status 404"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", `{"name":"Fixture Site","url":"ftp://example.test/torznab","apiKey":"k"}`, http.StatusUnprocessableEntity,
@@ -234,7 +235,7 @@ func TestAKeyTheSealingMigrationDroppedIsEnteredAgain(t *testing.T) {
 		`{"status":404,"code":"indexer_not_found","title":"No Indexer has that id"}`)
 	put := "/api/v1/indexers/" + id.String() + "/api-key"
 	s.owner.Expect(t, http.MethodPut, put, `{"apiKey":"wrong"}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_refused","title":"The Indexer refused the request","detail":"error 100: Invalid API Key"}`)
+		`{"status":422,"code":"indexer_refused","title":"The Indexer refused the request","detail":"Invalid API Key"}`)
 	s.owner.Expect(t, http.MethodGet, "/api/v1/indexers", "", http.StatusOK, `{"indexers":[`+row(false, "")+`]}`)
 	modes := `{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}`
 	s.owner.Expect(t, http.MethodPut, put, `{"apiKey":"`+s.key+`"}`, http.StatusOK, row(true, modes))

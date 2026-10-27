@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -202,11 +203,11 @@ type Config struct {
 type Grabs struct {
 	cfg       Config
 	poke      chan struct{}
-	searching searching
+	searching metadataPeers
 }
 
 func New(cfg Config) *Grabs {
-	return &Grabs{cfg: cfg, poke: make(chan struct{}, 1), searching: searching{peers: map[GrabID]int{}}}
+	return &Grabs{cfg: cfg, poke: make(chan struct{}, 1), searching: metadataPeers{peers: map[GrabID]int{}}}
 }
 
 // Release is the release a Grab took, as the Indexer answered it.
@@ -214,7 +215,8 @@ type Release struct {
 	Title   string
 	Size    int64
 	Indexer indexers.ID
-	Link    string
+	// Link is the .torrent link the Grab fetches, else its magnet link.
+	Link searching.Link
 	// InfoHash is the Indexer's infohash attribute, nil when it sent none.
 	InfoHash *bencode.InfoHash
 }
@@ -331,7 +333,7 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel related) (Grab, error) {
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
-		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, Link: row.ReleaseLink},
+		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, Link: searching.LinkOf(row.ReleaseLink)},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
 	}

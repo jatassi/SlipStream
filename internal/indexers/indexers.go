@@ -1,6 +1,7 @@
-// Package indexers owns the Indexers and the Searching Role's wire calls.
-// The Controller keeps each Indexer and parses every Torznab answer; the
-// Indexer's home Node only speaks the protocol (ADR 0017).
+// Package indexers owns the Indexers. The Controller keeps each Indexer.
+// The Node it routes to runs its protocol (package searching), and this
+// package sends that Node a job and reads the typed answer. It never
+// parses a site's response (ADR 0017).
 package indexers
 
 import (
@@ -9,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
+	"log/slog"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -17,10 +18,9 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
-	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -51,13 +51,21 @@ type Terms struct {
 }
 
 type Timings struct {
-	// Request bounds one request to an Indexer, its body included.
-	Request time.Duration `yaml:"request"`
+	// Job is a job's deadline from when its Node started it.
+	Job time.Duration `yaml:"job"`
+	// Poll is the least gap between two Run calls of one job.
+	Poll time.Duration `yaml:"poll"`
 }
 
-func DefaultTimings() Timings { return Timings{Request: 30 * time.Second} }
+func DefaultTimings() Timings { return Timings{Job: 2 * time.Minute, Poll: time.Second} }
 
 const protocol = "torznab"
+
+// Caps are an Indexer's search modes, keyed by their t= value, each with
+// the parameters it takes in the order the Indexer lists them.
+type Caps struct {
+	Modes map[string][]string `json:"modes"`
+}
 
 // Indexer is a Torznab Indexer and the Node that reaches it.
 type Indexer struct {
@@ -88,10 +96,13 @@ var (
 	ErrNoSearchingNode = errors.New("no Node holds Searching")
 	ErrAPIKeyDropped   = errors.New("the Indexer's API key was dropped")
 	ErrNoIndexer       = errors.New("no such Indexer")
+	// ErrLate is a job that passed its deadline.
+	ErrLate = errors.New("the Indexer didn't respond in time")
 )
 
-// UnavailableError is a call that didn't reach the Indexer or brought
-// back nothing usable.
+// UnavailableError is a call that didn't reach the Indexer, brought back
+// nothing usable, or met a site that limited or failed it. A site that
+// stopped the Indexer is a *searching.Stopped.
 type UnavailableError struct {
 	// Wait is true when no Node could take the call, or its link was down,
 	// mismatched or lost the call: the same call may succeed once the
@@ -122,8 +133,10 @@ type Config struct {
 	Sealer *secret.Sealer
 	Roster Roster
 	// Searching reaches the Searching service on a Node.
-	Searching func(role.NodeID) searchv1connect.SearchingServiceHandler
+	Searching func(role.NodeID) searching.Remote
 	Changed   Publisher
+	Timings   Timings
+	Log       *slog.Logger
 }
 
 type Indexers struct{ cfg Config }
@@ -257,44 +270,45 @@ func indexer(row db.IndexersIndexer) (Indexer, error) {
 	return idx, nil
 }
 
+// caps are idx's search modes, as its home Node's Test read them.
 func (x *Indexers) caps(ctx context.Context, idx Indexer) (Caps, error) {
-	node, w, err := x.call(idx)
+	a, _, err := x.run(ctx, idx, searching.TestCall{})
 	if err != nil {
 		return Caps{}, err
 	}
-	res, err := x.cfg.Searching(node).Caps(ctx, &searchv1.CapsRequest{Indexer: w})
-	if err != nil {
-		return Caps{}, unavailable(err)
-	}
-	if err := answered(res.GetBody(), res.GetStatus()); err != nil {
-		return Caps{}, err
-	}
-	c, err := ParseCaps(res.GetBody())
-	if err != nil {
-		return Caps{}, &UnavailableError{Err: err}
-	}
-	return c, nil
+	return Caps{Modes: a.Report.Capabilities.Modes}, nil
 }
 
-// Search asks the Node idx routes through to search for terms and parses
-// the answer. It fails with *UnavailableError or *RefusedError.
-func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Item, error) {
-	node, w, err := x.call(idx)
+// Release is one normalized Release from one Indexer.
+type Release struct {
+	Indexer ID
+	searching.Release
+}
+
+// Search asks the Node idx routes through to search for terms. It fails
+// with *searching.Stopped or *UnavailableError.
+func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Release, error) {
+	a, _, err := x.run(ctx, idx, searching.SearchCall{Query: Query(idx.Caps, terms)})
 	if err != nil {
 		return nil, err
 	}
-	res, err := x.cfg.Searching(node).Search(ctx, &searchv1.SearchRequest{Indexer: w, Params: Query(idx.Caps, terms)})
-	if err != nil {
-		return nil, unavailable(err)
+	out := make([]Release, len(a.Releases))
+	for i, r := range a.Releases {
+		out[i] = Release{Indexer: idx.ID, Release: r}
 	}
-	if err := answered(res.GetBody(), res.GetStatus()); err != nil {
-		return nil, err
+	return out, nil
+}
+
+// Query is the query for terms under caps: terms' mode with the first id
+// parameter caps list for that mode, else a free-text search. It chooses
+// by declared capability, so it never retries.
+func Query(c Caps, terms Terms) searching.Query {
+	for _, p := range c.Modes[terms.Mode] {
+		if id, ok := terms.IDs[p]; ok {
+			return searching.Query{Mode: terms.Mode, IDs: map[string]string{p: id}}
+		}
 	}
-	items, err := ParseItems(res.GetBody())
-	if err != nil {
-		return nil, &UnavailableError{Err: err}
-	}
-	return items, nil
+	return searching.Query{Mode: "search", Text: terms.Query}
 }
 
 // Got is what a release's link leads to: a Torrent or a Magnet.
@@ -315,32 +329,28 @@ func (Torrent) got() {}
 func (Magnet) got()  {}
 
 // Fetch is what link leads to. A magnet link needs no Node. Any other
-// link goes to the Node idx routes through, must be on the Indexer's own
-// host, and may redirect to a magnet link. It fails with
+// link goes to the Node idx routes through, which may fetch it from any
+// host and follow it to a magnet link. It fails with *searching.Stopped,
 // *UnavailableError, *magnet.InvalidError or bencode.ErrV2Only.
-func (x *Indexers) Fetch(ctx context.Context, idx Indexer, link string) (Got, error) {
-	if magnet.Is(link) {
+func (x *Indexers) Fetch(ctx context.Context, idx Indexer, link searching.Link) (Got, error) {
+	if link.IsMagnet() {
 		return parseMagnet(link)
 	}
-	node, w, err := x.call(idx)
+	a, node, err := x.run(ctx, idx, searching.FetchCall{Link: link})
 	if err != nil {
 		return nil, err
 	}
-	res, err := x.cfg.Searching(node).FetchTorrent(ctx, &searchv1.FetchTorrentRequest{Indexer: w, Url: link})
-	if err != nil {
-		return nil, unavailable(err)
-	}
-	switch got := res.GetGot().(type) {
-	case *searchv1.FetchTorrentResponse_Torrent:
-		return Torrent{Raw: got.Torrent, Node: node}, nil
-	case *searchv1.FetchTorrentResponse_Magnet:
-		return parseMagnet(got.Magnet)
+	switch got := a.Got.(type) {
+	case searching.Torrent:
+		return Torrent{Raw: got.Raw, Node: node}, nil
+	case searching.Magnet:
+		return parseMagnet(got.Link)
 	}
 	return nil, &UnavailableError{Err: errors.New("the Searching Node's response holds neither a .torrent nor a magnet link")}
 }
 
-func parseMagnet(link string) (Got, error) {
-	l, err := magnet.Parse(link)
+func parseMagnet(link searching.Link) (Got, error) {
+	l, err := link.Magnet()
 	if err != nil {
 		return nil, err
 	}
@@ -354,43 +364,48 @@ func (x *Indexers) Waiting(idx Indexer) (nodes.Absence, bool) {
 	return a, away && !a.Lapsed
 }
 
-// call is the Node a call to idx goes through now, routed afresh each
-// time so it goes home once home is back, and idx on the wire.
-func (x *Indexers) call(idx Indexer) (role.NodeID, *searchv1.Indexer, error) {
+// run sends call on idx to the Node idx routes through now, routed afresh
+// each time so it goes home once home is back, and the Node that ran it.
+// An outcome other than ok fails it: a stop as *searching.Stopped, any
+// other as *UnavailableError.
+func (x *Indexers) run(ctx context.Context, idx Indexer, call searching.Call) (searching.Answer, role.NodeID, error) {
 	node, err := x.cfg.Roster.Route(role.Searching, idx.HomeNode)
 	if err != nil {
-		return role.NodeID{}, nil, &UnavailableError{Wait: true, Err: err}
+		return searching.Answer{}, role.NodeID{}, &UnavailableError{Wait: true, Err: err}
 	}
-	w, err := x.wire(idx)
-	return node, w, err
+	job, err := x.job(idx, call)
+	if err != nil {
+		return searching.Answer{}, role.NodeID{}, err
+	}
+	a, err := x.ask(ctx, node, job)
+	if err != nil {
+		return searching.Answer{}, role.NodeID{}, unavailable(err)
+	}
+	if stopped, ok := errors.AsType[*searching.Stopped](a.Outcome); ok {
+		return searching.Answer{}, role.NodeID{}, stopped
+	}
+	if a.Outcome != nil {
+		return searching.Answer{}, role.NodeID{}, &UnavailableError{Err: a.Outcome}
+	}
+	return a, node, nil
 }
 
 var apiKeyColumn = secret.NewColumn("indexers_indexer.api_key_sealed")
 
-// wire is the one place an Indexer's key is opened, for the length of one
-// call to its home Node. A dropped key fails as an *UnavailableError the
-// same call can't recover from.
-func (x *Indexers) wire(idx Indexer) (*searchv1.Indexer, error) {
+// job is call on idx as the Node runs it, and the one place an Indexer's
+// key is opened, for the length of one job. A dropped key fails as an
+// *UnavailableError the same call can't recover from.
+func (x *Indexers) job(idx Indexer, call searching.Call) (searching.Job, error) {
 	if !idx.Key.Set() {
-		return nil, &UnavailableError{Err: ErrAPIKeyDropped}
+		return searching.Job{}, &UnavailableError{Err: ErrAPIKeyDropped}
 	}
 	key, err := x.cfg.Sealer.Open(idx.Key, apiKeyColumn.Row(idx.ID.String()))
 	if err != nil {
-		return nil, fmt.Errorf("indexer %s: %w", idx.ID, err)
+		return searching.Job{}, fmt.Errorf("indexer %s: %w", idx.ID, err)
 	}
-	return &searchv1.Indexer{Url: idx.URL, ApiKey: string(key)}, nil
-}
-
-// answered is the Torznab error body holds, else an *UnavailableError for
-// a status other than success.
-func answered(body []byte, status int32) error {
-	if r := refusal(body); r != nil {
-		return r
-	}
-	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return &UnavailableError{Err: fmt.Errorf("the Indexer responded with status %d", status)}
-	}
-	return nil
+	return searching.Job{
+		ID: storage.NewUUID().String(), Indexer: idx.ID.String(), Kind: searching.Torznab, Address: idx.URL, APIKey: string(key), Call: call,
+	}, nil
 }
 
 func unavailable(err error) error {

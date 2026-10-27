@@ -1,5 +1,6 @@
-// The Searching Role's wire calls: the Indexer's home Node speaks Torznab
-// for the Controller, which parses every answer (ADR 0017).
+// The Searching Role's wire: the Controller sends one Job, and the Node an
+// Indexer routes to runs the Indexer's protocol and answers normalized
+// Releases with one outcome (ADR 0017).
 syntax = "proto3";
 
 package slipstream.search.v1;
@@ -8,52 +9,282 @@ import "slipstream/node/v1/options.proto";
 
 service SearchingService {
   option (slipstream.node.v1.served_by) = {role: "searching"};
-  // Caps fetches the Indexer's t=caps document.
-  rpc Caps(CapsRequest) returns (CapsResponse);
-  // Search sends one Torznab query.
-  rpc Search(SearchRequest) returns (SearchResponse);
-  // FetchTorrent downloads a .torrent from the Indexer's own host, or
-  // returns the magnet link the Indexer redirected to.
-  rpc FetchTorrent(FetchTorrentRequest) returns (FetchTorrentResponse);
+  // Run starts job, or joins the run of the job with the same id. It
+  // answers when the job ends, or after the Node's hold with Running, and
+  // the caller calls again with the same job. A finished answer stays for
+  // a while for a call whose answer was lost.
+  rpc Run(RunRequest) returns (RunResponse);
+  // ReachSolver sends GET {address}/health to a Challenge solver from this
+  // Node.
+  rpc ReachSolver(ReachSolverRequest) returns (ReachSolverResponse);
 }
 
-// Indexer is where and how to reach an Indexer. A Worker keeps no durable
-// state, so every call carries it.
-message Indexer {
-  string url = 1;
-  string api_key = 2;
+message RunRequest {
+  Job job = 1;
 }
 
-message CapsRequest {
-  Indexer indexer = 1;
+message Job {
+  // id is the join key, and what keeps a repeated call from counting
+  // twice.
+  string id = 1;
+  Site site = 2;
+  oneof call {
+    SearchCall search = 3;
+    RecentCall recent = 4;
+    FetchCall fetch = 5;
+    TestCall test = 6;
+    CaptchaCall captcha = 7;
+  }
 }
 
-message CapsResponse {
-  bytes body = 1;
-  int32 status = 2;
+enum Kind {
+  KIND_UNSPECIFIED = 0;
+  KIND_CATALOG = 1;
+  KIND_TORZNAB = 2;
+  KIND_RSS = 3;
 }
 
-message SearchRequest {
-  Indexer indexer = 1;
-  // params are the query's parameters but apikey, which the home Node adds.
-  map<string, string> params = 2;
+// Site is everything a Node needs to reach one Indexer for one job.
+// Credentials stay in the Node's memory for the job only.
+message Site {
+  string indexer_id = 1;
+  int64 revision = 2;
+  Kind kind = 3;
+  // address is the base address: the definition link the Admin chose, or
+  // the feed's whole address, opened.
+  string address = 4;
+  // definition is set for a catalog Indexer only.
+  Definition definition = 5;
+  // settings are the opened values by field name.
+  map<string, string> settings = 6;
+  // api_key is set for a Torznab feed only.
+  string api_key = 7;
+  // session is this Node's stored session, absent for none.
+  Session session = 8;
+  // solver is this Node's Challenge solver, absent for none.
+  Solver solver = 9;
+  // rss is how an RSS feed is read, from its add-time Test.
+  RSSReading rss = 10;
+  // categories are the Indexer's categories after the Admin's narrowing.
+  repeated int32 categories = 11;
 }
 
-message SearchResponse {
-  bytes body = 1;
-  int32 status = 2;
+message Definition {
+  bytes yaml = 1;
+  string sha = 2;
 }
 
-message FetchTorrentRequest {
-  Indexer indexer = 1;
-  string url = 2;
+message Session {
+  repeated Cookie cookies = 1;
+  string user_agent = 2;
+  bool pasted = 3;
+  int64 earned_unix_ms = 4;
 }
 
-message FetchTorrentResponse {
+message Cookie {
+  string name = 1;
+  string value = 2;
+  string domain = 3;
+  string path = 4;
+  int64 expires_unix_ms = 5;
+  bool secure = 6;
+  bool host_only = 7;
+}
+
+message Solver {
+  string address = 1;
+  int64 timeout_ms = 2;
+}
+
+message RSSReading {
+  enum Link {
+    LINK_UNSPECIFIED = 0;
+    LINK_ENCLOSURE = 1;
+    LINK_ITEM = 2;
+    LINK_TORRENT_NS = 3;
+  }
+  Link link = 1;
+  bool size_from_description = 2;
+  bool seeders_from_description = 3;
+  bool allow_no_size = 4;
+}
+
+message Query {
+  // mode is "search", "tvsearch" or "movie".
+  string mode = 1;
+  // ids are the mode's id parameters the Work has.
+  map<string, string> ids = 2;
+  // text is empty when an id is sent.
+  string text = 3;
+  int32 season = 4;
+  string episode = 5;
+}
+
+message SearchCall {
+  Query query = 1;
+}
+
+message RecentCall {}
+
+message FetchCall {
+  string link = 1;
+}
+
+message TestCall {
+  CaptchaAnswer captcha = 1;
+}
+
+message CaptchaAnswer {
+  bytes pre_login = 1;
+  string text = 2;
+}
+
+message CaptchaCall {}
+
+message RunResponse {
+  oneof answer {
+    Running running = 1;
+    Answer done = 2;
+  }
+}
+
+// Running is a job the Node hasn't finished. started_unix_ms is when its
+// first request left the Node's spacer, 0 while it waits for it.
+message Running {
+  int64 started_unix_ms = 1;
+}
+
+message Answer {
+  int64 started_unix_ms = 1;
+  Outcome outcome = 2;
+  // session is set when the session changed on this Node.
+  Session session = 3;
+  oneof result {
+    // releases answers a search or a recent-items call.
+    Releases releases = 4;
+    // got answers a fetch.
+    Got got = 5;
+    TestReport test = 6;
+    CaptchaImage captcha = 7;
+  }
+}
+
+message Outcome {
+  oneof kind {
+    Ok ok = 1;
+    Limited limited = 2;
+    Failing failing = 3;
+    Stopped stopped = 4;
+  }
+}
+
+message Ok {}
+
+message Limited {
+  // retry_after_ms is 0 when the site gave none.
+  int64 retry_after_ms = 1;
+}
+
+message Failing {
+  // text is a Go error string, with no URL and no key.
+  string text = 1;
+}
+
+message Stopped {
+  enum Cause {
+    CAUSE_UNSPECIFIED = 0;
+    CAUSE_CREDENTIALS_REJECTED = 1;
+    CAUSE_CAPTCHA_NEEDED = 2;
+    CAUSE_CHALLENGE_UNSOLVED = 3;
+    CAUSE_COOKIE_EXPIRED = 4;
+    CAUSE_DEFINITION_UNLOADABLE = 5;
+    CAUSE_ACCOUNT_REFUSED = 6;
+    CAUSE_REQUEST_REJECTED = 7;
+  }
+  Cause cause = 1;
+  // text is the site's or feed's own words, for account_refused and
+  // request_rejected.
+  string text = 2;
+  // solver_tried is set for challenge_unsolved when a solver was set and
+  // couldn't clear the challenge.
+  bool solver_tried = 3;
+}
+
+message Releases {
+  repeated Release releases = 1;
+}
+
+message Release {
+  string title = 1;
+  int64 size = 2;
+  int64 published_unix_ms = 3;
+  int32 seeders = 4;
+  int32 leechers = 5;
+  int32 grabs = 6;
+  // link is the download link, empty for a magnet-only Release.
+  string link = 7;
+  string magnet = 8;
+  bytes info_hash = 9;
+  repeated int32 categories = 10;
+  // ids are imdbid, tmdbid and tvdbid as the site sent them.
+  map<string, string> ids = 11;
+  double download_factor = 12;
+  double upload_factor = 13;
+  double min_ratio = 14;
+  int64 min_seed_seconds = 15;
+  string details = 16;
+  // source is set for a Torznab feed that names one.
+  Source source = 17;
+}
+
+message Source {
+  string id = 1;
+  string name = 2;
+  string privacy = 3;
+  // origin is "prowlarr" or "jackett".
+  string origin = 4;
+}
+
+message Got {
   oneof got {
-    // torrent is the .torrent's bytes.
     bytes torrent = 1;
-    // magnet is the magnet link the Indexer's link redirected to, verbatim.
+    // magnet is the magnet link the download link redirected to, verbatim.
     string magnet = 2;
   }
+}
+
+message TestReport {
+  Capabilities capabilities = 1;
+  int32 items = 2;
+  // sources are the distinct source names the items named, Torznab only.
+  repeated string sources = 3;
+  // rss is the reading rules found, RSS only.
+  RSSReading rss = 4;
+}
+
+message Capabilities {
+  // modes are by their t= value.
+  map<string, ModeParams> modes = 1;
+  repeated int32 categories = 2;
+}
+
+message ModeParams {
+  repeated string params = 1;
+}
+
+message CaptchaImage {
+  bytes image = 1;
+  string content_type = 2;
+  bytes pre_login = 3;
+}
+
+message ReachSolverRequest {
+  string address = 1;
+  int64 timeout_ms = 2;
+}
+
+// ReachSolverResponse is the solver's status. An unreachable solver fails
+// the call with its cause.
+message ReachSolverResponse {
+  int32 status = 1;
 }

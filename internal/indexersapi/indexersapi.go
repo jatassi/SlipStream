@@ -1,6 +1,7 @@
 package indexersapi
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"maps"
@@ -11,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -37,10 +39,10 @@ var (
 
 func answer(err error) error {
 	var unavailable *indexers.UnavailableError
-	var refused *indexers.RefusedError
+	var stopped *searching.Stopped
 	switch {
-	case errors.As(err, &refused):
-		return indexerRefused.Because("error " + refused.Code + ": " + refused.Description)
+	case errors.As(err, &stopped):
+		return indexerRefused.Because(cmp.Or(stopped.Text, stopped.Error()))
 	case errors.Is(err, indexers.ErrAPIKeyDropped):
 		return indexerUnavailable.Because(indexers.ErrAPIKeyDropped.Error() + ". Enter it again.")
 	case errors.As(err, &unavailable):

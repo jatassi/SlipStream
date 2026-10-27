@@ -21,12 +21,11 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
-	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -84,19 +83,20 @@ func (l *lapsing) InStep(role.NodeID) bool         { return !l.lapsed.Load() }
 
 // site answers every search with a 1080p and a 720p release, and every
 // .torrent fetch with bytes that aren't bencode.
-type site struct {
-	searchv1connect.UnimplementedSearchingServiceHandler
-}
+type site struct{}
 
-func (site) Search(context.Context, *searchv1.SearchRequest) (*searchv1.SearchResponse, error) {
-	body := `<rss><channel><item><title>The.Attic.1080p.WEB</title><size>4096</size><link>https://site.test/dl/1</link>` +
-		`<attr name="seeders" value="5"/></item><item><title>The.Attic.720p.WEB</title><size>2048</size><link>https://site.test/dl/2</link>` +
-		`<attr name="seeders" value="50"/></item></channel></rss>`
-	return &searchv1.SearchResponse{Body: []byte(body), Status: http.StatusOK}, nil
-}
-
-func (site) FetchTorrent(context.Context, *searchv1.FetchTorrentRequest) (*searchv1.FetchTorrentResponse, error) {
-	return &searchv1.FetchTorrentResponse{Got: &searchv1.FetchTorrentResponse_Torrent{Torrent: []byte("not bencode")}}, nil
+func (site) Run(_ context.Context, job searching.Job) (searching.Poll, error) {
+	var a searching.Answer
+	switch job.Call.(type) {
+	case searching.SearchCall:
+		a.Releases = []searching.Release{
+			{Title: "The.Attic.1080p.WEB", Size: 4096, Link: searching.LinkOf("https://site.test/dl/1"), Seeders: 5},
+			{Title: "The.Attic.720p.WEB", Size: 2048, Link: searching.LinkOf("https://site.test/dl/2"), Seeders: 50},
+		}
+	case searching.FetchCall:
+		a.Got = searching.Torrent{Raw: []byte("not bencode")}
+	}
+	return searching.Poll{Answer: &a}, nil
 }
 
 func must[T any](t *testing.T) func(T, error) T {
@@ -170,8 +170,8 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
 		Indexers: indexers.New(indexers.Config{
-			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
-			Changed: discard[indexers.Changed]{},
+			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searching.Remote { return site{} },
+			Changed: discard[indexers.Changed]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 		}),
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
 		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
