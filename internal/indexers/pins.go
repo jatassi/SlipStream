@@ -3,8 +3,8 @@ package indexers
 import (
 	"cmp"
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 
