@@ -57,13 +57,14 @@ func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", 
 
 func spec(rels []site.Release) fake.Spec {
 	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, Endpoints: site.Fake.Endpoints, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-		return fake.HTTP(env, site.Routes(site.APIKey(s), rels, func(string) (string, error) { return announce, nil })), nil
+		return fake.HTTP(env, site.Routes(s, rels, func(string) (string, error) { return announce, nil })), nil
 	}}
 }
 
+// get fetches path from the Torznab site.
 func get(t *testing.T, f faketest.Served, path string) string {
 	t.Helper()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL(path), http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, site.Origin(f.Address, site.Torznab)+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +116,7 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 	s := scenarioWithSeed()
 	key := site.APIKey(s)
 	check := func(t *testing.T, f faketest.Served) {
-		origin := f.Address.URL("")
+		origin := site.Origin(f.Address, site.Torznab)
 		api := site.TorznabPath + "/api?apikey=" + key
 		for _, e := range []struct{ path, want string }{
 			{api + "&t=movie&tmdbid=9000001", feed(item(origin, listing[0]), item(origin, listing[1]))},
@@ -280,7 +281,7 @@ func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
 	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten || asked != "/a.torrent?id=1" {
 		t.Fatalf("a Fetch from another host = %+v, %v after asking for %s; want the .torrent asked for without the key", fetched, err, asked)
 	}
-	_, err = fetch(t, x, lib, r, searching.LinkOf(f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent")))
+	_, err = fetch(t, x, lib, r, searching.LinkOf(site.Origin(f.Address, site.Torznab)+"/download/"+strings.Repeat("d", 40)+".torrent"))
 	if wait, ok := errors.AsType[*indexers.WaitError](err); !ok || wait.Outcome.Kind != indexers.IsFailing {
 		t.Fatalf("a missing torrent = %v, want a wait while the Indexer fails", err)
 	}
@@ -399,7 +400,7 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
 	}
 	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
-	origin := f.Address.URL("")
+	origin := site.Origin(f.Address, site.Torznab)
 	harbor := "magnet:?xt=urn:btih:" + bencode.InfoHash{1}.String() + "&amp;dn=Harbor.Lights&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
 	meadow := "magnet:?xt=urn:btih:" + bencode.InfoHash{2}.String() + "&amp;dn=Salt.Meadow"
 	orchard := "magnet:?xt=urn:btih:" + bencode.InfoHash{3}.String() + "&amp;dn=Quiet.Orchard&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
@@ -420,7 +421,7 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 
 	noFollow := *f.Client
 	noFollow.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL("/download/"+bencode.InfoHash{3}.String()+".torrent"), http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, site.Origin(f.Address, site.Torznab)+"/download/"+bencode.InfoHash{3}.String()+".torrent", http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}

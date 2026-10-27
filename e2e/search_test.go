@@ -78,7 +78,7 @@ func TestTwoSearchesAtOnceAskEveryIndexerWithinItsSearchLimit(t *testing.T) {
 			t.Fatalf("updateIndexer %s = %d %s, want 200", ix.Name, r.Status, r.Body)
 		}
 	}
-	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 2}, "slow-body=1KiB/s")
+	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 2}, "slow-body=1KiB/s")
 
 	first, second := w.search(t), w.search(t)
 	skipped := w.searched(t, second)
@@ -105,7 +105,7 @@ func TestAnIndexerTheSiteLimitsLeavesTheOtherToAnswer(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
 	w.addMirror(t, "")
-	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 1}, "status=429,retry-after=30s")
+	w.setFault(t, fault.Rule{ID: "indexer-429", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "status=429,retry-after=30s")
 
 	s := w.searched(t, w.search(t))
 	lines := s.lines()
@@ -133,7 +133,7 @@ func TestAnIndexerPastTheJobDeadlineIsLateAndItsAnswerStillLands(t *testing.T) {
 	s.Timings.Searching.Hold = time.Second
 	w := beginIn(t, s, worldtest.LaunchScenario(t, s))
 	w.addMirror(t, "")
-	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab", Times: 1}, "slow-body=256B/s")
+	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "slow-body=256B/s")
 
 	run := w.searched(t, w.search(t))
 	lines := run.lines()

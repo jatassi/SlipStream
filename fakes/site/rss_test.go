@@ -93,7 +93,7 @@ func TestEachRSSPlayLandsInItsTest(t *testing.T) {
 		{fault.Malformed{}, "*searching.Failing read the feed: failed to detect feed type"},
 		{fault.Status{Code: 503}, "*searching.Failing the Indexer responded with status 503"},
 	} {
-		if _, err := f.Faults.Set(fault.Rule{ID: "feed", Target: fault.Target(site.Fake.Name), Route: "rss", Fault: tc.fault}); err != nil {
+		if _, err := f.Faults.Set(fault.Rule{ID: "feed", Target: fault.Target(site.Fake.Name), Route: "brook.rss", Fault: tc.fault}); err != nil {
 			t.Fatal(err)
 		}
 		other := searchingNode(f)

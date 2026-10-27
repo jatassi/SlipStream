@@ -73,7 +73,7 @@ func TestHomeDownloadsTheIndexerCatalogFromFakeCatalogAtStart(t *testing.T) {
 			reasons[e.ID] = *e.Reason
 		}
 	}
-	want := map[string]string{"broken": "it has no links", "cinder": "runs", "larkspur": "runs", "quarry": "runs"}
+	want := map[string]string{"broken": "it has no links", "cinder": "runs", "ferry": "runs", "larkspur": "runs", "marsh": "runs", "quarry": "runs"}
 	if !maps.Equal(reasons, want) {
 		t.Errorf("the catalog lists %v, want %v", reasons, want)
 	}

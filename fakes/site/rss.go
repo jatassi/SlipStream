@@ -35,11 +35,7 @@ const (
 // RSSURL is the address of Brook's feed, which an Admin enters, playing
 // play unless it is empty, in the scheme the front at serves.
 func RSSURL(at fake.Address, play string) string {
-	scheme := "http"
-	if at.TLS {
-		scheme = "https"
-	}
-	u := scheme + "://" + Host(Brook) + RSSPath
+	u := Origin(at, Brook) + RSSPath
 	if play != "" {
 		u += "?" + url.Values{"play": {play}}.Encode()
 	}

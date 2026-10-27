@@ -1,7 +1,9 @@
-// Package site is fixture-site: a private tracker's site, of which the
-// skeleton serves the Torznab API and the .torrent downloads. Its API key
-// is derived from the Scenario's seed. Every site it hosts has a host
-// under Domain, which each Node dials at its own front.
+// Package site is fixture-site: the fictional sites Indexers reach, each
+// at its own host under Domain, which each Node dials at its own front.
+// A router picks the site by the request's Host. It serves a Torznab feed,
+// Brook's RSS feed and a site for each Cardigann definition in
+// fakes/site/definitions, all listing the world's releases. Every key,
+// password and cookie derives from the Scenario's seed.
 package site
 
 import (
@@ -43,9 +45,10 @@ var Fake = fake.Spec{
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
 	},
-	Online:  fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
-	Cues:    []fake.CueSpec{List, RSSItem, Refuse},
-	Entered: indexers,
+	Online:   fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
+	Cues:     []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse},
+	Captures: []fake.CaptureSpec{CaptchaShown, SignedIn},
+	Entered:  indexers,
 }
 
 // indexers are the Indexers an Admin added, each dialed at its feed's
@@ -106,16 +109,24 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		}
 		return at.URL("/announce/" + passkey), nil
 	}
-	site := newSite(APIKey(s), listed, announce)
-	site.cookie = Cookie(s)
-	if err := fake.OnCue(env, List.Name, site.list); err != nil {
+	site := newSite(s, listed, announce)
+	var err error
+	if site.captchas, err = env.Capture(CaptchaShown.Name); err != nil {
 		return nil, err
 	}
-	if err := fake.OnCue(env, RSSItem.Name, site.rssItem); err != nil {
+	if site.signins, err = env.Capture(SignedIn.Name); err != nil {
 		return nil, err
 	}
-	if err := fake.OnCue(env, Refuse.Name, site.refuse); err != nil {
-		return nil, err
+	for _, cue := range []error{
+		fake.OnCue(env, List.Name, site.list),
+		fake.OnCue(env, RSSItem.Name, site.rssItem),
+		fake.OnCue(env, Expire.Name, site.expire),
+		fake.OnCue(env, Maintenance.Name, site.maintain),
+		fake.OnCue(env, Refuse.Name, site.refuse),
+	} {
+		if cue != nil {
+			return nil, cue
+		}
 	}
 	return fake.HTTP(env, site.routes()), nil
 }
@@ -156,6 +167,9 @@ const Domain = "fixture-site.fake.localhost"
 // Host is the host of the site whose label is label.
 func Host(label string) string { return label + "." + Domain }
 
+// Torznab is the label of the site that serves a Torznab feed.
+const Torznab = "torznab"
+
 // Prowlarr is the label of the site whose feed names a source in each
 // item as Prowlarr does: Source, private, with Prowlarr's id 1.
 const Prowlarr = "prowlarr"
@@ -167,17 +181,22 @@ const Source = "Fixture Source"
 // less the site's origin.
 const TorznabPath = "/torznab"
 
-// URL is the Indexer URL of the Torznab site, in the scheme the front at
-// serves.
-func URL(at fake.Address) string {
+// Origin is the scheme and host of the site whose label is label, in the
+// scheme the front at serves.
+func Origin(at fake.Address, label string) string {
 	scheme := "http"
 	if at.TLS {
 		scheme = "https"
 	}
-	return scheme + "://" + Host("torznab") + TorznabPath
+	return scheme + "://" + Host(label)
 }
 
+// URL is the Indexer URL of the Torznab site, in the scheme the front at
+// serves.
+func URL(at fake.Address) string { return Origin(at, Torznab) + TorznabPath }
+
 type site struct {
+	scenario scenario.Scenario
 	apiKey   string
 	releases []Release
 	announce Announce
@@ -185,33 +204,78 @@ type site struct {
 	// cookie is Brook's session cookie, name=value.
 	cookie string
 
+	// captchas and signins record what the catalog sites showed and who
+	// signed in, nil where no event log keeps them.
+	captchas *fake.Capture
+	signins  *fake.Capture
+
 	mu        sync.Mutex
 	listed    map[string]bool
 	rssListed map[string]bool
 	refusal   int
+	// sessions are the catalog sites' sessions, by token.
+	sessions map[string]session
+	// minted counts the tokens and pre-login nonces handed out.
+	minted int
+	// down are the catalog sites in maintenance, by label.
+	down map[string]bool
+	// expired are the sites whose pasted session cookie no longer works.
+	expired map[string]bool
+	// thanked are the releases each Larkspur session thanked, by token
+	// and info hash.
+	thanked map[string]bool
 }
 
 // Announce is the tracker URL a .torrent announces to when origin fetches
 // it, and the tr of a magnet link origin reads.
 type Announce func(origin string) (string, error)
 
-// Routes serve releases behind apiKey. Each .torrent announces to the
-// URL announce gives its downloader, and each magnet link names the URL
-// it gives the reader of the feed or the redirect.
-func Routes(apiKey string, releases []Release, announce Announce) fake.Routes {
-	return newSite(apiKey, releases, announce).routes()
+// Routes serve releases on every site of the world with Scenario s. Each
+// .torrent announces to the URL announce gives its downloader, and each
+// magnet link names the URL it gives the reader of the feed or the
+// redirect. They keep no capture.
+func Routes(s scenario.Scenario, releases []Release, announce Announce) fake.Routes {
+	return newSite(s, releases, announce).routes()
 }
 
-func newSite(apiKey string, releases []Release, announce Announce) *site {
-	return &site{apiKey: apiKey, releases: releases, announce: announce, listed: map[string]bool{}, rssListed: map[string]bool{}}
-}
-
-func (s *site) routes() fake.Routes {
-	return fake.Routes{
-		"torznab":  {Pattern: "GET " + TorznabPath + "/api", Handler: s.api},
-		"download": {Pattern: "GET /download/{file}", Handler: s.download},
-		"rss":      {Pattern: "GET " + RSSPath, Handler: s.rss},
+func newSite(s scenario.Scenario, releases []Release, announce Announce) *site {
+	return &site{
+		scenario: s, apiKey: APIKey(s), releases: releases, announce: announce, cookie: Cookie(s),
+		listed: map[string]bool{}, rssListed: map[string]bool{}, sessions: map[string]session{}, down: map[string]bool{},
+		expired: map[string]bool{}, thanked: map[string]bool{},
 	}
+}
+
+// routes are every site's routes, each named <site>.<route> and served
+// only at its site's host.
+func (s *site) routes() fake.Routes {
+	out := fake.Routes{}
+	add := func(label string, routes fake.Routes) {
+		for name, rt := range routes {
+			method, path, _ := strings.Cut(rt.Pattern, " ")
+			h := rt.Handler
+			if catalogSite(label) {
+				h = s.serving(label, h)
+			}
+			out[label+"."+name] = fake.Route{Pattern: method + " " + Host(label) + path, Handler: h}
+		}
+	}
+	for _, label := range []string{Torznab, Prowlarr} {
+		add(label, fake.Routes{
+			"api":      {Pattern: "GET " + TorznabPath + "/api", Handler: s.api},
+			"download": {Pattern: "GET /download/{file}", Handler: s.download},
+		})
+	}
+	add(Brook, fake.Routes{
+		"rss":      {Pattern: "GET " + RSSPath, Handler: s.rss},
+		"download": {Pattern: "GET /download/{file}", Handler: s.download},
+	})
+	add(Larkspur, s.larkspur())
+	add(Quarry, s.quarry())
+	add(Cinder, s.cinder())
+	add(Marsh, s.marsh())
+	add(Ferry, s.ferry())
+	return out
 }
 
 // ListArgs names the release the List cue lists.
@@ -492,7 +556,13 @@ func (s *site) download(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, magnet, http.StatusFound)
 		return
 	}
-	meta, err := bencode.DecodeMetainfo(s.releases[i].Torrent)
+	s.torrent(w, r, s.releases[i])
+}
+
+// torrent serves rel's .torrent announcing to the downloader's own
+// tracker URL, with the info dictionary's bytes kept verbatim.
+func (s *site) torrent(w http.ResponseWriter, r *http.Request, rel Release) {
+	meta, err := bencode.DecodeMetainfo(rel.Torrent)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -34,7 +34,7 @@ Steps:
 
   ```sh
   $FW fault set $RUN swarm-hold seeders@seedbox throttle=16KiB/s
-  $FW fault set $RUN indexer-429 fixture-site@seedbox status=429,retry-after=2s --route torznab --times 1
+  $FW fault set $RUN indexer-429 fixture-site@seedbox status=429,retry-after=2s --route torznab.api --times 1
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop tracing-start
   ```
 

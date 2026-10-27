@@ -21,7 +21,7 @@ Each Node reaches each fake through its own front, a listener on `127.0.0.1` tha
 |---|---|
 | `tmdb` | metadata lookups (routes `search`, `movie`) |
 | `omdb` | ratings and awards lookups (route `title`) |
-| `fixture-site` | the Torznab Indexer (routes `torznab`, `download`) |
+| `fixture-site` | every Indexer site, each at its own host under `fixture-site.fake.localhost` (routes `<site>.<route>`, such as `torznab.api`, `brook.rss`, `larkspur.search`) |
 | `tracker` | announces (route `announce`) |
 | `smtp` | the SMTP server an Admin saves, plaintext with STARTTLS or implicit TLS on one front |
 | `seeders` or `seeders/<release>` | every swarm byte from the fake seeders, TCP only |
