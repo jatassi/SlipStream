@@ -2274,6 +2274,11 @@ export type IndexersDefinitionFieldOutput = zod.output<typeof IndexersDefinition
 
 export const IndexersDefinitionForm = zod.object({
   captcha: zod.boolean().describe("Signing in asks for an image captcha"),
+  cookie: zod
+    .boolean()
+    .describe(
+      "Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field",
+    ),
   entry: IndexersCatalogEntry,
   fields: zod
     .array(IndexersDefinitionField)

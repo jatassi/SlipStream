@@ -92,7 +92,7 @@ func TestTheFormOfACatalogDefinition(t *testing.T) {
 		`{"name":"username","label":"Username","type":"text","default":null,"options":[],"help":null,"sealed":false}`,
 		`{"name":"password","label":"Password","type":"password","default":null,"options":[],"help":null,"sealed":true}`,
 		`{"name":"sort","label":"Sort requested from site","type":"select","default":"added","options":[{"value":"added","label":"created"},{"value":"seeders","label":"seeders"},{"value":"size","label":"size"}],"help":null,"sealed":false}`,
-		`"session":true,"captcha":true,"solver":false}`,
+		`"session":true,"captcha":true,"solver":false,"cookie":false}`,
 	} {
 		if !strings.Contains(reply, want) {
 			t.Errorf("getCatalogDefinition(larkspur) = %s, want it to hold %s", reply, want)

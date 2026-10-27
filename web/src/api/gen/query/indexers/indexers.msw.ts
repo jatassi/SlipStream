@@ -123,6 +123,7 @@ export const getGetCatalogDefinitionResponseMock = (
   overrideResponse: Partial<Extract<IndexersDefinitionForm, object>> = {},
 ): IndexersDefinitionForm => ({
   captcha: faker.datatype.boolean(),
+  cookie: faker.datatype.boolean(),
   entry: {
     categories: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.number.int(),

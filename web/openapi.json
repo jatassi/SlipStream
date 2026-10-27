@@ -4301,6 +4301,10 @@
             "description": "Signing in asks for an image captcha",
             "type": "boolean"
           },
+          "cookie": {
+            "description": "Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field",
+            "type": "boolean"
+          },
           "entry": {
             "$ref": "#/components/schemas/IndexersCatalogEntry"
           },
@@ -4333,7 +4337,8 @@
           "fields",
           "session",
           "captcha",
-          "solver"
+          "solver",
+          "cookie"
         ],
         "type": "object"
       },

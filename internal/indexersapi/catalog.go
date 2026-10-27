@@ -113,12 +113,13 @@ type definitionForm struct {
 	Session bool              `json:"session" doc:"Its Indexers sign in and keep a session on their Node"`
 	Captcha bool              `json:"captcha" doc:"Signing in asks for an image captcha"`
 	Solver  bool              `json:"solver" doc:"The site sits behind a browser challenge that a Challenge solver can clear"`
+	Cookie  bool              `json:"cookie" doc:"Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field"`
 }
 
 func formOf(f indexers.Form) definitionForm {
 	out := definitionForm{
 		Entry: entryOf(f.Entry), Links: append([]string{}, f.Links...), Fields: []definitionField{},
-		Session: f.Session, Captcha: f.Captcha, Solver: f.Solver,
+		Session: f.Session, Captcha: f.Captcha, Solver: f.Solver, Cookie: f.Cookie,
 	}
 	for _, field := range f.Fields {
 		d := definitionField{
