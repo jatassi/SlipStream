@@ -241,3 +241,14 @@ func TestAnUnregisteredContentTypesKeyIsUnknown(t *testing.T) {
 		t.Fatalf("with no types, err = %v, want %q", err, want)
 	}
 }
+
+func TestARunCallsHoldIsShorterThanAJobsDeadline(t *testing.T) {
+	dir := testDataDir(t)
+	if err := os.WriteFile(filepath.Join(dir.Path(), "config.yaml"), []byte("timings:\n  indexers:\n    job: 15s\n  searching:\n    hold: 15s\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := LoadConfig(dir, nil, noTypes, install.Dev)
+	if want := "config.yaml:5: timings.searching.hold: 15s isn't shorter than timings.indexers.job, 15s, so a job's first poll can outlast its deadline"; err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
+		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
+	}
+}

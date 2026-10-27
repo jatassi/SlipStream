@@ -256,8 +256,9 @@ func loadConfig(fsys fs.FS, environ []string, types contenttype.Set, kind instal
 }
 
 // CheckConfig holds the rules no leaf type carries: the Node settings
-// table's ranges, and a web or torrent port the Node binds for something
-// else.
+// table's ranges, a web or torrent port the Node binds for something
+// else, and a Run call's hold shorter than a job's deadline, since the
+// Controller learns when a job started only from a poll's answer.
 func (c *Config) CheckConfig(fail func(key string, err error)) {
 	if len(c.Link.Advertise) > 0 {
 		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
@@ -270,6 +271,9 @@ func (c *Config) CheckConfig(fail func(key string, err error)) {
 		}
 	}
 	c.portsUsed(fail)
+	if hold, job := c.Timings.Searching.Hold, c.Timings.Indexers.Job; hold >= job {
+		fail("timings.searching.hold", fmt.Errorf("%s isn't shorter than timings.indexers.job, %s, so a job's first poll can outlast its deadline", hold, job))
+	}
 }
 
 // PortUsedError is http.listen's port configured for another of the
