@@ -9,7 +9,9 @@ import { home, homeId, homeSystem, nodesAre, seedbox, seedboxId } from "../../..
 import { renderApp } from "../../../test/render-app";
 import { asPhone } from "../../../test/viewport";
 
-const system = nodeSystems({ systems: { [homeId]: homeSystem, [seedboxId]: "offline" } }).handlers;
+const system = nodeSystems({
+  systems: { [homeId]: homeSystem, [seedboxId]: "offline" },
+}).handlers;
 const tabsOf = (name: string) => page.getByRole("navigation", { name });
 const linkTexts = (name: string) =>
   tabsOf(name)
@@ -41,6 +43,7 @@ test("the page tabs link to every section and mark the current one", async () =>
     ["Roles", `/nodes/${homeId}/roles`],
     ["Web and API", `/nodes/${homeId}/web`],
     ["Torrent client", `/nodes/${homeId}/torrent-client`],
+    ["Searching", `/nodes/${homeId}/searching`],
     ["Logs", `/nodes/${homeId}/logs`],
     ["Log settings", `/nodes/${homeId}/log-settings`],
   ]);
@@ -118,7 +121,10 @@ test("the Node picker says how each Node stands: reconnecting, offline, past the
 });
 
 test("an unknown Node is not found", async () => {
-  renderApp({ path: "/nodes/00000000-0000-0000-0000-000000000000", handlers: system });
+  renderApp({
+    path: "/nodes/00000000-0000-0000-0000-000000000000",
+    handlers: system,
+  });
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
 });
 
@@ -148,7 +154,7 @@ test("on phone, a Node lists its sections, and each pushes with a back link to t
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Roles", "Web and API", "Torrent client", "Logs", "Log settings"]);
+  ).toEqual(["Roles", "Web and API", "Torrent client", "Searching", "Logs", "Log settings"]);
 
   await userEvent.click(sections.getByRole("link", { name: "Logs" }));
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}/logs`);

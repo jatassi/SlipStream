@@ -8,6 +8,7 @@ import type {
   HealthSettings,
   HealthVolume,
   HealthVolumeList,
+  IndexersChallengeSolver,
   IndexersIndexer,
   IndexersIndexerList,
   IndexersSettings,
@@ -30,6 +31,7 @@ import {
   getListHealthVolumesQueryKey,
 } from "../api/gen/query/health/health";
 import {
+  getGetChallengeSolverQueryKey,
   getGetIndexerQueryKey,
   getGetIndexerSettingsQueryKey,
   getGetTrackerQueryKey,
@@ -65,6 +67,14 @@ export function adoptClientSettings(
   settings: DownloadclientsSettings,
 ) {
   queryClient.setQueryData(getGetDownloadClientSettingsQueryKey(nodeId), settings);
+}
+
+export function adoptChallengeSolver(
+  queryClient: QueryClient,
+  nodeId: string,
+  solver: IndexersChallengeSolver,
+) {
+  queryClient.setQueryData(getGetChallengeSolverQueryKey(nodeId), solver);
 }
 
 export function adoptThresholds(queryClient: QueryClient, thresholds: DownloadclientsThresholds) {
