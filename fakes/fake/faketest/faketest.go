@@ -27,10 +27,11 @@ import (
 
 // Served is a running fake and a client that reaches it, trusting its
 // certificate when it serves TLS and dialing each site host the Spec's
-// Endpoints sets in endpoints.searching at the fake, as a Node does. Roots is the CA its certificates chain
-// to, for a client of another protocol. Faults plays on every connection
-// and request, and a test may set and clear its rules as it goes. RunDir
-// holds the event log its captures write.
+// Endpoints puts in endpoints.searching at the fake, as a Node does. Roots
+// is the CA its certificates chain to, for a client of another protocol.
+// Faults plays on every connection and request, and a test may set and
+// clear its rules as it goes. RunDir holds the event log its captures
+// write.
 type Served struct {
 	Address fake.Address
 	Client  *http.Client
