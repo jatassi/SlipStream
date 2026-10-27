@@ -148,6 +148,13 @@ const Domain = "fixture-site.fake.localhost"
 // Host is the host of the site whose label is label.
 func Host(label string) string { return label + "." + Domain }
 
+// Prowlarr is the label of the site whose feed names a source in each
+// item as Prowlarr does: Source, private, with Prowlarr's id 1.
+const Prowlarr = "prowlarr"
+
+// Source is the source the Prowlarr site's items name.
+const Source = "Fixture Source"
+
 // TorznabPath is the Torznab feed's base, the Indexer URL an Admin enters
 // less the site's origin.
 const TorznabPath = "/torznab"
@@ -336,6 +343,10 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 	}
 	win := windowOf(r.URL.Query())
 	extended := r.URL.Query().Get("extended") == "1"
+	var source string
+	if label, _, _ := strings.Cut(r.Host, "."); label == Prowlarr {
+		source = `      <prowlarrindexer id="1" type="private">` + Source + "</prowlarrindexer>\n"
+	}
 	var listed []Release
 	for _, rel := range s.releases {
 		if win.movies && keep(rel) && s.shown(rel) {
@@ -374,8 +385,8 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
       <torznab:attr name="infohash" value="%s" />
       <torznab:attr name="tmdbid" value="%d" />
       <torznab:attr name="imdbid" value="%s" />
-%s%s    </item>
-`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, rel.TMDBID, esc(rel.IMDbID), magnetAttr, extendedAttrs(rel, origin, extended))
+%s%s%s    </item>
+`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, rel.TMDBID, esc(rel.IMDbID), magnetAttr, extendedAttrs(rel, origin, extended), source)
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())
