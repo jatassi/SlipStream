@@ -1,6 +1,10 @@
 import { Link } from "@tanstack/react-router";
 
-import type { HealthAction, HealthCategoryID, HealthItem } from "../api/gen/model";
+import type {
+  HealthAction,
+  HealthCategoryID,
+  HealthItem,
+} from "../api/gen/model";
 import { useCheckHealthItem } from "../api/gen/query/health/health";
 import { useRunTask } from "../api/gen/query/tasks/tasks";
 import { Button } from "../ui/button";
@@ -40,14 +44,25 @@ export function ItemAction({
   if (act.kind === "run") {
     return <RunItem item={item} taskId={act.taskId} />;
   }
+  const [to, hash] = act.href.split("#", 2);
   return (
-    <Button look={item.level} nativeButton={false} render={<Link to={act.href} />}>
+    <Button
+      look={item.level}
+      nativeButton={false}
+      render={<Link to={to} hash={hash} />}
+    >
       {act.label}
     </Button>
   );
 }
 
-function CheckItem({ category, item }: { category: HealthCategoryID; item: HealthItem }) {
+function CheckItem({
+  category,
+  item,
+}: {
+  category: HealthCategoryID;
+  item: HealthItem;
+}) {
   const check = useCheckHealthItem({ mutation: useCheckAnswered() });
   return (
     <>
