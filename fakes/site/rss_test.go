@@ -149,6 +149,7 @@ func controller(t *testing.T, f faketest.Served) *indexers.Indexers {
 		Searching: func(role.NodeID) searching.Remote { return n },
 		Changed:   discard[indexers.Changed]{},
 		Status:    discard[indexers.StatusChanged]{},
+		Trackers:  discard[indexers.TrackerChanged]{},
 		Timings:   indexers.DefaultTimings(),
 		Log:       slog.New(slog.DiscardHandler),
 		Types:     map[works.TypeID]indexers.Facet{"movie": indexerstest.Facet{}},
