@@ -114,6 +114,10 @@ sql:
             go_type:
               type: string
               pointer: true
+          - column: indexers_settings.long_backoff_seconds
+            go_type:
+              type: int64
+              pointer: true
           - column: indexers_query.releases
             go_type:
               type: int64

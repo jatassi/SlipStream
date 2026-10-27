@@ -109,7 +109,7 @@ type IndexersSession struct {
 
 type IndexersSetting struct {
 	ID                 Singleton
-	LongBackoffSeconds sql.NullInt64
+	LongBackoffSeconds *int64
 }
 
 type IndexersStatus struct {

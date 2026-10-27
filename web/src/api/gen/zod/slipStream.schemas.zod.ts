@@ -2352,6 +2352,10 @@ export const IndexersIndexer = zod.object({
     .string()
     .nullable()
     .describe("The host of a feed's address, which is never returned"),
+  fix: zod
+    .string()
+    .nullable()
+    .describe("What the Admin can do about its status, in words; null when nothing"),
   grabs: IndexersLimitUse,
   homeNodeId: zod.uuid().describe("The Node it searches from"),
   id: zod.uuid(),
@@ -2363,10 +2367,17 @@ export const IndexersIndexer = zod.object({
   rss: zod.boolean(),
   searchModes: zod.array(IndexersSearchMode).describe("By mode"),
   searches: IndexersLimitUse,
+  sentence: zod.string().describe("Its status in words"),
   session: zod
     .union([IndexersSession, zod.null()])
     .describe("Its newest session on any Node, null for none"),
+  signsIn: zod
+    .boolean()
+    .describe(
+      "It holds a login session, so it waits for its home rather than failing over unless allowFailover",
+    ),
   status: IndexersStatus,
+  trackerIds: zod.array(zod.string()).describe("The Trackers it reaches"),
   waits: zod
     .union([IndexersOutcome, zod.null()])
     .describe("Why its searches wait now, null when they don't"),
@@ -2556,182 +2567,6 @@ export const IndexersReport = zod.object({
 export type IndexersReport = zod.input<typeof IndexersReport>;
 export type IndexersReportOutput = zod.output<typeof IndexersReport>;
 
-export const IndexersStatusChanged = zod.object({
-  indexerId: zod.uuid(),
-});
-
-export type IndexersStatusChanged = zod.input<typeof IndexersStatusChanged>;
-export type IndexersStatusChangedOutput = zod.output<typeof IndexersStatusChanged>;
-
-export const joinInputBodyDisplayNameMax = 100;
-
-export const joinInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
-
-export const JoinInputBody = zod.object({
-  displayName: zod.string().min(1).max(joinInputBodyDisplayNameMax),
-  pin: zod.string().regex(joinInputBodyPinRegExp),
-});
-
-export type JoinInputBody = zod.input<typeof JoinInputBody>;
-export type JoinInputBodyOutput = zod.output<typeof JoinInputBody>;
-
-export const LiveAccessChanged = zod.object({});
-
-export type LiveAccessChanged = zod.input<typeof LiveAccessChanged>;
-export type LiveAccessChangedOutput = zod.output<typeof LiveAccessChanged>;
-
-export const LiveResync = zod.object({});
-
-export type LiveResync = zod.input<typeof LiveResync>;
-export type LiveResyncOutput = zod.output<typeof LiveResync>;
-
-export const LiveSessionEnded = zod.object({
-  reason: zod.enum(["signed-out", "expired", "revoked"]),
-});
-
-export type LiveSessionEnded = zod.input<typeof LiveSessionEnded>;
-export type LiveSessionEndedOutput = zod.output<typeof LiveSessionEnded>;
-
-export const MailSettings = zod.object({
-  fromAddress: zod.string(),
-  fromName: zod.string(),
-  host: zod.string().describe("Empty until email is set up"),
-  passwordSet: zod.boolean().describe("Whether a password is saved; it is never shown"),
-  port: zod.int().min(1),
-  security: zod.enum(["none", "starttls", "tls"]),
-  username: zod.string().describe("Empty when the server takes no sign-in"),
-});
-
-export type MailSettings = zod.input<typeof MailSettings>;
-export type MailSettingsOutput = zod.output<typeof MailSettings>;
-
-export const mailSettingsPatchFromAddressMax = 254;
-
-export const mailSettingsPatchFromNameMax = 100;
-
-export const mailSettingsPatchHostMax = 253;
-
-export const mailSettingsPatchPasswordMax = 1024;
-
-export const mailSettingsPatchUsernameMax = 254;
-
-export const MailSettingsPatch = zod.object({
-  fromAddress: zod.string().max(mailSettingsPatchFromAddressMax).exactOptional(),
-  fromName: zod.string().max(mailSettingsPatchFromNameMax).exactOptional(),
-  host: zod.string().max(mailSettingsPatchHostMax).exactOptional(),
-  password: zod
-    .string()
-    .max(mailSettingsPatchPasswordMax)
-    .exactOptional()
-    .describe("Write-only; empty clears it"),
-  port: zod.int().min(1).exactOptional(),
-  security: zod.enum(["none", "starttls", "tls"]).exactOptional(),
-  username: zod.string().max(mailSettingsPatchUsernameMax).exactOptional(),
-});
-
-export type MailSettingsPatch = zod.input<typeof MailSettingsPatch>;
-export type MailSettingsPatchOutput = zod.output<typeof MailSettingsPatch>;
-
-export const makeFolderInputBodyNameMax = 255;
-
-export const makeFolderInputBodyParentMax = 4096;
-
-export const MakeFolderInputBody = zod.object({
-  name: zod.string().min(1).max(makeFolderInputBodyNameMax).describe("The new folder's name"),
-  parent: zod
-    .string()
-    .min(1)
-    .max(makeFolderInputBodyParentMax)
-    .describe("An existing folder on the Node"),
-});
-
-export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
-export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
-
-export const MetadataChanged = zod.object({
-  provider: zod.string().describe("The provider whose status changed"),
-});
-
-export type MetadataChanged = zod.input<typeof MetadataChanged>;
-export type MetadataChangedOutput = zod.output<typeof MetadataChanged>;
-
-export const MetadataLastError = zod.object({
-  at: zod.iso.datetime({ offset: true }),
-  words: zod.string().describe("In plain words, the provider named"),
-});
-
-export type MetadataLastError = zod.input<typeof MetadataLastError>;
-export type MetadataLastErrorOutput = zod.output<typeof MetadataLastError>;
-
-export const MetadataReach = zod.object({
-  at: zod.iso.datetime({ offset: true }),
-  nodeId: zod.uuid(),
-  reached: zod.boolean().describe("Whether the Node reached the provider on its latest call"),
-});
-
-export type MetadataReach = zod.input<typeof MetadataReach>;
-export type MetadataReachOutput = zod.output<typeof MetadataReach>;
-
-export const MetadataDetails = zod.object({
-  lastError: zod.union([MetadataLastError, zod.null()]),
-  lastSuccess: zod.iso.datetime({ offset: true }).nullable(),
-  nodes: zod
-    .array(MetadataReach)
-    .describe(
-      "Each holder that called the provider since the Controller started or the key changed, by id",
-    ),
-});
-
-export type MetadataDetails = zod.input<typeof MetadataDetails>;
-export type MetadataDetailsOutput = zod.output<typeof MetadataDetails>;
-
-export const metadataNewKeyKeyMax = 256;
-
-export const MetadataNewKey = zod.object({
-  key: zod.string().min(1).max(metadataNewKeyKeyMax),
-});
-
-export type MetadataNewKey = zod.input<typeof MetadataNewKey>;
-export type MetadataNewKeyOutput = zod.output<typeof MetadataNewKey>;
-
-export const MetadataProvider = zod.object({
-  details: MetadataDetails,
-  id: zod.string().describe("The provider, such as tmdb"),
-  key: zod
-    .enum(["none", "bundled", "yours"])
-    .describe("Whose key calls carry: none in this build, SlipStream's, or the Admin's"),
-  label: zod.string(),
-  state: zod
-    .enum(["unused", "working", "key_refused", "rate_limited", "out_of_allowance", "unreachable"])
-    .describe("From the latest outcome of a call or test, unused until one"),
-  summary: zod
-    .string()
-    .describe(
-      "How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details",
-    ),
-  until: zod.iso
-    .datetime({ offset: true })
-    .nullable()
-    .describe("When a rate limited provider, or one out of its daily allowance, takes calls again"),
-});
-
-export type MetadataProvider = zod.input<typeof MetadataProvider>;
-export type MetadataProviderOutput = zod.output<typeof MetadataProvider>;
-
-export const MetadataProviderList = zod.object({
-  providers: zod.array(MetadataProvider).describe("In display order"),
-});
-
-export type MetadataProviderList = zod.input<typeof MetadataProviderList>;
-export type MetadataProviderListOutput = zod.output<typeof MetadataProviderList>;
-
-export const MetadataRefreshStarted = zod.object({
-  runId: zod.int().describe("The Metadata refresh run that refreshes every Work of the type"),
-});
-
-export type MetadataRefreshStarted = zod.input<typeof MetadataRefreshStarted>;
-export type MetadataRefreshStartedOutput = zod.output<typeof MetadataRefreshStarted>;
-
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
   value: zod.string(),
@@ -2909,6 +2744,217 @@ export const SettingField = zod.discriminatedUnion("kind", [
 
 export type SettingField = zod.input<typeof SettingField>;
 export type SettingFieldOutput = zod.output<typeof SettingField>;
+
+export const IndexersSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe("How long every request to an Indexer may fail before Health warns"),
+});
+
+export type IndexersSettings = zod.input<typeof IndexersSettings>;
+export type IndexersSettingsOutput = zod.output<typeof IndexersSettings>;
+
+export const IndexersSettingsChange = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type IndexersSettingsChange = zod.input<typeof IndexersSettingsChange>;
+export type IndexersSettingsChangeOutput = zod.output<typeof IndexersSettingsChange>;
+
+export const IndexersStatusChanged = zod.object({
+  indexerId: zod.uuid(),
+});
+
+export type IndexersStatusChanged = zod.input<typeof IndexersStatusChanged>;
+export type IndexersStatusChangedOutput = zod.output<typeof IndexersStatusChanged>;
+
+export const IndexersTracker = zod.object({
+  id: zod.uuid(),
+  indexerIds: zod.array(zod.string()).describe("The Indexers that reach it, by name"),
+  name: zod.string(),
+  privacy: zod.enum(["private", "semi-private", "public", "unknown"]),
+});
+
+export type IndexersTracker = zod.input<typeof IndexersTracker>;
+export type IndexersTrackerOutput = zod.output<typeof IndexersTracker>;
+
+export const IndexersTrackerList = zod.object({
+  trackers: zod.array(IndexersTracker).describe("By name"),
+});
+
+export type IndexersTrackerList = zod.input<typeof IndexersTrackerList>;
+export type IndexersTrackerListOutput = zod.output<typeof IndexersTrackerList>;
+
+export const joinInputBodyDisplayNameMax = 100;
+
+export const joinInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
+
+export const JoinInputBody = zod.object({
+  displayName: zod.string().min(1).max(joinInputBodyDisplayNameMax),
+  pin: zod.string().regex(joinInputBodyPinRegExp),
+});
+
+export type JoinInputBody = zod.input<typeof JoinInputBody>;
+export type JoinInputBodyOutput = zod.output<typeof JoinInputBody>;
+
+export const LiveAccessChanged = zod.object({});
+
+export type LiveAccessChanged = zod.input<typeof LiveAccessChanged>;
+export type LiveAccessChangedOutput = zod.output<typeof LiveAccessChanged>;
+
+export const LiveResync = zod.object({});
+
+export type LiveResync = zod.input<typeof LiveResync>;
+export type LiveResyncOutput = zod.output<typeof LiveResync>;
+
+export const LiveSessionEnded = zod.object({
+  reason: zod.enum(["signed-out", "expired", "revoked"]),
+});
+
+export type LiveSessionEnded = zod.input<typeof LiveSessionEnded>;
+export type LiveSessionEndedOutput = zod.output<typeof LiveSessionEnded>;
+
+export const MailSettings = zod.object({
+  fromAddress: zod.string(),
+  fromName: zod.string(),
+  host: zod.string().describe("Empty until email is set up"),
+  passwordSet: zod.boolean().describe("Whether a password is saved; it is never shown"),
+  port: zod.int().min(1),
+  security: zod.enum(["none", "starttls", "tls"]),
+  username: zod.string().describe("Empty when the server takes no sign-in"),
+});
+
+export type MailSettings = zod.input<typeof MailSettings>;
+export type MailSettingsOutput = zod.output<typeof MailSettings>;
+
+export const mailSettingsPatchFromAddressMax = 254;
+
+export const mailSettingsPatchFromNameMax = 100;
+
+export const mailSettingsPatchHostMax = 253;
+
+export const mailSettingsPatchPasswordMax = 1024;
+
+export const mailSettingsPatchUsernameMax = 254;
+
+export const MailSettingsPatch = zod.object({
+  fromAddress: zod.string().max(mailSettingsPatchFromAddressMax).exactOptional(),
+  fromName: zod.string().max(mailSettingsPatchFromNameMax).exactOptional(),
+  host: zod.string().max(mailSettingsPatchHostMax).exactOptional(),
+  password: zod
+    .string()
+    .max(mailSettingsPatchPasswordMax)
+    .exactOptional()
+    .describe("Write-only; empty clears it"),
+  port: zod.int().min(1).exactOptional(),
+  security: zod.enum(["none", "starttls", "tls"]).exactOptional(),
+  username: zod.string().max(mailSettingsPatchUsernameMax).exactOptional(),
+});
+
+export type MailSettingsPatch = zod.input<typeof MailSettingsPatch>;
+export type MailSettingsPatchOutput = zod.output<typeof MailSettingsPatch>;
+
+export const makeFolderInputBodyNameMax = 255;
+
+export const makeFolderInputBodyParentMax = 4096;
+
+export const MakeFolderInputBody = zod.object({
+  name: zod.string().min(1).max(makeFolderInputBodyNameMax).describe("The new folder's name"),
+  parent: zod
+    .string()
+    .min(1)
+    .max(makeFolderInputBodyParentMax)
+    .describe("An existing folder on the Node"),
+});
+
+export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
+export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
+
+export const MetadataChanged = zod.object({
+  provider: zod.string().describe("The provider whose status changed"),
+});
+
+export type MetadataChanged = zod.input<typeof MetadataChanged>;
+export type MetadataChangedOutput = zod.output<typeof MetadataChanged>;
+
+export const MetadataLastError = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  words: zod.string().describe("In plain words, the provider named"),
+});
+
+export type MetadataLastError = zod.input<typeof MetadataLastError>;
+export type MetadataLastErrorOutput = zod.output<typeof MetadataLastError>;
+
+export const MetadataReach = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  nodeId: zod.uuid(),
+  reached: zod.boolean().describe("Whether the Node reached the provider on its latest call"),
+});
+
+export type MetadataReach = zod.input<typeof MetadataReach>;
+export type MetadataReachOutput = zod.output<typeof MetadataReach>;
+
+export const MetadataDetails = zod.object({
+  lastError: zod.union([MetadataLastError, zod.null()]),
+  lastSuccess: zod.iso.datetime({ offset: true }).nullable(),
+  nodes: zod
+    .array(MetadataReach)
+    .describe(
+      "Each holder that called the provider since the Controller started or the key changed, by id",
+    ),
+});
+
+export type MetadataDetails = zod.input<typeof MetadataDetails>;
+export type MetadataDetailsOutput = zod.output<typeof MetadataDetails>;
+
+export const metadataNewKeyKeyMax = 256;
+
+export const MetadataNewKey = zod.object({
+  key: zod.string().min(1).max(metadataNewKeyKeyMax),
+});
+
+export type MetadataNewKey = zod.input<typeof MetadataNewKey>;
+export type MetadataNewKeyOutput = zod.output<typeof MetadataNewKey>;
+
+export const MetadataProvider = zod.object({
+  details: MetadataDetails,
+  id: zod.string().describe("The provider, such as tmdb"),
+  key: zod
+    .enum(["none", "bundled", "yours"])
+    .describe("Whose key calls carry: none in this build, SlipStream's, or the Admin's"),
+  label: zod.string(),
+  state: zod
+    .enum(["unused", "working", "key_refused", "rate_limited", "out_of_allowance", "unreachable"])
+    .describe("From the latest outcome of a call or test, unused until one"),
+  summary: zod
+    .string()
+    .describe(
+      "How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details",
+    ),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a rate limited provider, or one out of its daily allowance, takes calls again"),
+});
+
+export type MetadataProvider = zod.input<typeof MetadataProvider>;
+export type MetadataProviderOutput = zod.output<typeof MetadataProvider>;
+
+export const MetadataProviderList = zod.object({
+  providers: zod.array(MetadataProvider).describe("In display order"),
+});
+
+export type MetadataProviderList = zod.input<typeof MetadataProviderList>;
+export type MetadataProviderListOutput = zod.output<typeof MetadataProviderList>;
+
+export const MetadataRefreshStarted = zod.object({
+  runId: zod.int().describe("The Metadata refresh run that refreshes every Work of the type"),
+});
+
+export type MetadataRefreshStarted = zod.input<typeof MetadataRefreshStarted>;
+export type MetadataRefreshStartedOutput = zod.output<typeof MetadataRefreshStarted>;
 
 export const MetadataSettings = zod.object({
   settings: zod

@@ -44,12 +44,13 @@ export function TextField({
         />
         {action}
       </div>
-      <Message error={error} description={description} />
+      <FieldMessage error={error} description={description} />
     </Field.Root>
   );
 }
 
-function Message({
+/** A field's error, or else its description, under its control. */
+export function FieldMessage({
   error,
   description,
 }: {

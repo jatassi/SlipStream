@@ -2,6 +2,7 @@ package indexersapi_test
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -142,9 +143,14 @@ const modes = `"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},
 // fresh is the wire of a just-created Fixture Site at revision with
 // switches and priority, its home being id2 and its last success T.
 func fresh(feedHost, switches string, priority, revision int, categories string) string {
+	sentence := "Fixture Site is working."
+	if strings.HasPrefix(switches, `"on":false`) {
+		sentence = "Fixture Site is off."
+	}
 	return `{"id":"id1","name":"Fixture Site","kind":"torznab","homeNodeId":"id2",` + switches + `,"priority":` + strconv.Itoa(priority) +
 		`,"categories":` + categories + `,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
+		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":[],` +
 		`"waits":null,"session":null,"feedHost":"` + feedHost + `",` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
 }
 
@@ -276,6 +282,7 @@ func TestATestReportsWhatItLearnedOrWhyItFailed(t *testing.T) {
 		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Suspended Site refused the API key with 'Account suspended'. Check the account, then test again."}`)
 	_, v := s.owner.Call(t, http.MethodGet, "/api/v1/indexers/"+stopped, "")
 	if !strings.Contains(v, `"status":{"state":"stopped","cause":"account_refused","text":"Account suspended"`) ||
+		!strings.Contains(v, `"sentence":"Stopped because Suspended Site refused the API key with 'Account suspended'.","fix":"Check the account, then test the Indexer."`) ||
 		!strings.Contains(v, `"waits":{"kind":"stopped"`) {
 		t.Fatalf("after a failed Test the Indexer is %s, want stopped for account_refused", v)
 	}
@@ -316,5 +323,89 @@ func TestAnIndexerSaysItWaitsForItsHomeUntilTheGrace(t *testing.T) {
 				t.Fatalf("listIndexers = %s, want waits %s", list, tc.waits)
 			}
 		})
+	}
+}
+
+func TestTheSettingsChangeAllOrNone(t *testing.T) {
+	s := serve(t, indexerstest.Alone(self), role.NodeID{})
+	field := func(value int, isDefault bool) string {
+		v := strconv.Itoa(value)
+		return `{"settings":[{"key":"indexers.longBackoff","label":"Warn when every request has failed for","source":"database","applies":"live",` +
+			`"isDefault":` + strconv.FormatBool(isDefault) + `,"pendingRestart":false,"kind":"duration","value":` + v + `,"running":` + v +
+			`,"default":21600,"min":3600,"max":604800,"step":3600}]}`
+	}
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(21600, true))
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":7200}}`, http.StatusOK, field(7200, false))
+	code, _ := s.owner.Call(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":60}}`)
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("a long backoff under an hour answered %d, want 422", code)
+	}
+	code, _ = s.owner.Call(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":3600,"indexers.other":1}}`)
+	if code == http.StatusOK {
+		t.Fatal("a patch with an unknown key was applied")
+	}
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(7200, false))
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":null}}`, http.StatusOK, field(21600, true))
+}
+
+func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
+	s := serve(t, indexerstest.Alone(self), role.NodeID{})
+	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers", "", http.StatusOK, `{"trackers":[]}`)
+	feed := s.plant(t, "Prowlarr", s.key)
+	torrentLeech := s.plant(t, "TorrentLeech", s.key)
+	s.reach(t, map[string][]string{"TorrentLeech": {feed, torrentLeech}, "Aither": {feed}, "Orphan": nil})
+	_, list := s.owner.Call(t, http.MethodGet, "/api/v1/trackers", "")
+	want := `{"trackers":[` +
+		`{"id":"Aither","name":"Aither","privacy":"private","indexerIds":["Prowlarr"]},` +
+		`{"id":"Orphan","name":"Orphan","privacy":"private","indexerIds":[]},` +
+		`{"id":"TorrentLeech","name":"TorrentLeech","privacy":"private","indexerIds":["Prowlarr","TorrentLeech"]}]}` + "\n"
+	var trackers struct {
+		Trackers []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"trackers"`
+	}
+	if err := json.Unmarshal([]byte(list), &trackers); err != nil {
+		t.Fatal(err)
+	}
+	names := []string{feed, "Prowlarr", torrentLeech, "TorrentLeech"}
+	for _, tr := range trackers.Trackers {
+		names = append(names, tr.ID, tr.Name)
+	}
+	if list = strings.NewReplacer(names...).Replace(list); list != want {
+		t.Fatalf("listTrackers = %s, want %s", list, want)
+	}
+	var v struct {
+		TrackerIDs []string `json:"trackerIds"`
+	}
+	_, body := s.owner.Call(t, http.MethodGet, "/api/v1/indexers/"+feed, "")
+	if err := json.Unmarshal([]byte(body), &v); err != nil || len(v.TrackerIDs) != 2 {
+		t.Fatalf("getIndexer = %s, want the two Trackers it reaches", body)
+	}
+}
+
+// reach adds each Tracker, reached by the Indexers with the given ids.
+func (s *served) reach(t *testing.T, trackers map[string][]string) {
+	t.Helper()
+	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for name, indexers := range trackers {
+			id := storage.NewUUID()
+			if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_tracker (id, name, privacy, created_at) VALUES (?, ?, 'private', 0)`, id, name); err != nil {
+				return err
+			}
+			for _, raw := range indexers {
+				indexer, err := storage.ParseUUID(raw)
+				if err != nil {
+					return err
+				}
+				if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_reach (indexer_id, tracker_id) VALUES (?, ?)`, indexer, id); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

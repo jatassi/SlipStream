@@ -340,6 +340,13 @@ type View struct {
 	Session *SessionFact
 	// Waits is why its searches wait now, nil when they don't.
 	Waits *Outcome
+	// SignsIn is true when it holds a login session, so it waits for its
+	// home rather than failing over unless AllowFailover.
+	SignsIn  bool
+	Trackers []TrackerID
+	// Sentence is its status in words, and Fix what the Admin can do about
+	// it, "" when nothing.
+	Sentence, Fix string
 }
 
 // List is every Indexer by name, viewed.
@@ -392,6 +399,10 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 	if err != nil {
 		return nil, err
 	}
+	reach, err := reachOf(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]View, len(all))
 	for i, idx := range all {
 		st, ok := byID[idx.ID]
@@ -403,6 +414,8 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 			v.Session = &s
 		}
 		v.Waits = x.waits(idx, st, v.Usage, now)
+		v.SignsIn, v.Trackers = holdsSession(idx), reach.trackers[idx.ID]
+		v.Sentence, v.Fix = x.words(v)
 		out[i] = v
 	}
 	return out, nil

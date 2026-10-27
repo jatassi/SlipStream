@@ -39,7 +39,7 @@ func TestHomeSeedsTheFixtureSiteIndexerOnTheSeedbox(t *testing.T) {
 		`"homeNodeId":"` + m.Nodes[1].NodeID + `","on":true,"automaticSearch":true,"rss":true,"allowFailover":false,"priority":25,"categories":null,` +
 		`"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"` + ix.Status.SuccessAt + `"},` +
-		`"waits":null,"session":null,"feedHost":"` + address.Host + `",` +
+		`"sentence":"Fixture Site is working.","fix":null,"signsIn":false,"trackerIds":[],"waits":null,"session":null,"feedHost":"` + address.Host + `",` +
 		`"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}],"revision":1,"createdAt":"` + ix.CreatedAt + `"}]}` + "\n"})
 }
 

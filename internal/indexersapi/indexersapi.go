@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -125,6 +126,10 @@ type indexer struct {
 	Searches        limitUse              `json:"searches"`
 	Grabs           limitUse              `json:"grabs"`
 	Status          status                `json:"status"`
+	Sentence        string                `json:"sentence" doc:"Its status in words"`
+	Fix             *string               `json:"fix" doc:"What the Admin can do about its status, in words; null when nothing"`
+	SignsIn         bool                  `json:"signsIn" doc:"It holds a login session, so it waits for its home rather than failing over unless allowFailover"`
+	TrackerIDs      []string              `json:"trackerIds" nullable:"false" doc:"The Trackers it reaches"`
 	Waits           api.Nullable[outcome] `json:"waits" doc:"Why its searches wait now, null when they don't"`
 	Session         api.Nullable[session] `json:"session" doc:"Its newest session on any Node, null for none"`
 	FeedHost        *string               `json:"feedHost" doc:"The host of a feed's address, which is never returned"`
@@ -163,6 +168,10 @@ func indexerOf(v indexers.View) indexer {
 		Searches:    limitUseOf(v.Searches, v.Usage.Searches, v.Usage.SearchesFree),
 		Grabs:       limitUseOf(v.Grabs, v.Usage.Grabs, v.Usage.GrabsFree),
 		Status:      statusOf(v.Status),
+		Sentence:    v.Sentence,
+		Fix:         text(v.Fix),
+		SignsIn:     v.SignsIn,
+		TrackerIDs:  []string{},
 		FeedHost:    text(v.FeedHost),
 		SearchModes: []searchMode{},
 		Revision:    v.Revision,
@@ -173,6 +182,9 @@ func indexerOf(v indexers.View) indexer {
 		for _, c := range v.Categories {
 			out.Categories = append(out.Categories, int(c))
 		}
+	}
+	for _, t := range v.Trackers {
+		out.TrackerIDs = append(out.TrackerIDs, t.String())
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))
@@ -480,6 +492,23 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{definitionNotFound, definitionInUse},
 	}, h.deleteCustom)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "listTrackers", Method: http.MethodGet, Path: "/trackers", Summary: "List the Trackers and the Indexers that reach each", Status: http.StatusOK,
+	}, h.listTrackers)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "getIndexerSettings", Method: http.MethodGet, Path: "/indexer-settings", Summary: "Get the Indexer settings", Status: http.StatusOK,
+	}, h.getSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateIndexerSettings",
+		Method:  http.MethodPatch,
+		Path:    "/indexer-settings",
+		Summary: "Change Indexer settings by key, all or none",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateSettings)
 }
 
 type handlers struct{ registry Registry }

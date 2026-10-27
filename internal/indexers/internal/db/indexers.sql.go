@@ -263,6 +263,17 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Indexer
 	return i, err
 }
 
+const getSettings = `-- name: GetSettings :one
+SELECT id, long_backoff_seconds FROM indexers_settings
+`
+
+func (q *Queries) GetSettings(ctx context.Context) (IndexersSetting, error) {
+	row := q.db.QueryRowContext(ctx, getSettings)
+	var i IndexersSetting
+	err := row.Scan(&i.ID, &i.LongBackoffSeconds)
+	return i, err
+}
+
 const getStatus = `-- name: GetStatus :one
 SELECT indexer_id, state, rung, until_at, since_at, cause, text, node_id, solver_tried, last_failure, last_failure_at, success_at, revision FROM indexers_status WHERE indexer_id = ?1
 `
@@ -730,6 +741,35 @@ func (q *Queries) ListQueries(ctx context.Context, arg ListQueriesParams) ([]Ind
 	return items, nil
 }
 
+const listReach = `-- name: ListReach :many
+SELECT indexers_reach.indexer_id, indexers_reach.tracker_id
+FROM indexers_reach JOIN indexers_indexer ON indexers_indexer.id = indexers_reach.indexer_id
+ORDER BY indexers_indexer.name
+`
+
+func (q *Queries) ListReach(ctx context.Context) ([]IndexersReach, error) {
+	rows, err := q.db.QueryContext(ctx, listReach)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IndexersReach
+	for rows.Next() {
+		var i IndexersReach
+		if err := rows.Scan(&i.IndexerID, &i.TrackerID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessions = `-- name: ListSessions :many
 SELECT indexer_id, node_id, pasted, earned_at FROM indexers_session ORDER BY indexer_id, earned_at DESC
 `
@@ -796,6 +836,38 @@ func (q *Queries) ListStatuses(ctx context.Context) ([]IndexersStatus, error) {
 			&i.LastFailureAt,
 			&i.SuccessAt,
 			&i.Revision,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrackers = `-- name: ListTrackers :many
+SELECT id, name, privacy, created_at FROM indexers_tracker ORDER BY name
+`
+
+func (q *Queries) ListTrackers(ctx context.Context) ([]IndexersTracker, error) {
+	rows, err := q.db.QueryContext(ctx, listTrackers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IndexersTracker
+	for rows.Next() {
+		var i IndexersTracker
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Privacy,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1080,6 +1152,15 @@ type SetCatalogRefreshedParams struct {
 
 func (q *Queries) SetCatalogRefreshed(ctx context.Context, arg SetCatalogRefreshedParams) error {
 	_, err := q.db.ExecContext(ctx, setCatalogRefreshed, arg.RefreshedAt, arg.LastModified)
+	return err
+}
+
+const setLongBackoff = `-- name: SetLongBackoff :exec
+UPDATE indexers_settings SET long_backoff_seconds = ?1
+`
+
+func (q *Queries) SetLongBackoff(ctx context.Context, longBackoffSeconds *int64) error {
+	_, err := q.db.ExecContext(ctx, setLongBackoff, longBackoffSeconds)
 	return err
 }
 

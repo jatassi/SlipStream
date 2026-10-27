@@ -56,6 +56,7 @@ import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nod
 import { Route as AppNodesNodeIdRolesRouteImport } from "./routes/_app/nodes/$nodeId/roles";
 import { Route as AppNodesNodeIdTorrentClientRouteImport } from "./routes/_app/nodes/$nodeId/torrent-client";
 import { Route as AppNodesNodeIdWebRouteImport } from "./routes/_app/nodes/$nodeId/web";
+import { Route as AppSettingsIndexersIndexerIdRouteImport } from "./routes/_app/settings/indexers.$indexerId";
 import { Route as AppSettingsProfilesProfileIdRouteImport } from "./routes/_app/settings/profiles.$profileId";
 import { Route as AppSettingsProfilesNewRouteImport } from "./routes/_app/settings/profiles.new";
 import { Route as AppSettingsTargetsTargetIdRouteImport } from "./routes/_app/settings/targets.$targetId";
@@ -298,6 +299,12 @@ const AppNodesNodeIdWebRoute = AppNodesNodeIdWebRouteImport.update({
   path: "/web",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppSettingsIndexersIndexerIdRoute =
+  AppSettingsIndexersIndexerIdRouteImport.update({
+    id: "/settings/indexers/$indexerId",
+    path: "/settings/indexers/$indexerId",
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppSettingsProfilesProfileIdRoute =
   AppSettingsProfilesProfileIdRouteImport.update({
     id: "/settings/profiles/$profileId",
@@ -367,6 +374,7 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
   "/settings/targets/$targetId": typeof AppSettingsTargetsTargetIdRoute;
@@ -413,6 +421,7 @@ export interface FileRoutesByTo {
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
   "/settings/targets/$targetId": typeof AppSettingsTargetsTargetIdRoute;
@@ -467,6 +476,7 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/_app/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/_app/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/_app/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/_app/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/_app/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
   "/_app/settings/targets/$targetId": typeof AppSettingsTargetsTargetIdRoute;
@@ -521,6 +531,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/torrent-client"
     | "/nodes/$nodeId/web"
+    | "/settings/indexers/$indexerId"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
     | "/settings/targets/$targetId"
@@ -567,6 +578,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/torrent-client"
     | "/nodes/$nodeId/web"
+    | "/settings/indexers/$indexerId"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
     | "/settings/targets/$targetId"
@@ -620,6 +632,7 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId/roles"
     | "/_app/nodes/$nodeId/torrent-client"
     | "/_app/nodes/$nodeId/web"
+    | "/_app/settings/indexers/$indexerId"
     | "/_app/settings/profiles/$profileId"
     | "/_app/settings/profiles/new"
     | "/_app/settings/targets/$targetId"
@@ -973,6 +986,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdWebRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/settings/indexers/$indexerId": {
+      id: "/_app/settings/indexers/$indexerId";
+      path: "/settings/indexers/$indexerId";
+      fullPath: "/settings/indexers/$indexerId";
+      preLoaderRoute: typeof AppSettingsIndexersIndexerIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/_app/settings/profiles/$profileId": {
       id: "/_app/settings/profiles/$profileId";
       path: "/settings/profiles/$profileId";
@@ -1107,6 +1127,7 @@ interface AppRouteChildren {
   AppWorksWorkIdRoute: typeof AppWorksWorkIdRoute;
   AppAccountsIndexRoute: typeof AppAccountsIndexRoute;
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute;
+  AppSettingsIndexersIndexerIdRoute: typeof AppSettingsIndexersIndexerIdRoute;
   AppSettingsProfilesProfileIdRoute: typeof AppSettingsProfilesProfileIdRoute;
   AppSettingsProfilesNewRoute: typeof AppSettingsProfilesNewRoute;
   AppSettingsTargetsTargetIdRoute: typeof AppSettingsTargetsTargetIdRoute;
@@ -1129,6 +1150,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppWorksWorkIdRoute: AppWorksWorkIdRoute,
   AppAccountsIndexRoute: AppAccountsIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppSettingsIndexersIndexerIdRoute: AppSettingsIndexersIndexerIdRoute,
   AppSettingsProfilesProfileIdRoute: AppSettingsProfilesProfileIdRoute,
   AppSettingsProfilesNewRoute: AppSettingsProfilesNewRoute,
   AppSettingsTargetsTargetIdRoute: AppSettingsTargetsTargetIdRoute,

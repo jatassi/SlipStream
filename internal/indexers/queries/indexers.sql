@@ -166,3 +166,17 @@ WHERE id = sqlc.arg(id) AND definition_sha = sqlc.arg(from_sha);
 SELECT * FROM indexers_definition WHERE origin = 'custom' AND id = sqlc.arg(id)
 ORDER BY fetched_at DESC, sha
 LIMIT 1;
+
+-- name: GetSettings :one
+SELECT * FROM indexers_settings;
+
+-- name: SetLongBackoff :exec
+UPDATE indexers_settings SET long_backoff_seconds = sqlc.narg(long_backoff_seconds);
+
+-- name: ListTrackers :many
+SELECT * FROM indexers_tracker ORDER BY name;
+
+-- name: ListReach :many
+SELECT indexers_reach.indexer_id, indexers_reach.tracker_id
+FROM indexers_reach JOIN indexers_indexer ON indexers_indexer.id = indexers_reach.indexer_id
+ORDER BY indexers_indexer.name;
