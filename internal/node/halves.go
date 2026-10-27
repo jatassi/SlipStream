@@ -314,7 +314,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
 	})
-	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf})
 	pipeline := grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
@@ -337,6 +336,8 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
+	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline})
+
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
 	scheduler, err := tasks.Open(ctx, tasks.Config{
 		Library: lib.db,

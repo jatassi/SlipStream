@@ -194,7 +194,7 @@ func shelve(t *testing.T) *shelves {
 		Log:     slog.New(slog.DiscardHandler),
 	})
 	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{
-		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue,
+		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Grabs: noGrabs{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })
 	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})
