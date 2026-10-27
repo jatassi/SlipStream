@@ -22,9 +22,7 @@ const okStatus: IndexersIndexer["status"] = {
   successAt: "2026-10-26T09:12:00Z",
 };
 
-export function indexer(
-  over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "id" | "name">,
-) {
+export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "id" | "name">) {
   return {
     kind: "torznab",
     homeNodeId: homeId,

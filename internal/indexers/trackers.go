@@ -105,37 +105,7 @@ func (x *Indexers) MergeTracker(ctx context.Context, _ identity.Admin, from, int
 		return ErrMergeSelf
 	}
 	err := x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		gone, err := q.GetTracker(ctx, from)
-		if errors.Is(err, storage.ErrNoRows) {
-			return ErrNoTracker
-		}
-		if err != nil {
-			return err
-		}
-		if _, err := q.GetTracker(ctx, into); errors.Is(err, storage.ErrNoRows) {
-			return ErrNoTracker
-		} else if err != nil {
-			return err
-		}
-		if err := q.SetUnknownPrivacy(ctx, db.SetUnknownPrivacyParams{Privacy: gone.Privacy, ID: into}); err != nil {
-			return err
-		}
-		if err := q.MoveTrackerKeys(ctx, db.MoveTrackerKeysParams{IntoID: into, FromID: from}); err != nil {
-			return err
-		}
-		if err := q.MoveReach(ctx, db.MoveReachParams{IntoID: into, FromID: from}); err != nil {
-			return err
-		}
-		if err := q.MoveTrackerHosts(ctx, db.MoveTrackerHostsParams{IntoID: into, FromID: from}); err != nil {
-			return err
-		}
-		for _, repoint := range x.cfg.Repoints {
-			if err := repoint(ctx, tx, from, into); err != nil {
-				return err
-			}
-		}
-		return q.DeleteTracker(ctx, from)
+		return x.merge(ctx, tx, from, into)
 	})
 	if err != nil {
 		return err
@@ -143,6 +113,40 @@ func (x *Indexers) MergeTracker(ctx context.Context, _ identity.Admin, from, int
 	x.cfg.Trackers.Publish(ctx, TrackerChanged{TrackerID: from.String()})
 	x.cfg.Trackers.Publish(ctx, TrackerChanged{TrackerID: into.String()})
 	return nil
+}
+
+func (x *Indexers) merge(ctx context.Context, tx *storage.Tx[file], from, into TrackerID) error {
+	q := db.New(tx)
+	gone, err := q.GetTracker(ctx, from)
+	if errors.Is(err, storage.ErrNoRows) {
+		return ErrNoTracker
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := q.GetTracker(ctx, into); errors.Is(err, storage.ErrNoRows) {
+		return ErrNoTracker
+	} else if err != nil {
+		return err
+	}
+	if err := q.SetUnknownPrivacy(ctx, db.SetUnknownPrivacyParams{Privacy: gone.Privacy, ID: into}); err != nil {
+		return err
+	}
+	if err := q.MoveTrackerKeys(ctx, db.MoveTrackerKeysParams{IntoID: into, FromID: from}); err != nil {
+		return err
+	}
+	if err := q.MoveReach(ctx, db.MoveReachParams{IntoID: into, FromID: from}); err != nil {
+		return err
+	}
+	if err := q.MoveTrackerHosts(ctx, db.MoveTrackerHostsParams{IntoID: into, FromID: from}); err != nil {
+		return err
+	}
+	for _, repoint := range x.cfg.Repoints {
+		if err := repoint(ctx, tx, from, into); err != nil {
+			return err
+		}
+	}
+	return q.DeleteTracker(ctx, from)
 }
 
 // AddHosts sets Tracker t's privacy from a torrent's private flag while it
