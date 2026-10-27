@@ -27,10 +27,11 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// site is a Node whose every job answers outcome at once.
+// site is a Node whose every job answers outcome, with report, at once.
 type site struct {
 	mu      sync.Mutex
 	outcome error
+	report  *searching.Report
 	jobs    int
 }
 
@@ -45,7 +46,7 @@ func (s *site) Run(context.Context, searching.Job) (searching.Poll, error) {
 	defer s.mu.Unlock()
 	s.jobs++
 	now := time.Now()
-	return searching.Poll{Started: now, Answer: &searching.Answer{Started: now, Outcome: s.outcome}}, nil
+	return searching.Poll{Started: now, Answer: &searching.Answer{Started: now, Outcome: s.outcome, Report: s.report}}, nil
 }
 
 type healthWorld struct {
@@ -283,5 +284,24 @@ func TestTheHealthCheckTestsEachIndexerItMayRetry(t *testing.T) {
 				t.Errorf("the health check's unit sent %d jobs for a stop of %s", ran, c.stop.Cause)
 			}
 		})
+	}
+}
+
+func TestTheHealthCheckOfAFeedItCantUseSucceedsAndItsTestSaysWhy(t *testing.T) {
+	w := newHealthWorld(t)
+	w.test(t, &searching.Stopped{Cause: searching.RequestRejected, Text: "Incorrect parameter"})
+	w.site.answer(nil)
+	w.site.report = &searching.Report{Refusal: searching.RSSRepeatedGUID}
+	i := slices.IndexFunc(w.x.Tasks(), func(task tasks.Task) bool { return task.ID == indexers.HealthCheckTaskID })
+	if err := w.x.Tasks()[i].Run(t.Context(), tasks.Unit{Key: tasks.UnitKey(w.id.String())}, nil); err != nil {
+		t.Fatalf("the health check's unit = %v, want it to succeed for a feed SlipStream can't use", err)
+	}
+	if a := w.answer(t); len(a.Items) != 0 {
+		t.Errorf("Health after a Test the site answered = %+v, want the stop cleared", a.Items)
+	}
+	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id)
+	var refused *indexers.FeedRefusedError
+	if want := "Some items repeat the same GUID."; !errors.As(err, &refused) || refused.Sentence != want {
+		t.Errorf("Test of a feed SlipStream can't use = %v, want %q", err, want)
 	}
 }

@@ -280,7 +280,8 @@ func set[T any](to, v *T) {
 }
 
 // Test runs idx's Test where it searches from now and records it. A pass
-// clears its backoff and any stop. It fails with *TestFailedError,
+// clears its backoff and any stop, even for an RSS feed whose Test found
+// it can't be used. It fails with *TestFailedError, *FeedRefusedError,
 // ErrNoIndexer, *WaitError, *UnavailableError or ErrLate.
 func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID) (Report, error) {
 	return x.testSaved(ctx, id)
@@ -309,6 +310,9 @@ func (x *Indexers) testSaved(ctx context.Context, id ID) (Report, error) {
 	}
 	if a.Outcome != nil {
 		return Report{}, x.testFailed(idx, j.node, a, st)
+	}
+	if err := refused(a); err != nil {
+		return Report{}, err
 	}
 	return reportOf(a.Report), nil
 }

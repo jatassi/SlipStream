@@ -119,8 +119,9 @@ func (x *Indexers) healthCheck(ctx context.Context, key tasks.UnitKey) error {
 	}
 	_, err = x.testSaved(ctx, id)
 	var failed *TestFailedError
+	var refused *FeedRefusedError
 	switch {
-	case err == nil, errors.As(err, &failed), errors.Is(err, ErrNoIndexer), errors.Is(err, ErrLate):
+	case err == nil, errors.As(err, &failed), errors.As(err, &refused), errors.Is(err, ErrNoIndexer), errors.Is(err, ErrLate):
 		return nil
 	}
 	return fmt.Errorf("test the Indexer: %w", err)
