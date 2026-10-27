@@ -129,7 +129,7 @@ func ParseCaps(body []byte) (Caps, error) {
 	}
 	c := Caps{Modes: map[string][]string{}}
 	for _, m := range doc.Searching.Modes {
-		name, ok := mode(m.XMLName.Local)
+		name, ok := Mode(m.XMLName.Local)
 		if !ok || m.Available != "yes" {
 			continue
 		}
@@ -150,7 +150,9 @@ func ParseCaps(body []byte) (Caps, error) {
 
 // mode is the t= value of a caps search element: <x>-search is t=x, but
 // for the generic search and tv-search, whose t= is tvsearch.
-func mode(element string) (string, bool) {
+// Mode is the t= value of the search mode a caps element, such as
+// tv-search, describes.
+func Mode(element string) (string, bool) {
 	switch element {
 	case "search":
 		return "search", true
@@ -159,6 +161,17 @@ func mode(element string) (string, bool) {
 	}
 	name, ok := strings.CutSuffix(element, "-search")
 	return name, ok && name != ""
+}
+
+// Element is the caps element of the search mode with t= value mode.
+func Element(mode string) string {
+	switch mode {
+	case "search":
+		return "search"
+	case "tvsearch":
+		return "tv-search"
+	}
+	return mode + "-search"
 }
 
 // Item is one result, normalized.

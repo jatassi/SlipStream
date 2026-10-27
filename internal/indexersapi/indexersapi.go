@@ -287,20 +287,20 @@ type newIndexer struct {
 	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only"`
 	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this draft"`
 	Address         string            `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only"`
-	APIKey          string        `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
-	TrackerName     string        `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
-	Media           []string      `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
-	AllowNoSize     bool          `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
-	Cookie          *pastedCookie `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"`
-	HomeNodeID      string        `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
-	On              bool          `json:"on,omitempty" default:"true"`
-	AutomaticSearch bool          `json:"automaticSearch,omitempty" default:"true"`
-	RSS             bool          `json:"rss,omitempty" default:"true"`
-	AllowFailover   bool          `json:"allowFailover,omitempty"`
-	Priority        int           `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
-	Categories      []int         `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
-	Searches        *limit        `json:"searches,omitempty"`
-	Grabs           *limit        `json:"grabs,omitempty"`
+	APIKey          string            `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
+	TrackerName     string            `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
+	Media           []string          `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
+	AllowNoSize     bool              `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"`
+	HomeNodeID      string            `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
+	On              bool              `json:"on,omitempty" default:"true"`
+	AutomaticSearch bool              `json:"automaticSearch,omitempty" default:"true"`
+	RSS             bool              `json:"rss,omitempty" default:"true"`
+	AllowFailover   bool              `json:"allowFailover,omitempty"`
+	Priority        int               `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
+	Categories      []int             `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
+	Searches        *limit            `json:"searches,omitempty"`
+	Grabs           *limit            `json:"grabs,omitempty"`
 }
 
 func (n newIndexer) draft() (indexers.Draft, error) {
@@ -412,24 +412,24 @@ func limitIn(l limit) indexers.Limit {
 }
 
 type indexerEdit struct {
-	Name            *string          `json:"name,omitempty" minLength:"1" maxLength:"100"`
-	HomeNodeID      *string          `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching"`
-	Address         *string          `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"Write-only"`
-	APIKey          *string          `json:"apiKey,omitempty" maxLength:"256" doc:"Write-only"`
-	On              api.Patch[bool]  `json:"on,omitempty" doc:"Null resets it to on"`
-	AutomaticSearch api.Patch[bool]  `json:"automaticSearch,omitempty" doc:"Null resets it to on"`
-	RSS             api.Patch[bool]  `json:"rss,omitempty" doc:"Null resets it to on"`
-	AllowFailover   api.Patch[bool]  `json:"allowFailover,omitempty" doc:"Null resets it to off"`
-	Priority        api.Patch[int]   `json:"priority,omitempty" minimum:"1" maximum:"50" doc:"Null resets it to 25"`
-	Categories      api.Patch[[]int] `json:"categories,omitempty" doc:"Null for every category it advertises"`
-	Searches        api.Patch[limit] `json:"searches,omitempty" doc:"Null turns the limit off"`
-	Grabs           api.Patch[limit] `json:"grabs,omitempty" doc:"Null turns the limit off"`
-	Media           *[]string        `json:"media,omitempty" doc:"An RSS feed's Content Types"`
-	AllowNoSize     *bool            `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
-	Cookie          *pastedCookie    `json:"cookie,omitempty" doc:"A new browser cookie. Write-only"`
-	BaseAddress     *string          `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses"`
+	Name            *string           `json:"name,omitempty" minLength:"1" maxLength:"100"`
+	HomeNodeID      *string           `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching"`
+	Address         *string           `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"Write-only"`
+	APIKey          *string           `json:"apiKey,omitempty" maxLength:"256" doc:"Write-only"`
+	On              api.Patch[bool]   `json:"on,omitempty" doc:"Null resets it to on"`
+	AutomaticSearch api.Patch[bool]   `json:"automaticSearch,omitempty" doc:"Null resets it to on"`
+	RSS             api.Patch[bool]   `json:"rss,omitempty" doc:"Null resets it to on"`
+	AllowFailover   api.Patch[bool]   `json:"allowFailover,omitempty" doc:"Null resets it to off"`
+	Priority        api.Patch[int]    `json:"priority,omitempty" minimum:"1" maximum:"50" doc:"Null resets it to 25"`
+	Categories      api.Patch[[]int]  `json:"categories,omitempty" doc:"Null for every category it advertises"`
+	Searches        api.Patch[limit]  `json:"searches,omitempty" doc:"Null turns the limit off"`
+	Grabs           api.Patch[limit]  `json:"grabs,omitempty" doc:"Null turns the limit off"`
+	Media           *[]string         `json:"media,omitempty" doc:"An RSS feed's Content Types"`
+	AllowNoSize     *bool             `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A new browser cookie. Write-only"`
+	BaseAddress     *string           `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses"`
 	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value"`
-	Captcha         *captchaAnswer   `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this Indexer, for the Test the change runs"`
+	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this Indexer, for the Test the change runs"`
 }
 
 // patched is p's value, def for null, nil when absent.
@@ -599,7 +599,23 @@ func Routes(r *api.Router, registry Registry) {
 		Errors:  drafted,
 	}, h.testIndexerDraft)
 
-	registerCaptcha(o, h, drafted)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCaptchaDraft",
+		Method:  http.MethodPost,
+		Path:    "/indexers/captcha",
+		Summary: "Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from",
+		Status:  http.StatusOK,
+		Errors:  append([]*api.Code{captchaNotShown}, drafted...),
+	}, h.captchaDraft)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCaptcha",
+		Method:  http.MethodPost,
+		Path:    "/indexers/{id}/captcha",
+		Summary: "Load the captcha of an Indexer's sign-in, from the Node it searches from",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{indexerNotFound, captchaNotShown, indexerTestFailed.Code, indexerUnavailable},
+	}, h.captcha)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listIndexerQueries",

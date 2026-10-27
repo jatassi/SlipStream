@@ -14,19 +14,15 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/searching/internal/torznab"
 )
-
-// catalogModes are each Torznab search mode's Cardigann mode.
-var catalogModes = map[string]string{
-	"search": "search", "tvsearch": "tv-search", "movie": "movie-search", "music": "music-search", "book": "book-search",
-}
 
 // CatalogCapabilities are a definition's capabilities, its modes by their
 // Torznab t= value.
 func CatalogCapabilities(c cardigann.Caps) Capabilities {
 	out := Capabilities{Modes: map[string][]string{}}
-	for t, mode := range catalogModes {
-		if params, ok := c.Modes[mode]; ok {
+	for mode, params := range c.Modes {
+		if t, ok := torznab.Mode(mode); ok {
 			out.Modes[t] = params
 		}
 	}
@@ -78,8 +74,8 @@ func (catalogDriver) settings(s *Site) cardigann.Settings {
 func clock() cardigann.Clock { return cardigann.Clock{Now: time.Now(), Location: time.Local} }
 
 func (d catalogDriver) Search(ctx context.Context, s *Site, q Query) ([]Release, error) {
-	mode, ok := catalogModes[q.Mode]
-	if !ok {
+	mode := torznab.Element(q.Mode)
+	if _, ok := s.def.Summary().Caps.Modes[mode]; !ok {
 		return nil, &Failing{Err: fmt.Errorf("the definition has no %q search", q.Mode)}
 	}
 	cq := cardigann.Query{Mode: mode, Text: q.Text, IDs: q.IDs, Season: q.Season, Episode: q.Episode}

@@ -53,26 +53,6 @@ type captchaOutput struct{ Body captchaImage }
 
 type captchaDraftInput struct{ Body newIndexer }
 
-func registerCaptcha(o *api.Owner, h handlers, drafted []*api.Code) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "getIndexerCaptchaDraft",
-		Method:  http.MethodPost,
-		Path:    "/indexers/captcha",
-		Summary: "Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from",
-		Status:  http.StatusOK,
-		Errors:  append([]*api.Code{captchaNotShown}, drafted...),
-	}, h.captchaDraft)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "getIndexerCaptcha",
-		Method:  http.MethodPost,
-		Path:    "/indexers/{id}/captcha",
-		Summary: "Load the captcha of an Indexer's sign-in, from the Node it searches from",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{indexerNotFound, captchaNotShown, indexerTestFailed.Code, indexerUnavailable},
-	}, h.captcha)
-}
-
 func (h handlers) captchaDraft(ctx context.Context, by identity.Admin, in *captchaDraftInput) (*captchaOutput, error) {
 	if in.Body.Captcha != nil {
 		return nil, api.Invalid.On("captcha", "Load a captcha before you answer one.")
