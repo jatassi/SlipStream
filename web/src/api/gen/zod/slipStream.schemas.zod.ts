@@ -2391,6 +2391,7 @@ export const indexersIndexerPriorityMax = 50;
 
 export const IndexersIndexer = zod.object({
   allowFailover: zod.boolean().describe("Read only for an Indexer that signs in"),
+  allowNoSize: zod.boolean().describe("An RSS feed whose items may have no size"),
   automaticSearch: zod.boolean(),
   categories: zod
     .array(zod.int())
@@ -2409,6 +2410,10 @@ export const IndexersIndexer = zod.object({
   homeNodeId: zod.uuid().describe("The Node it searches from"),
   id: zod.uuid(),
   kind: zod.enum(["catalog", "torznab", "rss"]),
+  media: zod
+    .array(zod.string())
+    .nullable()
+    .describe("The Content Types an RSS feed carries; null for every other kind"),
   name: zod.string(),
   on: zod.boolean(),
   priority: zod.int().min(1).max(indexersIndexerPriorityMax).describe("Lower wins a tie"),
@@ -2457,6 +2462,28 @@ export const IndexersIndexerCatalog = zod.object({
 export type IndexersIndexerCatalog = zod.input<typeof IndexersIndexerCatalog>;
 export type IndexersIndexerCatalogOutput = zod.output<typeof IndexersIndexerCatalog>;
 
+export const indexersPastedCookieCookieMax = 8192;
+
+export const indexersPastedCookieUserAgentMax = 512;
+
+export const IndexersPastedCookie = zod.object({
+  cookie: zod
+    .string()
+    .min(1)
+    .max(indexersPastedCookieCookieMax)
+    .describe(
+      "The Cookie header's value from a signed-in browser: name=value pairs separated by semicolons",
+    ),
+  userAgent: zod
+    .string()
+    .max(indexersPastedCookieUserAgentMax)
+    .exactOptional()
+    .describe("The User-Agent of that browser, sent with the cookie"),
+});
+
+export type IndexersPastedCookie = zod.input<typeof IndexersPastedCookie>;
+export type IndexersPastedCookieOutput = zod.output<typeof IndexersPastedCookie>;
+
 export const indexersLimitCountMin = 0;
 export const indexersLimitCountMax = 100000;
 
@@ -2470,7 +2497,9 @@ export type IndexersLimitOutput = zod.output<typeof IndexersLimit>;
 
 export const indexersIndexerEditAddressMax = 2048;
 
-export const indexersIndexerEditAddressRegExp = new RegExp("^https?://[^/?#]+(/[^?#]*)?$");
+export const indexersIndexerEditAddressRegExp = new RegExp(
+  "^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$",
+);
 export const indexersIndexerEditApiKeyMax = 256;
 
 export const indexersIndexerEditNameMax = 100;
@@ -2485,14 +2514,19 @@ export const IndexersIndexerEdit = zod.object({
     .exactOptional()
     .describe("Write-only"),
   allowFailover: zod.boolean().nullish().describe("Null resets it to off"),
+  allowNoSize: zod.boolean().exactOptional().describe("An RSS feed's"),
   apiKey: zod.string().max(indexersIndexerEditApiKeyMax).exactOptional().describe("Write-only"),
   automaticSearch: zod.boolean().nullish().describe("Null resets it to on"),
   categories: zod.array(zod.int()).nullish().describe("Null for every category it advertises"),
+  cookie: IndexersPastedCookie.exactOptional().describe(
+    "A new browser cookie for an RSS feed. Write-only",
+  ),
   grabs: zod
     .union([IndexersLimit, zod.null()])
     .exactOptional()
     .describe("Null turns the limit off"),
   homeNodeId: zod.uuid().exactOptional().describe("A Node that holds Searching"),
+  media: zod.array(zod.string()).exactOptional().describe("An RSS feed's Content Types"),
   name: zod.string().min(1).max(indexersIndexerEditNameMax).exactOptional(),
   on: zod.boolean().nullish().describe("Null resets it to on"),
   priority: zod
@@ -2520,7 +2554,9 @@ export type IndexersIndexerListOutput = zod.output<typeof IndexersIndexerList>;
 
 export const indexersNewIndexerAddressMax = 2048;
 
-export const indexersNewIndexerAddressRegExp = new RegExp("^https?://[^/?#]+(/[^?#]*)?$");
+export const indexersNewIndexerAddressRegExp = new RegExp(
+  "^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$",
+);
 export const indexersNewIndexerApiKeyMax = 256;
 
 export const indexersNewIndexerAutomaticSearchDefault = true;
@@ -2531,26 +2567,43 @@ export const indexersNewIndexerPriorityDefault = 25;
 export const indexersNewIndexerPriorityMax = 50;
 
 export const indexersNewIndexerRssDefault = true;
+export const indexersNewIndexerTrackerNameMax = 100;
 
 export const IndexersNewIndexer = zod.object({
   address: zod
     .string()
     .max(indexersNewIndexerAddressMax)
     .regex(indexersNewIndexerAddressRegExp)
-    .describe("The Torznab feed's base; SlipStream adds /api. Write-only"),
+    .describe(
+      "A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address. Write-only",
+    ),
   allowFailover: zod.boolean().exactOptional(),
-  apiKey: zod.string().max(indexersNewIndexerApiKeyMax).describe("Write-only"),
+  allowNoSize: zod.boolean().exactOptional().describe("Use an RSS feed whose items have no size"),
+  apiKey: zod
+    .string()
+    .max(indexersNewIndexerApiKeyMax)
+    .exactOptional()
+    .describe("A Torznab feed's. Write-only"),
   automaticSearch: zod.boolean().default(indexersNewIndexerAutomaticSearchDefault),
   categories: zod
     .array(zod.int())
     .nullish()
     .describe("Newznab category ids; absent for every category it advertises"),
+  cookie: IndexersPastedCookie.exactOptional().describe(
+    "A browser cookie for an RSS feed that needs one. Write-only",
+  ),
   grabs: IndexersLimit.exactOptional(),
   homeNodeId: zod
     .uuid()
     .exactOptional()
     .describe("A Node that holds Searching; absent for the default home"),
-  kind: zod.enum(["torznab"]).describe("The kinds SlipStream can add so far"),
+  kind: zod.enum(["torznab", "rss"]).describe("The kinds SlipStream can add so far"),
+  media: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "The Content Types an RSS feed carries, in place of categories; required for an RSS feed",
+    ),
   name: zod.string().min(1).max(indexersNewIndexerNameMax),
   on: zod.boolean().default(indexersNewIndexerOnDefault),
   priority: zod
@@ -2560,6 +2613,11 @@ export const IndexersNewIndexer = zod.object({
     .default(indexersNewIndexerPriorityDefault),
   rss: zod.boolean().default(indexersNewIndexerRssDefault),
   searches: IndexersLimit.exactOptional(),
+  trackerName: zod
+    .string()
+    .max(indexersNewIndexerTrackerNameMax)
+    .exactOptional()
+    .describe("The Tracker an RSS feed reaches; required for an RSS feed"),
 });
 
 export type IndexersNewIndexer = zod.input<typeof IndexersNewIndexer>;

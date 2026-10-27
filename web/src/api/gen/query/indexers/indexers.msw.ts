@@ -925,6 +925,7 @@ export const getListIndexersResponseMock = (
   indexers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       allowFailover: faker.datatype.boolean(),
+      allowNoSize: faker.datatype.boolean(),
       automaticSearch: faker.datatype.boolean(),
       categories: faker.helpers.arrayElement([
         Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
@@ -950,6 +951,12 @@ export const getListIndexersResponseMock = (
       homeNodeId: faker.string.uuid(),
       id: faker.string.uuid(),
       kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+      media: faker.helpers.arrayElement([
+        Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+        null,
+      ]),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       on: faker.datatype.boolean(),
       priority: faker.number.int({ min: 1, max: 50 }),
@@ -1079,6 +1086,7 @@ export const getCreateIndexerResponseMock = (
   overrideResponse: Partial<Extract<IndexersIndexer, object>> = {},
 ): IndexersIndexer => ({
   allowFailover: faker.datatype.boolean(),
+  allowNoSize: faker.datatype.boolean(),
   automaticSearch: faker.datatype.boolean(),
   categories: faker.helpers.arrayElement([
     Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
@@ -1101,6 +1109,12 @@ export const getCreateIndexerResponseMock = (
   homeNodeId: faker.string.uuid(),
   id: faker.string.uuid(),
   kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+  media: faker.helpers.arrayElement([
+    Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    null,
+  ]),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   on: faker.datatype.boolean(),
   priority: faker.number.int({ min: 1, max: 50 }),
@@ -1226,6 +1240,7 @@ export const getGetIndexerResponseMock = (
   overrideResponse: Partial<Extract<IndexersIndexer, object>> = {},
 ): IndexersIndexer => ({
   allowFailover: faker.datatype.boolean(),
+  allowNoSize: faker.datatype.boolean(),
   automaticSearch: faker.datatype.boolean(),
   categories: faker.helpers.arrayElement([
     Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
@@ -1248,6 +1263,12 @@ export const getGetIndexerResponseMock = (
   homeNodeId: faker.string.uuid(),
   id: faker.string.uuid(),
   kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+  media: faker.helpers.arrayElement([
+    Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    null,
+  ]),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   on: faker.datatype.boolean(),
   priority: faker.number.int({ min: 1, max: 50 }),
@@ -1355,6 +1376,7 @@ export const getUpdateIndexerResponseMock = (
   overrideResponse: Partial<Extract<IndexersIndexer, object>> = {},
 ): IndexersIndexer => ({
   allowFailover: faker.datatype.boolean(),
+  allowNoSize: faker.datatype.boolean(),
   automaticSearch: faker.datatype.boolean(),
   categories: faker.helpers.arrayElement([
     Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
@@ -1377,6 +1399,12 @@ export const getUpdateIndexerResponseMock = (
   homeNodeId: faker.string.uuid(),
   id: faker.string.uuid(),
   kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+  media: faker.helpers.arrayElement([
+    Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    null,
+  ]),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   on: faker.datatype.boolean(),
   priority: faker.number.int({ min: 1, max: 50 }),

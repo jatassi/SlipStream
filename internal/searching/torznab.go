@@ -82,20 +82,7 @@ func (d torznabDriver) Test(ctx context.Context, s *Site) (Report, error) {
 // Fetch downloads link from wherever it is, without the feed's key: a
 // link carries its own.
 func (torznabDriver) Fetch(ctx context.Context, s *Site, link Link) (Got, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link.raw, http.NoBody)
-	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
-	}
-	res, err := s.Do(ctx, req, Download)
-	switch {
-	case err != nil:
-		return nil, err
-	case !res.Magnet.IsZero():
-		return Magnet{Link: res.Magnet}, nil
-	case !succeeded(res.Status):
-		return nil, &Failing{Err: fmt.Errorf("the Indexer responded with status %d", res.Status)}
-	}
-	return Torrent{Raw: res.Body}, nil
+	return fetch(ctx, s, link)
 }
 
 func (d torznabDriver) feed(ctx context.Context, s *Site, params url.Values) ([]torznab.Item, error) {

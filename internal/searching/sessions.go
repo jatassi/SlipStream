@@ -53,3 +53,10 @@ func (sl *slot) newer(than *Session) *Session {
 	}
 	return sl.session
 }
+
+// held is the session the slot holds, nil for none.
+func (sl *slot) held() *Session {
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	return sl.session
+}

@@ -1,10 +1,11 @@
 import type { IndexersLimit } from "./indexersLimit.ts";
+import type { IndexersPastedCookie } from "./indexersPastedCookie.ts";
 
 export interface IndexersIndexerEdit {
   /**
    * Write-only
    * @maxLength 2048
-   * @pattern ^https?://[^/?#]+(/[^?#]*)?$
+   * @pattern ^https?://[^/?#]+(/[^?#]*)?(\?[^#]*)?$
    */
   address?: string;
   /**
@@ -12,6 +13,8 @@ export interface IndexersIndexerEdit {
    * @nullable
    */
   allowFailover?: boolean | null;
+  /** An RSS feed's */
+  allowNoSize?: boolean;
   /**
    * Write-only
    * @maxLength 256
@@ -27,10 +30,14 @@ export interface IndexersIndexerEdit {
    * @nullable
    */
   categories?: number[] | null;
+  /** A new browser cookie for an RSS feed. Write-only */
+  cookie?: IndexersPastedCookie;
   /** Null turns the limit off */
   grabs?: IndexersLimit | null;
   /** A Node that holds Searching */
   homeNodeId?: string;
+  /** An RSS feed's Content Types */
+  media?: string[];
   /**
    * @minLength 1
    * @maxLength 100

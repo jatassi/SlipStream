@@ -136,6 +136,9 @@ type Feed struct {
 	// Torznab feed whose items name no source.
 	Tracker     string
 	AllowNoSize bool
+	// Reading is how an RSS feed's items are read, from its last passing
+	// Test.
+	Reading searching.RSSReading
 }
 
 func (Definition) source() {}
@@ -399,7 +402,13 @@ func indexerOf(row db.IndexersIndexer) (Indexer, error) {
 		}
 		idx.Source = d
 	} else {
-		idx.Source = Feed{Tracker: deref(row.TrackerName), AllowNoSize: row.AllowNoSize}
+		f := Feed{Tracker: deref(row.TrackerName), AllowNoSize: row.AllowNoSize}
+		if row.RssReading != nil {
+			if err := decode(*row.RssReading, &f.Reading); err != nil {
+				return Indexer{}, fmt.Errorf("indexer %s: rss reading: %w", row.ID, err)
+			}
+		}
+		idx.Source = f
 	}
 	for _, f := range []struct {
 		raw *string
@@ -435,6 +444,13 @@ func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
 		p.Plain = *plain
 	case Feed:
 		p.TrackerName, p.AllowNoSize = orNil(s.Tracker), s.AllowNoSize
+		if idx.Kind == RSS {
+			reading, err := encode(s.Reading)
+			if err != nil {
+				return db.InsertIndexerParams{}, err
+			}
+			p.RssReading = reading
+		}
 	}
 	var err error
 	if p.Categories, err = encode(idx.Categories); err != nil {

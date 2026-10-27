@@ -8,6 +8,8 @@ import type { IndexersStatus } from "./indexersStatus.ts";
 export interface IndexersIndexer {
   /** Read only for an Indexer that signs in */
   allowFailover: boolean;
+  /** An RSS feed whose items may have no size */
+  allowNoSize: boolean;
   automaticSearch: boolean;
   /**
    * Newznab category ids; null for every category it advertises
@@ -30,6 +32,11 @@ export interface IndexersIndexer {
   homeNodeId: string;
   id: string;
   kind: IndexersIndexerKind;
+  /**
+   * The Content Types an RSS feed carries; null for every other kind
+   * @nullable
+   */
+  media: string[] | null;
   name: string;
   on: boolean;
   /**

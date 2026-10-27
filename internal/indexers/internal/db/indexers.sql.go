@@ -1183,8 +1183,8 @@ UPDATE indexers_indexer SET
     search_window = ?11, grab_limit = ?12, grab_window = ?13,
     base_address = ?14, plain = ?15, secrets_sealed = ?16,
     feed_host = ?17, tracker_name = ?18, allow_no_size = ?19,
-    caps = ?20, revision = ?21, updated_at = ?22
-WHERE id = ?23
+    rss_reading = ?20, caps = ?21, revision = ?22, updated_at = ?23
+WHERE id = ?24
 `
 
 type UpdateIndexerParams struct {
@@ -1207,6 +1207,7 @@ type UpdateIndexerParams struct {
 	FeedHost      *string
 	TrackerName   *string
 	AllowNoSize   bool
+	RssReading    *string
 	Caps          string
 	Revision      int64
 	UpdatedAt     storage.Time
@@ -1234,6 +1235,7 @@ func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (i
 		arg.FeedHost,
 		arg.TrackerName,
 		arg.AllowNoSize,
+		arg.RssReading,
 		arg.Caps,
 		arg.Revision,
 		arg.UpdatedAt,

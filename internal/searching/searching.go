@@ -65,6 +65,6 @@ func New(cfg Config) *Service {
 		jobs:     &jobs{keep: cfg.Timings.Keep, byID: map[string]*run{}},
 		sessions: &sessions{by: map[string]*slot{}},
 		spacer:   &spacer{floor: cfg.Timings.Floor, next: map[string]time.Time{}},
-		drivers:  map[Kind]Driver{Torznab: torznabDriver{results: cfg.Timings.Results}},
+		drivers:  map[Kind]Driver{Torznab: torznabDriver{results: cfg.Timings.Results}, RSS: rssDriver{}},
 	}
 }

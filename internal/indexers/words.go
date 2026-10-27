@@ -25,6 +25,15 @@ var stopWords = map[Cause]string{
 	searching.RequestRejected:      "%[1]s refused a search with '%[2]s'. Test again after the feed is fixed.",
 }
 
+// refusalWords is why an RSS feed can't be used, for the form.
+var refusalWords = map[searching.RSSRefusal]string{
+	searching.RSSNoItems:      "The feed has no items.",
+	searching.RSSNoTitle:      "Some items have no title.",
+	searching.RSSNoLink:       "Some items have no download link.",
+	searching.RSSRepeatedGUID: "Some items repeat the same GUID.",
+	searching.RSSNoSize:       "Some items have no size. Turn on Allow items with no size to use the feed anyway.",
+}
+
 const solverTriedWords = "%[3]s's Challenge solver couldn't clear %[1]s's challenge. Paste a browser cookie and test again."
 
 // TestFailedError is a Test the site answered with an outcome other than

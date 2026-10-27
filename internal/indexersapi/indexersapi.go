@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 type Registry interface {
@@ -43,9 +44,12 @@ func answer(x *indexers.Indexers, err error) error {
 	var failed *indexers.TestFailedError
 	var wait *indexers.WaitError
 	var unavailable *indexers.UnavailableError
+	var refused *indexers.FeedRefusedError
 	switch {
 	case errors.As(err, &failed):
 		return indexerTestFailed.Because(failed.Sentence)
+	case errors.As(err, &refused):
+		return indexerTestFailed.Because(refused.Sentence)
 	case errors.As(err, &wait), errors.As(err, &unavailable), errors.Is(err, indexers.ErrLate):
 		return indexerUnavailable.Because(x.Unreached(err))
 	case errors.Is(err, indexers.ErrNameTaken):
@@ -56,6 +60,10 @@ func answer(x *indexers.Indexers, err error) error {
 		return nodeNotSearching
 	case errors.Is(err, indexers.ErrNoIndexer):
 		return indexerNotFound
+	case errors.Is(err, indexers.ErrMedia):
+		return api.Invalid.On("media", "Choose one or more of SlipStream's Content Types for the feed.")
+	case errors.Is(err, indexers.ErrCookie):
+		return api.Invalid.On("cookie.cookie", "Paste the cookie as name=value pairs separated by semicolons.")
 	}
 	return err
 }
@@ -123,6 +131,8 @@ type indexer struct {
 	AllowFailover   bool                  `json:"allowFailover" doc:"Read only for an Indexer that signs in"`
 	Priority        int                   `json:"priority" minimum:"1" maximum:"50" doc:"Lower wins a tie"`
 	Categories      []int                 `json:"categories" doc:"Newznab category ids; null for every category it advertises"`
+	Media           []string              `json:"media" doc:"The Content Types an RSS feed carries; null for every other kind"`
+	AllowNoSize     bool                  `json:"allowNoSize" doc:"An RSS feed whose items may have no size"`
 	Searches        limitUse              `json:"searches"`
 	Grabs           limitUse              `json:"grabs"`
 	Status          status                `json:"status"`
@@ -186,6 +196,15 @@ func indexerOf(v indexers.View) indexer {
 	for _, t := range v.Trackers {
 		out.TrackerIDs = append(out.TrackerIDs, t.String())
 	}
+	if v.Media != nil {
+		out.Media = []string{}
+		for _, m := range v.Media {
+			out.Media = append(out.Media, string(m))
+		}
+	}
+	if f, ok := v.Source.(indexers.Feed); ok {
+		out.AllowNoSize = f.AllowNoSize
+	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))
 	}
@@ -223,25 +242,38 @@ func outcomeOf(o indexers.Outcome) outcome {
 	}
 }
 
+type pastedCookie struct {
+	Cookie    string `json:"cookie" minLength:"1" maxLength:"8192" doc:"The Cookie header's value from a signed-in browser: name=value pairs separated by semicolons"`
+	UserAgent string `json:"userAgent,omitempty" maxLength:"512" doc:"The User-Agent of that browser, sent with the cookie"`
+}
+
 type newIndexer struct {
-	Kind            string `json:"kind" enum:"torznab" doc:"The kinds SlipStream can add so far"`
-	Name            string `json:"name" minLength:"1" maxLength:"100"`
-	Address         string `json:"address" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?$" doc:"The Torznab feed's base; SlipStream adds /api. Write-only"`
-	APIKey          string `json:"apiKey" maxLength:"256" doc:"Write-only"`
-	HomeNodeID      string `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
-	On              bool   `json:"on,omitempty" default:"true"`
-	AutomaticSearch bool   `json:"automaticSearch,omitempty" default:"true"`
-	RSS             bool   `json:"rss,omitempty" default:"true"`
-	AllowFailover   bool   `json:"allowFailover,omitempty"`
-	Priority        int    `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
-	Categories      []int  `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
-	Searches        *limit `json:"searches,omitempty"`
-	Grabs           *limit `json:"grabs,omitempty"`
+	Kind            string        `json:"kind" enum:"torznab,rss" doc:"The kinds SlipStream can add so far"`
+	Name            string        `json:"name" minLength:"1" maxLength:"100"`
+	Address         string        `json:"address" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address. Write-only"`
+	APIKey          string        `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
+	TrackerName     string        `json:"trackerName,omitempty" maxLength:"100" doc:"The Tracker an RSS feed reaches; required for an RSS feed"`
+	Media           []string      `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
+	AllowNoSize     bool          `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
+	Cookie          *pastedCookie `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one. Write-only"`
+	HomeNodeID      string        `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
+	On              bool          `json:"on,omitempty" default:"true"`
+	AutomaticSearch bool          `json:"automaticSearch,omitempty" default:"true"`
+	RSS             bool          `json:"rss,omitempty" default:"true"`
+	AllowFailover   bool          `json:"allowFailover,omitempty"`
+	Priority        int           `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
+	Categories      []int         `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
+	Searches        *limit        `json:"searches,omitempty"`
+	Grabs           *limit        `json:"grabs,omitempty"`
 }
 
 func (n newIndexer) draft() (indexers.Draft, error) {
+	if err := n.fitsKind(); err != nil {
+		return indexers.Draft{}, err
+	}
 	d := indexers.Draft{
-		Name: n.Name, Address: n.Address, APIKey: n.APIKey, On: n.On, AutoSearch: n.AutomaticSearch, RSS: n.RSS,
+		Kind: indexers.Kind(n.Kind), Name: n.Name, Address: n.Address, APIKey: n.APIKey, Tracker: n.TrackerName, Media: media(n.Media),
+		AllowNoSize: n.AllowNoSize, Cookie: cookieIn(n.Cookie), On: n.On, AutoSearch: n.AutomaticSearch, RSS: n.RSS,
 		AllowFailover: n.AllowFailover, Priority: n.Priority, Categories: indexers.CategoriesOf(n.Categories),
 	}
 	if n.Searches != nil {
@@ -260,6 +292,57 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 	return d, nil
 }
 
+// fitsKind refuses a field n's kind doesn't take.
+func (n newIndexer) fitsKind() error {
+	var errs []api.FieldError
+	refuse := func(field, message string) {
+		errs = append(errs, api.FieldError{Location: "body." + field, Message: message})
+	}
+	if n.Kind == string(indexers.RSS) {
+		if n.APIKey != "" {
+			refuse("apiKey", "An RSS feed takes no API key. Put a passkey in its address.")
+		}
+		if n.Categories != nil {
+			refuse("categories", "An RSS feed takes Content Types in place of categories.")
+		}
+		if n.TrackerName == "" {
+			refuse("trackerName", "Name the Tracker the RSS feed reaches.")
+		}
+	} else {
+		if n.Media != nil {
+			refuse("media", "A Torznab feed takes categories in place of Content Types.")
+		}
+		if n.AllowNoSize {
+			refuse("allowNoSize", "Only an RSS feed may have items with no size.")
+		}
+		if n.Cookie != nil {
+			refuse("cookie", "Only an RSS feed takes a cookie.")
+		}
+	}
+	if errs != nil {
+		return api.Invalid.Fields(errs...)
+	}
+	return nil
+}
+
+func media(ids []string) []works.TypeID {
+	if ids == nil {
+		return nil
+	}
+	out := make([]works.TypeID, len(ids))
+	for i, id := range ids {
+		out[i] = works.TypeID(id)
+	}
+	return out
+}
+
+func cookieIn(c *pastedCookie) *indexers.PastedCookie {
+	if c == nil {
+		return nil
+	}
+	return &indexers.PastedCookie{Cookie: c.Cookie, UserAgent: c.UserAgent}
+}
+
 func limitIn(l limit) indexers.Limit {
 	return indexers.Limit{Count: l.Count, Per: indexers.Window(l.Per)}
 }
@@ -267,7 +350,7 @@ func limitIn(l limit) indexers.Limit {
 type indexerEdit struct {
 	Name            *string          `json:"name,omitempty" minLength:"1" maxLength:"100"`
 	HomeNodeID      *string          `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching"`
-	Address         *string          `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?$" doc:"Write-only"`
+	Address         *string          `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"Write-only"`
 	APIKey          *string          `json:"apiKey,omitempty" maxLength:"256" doc:"Write-only"`
 	On              api.Patch[bool]  `json:"on,omitempty" doc:"Null resets it to on"`
 	AutomaticSearch api.Patch[bool]  `json:"automaticSearch,omitempty" doc:"Null resets it to on"`
@@ -277,6 +360,9 @@ type indexerEdit struct {
 	Categories      api.Patch[[]int] `json:"categories,omitempty" doc:"Null for every category it advertises"`
 	Searches        api.Patch[limit] `json:"searches,omitempty" doc:"Null turns the limit off"`
 	Grabs           api.Patch[limit] `json:"grabs,omitempty" doc:"Null turns the limit off"`
+	Media           *[]string        `json:"media,omitempty" doc:"An RSS feed's Content Types"`
+	AllowNoSize     *bool            `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
+	Cookie          *pastedCookie    `json:"cookie,omitempty" doc:"A new browser cookie for an RSS feed. Write-only"`
 }
 
 // patched is p's value, def for null, nil when absent.
@@ -295,6 +381,11 @@ func (e indexerEdit) edit() (indexers.Edit, error) {
 		Name: e.Name, Address: e.Address, APIKey: e.APIKey,
 		On: patched(e.On, true), AutoSearch: patched(e.AutomaticSearch, true), RSS: patched(e.RSS, true),
 		AllowFailover: patched(e.AllowFailover, false), Priority: patched(e.Priority, indexers.DefaultPriority),
+		AllowNoSize: e.AllowNoSize, Cookie: cookieIn(e.Cookie),
+	}
+	if e.Media != nil {
+		m := media(*e.Media)
+		out.Media = &m
 	}
 	if e.Categories.Sent() {
 		var c []newznab.ID

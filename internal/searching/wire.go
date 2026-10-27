@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/searching/internal/rss"
 )
 
 // Remote is the Controller's handle on one Node's Searching service.
@@ -67,6 +68,20 @@ var causeOnWire = map[searchv1.Stopped_Cause]StopCause{
 	searchv1.Stopped_CAUSE_REQUEST_REJECTED:      RequestRejected,
 }
 
+var linkOnWire = map[searchv1.RSSReading_Link]rss.Link{
+	searchv1.RSSReading_LINK_ENCLOSURE:  rss.Enclosure,
+	searchv1.RSSReading_LINK_ITEM:       rss.Item,
+	searchv1.RSSReading_LINK_TORRENT_NS: rss.Torrent,
+}
+
+var refusalOnWire = map[searchv1.RSSRefusal]RSSRefusal{
+	searchv1.RSSRefusal_RSS_REFUSAL_NO_ITEMS:      RSSNoItems,
+	searchv1.RSSRefusal_RSS_REFUSAL_NO_TITLE:      RSSNoTitle,
+	searchv1.RSSRefusal_RSS_REFUSAL_NO_LINK:       RSSNoLink,
+	searchv1.RSSRefusal_RSS_REFUSAL_REPEATED_GUID: RSSRepeatedGUID,
+	searchv1.RSSRefusal_RSS_REFUSAL_NO_SIZE:       RSSNoSize,
+}
+
 func onWire[W comparable, D comparable](m map[W]D, d D) W {
 	for w, v := range m {
 		if v == d {
@@ -81,6 +96,7 @@ func encodeJob(j Job) *searchv1.Job {
 	w := &searchv1.Job{Id: j.ID, Site: &searchv1.Site{
 		IndexerId: j.Indexer, Revision: j.Revision, Kind: onWire(kindOnWire, j.Kind), Address: j.Address,
 		Settings: j.Settings, ApiKey: j.APIKey, Session: encodeSession(j.Session), Categories: int32s(j.Categories),
+		Rss: encodeReading(j.RSS),
 	}}
 	switch c := j.Call.(type) {
 	case SearchCall:
@@ -105,6 +121,7 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	j := Job{
 		ID: w.GetId(), Indexer: s.GetIndexerId(), Revision: s.GetRevision(), Kind: kindOnWire[s.GetKind()], Address: s.GetAddress(),
 		Settings: s.GetSettings(), APIKey: s.GetApiKey(), Session: decodeSession(s.GetSession()), Categories: ints(s.GetCategories()),
+		RSS: decodeReading(s.GetRss()),
 	}
 	if j.ID == "" {
 		return Job{}, nil, errors.New("the job has no id")
@@ -129,7 +146,7 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	default:
 		return Job{}, nil, errors.New("the job names no call this Node runs")
 	}
-	site := &Site{Indexer: j.Indexer, Revision: j.Revision, Address: address, Settings: j.Settings, APIKey: j.APIKey, Categories: j.Categories}
+	site := &Site{Indexer: j.Indexer, Revision: j.Revision, Address: address, Settings: j.Settings, APIKey: j.APIKey, Categories: j.Categories, RSS: j.RSS}
 	return j, site, nil
 }
 
@@ -165,7 +182,11 @@ func encodeAnswer(a Answer) *searchv1.Answer {
 		w.Result = &searchv1.Answer_Test{Test: &searchv1.TestReport{
 			Capabilities: &searchv1.Capabilities{Modes: modes, Categories: int32s(a.Report.Capabilities.Categories)},
 			Items:        int32(a.Report.Items), Sources: a.Report.Sources, //nolint:gosec // an item count fits
+			Refusal: onWire(refusalOnWire, a.Report.Refusal),
 		}}
+		if a.Report.RSS != nil {
+			w.GetTest().Rss = encodeReading(*a.Report.RSS)
+		}
 	}
 	return w
 }
@@ -198,7 +219,11 @@ func decodeAnswer(w *searchv1.Answer) (Answer, error) {
 		}
 		a.Report = &Report{
 			Capabilities: Capabilities{Modes: modes, Categories: ints(r.Test.GetCapabilities().GetCategories())},
-			Items:        int(r.Test.GetItems()), Sources: r.Test.GetSources(),
+			Items:        int(r.Test.GetItems()), Sources: r.Test.GetSources(), Refusal: refusalOnWire[r.Test.GetRefusal()],
+		}
+		if w := r.Test.GetRss(); w != nil {
+			reading := decodeReading(w)
+			a.Report.RSS = &reading
 		}
 	}
 	return a, nil
@@ -302,6 +327,20 @@ func decodeSession(w *searchv1.Session) *Session {
 		})
 	}
 	return s
+}
+
+func encodeReading(r RSSReading) *searchv1.RSSReading {
+	return &searchv1.RSSReading{
+		Link: onWire(linkOnWire, r.Link), SizeFromDescription: r.SizeFromDescription,
+		SeedersFromDescription: r.SeedersFromDescription, AllowNoSize: r.AllowNoSize,
+	}
+}
+
+func decodeReading(w *searchv1.RSSReading) RSSReading {
+	return RSSReading{
+		Link: linkOnWire[w.GetLink()], SizeFromDescription: w.GetSizeFromDescription(),
+		SeedersFromDescription: w.GetSeedersFromDescription(), AllowNoSize: w.GetAllowNoSize(),
+	}
 }
 
 func unixMs(t time.Time) int64 {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,7 @@ type Site struct {
 	Settings   map[string]string
 	APIKey     string
 	Categories []int
+	RSS        RSSReading
 	svc        *Service
 	run        *run
 	slot       *slot
@@ -160,4 +162,61 @@ func (s *spacer) wait(ctx context.Context, host string) error {
 	case <-ctx.Done():
 		return fmt.Errorf("wait for the host's turn: %w", ctx.Err())
 	}
+}
+
+// fetch downloads link from wherever it is, with the session's cookies
+// for its host.
+func fetch(ctx context.Context, s *Site, link Link) (Got, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link.raw, http.NoBody)
+	if err != nil {
+		return nil, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
+	}
+	s.withSession(req)
+	res, err := s.Do(ctx, req, Download)
+	switch {
+	case err != nil:
+		return nil, err
+	case !res.Magnet.IsZero():
+		return Magnet{Link: res.Magnet}, nil
+	case !succeeded(res.Status):
+		return nil, &Failing{Err: fmt.Errorf("the Indexer responded with status %d", res.Status)}
+	}
+	return Torrent{Raw: res.Body}, nil
+}
+
+// withSession puts the Indexer's session on this Node on req: its
+// User-Agent and the cookies of req's host. It returns how many cookies
+// it put.
+func (s *Site) withSession(req *http.Request) int {
+	session := s.slot.held()
+	if session == nil {
+		return 0
+	}
+	if session.UserAgent != "" {
+		req.Header.Set("User-Agent", session.UserAgent)
+	}
+	n := 0
+	now := time.Now()
+	for _, c := range session.Cookies {
+		if c.matches(req.URL, now) {
+			req.AddCookie(&http.Cookie{Name: c.Name, Value: c.Value}) //nolint:gosec // a request's cookie carries only its name and value
+			n++
+		}
+	}
+	return n
+}
+
+// matches reports whether c goes with a request to u at now: u's host is
+// its domain, or under it unless it is host-only, and it hasn't expired.
+func (c Cookie) matches(u *url.URL, now time.Time) bool {
+	host, domain := strings.ToLower(u.Hostname()), strings.ToLower(strings.TrimPrefix(c.Domain, "."))
+	switch {
+	case !c.Expires.IsZero() && !c.Expires.After(now):
+		return false
+	case c.Secure && u.Scheme != "https":
+		return false
+	case host == domain:
+		return true
+	}
+	return !c.HostOnly && strings.HasSuffix(host, "."+domain)
 }

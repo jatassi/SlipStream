@@ -39,7 +39,7 @@ var Fake = fake.Spec{
 		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
 	},
 	Online:  fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
-	Cues:    []fake.CueSpec{List},
+	Cues:    []fake.CueSpec{List, RSSItem},
 	Entered: indexers,
 }
 
@@ -102,7 +102,11 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		return at.URL("/announce/" + passkey), nil
 	}
 	site := newSite(APIKey(s), listed, announce)
+	site.cookie = Cookie(s)
 	if err := fake.OnCue(env, List.Name, site.list); err != nil {
+		return nil, err
+	}
+	if err := fake.OnCue(env, RSSItem.Name, site.rssItem); err != nil {
 		return nil, err
 	}
 	return fake.HTTP(env, site.routes()), nil
@@ -163,8 +167,12 @@ type site struct {
 	releases []Release
 	announce Announce
 
-	mu     sync.Mutex
-	listed map[string]bool
+	// cookie is Brook's session cookie, name=value.
+	cookie string
+
+	mu        sync.Mutex
+	listed    map[string]bool
+	rssListed map[string]bool
 }
 
 // Announce is the tracker URL a .torrent announces to when origin fetches
@@ -179,13 +187,14 @@ func Routes(apiKey string, releases []Release, announce Announce) fake.Routes {
 }
 
 func newSite(apiKey string, releases []Release, announce Announce) *site {
-	return &site{apiKey: apiKey, releases: releases, announce: announce, listed: map[string]bool{}}
+	return &site{apiKey: apiKey, releases: releases, announce: announce, listed: map[string]bool{}, rssListed: map[string]bool{}}
 }
 
 func (s *site) routes() fake.Routes {
 	return fake.Routes{
 		"torznab":  {Pattern: "GET " + TorznabPath + "/api", Handler: s.api},
 		"download": {Pattern: "GET /download/{file}", Handler: s.download},
+		"rss":      {Pattern: "GET " + RSSPath, Handler: s.rss},
 	}
 }
 

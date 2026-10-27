@@ -1114,6 +1114,7 @@ export * from "./indexersNewIndexerKind.ts";
 export * from "./indexersOption.ts";
 export * from "./indexersOutcome.ts";
 export * from "./indexersOutcomeKind.ts";
+export * from "./indexersPastedCookie.ts";
 export * from "./indexersQuery.ts";
 export * from "./indexersQueryList.ts";
 export * from "./indexersQueryOutcome.ts";
