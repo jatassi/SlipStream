@@ -8,6 +8,7 @@ require (
 	connectrpc.com/connect/v2 v2.0.1
 	fyne.io/systray v1.12.2
 	github.com/danielgtaylor/huma/v2 v2.39.1
+	github.com/dlclark/regexp2 v1.12.0
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6
 	github.com/emersion/go-smtp v0.25.0
 	github.com/fxamacker/cbor/v2 v2.9.6
