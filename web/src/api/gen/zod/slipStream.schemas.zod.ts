@@ -1190,6 +1190,7 @@ export type GrabsEnteredOutput = zod.output<typeof GrabsEntered>;
 export const GrabsFailure = zod.object({
   code: zod.enum([
     "indexer_unavailable",
+    "indexer_removed",
     "torrent_unreachable",
     "magnet_invalid",
     "no_metadata",
@@ -1262,7 +1263,10 @@ export const GrabsGrab = zod.object({
     ),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
-  indexerId: zod.uuid(),
+  indexerId: zod
+    .uuid()
+    .nullable()
+    .describe("The Indexer it was grabbed from, null once the Indexer is deleted"),
   infoHash: zod
     .string()
     .nullable()
@@ -1381,7 +1385,10 @@ export const GrabsSearch = zod.object({
   finishedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null while the run searches"),
   grabId: zod.uuid().nullable().describe("The Grab the run made, null when none"),
   id: zod.uuid(),
-  indexerId: zod.uuid(),
+  indexerId: zod
+    .uuid()
+    .nullable()
+    .describe("The Indexer the run asked, null until it asked or once the Indexer is deleted"),
   itemId: zod.uuid(),
   notes: zod
     .array(GrabsReason)
@@ -1447,6 +1454,7 @@ export const HealthCategoryID = zod.enum([
   "storage",
   "nodes",
   "download-clients",
+  "indexers",
   "scheduled-tasks",
 ]);
 
@@ -2100,6 +2108,31 @@ export const IndexersChanged = zod.object({
 export type IndexersChanged = zod.input<typeof IndexersChanged>;
 export type IndexersChangedOutput = zod.output<typeof IndexersChanged>;
 
+export const IndexersFailure = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  text: zod.string(),
+});
+
+export type IndexersFailure = zod.input<typeof IndexersFailure>;
+export type IndexersFailureOutput = zod.output<typeof IndexersFailure>;
+
+export const indexersLimitUseCountMin = 0;
+
+export const indexersLimitUseUsedMin = 0;
+
+export const IndexersLimitUse = zod.object({
+  count: zod.int().min(indexersLimitUseCountMin).describe("0 is no limit"),
+  freeAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the oldest counted call leaves the window; null while under the limit"),
+  per: zod.enum(["hour", "day"]),
+  used: zod.int().min(indexersLimitUseUsedMin).describe("The calls counted in the window now"),
+});
+
+export type IndexersLimitUse = zod.input<typeof IndexersLimitUse>;
+export type IndexersLimitUseOutput = zod.output<typeof IndexersLimitUse>;
+
 export const IndexersSearchMode = zod.object({
   mode: zod.string().describe("The Torznab t= value"),
   params: zod.array(zod.string()).describe("In the Indexer's order"),
@@ -2108,38 +2141,186 @@ export const IndexersSearchMode = zod.object({
 export type IndexersSearchMode = zod.input<typeof IndexersSearchMode>;
 export type IndexersSearchModeOutput = zod.output<typeof IndexersSearchMode>;
 
-export const IndexersWaiting = zod.object({
-  since: zod.iso
-    .datetime({ offset: true })
-    .describe("The home Node's last Sync frame, or the Controller's start when it sent none since"),
-  standing: zod
-    .enum(["reconnecting", "offline", "mismatched"])
-    .describe(
-      "How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable",
-    ),
+export const IndexersSession = zod.object({
+  earnedAt: zod.iso.datetime({ offset: true }),
+  nodeId: zod.uuid(),
+  pasted: zod.boolean().describe("Seeded from a browser cookie an Admin pasted"),
 });
 
-export type IndexersWaiting = zod.input<typeof IndexersWaiting>;
-export type IndexersWaitingOutput = zod.output<typeof IndexersWaiting>;
+export type IndexersSession = zod.input<typeof IndexersSession>;
+export type IndexersSessionOutput = zod.output<typeof IndexersSession>;
+
+export const indexersStatusRungMin = 0;
+
+export const IndexersStatus = zod.object({
+  cause: zod
+    .union([
+      zod.literal("credentials_rejected"),
+      zod.literal("captcha_needed"),
+      zod.literal("challenge_unsolved"),
+      zod.literal("cookie_expired"),
+      zod.literal("definition_unloadable"),
+      zod.literal("account_refused"),
+      zod.literal("request_rejected"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Null unless stopped or home_only"),
+  lastFailure: zod.union([IndexersFailure, zod.null()]),
+  nodeId: zod.uuid().nullable().describe("The Node the stop was met on"),
+  rung: zod
+    .int()
+    .min(indexersStatusRungMin)
+    .describe("The backoff ladder's position, stepping down one on each success"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When it began failing, stopped or began waiting for home"),
+  solverTried: zod
+    .boolean()
+    .describe("A challenge_unsolved that the Node's Challenge solver couldn't clear"),
+  state: zod
+    .enum(["ok", "limited", "failing", "stopped", "home_only"])
+    .describe("home_only: a stop met on a failover Node, which waits for home"),
+  successAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("The last answer the site responded to"),
+  text: zod.string().nullable().describe("The site's or feed's own words"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a limited or failing Indexer is asked again"),
+});
+
+export type IndexersStatus = zod.input<typeof IndexersStatus>;
+export type IndexersStatusOutput = zod.output<typeof IndexersStatus>;
+
+export const indexersOutcomeReleasesMin = 0;
+
+export const IndexersOutcome = zod.object({
+  cause: zod.string().nullable().describe("Set for stopped"),
+  kind: zod.enum([
+    "found",
+    "no_releases",
+    "limited",
+    "failing",
+    "stopped",
+    "waiting",
+    "late",
+    "limit_reached",
+    "no_categories",
+    "removed",
+  ]),
+  lapsed: zod.boolean().describe("Waiting past the offline grace"),
+  nodeId: zod.uuid().nullable().describe("Set for waiting: the Node waited for"),
+  releases: zod.int().min(indexersOutcomeReleasesMin),
+  since: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "Set for waiting: since when the home Node is away; null when it holds no Role to search with",
+    ),
+  text: zod.string().nullable().describe("Set for stopped: the site's own words"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Set for limited, failing and limit_reached"),
+});
+
+export type IndexersOutcome = zod.input<typeof IndexersOutcome>;
+export type IndexersOutcomeOutput = zod.output<typeof IndexersOutcome>;
+
+export const indexersIndexerPriorityMax = 50;
 
 export const IndexersIndexer = zod.object({
-  apiKeySet: zod
-    .boolean()
-    .describe("False when the key was dropped and an Admin must enter it again"),
+  allowFailover: zod.boolean().describe("Read only for an Indexer that signs in"),
+  automaticSearch: zod.boolean(),
+  categories: zod
+    .array(zod.int())
+    .nullable()
+    .describe("Newznab category ids; null for every category it advertises"),
   createdAt: zod.iso.datetime({ offset: true }),
-  homeNodeId: zod.uuid().describe("The Node that reaches the Indexer"),
+  feedHost: zod
+    .string()
+    .nullable()
+    .describe("The host of a feed's address, which is never returned"),
+  grabs: IndexersLimitUse,
+  homeNodeId: zod.uuid().describe("The Node it searches from"),
   id: zod.uuid(),
+  kind: zod.enum(["catalog", "torznab", "rss"]),
   name: zod.string(),
-  protocol: zod.enum(["torznab"]),
+  on: zod.boolean(),
+  priority: zod.int().min(1).max(indexersIndexerPriorityMax).describe("Lower wins a tie"),
+  revision: zod.int().min(1),
+  rss: zod.boolean(),
   searchModes: zod.array(IndexersSearchMode).describe("By mode"),
-  url: zod.string(),
-  waiting: zod
-    .union([IndexersWaiting, zod.null()])
-    .describe("Why its calls wait for its home Node, null while they go through"),
+  searches: IndexersLimitUse,
+  session: zod
+    .union([IndexersSession, zod.null()])
+    .describe("Its newest session on any Node, null for none"),
+  status: IndexersStatus,
+  waits: zod
+    .union([IndexersOutcome, zod.null()])
+    .describe("Why its searches wait now, null when they don't"),
 });
 
 export type IndexersIndexer = zod.input<typeof IndexersIndexer>;
 export type IndexersIndexerOutput = zod.output<typeof IndexersIndexer>;
+
+export const indexersLimitCountMin = 0;
+export const indexersLimitCountMax = 100000;
+
+export const IndexersLimit = zod.object({
+  count: zod.int().min(indexersLimitCountMin).max(indexersLimitCountMax).describe("0 is no limit"),
+  per: zod.enum(["hour", "day"]).describe("The sliding window it counts in"),
+});
+
+export type IndexersLimit = zod.input<typeof IndexersLimit>;
+export type IndexersLimitOutput = zod.output<typeof IndexersLimit>;
+
+export const indexersIndexerEditAddressMax = 2048;
+
+export const indexersIndexerEditAddressRegExp = new RegExp("^https?://[^/?#]+(/[^?#]*)?$");
+export const indexersIndexerEditApiKeyMax = 256;
+
+export const indexersIndexerEditNameMax = 100;
+
+export const indexersIndexerEditPriorityMax = 50;
+
+export const IndexersIndexerEdit = zod.object({
+  address: zod
+    .string()
+    .max(indexersIndexerEditAddressMax)
+    .regex(indexersIndexerEditAddressRegExp)
+    .exactOptional()
+    .describe("Write-only"),
+  allowFailover: zod.boolean().nullish().describe("Null resets it to off"),
+  apiKey: zod.string().max(indexersIndexerEditApiKeyMax).exactOptional().describe("Write-only"),
+  automaticSearch: zod.boolean().nullish().describe("Null resets it to on"),
+  categories: zod.array(zod.int()).nullish().describe("Null for every category it advertises"),
+  grabs: zod
+    .union([IndexersLimit, zod.null()])
+    .exactOptional()
+    .describe("Null turns the limit off"),
+  homeNodeId: zod.uuid().exactOptional().describe("A Node that holds Searching"),
+  name: zod.string().min(1).max(indexersIndexerEditNameMax).exactOptional(),
+  on: zod.boolean().nullish().describe("Null resets it to on"),
+  priority: zod
+    .int()
+    .min(1)
+    .max(indexersIndexerEditPriorityMax)
+    .nullish()
+    .describe("Null resets it to 25"),
+  rss: zod.boolean().nullish().describe("Null resets it to on"),
+  searches: zod
+    .union([IndexersLimit, zod.null()])
+    .exactOptional()
+    .describe("Null turns the limit off"),
+});
+
+export type IndexersIndexerEdit = zod.input<typeof IndexersIndexerEdit>;
+export type IndexersIndexerEditOutput = zod.output<typeof IndexersIndexerEdit>;
 
 export const IndexersIndexerList = zod.object({
   indexers: zod.array(IndexersIndexer).describe("By name"),
@@ -2148,35 +2329,110 @@ export const IndexersIndexerList = zod.object({
 export type IndexersIndexerList = zod.input<typeof IndexersIndexerList>;
 export type IndexersIndexerListOutput = zod.output<typeof IndexersIndexerList>;
 
-export const indexersNewAPIKeyApiKeyMax = 256;
+export const indexersNewIndexerAddressMax = 2048;
 
-export const IndexersNewAPIKey = zod.object({
-  apiKey: zod.string().max(indexersNewAPIKeyApiKeyMax),
-});
-
-export type IndexersNewAPIKey = zod.input<typeof IndexersNewAPIKey>;
-export type IndexersNewAPIKeyOutput = zod.output<typeof IndexersNewAPIKey>;
-
+export const indexersNewIndexerAddressRegExp = new RegExp("^https?://[^/?#]+(/[^?#]*)?$");
 export const indexersNewIndexerApiKeyMax = 256;
 
+export const indexersNewIndexerAutomaticSearchDefault = true;
 export const indexersNewIndexerNameMax = 100;
 
-export const indexersNewIndexerUrlMax = 2048;
+export const indexersNewIndexerOnDefault = true;
+export const indexersNewIndexerPriorityDefault = 25;
+export const indexersNewIndexerPriorityMax = 50;
 
-export const indexersNewIndexerUrlRegExp = new RegExp("^https?://[^/?#]+(/[^?#]*)?$");
+export const indexersNewIndexerRssDefault = true;
 
 export const IndexersNewIndexer = zod.object({
-  apiKey: zod.string().max(indexersNewIndexerApiKeyMax),
-  name: zod.string().min(1).max(indexersNewIndexerNameMax),
-  url: zod
+  address: zod
     .string()
-    .max(indexersNewIndexerUrlMax)
-    .regex(indexersNewIndexerUrlRegExp)
-    .describe("The Torznab feed's base; SlipStream adds /api"),
+    .max(indexersNewIndexerAddressMax)
+    .regex(indexersNewIndexerAddressRegExp)
+    .describe("The Torznab feed's base; SlipStream adds /api. Write-only"),
+  allowFailover: zod.boolean().exactOptional(),
+  apiKey: zod.string().max(indexersNewIndexerApiKeyMax).describe("Write-only"),
+  automaticSearch: zod.boolean().default(indexersNewIndexerAutomaticSearchDefault),
+  categories: zod
+    .array(zod.int())
+    .nullish()
+    .describe("Newznab category ids; absent for every category it advertises"),
+  grabs: IndexersLimit.exactOptional(),
+  homeNodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("A Node that holds Searching; absent for the default home"),
+  kind: zod.enum(["torznab"]).describe("The kinds SlipStream can add so far"),
+  name: zod.string().min(1).max(indexersNewIndexerNameMax),
+  on: zod.boolean().default(indexersNewIndexerOnDefault),
+  priority: zod
+    .int()
+    .min(1)
+    .max(indexersNewIndexerPriorityMax)
+    .default(indexersNewIndexerPriorityDefault),
+  rss: zod.boolean().default(indexersNewIndexerRssDefault),
+  searches: IndexersLimit.exactOptional(),
 });
 
 export type IndexersNewIndexer = zod.input<typeof IndexersNewIndexer>;
 export type IndexersNewIndexerOutput = zod.output<typeof IndexersNewIndexer>;
+
+export const indexersQueryReleasesMin = 0;
+
+export const IndexersQuery = zod.object({
+  completedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null while it runs"),
+  id: zod.uuid(),
+  outcome: zod
+    .union([
+      zod.literal("ok"),
+      zod.literal("limited"),
+      zod.literal("failing"),
+      zod.literal("stopped"),
+      zod.literal("lost"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Null while it runs; lost when its Node never answered"),
+  releases: zod.int().min(indexersQueryReleasesMin),
+  reservedAt: zod.iso.datetime({ offset: true }),
+  startedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When its Node sent its first request; null before, or when it sent none"),
+  use: zod.enum(["search", "recent", "fetch", "test"]),
+});
+
+export type IndexersQuery = zod.input<typeof IndexersQuery>;
+export type IndexersQueryOutput = zod.output<typeof IndexersQuery>;
+
+export const IndexersQueryList = zod.object({
+  nextOffset: zod.int().nullable().describe("The offset of the next page; null on the last"),
+  queries: zod.array(IndexersQuery).describe("Newest first"),
+});
+
+export type IndexersQueryList = zod.input<typeof IndexersQueryList>;
+export type IndexersQueryListOutput = zod.output<typeof IndexersQueryList>;
+
+export const indexersReportItemsMin = 0;
+
+export const IndexersReport = zod.object({
+  items: zod.int().min(indexersReportItemsMin).describe("The newest items it listed"),
+  searchModes: zod.array(IndexersSearchMode).describe("By mode"),
+  sources: zod
+    .array(zod.string())
+    .describe(
+      "The different sources a Torznab feed's items named: more than one is an aggregate feed",
+    ),
+});
+
+export type IndexersReport = zod.input<typeof IndexersReport>;
+export type IndexersReportOutput = zod.output<typeof IndexersReport>;
+
+export const IndexersStatusChanged = zod.object({
+  indexerId: zod.uuid(),
+});
+
+export type IndexersStatusChanged = zod.input<typeof IndexersStatusChanged>;
+export type IndexersStatusChangedOutput = zod.output<typeof IndexersStatusChanged>;
 
 export const joinInputBodyDisplayNameMax = 100;
 
@@ -5353,6 +5609,16 @@ export const LiveEventIndexersChanged = zod.object({
 export type LiveEventIndexersChanged = zod.input<typeof LiveEventIndexersChanged>;
 export type LiveEventIndexersChangedOutput = zod.output<typeof LiveEventIndexersChanged>;
 
+export const LiveEventIndexersStatusChanged = zod.object({
+  event: zod.enum(["indexers.status-changed"]),
+  data: IndexersStatusChanged,
+});
+
+export type LiveEventIndexersStatusChanged = zod.input<typeof LiveEventIndexersStatusChanged>;
+export type LiveEventIndexersStatusChangedOutput = zod.output<
+  typeof LiveEventIndexersStatusChanged
+>;
+
 export const LiveEventLiveAccessChanged = zod.object({
   event: zod.enum(["live.access-changed"]),
   data: LiveAccessChanged,
@@ -5504,6 +5770,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventIdentityPasskeysChanged,
   LiveEventIdentitySessionsChanged,
   LiveEventIndexersChanged,
+  LiveEventIndexersStatusChanged,
   LiveEventLiveAccessChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,

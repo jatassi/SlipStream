@@ -1,6 +1,6 @@
 # Offline Nodes
 
-When a Worker stops, SlipStream waits for it through the offline grace before it moves anything. Until the grace passes, searches on the Indexers it reaches finish `indexer_unavailable`, the Indexer says it waits for the Node and how the Node stands, which the Work page's search row reads as `Waiting for seedbox · offline since 21:31`, and a Grab it downloads waits rather than failing. Past the grace the Node has lapsed: the Nodes nav alert turns from `warn` to `fail`, the Controller covers Searching, so a search on that Indexer grabs through the Controller, and a Grab with no Node that may download waits at `fetching`. Once the Node is back and has settled, its work routes to it again and the alert clears. The Nodes nav row carries the alert as an amber or red dot, and each Node's `standing` says how it stands. An Admin sets the grace between 1 min and 1 day under Settings > Nodes.
+When a Worker stops, SlipStream waits for it through the offline grace before it moves anything. Until the grace passes, searches on the Indexers it reaches finish `indexer_unavailable`, the Indexer's `waits` names the Node it waits for, and the Work page's search row reads that Node's `standing` as `Waiting for seedbox · offline since 21:31`, and a Grab it downloads waits rather than failing. Past the grace the Node has lapsed: the Nodes nav alert turns from `warn` to `fail`, the Controller covers Searching, so a search on that Indexer grabs through the Controller, and a Grab with no Node that may download waits at `fetching`. Once the Node is back and has settled, its work routes to it again and the alert clears. The Nodes nav row carries the alert as an amber or red dot, and each Node's `standing` says how it stands. An Admin sets the grace between 1 min and 1 day under Settings > Nodes.
 
 ## Sub-features
 
@@ -9,8 +9,8 @@ When a Worker stops, SlipStream waits for it through the offline grace before it
 - `offline-alert` `GET /api/v1/counts` answers `alerts.nodes` `null` while every Node is in step or reconnecting, `warn` once a Node is away past the blip, `fail` once it is away past the grace, and `null` again once it is back and settled.
 - `offline-nav-dot` the sidebar's Nodes row (More's on phone) reads `Nodes` while every Node is in step, `Nodes needs attention` with an amber dot on `warn`, and `Nodes failed` with a red dot on `fail`, with no number, and follows `nodes.changed` without a reload. The collapsed rail's icon carries the dot and the link is named `Nodes, failed`.
 - `offline-standing` `GET /api/v1/nodes` gives each Node `standing`: `in-step`, `reconnecting` through the blip, `offline`, `lapsed` past the grace or `mismatched`. The Node picker's dot reads `reconnecting`, `offline` (amber), `offline past the grace` (red) or `on another version`.
-- `offline-indexer-waits` within the grace `GET /api/v1/indexers` lists the Indexer homed on seedbox with `waiting` `{standing, since}`, `reconnecting` then `offline`, and a search of a wanted Work finishes `indexer_unavailable` with no Grab. Its row on the Work page reads `The Indexer didn't respond` over `Waiting for seedbox · reconnecting`, then `Waiting for seedbox · offline since <time>`, and drops the line once the Indexer no longer waits.
-- `offline-covering` past the grace `GET /api/v1/nodes` lists seedbox `lapsed` in Searching and Downloading and home `covering` Searching, the Indexer's `waiting` is `null`, a search finishes `grabbed` through home, and its Grab waits at `fetching` with `fetchNodeId` `null`, since no Node may download.
+- `offline-indexer-waits` within the grace `GET /api/v1/indexers` lists the Indexer homed on seedbox with `waits` `{kind: "waiting", nodeId, since, lapsed: false}` while seedbox's `standing` is `reconnecting` then `offline`, and a search of a wanted Work finishes `indexer_unavailable` with no Grab. Its row on the Work page reads `The Indexer didn't respond` over `Waiting for seedbox · reconnecting`, then `Waiting for seedbox · offline since <time>`, and drops the line once the Indexer no longer waits.
+- `offline-covering` past the grace `GET /api/v1/nodes` lists seedbox `lapsed` in Searching and Downloading and home `covering` Searching, the Indexer's `waits` is `null`, a search finishes `grabbed` through home, and its Grab waits at `fetching` with `fetchNodeId` `null`, since no Node may download.
 - `offline-back` once seedbox starts and settles, the waiting Grab is fetched and downloaded on seedbox, `fetchNodeId` and `nodeId` both seedbox's id, and imports.
 
 ## How to get to it (user POV)
@@ -36,7 +36,7 @@ Steps:
   WORK=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","key":"9000001","monitor":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
   ```
 
-- **Stop seedbox and search within the grace.** The Indexer reads `waiting` with `standing` `reconnecting`, and the search finishes `indexer_unavailable`.
+- **Stop seedbox and search within the grace.** The Indexer reads `waits` of kind `waiting` while seedbox's `standing` is `reconnecting`, and the search finishes `indexer_unavailable`.
 
   ```sh
   $FW node stop $RUN seedbox
@@ -46,7 +46,7 @@ Steps:
   $FW exec $RUN --proof offline/offline-indexer-waits -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/searches"
   ```
 
-- **Wait past the blip.** A minute after the stop the alert reads `warn` and the Indexer's `standing` `offline`.
+- **Wait past the blip.** A minute after the stop the alert reads `warn` and seedbox's `standing` `offline`, with the Indexer still waiting.
 
   ```sh
   $FW exec $RUN -- bash -c "for i in \$(seq 90); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/counts' | jq -e '.alerts.nodes == \"warn\"' >/dev/null && exit 0; sleep 1; done; exit 1"

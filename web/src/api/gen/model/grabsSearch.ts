@@ -19,7 +19,11 @@ export interface GrabsSearch {
    */
   grabId: string | null;
   id: string;
-  indexerId: string;
+  /**
+   * The Indexer the run asked, null until it asked or once the Indexer is deleted
+   * @nullable
+   */
+  indexerId: string | null;
   itemId: string;
   /** The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for */
   notes: GrabsReason[];

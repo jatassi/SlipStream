@@ -60,7 +60,11 @@ export function Searches({ workId }: { workId: string }) {
       ) : (
         <List label="Searches">
           {searches.map((search) => (
-            <SearchRow key={search.id} search={search} waiting={waiting.get(search.indexerId)} />
+            <SearchRow
+              key={search.id}
+              search={search}
+              waiting={search.indexerId === null ? undefined : waiting.get(search.indexerId)}
+            />
           ))}
         </List>
       )}
