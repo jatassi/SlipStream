@@ -14,6 +14,7 @@ require (
 	github.com/emersion/go-smtp v0.25.0
 	github.com/fxamacker/cbor/v2 v2.9.6
 	github.com/go-webauthn/webauthn v0.18.2
+	github.com/goccy/go-yaml v1.19.2
 	github.com/gofrs/flock v0.13.1
 	github.com/hashicorp/yamux v0.1.2
 	github.com/invopop/jsonschema v0.14.0
