@@ -1,0 +1,58 @@
+---
+id: cinder
+name: Cinder
+description: "Cinder is a fictional private tracker behind a browser challenge."
+language: en-US
+type: private
+encoding: UTF-8
+links:
+  - https://cinder.fixture-site.fake.localhost/
+
+caps:
+  categorymappings:
+    - {id: 1, cat: Movies, desc: "Movies"}
+    - {id: 2, cat: TV, desc: "TV"}
+  modes:
+    search: [q]
+    tv-search: [q, season, ep]
+
+settings:
+  - name: cookie
+    type: text
+    label: Cookie
+  - name: info_cookie
+    type: info_cookie
+  - name: info_flaresolverr
+    type: info_flaresolverr
+
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.cookie }}"
+  test:
+    path: index.php
+    selector: a.logout
+
+search:
+  paths:
+    - path: torrents.php
+  inputs:
+    q: "{{ .Keywords }}"
+  rows:
+    selector: div.torrent
+  fields:
+    category:
+      selector: span.cat
+    title:
+      selector: a.name
+    download:
+      selector: a.name
+      attribute: href
+    infohash:
+      selector: span.hash
+    size:
+      selector: span.size
+    seeders:
+      selector: span.seeders
+    leechers:
+      selector: span.leechers

@@ -1,0 +1,21 @@
+---
+id: broken
+name: Broken
+description: "Broken is a fictional site whose definition lists no links, so SlipStream can't run it."
+language: en-US
+type: public
+encoding: UTF-8
+links: []
+
+caps:
+  modes:
+    search: [q]
+
+search:
+  paths:
+    - path: search
+  rows:
+    selector: tr
+  fields:
+    title:
+      selector: a
