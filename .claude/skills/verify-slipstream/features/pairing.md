@@ -257,7 +257,7 @@ Steps:
 
 ## Gotchas
 
-- A wiped Node has a new key, so the Controller pairs it as a new Node named `seedbox-2`, and the old row stays down with its Roles until **Replace the old row** removes it. The manifest still names the old id, so doctor's check 3 then fails with `node seedbox (<old id>) is not paired` and home holding Searching and Downloading, and check 5 with the Indexer's address no longer being a front for home. Both are expected after this recipe.
+- A wiped Node has a new key, so the Controller pairs it as a new Node named `seedbox-2`, and the old row stays down with its Roles until **Replace the old row** removes it. The manifest still names the old id, so doctor's check 3 then fails with `node seedbox (<old id>) is not paired` and home holding Searching and Downloading. That is expected after this recipe. Check 5 passes while the Indexer's home is a Node the manifest names, since each Node dials the Indexer's host at its own front.
 - `slipstream join` takes a stopped or a running Node. A wipe needs the Node stopped, so this recipe joins it stopped and starts it after.
 - The Join Code is single-use and short-lived. Mint it right before the join.
 - A wiped Node logs a new Setup code in `nodes/seedbox.log`, which the API path `POST /api/v1/setup/worker` takes in `X-Setup-Code`.
