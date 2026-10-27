@@ -207,6 +207,37 @@ func TestGate(t *testing.T) {
 	}
 }
 
+func TestAFetchDropsOnlyWhenItWouldWaitForTheAdmin(t *testing.T) {
+	lapsed := roster{holders: []role.NodeID{home, seed}, away: map[role.NodeID]nodes.Absence{home: {Since: t0, Lapsed: true}}}
+	inGrace := roster{holders: []role.NodeID{home, seed}, away: map[role.NodeID]nodes.Absence{home: {Since: t0}}}
+	later := t0.Add(time.Minute)
+	feed := Indexer{Kind: Torznab, Home: home}
+	catalog := Indexer{Kind: Catalog, Home: home}
+	for _, tc := range []struct {
+		name string
+		r    roster
+		idx  Indexer
+		st   Status
+		want error
+	}{
+		{"fetches while ok", roster{holders: []role.NodeID{home}}, feed, Status{State: OK}, nil},
+		{"drops once stopped", roster{holders: []role.NodeID{home}}, feed, Status{State: Stopped, Cause: searching.AccountRefused}, &DropError{Why: DropStopped}},
+		{"waits while limited", roster{holders: []role.NodeID{home}}, feed, Status{State: Limited, Until: later}, &WaitError{Outcome: Outcome{Kind: IsLimited, Until: later}}},
+		{"waits while failing", roster{holders: []role.NodeID{home}}, feed, Status{State: Failing, Until: later}, &WaitError{Outcome: Outcome{Kind: IsFailing, Until: later}}},
+		{"waits for home inside the grace", inGrace, catalog, Status{}, &WaitError{Outcome: Outcome{Kind: Waiting, Node: home, Since: t0}}},
+		{"drops a session past the grace", lapsed, catalog, Status{}, &DropError{Why: DropHomeOffline}},
+		{"a feed moves past the grace", lapsed, feed, Status{}, nil},
+		{"drops a wait for home past the grace", lapsed, feed, Status{State: HomeOnly}, &DropError{Why: DropHomeOffline}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			x := &Indexers{cfg: Config{Roster: tc.r}}
+			if got := x.fetchGate(tc.idx, tc.st, t0); !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("fetchGate = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestFree(t *testing.T) {
 	three := Limit{Count: 3, Per: Hour}
 	at := func(ago ...time.Duration) []time.Time {

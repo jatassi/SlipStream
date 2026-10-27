@@ -44,18 +44,25 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused, notes strin
 	var list struct {
 		Searches []struct {
 			ItemID     string `json:"itemId"`
-			IndexerID  string `json:"indexerId"`
 			StartedAt  string `json:"startedAt"`
 			FinishedAt string `json:"finishedAt"`
+			Indexers   []struct {
+				IndexerID string `json:"indexerId"`
+			} `json:"indexers"`
 		} `json:"searches"`
 	}
 	decode(t, "getWorkSearches", reply, &list)
-	if len(list.Searches) != 1 {
-		t.Fatalf("getWorkSearches = %s, want one search", reply.Body)
+	if len(list.Searches) != 1 || len(list.Searches[0].Indexers) != 1 {
+		t.Fatalf("getWorkSearches = %s, want one search of one Indexer", reply.Body)
 	}
 	s := list.Searches[0]
+	sentence := "Found " + strconv.Itoa(candidates) + " Releases"
+	if candidates == 1 {
+		sentence = "Found 1 Release"
+	}
 	worldtest.Expect(t, "getWorkSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + id + `","itemId":"` + s.ItemID +
-		`","indexerId":"` + s.IndexerID + `","startedAt":"` + s.StartedAt + `","finishedAt":"` + s.FinishedAt + `","outcome":"grabbed","candidates":` +
+		`","startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID + `","name":"Fixture Site","outcome":"found","releases":` +
+		strconv.Itoa(candidates) + `,"sentence":"` + sentence + `"}],"finishedAt":"` + s.FinishedAt + `","outcome":"grabbed","candidates":` +
 		strconv.Itoa(candidates) + `,"refused":` + refused + `,"grabId":"` + *found.GrabID + `","notes":` + notes + `}]}` + "\n"})
 	w.ended(t, *found.GrabID)
 	if w.grab.Stage != "imported" {

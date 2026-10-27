@@ -3,10 +3,14 @@ package grabs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -186,4 +190,50 @@ func best(picks []Pick, refused []Refusal) (*Pick, []Refusal) {
 		return nil, refused
 	}
 	return &picks[0], refused
+}
+
+func from(priority int, title string, hash string, size int64, at int) candidate {
+	c := listed(title, 5, size, nil)
+	c.Release.Priority, c.at = priority, at
+	if hash != "" {
+		h := bencode.InfoHash([]byte(strings.Repeat(hash, 20)))
+		c.Release.InfoHash = &h
+	}
+	return c
+}
+
+func TestDedupeCountsAReleaseListedTwiceOnceFromTheBetterPriority(t *testing.T) {
+	kept := dedupe([]candidate{
+		from(25, "Orchard.1080p.WEB-DL", "a", 10, 0),
+		from(25, "Orchard.720p.WEB-DL", "", 5, 1),
+		from(10, "Orchard.1080p.WEB-DL.Mirror", "a", 10, 2),
+		from(10, "Orchard.720p.WEB-DL", "b", 5, 3),
+		from(10, "Orchard.2160p.WEB-DL", "c", 30, 4),
+		from(25, "Orchard.2160p.WEB-DL", "d", 30, 5),
+	})
+	var got []string
+	for _, c := range kept {
+		got = append(got, fmt.Sprintf("%d %d %s", c.at, c.Release.Priority, c.Release.Title))
+	}
+	want := []string{"2 10 Orchard.1080p.WEB-DL.Mirror", "3 10 Orchard.720p.WEB-DL", "4 10 Orchard.2160p.WEB-DL", "5 25 Orchard.2160p.WEB-DL"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("dedupe kept %q, want %q: one hash, or one title and size where a copy lacks a hash, from the better priority", got, want)
+	}
+}
+
+func TestDecideRanksTheBetterIndexerPriorityAfterTierAndBeforeSeeders(t *testing.T) {
+	open := []files.Cell{cell(hd, files.Missing)}
+	worse := listed("Orchard.1080p.WEB-DL.A", 90, 20, nil)
+	worse.Release.Priority = 25
+	better := listed("Orchard.1080p.WEBRip.B", 1, 20, nil)
+	better.Release.Priority = 10
+	bluray := listed("Orchard.1080p.BluRay.C", 1, 20, nil)
+	bluray.Release.Priority = 50
+	picks, _ := decide(open, orchard, []candidate{worse, better})
+	if len(picks) != 2 || picks[0].Release.Title != better.Release.Title || picks[1].Release.Title != worse.Release.Title {
+		t.Fatalf("decide ranked %+v, want the priority 10 Release over the better-seeded priority 25 one in one tier", picks)
+	}
+	if pick, _ := best(decide(open, orchard, []candidate{worse, better, bluray})); pick.Release.Title != bluray.Release.Title {
+		t.Fatalf("decide picked %s, want %s from a better tier whatever its Indexer's priority", pick.Release.Title, bluray.Release.Title)
+	}
 }

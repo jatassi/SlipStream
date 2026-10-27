@@ -2,6 +2,7 @@ package grabsapi_test
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
@@ -127,7 +128,28 @@ func expect(t *testing.T, s *ownertest.Owner, method, path string, status int, w
 	}
 }
 
-func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
+// atticFixture is a Work of the fixture Content Type to search, with one
+// Item, the Target HD for it and a Grabs whose Indexers ask remote. It has
+// no Node, Indexer or root yet, and its terms are empty.
+type atticFixture struct {
+	ctx               context.Context
+	lib               *storage.DB[storage.Library]
+	sealer            *secret.Sealer
+	home              role.NodeID
+	tree, unmonitored works.Tree
+	hd                targets.Target
+	terms             *terms
+	storageNodes      *lapsing
+	xs                *indexers.Indexers
+	g                 *grabs.Grabs
+	changed           sent[grabs.Changed]
+	searched          sent[grabs.SearchChanged]
+	s                 *ownertest.Owner
+	search            string
+}
+
+func searchable(t *testing.T, remote searching.Remote) *atticFixture {
+	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
 		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
@@ -166,7 +188,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	terms := &terms{}
 	changed, searched := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4)
 	sealer := secrettest.Sealer(t)
-	home, indexer := storage.NewUUID(), indexers.ID{UUID: storage.NewUUID()}
+	home := storage.NewUUID()
 	roster := alone{role.NodeID{UUID: home}}
 	storageNodes := &lapsing{}
 	shelves := rootstest.Config(t, lib, contenttypetest.ID)
@@ -175,20 +197,43 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	xs := indexers.New(indexers.Config{
+		Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searching.Remote { return remote },
+		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: w,
+		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+	})
 	g := grabs.New(grabs.Config{
 		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
-		Indexers: indexers.New(indexers.Config{
-			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searching.Remote { return site{} },
-			Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: w,
-			Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
-		}),
-		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
+		Indexers: xs,
+		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
 		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
 	})
-	s := ownertest.Serve(t, lib, func(r *api.Router) { grabsapi.Routes(r, pipeline{g}) })
-	search := "/api/v1/works/" + tree.ID.String() + "/search"
+	return &atticFixture{
+		ctx: ctx, lib: lib, sealer: sealer, home: role.NodeID{UUID: home}, tree: tree, unmonitored: unmonitored, hd: hd, terms: terms,
+		storageNodes: storageNodes, xs: xs, g: g, changed: changed, searched: searched,
+		s: ownertest.Serve(t, lib, func(r *api.Router) { grabsapi.Routes(r, pipeline{g}) }), search: "/api/v1/works/" + tree.ID.String() + "/search",
+	}
+}
+
+// running runs the Grabs until the test ends.
+func (f *atticFixture) running(t *testing.T) {
+	runCtx, stop := context.WithCancel(f.ctx)
+	ran := make(chan error)
+	go func() { ran <- f.g.Run(runCtx) }()
+	t.Cleanup(func() {
+		stop()
+		if err := <-ran; err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
+	f := searchable(t, site{})
+	ctx, lib, sealer, home, tree, hd, s, search, changed, searched := f.ctx, f.lib, f.sealer, f.home.UUID, f.tree, f.hd, f.s, f.search, f.changed, f.searched
+	indexer := indexers.ID{UUID: storage.NewUUID()}
 
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+storage.NewUUID().String(), http.StatusNotFound,
@@ -200,11 +245,11 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"not_searchable","title":"The Work's Content Type can't be searched"}`)
-	terms.t = indexers.Terms{Mode: "search", Query: "The Attic"}
+	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic"}
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_indexer","title":"No Indexer is set up"}`)
 
-	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := nodestest.Insert(ctx, tx, role.NodeID{UUID: home}, "home"); err != nil {
 			return err
 		}
@@ -216,11 +261,11 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_root","title":"The Work's Content Type has no library root"}`)
 	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
-	storageNodes.lapsed.Store(true)
+	f.storageNodes.lapsed.Store(true)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"root_unreachable","title":"The Work's library root is on a Node that takes no new files now","detail":"home is offline, so the library root there takes no new files."}`)
-	storageNodes.lapsed.Store(false)
-	expect(t, s, http.MethodPost, "/api/v1/works/"+unmonitored.ID.String()+"/search", http.StatusConflict,
+	f.storageNodes.lapsed.Store(false)
+	expect(t, s, http.MethodPost, "/api/v1/works/"+f.unmonitored.ID.String()+"/search", http.StatusConflict,
 		`{"status":409,"code":"nothing_wanted","title":"The Work has no wanted cell to search for"}`)
 
 	code, body := s.Call(t, http.MethodPost, search, "")
@@ -236,15 +281,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
 	}
 
-	runCtx, stop := context.WithCancel(ctx)
-	ran := make(chan error)
-	go func() { ran <- g.Run(runCtx) }()
-	defer func() {
-		stop()
-		if err := <-ran; err != nil {
-			t.Error(err)
-		}
-	}()
+	f.running(t)
 	<-searched
 	grab := (<-changed).GrabID
 	if failed := <-changed; failed.GrabID != grab || failed.WorkID != tree.ID.String() {
@@ -260,4 +297,106 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)
+}
+
+// mirrors answers each Indexer's search with its own 1080p Release, a
+// fetch from stopped with a refused account, and any other fetch with
+// bytes that aren't bencode.
+type mirrors struct {
+	titles  map[string]string
+	stopped string
+}
+
+func (m mirrors) Run(_ context.Context, job searching.Job) (searching.Poll, error) {
+	var a searching.Answer
+	switch job.Call.(type) {
+	case searching.SearchCall:
+		a.Releases = []searching.Release{{Title: m.titles[job.Indexer], Size: 4096, Link: searching.LinkOf("https://site.test/dl/" + job.Indexer), Seeders: 5}}
+	case searching.FetchCall:
+		if job.Indexer == m.stopped {
+			a.Outcome = &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}
+		} else {
+			a.Got = searching.Torrent{Raw: []byte("not bencode")}
+		}
+	}
+	return searching.Poll{Answer: &a}, nil
+}
+
+func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T) {
+	stopping, other := indexers.ID{UUID: storage.NewUUID()}, indexers.ID{UUID: storage.NewUUID()}
+	f := searchable(t, mirrors{titles: map[string]string{stopping.String(): "The.Attic.1080p.WEB-STOP", other.String(): "The.Attic.1080p.WEB-GO"}, stopped: stopping.String()})
+	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic"}
+	err := f.lib.Write(f.ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if err := nodestest.Insert(ctx, tx, f.home, "home"); err != nil {
+			return err
+		}
+		if err := indexerstest.Torznab(ctx, tx, f.sealer, stopping, "Stopping Site", f.home, "https://site.test/api", "k"); err != nil {
+			return err
+		}
+		return indexerstest.Torznab(ctx, tx, f.sealer, other, "Other Site", f.home, "https://site.test/api", "k")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.xs.Update(f.ctx, admin, stopping, indexers.Edit{Priority: new(10)}); err != nil {
+		t.Fatal(err)
+	}
+	rootstest.Root(t, f.lib, f.home, contenttypetest.ID, t.TempDir())
+	code, body := f.s.Call(t, http.MethodPost, f.search, "")
+	if code != http.StatusAccepted {
+		t.Fatalf("searchWork = %d %s, want 202", code, body)
+	}
+	f.running(t)
+
+	type grabView struct {
+		ID        string `json:"id"`
+		IndexerID string `json:"indexerId"`
+		Stage     string `json:"stage"`
+		Failure   struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"failure"`
+	}
+	var list struct {
+		Grabs []grabView `json:"grabs"`
+	}
+	for failed := 0; failed < 2; {
+		<-f.changed
+		_, got := f.s.Call(t, http.MethodGet, "/api/v1/grabs", "")
+		if err := json.Unmarshal([]byte(got), &list); err != nil {
+			t.Fatal(err)
+		}
+		failed = 0
+		for _, g := range list.Grabs {
+			if g.Stage == "failed" {
+				failed++
+			}
+		}
+	}
+	byIndexer := map[string]grabView{}
+	for _, g := range list.Grabs {
+		byIndexer[g.IndexerID] = g
+	}
+	dropped, rerun := byIndexer[stopping.String()], byIndexer[other.String()]
+	if dropped.Failure.Code != "indexer_stopped" || dropped.Failure.Message != "The Indexer stopped before the .torrent was fetched" || rerun.Failure.Code != "torrent_invalid" {
+		t.Fatalf("the Grabs are %+v, want Stopping Site's dropped indexer_stopped and Other Site's from the rerun", list.Grabs)
+	}
+	_, got := f.s.Call(t, http.MethodGet, f.search+"es", "")
+	var runs struct {
+		Searches []struct {
+			Outcome    string `json:"outcome"`
+			Candidates int    `json:"candidates"`
+			GrabID     string `json:"grabId"`
+		} `json:"searches"`
+	}
+	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 1 {
+		t.Fatalf("listSearches = %s, %v; want one run", got, err)
+	}
+	if r := runs.Searches[0]; r.Outcome != "grabbed" || r.Candidates != 2 || r.GrabID != rerun.ID {
+		t.Fatalf("the run is %+v, want grabbed of 2 candidates with the rerun's Grab %s", r, rerun.ID)
+	}
+	var kept int
+	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release`).Scan(&kept); err != nil || kept != 0 {
+		t.Fatalf("grabs_release holds %d rows (%v) once the rerun's Grab failed, want none", kept, err)
+	}
 }

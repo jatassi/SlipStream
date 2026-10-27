@@ -260,10 +260,13 @@ func (e *UnavailableError) Error() string { return "the Indexer is unavailable: 
 
 func (e *UnavailableError) Unwrap() error { return e.Err }
 
-// WaitError is a call no Node may take now, and why.
+// WaitError is a call the Indexer can't take now, and why: it is limited
+// or failing, its home Node is away, or its job ran late.
 type WaitError struct{ Outcome Outcome }
 
-func (e *WaitError) Error() string { return "the Indexer waits for its home Node" }
+func (e *WaitError) Error() string {
+	return "the Indexer can't be asked now: " + string(e.Outcome.Kind)
+}
 
 type Config struct {
 	Library *storage.DB[file]

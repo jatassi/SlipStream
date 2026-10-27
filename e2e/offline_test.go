@@ -42,19 +42,21 @@ func (w *walked) indexerWaits(t *testing.T) string {
 	return list.Indexers[0].Waits.Kind
 }
 
-func (w *walked) expectSearch(t *testing.T, when, want string) searchView {
+// expectSearch searches once and checks the run finishes outcome with the
+// one Indexer's line.
+func (w *walked) expectSearch(t *testing.T, when, outcome, line string) searchView {
 	t.Helper()
 	s := w.searched(t, w.search(t))
-	if *s.Outcome != want {
-		t.Fatalf("a search %s finishes %s, want %s", when, *s.Outcome, want)
+	if lines := s.lines(); *s.Outcome != outcome || len(lines) != 1 || lines[0] != line {
+		t.Fatalf("a search %s finishes %s with lines %q, want %s with %q", when, *s.Outcome, lines, outcome, line)
 	}
 	return s
 }
 
 // TestAnOfflineSeedboxsSearchesGoHomePastTheGrace stops seedbox, the
 // Indexer's home and the Node that downloads, with the offline grace at its
-// 1 min floor. Within the grace the Indexer waits for seedbox and a search
-// finishes indexer_unavailable. Past it the nav alert fails and home covers
+// 1 min floor. Within the grace the Indexer waits for seedbox, so a search
+// finds nothing. Past it the nav alert fails and home covers
 // Searching, so a search grabs through home and its Grab waits for a Node
 // that downloads. Once seedbox is back and settled, seedbox fetches and
 // downloads the Grab and the alert clears.
@@ -71,13 +73,13 @@ func TestAnOfflineSeedboxsSearchesGoHomePastTheGrace(t *testing.T) {
 
 	act(t, w.run, "seedbox", world.StopNode)
 	worldtest.Until(t, "the Indexer waits for seedbox", func() (bool, error) { return w.indexerWaits(t) != "none", nil })
-	w.expectSearch(t, "within the grace", "indexer_unavailable")
+	w.expectSearch(t, "within the grace", "nothing_acceptable", "Fixture Site waiting: Waiting for seedbox")
 
 	worldtest.Until(t, "seedbox lapses", func() (bool, error) { return w.navAlert(t) == "fail", nil })
 	if got := w.indexerWaits(t); got != "none" {
 		t.Fatalf("past the grace the Indexer waits %s, want none", got)
 	}
-	grabbed := w.expectSearch(t, "past the grace, through home", "grabbed")
+	grabbed := w.expectSearch(t, "past the grace, through home", "grabbed", "Fixture Site found: Found 2 Releases")
 
 	act(t, w.run, "seedbox", world.StartNode)
 	w.ended(t, *grabbed.GrabID)
