@@ -138,15 +138,15 @@ func unresolvable(ctx context.Context, err error) outcome {
 	return fail{DownloadFailed, err.Error()}
 }
 
-// searching is the peers each fetching Grab's metadata search had at its
+// metadataPeers is the peers each fetching Grab's metadata search had at its
 // Downloading Node's last response, for the Grab's row.
-type searching struct {
+type metadataPeers struct {
 	mu    sync.Mutex
 	peers map[GrabID]int
 }
 
 // set records peers for id and reports whether they moved.
-func (s *searching) set(id GrabID, peers int) bool {
+func (s *metadataPeers) set(id GrabID, peers int) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	was, ok := s.peers[id]
@@ -154,13 +154,13 @@ func (s *searching) set(id GrabID, peers int) bool {
 	return !ok || was != peers
 }
 
-func (s *searching) drop(id GrabID) {
+func (s *metadataPeers) drop(id GrabID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.peers, id)
 }
 
-func (s *searching) of(id GrabID) int {
+func (s *metadataPeers) of(id GrabID) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.peers[id]

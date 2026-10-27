@@ -121,6 +121,10 @@ type Release struct {
 	Link scenario.Link
 	// Trackerless leaves tr out of its magnet link.
 	Trackerless bool
+	// Leechers, Grabs and Freeleech are what an extended feed lists.
+	Leechers  int64
+	Grabs     int64
+	Freeleech bool
 }
 
 // APIKey is the site's API key in a world with Scenario s.
@@ -194,9 +198,34 @@ func (s *site) shown(rel Release) bool {
 	return !rel.Unlisted || s.listed[rel.Name]
 }
 
+// PlayKey is an API key the site refuses with Newznab error code: 100 to
+// 107, 200 to 203, 300, 500 ("Request limit reached") or 910. PlayKey(429) gets
+// HTTP 429 with a Retry-After of 2 seconds.
+func PlayKey(code int) string { return fmt.Sprintf("play-%d", code) }
+
+// newznabErrors are the descriptions Newznab gives its error codes.
+var newznabErrors = map[int]string{
+	100: "Incorrect user credentials", 101: "Account suspended", 102: "Insufficient privileges", 103: "Registration denied",
+	104: "Registrations are closed", 105: "Invalid registration (Email Address Taken)", 106: "Invalid registration (Email Address Bad Format)",
+	107: "Registration Failed (Data error)", 200: "Missing parameter", 201: "Incorrect parameter", 202: "No such function",
+	203: "Function not available", 300: "No such item", 500: "Request limit reached", 910: "API Disabled",
+}
+
 func (s *site) api(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	if q.Get("apikey") != s.apiKey {
+	key := q.Get("apikey")
+	if key == PlayKey(http.StatusTooManyRequests) {
+		w.Header().Set("Retry-After", "2")
+		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+		return
+	}
+	for code, description := range newznabErrors {
+		if key == PlayKey(code) {
+			torznabError(w, code, description)
+			return
+		}
+	}
+	if key != s.apiKey {
 		torznabError(w, 100, "Invalid API Key")
 		return
 	}
@@ -214,6 +243,35 @@ func (s *site) api(w http.ResponseWriter, r *http.Request) {
 		torznabError(w, 202, "No such function")
 	}
 }
+
+// movies is the Newznab category every release is listed under.
+const movies = 2000
+
+// window is the offset and limit a feed request asks for, and whether it
+// asks for movies when it names categories.
+type window struct {
+	offset, limit int
+	movies        bool
+}
+
+func windowOf(q url.Values) window {
+	w := window{limit: pageLimit, movies: q.Get("cat") == ""}
+	if n, err := strconv.Atoi(q.Get("offset")); err == nil && n > 0 {
+		w.offset = n
+	}
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n < pageLimit {
+		w.limit = n
+	}
+	for c := range strings.SplitSeq(q.Get("cat"), ",") {
+		if n, err := strconv.Atoi(c); err == nil && n/1000 == movies/1000 {
+			w.movies = true
+		}
+	}
+	return w
+}
+
+// pageLimit is the caps' default and largest page.
+const pageLimit = 100
 
 // matches is whether every word of query is a word of a release's name,
 // which separates words with dots.
@@ -242,21 +300,30 @@ const caps = `<?xml version="1.0" encoding="UTF-8"?>
 </caps>
 `
 
+// feed lists the releases keep keeps in the window the request asks for.
+// An extended request gets every attribute.
 func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) bool) {
 	origin := "https://" + r.Host
 	if r.TLS == nil {
 		origin = "http://" + r.Host
 	}
+	win := windowOf(r.URL.Query())
+	extended := r.URL.Query().Get("extended") == "1"
+	var listed []Release
+	for _, rel := range s.releases {
+		if win.movies && keep(rel) && s.shown(rel) {
+			listed = append(listed, rel)
+		}
+	}
+	listed = listed[min(win.offset, len(listed)):]
+	listed = listed[:min(win.limit, len(listed))]
 	var b bytes.Buffer
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
   <channel>
     <title>fixture-site</title>
 `)
-	for _, rel := range s.releases {
-		if !keep(rel) || !s.shown(rel) {
-			continue
-		}
+	for _, rel := range listed {
 		link := origin + "/download/" + rel.InfoHash + ".torrent"
 		var magnetAttr string
 		if rel.Link.Magnet() {
@@ -280,12 +347,38 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
       <torznab:attr name="infohash" value="%s" />
       <torznab:attr name="tmdbid" value="%d" />
       <torznab:attr name="imdbid" value="%s" />
-%s    </item>
-`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, rel.TMDBID, esc(rel.IMDbID), magnetAttr)
+%s%s    </item>
+`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, rel.TMDBID, esc(rel.IMDbID), magnetAttr, extendedAttrs(rel, origin, extended))
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())
 }
+
+// extendedAttrs are the attributes only an extended feed lists: every one
+// a Release carries, as a private tracker sets them.
+func extendedAttrs(rel Release, origin string, extended bool) string {
+	if !extended {
+		return ""
+	}
+	download := 1
+	if rel.Freeleech {
+		download = 0
+	}
+	return fmt.Sprintf(`      <pubDate>%s</pubDate>
+      <comments>%s</comments>
+      <category>%d</category>
+      <torznab:attr name="category" value="%d" />
+      <torznab:attr name="peers" value="%d" />
+      <torznab:attr name="grabs" value="%d" />
+      <torznab:attr name="downloadvolumefactor" value="%d" />
+      <torznab:attr name="uploadvolumefactor" value="1" />
+      <torznab:attr name="minimumratio" value="1" />
+      <torznab:attr name="minimumseedtime" value="172800" />
+`, published, esc(origin+"/details/"+rel.InfoHash), movies, movies, rel.Seeders+rel.Leechers, rel.Grabs, download)
+}
+
+// published is when the site says every release was posted.
+const published = "Mon, 01 Jun 2026 12:00:00 +0000"
 
 func esc(s string) string {
 	var b strings.Builder

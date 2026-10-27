@@ -3,8 +3,11 @@ package site_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -21,8 +24,8 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -117,7 +120,13 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 			{api + "&t=search&q=quiet+ORCHARD+2021", feed(item(origin, listing[0]), item(origin, listing[1]))},
 			{api + "&t=search&q=orchard+1080p", feed(item(origin, listing[0]), item(origin, listing[2]))},
 			{api + "&t=search&q=orch", feed()},
+			{api + "&t=search&q=orchard&offset=1&limit=1", feed(item(origin, listing[1]))},
+			{api + "&t=search&q=orchard&cat=5000", feed()},
+			{api + "&t=search&q=orchard&cat=5000,2040&offset=2", feed(item(origin, listing[2]))},
 			{api + "&t=tvsearch&q=orchard", errorDoc("202", "No such function")},
+			{site.TorznabPath + "/api?apikey=" + site.PlayKey(910) + "&t=caps", errorDoc("910", "API Disabled")},
+			{site.TorznabPath + "/api?apikey=" + site.PlayKey(500) + "&t=search", errorDoc("500", "Request limit reached")},
+			{site.TorznabPath + "/api?apikey=" + site.PlayKey(429) + "&t=search", "429 Too Many Requests Too Many Requests\n"},
 			{site.TorznabPath + "/api?apikey=wrong&t=caps", errorDoc("100", "Invalid API Key")},
 			{site.TorznabPath + "/api?t=caps", errorDoc("100", "Invalid API Key")},
 			{"/download/" + hash1080 + ".torrent", "200 OK " + rewritten},
@@ -155,70 +164,161 @@ type discard struct{}
 
 func (discard) Publish(context.Context, indexers.Changed) {}
 
-func TestTheSearchingServiceReadsTheSite(t *testing.T) {
+// created is the site served in f as an Indexer created on one Node that
+// spaces nothing.
+func created(t *testing.T) (faketest.Served, *indexers.Indexers, indexers.Indexer) {
+	t.Helper()
 	s := scenarioWithSeed()
 	f := faketest.Loopback(t, spec(listing), s)
-	home := indexers.NewHome(f.Client, indexers.Timings{Request: 5 * time.Second})
+	timings := searching.DefaultTimings()
+	timings.Floor = 0
+	home := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
 	x := indexers.New(indexers.Config{
 		Library:   storagetest.Library(t, indexers.Schema()),
 		Sealer:    secrettest.Sealer(t),
 		Roster:    alone{role.NodeID{UUID: storage.NewUUID()}},
-		Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return home },
+		Searching: func(role.NodeID) searching.Remote { return home },
 		Changed:   discard{},
+		Timings:   indexers.DefaultTimings(),
+		Log:       slog.New(slog.DiscardHandler),
 	})
 	idx, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", URL: site.URL(f.Address), APIKey: site.APIKey(s)})
 	if err != nil {
 		t.Fatal(err)
 	}
+	return f, x, idx
+}
+
+func TestTheSearchingServiceReadsTheSite(t *testing.T) {
+	_, x, idx := created(t)
 	if got, want := idx.Caps.Modes["movie"], []string{"q", "tmdbid", "imdbid"}; strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("movie caps = %v, want %v", got, want)
 	}
 
-	items, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
+	found, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got []string
-	for _, it := range items {
-		got = append(got, it.Title+" "+it.InfoHash+" "+itoa(it.Seeders)+" "+it.IDs["tmdbid"]+" "+it.IDs["imdbid"])
+	for _, r := range found {
+		got = append(got, r.Title+" "+r.InfoHash.String()+" "+strconv.Itoa(r.Seeders)+" "+r.IDs["tmdbid"]+" "+r.IDs["imdbid"])
 	}
 	want := []string{
 		"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW " + hash1080 + " 12 9000001 tt9000001",
 		"The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW " + hash720 + " 40 9000001 tt9000001",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("items =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+		t.Fatalf("releases =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	fetched, err := x.Fetch(t.Context(), idx, items[0].Link)
+	fetched, err := x.Fetch(t.Context(), idx, found[0].Link)
 	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten {
 		t.Fatalf("Fetch = %+v, %v, want the .torrent %q", fetched, err, rewritten)
 	}
 	magnets, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}})
 	if err != nil || len(magnets) != 2 {
-		t.Fatalf("Search for the magnet releases = %+v, %v; want two items", magnets, err)
+		t.Fatalf("Search for the magnet releases = %+v, %v; want two", magnets, err)
 	}
 	for i, want := range []string{strings.Repeat("e", 40), strings.Repeat("f", 40)} {
-		fetched, err := x.Fetch(t.Context(), idx, magnets[i].Link)
+		link := magnets[i].Link
+		if link.IsZero() {
+			link = magnets[i].Magnet
+		}
+		fetched, err := x.Fetch(t.Context(), idx, link)
 		got, ok := fetched.(indexers.Magnet)
 		if err != nil || !ok || got.Link.InfoHash.String() != want || len(got.Link.Trackers) != 1 || got.Link.Trackers[0] != announce {
-			t.Errorf("Fetch of %s at %s = %+v, %v; want the magnet link of %s announcing to %s", magnets[i].Title, magnets[i].Link, fetched, err, want, announce)
+			t.Errorf("Fetch of %s = %+v, %v; want the magnet link of %s announcing to %s", magnets[i].Title, fetched, err, want, announce)
 		}
 	}
-	_, err = x.Fetch(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
-	var unavailable *indexers.UnavailableError
-	if !errors.As(err, &unavailable) || unavailable.Wait || err.Error() != "the Indexer is unavailable: invalid_argument: the torrent's URL is not on the Indexer's host" {
-		t.Fatalf("an off-host Fetch = %v, want an unavailable error that does not wait", err)
+}
+
+func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
+	f, x, idx := created(t)
+	var asked string
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.String()
+		_, _ = w.Write([]byte(rewritten))
+	}))
+	t.Cleanup(elsewhere.Close)
+	fetched, err := x.Fetch(t.Context(), idx, searching.LinkOf(elsewhere.URL+"/a.torrent?id=1"))
+	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten || asked != "/a.torrent?id=1" {
+		t.Fatalf("a Fetch from another host = %+v, %v after asking for %s; want the .torrent asked for without the key", fetched, err, asked)
 	}
-	_, err = x.Fetch(t.Context(), idx, f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent"))
-	if err == nil || err.Error() != "the Indexer is unavailable: aborted: the Indexer responded with status 404" {
-		t.Fatalf("a missing torrent = %v", err)
+	_, err = x.Fetch(t.Context(), idx, searching.LinkOf(f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent")))
+	var unavailable *indexers.UnavailableError
+	if !errors.As(err, &unavailable) || unavailable.Wait || err.Error() != "the Indexer is unavailable: the Indexer responded with status 404" {
+		t.Fatalf("a missing torrent = %v, want an unavailable error that does not wait", err)
 	}
 
 	_, err = x.SetAPIKey(t.Context(), identity.Admin{}, idx.ID, "wrong")
-	var refused *indexers.RefusedError
-	if !errors.As(err, &refused) || err.Error() != "the Indexer refused: error 100: Invalid API Key" {
-		t.Fatalf("a wrong key = %v, want refused 100", err)
+	var stopped *searching.Stopped
+	if !errors.As(err, &stopped) || stopped.Cause != searching.AccountRefused || err.Error() != "the Indexer refused the account: Invalid API Key" {
+		t.Fatalf("a wrong key = %v, want account_refused", err)
+	}
+}
+
+// job runs call on the site at f as a Torznab Indexer with key, on a Node
+// that spaces nothing.
+func job(t *testing.T, f faketest.Served, key string, call searching.Call) searching.Answer {
+	t.Helper()
+	timings := searching.DefaultTimings()
+	timings.Floor = 0
+	node := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
+	poll, err := node.Run(t.Context(), searching.Job{
+		ID: storage.NewUUID().String(), Indexer: "fixture", Kind: searching.Torznab, Address: site.URL(f.Address), APIKey: key, Call: call,
+	})
+	if err != nil || poll.Answer == nil {
+		t.Fatalf("Run = %+v, %v; want an answer within the hold", poll, err)
+	}
+	return *poll.Answer
+}
+
+func TestEachTorznabPlayLandsInItsOutcome(t *testing.T) {
+	f := faketest.Loopback(t, spec(listing), scenarioWithSeed())
+	search := searching.SearchCall{Query: searching.Query{Mode: "search", Text: "orchard"}}
+	for _, tc := range []struct {
+		code int
+		want string
+	}{
+		{101, "*searching.Stopped the Indexer refused the account: Account suspended"},
+		{910, "*searching.Stopped the Indexer refused the account: API Disabled"},
+		{203, "*searching.Stopped the Indexer rejected the request: Function not available"},
+		{500, "*searching.Limited the Indexer limited requests"},
+		{429, "*searching.Limited the Indexer limited requests for 2s"},
+		{300, "*searching.Failing the Indexer responded with error 300: No such item"},
+	} {
+		got := job(t, f, site.PlayKey(tc.code), search).Outcome
+		if s := fmt.Sprintf("%T %v", got, got); s != tc.want {
+			t.Errorf("a search refused with %d = %s, want %s", tc.code, s, tc.want)
+		}
+	}
+}
+
+func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
+	s := scenarioWithSeed()
+	many := make([]site.Release, 250)
+	for i := range many {
+		many[i] = site.Release{
+			Name: fmt.Sprintf("Orchard.Part.%03d.1080p.WEB-DL", i), Size: 1000, InfoHash: fmt.Sprintf("%040x", i+1), TMDBID: 9000001, IMDbID: "tt9000001",
+			Seeders: 7, Leechers: 3, Grabs: 40, Freeleech: i == 0, Torrent: []byte(torrent),
+		}
+	}
+	f := faketest.Loopback(t, spec(many), s)
+	a := job(t, f, site.APIKey(s), searching.SearchCall{Query: searching.Query{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001"}}})
+	if a.Outcome != nil || len(a.Releases) != len(many) || a.Started.IsZero() {
+		t.Fatalf("a search over three pages = %d Releases, %v, started %v; want %d, ok, started", len(a.Releases), a.Outcome, a.Started, len(many))
+	}
+	for i, r := range a.Releases {
+		if r.Title != many[i].Name {
+			t.Fatalf("Release %d is %s, want %s in the site's order", i, r.Title, many[i].Name)
+		}
+	}
+	got := a.Releases[0]
+	want := fmt.Sprintf("%s 1000 2026-06-01T12:00:00Z 7/3/40 %s %v %v map[imdbid:tt9000001 tmdbid:9000001] {0 1} {1 48h0m0s} %s",
+		many[0].Name, many[0].InfoHash, []int{2000}, true, f.Address.URL("/details/"+many[0].InfoHash))
+	if s := fmt.Sprintf("%s %d %s %d/%d/%d %s %v %v %v %v %v %s", got.Title, got.Size, got.Published.Format(time.RFC3339), got.Seeders, got.Leechers, got.Grabs,
+		got.InfoHash, got.Categories, got.Magnet.IsZero(), got.IDs, got.Factors, got.Floor, got.Details); s != want {
+		t.Fatalf("the first Release =\n%s\nwant\n%s", s, want)
 	}
 }
 

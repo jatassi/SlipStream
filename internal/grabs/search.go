@@ -7,12 +7,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -176,12 +176,12 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	if err != nil {
 		return gr.searchWaits(ctx, run, err)
 	}
-	items, err := gr.cfg.Indexers.Search(ctx, idx, terms)
+	releases, err := gr.cfg.Indexers.Search(ctx, idx, terms)
 	if ctx.Err() != nil {
 		return halted
 	}
 	outcome := Grabbed
-	if _, refused := errors.AsType[*indexers.RefusedError](err); refused {
+	if _, refused := errors.AsType[*searching.Stopped](err); refused {
 		outcome = SearchIndexerRefused
 	} else if err != nil {
 		outcome = SearchIndexerUnavailable
@@ -189,7 +189,7 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	var grab *Grab
 	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
-		grab, err = gr.finish(ctx, tx, run, idx, terms, items, outcome)
+		grab, err = gr.finish(ctx, tx, run, idx, terms, releases, outcome)
 		return err
 	})
 	if err != nil {
@@ -202,14 +202,14 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	return committed
 }
 
-// finish ends run in tx with the Grab it picks from items, nil when it
+// finish ends run in tx with the Grab it picks from releases, nil when it
 // picks none.
-func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, idx indexers.Indexer, terms indexers.Terms, items []indexers.Item, outcome Outcome) (*Grab, error) {
+func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, idx indexers.Indexer, terms indexers.Terms, releases []indexers.Release, outcome Outcome) (*Grab, error) {
 	q := db.New(tx)
-	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: storage.Now(), Candidates: int64(len(items))}
+	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: storage.Now(), Candidates: int64(len(releases))}
 	var grab *Grab
 	if outcome == Grabbed {
-		pick, err := gr.pick(ctx, tx, run, terms, items)
+		pick, err := gr.pick(ctx, tx, run, terms, releases)
 		if err != nil {
 			return nil, err
 		}
@@ -231,10 +231,10 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 	return grab, q.FinishSearch(ctx, finish)
 }
 
-// pick decides among items for run's Item's open cells and stores the
+// pick decides among releases for run's Item's open cells and stores the
 // releases it refused. Every listed release of this Work records a
 // sighting of its cut first, so a cut seen now is wanted now.
-func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, items []indexers.Item) (*Pick, error) {
+func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, releases []indexers.Release) (*Pick, error) {
 	tree, err := gr.cfg.Works.TreeIn(ctx, tx, run.WorkID)
 	if err != nil {
 		return nil, err
@@ -247,13 +247,13 @@ func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, ter
 	if err != nil {
 		return nil, err
 	}
-	candidates := make([]candidate, len(items))
-	for i, it := range items {
-		candidates[i] = candidateOf(it, known.For(tree.ContentType), run.ItemID, timings[run.ItemID].Runtime)
-		if wrongWork(it, terms) {
+	candidates := make([]candidate, len(releases))
+	for i, r := range releases {
+		candidates[i] = candidateOf(r, known.For(tree.ContentType), run.ItemID, timings[run.ItemID].Runtime)
+		if wrongWork(r, terms) {
 			continue
 		}
-		if err := targets.See(ctx, tx, run.ItemID, candidates[i].Facts.Cut, releaseKey(it)); err != nil {
+		if err := targets.See(ctx, tx, run.ItemID, candidates[i].Facts.Cut, releaseKey(r)); err != nil {
 			return nil, err
 		}
 	}
@@ -283,11 +283,11 @@ func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, ter
 
 // releaseKey is what a sighting keys it by: its info hash in hex, else its
 // title.
-func releaseKey(it indexers.Item) string {
-	if h, err := bencode.ParseInfoHash(it.InfoHash); err == nil {
-		return h.String()
+func releaseKey(r indexers.Release) string {
+	if r.InfoHash != nil {
+		return r.InfoHash.String()
 	}
-	return it.Title
+	return r.Title
 }
 
 func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result {
@@ -301,16 +301,16 @@ func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result 
 func insertGrab(ctx context.Context, q *db.Queries, run Search, idx indexers.Indexer, pick Pick, now storage.Time) (Grab, error) {
 	g := Grab{
 		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: pick.Edition, Targets: pick.Targets,
-		Release: Release{Title: pick.Item.Title, Size: pick.Item.Size, Indexer: idx.ID, Link: pick.Item.Link},
+		Release: Release{Title: pick.Release.Title, Size: pick.Release.Size, Indexer: idx.ID, Link: offered(pick.Release), InfoHash: pick.Release.InfoHash},
 		Node:    idx.HomeNode, Stage: Fetching, Created: now.Time(),
 	}
 	var hint []byte
-	if h, err := bencode.ParseInfoHash(pick.Item.InfoHash); err == nil {
-		g.Release.InfoHash, hint = &h, h[:]
+	if h := g.Release.InfoHash; h != nil {
+		hint = h[:]
 	}
 	err := q.InsertGrab(ctx, db.InsertGrabParams{
 		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: idx.ID, NodeID: g.Node,
-		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLink: g.Release.Link, ReleaseInfoHash: hint, CreatedAt: now,
+		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLink: g.Release.Link.Reveal(), ReleaseInfoHash: hint, CreatedAt: now,
 	})
 	if err != nil {
 		return Grab{}, err
@@ -321,6 +321,15 @@ func insertGrab(ctx context.Context, q *db.Queries, run Search, idx indexers.Ind
 		}
 	}
 	return g, q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: Fetching, EnteredAt: now})
+}
+
+// offered is the link a Grab of r fetches: its .torrent link, else its
+// magnet link, since a .torrent's info dictionary needs no peer.
+func offered(r indexers.Release) searching.Link {
+	if r.Link.IsZero() {
+		return r.Magnet
+	}
+	return r.Link
 }
 
 // Searches lists work's search runs, newest first.

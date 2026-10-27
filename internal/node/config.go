@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -137,6 +138,7 @@ type TimingsBlock struct {
 	Nodes       nodes.Timings       `yaml:"nodes"`
 	Works       works.Timings       `yaml:"works"`
 	Indexers    indexers.Timings    `yaml:"indexers"`
+	Searching   searching.Timings   `yaml:"searching"`
 	Transfers   transfers.Timings   `yaml:"transfers"`
 	Grabs       grabs.Timings       `yaml:"grabs"`
 	Files       files.Timings       `yaml:"files"`
@@ -205,6 +207,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Nodes:       nodes.DefaultTimings(),
 			Works:       works.DefaultTimings(),
 			Indexers:    indexers.DefaultTimings(),
+			Searching:   searching.DefaultTimings(),
 			Transfers:   transfers.DefaultTimings(),
 			Grabs:       grabs.DefaultTimings(),
 			Files:       files.DefaultTimings(),

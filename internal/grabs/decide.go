@@ -19,27 +19,27 @@ import (
 // candidate is one listed release and its Facts: the title's quality and
 // cut, the Indexer's advertised size, and the searched Item as Coverage.
 type candidate struct {
-	Item  indexers.Item
-	Facts release.Facts
+	Release indexers.Release
+	Facts   release.Facts
 }
 
 // candidateOf reads a listed release's Facts with cuts, every cut its
 // Work's titles can name: it covers item, whose runtime its Content Type
 // answers, unknown when it can't.
-func candidateOf(it indexers.Item, cuts []release.Cut, item works.ItemID, runtime release.Fact[time.Duration]) candidate {
-	f := release.Title(it.Title, cuts)
-	if it.Size > 0 {
-		f.Size = release.Known(it.Size)
+func candidateOf(r indexers.Release, cuts []release.Cut, item works.ItemID, runtime release.Fact[time.Duration]) candidate {
+	f := release.Title(r.Title, cuts)
+	if r.Size > 0 {
+		f.Size = release.Known(r.Size)
 	}
 	f.Coverage = release.Coverage{Items: []works.ItemID{item}, Runtime: runtime}
-	return candidate{Item: it, Facts: f}
+	return candidate{Release: r, Facts: f}
 }
 
 // Pick is the candidate a search grabs, the Edition its cells want, every
 // open cell's Target it is grabbable for, in Profile order, and the notes
 // its Verdicts carry there.
 type Pick struct {
-	Item    indexers.Item
+	Release indexers.Release
 	Edition targets.Edition
 	Targets []targets.TargetID
 	Notes   []Reason
@@ -77,17 +77,17 @@ func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) (*P
 	var keep []ranked
 	var refused []Refusal
 	for _, c := range candidates {
-		if wrongWork(c.Item, terms) {
-			refused = append(refused, Refusal{c.Item.Title, []Reason{{Reason: targets.Reason{Code: WrongWork}}}})
+		if wrongWork(c.Release, terms) {
+			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: WrongWork}}}})
 			continue
 		}
 		if !slices.ContainsFunc(open, func(cell files.Cell) bool { return cell.Edition.Takes(c.Facts.Cut) }) {
-			refused = append(refused, Refusal{c.Item.Title, []Reason{{Reason: targets.Reason{Code: CutNotWanted, Value: string(c.Facts.Cut)}}}})
+			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: CutNotWanted, Value: string(c.Facts.Cut)}}}})
 			continue
 		}
 		r, reasons := judged(open, c)
 		if r.cell < 0 {
-			refused = append(refused, Refusal{c.Item.Title, reasons})
+			refused = append(refused, Refusal{c.Release.Title, reasons})
 			continue
 		}
 		keep = append(keep, r)
@@ -99,9 +99,9 @@ func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) (*P
 		return cmp.Or(
 			cmp.Compare(a.cell, b.cell),
 			cmp.Compare(a.rank, b.rank),
-			cmp.Compare(b.pick.Item.Seeders, a.pick.Item.Seeders),
-			cmp.Compare(b.pick.Item.Size, a.pick.Item.Size),
-			strings.Compare(a.pick.Item.Title, b.pick.Item.Title),
+			cmp.Compare(b.pick.Release.Seeders, a.pick.Release.Seeders),
+			cmp.Compare(b.pick.Release.Size, a.pick.Release.Size),
+			strings.Compare(a.pick.Release.Title, b.pick.Release.Title),
 		)
 	})
 	return &best.pick, refused
@@ -117,7 +117,7 @@ type ranked struct {
 // judged judges c against the Target of every open cell its cut can fill,
 // and answers every reason given.
 func judged(open []files.Cell, c candidate) (ranked, []Reason) {
-	r := ranked{pick: Pick{Item: c.Item}, cell: -1}
+	r := ranked{pick: Pick{Release: c.Release}, cell: -1}
 	var reasons []Reason
 	for i, cell := range open {
 		if !cell.Edition.Takes(c.Facts.Cut) {
@@ -188,8 +188,8 @@ func decodeReasons(s string) ([]Reason, error) {
 	return out, nil
 }
 
-func wrongWork(it indexers.Item, terms indexers.Terms) bool {
-	for k, v := range it.IDs {
+func wrongWork(r indexers.Release, terms indexers.Terms) bool {
+	for k, v := range r.IDs {
 		if want, ok := terms.IDs[k]; ok && want != v {
 			return true
 		}

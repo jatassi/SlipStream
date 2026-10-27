@@ -38,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -170,7 +171,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
+	searchv1connect.SearchingService.Mount(dispatch, n.searchingService(client))
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
@@ -241,10 +242,12 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db,
 		Sealer:  lib.sealer,
 		Roster:  side,
-		Searching: func(node role.NodeID) searchv1connect.SearchingServiceHandler {
-			return searchv1connect.SearchingService.On(cluster, node)
+		Searching: func(node role.NodeID) searching.Remote {
+			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
 		Changed: indexers.ChangedEvent.Bind(n.hub),
+		Timings: n.cfg.Timings.Indexers,
+		Log:     n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
 		Library: lib.db,
@@ -404,6 +407,12 @@ func (n *Node) zone() *time.Location {
 	return n.env.Zone
 }
 
+// searchingService is the Searching service a half mounts, reaching sites over
+// client.
+func (n *Node) searchingService(client *http.Client) *searching.Service {
+	return searching.New(searching.Config{HTTP: client, Timings: n.cfg.Timings.Searching, Log: n.rootLog.With("subsystem", "searching")})
+}
+
 // httpClient is the half's client for every host the Node reaches, dialing
 // through the Node's network and trusting the OS roots.
 func (n *Node) httpClient() *http.Client {
@@ -465,7 +474,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 		return err
 	}
 	client := n.httpClient()
-	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
+	searchv1connect.SearchingService.Mount(dispatch, n.searchingService(client))
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
