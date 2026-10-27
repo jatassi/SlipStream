@@ -1,6 +1,10 @@
 package searching
 
-import "sync"
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
 // sessions are the newest session of each Indexer on this Node: the one a
 // job brought or one a job earned, whichever was earned later. An edit may
@@ -13,8 +17,10 @@ type sessions struct {
 
 type slot struct {
 	revision int64
-	mu       sync.Mutex
-	session  *Session
+	// signing holds a token while a sign-in runs.
+	signing chan struct{}
+	mu      sync.Mutex
+	session *Session
 }
 
 // slot is the Indexer's slot for job, holding the newer of the cached
@@ -23,7 +29,7 @@ func (ss *sessions) slot(job Job) *slot {
 	ss.mu.Lock()
 	sl := ss.by[job.Indexer]
 	if sl == nil || sl.revision < job.Revision {
-		sl = &slot{revision: job.Revision}
+		sl = &slot{revision: job.Revision, signing: make(chan struct{}, 1)}
 		ss.by[job.Indexer] = sl
 	}
 	ss.mu.Unlock()
@@ -59,4 +65,49 @@ func (sl *slot) held() *Session {
 	sl.mu.Lock()
 	defer sl.mu.Unlock()
 	return sl.session
+}
+
+// put holds s from now on.
+func (sl *slot) put(s *Session) {
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	sl.session = s
+}
+
+// keep has the session hold cookies, the same session base held with what
+// a response set, unless another session took its place since.
+func (sl *slot) keep(base *Session, cookies []Cookie) {
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	if sl.session == nil || !sl.session.Earned.Equal(base.Earned) {
+		return
+	}
+	kept := *sl.session
+	kept.Cookies = cookies
+	sl.session = &kept
+}
+
+// signIn runs fn, one at a time for the Indexer on this Node, and holds
+// the session it earned. A caller that saw seen and finds a session earned
+// after it once its turn comes uses that one, unless it must sign in
+// itself.
+func (s *Site) signIn(ctx context.Context, seen *Session, must bool, fn func(ctx context.Context) (*Session, error)) error {
+	sl := s.slot
+	select {
+	case sl.signing <- struct{}{}:
+	case <-ctx.Done():
+		return fmt.Errorf("wait for another sign-in: %w", ctx.Err())
+	}
+	defer func() { <-sl.signing }()
+	if held := sl.held(); !must && held != nil && (seen == nil || held.Earned.After(seen.Earned)) {
+		return nil
+	}
+	session, err := fn(ctx)
+	if err != nil {
+		return err
+	}
+	if session != nil {
+		sl.put(session)
+	}
+	return nil
 }

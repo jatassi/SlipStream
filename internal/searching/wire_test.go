@@ -33,6 +33,20 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 		t.Fatalf("the RSS job came across as %+v, %+v, %v; want %+v", got, site, err, feed)
 	}
 
+	for _, call := range []Call{TestCall{Captcha: &CaptchaAnswer{PreLogin: []byte(`{"Action":"x"}`), Text: "x7k2"}}, CaptchaCall{}} {
+		catalog := Job{
+			ID: "c", Indexer: "l", Revision: 2, Kind: Catalog, Address: "https://larkspur.test/", Definition: &Definition{YAML: []byte("id: larkspur"), SHA: "abc"},
+			Settings: map[string]string{"username": "u", "password": "p"}, Call: call,
+		}
+		if got, _, err := decodeJob(encodeJob(catalog)); err != nil || !reflect.DeepEqual(got, catalog) {
+			t.Fatalf("the catalog job came across as %+v, %v; want %+v", got, err, catalog)
+		}
+	}
+	captcha := Answer{Captcha: &Captcha{Image: []byte("png"), ContentType: "image/png", PreLogin: []byte("state")}}
+	if back, err := decodeAnswer(encodeAnswer(captcha)); err != nil || !reflect.DeepEqual(back.Captcha, captcha.Captcha) {
+		t.Fatalf("a captcha came across as %+v, %v; want %+v", back.Captcha, err, captcha.Captcha)
+	}
+
 	hash := bencode.InfoHash{1, 2, 3}
 	answer := Answer{
 		Started: earned, Outcome: &Stopped{Cause: RequestRejected, Text: "Function not available", SolverTried: true}, Session: session,

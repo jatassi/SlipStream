@@ -53,7 +53,7 @@ func (d rssDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
 // Test reads the feed and finds how its items are read. A feed SlipStream
 // can't use passes with the refusal in its Report, since the site
 // answered.
-func (d rssDriver) Test(ctx context.Context, s *Site) (Report, error) {
+func (d rssDriver) Test(ctx context.Context, s *Site, _ *CaptchaAnswer) (Report, error) {
 	body, err := d.feed(ctx, s)
 	if err != nil {
 		return Report{}, err
@@ -68,6 +68,10 @@ func (d rssDriver) Test(ctx context.Context, s *Site) (Report, error) {
 	return Report{Items: items, RSS: &reading}, nil
 }
 
+func (rssDriver) Captcha(context.Context, *Site) (Captcha, error) {
+	return Captcha{}, &Failing{Err: errors.New("an RSS feed shows no captcha")}
+}
+
 func (rssDriver) Fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 	return fetch(ctx, s, link)
 }
@@ -79,12 +83,11 @@ func (rssDriver) feed(ctx context.Context, s *Site) ([]byte, error) {
 	if err != nil {
 		return nil, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
 	}
-	cookies := s.withSession(req)
 	res, err := s.Do(ctx, req, Read)
 	switch {
 	case err != nil:
 		return nil, err
-	case cookies > 0 && (res.Status == http.StatusUnauthorized || res.Status == http.StatusForbidden):
+	case res.Cookies && (res.Status == http.StatusUnauthorized || res.Status == http.StatusForbidden):
 		return nil, &Stopped{Cause: CookieExpired}
 	case !succeeded(res.Status):
 		return nil, &Failing{Err: fmt.Errorf("the feed responded with status %d", res.Status)}
