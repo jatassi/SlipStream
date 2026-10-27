@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/role"
@@ -92,4 +93,83 @@ func (x *Indexers) inZone(t time.Time) time.Time {
 		zone = time.Local
 	}
 	return t.In(zone)
+}
+
+// stoppedWords is a stop as the Indexer's status: %[1]s is the Indexer,
+// %[2]s the site's own words, %[3]s the Node it was met on.
+var stoppedWords = map[Cause]string{
+	searching.CredentialsRejected:  "Stopped because %[1]s rejected the username or password.",
+	searching.CaptchaNeeded:        "Stopped because %[1]s needs a captcha to sign in again.",
+	searching.ChallengeUnsolved:    "Stopped because %[1]s is behind a browser challenge and %[3]s has no Challenge solver.",
+	searching.CookieExpired:        "Stopped because %[1]s no longer accepts the browser cookie.",
+	searching.DefinitionUnloadable: "Stopped because %[1]s's definition doesn't load.",
+	searching.AccountRefused:       "Stopped because %[1]s refused the API key with '%[2]s'.",
+	searching.RequestRejected:      "Stopped because %[1]s refused a search with '%[2]s'.",
+}
+
+// stoppedFixes is how the Admin clears a stop from the Indexer's page:
+// {node} is the Node it was met on.
+var stoppedFixes = map[Cause]string{
+	searching.CredentialsRejected:  "Update the username or password with Edit. Saving tests them.",
+	searching.CaptchaNeeded:        "Test the Indexer and type the code.",
+	searching.ChallengeUnsolved:    "Set a Challenge solver on {node}, or paste a browser cookie with Edit.",
+	searching.CookieExpired:        "Paste a new browser cookie with Edit.",
+	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
+	searching.AccountRefused:       "Check the account, then test the Indexer.",
+	searching.RequestRejected:      "Test the Indexer after the feed is fixed.",
+}
+
+const (
+	solverTriedStopped = "Stopped because %[3]s's Challenge solver couldn't clear %[1]s's challenge."
+	solverTriedFix     = "Paste a browser cookie with Edit."
+)
+
+// words is v's status as a sentence, and what the Admin can do about it,
+// "" when nothing.
+func (x *Indexers) words(v View) (string, string) {
+	name := v.Name
+	if !v.On {
+		return name + " is off.", ""
+	}
+	if w := v.Waits; w != nil {
+		return x.waitWords(v, *w)
+	}
+	switch {
+	case v.Status.State == Failing:
+		return fmt.Sprintf("The last request to %s failed. The next search tries it again.", name), ""
+	case v.Status.Success.IsZero():
+		return fmt.Sprintf("SlipStream hasn't searched %s yet.", name), ""
+	}
+	return name + " is working.", ""
+}
+
+func (x *Indexers) waitWords(v View, w Outcome) (string, string) {
+	name := v.Name
+	switch w.Kind {
+	case IsStopped:
+		node := x.cfg.Roster.Name(v.Status.Node)
+		stopped, fix := stoppedWords[w.Cause], stoppedFixes[w.Cause]
+		if v.Status.SolverTried {
+			stopped, fix = solverTriedStopped, solverTriedFix
+		}
+		return fmt.Sprintf(stopped, name, w.Text, node), strings.ReplaceAll(fix, "{node}", node)
+	case IsLimited:
+		return fmt.Sprintf("%s is limiting requests until %s.", name, x.clock(w.Until)), ""
+	case IsFailing:
+		return fmt.Sprintf("%s isn't responding. SlipStream retries at %s.", name, x.clock(w.Until)), ""
+	case LimitReached:
+		return fmt.Sprintf("%s reached its search limit. SlipStream searches it again at %s.", name, x.clock(w.Until)), ""
+	case Waiting:
+		home := x.cfg.Roster.Name(w.Node)
+		var fix string
+		if w.Lapsed && v.SignsIn && !v.AllowFailover {
+			fix = "Allow failover to search from another Node."
+		}
+		if w.Since.IsZero() {
+			return fmt.Sprintf("%s is waiting for %s.", name, home), fix
+		}
+		return fmt.Sprintf("%s is waiting for %s, which has been offline since %s.", name, home, x.clock(w.Since)), fix
+	case Found, NoReleases, Late, NoCategories, Removed:
+	}
+	return name + " is working.", ""
 }

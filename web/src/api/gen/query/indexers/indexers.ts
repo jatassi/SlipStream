@@ -56,6 +56,10 @@ import type {
   GetIndexerCatalog403,
   GetIndexerCatalog409,
   GetIndexerCatalog500,
+  GetIndexerSettings401,
+  GetIndexerSettings403,
+  GetIndexerSettings409,
+  GetIndexerSettings500,
   IndexersCatalogAddress,
   IndexersCatalogEntry,
   IndexersCustomDefinition,
@@ -67,6 +71,9 @@ import type {
   IndexersNewIndexer,
   IndexersQueryList,
   IndexersReport,
+  IndexersSettings,
+  IndexersSettingsChange,
+  IndexersTrackerList,
   ListIndexerQueries401,
   ListIndexerQueries403,
   ListIndexerQueries404,
@@ -78,6 +85,10 @@ import type {
   ListIndexers403,
   ListIndexers409,
   ListIndexers500,
+  ListTrackers401,
+  ListTrackers403,
+  ListTrackers409,
+  ListTrackers500,
   SetCatalogAddress401,
   SetCatalogAddress403,
   SetCatalogAddress409,
@@ -103,6 +114,11 @@ import type {
   UpdateIndexer422,
   UpdateIndexer500,
   UpdateIndexer502,
+  UpdateIndexerSettings401,
+  UpdateIndexerSettings403,
+  UpdateIndexerSettings409,
+  UpdateIndexerSettings422,
+  UpdateIndexerSettings500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -781,6 +797,258 @@ export function useGetCatalogDefinitionSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getGetIndexerSettingsUrl = () => {
+  return `/api/v1/indexer-settings`;
+};
+
+/**
+ * @summary Get the Indexer settings
+ */
+export const getIndexerSettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersSettings> => {
+  return apiFetch<IndexersSettings>(getGetIndexerSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIndexerSettingsQueryKey = () => {
+  return [`/api/v1/indexer-settings`] as const;
+};
+
+export const getGetIndexerSettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIndexerSettings>>,
+  TError = ErrorType<
+    GetIndexerSettings401 | GetIndexerSettings403 | GetIndexerSettings409 | GetIndexerSettings500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerSettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetIndexerSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getIndexerSettings>>> = ({ signal }) =>
+    getIndexerSettings({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerSettings>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetIndexerSettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIndexerSettings>>
+>;
+export type GetIndexerSettingsSuspenseQueryError = ErrorType<
+  GetIndexerSettings401 | GetIndexerSettings403 | GetIndexerSettings409 | GetIndexerSettings500
+>;
+
+export function useGetIndexerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerSettings>>,
+  TError = ErrorType<
+    GetIndexerSettings401 | GetIndexerSettings403 | GetIndexerSettings409 | GetIndexerSettings500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetIndexerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerSettings>>,
+  TError = ErrorType<
+    GetIndexerSettings401 | GetIndexerSettings403 | GetIndexerSettings409 | GetIndexerSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetIndexerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerSettings>>,
+  TError = ErrorType<
+    GetIndexerSettings401 | GetIndexerSettings403 | GetIndexerSettings409 | GetIndexerSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the Indexer settings
+ */
+
+export function useGetIndexerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerSettings>>,
+  TError = ErrorType<
+    GetIndexerSettings401 | GetIndexerSettings403 | GetIndexerSettings409 | GetIndexerSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetIndexerSettingsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateIndexerSettingsUrl = () => {
+  return `/api/v1/indexer-settings`;
+};
+
+/**
+ * @summary Change Indexer settings by key, all or none
+ */
+export const updateIndexerSettings = async (
+  indexersSettingsChange: IndexersSettingsChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersSettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersSettings>(getUpdateIndexerSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersSettingsChange),
+  });
+};
+
+export const getUpdateIndexerSettingsMutationKey = () => ["updateIndexerSettings"] as const;
+
+export const getUpdateIndexerSettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateIndexerSettings401
+    | UpdateIndexerSettings403
+    | UpdateIndexerSettings409
+    | UpdateIndexerSettings422
+    | UpdateIndexerSettings500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateIndexerSettings>>,
+    TError,
+    UpdateIndexerSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateIndexerSettings>>,
+  TError,
+  UpdateIndexerSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateIndexerSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateIndexerSettings>>,
+    UpdateIndexerSettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateIndexerSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateIndexerSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateIndexerSettings>>
+>;
+export type UpdateIndexerSettingsMutationBody = IndexersSettingsChange;
+export type UpdateIndexerSettingsMutationError = ErrorType<
+  | UpdateIndexerSettings401
+  | UpdateIndexerSettings403
+  | UpdateIndexerSettings409
+  | UpdateIndexerSettings422
+  | UpdateIndexerSettings500
+>;
+export type UpdateIndexerSettingsMutationVariables = { data: IndexersSettingsChange };
+
+/**
+ * @summary Change Indexer settings by key, all or none
+ */
+export const useUpdateIndexerSettings = <
+  TError = ErrorType<
+    | UpdateIndexerSettings401
+    | UpdateIndexerSettings403
+    | UpdateIndexerSettings409
+    | UpdateIndexerSettings422
+    | UpdateIndexerSettings500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateIndexerSettings>>,
+      TError,
+      UpdateIndexerSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateIndexerSettings>>,
+  TError,
+  UpdateIndexerSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateIndexerSettingsMutationOptions(options), queryClient);
+};
 export const getListIndexersUrl = () => {
   return `/api/v1/indexers`;
 };
@@ -1799,3 +2067,114 @@ export const useTestIndexer = <
 > => {
   return useMutation(getTestIndexerMutationOptions(options), queryClient);
 };
+export const getListTrackersUrl = () => {
+  return `/api/v1/trackers`;
+};
+
+/**
+ * @summary List the Trackers and the Indexers that reach each
+ */
+export const listTrackers = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersTrackerList> => {
+  return apiFetch<IndexersTrackerList>(getListTrackersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTrackersQueryKey = () => {
+  return [`/api/v1/trackers`] as const;
+};
+
+export const getListTrackersSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrackers>>,
+  TError = ErrorType<ListTrackers401 | ListTrackers403 | ListTrackers409 | ListTrackers500>,
+>(options?: {
+  query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackers>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTrackersQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrackers>>> = ({ signal }) =>
+    listTrackers({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackers>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListTrackersSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listTrackers>>>;
+export type ListTrackersSuspenseQueryError = ErrorType<
+  ListTrackers401 | ListTrackers403 | ListTrackers409 | ListTrackers500
+>;
+
+export function useListTrackersSuspense<
+  TData = Awaited<ReturnType<typeof listTrackers>>,
+  TError = ErrorType<ListTrackers401 | ListTrackers403 | ListTrackers409 | ListTrackers500>,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListTrackersSuspense<
+  TData = Awaited<ReturnType<typeof listTrackers>>,
+  TError = ErrorType<ListTrackers401 | ListTrackers403 | ListTrackers409 | ListTrackers500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListTrackersSuspense<
+  TData = Awaited<ReturnType<typeof listTrackers>>,
+  TError = ErrorType<ListTrackers401 | ListTrackers403 | ListTrackers409 | ListTrackers500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the Trackers and the Indexers that reach each
+ */
+
+export function useListTrackersSuspense<
+  TData = Awaited<ReturnType<typeof listTrackers>>,
+  TError = ErrorType<ListTrackers401 | ListTrackers403 | ListTrackers409 | ListTrackers500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListTrackersSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

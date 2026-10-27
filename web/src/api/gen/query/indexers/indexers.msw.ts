@@ -11,6 +11,18 @@ import type {
   IndexersIndexerList,
   IndexersQueryList,
   IndexersReport,
+  IndexersSettings,
+  IndexersTrackerList,
+  SettingAddressField,
+  SettingChoiceField,
+  SettingCountField,
+  SettingDurationField,
+  SettingFolderField,
+  SettingPortField,
+  SettingRateField,
+  SettingSpaceField,
+  SettingSwitchField,
+  SettingWindowField,
 } from "../../model";
 
 export const getGetIndexerCatalogResponseMock = (
@@ -167,6 +179,746 @@ export const getGetCatalogDefinitionResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetIndexerSettingsResponseSettingDurationFieldMock = (
+  overrideResponse: Partial<SettingDurationField> = {},
+): SettingDurationField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingCountFieldMock = (
+  overrideResponse: Partial<SettingCountField> = {},
+): SettingCountField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingChoiceFieldMock = (
+  overrideResponse: Partial<SettingChoiceField> = {},
+): SettingChoiceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["choice"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingWindowFieldMock = (
+  overrideResponse: Partial<SettingWindowField> = {},
+): SettingWindowField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["window"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    zone: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingPortFieldMock = (
+  overrideResponse: Partial<SettingPortField> = {},
+): SettingPortField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["port"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingSwitchFieldMock = (
+  overrideResponse: Partial<SettingSwitchField> = {},
+): SettingSwitchField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["switch"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingRateFieldMock = (
+  overrideResponse: Partial<SettingRateField> = {},
+): SettingRateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["rate"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingAddressFieldMock = (
+  overrideResponse: Partial<SettingAddressField> = {},
+): SettingAddressField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["address"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingFolderFieldMock = (
+  overrideResponse: Partial<SettingFolderField> = {},
+): SettingFolderField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["folder"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
+export const getGetIndexerSettingsResponseMock = (
+  overrideResponse: Partial<Extract<IndexersSettings, object>> = {},
+): IndexersSettings => ({
+  settings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getGetIndexerSettingsResponseSettingDurationFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingCountFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingChoiceFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingWindowFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingPortFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingSwitchFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingRateFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingAddressFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingFolderFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingSpaceFieldMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingDurationFieldMock = (
+  overrideResponse: Partial<SettingDurationField> = {},
+): SettingDurationField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingCountFieldMock = (
+  overrideResponse: Partial<SettingCountField> = {},
+): SettingCountField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingChoiceFieldMock = (
+  overrideResponse: Partial<SettingChoiceField> = {},
+): SettingChoiceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["choice"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingWindowFieldMock = (
+  overrideResponse: Partial<SettingWindowField> = {},
+): SettingWindowField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["window"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    zone: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingPortFieldMock = (
+  overrideResponse: Partial<SettingPortField> = {},
+): SettingPortField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["port"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingSwitchFieldMock = (
+  overrideResponse: Partial<SettingSwitchField> = {},
+): SettingSwitchField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["switch"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingRateFieldMock = (
+  overrideResponse: Partial<SettingRateField> = {},
+): SettingRateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["rate"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingAddressFieldMock = (
+  overrideResponse: Partial<SettingAddressField> = {},
+): SettingAddressField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["address"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingFolderFieldMock = (
+  overrideResponse: Partial<SettingFolderField> = {},
+): SettingFolderField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["folder"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateIndexerSettingsResponseMock = (
+  overrideResponse: Partial<Extract<IndexersSettings, object>> = {},
+): IndexersSettings => ({
+  settings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getUpdateIndexerSettingsResponseSettingDurationFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingCountFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingChoiceFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingWindowFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingPortFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingSwitchFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingRateFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingAddressFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingFolderFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingSpaceFieldMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
 export const getListIndexersResponseMock = (
   overrideResponse: Partial<Extract<IndexersIndexerList, object>> = {},
 ): IndexersIndexerList => ({
@@ -185,6 +937,7 @@ export const getListIndexersResponseMock = (
         faker.string.alpha({ length: { min: 10, max: 20 } }),
         null,
       ]),
+      fix: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
       grabs: {
         count: faker.number.int({ min: 0 }),
         freeAt: faker.helpers.arrayElement([
@@ -220,6 +973,7 @@ export const getListIndexersResponseMock = (
         per: faker.helpers.arrayElement(["hour", "day"] as const),
         used: faker.number.int({ min: 0 }),
       },
+      sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
       session: faker.helpers.arrayElement([
         {
           earnedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -228,6 +982,7 @@ export const getListIndexersResponseMock = (
         },
         null,
       ]),
+      signsIn: faker.datatype.boolean(),
       status: {
         cause: faker.helpers.arrayElement([
           faker.helpers.arrayElement([
@@ -275,6 +1030,10 @@ export const getListIndexersResponseMock = (
           null,
         ]),
       },
+      trackerIds: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
       waits: faker.helpers.arrayElement([
         {
           cause: faker.helpers.arrayElement([
@@ -332,6 +1091,7 @@ export const getCreateIndexerResponseMock = (
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  fix: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   grabs: {
     count: faker.number.int({ min: 0 }),
     freeAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
@@ -360,6 +1120,7 @@ export const getCreateIndexerResponseMock = (
     per: faker.helpers.arrayElement(["hour", "day"] as const),
     used: faker.number.int({ min: 0 }),
   },
+  sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
   session: faker.helpers.arrayElement([
     {
       earnedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -368,6 +1129,7 @@ export const getCreateIndexerResponseMock = (
     },
     null,
   ]),
+  signsIn: faker.datatype.boolean(),
   status: {
     cause: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
@@ -406,6 +1168,9 @@ export const getCreateIndexerResponseMock = (
     text: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
     until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   },
+  trackerIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   waits: faker.helpers.arrayElement([
     {
       cause: faker.helpers.arrayElement([
@@ -473,6 +1238,7 @@ export const getGetIndexerResponseMock = (
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  fix: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   grabs: {
     count: faker.number.int({ min: 0 }),
     freeAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
@@ -501,6 +1267,7 @@ export const getGetIndexerResponseMock = (
     per: faker.helpers.arrayElement(["hour", "day"] as const),
     used: faker.number.int({ min: 0 }),
   },
+  sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
   session: faker.helpers.arrayElement([
     {
       earnedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -509,6 +1276,7 @@ export const getGetIndexerResponseMock = (
     },
     null,
   ]),
+  signsIn: faker.datatype.boolean(),
   status: {
     cause: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
@@ -547,6 +1315,9 @@ export const getGetIndexerResponseMock = (
     text: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
     until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   },
+  trackerIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   waits: faker.helpers.arrayElement([
     {
       cause: faker.helpers.arrayElement([
@@ -596,6 +1367,7 @@ export const getUpdateIndexerResponseMock = (
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  fix: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   grabs: {
     count: faker.number.int({ min: 0 }),
     freeAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
@@ -624,6 +1396,7 @@ export const getUpdateIndexerResponseMock = (
     per: faker.helpers.arrayElement(["hour", "day"] as const),
     used: faker.number.int({ min: 0 }),
   },
+  sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
   session: faker.helpers.arrayElement([
     {
       earnedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -632,6 +1405,7 @@ export const getUpdateIndexerResponseMock = (
     },
     null,
   ]),
+  signsIn: faker.datatype.boolean(),
   status: {
     cause: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
@@ -670,6 +1444,9 @@ export const getUpdateIndexerResponseMock = (
     text: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
     until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   },
+  trackerIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   waits: faker.helpers.arrayElement([
     {
       cause: faker.helpers.arrayElement([
@@ -744,6 +1521,28 @@ export const getTestIndexerResponseMock = (
   ),
   sources: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  ...overrideResponse,
+});
+
+export const getListTrackersResponseMock = (
+  overrideResponse: Partial<Extract<IndexersTrackerList, object>> = {},
+): IndexersTrackerList => ({
+  trackers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.uuid(),
+      indexerIds: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      privacy: faker.helpers.arrayElement([
+        "private",
+        "semi-private",
+        "public",
+        "unknown",
+      ] as const),
+    }),
   ),
   ...overrideResponse,
 });
@@ -856,6 +1655,54 @@ export const getGetCatalogDefinitionMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getGetCatalogDefinitionResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getGetIndexerSettingsMockHandler = (
+  overrideResponse?:
+    | IndexersSettings
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IndexersSettings> | IndexersSettings),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/indexer-settings",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetIndexerSettingsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getUpdateIndexerSettingsMockHandler = (
+  overrideResponse?:
+    | IndexersSettings
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<IndexersSettings> | IndexersSettings),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/indexer-settings",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateIndexerSettingsResponseMock(),
         { status: 200 },
       );
     },
@@ -1049,12 +1896,38 @@ export const getTestIndexerMockHandler = (
     options,
   );
 };
+
+export const getListTrackersMockHandler = (
+  overrideResponse?:
+    | IndexersTrackerList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IndexersTrackerList> | IndexersTrackerList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/trackers",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListTrackersResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getIndexersMock = () => [
   getGetIndexerCatalogMockHandler(),
   getSetCatalogAddressMockHandler(),
   getAddCustomDefinitionMockHandler(),
   getDeleteCustomDefinitionMockHandler(),
   getGetCatalogDefinitionMockHandler(),
+  getGetIndexerSettingsMockHandler(),
+  getUpdateIndexerSettingsMockHandler(),
   getListIndexersMockHandler(),
   getCreateIndexerMockHandler(),
   getTestIndexerDraftMockHandler(),
@@ -1063,4 +1936,5 @@ export const getIndexersMock = () => [
   getUpdateIndexerMockHandler(),
   getListIndexerQueriesMockHandler(),
   getTestIndexerMockHandler(),
+  getListTrackersMockHandler(),
 ];

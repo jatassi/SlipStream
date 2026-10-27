@@ -12,6 +12,9 @@ import {
   IndexersNewIndexer,
   IndexersQueryList,
   IndexersReport,
+  IndexersSettings,
+  IndexersSettingsChange,
+  IndexersTrackerList,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -54,6 +57,18 @@ export const GetCatalogDefinitionParams = zod.object({
 });
 
 export const GetCatalogDefinitionResponse = IndexersDefinitionForm;
+
+/**
+ * @summary Get the Indexer settings
+ */
+export const GetIndexerSettingsResponse = IndexersSettings;
+
+/**
+ * @summary Change Indexer settings by key, all or none
+ */
+export const UpdateIndexerSettingsBody = IndexersSettingsChange;
+
+export const UpdateIndexerSettingsResponse = IndexersSettings;
 
 /**
  * @summary List the Indexers
@@ -130,3 +145,8 @@ export const TestIndexerParams = zod.object({
 });
 
 export const TestIndexerResponse = IndexersReport;
+
+/**
+ * @summary List the Trackers and the Indexers that reach each
+ */
+export const ListTrackersResponse = IndexersTrackerList;

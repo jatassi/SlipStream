@@ -20,6 +20,11 @@ export interface IndexersIndexer {
    * @nullable
    */
   feedHost: string | null;
+  /**
+   * What the Admin can do about its status, in words; null when nothing
+   * @nullable
+   */
+  fix: string | null;
   grabs: IndexersLimitUse;
   /** The Node it searches from */
   homeNodeId: string;
@@ -39,9 +44,15 @@ export interface IndexersIndexer {
   /** By mode */
   searchModes: IndexersSearchMode[];
   searches: IndexersLimitUse;
+  /** Its status in words */
+  sentence: string;
   /** Its newest session on any Node, null for none */
   session: IndexersSession | null;
+  /** It holds a login session, so it waits for its home rather than failing over unless allowFailover */
+  signsIn: boolean;
   status: IndexersStatus;
+  /** The Trackers it reaches */
+  trackerIds: string[];
   /** Why its searches wait now, null when they don't */
   waits: IndexersOutcome | null;
 }
