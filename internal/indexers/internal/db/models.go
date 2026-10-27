@@ -26,8 +26,8 @@ type IndexersCatalog struct {
 type IndexersCatalogState struct {
 	One          int64
 	RefreshedAt  storage.Time
-	LastModified sql.NullString
-	Address      sql.NullString
+	LastModified *string
+	Address      *string
 }
 
 type IndexersDefinition struct {
@@ -36,8 +36,8 @@ type IndexersDefinition struct {
 	File      string
 	Origin    string
 	Yaml      []byte
-	Summary   sql.NullString
-	Refusal   sql.NullString
+	Summary   *string
+	Refusal   *string
 	FetchedAt storage.Time
 }
 

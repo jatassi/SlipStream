@@ -100,3 +100,69 @@ LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
 -- name: SetCaps :exec
 UPDATE indexers_indexer SET caps = sqlc.arg(caps) WHERE id = sqlc.arg(id);
+
+-- name: GetCatalogState :one
+SELECT * FROM indexers_catalog_state WHERE one = 1;
+
+-- name: SetCatalogRefreshed :exec
+UPDATE indexers_catalog_state SET refreshed_at = sqlc.arg(refreshed_at), last_modified = sqlc.narg(last_modified) WHERE one = 1;
+
+-- name: SetCatalogAddress :exec
+UPDATE indexers_catalog_state SET address = sqlc.narg(address), last_modified = NULL WHERE one = 1;
+
+-- name: ListCatalog :many
+SELECT c.id, c.file, c.sha, c.name, c.description, c.privacy, c.language, c.categories, d.refusal, d.fetched_at
+FROM indexers_catalog c JOIN indexers_definition d ON d.id = c.id AND d.sha = c.sha
+ORDER BY c.name, c.id;
+
+-- name: GetCatalogEntry :one
+SELECT * FROM indexers_catalog WHERE id = sqlc.arg(id);
+
+-- name: ClearCatalog :exec
+DELETE FROM indexers_catalog;
+
+-- name: InsertCatalogEntry :exec
+INSERT INTO indexers_catalog (id, file, sha, name, description, privacy, language, categories)
+VALUES (sqlc.arg(id), sqlc.arg(file), sqlc.arg(sha), sqlc.arg(name), sqlc.arg(description), sqlc.arg(privacy), sqlc.arg(language), sqlc.arg(categories));
+
+-- name: ListDefinitionKeys :many
+SELECT id, sha FROM indexers_definition ORDER BY id, sha;
+
+-- name: InsertDefinition :exec
+INSERT INTO indexers_definition (id, sha, file, origin, yaml, summary, refusal, fetched_at)
+VALUES (sqlc.arg(id), sqlc.arg(sha), sqlc.arg(file), sqlc.arg(origin), sqlc.arg(yaml), sqlc.narg(summary), sqlc.narg(refusal), sqlc.arg(fetched_at))
+ON CONFLICT (id, sha) DO NOTHING;
+
+-- name: GetDefinition :one
+SELECT * FROM indexers_definition WHERE id = sqlc.arg(id) AND sha = sqlc.arg(sha);
+
+-- name: ListCustom :many
+SELECT * FROM indexers_definition WHERE origin = 'custom' ORDER BY id, fetched_at DESC, sha;
+
+-- name: DeleteDefinition :exec
+DELETE FROM indexers_definition WHERE id = sqlc.arg(id) AND sha = sqlc.arg(sha);
+
+-- name: PruneDefinitions :exec
+DELETE FROM indexers_definition
+WHERE origin = 'catalog'
+    AND NOT EXISTS (SELECT 1 FROM indexers_catalog c WHERE c.id = indexers_definition.id AND c.sha = indexers_definition.sha)
+    AND NOT EXISTS (SELECT 1 FROM indexers_indexer i WHERE i.definition_id = indexers_definition.id AND i.definition_sha = indexers_definition.sha);
+
+-- name: ListPins :many
+SELECT i.id, i.name, i.definition_id, i.definition_sha, i.plain, i.secrets_sealed, d.origin, d.fetched_at
+FROM indexers_indexer i JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
+ORDER BY i.name;
+
+-- name: CountPinned :one
+SELECT count(*) FROM indexers_indexer WHERE definition_id = sqlc.arg(definition_id) AND definition_sha = sqlc.arg(definition_sha);
+
+-- name: MovePin :execrows
+UPDATE indexers_indexer SET
+    definition_sha = sqlc.arg(sha), plain = sqlc.arg(plain), secrets_sealed = sqlc.arg(secrets_sealed), notes = sqlc.arg(notes),
+    updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id) AND definition_sha = sqlc.arg(from_sha);
+
+-- name: GetCustom :one
+SELECT * FROM indexers_definition WHERE origin = 'custom' AND id = sqlc.arg(id)
+ORDER BY fetched_at DESC, sha
+LIMIT 1;

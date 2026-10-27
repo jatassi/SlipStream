@@ -14,6 +14,15 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const clearCatalog = `-- name: ClearCatalog :exec
+DELETE FROM indexers_catalog
+`
+
+func (q *Queries) ClearCatalog(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, clearCatalog)
+	return err
+}
+
 const completeQuery = `-- name: CompleteQuery :execrows
 UPDATE indexers_query SET
     started_at = ?1, completed_at = ?2, node_id = ?3,
@@ -56,6 +65,36 @@ func (q *Queries) CountHomedOn(ctx context.Context, homeNodeID role.NodeID) (int
 	return count, err
 }
 
+const countPinned = `-- name: CountPinned :one
+SELECT count(*) FROM indexers_indexer WHERE definition_id = ?1 AND definition_sha = ?2
+`
+
+type CountPinnedParams struct {
+	DefinitionID  *string
+	DefinitionSha *string
+}
+
+func (q *Queries) CountPinned(ctx context.Context, arg CountPinnedParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPinned, arg.DefinitionID, arg.DefinitionSha)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteDefinition = `-- name: DeleteDefinition :exec
+DELETE FROM indexers_definition WHERE id = ?1 AND sha = ?2
+`
+
+type DeleteDefinitionParams struct {
+	ID  DefinitionID
+	Sha string
+}
+
+func (q *Queries) DeleteDefinition(ctx context.Context, arg DeleteDefinitionParams) error {
+	_, err := q.db.ExecContext(ctx, deleteDefinition, arg.ID, arg.Sha)
+	return err
+}
+
 const deleteIndexer = `-- name: DeleteIndexer :execrows
 DELETE FROM indexers_indexer WHERE id = ?1
 `
@@ -75,6 +114,89 @@ DELETE FROM indexers_session WHERE indexer_id = ?1
 func (q *Queries) DeleteSessions(ctx context.Context, indexerID IndexerID) error {
 	_, err := q.db.ExecContext(ctx, deleteSessions, indexerID)
 	return err
+}
+
+const getCatalogEntry = `-- name: GetCatalogEntry :one
+SELECT id, file, sha, name, description, privacy, language, categories FROM indexers_catalog WHERE id = ?1
+`
+
+func (q *Queries) GetCatalogEntry(ctx context.Context, id DefinitionID) (IndexersCatalog, error) {
+	row := q.db.QueryRowContext(ctx, getCatalogEntry, id)
+	var i IndexersCatalog
+	err := row.Scan(
+		&i.ID,
+		&i.File,
+		&i.Sha,
+		&i.Name,
+		&i.Description,
+		&i.Privacy,
+		&i.Language,
+		&i.Categories,
+	)
+	return i, err
+}
+
+const getCatalogState = `-- name: GetCatalogState :one
+SELECT one, refreshed_at, last_modified, address FROM indexers_catalog_state WHERE one = 1
+`
+
+func (q *Queries) GetCatalogState(ctx context.Context) (IndexersCatalogState, error) {
+	row := q.db.QueryRowContext(ctx, getCatalogState)
+	var i IndexersCatalogState
+	err := row.Scan(
+		&i.One,
+		&i.RefreshedAt,
+		&i.LastModified,
+		&i.Address,
+	)
+	return i, err
+}
+
+const getCustom = `-- name: GetCustom :one
+SELECT id, sha, file, origin, yaml, summary, refusal, fetched_at FROM indexers_definition WHERE origin = 'custom' AND id = ?1
+ORDER BY fetched_at DESC, sha
+LIMIT 1
+`
+
+func (q *Queries) GetCustom(ctx context.Context, id DefinitionID) (IndexersDefinition, error) {
+	row := q.db.QueryRowContext(ctx, getCustom, id)
+	var i IndexersDefinition
+	err := row.Scan(
+		&i.ID,
+		&i.Sha,
+		&i.File,
+		&i.Origin,
+		&i.Yaml,
+		&i.Summary,
+		&i.Refusal,
+		&i.FetchedAt,
+	)
+	return i, err
+}
+
+const getDefinition = `-- name: GetDefinition :one
+SELECT id, sha, file, origin, yaml, summary, refusal, fetched_at FROM indexers_definition WHERE id = ?1 AND sha = ?2
+`
+
+type GetDefinitionParams struct {
+	ID  DefinitionID
+	Sha string
+}
+
+func (q *Queries) GetDefinition(ctx context.Context, arg GetDefinitionParams) (IndexersDefinition, error) {
+	row := q.db.QueryRowContext(ctx, getDefinition, arg.ID, arg.Sha)
+	var i IndexersDefinition
+	err := row.Scan(
+		&i.ID,
+		&i.Sha,
+		&i.File,
+		&i.Origin,
+		&i.Yaml,
+		&i.Summary,
+		&i.Refusal,
+		&i.FetchedAt,
+	)
+	return i, err
 }
 
 const getIndexer = `-- name: GetIndexer :one
@@ -164,6 +286,67 @@ func (q *Queries) GetStatus(ctx context.Context, indexerID IndexerID) (IndexersS
 		&i.Revision,
 	)
 	return i, err
+}
+
+const insertCatalogEntry = `-- name: InsertCatalogEntry :exec
+INSERT INTO indexers_catalog (id, file, sha, name, description, privacy, language, categories)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+`
+
+type InsertCatalogEntryParams struct {
+	ID          DefinitionID
+	File        string
+	Sha         string
+	Name        string
+	Description string
+	Privacy     string
+	Language    string
+	Categories  string
+}
+
+func (q *Queries) InsertCatalogEntry(ctx context.Context, arg InsertCatalogEntryParams) error {
+	_, err := q.db.ExecContext(ctx, insertCatalogEntry,
+		arg.ID,
+		arg.File,
+		arg.Sha,
+		arg.Name,
+		arg.Description,
+		arg.Privacy,
+		arg.Language,
+		arg.Categories,
+	)
+	return err
+}
+
+const insertDefinition = `-- name: InsertDefinition :exec
+INSERT INTO indexers_definition (id, sha, file, origin, yaml, summary, refusal, fetched_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+ON CONFLICT (id, sha) DO NOTHING
+`
+
+type InsertDefinitionParams struct {
+	ID        DefinitionID
+	Sha       string
+	File      string
+	Origin    string
+	Yaml      []byte
+	Summary   *string
+	Refusal   *string
+	FetchedAt storage.Time
+}
+
+func (q *Queries) InsertDefinition(ctx context.Context, arg InsertDefinitionParams) error {
+	_, err := q.db.ExecContext(ctx, insertDefinition,
+		arg.ID,
+		arg.Sha,
+		arg.File,
+		arg.Origin,
+		arg.Yaml,
+		arg.Summary,
+		arg.Refusal,
+		arg.FetchedAt,
+	)
+	return err
 }
 
 const insertIndexer = `-- name: InsertIndexer :exec
@@ -273,6 +456,127 @@ func (q *Queries) InsertQuery(ctx context.Context, arg InsertQueryParams) error 
 	return err
 }
 
+const listCatalog = `-- name: ListCatalog :many
+SELECT c.id, c.file, c.sha, c.name, c.description, c.privacy, c.language, c.categories, d.refusal, d.fetched_at
+FROM indexers_catalog c JOIN indexers_definition d ON d.id = c.id AND d.sha = c.sha
+ORDER BY c.name, c.id
+`
+
+type ListCatalogRow struct {
+	ID          DefinitionID
+	File        string
+	Sha         string
+	Name        string
+	Description string
+	Privacy     string
+	Language    string
+	Categories  string
+	Refusal     *string
+	FetchedAt   storage.Time
+}
+
+func (q *Queries) ListCatalog(ctx context.Context) ([]ListCatalogRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCatalog)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCatalogRow
+	for rows.Next() {
+		var i ListCatalogRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.File,
+			&i.Sha,
+			&i.Name,
+			&i.Description,
+			&i.Privacy,
+			&i.Language,
+			&i.Categories,
+			&i.Refusal,
+			&i.FetchedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCustom = `-- name: ListCustom :many
+SELECT id, sha, file, origin, yaml, summary, refusal, fetched_at FROM indexers_definition WHERE origin = 'custom' ORDER BY id, fetched_at DESC, sha
+`
+
+func (q *Queries) ListCustom(ctx context.Context) ([]IndexersDefinition, error) {
+	rows, err := q.db.QueryContext(ctx, listCustom)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IndexersDefinition
+	for rows.Next() {
+		var i IndexersDefinition
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sha,
+			&i.File,
+			&i.Origin,
+			&i.Yaml,
+			&i.Summary,
+			&i.Refusal,
+			&i.FetchedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDefinitionKeys = `-- name: ListDefinitionKeys :many
+SELECT id, sha FROM indexers_definition ORDER BY id, sha
+`
+
+type ListDefinitionKeysRow struct {
+	ID  DefinitionID
+	Sha string
+}
+
+func (q *Queries) ListDefinitionKeys(ctx context.Context) ([]ListDefinitionKeysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDefinitionKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDefinitionKeysRow
+	for rows.Next() {
+		var i ListDefinitionKeysRow
+		if err := rows.Scan(&i.ID, &i.Sha); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIndexers = `-- name: ListIndexers :many
 SELECT id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media, search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain, secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at FROM indexers_indexer ORDER BY name
 `
@@ -316,6 +620,55 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]IndexersIndexer, error) {
 			&i.Revision,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPins = `-- name: ListPins :many
+SELECT i.id, i.name, i.definition_id, i.definition_sha, i.plain, i.secrets_sealed, d.origin, d.fetched_at
+FROM indexers_indexer i JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
+ORDER BY i.name
+`
+
+type ListPinsRow struct {
+	ID            IndexerID
+	Name          string
+	DefinitionID  *string
+	DefinitionSha *string
+	Plain         string
+	SecretsSealed secret.Sealed
+	Origin        string
+	FetchedAt     storage.Time
+}
+
+func (q *Queries) ListPins(ctx context.Context) ([]ListPinsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPins)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPinsRow
+	for rows.Next() {
+		var i ListPinsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.DefinitionSha,
+			&i.Plain,
+			&i.SecretsSealed,
+			&i.Origin,
+			&i.FetchedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -457,6 +810,39 @@ func (q *Queries) ListStatuses(ctx context.Context) ([]IndexersStatus, error) {
 	return items, nil
 }
 
+const movePin = `-- name: MovePin :execrows
+UPDATE indexers_indexer SET
+    definition_sha = ?1, plain = ?2, secrets_sealed = ?3, notes = ?4,
+    updated_at = ?5
+WHERE id = ?6 AND definition_sha = ?7
+`
+
+type MovePinParams struct {
+	Sha           *string
+	Plain         string
+	SecretsSealed secret.Sealed
+	Notes         string
+	UpdatedAt     storage.Time
+	ID            IndexerID
+	FromSha       *string
+}
+
+func (q *Queries) MovePin(ctx context.Context, arg MovePinParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, movePin,
+		arg.Sha,
+		arg.Plain,
+		arg.SecretsSealed,
+		arg.Notes,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.FromSha,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const nameTaken = `-- name: NameTaken :one
 SELECT EXISTS (SELECT 1 FROM indexers_indexer WHERE name = ?1 AND id IS NOT ?2)
 `
@@ -503,6 +889,18 @@ func (q *Queries) OfferSession(ctx context.Context, arg OfferSessionParams) (int
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const pruneDefinitions = `-- name: PruneDefinitions :exec
+DELETE FROM indexers_definition
+WHERE origin = 'catalog'
+    AND NOT EXISTS (SELECT 1 FROM indexers_catalog c WHERE c.id = indexers_definition.id AND c.sha = indexers_definition.sha)
+    AND NOT EXISTS (SELECT 1 FROM indexers_indexer i WHERE i.definition_id = indexers_definition.id AND i.definition_sha = indexers_definition.sha)
+`
+
+func (q *Queries) PruneDefinitions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, pruneDefinitions)
+	return err
 }
 
 const putStatus = `-- name: PutStatus :exec
@@ -659,6 +1057,29 @@ type SetCapsParams struct {
 
 func (q *Queries) SetCaps(ctx context.Context, arg SetCapsParams) error {
 	_, err := q.db.ExecContext(ctx, setCaps, arg.Caps, arg.ID)
+	return err
+}
+
+const setCatalogAddress = `-- name: SetCatalogAddress :exec
+UPDATE indexers_catalog_state SET address = ?1, last_modified = NULL WHERE one = 1
+`
+
+func (q *Queries) SetCatalogAddress(ctx context.Context, address *string) error {
+	_, err := q.db.ExecContext(ctx, setCatalogAddress, address)
+	return err
+}
+
+const setCatalogRefreshed = `-- name: SetCatalogRefreshed :exec
+UPDATE indexers_catalog_state SET refreshed_at = ?1, last_modified = ?2 WHERE one = 1
+`
+
+type SetCatalogRefreshedParams struct {
+	RefreshedAt  storage.Time
+	LastModified *string
+}
+
+func (q *Queries) SetCatalogRefreshed(ctx context.Context, arg SetCatalogRefreshedParams) error {
+	_, err := q.db.ExecContext(ctx, setCatalogRefreshed, arg.RefreshedAt, arg.LastModified)
 	return err
 }
 

@@ -60,6 +60,7 @@ type EndpointsBlock struct {
 	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
+	Indexers     indexers.Endpoints   `yaml:"indexers"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
 
@@ -180,6 +181,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			TMDB:         tmdb.DefaultEndpoints(),
 			OMDb:         omdb.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
+			Indexers:     indexers.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
 		},
 		Link: link.Settings{
