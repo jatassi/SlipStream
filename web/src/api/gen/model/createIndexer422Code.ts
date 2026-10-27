@@ -1,1 +1,1 @@
-export type CreateIndexer422Code = "indexer_test_failed" | "invalid";
+export type CreateIndexer422Code = "definition_unloadable" | "indexer_test_failed" | "invalid";

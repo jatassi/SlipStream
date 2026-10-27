@@ -1,6 +1,7 @@
 import * as zod from "zod";
 
 import {
+  IndexersCaptchaImage,
   IndexersCatalogAddress,
   IndexersCatalogEntry,
   IndexersCustomDefinition,
@@ -14,10 +15,8 @@ import {
   IndexersReport,
   IndexersSettings,
   IndexersSettingsChange,
-  IndexersTracker,
+  IndexersTestBody,
   IndexersTrackerList,
-  MergeTrackerInputBody,
-  RenameTrackerInputBody,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -86,6 +85,13 @@ export const CreateIndexerBody = IndexersNewIndexer;
 export const CreateIndexerResponse = IndexersIndexer;
 
 /**
+ * @summary Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from
+ */
+export const GetIndexerCaptchaDraftBody = IndexersNewIndexer;
+
+export const GetIndexerCaptchaDraftResponse = IndexersCaptchaImage;
+
+/**
  * @summary Test an Indexer without saving it
  */
 export const TestIndexerDraftBody = IndexersNewIndexer;
@@ -111,7 +117,7 @@ export const GetIndexerParams = zod.object({
 export const GetIndexerResponse = IndexersIndexer;
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address or API key
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
  */
 export const UpdateIndexerParams = zod.object({
   id: zod.uuid(),
@@ -120,6 +126,15 @@ export const UpdateIndexerParams = zod.object({
 export const UpdateIndexerBody = IndexersIndexerEdit;
 
 export const UpdateIndexerResponse = IndexersIndexer;
+
+/**
+ * @summary Load the captcha of an Indexer's sign-in, from the Node it searches from
+ */
+export const GetIndexerCaptchaParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const GetIndexerCaptchaResponse = IndexersCaptchaImage;
 
 /**
  * @summary List an Indexer's searches, fetches and Tests, 50 at a time
@@ -147,40 +162,11 @@ export const TestIndexerParams = zod.object({
   id: zod.uuid(),
 });
 
+export const TestIndexerBody = IndexersTestBody;
+
 export const TestIndexerResponse = IndexersReport;
 
 /**
  * @summary List the Trackers and the Indexers that reach each
  */
 export const ListTrackersResponse = IndexersTrackerList;
-
-/**
- * @summary Get a Tracker
- */
-export const GetTrackerParams = zod.object({
-  id: zod.uuid(),
-});
-
-export const GetTrackerResponse = IndexersTracker;
-
-/**
- * @summary Rename a Tracker. Every Indexer and Release that reached it still does.
- */
-export const RenameTrackerParams = zod.object({
-  id: zod.uuid(),
-});
-
-export const RenameTrackerBody = RenameTrackerInputBody;
-
-export const RenameTrackerResponse = IndexersTracker;
-
-/**
- * @summary Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.
- */
-export const MergeTrackerParams = zod.object({
-  id: zod.uuid(),
-});
-
-export const MergeTrackerBody = MergeTrackerInputBody;
-
-export const MergeTrackerResponse = IndexersTracker;

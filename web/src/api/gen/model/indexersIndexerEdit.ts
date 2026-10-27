@@ -1,3 +1,5 @@
+import type { IndexersCaptchaAnswer } from "./indexersCaptchaAnswer.ts";
+import type { IndexersIndexerEditValues } from "./indexersIndexerEditValues.ts";
 import type { IndexersLimit } from "./indexersLimit.ts";
 import type { IndexersPastedCookie } from "./indexersPastedCookie.ts";
 
@@ -26,11 +28,18 @@ export interface IndexersIndexerEdit {
    */
   automaticSearch?: boolean | null;
   /**
+   * A catalog Indexer's: one of its definition's addresses
+   * @maxLength 2048
+   */
+  baseAddress?: string;
+  /** The answer to a captcha loaded for this Indexer, for the Test the change runs */
+  captcha?: IndexersCaptchaAnswer;
+  /**
    * Null for every category it advertises
    * @nullable
    */
   categories?: number[] | null;
-  /** A new browser cookie for an RSS feed. Write-only */
+  /** A new browser cookie. Write-only */
   cookie?: IndexersPastedCookie;
   /** Null turns the limit off */
   grabs?: IndexersLimit | null;
@@ -62,4 +71,6 @@ export interface IndexersIndexerEdit {
   rss?: boolean | null;
   /** Null turns the limit off */
   searches?: IndexersLimit | null;
+  /** A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value */
+  values?: IndexersIndexerEditValues;
 }

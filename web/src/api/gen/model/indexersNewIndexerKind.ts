@@ -1,4 +1,1 @@
-/**
- * The kinds SlipStream can add so far
- */
-export type IndexersNewIndexerKind = "torznab" | "rss";
+export type IndexersNewIndexerKind = "catalog" | "torznab" | "rss";

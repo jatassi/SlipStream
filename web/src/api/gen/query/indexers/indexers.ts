@@ -23,10 +23,13 @@ import type {
   AddCustomDefinition500,
   CreateIndexer401,
   CreateIndexer403,
+  CreateIndexer404,
   CreateIndexer409,
+  CreateIndexer410,
   CreateIndexer422,
   CreateIndexer500,
   CreateIndexer502,
+  CreateIndexer503,
   DeleteCustomDefinition401,
   DeleteCustomDefinition403,
   DeleteCustomDefinition404,
@@ -52,6 +55,22 @@ import type {
   GetIndexer409,
   GetIndexer422,
   GetIndexer500,
+  GetIndexerCaptcha401,
+  GetIndexerCaptcha403,
+  GetIndexerCaptcha404,
+  GetIndexerCaptcha409,
+  GetIndexerCaptcha422,
+  GetIndexerCaptcha500,
+  GetIndexerCaptcha502,
+  GetIndexerCaptchaDraft401,
+  GetIndexerCaptchaDraft403,
+  GetIndexerCaptchaDraft404,
+  GetIndexerCaptchaDraft409,
+  GetIndexerCaptchaDraft410,
+  GetIndexerCaptchaDraft422,
+  GetIndexerCaptchaDraft500,
+  GetIndexerCaptchaDraft502,
+  GetIndexerCaptchaDraft503,
   GetIndexerCatalog401,
   GetIndexerCatalog403,
   GetIndexerCatalog409,
@@ -60,12 +79,7 @@ import type {
   GetIndexerSettings403,
   GetIndexerSettings409,
   GetIndexerSettings500,
-  GetTracker401,
-  GetTracker403,
-  GetTracker404,
-  GetTracker409,
-  GetTracker422,
-  GetTracker500,
+  IndexersCaptchaImage,
   IndexersCatalogAddress,
   IndexersCatalogEntry,
   IndexersCustomDefinition,
@@ -79,7 +93,7 @@ import type {
   IndexersReport,
   IndexersSettings,
   IndexersSettingsChange,
-  IndexersTracker,
+  IndexersTestBody,
   IndexersTrackerList,
   ListIndexerQueries401,
   ListIndexerQueries403,
@@ -96,20 +110,6 @@ import type {
   ListTrackers403,
   ListTrackers409,
   ListTrackers500,
-  MergeTracker401,
-  MergeTracker403,
-  MergeTracker404,
-  MergeTracker409,
-  MergeTracker422,
-  MergeTracker500,
-  MergeTrackerInputBody,
-  RenameTracker401,
-  RenameTracker403,
-  RenameTracker404,
-  RenameTracker409,
-  RenameTracker422,
-  RenameTracker500,
-  RenameTrackerInputBody,
   SetCatalogAddress401,
   SetCatalogAddress403,
   SetCatalogAddress409,
@@ -119,19 +119,24 @@ import type {
   TestIndexer403,
   TestIndexer404,
   TestIndexer409,
+  TestIndexer410,
   TestIndexer422,
   TestIndexer500,
   TestIndexer502,
   TestIndexerDraft401,
   TestIndexerDraft403,
+  TestIndexerDraft404,
   TestIndexerDraft409,
+  TestIndexerDraft410,
   TestIndexerDraft422,
   TestIndexerDraft500,
   TestIndexerDraft502,
+  TestIndexerDraft503,
   UpdateIndexer401,
   UpdateIndexer403,
   UpdateIndexer404,
   UpdateIndexer409,
+  UpdateIndexer410,
   UpdateIndexer422,
   UpdateIndexer500,
   UpdateIndexer502,
@@ -1226,10 +1231,13 @@ export const getCreateIndexerMutationOptions = <
   TError = ErrorType<
     | CreateIndexer401
     | CreateIndexer403
+    | CreateIndexer404
     | CreateIndexer409
+    | CreateIndexer410
     | CreateIndexer422
     | CreateIndexer500
     | CreateIndexer502
+    | CreateIndexer503
   >,
   TContext = unknown,
 >(options?: {
@@ -1270,10 +1278,13 @@ export type CreateIndexerMutationBody = IndexersNewIndexer;
 export type CreateIndexerMutationError = ErrorType<
   | CreateIndexer401
   | CreateIndexer403
+  | CreateIndexer404
   | CreateIndexer409
+  | CreateIndexer410
   | CreateIndexer422
   | CreateIndexer500
   | CreateIndexer502
+  | CreateIndexer503
 >;
 export type CreateIndexerMutationVariables = { data: IndexersNewIndexer };
 
@@ -1284,10 +1295,13 @@ export const useCreateIndexer = <
   TError = ErrorType<
     | CreateIndexer401
     | CreateIndexer403
+    | CreateIndexer404
     | CreateIndexer409
+    | CreateIndexer410
     | CreateIndexer422
     | CreateIndexer500
     | CreateIndexer502
+    | CreateIndexer503
   >,
   TContext = unknown,
 >(
@@ -1308,6 +1322,144 @@ export const useCreateIndexer = <
   TContext
 > => {
   return useMutation(getCreateIndexerMutationOptions(options), queryClient);
+};
+export const getGetIndexerCaptchaDraftUrl = () => {
+  return `/api/v1/indexers/captcha`;
+};
+
+/**
+ * @summary Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from
+ */
+export const getIndexerCaptchaDraft = async (
+  indexersNewIndexer: IndexersNewIndexer,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersCaptchaImage> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersCaptchaImage>(getGetIndexerCaptchaDraftUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersNewIndexer),
+  });
+};
+
+export const getGetIndexerCaptchaDraftMutationKey = () => ["getIndexerCaptchaDraft"] as const;
+
+export const getGetIndexerCaptchaDraftMutationOptions = <
+  TError = ErrorType<
+    | GetIndexerCaptchaDraft401
+    | GetIndexerCaptchaDraft403
+    | GetIndexerCaptchaDraft404
+    | GetIndexerCaptchaDraft409
+    | GetIndexerCaptchaDraft410
+    | GetIndexerCaptchaDraft422
+    | GetIndexerCaptchaDraft500
+    | GetIndexerCaptchaDraft502
+    | GetIndexerCaptchaDraft503
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+    TError,
+    GetIndexerCaptchaDraftMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+  TError,
+  GetIndexerCaptchaDraftMutationVariables,
+  TContext
+> => {
+  const mutationKey = getGetIndexerCaptchaDraftMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+    GetIndexerCaptchaDraftMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getIndexerCaptchaDraft(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetIndexerCaptchaDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getIndexerCaptchaDraft>>
+>;
+export type GetIndexerCaptchaDraftMutationBody = IndexersNewIndexer;
+export type GetIndexerCaptchaDraftMutationError = ErrorType<
+  | GetIndexerCaptchaDraft401
+  | GetIndexerCaptchaDraft403
+  | GetIndexerCaptchaDraft404
+  | GetIndexerCaptchaDraft409
+  | GetIndexerCaptchaDraft410
+  | GetIndexerCaptchaDraft422
+  | GetIndexerCaptchaDraft500
+  | GetIndexerCaptchaDraft502
+  | GetIndexerCaptchaDraft503
+>;
+export type GetIndexerCaptchaDraftMutationVariables = { data: IndexersNewIndexer };
+
+/**
+ * @summary Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from
+ */
+export const useGetIndexerCaptchaDraft = <
+  TError = ErrorType<
+    | GetIndexerCaptchaDraft401
+    | GetIndexerCaptchaDraft403
+    | GetIndexerCaptchaDraft404
+    | GetIndexerCaptchaDraft409
+    | GetIndexerCaptchaDraft410
+    | GetIndexerCaptchaDraft422
+    | GetIndexerCaptchaDraft500
+    | GetIndexerCaptchaDraft502
+    | GetIndexerCaptchaDraft503
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+      TError,
+      GetIndexerCaptchaDraftMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof getIndexerCaptchaDraft>>,
+  TError,
+  GetIndexerCaptchaDraftMutationVariables,
+  TContext
+> => {
+  return useMutation(getGetIndexerCaptchaDraftMutationOptions(options), queryClient);
 };
 export const getTestIndexerDraftUrl = () => {
   return `/api/v1/indexers/test`;
@@ -1353,10 +1505,13 @@ export const getTestIndexerDraftMutationOptions = <
   TError = ErrorType<
     | TestIndexerDraft401
     | TestIndexerDraft403
+    | TestIndexerDraft404
     | TestIndexerDraft409
+    | TestIndexerDraft410
     | TestIndexerDraft422
     | TestIndexerDraft500
     | TestIndexerDraft502
+    | TestIndexerDraft503
   >,
   TContext = unknown,
 >(options?: {
@@ -1399,10 +1554,13 @@ export type TestIndexerDraftMutationBody = IndexersNewIndexer;
 export type TestIndexerDraftMutationError = ErrorType<
   | TestIndexerDraft401
   | TestIndexerDraft403
+  | TestIndexerDraft404
   | TestIndexerDraft409
+  | TestIndexerDraft410
   | TestIndexerDraft422
   | TestIndexerDraft500
   | TestIndexerDraft502
+  | TestIndexerDraft503
 >;
 export type TestIndexerDraftMutationVariables = { data: IndexersNewIndexer };
 
@@ -1413,10 +1571,13 @@ export const useTestIndexerDraft = <
   TError = ErrorType<
     | TestIndexerDraft401
     | TestIndexerDraft403
+    | TestIndexerDraft404
     | TestIndexerDraft409
+    | TestIndexerDraft410
     | TestIndexerDraft422
     | TestIndexerDraft500
     | TestIndexerDraft502
+    | TestIndexerDraft503
   >,
   TContext = unknown,
 >(
@@ -1671,7 +1832,7 @@ export const getUpdateIndexerUrl = (id: string) => {
 };
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address or API key
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
  */
 export const updateIndexer = async (
   id: string,
@@ -1713,6 +1874,7 @@ export const getUpdateIndexerMutationOptions = <
     | UpdateIndexer403
     | UpdateIndexer404
     | UpdateIndexer409
+    | UpdateIndexer410
     | UpdateIndexer422
     | UpdateIndexer500
     | UpdateIndexer502
@@ -1758,6 +1920,7 @@ export type UpdateIndexerMutationError = ErrorType<
   | UpdateIndexer403
   | UpdateIndexer404
   | UpdateIndexer409
+  | UpdateIndexer410
   | UpdateIndexer422
   | UpdateIndexer500
   | UpdateIndexer502
@@ -1765,7 +1928,7 @@ export type UpdateIndexerMutationError = ErrorType<
 export type UpdateIndexerMutationVariables = { id: string; data: IndexersIndexerEdit };
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address or API key
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
  */
 export const useUpdateIndexer = <
   TError = ErrorType<
@@ -1773,6 +1936,7 @@ export const useUpdateIndexer = <
     | UpdateIndexer403
     | UpdateIndexer404
     | UpdateIndexer409
+    | UpdateIndexer410
     | UpdateIndexer422
     | UpdateIndexer500
     | UpdateIndexer502
@@ -1796,6 +1960,117 @@ export const useUpdateIndexer = <
   TContext
 > => {
   return useMutation(getUpdateIndexerMutationOptions(options), queryClient);
+};
+export const getGetIndexerCaptchaUrl = (id: string) => {
+  return `/api/v1/indexers/${id}/captcha`;
+};
+
+/**
+ * @summary Load the captcha of an Indexer's sign-in, from the Node it searches from
+ */
+export const getIndexerCaptcha = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersCaptchaImage> => {
+  return apiFetch<IndexersCaptchaImage>(getGetIndexerCaptchaUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGetIndexerCaptchaMutationKey = () => ["getIndexerCaptcha"] as const;
+
+export const getGetIndexerCaptchaMutationOptions = <
+  TError = ErrorType<
+    | GetIndexerCaptcha401
+    | GetIndexerCaptcha403
+    | GetIndexerCaptcha404
+    | GetIndexerCaptcha409
+    | GetIndexerCaptcha422
+    | GetIndexerCaptcha500
+    | GetIndexerCaptcha502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getIndexerCaptcha>>,
+    TError,
+    GetIndexerCaptchaMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getIndexerCaptcha>>,
+  TError,
+  GetIndexerCaptchaMutationVariables,
+  TContext
+> => {
+  const mutationKey = getGetIndexerCaptchaMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getIndexerCaptcha>>,
+    GetIndexerCaptchaMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return getIndexerCaptcha(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetIndexerCaptchaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getIndexerCaptcha>>
+>;
+
+export type GetIndexerCaptchaMutationError = ErrorType<
+  | GetIndexerCaptcha401
+  | GetIndexerCaptcha403
+  | GetIndexerCaptcha404
+  | GetIndexerCaptcha409
+  | GetIndexerCaptcha422
+  | GetIndexerCaptcha500
+  | GetIndexerCaptcha502
+>;
+export type GetIndexerCaptchaMutationVariables = { id: string };
+
+/**
+ * @summary Load the captcha of an Indexer's sign-in, from the Node it searches from
+ */
+export const useGetIndexerCaptcha = <
+  TError = ErrorType<
+    | GetIndexerCaptcha401
+    | GetIndexerCaptcha403
+    | GetIndexerCaptcha404
+    | GetIndexerCaptcha409
+    | GetIndexerCaptcha422
+    | GetIndexerCaptcha500
+    | GetIndexerCaptcha502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof getIndexerCaptcha>>,
+      TError,
+      GetIndexerCaptchaMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof getIndexerCaptcha>>,
+  TError,
+  GetIndexerCaptchaMutationVariables,
+  TContext
+> => {
+  return useMutation(getGetIndexerCaptchaMutationOptions(options), queryClient);
 };
 export const getListIndexerQueriesUrl = (id: string, params?: ListIndexerQueriesParams) => {
   const normalizedParams = new URLSearchParams();
@@ -1988,11 +2263,33 @@ export const getTestIndexerUrl = (id: string) => {
  */
 export const testIndexer = async (
   id: string,
+  indexersTestBody?: IndexersTestBody,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<IndexersReport> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return apiFetch<IndexersReport>(getTestIndexerUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersTestBody),
   });
 };
 
@@ -2004,6 +2301,7 @@ export const getTestIndexerMutationOptions = <
     | TestIndexer403
     | TestIndexer404
     | TestIndexer409
+    | TestIndexer410
     | TestIndexer422
     | TestIndexer500
     | TestIndexer502
@@ -2034,26 +2332,27 @@ export const getTestIndexerMutationOptions = <
     Awaited<ReturnType<typeof testIndexer>>,
     TestIndexerMutationVariables
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return testIndexer(id, requestOptions);
+    return testIndexer(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
 export type TestIndexerMutationResult = NonNullable<Awaited<ReturnType<typeof testIndexer>>>;
-
+export type TestIndexerMutationBody = IndexersTestBody | undefined;
 export type TestIndexerMutationError = ErrorType<
   | TestIndexer401
   | TestIndexer403
   | TestIndexer404
   | TestIndexer409
+  | TestIndexer410
   | TestIndexer422
   | TestIndexer500
   | TestIndexer502
 >;
-export type TestIndexerMutationVariables = { id: string };
+export type TestIndexerMutationVariables = { id: string; data?: IndexersTestBody };
 
 /**
  * @summary Test an Indexer from the Node it searches from. A pass clears its backoff and any stop.
@@ -2064,6 +2363,7 @@ export const useTestIndexer = <
     | TestIndexer403
     | TestIndexer404
     | TestIndexer409
+    | TestIndexer410
     | TestIndexer422
     | TestIndexer500
     | TestIndexer502
@@ -2199,382 +2499,3 @@ export function useListTrackersSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-export const getGetTrackerUrl = (id: string) => {
-  return `/api/v1/trackers/${id}`;
-};
-
-/**
- * @summary Get a Tracker
- */
-export const getTracker = async (
-  id: string,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<IndexersTracker> => {
-  return apiFetch<IndexersTracker>(getGetTrackerUrl(id), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getGetTrackerQueryKey = (id: string) => {
-  return [`/api/v1/trackers/${id}`] as const;
-};
-
-export const getGetTrackerSuspenseQueryOptions = <
-  TData = Awaited<ReturnType<typeof getTracker>>,
-  TError = ErrorType<
-    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
-  >,
->(
-  id: string,
-  options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getGetTrackerQueryKey(id);
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTracker>>> = ({ signal }) =>
-    getTracker(id, { signal, ...requestOptions });
-
-  return queryOptionsBuilder({
-    queryKey,
-    ...queryOptions,
-    queryFn: queryOptions?.queryFn ?? queryFn,
-  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-  } & {
-    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
-  };
-};
-
-export type GetTrackerSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getTracker>>>;
-export type GetTrackerSuspenseQueryError = ErrorType<
-  GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
->;
-
-export function useGetTrackerSuspense<
-  TData = Awaited<ReturnType<typeof getTracker>>,
-  TError = ErrorType<
-    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
-  >,
->(
-  id: string,
-  options: {
-    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-export function useGetTrackerSuspense<
-  TData = Awaited<ReturnType<typeof getTracker>>,
-  TError = ErrorType<
-    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
-  >,
->(
-  id: string,
-  options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-export function useGetTrackerSuspense<
-  TData = Awaited<ReturnType<typeof getTracker>>,
-  TError = ErrorType<
-    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
-  >,
->(
-  id: string,
-  options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-/**
- * @summary Get a Tracker
- */
-
-export function useGetTrackerSuspense<
-  TData = Awaited<ReturnType<typeof getTracker>>,
-  TError = ErrorType<
-    GetTracker401 | GetTracker403 | GetTracker404 | GetTracker409 | GetTracker422 | GetTracker500
-  >,
->(
-  id: string,
-  options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTracker>>, TError, TData>>;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getGetTrackerSuspenseQueryOptions(id, options);
-
-  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-export const getRenameTrackerUrl = (id: string) => {
-  return `/api/v1/trackers/${id}`;
-};
-
-/**
- * @summary Rename a Tracker. Every Indexer and Release that reached it still does.
- */
-export const renameTracker = async (
-  id: string,
-  renameTrackerInputBody: RenameTrackerInputBody,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<IndexersTracker> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return apiFetch<IndexersTracker>(getRenameTrackerUrl(id), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(renameTrackerInputBody),
-  });
-};
-
-export const getRenameTrackerMutationKey = () => ["renameTracker"] as const;
-
-export const getRenameTrackerMutationOptions = <
-  TError = ErrorType<
-    | RenameTracker401
-    | RenameTracker403
-    | RenameTracker404
-    | RenameTracker409
-    | RenameTracker422
-    | RenameTracker500
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof renameTracker>>,
-    TError,
-    RenameTrackerMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof renameTracker>>,
-  TError,
-  RenameTrackerMutationVariables,
-  TContext
-> => {
-  const mutationKey = getRenameTrackerMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof renameTracker>>,
-    RenameTrackerMutationVariables
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return renameTracker(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type RenameTrackerMutationResult = NonNullable<Awaited<ReturnType<typeof renameTracker>>>;
-export type RenameTrackerMutationBody = RenameTrackerInputBody;
-export type RenameTrackerMutationError = ErrorType<
-  | RenameTracker401
-  | RenameTracker403
-  | RenameTracker404
-  | RenameTracker409
-  | RenameTracker422
-  | RenameTracker500
->;
-export type RenameTrackerMutationVariables = { id: string; data: RenameTrackerInputBody };
-
-/**
- * @summary Rename a Tracker. Every Indexer and Release that reached it still does.
- */
-export const useRenameTracker = <
-  TError = ErrorType<
-    | RenameTracker401
-    | RenameTracker403
-    | RenameTracker404
-    | RenameTracker409
-    | RenameTracker422
-    | RenameTracker500
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof renameTracker>>,
-      TError,
-      RenameTrackerMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof renameTracker>>,
-  TError,
-  RenameTrackerMutationVariables,
-  TContext
-> => {
-  return useMutation(getRenameTrackerMutationOptions(options), queryClient);
-};
-export const getMergeTrackerUrl = (id: string) => {
-  return `/api/v1/trackers/${id}/merge`;
-};
-
-/**
- * @summary Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.
- */
-export const mergeTracker = async (
-  id: string,
-  mergeTrackerInputBody: MergeTrackerInputBody,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<IndexersTracker> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return apiFetch<IndexersTracker>(getMergeTrackerUrl(id), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(mergeTrackerInputBody),
-  });
-};
-
-export const getMergeTrackerMutationKey = () => ["mergeTracker"] as const;
-
-export const getMergeTrackerMutationOptions = <
-  TError = ErrorType<
-    | MergeTracker401
-    | MergeTracker403
-    | MergeTracker404
-    | MergeTracker409
-    | MergeTracker422
-    | MergeTracker500
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof mergeTracker>>,
-    TError,
-    MergeTrackerMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof mergeTracker>>,
-  TError,
-  MergeTrackerMutationVariables,
-  TContext
-> => {
-  const mutationKey = getMergeTrackerMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof mergeTracker>>,
-    MergeTrackerMutationVariables
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return mergeTracker(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type MergeTrackerMutationResult = NonNullable<Awaited<ReturnType<typeof mergeTracker>>>;
-export type MergeTrackerMutationBody = MergeTrackerInputBody;
-export type MergeTrackerMutationError = ErrorType<
-  | MergeTracker401
-  | MergeTracker403
-  | MergeTracker404
-  | MergeTracker409
-  | MergeTracker422
-  | MergeTracker500
->;
-export type MergeTrackerMutationVariables = { id: string; data: MergeTrackerInputBody };
-
-/**
- * @summary Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.
- */
-export const useMergeTracker = <
-  TError = ErrorType<
-    | MergeTracker401
-    | MergeTracker403
-    | MergeTracker404
-    | MergeTracker409
-    | MergeTracker422
-    | MergeTracker500
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof mergeTracker>>,
-      TError,
-      MergeTrackerMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof mergeTracker>>,
-  TError,
-  MergeTrackerMutationVariables,
-  TContext
-> => {
-  return useMutation(getMergeTrackerMutationOptions(options), queryClient);
-};

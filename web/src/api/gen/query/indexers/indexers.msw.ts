@@ -4,6 +4,7 @@ import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
 import type {
+  IndexersCaptchaImage,
   IndexersCatalogEntry,
   IndexersDefinitionForm,
   IndexersIndexer,
@@ -935,6 +936,17 @@ export const getListIndexersResponseMock = (
         null,
       ]),
       createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      definition: faker.helpers.arrayElement([
+        {
+          baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          values: {
+            [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        null,
+      ]),
       feedHost: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
         null,
@@ -1096,6 +1108,17 @@ export const getCreateIndexerResponseMock = (
     null,
   ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  definition: faker.helpers.arrayElement([
+    {
+      baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      values: {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   feedHost: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -1219,6 +1242,15 @@ export const getCreateIndexerResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetIndexerCaptchaDraftResponseMock = (
+  overrideResponse: Partial<Extract<IndexersCaptchaImage, object>> = {},
+): IndexersCaptchaImage => ({
+  attempt: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  image: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
 export const getTestIndexerDraftResponseMock = (
   overrideResponse: Partial<Extract<IndexersReport, object>> = {},
 ): IndexersReport => ({
@@ -1250,6 +1282,17 @@ export const getGetIndexerResponseMock = (
     null,
   ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  definition: faker.helpers.arrayElement([
+    {
+      baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      values: {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   feedHost: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -1386,6 +1429,17 @@ export const getUpdateIndexerResponseMock = (
     null,
   ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  definition: faker.helpers.arrayElement([
+    {
+      baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      values: {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   feedHost: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -1506,6 +1560,15 @@ export const getUpdateIndexerResponseMock = (
     },
     null,
   ]),
+  ...overrideResponse,
+});
+
+export const getGetIndexerCaptchaResponseMock = (
+  overrideResponse: Partial<Extract<IndexersCaptchaImage, object>> = {},
+): IndexersCaptchaImage => ({
+  attempt: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  image: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 });
 
@@ -1847,6 +1910,30 @@ export const getCreateIndexerMockHandler = (
   );
 };
 
+export const getGetIndexerCaptchaDraftMockHandler = (
+  overrideResponse?:
+    | IndexersCaptchaImage
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IndexersCaptchaImage> | IndexersCaptchaImage),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/indexers/captcha",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetIndexerCaptchaDraftResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getTestIndexerDraftMockHandler = (
   overrideResponse?:
     | IndexersReport
@@ -1931,6 +2018,30 @@ export const getUpdateIndexerMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getUpdateIndexerResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getGetIndexerCaptchaMockHandler = (
+  overrideResponse?:
+    | IndexersCaptchaImage
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IndexersCaptchaImage> | IndexersCaptchaImage),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/indexers/:id/captcha",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetIndexerCaptchaResponseMock(),
         { status: 200 },
       );
     },
@@ -2091,10 +2202,12 @@ export const getIndexersMock = () => [
   getUpdateIndexerSettingsMockHandler(),
   getListIndexersMockHandler(),
   getCreateIndexerMockHandler(),
+  getGetIndexerCaptchaDraftMockHandler(),
   getTestIndexerDraftMockHandler(),
   getDeleteIndexerMockHandler(),
   getGetIndexerMockHandler(),
   getUpdateIndexerMockHandler(),
+  getGetIndexerCaptchaMockHandler(),
   getListIndexerQueriesMockHandler(),
   getTestIndexerMockHandler(),
   getListTrackersMockHandler(),
