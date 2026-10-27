@@ -141,7 +141,7 @@ func APIKey(s scenario.Scenario) string {
 // Domain is the domain every site of fixture-site has its host under.
 const Domain = "fixture-site.fake.localhost"
 
-// Host is the host of the site labelled label.
+// Host is the host of the site whose label is label.
 func Host(label string) string { return label + "." + Domain }
 
 // TorznabPath is the Torznab feed's base, the Indexer URL an Admin enters

@@ -110,7 +110,7 @@ func TestDoctorCatchesARealIndexerURLAndPassesAMappedSite(t *testing.T) {
 	}
 	m := world.Manifest{
 		RunDir: runDir, CA: world.CAFile{File: ca}, APIKey: "ssk_test",
-		Nodes:  []world.Node{{Name: "home", Setup: scenario.SetupController, URL: controller.URL, NodeID: "n1", State: world.NodeRunning, PID: os.Getpid(),
+		Nodes: []world.Node{{Name: "home", Setup: scenario.SetupController, URL: controller.URL, NodeID: "n1", State: world.NodeRunning, PID: os.Getpid(),
 			Overrides: []node.Key{{Key: "endpoints.searching.sites", Value: "fixture-site.fake.localhost=127.0.0.1:1"}}}},
 		Fakes:  []world.Fake{{Name: "fixture-site"}},
 		Fronts: []world.Front{{Target: "fixture-site", Node: "home", Address: "127.0.0.1:1"}},
