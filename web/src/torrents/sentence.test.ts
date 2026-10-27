@@ -41,7 +41,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a resume inside a tracker's window says when it starts",
     { state: "paused", hold: "window", until: "2026-10-20T14:32:00Z" },
     undefined,
-    "Waiting for its tracker. It resumes at 14:32, when every tracker accepts an announce again.",
+    "Waiting for an announce. It resumes at 14:32, when every announce URL accepts one again.",
   ],
   [
     "the Admin's pause stays",

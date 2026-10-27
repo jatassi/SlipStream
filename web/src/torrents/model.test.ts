@@ -96,14 +96,14 @@ test.each<
 });
 
 test.each([
-  [undefined, { host: "No tracker", status: "" }],
+  [undefined, { host: "No announce URL", status: "" }],
   [
     { host: "beacon.example", status: "working" } as const,
     { host: "beacon.example", status: "Working" },
   ],
   [
     { host: "", status: "not_contacted" } as const,
-    { host: "Its tracker", status: "Not contacted yet" },
+    { host: "Its announce URL", status: "Not contacted yet" },
   ],
   [
     {

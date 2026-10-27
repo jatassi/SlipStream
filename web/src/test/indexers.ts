@@ -125,6 +125,16 @@ export const trackers: IndexersTracker[] = [
   },
 ];
 
+/** A Tracker whose last Indexer was deleted: its keys and hosts stay. */
+export const beyondHd: IndexersTracker = {
+  id: "3c4d5e6f-7a8b-4c9d-8e0f-2a3b4c5d6e7f",
+  name: "BeyondHD",
+  privacy: "private",
+  hosts: ["tracker.beyond-hd.me"],
+  keys: ["definition:beyondhd"],
+  indexerIds: [],
+};
+
 /** seedbox holding Searching beside home, so an Indexer can move between them. */
 export const searchingSeedbox: NodesNode = {
   ...seedbox,

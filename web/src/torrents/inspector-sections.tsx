@@ -4,7 +4,7 @@ import { Skeleton } from "../ui/skeleton";
 import type { Inspected } from "./inspector-detail";
 import { Files } from "./inspector-files";
 import { Grabs, Machinery } from "./inspector-grabs";
-import { Numbers, Trackers } from "./inspector-numbers";
+import { AnnounceUrls, Numbers } from "./inspector-numbers";
 import type { Row } from "./model";
 import type { Names } from "./names";
 
@@ -31,7 +31,7 @@ export function Sections({
   return (
     <>
       <Numbers row={row} detail={detail.data} live={live} />
-      <Trackers detail={detail.data} node={node} clock={clock} />
+      <AnnounceUrls detail={detail.data} node={node} clock={clock} />
       <Files detail={detail.data} />
       <Grabs detail={detail.data} names={names} />
       <Machinery detail={detail.data} clock={clock} />

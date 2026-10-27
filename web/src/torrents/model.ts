@@ -27,7 +27,7 @@ export const tabOrder = {
 export const stateWords: { readonly [S in State]: string } = {
   removing: "Removing",
   failed: "Failed",
-  "tracker-error": "Tracker error",
+  "tracker-error": "Announce error",
   paused: "Paused",
   checking: "Checking",
   queued: "Queued",
@@ -87,7 +87,7 @@ function heldLine(row: Row, { node, clock }: Place): string {
   switch (row.hold) {
     case "window":
       return row.until === undefined
-        ? "Waiting for its tracker"
+        ? "Waiting for an announce"
         : `Resumes at ${sinceWords(row.until, clock)}`;
     case "disk_full":
       return "Disk full, resumes once there is space";
@@ -150,9 +150,9 @@ export function trackerLine(
   clock: Clock,
 ): { host: string; status: string } {
   if (cell === undefined) {
-    return { host: "No tracker", status: "" };
+    return { host: "No announce URL", status: "" };
   }
-  const host = cell.host === "" ? "Its tracker" : cell.host;
+  const host = cell.host === "" ? "Its announce URL" : cell.host;
   const retry =
     cell.retryAt === undefined ? "" : `, retrying at ${sinceWords(cell.retryAt, clock)}`;
   switch (cell.status) {

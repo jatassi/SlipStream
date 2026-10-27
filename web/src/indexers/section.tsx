@@ -50,20 +50,25 @@ function IndexersSection() {
   return (
     <>
       <Section title="Indexers" count={indexers.length}>
-        {indexers.length === 0 ? (
-          <Empty>No Indexers yet. Every search asks each Indexer added here that is on.</Empty>
-        ) : (
-          <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5">
+          {indexers.length === 0 ? (
+            <Empty>No Indexers yet. Every search asks each Indexer added here that is on.</Empty>
+          ) : (
             <p className="text-ink-1">{summaryOf(indexers)}</p>
-            {groups.length === 1 && groups[0]?.tracker === null ? (
-              <UngroupedIndexers indexers={indexers} nodes={nodes} />
-            ) : (
-              groups.map((group) => (
-                <TrackerGroup key={group.tracker?.id ?? "none"} group={group} nodes={nodes} />
-              ))
-            )}
-          </div>
-        )}
+          )}
+          {groups.length === 1 && groups[0]?.tracker === null ? (
+            <UngroupedIndexers indexers={indexers} nodes={nodes} />
+          ) : (
+            groups.map((group) => (
+              <TrackerGroup
+                key={group.tracker?.id ?? "none"}
+                group={group}
+                trackers={trackers}
+                nodes={nodes}
+              />
+            ))
+          )}
+        </div>
       </Section>
       <LongBackoff />
     </>

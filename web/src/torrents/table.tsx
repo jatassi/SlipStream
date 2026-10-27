@@ -40,7 +40,7 @@ const columns: readonly Column[] = [
   { id: "progress", header: "Progress", cell: ProgressCell },
   { id: "ratio", header: "Ratio", cell: RatioCell },
   { id: "speed", header: "Speed", cell: SpeedCell },
-  { id: "tracker", header: "Tracker", cell: TrackerCell },
+  { id: "tracker", header: "Announce", cell: TrackerCell },
   { id: "node", header: "Node · client", cell: NodeCell },
 ];
 
