@@ -29,6 +29,11 @@ import (
 // List lists an unlisted release from now on: {"release": "<name>"}.
 var List = fake.CueSpec{Name: "fixture-site-list"}
 
+// Refuse has the Torznab API answer every request with Newznab error
+// code, one of newznabErrors, from now on: {"code": 101}. Code 0 serves
+// requests again.
+var Refuse = fake.CueSpec{Name: "fixture-site-refuse"}
+
 // Fake sends a Node's every host under Domain to that Node's front. An
 // Admin enters an Indexer's URL with its site's host.
 var Fake = fake.Spec{
@@ -39,7 +44,7 @@ var Fake = fake.Spec{
 		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
 	},
 	Online:  fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
-	Cues:    []fake.CueSpec{List, RSSItem},
+	Cues:    []fake.CueSpec{List, RSSItem, Refuse},
 	Entered: indexers,
 }
 
@@ -107,6 +112,9 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		return nil, err
 	}
 	if err := fake.OnCue(env, RSSItem.Name, site.rssItem); err != nil {
+		return nil, err
+	}
+	if err := fake.OnCue(env, Refuse.Name, site.refuse); err != nil {
 		return nil, err
 	}
 	return fake.HTTP(env, site.routes()), nil
@@ -180,6 +188,7 @@ type site struct {
 	mu        sync.Mutex
 	listed    map[string]bool
 	rssListed map[string]bool
+	refusal   int
 }
 
 // Announce is the tracker URL a .torrent announces to when origin fetches
@@ -225,6 +234,27 @@ func (s *site) list(_ context.Context, a ListArgs) (any, error) {
 	return wasListed{was}, nil
 }
 
+// RefuseArgs is the Newznab error code the Refuse cue answers with.
+type RefuseArgs struct {
+	Code int `json:"code"`
+}
+
+func (s *site) refuse(_ context.Context, a RefuseArgs) (any, error) {
+	if _, ok := newznabErrors[a.Code]; !ok && a.Code != 0 {
+		return nil, fmt.Errorf("the site gives no Newznab error %d", a.Code)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.refusal = a.Code
+	return struct{}{}, nil
+}
+
+func (s *site) refusing() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.refusal
+}
+
 // shown reports whether the feeds list rel.
 func (s *site) shown(rel Release) bool {
 	s.mu.Lock()
@@ -246,6 +276,10 @@ var newznabErrors = map[int]string{
 }
 
 func (s *site) api(w http.ResponseWriter, r *http.Request) {
+	if code := s.refusing(); code != 0 {
+		torznabError(w, code, newznabErrors[code])
+		return
+	}
 	q := r.URL.Query()
 	key := q.Get("apikey")
 	if key == PlayKey(http.StatusTooManyRequests) {

@@ -62,7 +62,7 @@ content-type=<media type>
 
 The `omdb` fake's `omdb-revoke-key` refuses `{"key": "…"}`, or every key it has seen, with OMDb's bad-key answer. `omdb-cap` spends the rest of today's allowance of `{"key": "…"}`, or of every key, so OMDb answers "Request limit reached!" until the next UTC midnight.
 
-`fixture-site-list` with `{"release": "<name>"}` lists a release the Scenario marks `unlisted: true`, so a search after the cue finds it and one before does not. The `targets` Scenario holds its Bluray back this way until its WEB-DL is imported.
+`fixture-site-list` with `{"release": "<name>"}` lists a release the Scenario marks `unlisted: true`, so a search after the cue finds it and one before does not. The `targets` Scenario holds its Bluray back this way until its WEB-DL is imported. `fixture-site-refuse` with `{"code": 101}` has the Torznab API answer every request with that Newznab error, which stops each Indexer on the site, and `{"code": 0}` serves requests again.
 
 `fixture-site-rss-item` with `{"release": "<name>"}` lists an `unlisted: true` release in Brook's RSS feed only, at `https://brook.fixture-site.fake.localhost/rss`. Brook's `?play=` takes `no-items`, `no-link`, `repeated-guid` or `no-size`, and any `brook_session` cookie other than the Scenario's gets 403.
 
