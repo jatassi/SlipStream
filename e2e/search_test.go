@@ -10,7 +10,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
-	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
@@ -19,12 +18,7 @@ import (
 // the same Releases. fields are more JSON fields of its draft.
 func (w *walked) addMirror(t *testing.T, fields string) string {
 	t.Helper()
-	i := slices.IndexFunc(w.m.Fronts, func(f world.Front) bool { return f.Target == "fixture-site" && f.Node == "seedbox" })
-	if i < 0 {
-		t.Fatal("the manifest lists no fixture-site front for seedbox")
-	}
-	body := `{"kind":"torznab","name":"Fixture Mirror","address":"` + strings.TrimSuffix(w.m.Fronts[i].URL, "/") + site.TorznabPath +
-		`","apiKey":"` + site.APIKey(w.s) + `","on":true,"automaticSearch":true,"priority":10` + fields + `}`
+	body := `{"kind":"torznab","name":"Fixture Mirror","address":"https://` + site.Host(site.Torznab) + site.TorznabPath + `","apiKey":"` + site.APIKey(w.s) + `","on":true,"automaticSearch":true,"priority":10` + fields + `}`
 	reply := w.a.Admin("home", http.MethodPost, "/api/v1/indexers", body)
 	if reply.Status != http.StatusCreated {
 		t.Fatalf("createIndexer = %d %s, want 201", reply.Status, reply.Body)
