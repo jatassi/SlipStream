@@ -94,7 +94,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	client := n.httpClient()
+	client := n.httpClient(n.env.Net.DialContext)
 	holder := n.openHolder(client)
 	opened := n.openLibraries()
 	var (
@@ -171,7 +171,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	searchv1connect.SearchingService.Mount(dispatch, n.searchingService(client))
+	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
@@ -418,17 +418,18 @@ func (n *Node) zone() *time.Location {
 	return n.env.Zone
 }
 
-// searchingService is the Searching service a half mounts, reaching sites over
-// client.
-func (n *Node) searchingService(client *http.Client) *searching.Service {
+// searchingService is the Searching service a half mounts, reaching each
+// site through endpoints.searching ahead of the Node's network.
+func (n *Node) searchingService() *searching.Service {
+	client := n.httpClient(n.cfg.Endpoints.Searching.Dial(n.env.Net.DialContext))
 	return searching.New(searching.Config{HTTP: client, Timings: n.cfg.Timings.Searching, Log: n.rootLog.With("subsystem", "searching")})
 }
 
-// httpClient is the half's client for every host the Node reaches, dialing
-// through the Node's network and trusting the OS roots.
-func (n *Node) httpClient() *http.Client {
+// httpClient is a half's client for the hosts the Node reaches, dialing
+// with dial and trusting the OS roots.
+func (n *Node) httpClient(dial searching.DialFunc) *http.Client {
 	transport := &http.Transport{
-		DialContext:         n.env.Net.DialContext,
+		DialContext:         dial,
 		ForceAttemptHTTP2:   true,
 		TLSHandshakeTimeout: 10 * time.Second,
 		IdleConnTimeout:     90 * time.Second,
@@ -484,9 +485,8 @@ func (n *Node) startWorker(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	client := n.httpClient()
-	searchv1connect.SearchingService.Mount(dispatch, n.searchingService(client))
-	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
+	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(n.httpClient(n.env.Net.DialContext))))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)

@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
@@ -31,7 +32,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	want := []string{
 		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
 		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines",
-		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog",
+		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
@@ -104,6 +105,24 @@ func TestHTTPConfigReadsListenAndTrustedOrigins(t *testing.T) {
 	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com,https://Media.Example.com:443/"}, noTypes, install.Dev)
 	if err == nil || err.Error() != `env: SLIPSTREAM_HTTP_TRUSTED_ORIGINS: item 2: "https://Media.Example.com:443/": not in canonical form. Write it as https://media.example.com` {
 		t.Fatalf("err = %v, want the bad origin named", err)
+	}
+}
+
+func TestEndpointsSearchingSitesReadsDomainAddressPairs(t *testing.T) {
+	fsys := fstest.MapFS{"config.yaml": {Data: []byte("endpoints:\n  searching:\n    sites: [fixture-site.fake.localhost=127.0.0.2:4431]\n")}}
+	cfg, _, err := loadConfig(fsys, nil, noTypes, install.Dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if at, ok := cfg.Endpoints.Searching.Address("torznab.fixture-site.fake.localhost"); !ok || at.String() != "127.0.0.2:4431" {
+		t.Fatalf("torznab.fixture-site.fake.localhost dials %s, %t; want 127.0.0.2:4431", at, ok)
+	}
+	if got := Defaults(noTypes, install.Dev).Endpoints.Searching.Sites; got != nil {
+		t.Fatalf("default endpoints.searching.sites = %v, want none", got)
+	}
+	_, _, err = loadConfig(fstest.MapFS{}, []string{"SLIPSTREAM_ENDPOINTS_SEARCHING_SITES=fixture-site.fake.localhost"}, noTypes, install.Dev)
+	if want := `env: SLIPSTREAM_ENDPOINTS_SEARCHING_SITES: item 1: "fixture-site.fake.localhost": not <domain>=<address>`; err == nil || err.Error() != want {
+		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
 
