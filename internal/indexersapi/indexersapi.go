@@ -329,59 +329,35 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 	return d, nil
 }
 
+// misfit is a field that doesn't fit an Indexer's kind when wrong holds.
+type misfit struct {
+	field   string
+	wrong   bool
+	message string
+}
+
 // fitsKind refuses a field n's kind doesn't take, and one it needs that n
 // leaves out.
 func (n newIndexer) fitsKind() error {
+	catalog, rss := n.Kind == string(indexers.Catalog), n.Kind == string(indexers.RSS)
 	var errs []api.FieldError
-	refuse := func(field, message string) {
-		errs = append(errs, api.FieldError{Location: "body." + field, Message: message})
-	}
-	switch indexers.Kind(n.Kind) {
-	case indexers.Catalog:
-		if n.Definition == "" {
-			refuse("definition", "Choose a definition from the Indexer catalog.")
+	for _, m := range []misfit{
+		{"definition", catalog && n.Definition == "", "Choose a definition from the Indexer catalog."},
+		{"address", catalog && n.Address != "", "A catalog Indexer takes one of its definition's addresses as baseAddress."},
+		{"apiKey", catalog && n.APIKey != "", "A catalog Indexer takes its API key as one of its values."},
+		{"trackerName", catalog && n.TrackerName != "", "A catalog Indexer's Tracker is named after its definition."},
+		{"definition", !catalog && (n.Definition != "" || n.BaseAddress != "" || n.Values != nil), "Only a catalog Indexer takes a definition, its addresses and its values."},
+		{"address", !catalog && n.Address == "", "Enter the feed's address."},
+		{"media", !rss && n.Media != nil, "Only an RSS feed takes Content Types in place of categories."},
+		{"allowNoSize", !rss && n.AllowNoSize, "Only an RSS feed may have items with no size."},
+		{"apiKey", rss && n.APIKey != "", "An RSS feed takes no API key. Put a passkey in its address."},
+		{"categories", rss && n.Categories != nil, "An RSS feed takes Content Types in place of categories."},
+		{"trackerName", rss && n.TrackerName == "", "Name the Tracker the RSS feed reaches."},
+		{"cookie", n.Kind == string(indexers.Torznab) && n.Cookie != nil, "A Torznab feed takes no cookie."},
+	} {
+		if m.wrong {
+			errs = append(errs, api.FieldError{Location: "body." + m.field, Message: m.message})
 		}
-		if n.Address != "" {
-			refuse("address", "A catalog Indexer takes one of its definition's addresses as baseAddress.")
-		}
-		if n.APIKey != "" {
-			refuse("apiKey", "A catalog Indexer takes its API key as one of its values.")
-		}
-		if n.TrackerName != "" {
-			refuse("trackerName", "A catalog Indexer's Tracker is named after its definition.")
-		}
-	case indexers.Torznab, indexers.RSS:
-		if n.Definition != "" || n.BaseAddress != "" || n.Values != nil {
-			refuse("definition", "Only a catalog Indexer takes a definition, its addresses and its values.")
-		}
-		if n.Address == "" {
-			refuse("address", "Enter the feed's address.")
-		}
-	}
-	if n.Kind != string(indexers.RSS) {
-		if n.Media != nil {
-			refuse("media", "Only an RSS feed takes Content Types in place of categories.")
-		}
-		if n.AllowNoSize {
-			refuse("allowNoSize", "Only an RSS feed may have items with no size.")
-		}
-	}
-	switch indexers.Kind(n.Kind) {
-	case indexers.RSS:
-		if n.APIKey != "" {
-			refuse("apiKey", "An RSS feed takes no API key. Put a passkey in its address.")
-		}
-		if n.Categories != nil {
-			refuse("categories", "An RSS feed takes Content Types in place of categories.")
-		}
-		if n.TrackerName == "" {
-			refuse("trackerName", "Name the Tracker the RSS feed reaches.")
-		}
-	case indexers.Torznab:
-		if n.Cookie != nil {
-			refuse("cookie", "A Torznab feed takes no cookie.")
-		}
-	case indexers.Catalog:
 	}
 	if errs != nil {
 		return api.Invalid.Fields(errs...)

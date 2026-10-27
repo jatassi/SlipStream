@@ -235,7 +235,7 @@ func (catalogDriver) signInJar(s *Site) *jar {
 // own, and the jar it ends with carries on to the next request. drive
 // returns the last jar. With signedOut it stops at a response that reads
 // as signed out, before x reads it, and reports it. An error Feed returns
-// ends x, whose Result returns it.
+// ends x, so Next stops, and x's Result returns it.
 func (catalogDriver) drive(ctx context.Context, s *Site, x cardigann.Exchange, j *jar, signedOut bool) (bool, *jar, error) {
 	base, cur := j, j
 	for {
@@ -257,9 +257,7 @@ func (catalogDriver) drive(ctx context.Context, s *Site, x cardigann.Exchange, j
 		if signedOut && readsSignedOut(s.def, req, res) {
 			return true, cur, nil
 		}
-		if x.Feed(res) != nil {
-			return false, cur, nil
-		}
+		_ = x.Feed(res)
 	}
 }
 

@@ -148,10 +148,8 @@ func ParseCaps(body []byte) (Caps, error) {
 	return c, nil
 }
 
-// mode is the t= value of a caps search element: <x>-search is t=x, but
+// Mode is the t= value of a caps search element: <x>-search is t=x, but
 // for the generic search and tv-search, whose t= is tvsearch.
-// Mode is the t= value of the search mode a caps element, such as
-// tv-search, describes.
 func Mode(element string) (string, bool) {
 	switch element {
 	case "search":
