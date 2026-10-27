@@ -231,8 +231,9 @@ func TestAFetchDropsOnlyWhenItWouldWaitForTheAdmin(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			x := &Indexers{cfg: Config{Roster: tc.r}}
-			if got := x.fetchGate(tc.idx, tc.st, t0); !reflect.DeepEqual(got, tc.want) {
-				t.Fatalf("fetchGate = %#v, want %#v", got, tc.want)
+			var got any = x.fetchGate(tc.idx, tc.st, t0)
+			if want := any(tc.want); !reflect.DeepEqual(got, want) {
+				t.Fatalf("fetchGate = %#v, want %#v", got, want)
 			}
 		})
 	}

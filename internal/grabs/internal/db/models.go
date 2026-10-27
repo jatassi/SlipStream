@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -39,10 +37,10 @@ type GrabsGrab struct {
 	ReleaseMagnet     *string
 	ReleaseInfoHash   []byte
 	FetchQueryID      indexers.QueryID
-	MinRatio          sql.NullFloat64
-	MinSeedSeconds    sql.NullInt64
-	DownloadFactor    sql.NullFloat64
-	UploadFactor      sql.NullFloat64
+	MinRatio          *float64
+	MinSeedSeconds    *int64
+	DownloadFactor    *float64
+	UploadFactor      *float64
 	Stage             Stage
 	TorrentID         downloadclients.ID
 	FileIndex         *int64

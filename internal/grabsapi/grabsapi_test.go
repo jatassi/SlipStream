@@ -299,6 +299,41 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)
 }
 
+type failedGrab struct {
+	ID        string `json:"id"`
+	IndexerID string `json:"indexerId"`
+	Stage     string `json:"stage"`
+	Failure   struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"failure"`
+}
+
+// failed reads the Grabs at each grabs.changed until n of them failed,
+// and returns them by Indexer.
+func (f *atticFixture) failed(t *testing.T, n int) map[string]failedGrab {
+	t.Helper()
+	for {
+		<-f.changed
+		_, got := f.s.Call(t, http.MethodGet, "/api/v1/grabs", "")
+		var list struct {
+			Grabs []failedGrab `json:"grabs"`
+		}
+		if err := json.Unmarshal([]byte(got), &list); err != nil {
+			t.Fatal(err)
+		}
+		byIndexer := map[string]failedGrab{}
+		for _, g := range list.Grabs {
+			if g.Stage == "failed" {
+				byIndexer[g.IndexerID] = g
+			}
+		}
+		if len(byIndexer) == n {
+			return byIndexer
+		}
+	}
+}
+
 // mirrors answers each Indexer's search with its own 1080p Release, a
 // fetch from stopped with a refused account, and any other fetch with
 // bytes that aren't bencode.
@@ -348,38 +383,10 @@ func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T
 	}
 	f.running(t)
 
-	type grabView struct {
-		ID        string `json:"id"`
-		IndexerID string `json:"indexerId"`
-		Stage     string `json:"stage"`
-		Failure   struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"failure"`
-	}
-	var list struct {
-		Grabs []grabView `json:"grabs"`
-	}
-	for failed := 0; failed < 2; {
-		<-f.changed
-		_, got := f.s.Call(t, http.MethodGet, "/api/v1/grabs", "")
-		if err := json.Unmarshal([]byte(got), &list); err != nil {
-			t.Fatal(err)
-		}
-		failed = 0
-		for _, g := range list.Grabs {
-			if g.Stage == "failed" {
-				failed++
-			}
-		}
-	}
-	byIndexer := map[string]grabView{}
-	for _, g := range list.Grabs {
-		byIndexer[g.IndexerID] = g
-	}
-	dropped, rerun := byIndexer[stopping.String()], byIndexer[other.String()]
+	failed := f.failed(t, 2)
+	dropped, rerun := failed[stopping.String()], failed[other.String()]
 	if dropped.Failure.Code != "indexer_stopped" || dropped.Failure.Message != "The Indexer stopped before the .torrent was fetched" || rerun.Failure.Code != "torrent_invalid" {
-		t.Fatalf("the Grabs are %+v, want Stopping Site's dropped indexer_stopped and Other Site's from the rerun", list.Grabs)
+		t.Fatalf("the Grabs are %+v, want Stopping Site's dropped indexer_stopped and Other Site's from the rerun", failed)
 	}
 	_, got := f.s.Call(t, http.MethodGet, f.search+"es", "")
 	var runs struct {

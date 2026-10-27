@@ -152,3 +152,19 @@ sql:
             go_type:
               type: string
               pointer: true
+          - column: grabs_grab.min_ratio
+            go_type:
+              type: float64
+              pointer: true
+          - column: grabs_grab.min_seed_seconds
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_grab.download_factor
+            go_type:
+              type: float64
+              pointer: true
+          - column: grabs_grab.upload_factor
+            go_type:
+              type: float64
+              pointer: true

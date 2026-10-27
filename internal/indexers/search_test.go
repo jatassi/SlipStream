@@ -94,7 +94,7 @@ func plannedWith(t *testing.T, names ...string) *planned {
 	p.x = indexers.New(indexers.Config{
 		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(self),
 		Searching: func(role.NodeID) searching.Remote { return p.node },
-		Types:     map[works.TypeID]indexers.Facet{indexerstest.Movie: indexerstest.Movies{}, contenttypetest.ID: fx},
+		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}, contenttypetest.ID: fx},
 		Works:     w,
 		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{},
 		Timings: indexers.DefaultTimings(), Zone: time.UTC,
@@ -110,12 +110,12 @@ func (p *planned) edit(name string, e indexers.Edit) {
 	}
 }
 
-func (p *planned) plan(typ works.TypeID) []indexers.Line {
+func (p *planned) plan() []indexers.Line {
 	p.t.Helper()
 	var lines []indexers.Line
 	err := p.lib.Write(p.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		lines, err = p.x.Plan(ctx, tx, typ)
+		lines, err = p.x.Plan(ctx, tx, indexerstest.Type)
 		return err
 	})
 	if err != nil {
@@ -128,7 +128,7 @@ func (p *planned) plan(typ works.TypeID) []indexers.Line {
 func (p *planned) search(lines []indexers.Line) []indexers.Answer {
 	p.t.Helper()
 	asked := slices.DeleteFunc(slices.Clone(lines), func(l indexers.Line) bool { return l.Skipped != nil })
-	answers, err := p.x.Search(p.t.Context(), indexers.Search{Type: indexerstest.Movie, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: asked})
+	answers, err := p.x.Search(p.t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: asked})
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestPlanAsksEachIndexerByPriorityAndSaysWhyItSkipsOne(t *testing.T) {
 	p.node.answer(p.ids["Birch"], searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
 	p.node.answer(p.ids["Gale"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
 
-	first := p.plan(indexerstest.Movie)
+	first := p.plan()
 	if got, want := spelled(first), []string{"Birch asked", "Elm no_categories", "Fir asked", "Gale asked", "Alder asked"}; !slices.Equal(got, want) {
 		t.Fatalf("the first plan = %q, want %q", got, want)
 	}
@@ -176,11 +176,11 @@ func TestPlanAsksEachIndexerByPriorityAndSaysWhyItSkipsOne(t *testing.T) {
 	}
 	for _, j := range p.node.jobs {
 		if !slices.Equal(j.Categories, []int{2000}) {
-			t.Fatalf("Indexer %s was asked for categories %v, want the Movies categories it has, [2000]", j.Indexer, j.Categories)
+			t.Fatalf("Indexer %s was asked for categories %v, want the categories it has in family 2000, [2000]", j.Indexer, j.Categories)
 		}
 	}
 
-	second := p.plan(indexerstest.Movie)
+	second := p.plan()
 	if got, want := spelled(second), []string{"Birch asked", "Elm no_categories", "Fir limit_reached", "Gale stopped", "Alder asked"}; !slices.Equal(got, want) {
 		t.Fatalf("the second plan = %q, want %q", got, want)
 	}
@@ -191,7 +191,7 @@ func TestPlanAsksEachIndexerByPriorityAndSaysWhyItSkipsOne(t *testing.T) {
 
 func TestAnIndexerDeletedSinceThePlanAnswersRemoved(t *testing.T) {
 	p := plannedWith(t, "Alder", "Birch")
-	lines := p.plan(indexerstest.Movie)
+	lines := p.plan()
 	if err := p.x.Delete(t.Context(), identity.Admin{}, p.ids["Alder"]); err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestTakeReservesAGrabUnlessTheFetchWouldWaitForTheAdmin(t *testing.T) {
 		t.Fatalf("taking a second .torrent past a grab limit of one an hour = %v, want limit_reached", err)
 	}
 	p.node.answer(p.ids["Birch"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
-	p.search(p.plan(indexerstest.Movie))
+	p.search(p.plan())
 	if _, err := p.take("Birch", torrent); !notTaken(err, indexers.IsStopped) {
 		t.Fatalf("taking a stopped Indexer's .torrent = %v, want stopped", err)
 	}

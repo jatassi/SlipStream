@@ -2,7 +2,6 @@ package grabs
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -131,23 +130,13 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 			return err
 		}
 		started := storage.Now()
-		q := db.New(tx)
 		for _, it := range tree.Items {
 			if !slices.ContainsFunc(open, func(c files.Cell) bool { return c.Item.ID == it.ID }) {
 				continue
 			}
-			id := SearchID{UUID: storage.NewUUID()}
-			if err := q.InsertSearch(ctx, db.InsertSearchParams{ID: id, WorkID: work, ItemID: it.ID, StartedAt: started}); err != nil {
-				return err
-			}
-			lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType)
+			id, err := gr.plan(ctx, tx, tree, it.ID, started)
 			if err != nil {
 				return err
-			}
-			for i, l := range lines {
-				if err := q.InsertSearchIndexer(ctx, lineRow(id, i, l)); err != nil {
-					return err
-				}
 			}
 			ids = append(ids, id)
 		}
@@ -164,6 +153,26 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 	}
 	gr.wake()
 	return ids, nil
+}
+
+// plan records a search run of item with the lines Plan read and
+// reserved.
+func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree, item works.ItemID, started storage.Time) (SearchID, error) {
+	q := db.New(tx)
+	id := SearchID{UUID: storage.NewUUID()}
+	if err := q.InsertSearch(ctx, db.InsertSearchParams{ID: id, WorkID: tree.ID, ItemID: item, StartedAt: started}); err != nil {
+		return SearchID{}, err
+	}
+	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType)
+	if err != nil {
+		return SearchID{}, err
+	}
+	for i, l := range lines {
+		if err := q.InsertSearchIndexer(ctx, lineRow(id, i, l)); err != nil {
+			return SearchID{}, err
+		}
+	}
+	return id, nil
 }
 
 // searchable is why tree can't be searched, nil when it can: no Indexer
@@ -446,10 +455,8 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Searc
 		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: t.Indexer, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
 		ReleaseInfoHash: hint, FetchQueryID: t.Query, CreatedAt: now,
-		MinRatio:       sql.NullFloat64{Float64: r.Floor.MinRatio, Valid: r.Floor.MinRatio > 0},
-		MinSeedSeconds: sql.NullInt64{Int64: int64(r.Floor.MinSeed.Seconds()), Valid: r.Floor.MinSeed > 0},
-		DownloadFactor: sql.NullFloat64{Float64: r.Factors.Download, Valid: true},
-		UploadFactor:   sql.NullFloat64{Float64: r.Factors.Upload, Valid: true},
+		MinRatio: orNil(r.Floor.MinRatio), MinSeedSeconds: orNil(int64(r.Floor.MinSeed.Seconds())),
+		DownloadFactor: new(r.Factors.Download), UploadFactor: new(r.Factors.Upload),
 	})
 	if err != nil {
 		return Grab{}, err
@@ -510,9 +517,10 @@ func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.Work
 	return out, err
 }
 
-func orNil(s string) *string {
-	if s == "" {
+func orNil[T comparable](v T) *T {
+	var zero T
+	if v == zero {
 		return nil
 	}
-	return &s
+	return &v
 }

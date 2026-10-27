@@ -192,7 +192,7 @@ func best(picks []Pick, refused []Refusal) (*Pick, []Refusal) {
 	return &picks[0], refused
 }
 
-func from(priority int, title string, hash string, size int64, at int) candidate {
+func from(priority int, title, hash string, size int64, at int) candidate {
 	c := listed(title, 5, size, nil)
 	c.Release.Priority, c.at = priority, at
 	if hash != "" {

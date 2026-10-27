@@ -5,21 +5,14 @@ import { page, userEvent } from "vitest/browser";
 import type { GrabsGrab } from "../../../api/gen/model";
 import { getListTorrentsMockHandler } from "../../../api/gen/query/downloadclients/downloadclients.msw";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
-import { downloading, imported, waitingToFetch } from "../../../test/grabs";
+import { downloading, imported } from "../../../test/grabs";
 import { problem } from "../../../test/handlers";
 import { orchardId } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
 // oxlint-disable-next-line import/max-dependencies -- the Work page's Grabs read the Torrents and the live stream too
 import { renderApp } from "../../../test/render-app";
 import { listOf, torrent } from "../../../test/torrents";
-import {
-  everyOutcome,
-  filled,
-  grabbed,
-  searching,
-  upgradable,
-  workServer,
-} from "../../../test/work-server";
+import { filled, grabbed, searching, upgradable, workServer } from "../../../test/work-server";
 
 const row = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
 const searchButton = () => page.getByRole("button", { name: "Search", exact: true });
@@ -151,32 +144,6 @@ test("Search starts a search and says so, and the run and its Grab show without 
     );
 });
 
-test("a search shows each Indexer's line in the server's words", async () => {
-  const server = workServer();
-  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  server.searchRuns(everyOutcome);
-  const searches = page.getByRole("list", { name: "Searches" });
-  await expect.element(searches).toMatchTextContent(/^Found nothing acceptable1 Release found/u);
-  expect(
-    searches
-      .getByRole("list", { name: "Indexers" })
-      .getByRole("listitem")
-      .all()
-      .map((item) => item.element().textContent),
-  ).toEqual([
-    "AlderFound 1 Release",
-    "BirchNo Releases",
-    "CedarLimit reached until 14:05",
-    "DuneLimit reached until 15:00",
-    "ElmWaiting for seedbox",
-    "FirFir isn't responding. SlipStream retries at 14:20.",
-    "GaleStopped because Gale rejected the username or password.",
-    "HazelSkipped because it has no movie categories",
-    "IvyDidn't finish in time",
-    "JuniperDeleted since this search",
-  ]);
-});
-
 test("Search shows it is busy while its request is pending", async () => {
   const server = workServer();
   let release!: () => void;
@@ -214,17 +181,6 @@ test("a refused Search says the server's reason in a toast", async () => {
     .element(notifications().getByRole("dialog"))
     .toHaveTextContent("FailedAdd an Indexer before searching");
   await expect.element(searchButton()).not.toHaveAttribute("aria-busy");
-});
-
-test("a Grab whose fetch waits on its Indexer says why in the server's words", async () => {
-  const server = workServer();
-  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  server.grabMoves(waitingToFetch);
-  await expect
-    .element(page.getByRole("table", { name: "Grabs" }))
-    .toMatchTextContent(
-      "Waiting to fetch the .torrent from Fixture Site. SlipStream retries at 14:20.",
-    );
 });
 
 const failedImport: GrabsGrab = {

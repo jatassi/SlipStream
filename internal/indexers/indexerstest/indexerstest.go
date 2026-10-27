@@ -67,20 +67,20 @@ func (r Roster) Name(n role.NodeID) string {
 	return "node " + n.String()
 }
 
-// Movie is the Movies Content Type's id.
-const Movie works.TypeID = "movie"
+// Type is a Content Type searched in the Newznab family 2000.
+const Type works.TypeID = "searched"
 
-// Movies is a Facet with the Movies categories and the zero Terms.
-type Movies struct{}
+// Facet is Type's: the family 2000 and the zero Terms.
+type Facet struct{}
 
-func (Movies) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
+func (Facet) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
 }
 
-func (Movies) Categories() []newznab.ID { return newznab.Family(2000) }
+func (Facet) Categories() []newznab.ID { return newznab.Family(2000) }
 
-// Caps are a saved Torznab Indexer's: a free-text search, a movie search
-// by id, and the Movies categories.
+// Caps are a saved Torznab Indexer's: a free-text search, a search by
+// id, and the categories of family 2000.
 const Caps = `{"modes":{"search":["q"],"movie":["q","imdbid","tmdbid"]},"categories":[2000]}`
 
 // Torznab saves a Torznab Indexer homed on home, at revision 1 with no
