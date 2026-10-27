@@ -32,9 +32,7 @@ const (
 	Ferry = "ferry"
 )
 
-var catalogSites = []string{Larkspur, Quarry, Cinder, Marsh, Ferry}
-
-func catalogSite(label string) bool { return slices.Contains(catalogSites, label) }
+func catalogSite(label string) bool { return slices.Contains(scenario.FixtureSites["catalog"], label) }
 
 var (
 	// Expire signs every session of a catalog site out, and makes a pasted
@@ -105,6 +103,26 @@ const ClearanceCookie = "cf_clearance"
 // a Node's name, that send userAgent, in a world with Scenario s.
 func Clearance(s scenario.Scenario, origin, userAgent string) string {
 	return derive(s.Seed, "clearance", origin, userAgent)[:40]
+}
+
+// BrowserUserAgent is the User-Agent of the browser an Admin pastes
+// Cinder's cookie from.
+const BrowserUserAgent = "Mozilla/5.0 (fixture)"
+
+// Credentials are what an Admin enters to add an Indexer for the catalog
+// site label that searches from Node origin, in a world with Scenario s:
+// its settings, and the browser cookie it pastes with BrowserUserAgent, ""
+// for none.
+func Credentials(s scenario.Scenario, label, origin string) (map[string]string, string) {
+	switch label {
+	case Quarry:
+		return map[string]string{"apikey": Key(s, Quarry)}, ""
+	case Ferry:
+		return map[string]string{"passkey": Key(s, Ferry)}, ""
+	case Cinder:
+		return map[string]string{}, SessionCookie(s) + "; " + ClearanceCookie + "=" + Clearance(s, origin, BrowserUserAgent)
+	}
+	return map[string]string{"username": Username, "password": Password(s, label)}, ""
 }
 
 // session is one sign-in to a catalog site, valid only from the Node that

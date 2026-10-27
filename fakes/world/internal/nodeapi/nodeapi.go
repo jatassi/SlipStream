@@ -7,11 +7,13 @@ package nodeapi
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -193,21 +195,92 @@ func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentTyp
 	return root.ID, err
 }
 
-// CreateIndexer creates an Indexer and returns its id.
-func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, address, indexerKey string) (string, error) {
+// NewIndexer is an Indexer as an Admin adds it.
+type NewIndexer struct {
+	Kind          string            `json:"kind"`
+	Name          string            `json:"name"`
+	HomeNodeID    string            `json:"homeNodeId,omitempty"`
+	Definition    string            `json:"definition,omitempty"`
+	Values        map[string]string `json:"values,omitempty"`
+	Address       string            `json:"address,omitempty"`
+	APIKey        string            `json:"apiKey,omitempty"`
+	TrackerName   string            `json:"trackerName,omitempty"`
+	Media         []string          `json:"media,omitempty"`
+	Cookie        *PastedCookie     `json:"cookie,omitempty"`
+	AllowFailover bool              `json:"allowFailover,omitempty"`
+	Captcha       *CaptchaAnswer    `json:"captcha,omitempty"`
+}
+
+type PastedCookie struct {
+	Cookie    string `json:"cookie"`
+	UserAgent string `json:"userAgent"`
+}
+
+type CaptchaAnswer struct {
+	Attempt string `json:"attempt"`
+	Answer  string `json:"answer"`
+}
+
+// CreateIndexer creates ix and returns its id.
+func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey string, ix NewIndexer) (string, error) {
 	var indexer struct {
 		ID string `json:"id"`
 	}
 	err := call(ctx, c, request{
-		what: "create Indexer " + name, method: http.MethodPost, url: baseURL + "/api/v1/indexers",
-		header: apiKeyHeader(apiKey), body: struct {
-			Kind    string `json:"kind"`
-			Name    string `json:"name"`
-			Address string `json:"address"`
-			APIKey  string `json:"apiKey"`
-		}{"torznab", name, address, indexerKey}, want: http.StatusCreated,
+		what: "create Indexer " + ix.Name, method: http.MethodPost, url: baseURL + "/api/v1/indexers",
+		header: apiKeyHeader(apiKey), body: ix, want: http.StatusCreated,
 	}, &indexer)
 	return indexer.ID, err
+}
+
+// IndexerCaptcha loads the captcha of ix's sign-in and returns its attempt
+// and its image.
+func IndexerCaptcha(ctx context.Context, c *http.Client, baseURL, apiKey string, ix NewIndexer) (string, []byte, error) {
+	var captcha struct {
+		Attempt string `json:"attempt"`
+		Image   string `json:"image"`
+	}
+	err := call(ctx, c, request{
+		what: "load Indexer " + ix.Name + "'s captcha", method: http.MethodPost, url: baseURL + "/api/v1/indexers/captcha",
+		header: apiKeyHeader(apiKey), body: ix, want: http.StatusOK,
+	}, &captcha)
+	if err != nil {
+		return "", nil, err
+	}
+	_, data, ok := strings.Cut(captcha.Image, ";base64,")
+	if !ok {
+		return "", nil, fmt.Errorf("load Indexer %s's captcha: the image isn't a base64 data URL", ix.Name)
+	}
+	img, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "", nil, fmt.Errorf("load Indexer %s's captcha: %w", ix.Name, err)
+	}
+	return captcha.Attempt, img, nil
+}
+
+// SignInCaptcha reports whether signing in with definition id asks for a
+// captcha. It fails while the Indexer catalog hasn't been downloaded.
+func SignInCaptcha(ctx context.Context, c *http.Client, baseURL, apiKey, id string) (bool, error) {
+	var form struct {
+		Captcha bool `json:"captcha"`
+	}
+	err := call(ctx, c, request{
+		what: "get definition " + id, method: http.MethodGet, url: baseURL + "/api/v1/indexer-catalog/" + id,
+		header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, &form)
+	return form.Captcha, err
+}
+
+// CatalogRefreshed reports whether a refresh has read the Indexer catalog.
+func CatalogRefreshed(ctx context.Context, c *http.Client, baseURL, apiKey string) (bool, error) {
+	var catalog struct {
+		RefreshedAt *string `json:"refreshedAt"`
+	}
+	err := call(ctx, c, request{
+		what: "get the Indexer catalog", method: http.MethodGet, url: baseURL + "/api/v1/indexer-catalog",
+		header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, &catalog)
+	return catalog.RefreshedAt != nil, err
 }
 
 // CreateTarget creates the Scenario Target t and returns its id.

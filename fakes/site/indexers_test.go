@@ -181,8 +181,8 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 			t.Errorf("Cinder without a cookie = %v, want ErrCookieNeeded", err)
 		}
 		cinder.Cookie = &indexers.PastedCookie{
-			Cookie:    site.SessionCookie(w.s) + "; " + site.ClearanceCookie + "=" + site.Clearance(w.s, "seedbox", browser),
-			UserAgent: browser,
+			Cookie:    site.SessionCookie(w.s) + "; " + site.ClearanceCookie + "=" + site.Clearance(w.s, "seedbox", site.BrowserUserAgent),
+			UserAgent: site.BrowserUserAgent,
 		}
 		if v, err := x.Create(t.Context(), admin, cinder, nil); err != nil || !v.SignsIn || v.Session == nil || !v.Session.Pasted {
 			t.Errorf("Cinder with a pasted cookie = %+v, %v; want it signed in with the pasted session", v, err)

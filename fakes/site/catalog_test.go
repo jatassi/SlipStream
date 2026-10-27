@@ -27,9 +27,6 @@ import (
 const (
 	orchard = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW"
 	meadow  = "Salt.Meadow.2020.1080p.WEB-DL.H264-FKW"
-	// browser is the User-Agent of the browser an Admin pasted Cinder's
-	// cookie from.
-	browser = "Mozilla/5.0 (fixture)"
 )
 
 // catalogWorld is fixture-site as seedbox reaches it, listing a .torrent
@@ -247,9 +244,9 @@ func cinderSession(s scenario.Scenario, origin string) *searching.Session {
 	return &searching.Session{
 		Cookies: []searching.Cookie{
 			{Name: name, Value: value, Domain: host, Path: "/", HostOnly: true},
-			{Name: site.ClearanceCookie, Value: site.Clearance(s, origin, browser), Domain: host, Path: "/", HostOnly: true},
+			{Name: site.ClearanceCookie, Value: site.Clearance(s, origin, site.BrowserUserAgent), Domain: host, Path: "/", HostOnly: true},
 		},
-		UserAgent: browser, Pasted: true, Earned: time.Now(),
+		UserAgent: site.BrowserUserAgent, Pasted: true, Earned: time.Now(),
 	}
 }
 
