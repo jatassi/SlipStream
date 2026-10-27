@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
@@ -118,12 +119,18 @@ func soonest(a, b time.Time) time.Time {
 	return a
 }
 
+// stopItem links a challenge met with no Challenge solver to the
+// Searching section of the Node it was met on, where the solver is set.
 func (x *Indexers) stopItem(idx Indexer, st Status) health.Item {
+	action := indexerLink(idx)
+	if st.Cause == searching.ChallengeUnsolved && !st.SolverTried {
+		action = health.LinkAction("/nodes/"+st.Node.String()+"/searching", "Open Searching on "+x.cfg.Roster.Name(st.Node))
+	}
 	return health.Item{Key: health.KeyOf("stopped", idx.ID.String()), Level: health.Fail, Says: health.Says{
 		Subject: idx.Name,
 		Text:    x.stopItemWords(idx.Name, st),
 		Detail:  []health.Fact{{Label: "Stopped since", At: st.Since}},
-		Action:  indexerLink(idx),
+		Action:  action,
 	}}
 }
 

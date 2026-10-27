@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -76,7 +74,7 @@ type IndexersIndexer struct {
 type IndexersNode struct {
 	NodeID               role.NodeID
 	SolverAddress        string
-	SolverTimeoutSeconds sql.NullInt64
+	SolverTimeoutSeconds *int64
 }
 
 type IndexersQuery struct {

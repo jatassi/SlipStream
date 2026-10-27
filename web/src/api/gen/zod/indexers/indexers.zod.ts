@@ -4,6 +4,7 @@ import {
   IndexersCaptchaImage,
   IndexersCatalogAddress,
   IndexersCatalogEntry,
+  IndexersChallengeSolver,
   IndexersCustomDefinition,
   IndexersDefinitionForm,
   IndexersIndexer,
@@ -15,6 +16,7 @@ import {
   IndexersReport,
   IndexersSettings,
   IndexersSettingsChange,
+  IndexersSolverChange,
   IndexersTestBody,
   IndexersTracker,
   IndexersTrackerList,
@@ -168,6 +170,26 @@ export const TestIndexerParams = zod.object({
 export const TestIndexerBody = IndexersTestBody;
 
 export const TestIndexerResponse = IndexersReport;
+
+/**
+ * @summary Get the Challenge solver of a Node that stands in Searching
+ */
+export const GetChallengeSolverParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const GetChallengeSolverResponse = IndexersChallengeSolver;
+
+/**
+ * @summary Set a Node's Challenge solver once the Node reaches the solver's /health, or remove it with an empty address
+ */
+export const SetChallengeSolverParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const SetChallengeSolverBody = IndexersSolverChange;
+
+export const SetChallengeSolverResponse = IndexersChallengeSolver;
 
 /**
  * @summary List the Trackers and the Indexers that reach each

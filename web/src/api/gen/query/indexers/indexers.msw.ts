@@ -6,6 +6,7 @@ import type { RequestHandlerOptions } from "msw";
 import type {
   IndexersCaptchaImage,
   IndexersCatalogEntry,
+  IndexersChallengeSolver,
   IndexersDefinitionForm,
   IndexersIndexer,
   IndexersIndexerCatalog,
@@ -1618,6 +1619,22 @@ export const getTestIndexerResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetChallengeSolverResponseMock = (
+  overrideResponse: Partial<Extract<IndexersChallengeSolver, object>> = {},
+): IndexersChallengeSolver => ({
+  address: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  timeout: faker.number.int({ min: 10, max: 180 }),
+  ...overrideResponse,
+});
+
+export const getSetChallengeSolverResponseMock = (
+  overrideResponse: Partial<Extract<IndexersChallengeSolver, object>> = {},
+): IndexersChallengeSolver => ({
+  address: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  timeout: faker.number.int({ min: 10, max: 180 }),
+  ...overrideResponse,
+});
+
 export const getListTrackersResponseMock = (
   overrideResponse: Partial<Extract<IndexersTrackerList, object>> = {},
 ): IndexersTrackerList => ({
@@ -2098,6 +2115,54 @@ export const getTestIndexerMockHandler = (
   );
 };
 
+export const getGetChallengeSolverMockHandler = (
+  overrideResponse?:
+    | IndexersChallengeSolver
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IndexersChallengeSolver> | IndexersChallengeSolver),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/nodes/:id/challenge-solver",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetChallengeSolverResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetChallengeSolverMockHandler = (
+  overrideResponse?:
+    | IndexersChallengeSolver
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<IndexersChallengeSolver> | IndexersChallengeSolver),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/nodes/:id/challenge-solver",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetChallengeSolverResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListTrackersMockHandler = (
   overrideResponse?:
     | IndexersTrackerList
@@ -2211,6 +2276,8 @@ export const getIndexersMock = () => [
   getGetIndexerCaptchaMockHandler(),
   getListIndexerQueriesMockHandler(),
   getTestIndexerMockHandler(),
+  getGetChallengeSolverMockHandler(),
+  getSetChallengeSolverMockHandler(),
   getListTrackersMockHandler(),
   getGetTrackerMockHandler(),
   getRenameTrackerMockHandler(),

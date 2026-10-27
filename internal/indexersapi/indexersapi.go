@@ -685,6 +685,8 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateSettings)
+
+	solverRoutes(o, h)
 }
 
 type handlers struct{ registry Registry }

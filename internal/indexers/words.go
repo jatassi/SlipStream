@@ -313,6 +313,11 @@ func (x *Indexers) failingItemWords(name string, st Status, now time.Time) strin
 	return x.retries(fmt.Sprintf("Every request to %s has failed since %s.", name, x.clock(st.Since)), until)
 }
 
+// Sentence is the Challenge solver Test's failure, for the form.
+func (e *SolverUnreachableError) Sentence() string {
+	return fmt.Sprintf("%[1]s can't reach a Challenge solver at %[2]s. Check the address and that the solver is running beside %[1]s.", e.Node, e.Address)
+}
+
 // unservedWords is the Health item of a Content Type whose Works, many,
 // no usable Indexer searches for.
 func unservedWords(many string) string {

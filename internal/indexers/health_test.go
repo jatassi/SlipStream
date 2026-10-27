@@ -118,20 +118,24 @@ func (w *healthWorld) answer(t *testing.T) health.Answer {
 
 func (w *healthWorld) key(kind string) health.Key { return health.KeyOf(kind, w.id.String()) }
 
-func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToTheIndexer(t *testing.T) {
+// TestEachStopRaisesOneFailThatNamesItsFixAndLinksToIt links each stop to
+// the Indexer, except a challenge with no Challenge solver, which links to
+// the Searching section of the Node it was met on.
+func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToIt(t *testing.T) {
 	cases := []struct {
-		stop *searching.Stopped
-		want string
+		stop     *searching.Stopped
+		want     string
+		atSolver bool
 	}{
-		{&searching.Stopped{Cause: searching.CredentialsRejected}, "Fixture Site rejected the username or password. Update them on the Indexer and test it."},
-		{&searching.Stopped{Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Fixture Site refused the sign-in with 'Wrong code'. Check the username, password and any code on the Indexer, then test it."},
-		{&searching.Stopped{Cause: searching.CaptchaNeeded}, "Fixture Site needs a captcha to sign in again. Open the Indexer and type the code."},
-		{&searching.Stopped{Cause: searching.ChallengeUnsolved}, "Fixture Site is behind a browser challenge, and seedbox has no Challenge solver. Set one on seedbox, or paste a browser cookie on the Indexer."},
-		{&searching.Stopped{Cause: searching.ChallengeUnsolved, SolverTried: true}, "seedbox's Challenge solver couldn't clear Fixture Site's challenge. Paste a browser cookie on the Indexer."},
-		{&searching.Stopped{Cause: searching.CookieExpired}, "Fixture Site no longer accepts the browser cookie. Paste a new one on the Indexer."},
-		{&searching.Stopped{Cause: searching.DefinitionUnloadable}, "Fixture Site's definition doesn't load. Replace the custom definition, or wait for a catalog fix."},
-		{&searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}, "Fixture Site refused the API key with 'Account suspended'. Check the account, then test the Indexer."},
-		{&searching.Stopped{Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Fixture Site refused a search with 'Incorrect parameter'. Test the Indexer after the feed is fixed."},
+		{&searching.Stopped{Cause: searching.CredentialsRejected}, "Fixture Site rejected the username or password. Update them on the Indexer and test it.", false},
+		{&searching.Stopped{Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Fixture Site refused the sign-in with 'Wrong code'. Check the username, password and any code on the Indexer, then test it.", false},
+		{&searching.Stopped{Cause: searching.CaptchaNeeded}, "Fixture Site needs a captcha to sign in again. Open the Indexer and type the code.", false},
+		{&searching.Stopped{Cause: searching.ChallengeUnsolved}, "Fixture Site is behind a browser challenge, and seedbox has no Challenge solver. Set one on seedbox, or paste a browser cookie on the Indexer.", true},
+		{&searching.Stopped{Cause: searching.ChallengeUnsolved, SolverTried: true}, "seedbox's Challenge solver couldn't clear Fixture Site's challenge. Paste a browser cookie on the Indexer.", false},
+		{&searching.Stopped{Cause: searching.CookieExpired}, "Fixture Site no longer accepts the browser cookie. Paste a new one on the Indexer.", false},
+		{&searching.Stopped{Cause: searching.DefinitionUnloadable}, "Fixture Site's definition doesn't load. Replace the custom definition, or wait for a catalog fix.", false},
+		{&searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}, "Fixture Site refused the API key with 'Account suspended'. Check the account, then test the Indexer.", false},
+		{&searching.Stopped{Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Fixture Site refused a search with 'Incorrect parameter'. Test the Indexer after the feed is fixed.", false},
 	}
 	for _, c := range cases {
 		t.Run(string(c.stop.Cause), func(t *testing.T) {
@@ -141,10 +145,13 @@ func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToTheIndexer(t *testing.T) 
 			if len(a.Items) != 1 || len(a.Unsure) != 0 {
 				t.Fatalf("Health after a stop = %+v, want one item", a)
 			}
-			it := a.Items[0]
+			it, href := a.Items[0], "/settings/indexers/"+w.id.String()
+			if c.atSolver {
+				href = "/nodes/" + w.box.String() + "/searching"
+			}
 			if it.Key != w.key("stopped") || it.Level != health.Fail || it.Subject != "Fixture Site" || it.Text != c.want ||
-				it.Action.Kind() != health.ActionLink || it.Action.Href() != "/settings/indexers/"+w.id.String() {
-				t.Errorf("the stop's item = %+v, want a Fail %q linking to the Indexer", it, c.want)
+				it.Action.Kind() != health.ActionLink || it.Action.Href() != href {
+				t.Errorf("the stop's item = %+v, want a Fail %q linking to %s", it, c.want, href)
 			}
 			w.test(t, nil)
 			if a := w.answer(t); len(a.Items) != 0 {

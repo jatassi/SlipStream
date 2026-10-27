@@ -2225,6 +2225,26 @@ export const IndexersCatalogEntry = zod.object({
 export type IndexersCatalogEntry = zod.input<typeof IndexersCatalogEntry>;
 export type IndexersCatalogEntryOutput = zod.output<typeof IndexersCatalogEntry>;
 
+export const indexersChallengeSolverTimeoutMin = 10;
+export const indexersChallengeSolverTimeoutMax = 180;
+
+export const IndexersChallengeSolver = zod.object({
+  address: zod
+    .string()
+    .nullable()
+    .describe(
+      "The address of the service that clears browser challenges for the Node; null when it has none",
+    ),
+  timeout: zod
+    .int()
+    .min(indexersChallengeSolverTimeoutMin)
+    .max(indexersChallengeSolverTimeoutMax)
+    .describe("Seconds the solver may take to clear a page"),
+});
+
+export type IndexersChallengeSolver = zod.input<typeof IndexersChallengeSolver>;
+export type IndexersChallengeSolverOutput = zod.output<typeof IndexersChallengeSolver>;
+
 export const IndexersChanged = zod.object({
   indexerId: zod.uuid(),
 });
@@ -2969,6 +2989,21 @@ export const IndexersSettingsChanged = zod.object({});
 
 export type IndexersSettingsChanged = zod.input<typeof IndexersSettingsChanged>;
 export type IndexersSettingsChangedOutput = zod.output<typeof IndexersSettingsChanged>;
+
+export const indexersSolverChangeAddressMax = 2048;
+
+export const IndexersSolverChange = zod.object({
+  address: zod
+    .string()
+    .max(indexersSolverChangeAddressMax)
+    .describe(
+      "An http or https address of a service that speaks FlareSolverr's API; empty removes the solver",
+    ),
+  timeout: zod.int().exactOptional().describe("Seconds from 10 to 180; null or left out is 60"),
+});
+
+export type IndexersSolverChange = zod.input<typeof IndexersSolverChange>;
+export type IndexersSolverChangeOutput = zod.output<typeof IndexersSolverChange>;
 
 export const IndexersStatusChanged = zod.object({
   indexerId: zod.uuid(),
