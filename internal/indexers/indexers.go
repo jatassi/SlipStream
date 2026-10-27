@@ -296,8 +296,6 @@ type Config struct {
 	// Zone is the zone of the times inside sentences.
 	Zone *time.Location
 	Log  *slog.Logger
-	// MediaTypes are the Content Types an RSS feed may carry.
-	MediaTypes []works.TypeID
 }
 
 type Indexers struct {

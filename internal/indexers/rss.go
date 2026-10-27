@@ -39,14 +39,14 @@ func (e *FeedRefusedError) Error() string { return "the feed can't be used: " + 
 
 // checkMedia refuses idx with ErrMedia unless it is an RSS feed carrying
 // one or more of types, or another kind carrying none.
-func checkMedia(idx Indexer, types []works.TypeID) error {
+func checkMedia(idx Indexer, types map[works.TypeID]Facet) error {
 	if idx.Kind != RSS {
 		if idx.Media != nil {
 			return ErrMedia
 		}
 		return nil
 	}
-	if len(idx.Media) == 0 || slices.ContainsFunc(idx.Media, func(t works.TypeID) bool { return !slices.Contains(types, t) }) {
+	if len(idx.Media) == 0 || slices.ContainsFunc(idx.Media, func(t works.TypeID) bool { _, ok := types[t]; return !ok }) {
 		return ErrMedia
 	}
 	return nil

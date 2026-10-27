@@ -143,15 +143,15 @@ func controller(t *testing.T, f faketest.Served) *indexers.Indexers {
 	}
 	n := searchingNode(f)
 	return indexers.New(indexers.Config{
-		Library:    lib,
-		Sealer:     secrettest.Sealer(t),
-		Roster:     indexerstest.Alone(self),
-		Searching:  func(role.NodeID) searching.Remote { return n },
-		Changed:    discard[indexers.Changed]{},
-		Status:     discard[indexers.StatusChanged]{},
-		Timings:    indexers.DefaultTimings(),
-		Log:        slog.New(slog.DiscardHandler),
-		MediaTypes: []works.TypeID{"movie"},
+		Library:   lib,
+		Sealer:    secrettest.Sealer(t),
+		Roster:    indexerstest.Alone(self),
+		Searching: func(role.NodeID) searching.Remote { return n },
+		Changed:   discard[indexers.Changed]{},
+		Status:    discard[indexers.StatusChanged]{},
+		Timings:   indexers.DefaultTimings(),
+		Log:       slog.New(slog.DiscardHandler),
+		Types:     map[works.TypeID]indexers.Facet{"movie": indexerstest.Facet{}},
 	})
 }
 

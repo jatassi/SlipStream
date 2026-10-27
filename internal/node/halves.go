@@ -256,10 +256,9 @@ func (n *Node) startController(ctx context.Context) error {
 		CatalogNext: func(ctx context.Context) (time.Time, error) {
 			return scheduler.Next(ctx, indexers.CatalogRefreshTaskID)
 		},
-		Timings:    n.cfg.Timings.Indexers,
-		Zone:       n.zone(),
-		Log:        n.rootLog.With("subsystem", "indexers"),
-		MediaTypes: types,
+		Timings: n.cfg.Timings.Indexers,
+		Zone:    n.zone(),
+		Log:     n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
 		Library: lib.db,

@@ -95,7 +95,7 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View
 		Searches: d.Searches, Grabs: d.Grabs, Source: Feed{Tracker: d.Tracker, AllowNoSize: d.AllowNoSize}, FeedHost: hostOf(d.Address),
 		Revision: 1, Created: created.Time(),
 	}
-	if err := checkMedia(idx, x.cfg.MediaTypes); err != nil {
+	if err := checkMedia(idx, x.cfg.Types); err != nil {
 		return View{}, err
 	}
 	session, err := pasted(d.Cookie, idx)
@@ -140,7 +140,7 @@ func (x *Indexers) TestDraft(ctx context.Context, _ identity.Admin, d Draft) (Re
 		ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Kind: cmp.Or(d.Kind, Torznab), Home: home, AllowFailover: d.AllowFailover, Media: d.Media,
 		Source: Feed{Tracker: d.Tracker, AllowNoSize: d.AllowNoSize}, FeedHost: hostOf(d.Address), Revision: 1,
 	}
-	if err := checkMedia(idx, x.cfg.MediaTypes); err != nil {
+	if err := checkMedia(idx, x.cfg.Types); err != nil {
 		return Report{}, err
 	}
 	session, err := pasted(d.Cookie, idx)
@@ -259,7 +259,7 @@ func (x *Indexers) edited(idx Indexer, e Edit) (Indexer, error) {
 		idx.Source = f
 	}
 	idx.Revision++
-	return idx, checkMedia(idx, x.cfg.MediaTypes)
+	return idx, checkMedia(idx, x.cfg.Types)
 }
 
 func set[T any](to, v *T) {
