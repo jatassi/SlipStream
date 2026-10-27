@@ -5,42 +5,20 @@ import {
   useListIndexersSuspense,
   useListTrackersSuspense,
 } from "../api/gen/query/indexers/indexers";
-import type { IndexersIndexer } from "../api/gen/model";
 import {
   getListNodesSuspenseQueryOptions,
   useListNodesSuspense,
 } from "../api/gen/query/nodes/nodes";
 import { ensureQuery, freshQuery } from "../api/query-client";
-import { countWords } from "../format";
 import type { SettingsSection } from "../settings/section";
 import { Empty } from "../shell/empty";
 import { Section } from "../ui/section";
+import { AddIndexerButton } from "./add/add-button";
 import { LongBackoff } from "./long-backoff";
 import { TrackerGroup, UngroupedIndexers, groupsOf } from "./tracker-group";
+import { summaryOf } from "./words";
 
-const indexerNoun = { one: "Indexer", many: "Indexers" } as const;
-
-/** What the list comes to, in a sentence: who needs the Admin first, then who searches ask. */
-export function summaryOf(indexers: readonly IndexersIndexer[]): string {
-  const needing = indexers.filter((indexer) => indexer.on && indexer.fix !== null);
-  if (needing.length === 1) {
-    return `${needing[0]?.name} needs you. Open it to see what to do.`;
-  }
-  if (needing.length > 1) {
-    return `${countWords(needing.length, indexerNoun)} need you. Open each to see what to do.`;
-  }
-  const on = indexers.filter((indexer) => indexer.on);
-  if (on.length === 0) {
-    return "Every Indexer is off, so searches find nothing. Turn one on to search again.";
-  }
-  const asked = on.filter((indexer) => indexer.waits === null);
-  if (asked.length < on.length) {
-    return `Searches ask ${asked.length} of the ${on.length} Indexers that are on. The others are waiting, and each row says why.`;
-  }
-  return on.length === 1
-    ? `Searches ask ${on[0]?.name}.`
-    : `Searches ask all ${on.length} Indexers that are on.`;
-}
+const addIndexer = <AddIndexerButton />;
 
 function IndexersSection() {
   const { indexers } = useListIndexersSuspense().data;
@@ -49,10 +27,16 @@ function IndexersSection() {
   const groups = groupsOf(indexers, trackers);
   return (
     <>
-      <Section title="Indexers" count={indexers.length}>
+      <Section
+        title="Indexers"
+        count={indexers.length}
+        action={indexers.length === 0 ? undefined : addIndexer}
+      >
         <div className="flex flex-col gap-5">
           {indexers.length === 0 ? (
-            <Empty>No Indexers yet. Every search asks each Indexer added here that is on.</Empty>
+            <Empty action={addIndexer}>
+              No Indexers yet. Every search asks each Indexer added here that is on.
+            </Empty>
           ) : (
             <p className="text-ink-1">{summaryOf(indexers)}</p>
           )}
