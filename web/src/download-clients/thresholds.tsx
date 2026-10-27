@@ -17,7 +17,7 @@ const sections: readonly {
   {
     title: "When a Release counts as bad",
     about:
-      "A download that gets no data at all for this long, or that its tracker reports as unregistered twice this far apart, counts as a bad release. Later automatic searches act on it.",
+      "A download that gets no data at all for this long, or that its announce URL reports as unregistered twice this far apart, counts as a bad Release. Later automatic searches act on it.",
     keys: ["faultStall", "unregisteredGap"],
   },
   {

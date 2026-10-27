@@ -32,7 +32,7 @@ const announcing = new Set<State>(["downloading", "seeding", "stalled", "tracker
 
 /**
  * The actions a Torrent offers, in menu order. Announce now needs the
- * Inspector's word that every tracker accepts one now; a row has none.
+ * Inspector's word that every announce URL accepts one now; a row has none.
  */
 export function menuFor(row: Row, trackersAccept = false): TorrentAction[] {
   if (row.state === "removing") {
@@ -65,7 +65,7 @@ export const actionLabels: { readonly [A in TorrentAction]: string } = {
 const doing: { readonly [A in TorrentAction]: (subject: string) => string } = {
   pause: (subject) => `Pausing ${subject}.`,
   resume: (subject) => `Resuming ${subject}.`,
-  announce: (subject) => `${subject} is announcing to its trackers.`,
+  announce: (subject) => `Announcing ${subject}.`,
   recheck: (subject) => `Rechecking ${subject}.`,
   "mark-failed": (subject) => `Marked ${subject} failed.`,
   remove: (subject) => `Removing ${subject}.`,
@@ -110,8 +110,8 @@ const refusalWords: {
     `The Node holding ${names.join(", ")} is offline. Try again once it reconnects.`,
   window: ({ names, refusal }, { clock }) =>
     refusal.acceptsAt === undefined
-      ? `A tracker of ${names.join(", ")} would reject an announce now.`
-      : `A tracker of ${names.join(", ")} would reject an announce until ${sinceWords(refusal.acceptsAt, clock)}.`,
+      ? `An announce URL of ${names.join(", ")} would reject an announce now.`
+      : `An announce URL of ${names.join(", ")} would reject an announce until ${sinceWords(refusal.acceptsAt, clock)}.`,
   not_running: ({ names }) => `${names.join(", ")} isn't running, so it has nothing to announce.`,
   failed: ({ names }, { action }) =>
     `${names.join(", ")} failed in the torrent client and can't ${verbs[action]}. Remove it instead.`,

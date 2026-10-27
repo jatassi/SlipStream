@@ -15,7 +15,7 @@ type Cause = Omit<Signal, "anchor" | "rows"> & { readonly key: string };
 
 function causeOf(row: Row, node: string, clock: Clock): Cause | undefined {
   const host =
-    row.tracker === undefined || row.tracker.host === "" ? "Its tracker" : row.tracker.host;
+    row.tracker === undefined || row.tracker.host === "" ? "Its announce URL" : row.tracker.host;
   switch (row.severity) {
     case "none":
       return undefined;
@@ -73,7 +73,7 @@ function warningOf(row: Row, host: string, node: string, clock: Clock): Cause {
   return {
     key: `tracker:${host}:${said ?? ""}`,
     signal: "warn",
-    chip: "Tracker error",
+    chip: "Announce error",
     verdict: `${said === undefined ? `${host} isn't responding.` : `${host} reported "${said}".`}${
       retry === undefined ? "" : ` The client retries at ${sinceWords(retry, clock)}.`
     }`,

@@ -242,7 +242,7 @@ _Avoid_: Downloader, torrent app
 
 **Tracker**:
 A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
-_Avoid_: Site, indexer (for the seeding side)
+_Avoid_: Site, indexer (for the seeding side), tracker (for an announce URL)
 
 **Seeding goal**:
 What the built-in client seeds a torrent to: a ratio, a time, how they combine (Whichever first, Both or Forever) and what happens when met. A default goal applies unless a Tracker has its own, and the Tracker's seeding rule is a floor under both. External clients keep their own rules.

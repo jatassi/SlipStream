@@ -98,7 +98,7 @@ test("a row opens the Inspector beside the table, leading with what the torrent 
 
   const section = (name: string) => inspector().getByRole("heading", { name, level: 3 });
   await Promise.all(
-    ["Numbers", "Trackers", "Files", "Grabs", "Details"].map((name) =>
+    ["Numbers", "Announce URLs", "Files", "Grabs", "Details"].map((name) =>
       expect.element(section(name)).toBeVisible(),
     ),
   );
@@ -154,9 +154,7 @@ test("Pause and Announce now act on the torrent the Inspector shows", async () =
     inspector().getByRole("button", { name: "More actions for The Quiet Orchard" }),
   );
   await userEvent.click(page.getByRole("menuitem", { name: "Announce now" }));
-  await expect
-    .element(notices().getByText("The Quiet Orchard is announcing to its trackers."))
-    .toBeVisible();
+  await expect.element(notices().getByText("Announcing The Quiet Orchard.")).toBeVisible();
   expect(actions.bodies).toEqual([
     { action: "pause", ids: [orchard.id] },
     { action: "announce", ids: [orchard.id] },

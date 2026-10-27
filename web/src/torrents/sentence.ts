@@ -34,8 +34,8 @@ function heldSentence(row: Row, { node, clock }: Place): string {
   switch (row.hold) {
     case "window":
       return row.until === undefined
-        ? "Waiting for its tracker to accept an announce again."
-        : `Waiting for its tracker. It resumes at ${sinceWords(row.until, clock)}, when every tracker accepts an announce again.`;
+        ? "Waiting until its announce URLs accept an announce again."
+        : `Waiting for an announce. It resumes at ${sinceWords(row.until, clock)}, when every announce URL accepts one again.`;
     case "disk_full":
       return `Paused because ${node} ran out of disk space. It resumes once there is space.`;
     case "slot":
