@@ -49,6 +49,7 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Reset links](./reset-links.md) covers sending a Reset link, the open tab it signs out, setting a new PIN, its email and `slipstream admin reset` on the host.
 - [Accounts](./accounts.md) covers the Accounts list, making an Admin a Member and the re-gated tab, the last Admin, turning an Account off and the Member's portal.
 - [Settings](./settings.md) covers Settings > Address, Email with its test email, and Sign-in.
+- [Indexers and Trackers](./indexers.md) covers Settings > Indexers grouped by Tracker, a Tracker no Indexer reaches, and renaming and merging Trackers.
 - [API key](./api-key.md) covers Settings > API key, regenerating it and the old key refused.
 - [Pairing](./pairing.md) covers a Join Code, the Add a Node dialog and its open codes, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
 - [Roles](./roles.md) covers the Role board, a Node's Roles section with its Review and write-off dialog, planning and applying a set of Roles, the handback to home, a stale or blocked set, probes, reach tests, Notifying, drain and write-off.
