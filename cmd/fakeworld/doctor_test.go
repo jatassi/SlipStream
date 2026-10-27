@@ -98,7 +98,7 @@ func TestDoctorCatchesARealIndexerURL(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		_, _ = w.Write([]byte(`{"indexers":[{"name":"Planted","url":"https://example.org/torznab","homeNodeId":"n1"}]}`))
+		_, _ = w.Write([]byte(`{"indexers":[{"name":"Planted","feedHost":"example.org","homeNodeId":"n1"}]}`))
 	}))
 	t.Cleanup(controller.Close)
 
@@ -128,7 +128,7 @@ func TestDoctorCatchesARealIndexerURL(t *testing.T) {
 	if err := json.Unmarshal([]byte(got.stdout), &report); got.code != 1 || err != nil || len(report.Checks) != 6 {
 		t.Fatalf("doctor = %+v, want exit 1 with a report", got)
 	}
-	want := world.CheckResult{N: 5, Name: "Admin-entered addresses point at fakes", Failures: []string{"Indexer Planted https://example.org/torznab is not fixture-site's front for home"}}
+	want := world.CheckResult{N: 5, Name: "Admin-entered addresses point at fakes", Failures: []string{"Indexer Planted https://example.org is not fixture-site's front for home"}}
 	if !reflect.DeepEqual(report.Checks[4], want) {
 		t.Fatalf("check 5 = %+v, want %+v", report.Checks[4], want)
 	}

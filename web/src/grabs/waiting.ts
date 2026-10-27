@@ -34,11 +34,14 @@ export function useWaiting(): ReadonlyMap<string, string> {
   const { nodes } = useListNodesSuspense().data;
   const reading = { now: useNow(60_000), zone: undefined };
   return new Map(
-    indexers.flatMap(({ id, homeNodeId, waiting }) => {
-      const home = nodes.find((node) => node.id === homeNodeId);
-      return waiting === null || home === undefined
+    indexers.flatMap(({ id, waits }) => {
+      const home = nodes.find((node) => node.id === waits?.nodeId);
+      return waits?.kind !== "waiting" ||
+        waits.since === null ||
+        home === undefined ||
+        home.standing === "in-step"
         ? []
-        : [[id, waitingLine(home.name, waiting.standing, waiting.since, reading)] as const];
+        : [[id, waitingLine(home.name, home.standing, waits.since, reading)] as const];
     }),
   );
 }

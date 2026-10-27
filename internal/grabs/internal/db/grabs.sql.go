@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -143,7 +144,7 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 }
 
 const getGrab = `-- name: GetGrab :one
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE id = ?1
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE id = ?1
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
@@ -156,11 +157,18 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.Edition,
 		&i.Source,
 		&i.IndexerID,
+		&i.TrackerID,
 		&i.NodeID,
 		&i.ReleaseTitle,
 		&i.ReleaseSize,
-		&i.ReleaseLink,
+		&i.ReleaseLinkSealed,
+		&i.ReleaseMagnet,
 		&i.ReleaseInfoHash,
+		&i.FetchQueryID,
+		&i.MinRatio,
+		&i.MinSeedSeconds,
+		&i.DownloadFactor,
+		&i.UploadFactor,
 		&i.Stage,
 		&i.TorrentID,
 		&i.FileIndex,
@@ -206,25 +214,26 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 }
 
 const insertGrab = `-- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link,
-    release_info_hash, stage, created_at, updated_at)
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
+    release_link_sealed, release_magnet, release_info_hash, stage, created_at, updated_at)
 VALUES (?1, ?2, ?3, ?4, 'search', ?5, ?6,
-    ?7, ?8, ?9, ?10, 'fetching',
-    ?11, ?11)
+    ?7, ?8, ?9, ?10,
+    ?11, 'fetching', ?12, ?12)
 `
 
 type InsertGrabParams struct {
-	ID              GrabID
-	WorkID          works.WorkID
-	ItemID          works.ItemID
-	Edition         targets.Edition
-	IndexerID       indexers.ID
-	NodeID          role.NodeID
-	ReleaseTitle    string
-	ReleaseSize     int64
-	ReleaseLink     string
-	ReleaseInfoHash []byte
-	CreatedAt       storage.Time
+	ID                GrabID
+	WorkID            works.WorkID
+	ItemID            works.ItemID
+	Edition           targets.Edition
+	IndexerID         indexers.ID
+	NodeID            role.NodeID
+	ReleaseTitle      string
+	ReleaseSize       int64
+	ReleaseLinkSealed secret.Sealed
+	ReleaseMagnet     *string
+	ReleaseInfoHash   []byte
+	CreatedAt         storage.Time
 }
 
 func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
@@ -237,7 +246,8 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 		arg.NodeID,
 		arg.ReleaseTitle,
 		arg.ReleaseSize,
-		arg.ReleaseLink,
+		arg.ReleaseLinkSealed,
+		arg.ReleaseMagnet,
 		arg.ReleaseInfoHash,
 		arg.CreatedAt,
 	)
@@ -267,15 +277,14 @@ func (q *Queries) InsertRefusal(ctx context.Context, arg InsertRefusalParams) er
 }
 
 const insertSearch = `-- name: InsertSearch :exec
-INSERT INTO grabs_search (id, work_id, item_id, indexer_id, started_at)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO grabs_search (id, work_id, item_id, started_at)
+VALUES (?1, ?2, ?3, ?4)
 `
 
 type InsertSearchParams struct {
 	ID        SearchID
 	WorkID    works.WorkID
 	ItemID    works.ItemID
-	IndexerID indexers.ID
 	StartedAt storage.Time
 }
 
@@ -284,8 +293,49 @@ func (q *Queries) InsertSearch(ctx context.Context, arg InsertSearchParams) erro
 		arg.ID,
 		arg.WorkID,
 		arg.ItemID,
-		arg.IndexerID,
 		arg.StartedAt,
+	)
+	return err
+}
+
+const insertSearchIndexer = `-- name: InsertSearchIndexer :exec
+INSERT INTO grabs_search_indexer (search_id, position, indexer_id, indexer_name, query_id, outcome, releases, until_at, since_at,
+    node_id, lapsed, cause, text)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+`
+
+type InsertSearchIndexerParams struct {
+	SearchID    SearchID
+	Position    int64
+	IndexerID   indexers.ID
+	IndexerName string
+	QueryID     indexers.QueryID
+	Outcome     *indexers.OutcomeKind
+	Releases    *int64
+	UntilAt     storage.Time
+	SinceAt     storage.Time
+	NodeID      role.NodeID
+	Lapsed      *bool
+	Cause       *indexers.Cause
+	Text        *string
+}
+
+func (q *Queries) InsertSearchIndexer(ctx context.Context, arg InsertSearchIndexerParams) error {
+	_, err := q.db.ExecContext(ctx, insertSearchIndexer,
+		arg.SearchID,
+		arg.Position,
+		arg.IndexerID,
+		arg.IndexerName,
+		arg.QueryID,
+		arg.Outcome,
+		arg.Releases,
+		arg.UntilAt,
+		arg.SinceAt,
+		arg.NodeID,
+		arg.Lapsed,
+		arg.Cause,
+		arg.Text,
 	)
 	return err
 }
@@ -348,7 +398,7 @@ func (q *Queries) ListFills(ctx context.Context) ([]GrabsFill, error) {
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -367,11 +417,18 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.Edition,
 			&i.Source,
 			&i.IndexerID,
+			&i.TrackerID,
 			&i.NodeID,
 			&i.ReleaseTitle,
 			&i.ReleaseSize,
-			&i.ReleaseLink,
+			&i.ReleaseLinkSealed,
+			&i.ReleaseMagnet,
 			&i.ReleaseInfoHash,
+			&i.FetchQueryID,
+			&i.MinRatio,
+			&i.MinSeedSeconds,
+			&i.DownloadFactor,
+			&i.UploadFactor,
 			&i.Stage,
 			&i.TorrentID,
 			&i.FileIndex,
@@ -462,7 +519,7 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 }
 
 const listOpenGrabs = `-- name: ListOpenGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -481,11 +538,18 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.Edition,
 			&i.Source,
 			&i.IndexerID,
+			&i.TrackerID,
 			&i.NodeID,
 			&i.ReleaseTitle,
 			&i.ReleaseSize,
-			&i.ReleaseLink,
+			&i.ReleaseLinkSealed,
+			&i.ReleaseMagnet,
 			&i.ReleaseInfoHash,
+			&i.FetchQueryID,
+			&i.MinRatio,
+			&i.MinSeedSeconds,
+			&i.DownloadFactor,
+			&i.UploadFactor,
 			&i.Stage,
 			&i.TorrentID,
 			&i.FileIndex,
@@ -515,7 +579,7 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listOpenSearches = `-- name: ListOpenSearches :many
-SELECT id, work_id, item_id, indexer_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id
+SELECT id, work_id, item_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id
 `
 
 func (q *Queries) ListOpenSearches(ctx context.Context) ([]GrabsSearch, error) {
@@ -531,7 +595,6 @@ func (q *Queries) ListOpenSearches(ctx context.Context) ([]GrabsSearch, error) {
 			&i.ID,
 			&i.WorkID,
 			&i.ItemID,
-			&i.IndexerID,
 			&i.StartedAt,
 			&i.FinishedAt,
 			&i.Outcome,
@@ -587,8 +650,52 @@ func (q *Queries) ListRefusalsOfWork(ctx context.Context, workID works.WorkID) (
 	return items, nil
 }
 
+const listSearchIndexersOfWork = `-- name: ListSearchIndexersOfWork :many
+SELECT grabs_search_indexer.search_id, grabs_search_indexer.position, grabs_search_indexer.indexer_id, grabs_search_indexer.indexer_name, grabs_search_indexer.query_id, grabs_search_indexer.outcome, grabs_search_indexer.releases, grabs_search_indexer.until_at, grabs_search_indexer.since_at, grabs_search_indexer.node_id, grabs_search_indexer.lapsed, grabs_search_indexer.cause, grabs_search_indexer.text FROM grabs_search_indexer
+JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
+WHERE grabs_search.work_id = ?1
+ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position
+`
+
+func (q *Queries) ListSearchIndexersOfWork(ctx context.Context, workID works.WorkID) ([]GrabsSearchIndexer, error) {
+	rows, err := q.db.QueryContext(ctx, listSearchIndexersOfWork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsSearchIndexer
+	for rows.Next() {
+		var i GrabsSearchIndexer
+		if err := rows.Scan(
+			&i.SearchID,
+			&i.Position,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.QueryID,
+			&i.Outcome,
+			&i.Releases,
+			&i.UntilAt,
+			&i.SinceAt,
+			&i.NodeID,
+			&i.Lapsed,
+			&i.Cause,
+			&i.Text,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSearchesOfWork = `-- name: ListSearchesOfWork :many
-SELECT id, work_id, item_id, indexer_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE work_id = ?1 ORDER BY started_at DESC, id DESC
+SELECT id, work_id, item_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE work_id = ?1 ORDER BY started_at DESC, id DESC
 `
 
 func (q *Queries) ListSearchesOfWork(ctx context.Context, workID works.WorkID) ([]GrabsSearch, error) {
@@ -604,7 +711,6 @@ func (q *Queries) ListSearchesOfWork(ctx context.Context, workID works.WorkID) (
 			&i.ID,
 			&i.WorkID,
 			&i.ItemID,
-			&i.IndexerID,
 			&i.StartedAt,
 			&i.FinishedAt,
 			&i.Outcome,

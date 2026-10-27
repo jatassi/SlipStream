@@ -65,6 +65,10 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The Indexer didn't respond to the request for the release.",
     recovery: "Search again once the Indexer is back.",
   },
+  indexer_removed: {
+    cause: "The Indexer was removed before SlipStream fetched the release's .torrent file.",
+    recovery: searchAgain,
+  },
   torrent_unreachable: {
     cause:
       "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer.",

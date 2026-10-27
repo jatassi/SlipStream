@@ -2,33 +2,140 @@ package indexers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// ask runs job on node. It polls Run until the answer or the job's
+// job is one call for one Indexer on one Node. Its id is its query row's.
+type job struct {
+	q    QueryID
+	idx  Indexer
+	use  Use
+	node role.NodeID
+	wire searching.Job
+}
+
+// answer is a as record reads it.
+func (j job) answer(a searching.Answer) answer {
+	out := answer{
+		use: j.use, node: j.node, revision: j.idx.Revision, sha: pinned(j.idx), started: a.Started, outcome: a.Outcome,
+		session: a.Session, releases: len(a.Releases),
+	}
+	if a.Report != nil && a.Outcome == nil {
+		out.caps = &Caps{Modes: a.Report.Capabilities.Modes, Categories: CategoriesOf(a.Report.Capabilities.Categories)}
+	}
+	return out
+}
+
+// prepare is c for idx as node runs it, with idx's secrets and its session
+// on node opened for the length of one job.
+func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, node role.NodeID, c searching.Call) (job, error) {
+	secrets, err := x.open(idx)
+	if err != nil {
+		return job{}, err
+	}
+	session, err := x.session(ctx, x.cfg.Library, idx.ID, node)
+	if err != nil {
+		return job{}, err
+	}
+	w := searching.Job{
+		ID: q.String(), Indexer: idx.ID.String(), Revision: idx.Revision, Kind: kindOnWire[idx.Kind], Address: secrets.Address,
+		APIKey: secrets.APIKey, Session: session, Call: c,
+	}
+	if d, ok := idx.Source.(Definition); ok {
+		w.Address = d.BaseAddress
+		w.Settings = map[string]string{}
+		for k, v := range d.Plain {
+			w.Settings[k] = v
+		}
+		for k, v := range secrets.Fields {
+			w.Settings[k] = v
+		}
+	}
+	return job{q: q, idx: idx, use: u, node: node, wire: w}, nil
+}
+
+var kindOnWire = map[Kind]searching.Kind{Catalog: searching.Catalog, Torznab: searching.Torznab, RSS: searching.RSS}
+
+// call runs c for idx on the Node idx routes to now and records the
+// answer. It reserves the job's query row first, refusing with
+// *LimitError at idx's limit, and fails with *WaitError while no Node may
+// take it, *UnavailableError when the Node couldn't run it, or ErrLate.
+// The answer's own outcome is in the answer, and st is the status record
+// wrote, zero when the answer was from an older revision.
+func (x *Indexers) call(ctx context.Context, idx Indexer, u Use, c searching.Call) (searching.Answer, job, Status, error) {
+	var node role.NodeID
+	var q QueryID
+	err := x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		st, err := status(ctx, tx, idx.ID)
+		if err != nil {
+			return err
+		}
+		to, wait := route(x.cfg.Roster, idx, st, holdsSession(idx))
+		if wait != nil {
+			return &WaitError{Outcome: *wait}
+		}
+		node = to
+		q, err = reserve(ctx, tx, idx, u, storage.Now())
+		return err
+	})
+	if err != nil {
+		return searching.Answer{}, job{}, Status{}, err
+	}
+	j, err := x.prepare(ctx, q, idx, u, node, c)
+	if err != nil {
+		x.lose(ctx, q)
+		return searching.Answer{}, job{}, Status{}, err
+	}
+	a, err := x.ask(ctx, j)
+	if err != nil {
+		if !errors.Is(err, ErrLate) {
+			x.lose(ctx, q)
+		}
+		return searching.Answer{}, j, Status{}, err
+	}
+	st, err := x.record(context.WithoutCancel(ctx), j.q, idx.ID, j.answer(a))
+	return a, j, st, err
+}
+
+// lose completes q as lost: its job never answered.
+func (x *Indexers) lose(ctx context.Context, q QueryID) {
+	err := x.cfg.Library.Write(context.WithoutCancel(ctx), func(ctx context.Context, tx *storage.Tx[file]) error {
+		return completeLost(ctx, tx, q, storage.Now())
+	})
+	if err != nil {
+		x.cfg.Log.Error("record a job that never answered", "job", q.String(), "err", err.Error())
+	}
+}
+
+// ask runs j on its Node. It polls Run until the answer or the job's
 // deadline, Timings.Job from when the Node started it, and never waits
-// past the deadline once the start is known. A job past it is ErrLate, and
-// settle polls it on in the background.
-func (x *Indexers) ask(ctx context.Context, node role.NodeID, job searching.Job) (searching.Answer, error) {
-	remote := x.cfg.Searching(node)
+// past the deadline once the start is known. A job past it is ErrLate,
+// and settle polls it on in the background and records it.
+func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
+	remote := x.cfg.Searching(j.node)
 	var deadline time.Time
 	for {
 		asked := time.Now()
-		poll, err := runUntil(ctx, remote, job, deadline)
+		poll, err := runUntil(ctx, remote, j.wire, deadline)
 		switch {
 		case ctx.Err() != nil:
 			return searching.Answer{}, fmt.Errorf("ask the Searching Node: %w", ctx.Err())
 		case err == nil && poll.Answer != nil:
 			return *poll.Answer, nil
 		case !deadline.IsZero() && !time.Now().Before(deadline):
-			go x.settle(context.WithoutCancel(ctx), remote, job)
+			if !x.late.goOn(func(ctx context.Context) { x.settle(ctx, remote, j) }) {
+				x.cfg.Log.Warn("An Indexer's late job won't be recorded because the Indexers are stopping", "indexer", j.idx.ID.String(), "job", j.q.String())
+			}
 			return searching.Answer{}, ErrLate
 		case err != nil:
-			return searching.Answer{}, err
+			return searching.Answer{}, unavailable(err)
 		}
 		if !poll.Started.IsZero() {
 			deadline = poll.Started.Add(x.cfg.Timings.Job)
@@ -66,29 +173,35 @@ func pause(ctx context.Context, next, deadline time.Time) error {
 }
 
 // settle polls a late job until it answers, and records the answer. The
-// Node ends every job within its cap, so the polling ends too.
-func (x *Indexers) settle(ctx context.Context, remote searching.Remote, job searching.Job) {
+// Node ends every job within its cap, so the polling ends too, and so
+// does ctx, the Indexers' own.
+func (x *Indexers) settle(ctx context.Context, remote searching.Remote, j job) {
 	for {
 		asked := time.Now()
-		poll, err := remote.Run(ctx, job)
+		poll, err := remote.Run(ctx, j.wire)
+		if ctx.Err() != nil {
+			return
+		}
 		if err != nil {
-			x.cfg.Log.Warn("Couldn't read the response of an Indexer's late job", "indexer", job.Indexer, "job", job.ID, "err", err.Error())
+			x.cfg.Log.Warn("Couldn't read the response of an Indexer's late job", "indexer", j.idx.ID.String(), "job", j.q.String(), "err", err.Error())
+			x.lose(ctx, j.q)
 			return
 		}
 		if poll.Answer != nil {
-			x.record(job, *poll.Answer)
+			if _, err := x.record(ctx, j.q, j.idx.ID, j.answer(*poll.Answer)); err != nil && ctx.Err() == nil {
+				x.cfg.Log.Error("record an Indexer's late answer", "indexer", j.idx.ID.String(), "job", j.q.String(), "err", err.Error())
+			}
 			return
 		}
-		_ = pause(ctx, asked.Add(x.cfg.Timings.Poll), time.Time{})
+		if pause(ctx, asked.Add(x.cfg.Timings.Poll), time.Time{}) != nil {
+			return
+		}
 	}
 }
 
-// record keeps what a late answer says about its Indexer, whose Releases
-// the search already went without.
-func (x *Indexers) record(job searching.Job, a searching.Answer) {
-	outcome := "ok"
-	if a.Outcome != nil {
-		outcome = a.Outcome.Error()
+func unavailable(err error) error {
+	if why, ok := rpc.NotSent(err); ok {
+		return &UnavailableError{Wait: why != rpc.NotHolder, Err: err}
 	}
-	x.cfg.Log.Info("An Indexer's job finished after its deadline", "indexer", job.Indexer, "job", job.ID, "outcome", outcome, "releases", len(a.Releases))
+	return &UnavailableError{Wait: rpc.Lost(err), Err: err}
 }

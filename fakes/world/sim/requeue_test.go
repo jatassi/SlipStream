@@ -24,24 +24,23 @@ func navAlert(t *testing.T, a *worldtest.API) string {
 	return *c.Alerts.Nodes
 }
 
-// indexerWaits is how the one Indexer's home Node stands while its calls
-// wait for it, or "none".
+// indexerWaits is why the one Indexer's searches wait, or "none".
 func indexerWaits(t *testing.T, a *worldtest.API) string {
 	t.Helper()
 	list := decode[struct {
 		Indexers []struct {
-			Waiting *struct {
-				Standing string `json:"standing"`
-			} `json:"waiting"`
+			Waits *struct {
+				Kind string `json:"kind"`
+			} `json:"waits"`
 		} `json:"indexers"`
 	}](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers
 	if len(list) != 1 {
 		t.Fatalf("listIndexers lists %d Indexers, want 1", len(list))
 	}
-	if list[0].Waiting == nil {
+	if list[0].Waits == nil {
 		return "none"
 	}
-	return list[0].Waiting.Standing
+	return list[0].Waits.Kind
 }
 
 // searched presses Search on work and waits for the run's outcome.
@@ -87,8 +86,8 @@ func grabsOn(t *testing.T, a *worldtest.API) []grabView {
 	}](t, "listGrabs", a.Admin("home", http.MethodGet, "/api/v1/grabs", "")).Grabs
 }
 
-// view is how seedbox stands in Searching, the nav alert, and how the
-// Indexer waits for seedbox.
+// view is how seedbox stands in Searching, the nav alert, and why the
+// Indexer's searches wait.
 type view struct{ searching, alert, waits string }
 
 func expectStanding(t *testing.T, a *worldtest.API, when string, want view) {
@@ -132,7 +131,7 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 		w.Node("seedbox").Stop()
 		synctest.Wait()
 		left := time.Now()
-		expectStanding(t, a, "just stopped", view{"away", "none", "reconnecting"})
+		expectStanding(t, a, "just stopped", view{"away", "none", "waiting"})
 		expectSearch(t, a, work, "within the grace", "indexer_unavailable")
 		seen, err := time.Parse(time.RFC3339Nano, seedbox(t, a).Link.Since)
 		if err != nil {
@@ -140,7 +139,7 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 		}
 		time.Sleep(time.Until(left.Add(blip)))
 		synctest.Wait()
-		expectStanding(t, a, "past the blip", view{"away", "warn", "offline"})
+		expectStanding(t, a, "past the blip", view{"away", "warn", "waiting"})
 
 		time.Sleep(time.Until(seen.Add(time.Minute)))
 		synctest.Wait()

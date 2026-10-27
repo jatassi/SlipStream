@@ -88,6 +88,9 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 	if len(checked.Unreached) != 0 || len(checked.Report.items(t, "nodes")) != 0 {
 		t.Fatalf("Check now on Nodes in step = %+v, want nothing unreached and no items", checked)
 	}
+	if indexers := checked.Report.items(t, "indexers"); len(indexers) != 0 {
+		t.Fatalf("the Indexers category holds %+v, want no items until its checks land", indexers)
+	}
 	if health, _ := healthAlerts(t, a); health != nil {
 		t.Fatalf("with every Node in step the Health alert is %s, want null", *health)
 	}
@@ -120,7 +123,7 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 		problem(http.StatusNotFound, "no_check", "There is no Check now for that"))
 	worldtest.Expect(t, "checkHealthItem on no item", a.Admin("home", http.MethodPost, "/api/v1/system/health/nodes/items/nothing/check", ""),
 		problem(http.StatusNotFound, "health_item_not_found", "The category has no item with that key"))
-	worldtest.Expect(t, "checkHealthCategory on no category", a.Admin("home", http.MethodPost, "/api/v1/system/health/indexers/check", ""),
+	worldtest.Expect(t, "checkHealthCategory on no category", a.Admin("home", http.MethodPost, "/api/v1/system/health/widgets/check", ""),
 		problem(http.StatusNotFound, "health_category_not_found", "No Health category has that id"))
 
 	act(t, run, "seedbox", world.StartNode)

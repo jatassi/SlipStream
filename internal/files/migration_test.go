@@ -60,7 +60,7 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	ctx := t.Context()
 	open := opener(t)
 	want := map[string]seeded{}
-	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
 	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		at, err := seedLibrary(ctx, tx)
 		if err != nil {
@@ -86,7 +86,7 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	checked := checkQualities(t, lib, want)
 	if checked != len(want) {
@@ -112,7 +112,7 @@ func opener(t *testing.T) func(schemas ...storage.Schema[storage.Library]) *stor
 func TestExistingFilesKeepTheVideoCodecTheirGrabProbed(t *testing.T) {
 	ctx := t.Context()
 	open := opener(t)
-	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
 	var want map[string]release.Fact[release.VideoCodec]
 	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
@@ -126,7 +126,7 @@ func TestExistingFilesKeepTheVideoCodecTheirGrabProbed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	for path, video := range want {
 		var p files.Probe
@@ -259,7 +259,7 @@ func checkQualities(t *testing.T, lib *storage.DB[storage.Library], want map[str
 func TestExistingFilesTakeTheFirstTargetTheyFillInProfileOrderAsTheirLabel(t *testing.T) {
 	ctx := t.Context()
 	open := opener(t)
-	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
 	work, root, profile := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
 	small, large := storage.NewUUID(), storage.NewUUID()
 	both, second, none := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
@@ -305,7 +305,7 @@ func TestExistingFilesTakeTheFirstTargetTheyFillInProfileOrderAsTheirLabel(t *te
 		t.Fatal(err)
 	}
 
-	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	got := map[string]string{}
 	rows, err := lib.QueryContext(ctx, `SELECT path, label, extra FROM files_file ORDER BY path`)

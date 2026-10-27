@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -58,6 +59,7 @@ const (
 
 const (
 	IndexerUnavailable Code = "indexer_unavailable"
+	IndexerRemoved     Code = "indexer_removed"
 	TorrentUnreachable Code = "torrent_unreachable"
 	TorrentInvalid     Code = "torrent_invalid"
 	InfohashMismatch   Code = "infohash_mismatch"
@@ -78,8 +80,11 @@ const (
 const needsTransferWords = "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
 
 const (
-	Grabbed                  Outcome = "grabbed"
-	NothingAcceptable        Outcome = "nothing_acceptable"
+	Grabbed           Outcome = "grabbed"
+	NothingAcceptable Outcome = "nothing_acceptable"
+	// SearchIndexerUnavailable and SearchIndexerRefused are a run that
+	// found nothing because its Indexer couldn't search or stopped, read
+	// from the Indexer's outcome.
 	SearchIndexerUnavailable Outcome = "indexer_unavailable"
 	SearchIndexerRefused     Outcome = "indexer_refused"
 )
@@ -175,11 +180,13 @@ type Staging interface {
 }
 
 type Config struct {
-	Library    *storage.DB[file]
-	Works      *works.Works
-	Targets    *targets.Targets
-	Files      *files.Files
-	Indexers   *indexers.Indexers
+	Library  *storage.DB[file]
+	Works    *works.Works
+	Targets  *targets.Targets
+	Files    *files.Files
+	Indexers *indexers.Indexers
+	// Sealer seals each Grab's release link.
+	Sealer     *secret.Sealer
 	Terms      map[works.TypeID]indexers.Facet
 	Roster     Roster
 	Downloads  Downloads
@@ -212,13 +219,30 @@ func New(cfg Config) *Grabs {
 
 // Release is the release a Grab took, as the Indexer answered it.
 type Release struct {
-	Title   string
-	Size    int64
+	Title string
+	Size  int64
+	// Indexer is zero once the Indexer is deleted.
 	Indexer indexers.ID
-	// Link is the .torrent link the Grab fetches, else its magnet link.
-	Link searching.Link
 	// InfoHash is the Indexer's infohash attribute, nil when it sent none.
 	InfoHash *bencode.InfoHash
+	// link is the sealed .torrent link the Grab fetches, else magnet.
+	link   secret.Sealed
+	magnet string
+}
+
+var linkColumn = secret.NewColumn("grabs_grab.release_link_sealed")
+
+// link is the link g fetches: its .torrent link opened, else its magnet
+// link.
+func (gr *Grabs) link(g Grab) (searching.Link, error) {
+	if !g.Release.link.Set() {
+		return searching.LinkOf(g.Release.magnet), nil
+	}
+	raw, err := gr.cfg.Sealer.Open(g.Release.link, linkColumn.Row(g.ID.String()))
+	if err != nil {
+		return searching.Link{}, fmt.Errorf("grab %s: open the release link: %w", g.ID, err)
+	}
+	return searching.LinkOf(string(raw)), nil
 }
 
 // Torrent is the Torrent a Grab downloads, as the Grab reads it.
@@ -333,7 +357,7 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel related) (Grab, error) {
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
-		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, Link: searching.LinkOf(row.ReleaseLink)},
+		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
 	}
@@ -375,4 +399,11 @@ func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (
 		}
 	}
 	return out, nil
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

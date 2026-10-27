@@ -1,19 +1,47 @@
-import type { IndexersIndexerProtocol } from "./indexersIndexerProtocol.ts";
+import type { IndexersIndexerKind } from "./indexersIndexerKind.ts";
+import type { IndexersLimitUse } from "./indexersLimitUse.ts";
+import type { IndexersOutcome } from "./indexersOutcome.ts";
 import type { IndexersSearchMode } from "./indexersSearchMode.ts";
-import type { IndexersWaiting } from "./indexersWaiting.ts";
+import type { IndexersSession } from "./indexersSession.ts";
+import type { IndexersStatus } from "./indexersStatus.ts";
 
 export interface IndexersIndexer {
-  /** False when the key was dropped and an Admin must enter it again */
-  apiKeySet: boolean;
+  /** Read only for an Indexer that signs in */
+  allowFailover: boolean;
+  automaticSearch: boolean;
+  /**
+   * Newznab category ids; null for every category it advertises
+   * @nullable
+   */
+  categories: number[] | null;
   createdAt: string;
-  /** The Node that reaches the Indexer */
+  /**
+   * The host of a feed's address, which is never returned
+   * @nullable
+   */
+  feedHost: string | null;
+  grabs: IndexersLimitUse;
+  /** The Node it searches from */
   homeNodeId: string;
   id: string;
+  kind: IndexersIndexerKind;
   name: string;
-  protocol: IndexersIndexerProtocol;
+  on: boolean;
+  /**
+   * Lower wins a tie
+   * @minimum 1
+   * @maximum 50
+   */
+  priority: number;
+  /** @minimum 1 */
+  revision: number;
+  rss: boolean;
   /** By mode */
   searchModes: IndexersSearchMode[];
-  url: string;
-  /** Why its calls wait for its home Node, null while they go through */
-  waiting: IndexersWaiting | null;
+  searches: IndexersLimitUse;
+  /** Its newest session on any Node, null for none */
+  session: IndexersSession | null;
+  status: IndexersStatus;
+  /** Why its searches wait now, null when they don't */
+  waits: IndexersOutcome | null;
 }

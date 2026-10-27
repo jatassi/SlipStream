@@ -55,7 +55,21 @@ func TestAuditFindings(t *testing.T) {
 				set("early", "CREATE TABLE early (id INTEGER PRIMARY KEY, late_id INTEGER REFERENCES late (id)) STRICT;"),
 				set("late", "CREATE TABLE late (id INTEGER PRIMARY KEY) STRICT;"),
 			},
-			want: []string{"early: foreign key early.late_id targets late, which no earlier set creates"},
+		},
+		{
+			name: "references a table no later set creates",
+			schemas: []storage.Schema[storage.Library]{
+				set("early", "CREATE TABLE early (id INTEGER PRIMARY KEY, late_id INTEGER REFERENCES late_thing (id)) STRICT;"),
+				set("late", "CREATE TABLE late (id INTEGER PRIMARY KEY) STRICT;"),
+			},
+			want: []string{"early: foreign key early.late_id targets late_thing, which no set creates"},
+		},
+		{
+			name: "references a set the list lacks",
+			schemas: []storage.Schema[storage.Library]{
+				set("early", "CREATE TABLE early (id INTEGER PRIMARY KEY, gone_id INTEGER REFERENCES gone (id)) STRICT;"),
+			},
+			want: []string{"early: foreign key early.gone_id targets gone, which no earlier set creates"},
 		},
 		{
 			name:    "lacks the prefix",

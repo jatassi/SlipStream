@@ -19,7 +19,11 @@ export interface GrabsGrab {
   /** Each stage it entered, oldest first */
   history: GrabsEntered[];
   id: string;
-  indexerId: string;
+  /**
+   * The Indexer it was grabbed from, null once the Indexer is deleted
+   * @nullable
+   */
+  indexerId: string | null;
   /**
    * The v1 info hash in hex, null until the .torrent is fetched
    * @nullable

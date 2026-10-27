@@ -58,9 +58,9 @@ func (unlinked) Stats(link.Key) (link.Stats, bool)            { return link.Stat
 
 // seed inserts one Grab in stage, with the columns the stage's CHECKs ask
 // for, against the one Item in the library.
-const seed = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id,
-	release_title, release_size, release_link, stage, torrent_id, path, failure_code, created_at, updated_at)
-SELECT ?, work_id, id, 'standard', 'search', ?, ?, 'The.Attic.1080p.WEB', 4096, 'https://site.test/dl/1', ?,
+const seed = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id,
+	release_title, release_size, release_magnet, stage, torrent_id, path, failure_code, created_at, updated_at)
+SELECT ?, work_id, id, 'standard', 'search', ?, 'The.Attic.1080p.WEB', 4096, 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', ?,
 	CASE WHEN ? = 'fetching' THEN NULL ELSE ? END,
 	CASE WHEN ? IN ('transferring', 'importing', 'imported') THEN 'The Attic.mkv' END,
 	CASE WHEN ? = 'failed' THEN 'download_failed' END,
@@ -70,7 +70,7 @@ FROM works_item`
 func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), health.Schema())
+		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), health.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -96,18 +96,15 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	})
 
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null}}`)
-	home, indexer, torrent := roster.Self(), storage.NewUUID(), storage.NewUUID()
+	home, torrent := roster.Self(), storage.NewUUID()
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, home); err != nil {
-			return err
-		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
 			content_type, wanted, added_order, added_at) VALUES (?, ?, randomblob(20), x'00', 'The.Attic.1080p.WEB', 4096, 1, '[]', 'fixture', 'started', 1, 0)`,
 			torrent, home); err != nil {
 			return err
 		}
 		for _, stage := range []string{"fetching", "fetching", "downloading", "probing", "transferring", "importing", "imported", "imported", "failed"} {
-			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), indexer, home, stage, stage, torrent, stage, stage); err != nil {
+			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), home, stage, stage, torrent, stage, stage); err != nil {
 				return err
 			}
 		}
@@ -121,6 +118,11 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 
 var quietClients = health.Category{
 	About:  health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"},
+	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
+}
+
+var quietIndexers = health.Category{
+	About:  health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"},
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
 }
 
@@ -139,7 +141,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 		Library:    lib,
 		Hub:        hub,
 		Changed:    discard[health.Changed]{},
-		Categories: []health.Category{{About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, failedTask},
+		Categories: []health.Category{{About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, quietIndexers, failedTask},
 		Timings:    health.DefaultTimings(),
 		Log:        slog.New(slog.DiscardHandler),
 	})
@@ -150,7 +152,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 }
 
 func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), downloadclients.Schema(), grabs.Schema(), health.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), health.Schema())
 	roster, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)

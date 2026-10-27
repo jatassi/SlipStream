@@ -2,6 +2,7 @@ import type { GrabsGrab } from "../api/gen/model";
 import { orchardId, orchardItemId } from "./library";
 
 export const grabId = "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e5f";
+export const indexerId = "0e2a4c6e-8f1b-4d3f-a5c7-e9b1d3f5a7c9";
 
 const fetched: GrabsGrab = {
   id: grabId,
@@ -12,7 +13,7 @@ const fetched: GrabsGrab = {
   releaseTitle: "The.Quiet.Orchard.2021.1080p.WEB-DL",
   quality: "webdl-1080p",
   releaseSize: 734_003_200,
-  indexerId: "0e2a4c6e-8f1b-4d3f-a5c7-e9b1d3f5a7c9",
+  indexerId,
   nodeId: "4a6c8e0f-2b4d-4f6a-8c0e-2a4c6e8f0b1d",
   fetchNodeId: null,
   torrentId: "3e5a7c9b-1d3f-4a5c-8e7a-9c1b3d5f7a9c",

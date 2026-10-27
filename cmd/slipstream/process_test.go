@@ -566,6 +566,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_WORKS_FETCH"},
 			{Key: "timings.indexers.job", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_JOB"},
 			{Key: "timings.indexers.poll", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_POLL"},
+			{Key: "timings.indexers.limited", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_LIMITED"},
+			{Key: "timings.indexers.ladder", Value: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s,24h0m0s", Default: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s,24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_LADDER"},
 			{Key: "timings.searching.request", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_REQUEST"},
 			{Key: "timings.searching.floor", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_FLOOR"},
 			{Key: "timings.searching.hold", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_HOLD"},

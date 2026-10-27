@@ -1,9 +1,29 @@
 -- name: NameTaken :one
-SELECT EXISTS (SELECT 1 FROM indexers_indexer WHERE name = sqlc.arg(name));
+SELECT EXISTS (SELECT 1 FROM indexers_indexer WHERE name = sqlc.arg(name) AND id IS NOT sqlc.arg(except));
 
 -- name: InsertIndexer :exec
-INSERT INTO indexers_indexer (id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at)
-VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(protocol), sqlc.arg(url), sqlc.arg(api_key_sealed), sqlc.arg(home_node_id), sqlc.arg(caps), sqlc.arg(created_at));
+INSERT INTO indexers_indexer (
+    id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media,
+    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain,
+    secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at)
+VALUES (
+    sqlc.arg(id), sqlc.arg(name), sqlc.arg(kind), sqlc.arg(home_node_id), sqlc.arg(is_on), sqlc.arg(auto_search), sqlc.arg(rss),
+    sqlc.arg(allow_failover), sqlc.arg(priority), sqlc.narg(categories), sqlc.narg(media), sqlc.arg(search_limit),
+    sqlc.arg(search_window), sqlc.arg(grab_limit), sqlc.arg(grab_window), sqlc.narg(definition_id), sqlc.narg(definition_sha),
+    sqlc.narg(base_address), sqlc.arg(plain), sqlc.arg(secrets_sealed), sqlc.narg(feed_host), sqlc.narg(tracker_name),
+    sqlc.arg(allow_no_size), sqlc.narg(rss_reading), sqlc.arg(caps), sqlc.arg(notes), sqlc.arg(revision), sqlc.arg(created_at),
+    sqlc.arg(updated_at));
+
+-- name: UpdateIndexer :execrows
+UPDATE indexers_indexer SET
+    name = sqlc.arg(name), home_node_id = sqlc.arg(home_node_id), is_on = sqlc.arg(is_on), auto_search = sqlc.arg(auto_search),
+    rss = sqlc.arg(rss), allow_failover = sqlc.arg(allow_failover), priority = sqlc.arg(priority),
+    categories = sqlc.narg(categories), media = sqlc.narg(media), search_limit = sqlc.arg(search_limit),
+    search_window = sqlc.arg(search_window), grab_limit = sqlc.arg(grab_limit), grab_window = sqlc.arg(grab_window),
+    base_address = sqlc.narg(base_address), plain = sqlc.arg(plain), secrets_sealed = sqlc.arg(secrets_sealed),
+    feed_host = sqlc.narg(feed_host), tracker_name = sqlc.narg(tracker_name), allow_no_size = sqlc.arg(allow_no_size),
+    caps = sqlc.arg(caps), revision = sqlc.arg(revision), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id);
 
 -- name: ListIndexers :many
 SELECT * FROM indexers_indexer ORDER BY name;
@@ -11,11 +31,72 @@ SELECT * FROM indexers_indexer ORDER BY name;
 -- name: GetIndexer :one
 SELECT * FROM indexers_indexer WHERE id = sqlc.arg(id);
 
--- name: SetIndexerKey :execrows
-UPDATE indexers_indexer SET api_key_sealed = sqlc.arg(api_key_sealed), caps = sqlc.arg(caps) WHERE id = sqlc.arg(id);
+-- name: DeleteIndexer :execrows
+DELETE FROM indexers_indexer WHERE id = sqlc.arg(id);
 
 -- name: CountHomedOn :one
 SELECT count(*) FROM indexers_indexer WHERE home_node_id = sqlc.arg(home_node_id);
 
 -- name: Rehome :exec
 UPDATE indexers_indexer SET home_node_id = sqlc.arg(heir) WHERE home_node_id = sqlc.arg(home_node_id);
+
+-- name: GetStatus :one
+SELECT * FROM indexers_status WHERE indexer_id = sqlc.arg(indexer_id);
+
+-- name: ListStatuses :many
+SELECT * FROM indexers_status ORDER BY indexer_id;
+
+-- name: PutStatus :exec
+INSERT INTO indexers_status (
+    indexer_id, state, rung, until_at, since_at, cause, text, node_id, solver_tried, last_failure, last_failure_at, success_at, revision)
+VALUES (
+    sqlc.arg(indexer_id), sqlc.arg(state), sqlc.arg(rung), sqlc.narg(until_at), sqlc.narg(since_at), sqlc.narg(cause), sqlc.narg(text),
+    sqlc.narg(node_id), sqlc.arg(solver_tried), sqlc.narg(last_failure), sqlc.narg(last_failure_at), sqlc.narg(success_at), sqlc.arg(revision))
+ON CONFLICT (indexer_id) DO UPDATE SET
+    state = excluded.state, rung = excluded.rung, until_at = excluded.until_at, since_at = excluded.since_at, cause = excluded.cause,
+    text = excluded.text, node_id = excluded.node_id, solver_tried = excluded.solver_tried, last_failure = excluded.last_failure,
+    last_failure_at = excluded.last_failure_at, success_at = excluded.success_at, revision = excluded.revision;
+
+-- name: OfferSession :execrows
+INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at)
+VALUES (sqlc.arg(indexer_id), sqlc.arg(node_id), sqlc.arg(cookies_sealed), sqlc.arg(user_agent), sqlc.arg(pasted), sqlc.arg(earned_at))
+ON CONFLICT (indexer_id, node_id) DO UPDATE SET
+    cookies_sealed = excluded.cookies_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted, earned_at = excluded.earned_at
+WHERE excluded.earned_at > indexers_session.earned_at;
+
+-- name: GetSession :one
+SELECT * FROM indexers_session WHERE indexer_id = sqlc.arg(indexer_id) AND node_id = sqlc.arg(node_id);
+
+-- name: ListSessions :many
+SELECT indexer_id, node_id, pasted, earned_at FROM indexers_session ORDER BY indexer_id, earned_at DESC;
+
+-- name: DeleteSessions :exec
+DELETE FROM indexers_session WHERE indexer_id = sqlc.arg(indexer_id);
+
+-- name: InsertQuery :exec
+INSERT INTO indexers_query (id, indexer_id, use, reserved_at, revision, sha)
+VALUES (sqlc.arg(id), sqlc.arg(indexer_id), sqlc.arg(use), sqlc.arg(reserved_at), sqlc.arg(revision), sqlc.narg(sha));
+
+-- name: CompleteQuery :execrows
+UPDATE indexers_query SET
+    started_at = sqlc.narg(started_at), completed_at = sqlc.arg(completed_at), node_id = sqlc.arg(node_id),
+    outcome = sqlc.arg(outcome), releases = sqlc.narg(releases)
+WHERE id = sqlc.arg(id) AND completed_at IS NULL;
+
+-- name: ReservedSince :many
+SELECT indexer_id, use, reserved_at FROM indexers_query
+WHERE use IN ('search', 'recent', 'fetch') AND reserved_at > sqlc.arg(since)
+ORDER BY reserved_at;
+
+-- name: ReservedOfSince :many
+SELECT reserved_at FROM indexers_query
+WHERE indexer_id = sqlc.arg(indexer_id) AND reserved_at > sqlc.arg(since) AND use IN (sqlc.slice(uses))
+ORDER BY reserved_at;
+
+-- name: ListQueries :many
+SELECT * FROM indexers_query WHERE indexer_id = sqlc.arg(indexer_id)
+ORDER BY reserved_at DESC, id DESC
+LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
+
+-- name: SetCaps :exec
+UPDATE indexers_indexer SET caps = sqlc.arg(caps) WHERE id = sqlc.arg(id);

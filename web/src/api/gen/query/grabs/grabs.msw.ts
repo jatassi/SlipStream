@@ -16,6 +16,7 @@ export const getListGrabsResponseMock = (
           failure: {
             code: faker.helpers.arrayElement([
               "indexer_unavailable",
+              "indexer_removed",
               "torrent_unreachable",
               "magnet_invalid",
               "no_metadata",
@@ -62,7 +63,7 @@ export const getListGrabsResponseMock = (
       }),
     ),
     id: faker.string.uuid(),
-    indexerId: faker.string.uuid(),
+    indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     infoHash: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
@@ -134,6 +135,7 @@ export const getGetGrabResponseMock = (
         failure: {
           code: faker.helpers.arrayElement([
             "indexer_unavailable",
+            "indexer_removed",
             "torrent_unreachable",
             "magnet_invalid",
             "no_metadata",
@@ -180,7 +182,7 @@ export const getGetGrabResponseMock = (
     }),
   ),
   id: faker.string.uuid(),
-  indexerId: faker.string.uuid(),
+  indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   infoHash: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -262,7 +264,7 @@ export const getListSearchesResponseMock = (
       ]),
       grabId: faker.helpers.arrayElement([faker.string.uuid(), null]),
       id: faker.string.uuid(),
-      indexerId: faker.string.uuid(),
+      indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
       itemId: faker.string.uuid(),
       notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({

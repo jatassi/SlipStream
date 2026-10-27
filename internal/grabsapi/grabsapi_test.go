@@ -19,8 +19,10 @@ import (
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -59,15 +61,18 @@ func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 // alone is a roster of one Node holding every Role.
 type alone struct{ self role.NodeID }
 
-func (a alone) Self() role.NodeID                                 { return a.self }
-func (a alone) Pick(role.Name, role.NodeID) (role.NodeID, bool)   { return a.self, true }
-func (a alone) Route(role.Name, role.NodeID) (role.NodeID, error) { return a.self, nil }
-func (alone) Away(role.Name, role.NodeID) (nodes.Absence, bool)   { return nodes.Absence{}, false }
-func (alone) InStep(role.NodeID) bool                             { return true }
-func (alone) WrittenOff(role.Name, role.NodeID) bool              { return false }
-func (alone) Changed() <-chan struct{}                            { return nil }
-func (alone) Touch(...role.NodeID)                                {}
-func (alone) Moved() <-chan struct{}                              { return nil }
+func (a alone) Self() role.NodeID                                  { return a.self }
+func (a alone) Pick(role.Name, role.NodeID) (role.NodeID, bool)    { return a.self, true }
+func (a alone) Route(role.Name, role.NodeID) (role.NodeID, error)  { return a.self, nil }
+func (alone) Away(role.Name, role.NodeID) (nodes.Absence, bool)    { return nodes.Absence{}, false }
+func (alone) InStep(role.NodeID) bool                              { return true }
+func (alone) WrittenOff(role.Name, role.NodeID) bool               { return false }
+func (a alone) Holding(role.Name) []role.NodeID                    { return []role.NodeID{a.self} }
+func (alone) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role.NodeID{}, false }
+func (alone) Name(role.NodeID) string                              { return "home" }
+func (alone) Changed() <-chan struct{}                             { return nil }
+func (alone) Touch(...role.NodeID)                                 {}
+func (alone) Moved() <-chan struct{}                               { return nil }
 func (alone) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
 }
@@ -122,7 +127,7 @@ func expect(t *testing.T, s *ownertest.Owner, method, path string, status int, w
 func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -158,7 +163,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	terms := &terms{}
 	changed, searched := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4)
 	sealer := secrettest.Sealer(t)
-	home, indexer := storage.NewUUID(), storage.NewUUID()
+	home, indexer := storage.NewUUID(), indexers.ID{UUID: storage.NewUUID()}
 	roster := alone{role.NodeID{UUID: home}}
 	storageNodes := &lapsing{}
 	shelves := rootstest.Config(t, lib, contenttypetest.ID)
@@ -168,10 +173,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := grabs.New(grabs.Config{
-		Library: lib, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
+		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searching.Remote { return site{} },
-			Changed: discard[indexers.Changed]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+			Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 		}),
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
 		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
@@ -196,12 +201,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":409,"code":"no_indexer","title":"No Indexer is set up"}`)
 
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, home); err != nil {
+		if err := nodestest.Insert(ctx, tx, role.NodeID{UUID: home}, "home"); err != nil {
 			return err
 		}
-		key := sealer.Seal([]byte("k"), secret.NewColumn("indexers_indexer.api_key_sealed").Row(indexer.String()))
-		_, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', ?, ?, '{}', 0)`, indexer, key, home)
-		return err
+		return indexerstest.Torznab(ctx, tx, sealer, indexer, "Fixture Site", role.NodeID{UUID: home}, "https://site.test/api", "k")
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -222,9 +225,9 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("searchWork = %d %s, want 202 %s", code, body, want)
 	}
 	item := tree.Items[0].ID.String()
-	run1 := `{"id":"` + run + `","itemId":"` + item + `","indexerId":"` + indexer.String() + `","startedAt":"T",`
+	run1 := `{"id":"` + run + `","itemId":"` + item + `","indexerId":`
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
+		`{"searches":[`+run1+`null,"startedAt":"T","finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
 	if got := <-searched; got != (grabs.SearchChanged{SearchID: run, WorkID: tree.ID.String()}) {
 		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
 	}
@@ -244,7 +247,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("grabs.changed = %+v, want the Grab %s failing", failed, grab)
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"finishedAt":"T","outcome":"grabbed","candidates":2,`+
+		`{"searches":[`+run1+`"`+indexer.String()+`","startedAt":"T","finishedAt":"T","outcome":"grabbed","candidates":2,`+
 			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
 			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +

@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -223,6 +224,21 @@ func TestPicksAndHeldWork(t *testing.T) {
 	}
 	if _, ok := in.at(start).Who(role.Relaying).Pick(home); ok {
 		t.Errorf("Pick found a Relaying Node, want none")
+	}
+}
+
+func TestHoldingListsAssignedNodesInOrNotInStepWithTheControllerFirst(t *testing.T) {
+	in := cluster()
+	in.nodes = append(in.nodes, nodeIn{id: crate, name: "crate", assigned: role.Of(role.Searching), attached: true, since: start})
+	in.node(home).assigned = in.node(home).assigned.With(role.Searching)
+	in.detach(box, start)
+	if got := in.at(start.Add(15 * time.Minute)).Who(role.Searching).Holding(); !slices.Equal(got, []ID{home, box, crate}) {
+		t.Errorf("Holding for Searching = %v, want home, then lapsed seedbox and crate by id", got)
+	}
+	in.node(home).assigned = in.node(home).assigned.Without(role.Searching)
+	in.nodes = in.nodes[:2]
+	if got := in.at(start.Add(15 * time.Minute)).Who(role.Searching).Holding(); !slices.Equal(got, []ID{box}) {
+		t.Errorf("Holding for Searching while the Controller covers = %v, want only seedbox", got)
 	}
 }
 

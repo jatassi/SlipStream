@@ -5,7 +5,7 @@ import type {
   GrabsGrab,
   GrabsSearchList,
   IndexersIndexer,
-  IndexersWaiting,
+  NodesNode,
   TargetsWants,
 } from "../api/gen/model";
 import { getGetWorkCellsMockHandler } from "../api/gen/query/files/files.msw";
@@ -19,11 +19,11 @@ import {
   getGetWorkMockHandler,
   getListContentTypesMockHandler,
 } from "../api/gen/query/works/works.msw";
-import { downloading, grabId, imported } from "./grabs";
+import { grabId, imported, indexerId } from "./grabs";
 import type { LiveMap } from "./handlers";
 import { cinema, orchard, orchardId, orchardItemId } from "./library";
 // oxlint-disable-next-line import/max-dependencies -- the Work page reads every section's queries, the Nodes' and the Profiles' included
-import { home, nodesAre, seedbox, seedboxId } from "./nodes";
+import { home, nodesFrom, seedbox, seedboxId } from "./nodes";
 import { films, profileHandlers } from "./profiles";
 
 const hd = "1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d";
@@ -117,7 +117,7 @@ export const searching: GrabsSearchList = {
     {
       id: searchId,
       itemId: orchardItemId,
-      indexerId: downloading.indexerId,
+      indexerId,
       startedAt: "2026-10-12T09:00:58Z",
       finishedAt: null,
       outcome: null,
@@ -133,7 +133,7 @@ export const grabbed: GrabsSearchList = {
     {
       id: searchId,
       itemId: orchardItemId,
-      indexerId: downloading.indexerId,
+      indexerId,
       startedAt: "2026-10-12T09:00:58Z",
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "grabbed",
@@ -158,7 +158,7 @@ export const unavailable: GrabsSearchList = {
     {
       id: searchId,
       itemId: orchardItemId,
-      indexerId: downloading.indexerId,
+      indexerId,
       startedAt: "2026-10-12T09:00:58Z",
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "indexer_unavailable",
@@ -170,50 +170,101 @@ export const unavailable: GrabsSearchList = {
   ],
 };
 
+const limitUnused = { count: 0, per: "hour", used: 0, freeAt: null } as const;
+
 const fixtureSite: IndexersIndexer = {
-  id: downloading.indexerId,
+  id: indexerId,
   name: "Fixture Site",
-  protocol: "torznab",
-  url: "http://indexer.test",
+  kind: "torznab",
   homeNodeId: seedboxId,
-  apiKeySet: true,
+  on: true,
+  automaticSearch: true,
+  rss: true,
+  allowFailover: false,
+  priority: 25,
+  categories: null,
+  searches: limitUnused,
+  grabs: limitUnused,
+  status: {
+    state: "ok",
+    cause: null,
+    text: null,
+    until: null,
+    since: null,
+    nodeId: null,
+    solverTried: false,
+    rung: 0,
+    lastFailure: null,
+    successAt: "2026-10-12T09:00:00Z",
+  },
+  waits: null,
+  session: null,
+  feedHost: "indexer.test",
   searchModes: [],
-  waiting: null,
+  revision: 1,
   createdAt: "2026-10-12T09:00:00Z",
 };
+
+/** How seedbox stands while the Indexer homed on it waits for it. */
+export type HomeAway = { readonly standing: NodesNode["standing"]; readonly since: string };
+
+const waitsFor = (away: HomeAway | null): IndexersIndexer["waits"] =>
+  away === null
+    ? null
+    : {
+        kind: "waiting",
+        releases: 0,
+        until: null,
+        since: away.since,
+        nodeId: seedboxId,
+        lapsed: false,
+        cause: null,
+        text: null,
+      };
 
 const fixedHandlers = () => [
   getListContentTypesMockHandler({ contentTypes: [cinema] }),
   getGetWorkMockHandler(orchard),
   getGetWorkWantsMockHandler(fromFilms),
   ...profileHandlers(),
-  nodesAre(home, seedbox),
 ];
+
+type LiveClient = Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"];
+
+/** The events stream, and a send to its first client. */
+function liveChannel() {
+  const clients: LiveClient[] = [];
+  const send: LiveClient["send"] = (event) => {
+    clients[0]?.send(event);
+  };
+  const handler = sse<LiveMap>("*/api/v1/events", ({ client }) => {
+    clients.push(client);
+    client.send({ event: "live.resync", data: {} });
+  });
+  return { handler, send };
+}
 
 export function workServer() {
   let cells = missing;
   let searches: GrabsSearchList = { searches: [] };
   let grabs: GrabsGrab[] = [otherWork];
   let indexer = fixtureSite;
+  let box = seedbox;
   const searched: string[] = [];
-  const clients: Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"][] = [];
-  const send: (typeof clients)[number]["send"] = (event) => {
-    clients[0]?.send(event);
-  };
+  const live = liveChannel();
+  const { send } = live;
   const handlers = [
     ...fixedHandlers(),
     getGetWorkCellsMockHandler(() => cells),
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
     getListIndexersMockHandler(() => ({ indexers: [indexer] })),
+    nodesFrom(() => [home, box]),
     http.post("*/api/v1/works/:workId/search", ({ params }) => {
       searched.push(String(params["workId"]));
       return HttpResponse.json({ searchIds: [searchId] }, { status: 202 });
     }),
-    sse<LiveMap>("*/api/v1/events", ({ client }) => {
-      clients.push(client);
-      client.send({ event: "live.resync", data: {} });
-    }),
+    live.handler,
   ];
   return {
     handlers,
@@ -229,9 +280,11 @@ export function workServer() {
         data: { searchId, workId: orchardId },
       });
     },
-    indexerWaits(waiting: IndexersWaiting | null) {
-      indexer = { ...indexer, waiting };
+    indexerWaits(away: HomeAway | null) {
+      box = away === null ? seedbox : { ...seedbox, standing: away.standing };
+      indexer = { ...indexer, waits: waitsFor(away) };
       send({ event: "nodes.changed", data: { nodeId: seedboxId } });
+      send({ event: "indexers.status-changed", data: { indexerId: indexer.id } });
     },
     grabMoves(next: GrabsGrab, nextCells = cells) {
       grabs = [next, otherWork];

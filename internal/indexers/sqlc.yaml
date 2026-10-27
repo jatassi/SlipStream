@@ -15,7 +15,32 @@ sql:
           - column: indexers_indexer.id
             go_type:
               type: IndexerID
-          - column: indexers_indexer.home_node_id
+          - column: "*.indexer_id"
+            go_type:
+              type: IndexerID
+          - column: indexers_settings.id
+            go_type:
+              type: Singleton
+          - column: indexers_catalog.id
+            go_type:
+              type: DefinitionID
+          - column: indexers_definition.id
+            go_type:
+              type: DefinitionID
+          - column: indexers_query.id
+            go_type:
+              type: QueryID
+          - column: indexers_tracker.id
+            go_type:
+              type: TrackerID
+          - column: "*.tracker_id"
+            go_type:
+              type: TrackerID
+          - column: "*.home_node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.node_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: NodeID
@@ -23,3 +48,73 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/secret
               type: Sealed
+          - column: "*.is_on"
+            go_type: bool
+          - column: "*.auto_search"
+            go_type: bool
+          - column: "*.rss"
+            go_type: bool
+          - column: "*.allow_failover"
+            go_type: bool
+          - column: "*.allow_no_size"
+            go_type: bool
+          - column: "*.solver_tried"
+            go_type: bool
+          - column: "*.pasted"
+            go_type: bool
+          - column: indexers_indexer.categories
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_indexer.media
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_indexer.definition_id
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_indexer.definition_sha
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_indexer.base_address
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_indexer.feed_host
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_indexer.tracker_name
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_indexer.rss_reading
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_status.cause
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_status.text
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_status.last_failure
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_query.outcome
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_query.sha
+            go_type:
+              type: string
+              pointer: true
+          - column: indexers_query.releases
+            go_type:
+              type: int64
+              pointer: true

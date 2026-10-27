@@ -299,11 +299,6 @@ func (s *server) grab(t *testing.T, work, stage, root, rel string) {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), ?, 0)`, home, home.String()); err != nil {
 			return err
 		}
-		indexer := storage.NewUUID()
-		if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer (id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at)
-			VALUES (?, ?, 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, indexer.String(), home); err != nil {
-			return err
-		}
 		var rootID, path any
 		if stage == "imported" {
 			rootID, path = must(storage.ParseUUID(root)), rel
@@ -315,12 +310,12 @@ func (s *server) grab(t *testing.T, work, stage, root, rel string) {
 			torrent, home); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id,
-			release_title, release_size, release_link, stage, torrent_id, file_index, probe, root_id, path, created_at, updated_at)
-			SELECT ?, work_id, id, 'any', 'search', ?, ?, 'The.Held.1080p.WEB', 4096, 'https://site.test/dl/1', ?,
+		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id,
+			release_title, release_size, stage, torrent_id, file_index, probe, root_id, path, created_at, updated_at)
+			SELECT ?, work_id, id, 'any', 'search', ?, 'The.Held.1080p.WEB', 4096, ?,
 				?, 0, '{}', ?, ?, 0, 0
 			FROM works_item WHERE work_id = ? LIMIT 1`,
-			storage.NewUUID(), indexer, home, stage, torrent, rootID, path, must(storage.ParseUUID(work)))
+			storage.NewUUID(), home, stage, torrent, rootID, path, must(storage.ParseUUID(work)))
 		return err
 	})
 	if err != nil {

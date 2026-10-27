@@ -9,7 +9,7 @@ import {
   getListSessionsQueryKey,
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
-import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
+import { getGetIndexerQueryKey, getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
 import {
   getListCutsQueryKey,
@@ -69,6 +69,10 @@ export const effects = {
   },
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });
+  },
+  "indexers.status-changed": (data, { refresh }) => {
+    refresh({ queryKey: getListIndexersQueryKey() });
+    refresh({ queryKey: getGetIndexerQueryKey(data.indexerId) });
   },
   "metadata.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListMetadataProvidersQueryKey() });

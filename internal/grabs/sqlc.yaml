@@ -24,6 +24,58 @@ sql:
           - column: grabs_refusal.search_id
             go_type:
               type: SearchID
+          - column: grabs_search_indexer.search_id
+            go_type:
+              type: SearchID
+          - column: grabs_release.search_id
+            go_type:
+              type: SearchID
+          - column: "*.query_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: QueryID
+          - column: "*.fetch_query_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: QueryID
+          - column: "*.tracker_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: TrackerID
+          - column: grabs_search_indexer.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: grabs_search_indexer.lapsed
+            go_type:
+              type: bool
+              pointer: true
+          - column: grabs_search_indexer.releases
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_search_indexer.outcome
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: OutcomeKind
+              pointer: true
+          - column: grabs_search_indexer.cause
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: Cause
+              pointer: true
+          - column: grabs_search_indexer.text
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.release_magnet
+            go_type:
+              type: string
+              pointer: true
+          - column: "*.*_sealed"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed
           - column: "*.work_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/works

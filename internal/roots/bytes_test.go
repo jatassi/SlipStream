@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -103,7 +104,7 @@ func TestARootOnAnOfflineOrWrittenOffNodeIsUnreachable(t *testing.T) {
 }
 
 func TestBytesGoThroughTheRootsNode(t *testing.T) {
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	node := role.NodeID{UUID: storage.NewUUID()}
 	folder := t.TempDir()
 	root := rootstest.Root(t, lib, node, alpha, folder)
@@ -154,7 +155,7 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 }
 
 func TestAWriteToARootItsNodeDoesntHoldIsNotReady(t *testing.T) {
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	svc, err := roots.Open(t.Context(), rootstest.Config(t, lib, alpha))
 	if err != nil {
 		t.Fatal(err)
