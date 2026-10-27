@@ -336,16 +336,6 @@ func (s Scenario) document() *yaml.Node {
 	return &doc
 }
 
-// Searching is the Node that holds Searching, whose front the world enters
-// as each Indexer's URL. Validate makes it exactly one when the library has
-// Indexers.
-func (s Scenario) Searching() string {
-	if holders := s.searching(); len(holders) == 1 {
-		return holders[0]
-	}
-	return ""
-}
-
 // searching names each Node that holds Searching once set up: a join or
 // controller Node listing it, and a controller Node that lists no Roles,
 // which keeps every Role but Relaying.

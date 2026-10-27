@@ -22,10 +22,12 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/internal/node"
 )
 
 // Served is a running fake and a client that reaches it, trusting its
-// certificate when it serves TLS. Roots is the CA its certificates chain
+// certificate when it serves TLS and dialing each site host the Spec's
+// Endpoints sets in endpoints.searching at the fake, as a Node does. Roots is the CA its certificates chain
 // to, for a client of another protocol. Faults plays on every connection
 // and request, and a test may set and clear its rules as it goes. RunDir
 // holds the event log its captures write.
@@ -102,7 +104,7 @@ func Loopback(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return serve(t, spec, s, l, &http.Transport{}, newCA(t), opts...)
+	return serve(t, spec, s, l, &http.Transport{DialContext: new(net.Dialer).DialContext}, newCA(t), opts...)
 }
 
 // InMemory serves spec over an in-memory network, so it runs inside
@@ -134,7 +136,12 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	plan := fault.NewPlan([]fault.Front{front}, nil)
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS == fake.FrontTLS}
 	l = plan.Listener(l, front)
-	leaf, err := authority.Leaf("127.0.0.1", spec.Name+".fake.localhost")
+	if spec.Endpoints != nil {
+		var e node.EndpointsBlock
+		spec.Endpoints(&e, at)
+		tr.DialContext = e.Searching.Dial(tr.DialContext)
+	}
+	leaf, err := authority.Leaf(fake.LeafNames(spec.Name)...)
 	if err != nil {
 		t.Fatal(err)
 	}

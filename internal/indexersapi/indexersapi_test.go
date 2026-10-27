@@ -167,7 +167,7 @@ func TestAnIndexerIsCreatedOnItsHomeNodeAndListed(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := serve(t, indexerstest.Roster{Controller: self, Holders: tc.holders}, role.NodeID{})
-			host := s.site.Address.AddrPort.String()
+			host := site.Host("torznab")
 			want := fresh(host, on, 25, 1, "null")
 			s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.address(), s.key), http.StatusCreated, want)
 			_, list := s.owner.Call(t, http.MethodGet, "/api/v1/indexers", "")
@@ -228,7 +228,7 @@ func TestAPatchChangesOnlyWhatItSends(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	id := s.create(t)
 	path := "/api/v1/indexers/" + id
-	host := s.site.Address.AddrPort.String()
+	host := site.Host("torznab")
 
 	s.owner.Expect(t, http.MethodPatch, path, `{"on":false,"rss":false,"priority":10,"categories":[2000,5000]}`, http.StatusOK,
 		fresh(host, `"on":false,"automaticSearch":true,"rss":false,"allowFailover":false`, 10, 2, "[2000,5000]"))
