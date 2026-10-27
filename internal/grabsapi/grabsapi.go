@@ -191,6 +191,7 @@ type grab struct {
 	Quality      string          `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
 	ReleaseSize  int64           `json:"releaseSize" minimum:"0"`
 	IndexerID    *string         `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
+	TrackerID    *string         `json:"trackerId" format:"uuid" doc:"The Tracker its Release reached, null for a Grab older than Trackers"`
 	NodeID       string          `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
 	FetchNodeID  *string         `json:"fetchNodeId" format:"uuid" doc:"The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did"`
 	TorrentID    *string         `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
@@ -207,8 +208,8 @@ type grab struct {
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID), NodeID: v.Node.String(),
-		Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
+		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
 	}
 	if !v.FetchNode.IsZero() {
 		id := v.FetchNode.String()

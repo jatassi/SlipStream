@@ -481,6 +481,7 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 		gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: reran.ID.String(), WorkID: reran.WorkID.String()})
 	}
 	if taken != nil {
+		gr.cfg.Indexers.Taken(ctx, taken.Ticket)
 		gr.cfg.Changed.Publish(ctx, Changed{GrabID: taken.ID.String(), WorkID: taken.WorkID.String()})
 	}
 	return nil
@@ -503,16 +504,28 @@ func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outc
 }
 
 // attach binds g to the Torrent of a's .torrent, on the Node the fetch
-// picked unless another Node already holds it.
+// picked unless another Node already holds it, and records the torrent's
+// privacy and a private torrent's announce hosts on g's Tracker.
 func (gr *Grabs) attach(ctx context.Context, tx *storage.Tx[file], g Grab, a advance, now storage.Time) (downloadclients.ID, role.NodeID, error) {
 	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
 	if err != nil {
 		return downloadclients.ID{}, role.NodeID{}, err
 	}
-	return downloadclients.Attach(ctx, tx, downloadclients.Want{
-		Node: a.fetched.to, Metainfo: a.torrent.metainfo, Raw: a.torrent.raw, ContentType: tree.ContentType,
+	m := a.torrent.metainfo
+	id, node, err := downloadclients.Attach(ctx, tx, downloadclients.Want{
+		Node: a.fetched.to, Metainfo: m, Raw: a.torrent.raw, ContentType: tree.ContentType, Tracker: g.Ticket.Tracker,
 		WrittenOff: func(node role.NodeID) bool { return gr.cfg.Roster.WrittenOff(role.Downloading, node) },
 	}, now)
+	if err != nil || g.Ticket.Tracker.IsZero() {
+		return id, node, err
+	}
+	return id, node, indexers.AddHosts(ctx, tx, g.Ticket.Tracker, m.Info.Private, downloadclients.HostsOf(m.Trackers()))
+}
+
+// RepointTracker is grabs' indexers.Repoint: every Grab of from moves to
+// into.
+func RepointTracker(ctx context.Context, tx *storage.Tx[storage.Library], from, into indexers.TrackerID) error {
+	return db.New(tx).RepointTracker(ctx, db.RepointTrackerParams{IntoID: into, FromID: from})
 }
 
 // record writes g's move by params in tx, or fails with errLeft when g

@@ -98,11 +98,12 @@ func serve(t *testing.T, r indexerstest.Roster, down role.NodeID) *served {
 			}
 			return home
 		},
-		Changed: srv.changed,
-		Status:  discard[indexers.StatusChanged]{},
-		Timings: indexers.DefaultTimings(),
-		Zone:    time.UTC,
-		Log:     slog.New(slog.DiscardHandler),
+		Changed:  srv.changed,
+		Status:   discard[indexers.StatusChanged]{},
+		Trackers: discard[indexers.TrackerChanged]{},
+		Timings:  indexers.DefaultTimings(),
+		Zone:     time.UTC,
+		Log:      slog.New(slog.DiscardHandler),
 	})
 	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { indexersapi.Routes(r, registry{x}) })
 	return srv
@@ -150,7 +151,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 	return `{"id":"id1","name":"Fixture Site","kind":"torznab","homeNodeId":"id2",` + switches + `,"priority":` + strconv.Itoa(priority) +
 		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
-		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":[],` +
+		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
 		`"waits":null,"session":null,"feedHost":"` + feedHost + `",` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
 }
 
@@ -356,9 +357,9 @@ func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
 	s.reach(t, map[string][]string{"TorrentLeech": {feed, torrentLeech}, "Aither": {feed}, "Orphan": nil})
 	_, list := s.owner.Call(t, http.MethodGet, "/api/v1/trackers", "")
 	want := `{"trackers":[` +
-		`{"id":"Aither","name":"Aither","privacy":"private","indexerIds":["Prowlarr"]},` +
-		`{"id":"Orphan","name":"Orphan","privacy":"private","indexerIds":[]},` +
-		`{"id":"TorrentLeech","name":"TorrentLeech","privacy":"private","indexerIds":["Prowlarr","TorrentLeech"]}]}` + "\n"
+		`{"id":"Aither","name":"Aither","privacy":"private","hosts":[],"keys":[],"indexerIds":["Prowlarr"]},` +
+		`{"id":"Orphan","name":"Orphan","privacy":"private","hosts":[],"keys":[],"indexerIds":[]},` +
+		`{"id":"TorrentLeech","name":"TorrentLeech","privacy":"private","hosts":[],"keys":[],"indexerIds":["Prowlarr","TorrentLeech"]}]}` + "\n"
 	var trackers struct {
 		Trackers []struct {
 			ID   string `json:"id"`

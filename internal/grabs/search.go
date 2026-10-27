@@ -277,6 +277,7 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	}
 	gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: run.ID.String(), WorkID: run.WorkID.String()})
 	if grab != nil {
+		gr.cfg.Indexers.Taken(ctx, grab.Ticket)
 		gr.cfg.Changed.Publish(ctx, Changed{GrabID: grab.ID.String(), WorkID: grab.WorkID.String()})
 	}
 	return committed
@@ -455,7 +456,7 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Searc
 		hint = h[:]
 	}
 	err = q.InsertGrab(ctx, db.InsertGrabParams{
-		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: t.Indexer, NodeID: g.Node,
+		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
 		ReleaseInfoHash: hint, FetchQueryID: t.Query, CreatedAt: now,
 		MinRatio: orNil(r.Floor.MinRatio), MinSeedSeconds: orNil(int64(r.Floor.MinSeed.Seconds())),

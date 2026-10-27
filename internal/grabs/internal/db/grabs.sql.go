@@ -303,13 +303,14 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 }
 
 const insertGrab = `-- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size,
     release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor,
     upload_factor, stage, created_at, updated_at)
 VALUES (?1, ?2, ?3, ?4, 'search', ?5, ?6,
-    ?7, ?8, ?9, ?10,
-    ?11, ?12, ?13, ?14,
-    ?15, ?16, 'fetching', ?17, ?17)
+    ?7,
+    ?8, ?9, ?10, ?11,
+    ?12, ?13, ?14, ?15,
+    ?16, ?17, 'fetching', ?18, ?18)
 `
 
 type InsertGrabParams struct {
@@ -318,6 +319,7 @@ type InsertGrabParams struct {
 	ItemID            works.ItemID
 	Edition           targets.Edition
 	IndexerID         indexers.ID
+	TrackerID         indexers.TrackerID
 	NodeID            role.NodeID
 	ReleaseTitle      string
 	ReleaseSize       int64
@@ -339,6 +341,7 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 		arg.ItemID,
 		arg.Edition,
 		arg.IndexerID,
+		arg.TrackerID,
 		arg.NodeID,
 		arg.ReleaseTitle,
 		arg.ReleaseSize,
@@ -1110,6 +1113,20 @@ UPDATE grabs_grab SET root_id = NULL WHERE root_id = ?1 AND stage IN ('imported'
 
 func (q *Queries) ReleaseRoot(ctx context.Context, rootID roots.ID) error {
 	_, err := q.db.ExecContext(ctx, releaseRoot, rootID)
+	return err
+}
+
+const repointTracker = `-- name: RepointTracker :exec
+UPDATE grabs_grab SET tracker_id = ?1 WHERE tracker_id = ?2
+`
+
+type RepointTrackerParams struct {
+	IntoID indexers.TrackerID
+	FromID indexers.TrackerID
+}
+
+func (q *Queries) RepointTracker(ctx context.Context, arg RepointTrackerParams) error {
+	_, err := q.db.ExecContext(ctx, repointTracker, arg.IntoID, arg.FromID)
 	return err
 }
 

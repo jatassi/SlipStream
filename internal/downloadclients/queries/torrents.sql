@@ -58,11 +58,11 @@ SELECT CAST(coalesce(max(added_order), 0) + 1 AS INTEGER) FROM downloadclients_t
 
 -- name: InsertTorrent :exec
 INSERT INTO downloadclients_torrent (
-    id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, wanted, added_order, added_at,
+    id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
     uploaded, downloaded, active_seconds, seeding_seconds, totals_at
 ) VALUES (
     sqlc.arg(id), sqlc.arg(node_id), sqlc.arg(info_hash), sqlc.arg(metainfo), sqlc.arg(name), sqlc.arg(size),
-    sqlc.arg(private), sqlc.arg(trackers), sqlc.arg(content_type), 'started', sqlc.arg(added_order), sqlc.arg(added_at),
+    sqlc.arg(private), sqlc.arg(trackers), sqlc.arg(content_type), sqlc.narg(tracker_id), 'started', sqlc.arg(added_order), sqlc.arg(added_at),
     sqlc.arg(uploaded), sqlc.arg(downloaded), sqlc.arg(active_seconds), sqlc.arg(seeding_seconds), sqlc.arg(totals_at)
 );
 
@@ -156,7 +156,7 @@ WHERE parted_at IS NULL
 ORDER BY added_order;
 
 -- name: GetDetails :one
-SELECT info_hash, metainfo, save_folder, private FROM downloadclients_torrent
+SELECT info_hash, metainfo, save_folder, private, tracker_id FROM downloadclients_torrent
 WHERE id = sqlc.arg(id) AND parted_at IS NULL;
 
 -- name: GetNodeTotals :one
@@ -167,3 +167,9 @@ SELECT count(*) AS torrents,
        CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
 FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL;
+
+-- name: SetTrackerIfNone :exec
+UPDATE downloadclients_torrent SET tracker_id = sqlc.arg(tracker_id) WHERE id = sqlc.arg(id) AND tracker_id IS NULL;
+
+-- name: RepointTracker :exec
+UPDATE downloadclients_torrent SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);

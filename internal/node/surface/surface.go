@@ -65,6 +65,7 @@ var Events = []live.Event{
 	indexers.ChangedEvent,
 	indexers.StatusChangedEvent,
 	indexers.CatalogChangedEvent,
+	indexers.TrackersEvent,
 	files.ChangedEvent,
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,

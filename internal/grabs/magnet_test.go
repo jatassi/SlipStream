@@ -178,7 +178,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	p.g = grabs.New(grabs.Config{
 		Library: lib, Works: w, Sealer: sealer,
 		Indexers: indexers.New(indexers.Config{
-			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{},
+			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		}),
 		Roster: p.roster, Downloads: p.swarm,
 		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),

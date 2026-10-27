@@ -279,8 +279,9 @@ type Grab struct {
 	Edition targets.Edition
 	Targets []targets.TargetID
 	Release Release
-	// Ticket is the Grab's Indexer, zero once the Indexer is deleted, and
-	// the grab Take reserved on it.
+	// Ticket is the Grab's Indexer, zero once the Indexer is deleted, the
+	// grab Take reserved on it and the Tracker its Release reached, zero
+	// for a Grab older than Trackers.
 	Ticket indexers.Ticket
 	// Node downloads the release: the Indexer's home Node until the fetch,
 	// then the Downloading Node the fetch handed the .torrent to.
@@ -356,7 +357,7 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
-		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID},
+		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
 	}

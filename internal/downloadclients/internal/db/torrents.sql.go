@@ -9,6 +9,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -35,7 +36,7 @@ func (q *Queries) CountHeld(ctx context.Context, nodeID role.NodeID) (CountHeldR
 }
 
 const getDetails = `-- name: GetDetails :one
-SELECT info_hash, metainfo, save_folder, private FROM downloadclients_torrent
+SELECT info_hash, metainfo, save_folder, private, tracker_id FROM downloadclients_torrent
 WHERE id = ?1 AND parted_at IS NULL
 `
 
@@ -44,6 +45,7 @@ type GetDetailsRow struct {
 	Metainfo   []byte
 	SaveFolder *string
 	Private    int64
+	TrackerID  *indexers.TrackerID
 }
 
 func (q *Queries) GetDetails(ctx context.Context, id TorrentID) (GetDetailsRow, error) {
@@ -54,6 +56,7 @@ func (q *Queries) GetDetails(ctx context.Context, id TorrentID) (GetDetailsRow, 
 		&i.Metainfo,
 		&i.SaveFolder,
 		&i.Private,
+		&i.TrackerID,
 	)
 	return i, err
 }
@@ -205,12 +208,12 @@ func (q *Queries) GetThresholds(ctx context.Context) (GetThresholdsRow, error) {
 
 const insertTorrent = `-- name: InsertTorrent :exec
 INSERT INTO downloadclients_torrent (
-    id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, wanted, added_order, added_at,
+    id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
     uploaded, downloaded, active_seconds, seeding_seconds, totals_at
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, 'started', ?10, ?11,
-    ?12, ?13, ?14, ?15, ?16
+    ?7, ?8, ?9, ?10, 'started', ?11, ?12,
+    ?13, ?14, ?15, ?16, ?17
 )
 `
 
@@ -224,6 +227,7 @@ type InsertTorrentParams struct {
 	Private        int64
 	Trackers       string
 	ContentType    works.TypeID
+	TrackerID      *indexers.TrackerID
 	AddedOrder     int64
 	AddedAt        storage.Time
 	Uploaded       int64
@@ -244,6 +248,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 		arg.Private,
 		arg.Trackers,
 		arg.ContentType,
+		arg.TrackerID,
 		arg.AddedOrder,
 		arg.AddedAt,
 		arg.Uploaded,
@@ -725,6 +730,20 @@ func (q *Queries) Remove(ctx context.Context, arg RemoveParams) error {
 	return err
 }
 
+const repointTracker = `-- name: RepointTracker :exec
+UPDATE downloadclients_torrent SET tracker_id = ?1 WHERE tracker_id = ?2
+`
+
+type RepointTrackerParams struct {
+	IntoID *indexers.TrackerID
+	FromID *indexers.TrackerID
+}
+
+func (q *Queries) RepointTracker(ctx context.Context, arg RepointTrackerParams) error {
+	_, err := q.db.ExecContext(ctx, repointTracker, arg.IntoID, arg.FromID)
+	return err
+}
+
 const setCompletion = `-- name: SetCompletion :exec
 UPDATE downloadclients_torrent SET completion = ?1, completed_at = ?2
 WHERE id = ?3 AND node_id = ?4 AND completion IS NULL
@@ -912,6 +931,20 @@ type SetThresholdsParams struct {
 
 func (q *Queries) SetThresholds(ctx context.Context, arg SetThresholdsParams) error {
 	_, err := q.db.ExecContext(ctx, setThresholds, arg.FaultStallSeconds, arg.UnregisteredGapSeconds, arg.MetadataWaitSeconds)
+	return err
+}
+
+const setTrackerIfNone = `-- name: SetTrackerIfNone :exec
+UPDATE downloadclients_torrent SET tracker_id = ?1 WHERE id = ?2 AND tracker_id IS NULL
+`
+
+type SetTrackerIfNoneParams struct {
+	TrackerID *indexers.TrackerID
+	ID        TorrentID
+}
+
+func (q *Queries) SetTrackerIfNone(ctx context.Context, arg SetTrackerIfNoneParams) error {
+	_, err := q.db.ExecContext(ctx, setTrackerIfNone, arg.TrackerID, arg.ID)
 	return err
 }
 

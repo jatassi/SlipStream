@@ -42,7 +42,7 @@ func serveCatalog(t *testing.T) catalogServed {
 		Library: lib, Sealer: secrettest.Sealer(t), Roster: indexerstest.Alone(self), HTTP: f.Client,
 		Endpoints:   indexers.Endpoints{Catalog: endpoint.MustParseURL(f.Address.URL(catalog.Base))},
 		CatalogNext: func(context.Context) (time.Time, error) { return time.Date(2026, 10, 28, 3, 0, 0, 0, time.UTC), nil },
-		Changed:     discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Catalogs: discard[indexers.CatalogChanged]{},
+		Changed:     discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Catalogs: discard[indexers.CatalogChanged]{},
 		Timings: indexers.DefaultTimings(), Zone: time.UTC, Log: slog.New(slog.DiscardHandler),
 	})
 	return catalogServed{owner: ownertest.Serve(t, lib, func(r *api.Router) { indexersapi.Routes(r, registry{x}) }), x: x, fake: f}

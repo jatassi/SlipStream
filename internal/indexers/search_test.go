@@ -96,7 +96,7 @@ func plannedWith(t *testing.T, names ...string) *planned {
 		Searching: func(role.NodeID) searching.Remote { return p.node },
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}, contenttypetest.ID: fx},
 		Works:     w,
-		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{},
+		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		Timings: indexers.DefaultTimings(), Zone: time.UTC,
 		Log: slog.New(slog.DiscardHandler),
 	})

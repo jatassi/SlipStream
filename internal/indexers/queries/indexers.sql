@@ -183,3 +183,55 @@ ORDER BY indexers_indexer.name;
 
 -- name: QueryCompleted :one
 SELECT EXISTS (SELECT 1 FROM indexers_query WHERE id = sqlc.arg(id) AND completed_at IS NOT NULL);
+
+-- name: GetTracker :one
+SELECT * FROM indexers_tracker WHERE id = sqlc.arg(id);
+
+-- name: InsertTracker :exec
+INSERT INTO indexers_tracker (id, name, privacy, created_at)
+VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(privacy), sqlc.arg(created_at));
+
+-- name: TrackerNameTaken :one
+SELECT EXISTS (SELECT 1 FROM indexers_tracker WHERE name = sqlc.arg(name) AND id IS NOT sqlc.arg(except));
+
+-- name: RenameTracker :execrows
+UPDATE indexers_tracker SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+
+-- name: SetUnknownPrivacy :exec
+UPDATE indexers_tracker SET privacy = sqlc.arg(privacy) WHERE id = sqlc.arg(id) AND privacy = 'unknown';
+
+-- name: DeleteTracker :exec
+DELETE FROM indexers_tracker WHERE id = sqlc.arg(id);
+
+-- name: GetTrackerOfKey :one
+SELECT tracker_id FROM indexers_tracker_key WHERE key = sqlc.arg(key);
+
+-- name: ListTrackerKeys :many
+SELECT key, tracker_id FROM indexers_tracker_key ORDER BY key;
+
+-- name: InsertTrackerKey :exec
+INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (sqlc.arg(key), sqlc.arg(tracker_id));
+
+-- name: MoveTrackerKeys :exec
+UPDATE indexers_tracker_key SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
+
+-- name: AddReach :execrows
+INSERT INTO indexers_reach (indexer_id, tracker_id) VALUES (sqlc.arg(indexer_id), sqlc.arg(tracker_id))
+ON CONFLICT DO NOTHING;
+
+-- name: MoveReach :exec
+INSERT INTO indexers_reach (indexer_id, tracker_id)
+SELECT r.indexer_id, sqlc.arg(into_id) FROM indexers_reach AS r WHERE r.tracker_id = sqlc.arg(from_id)
+ON CONFLICT DO NOTHING;
+
+-- name: AddTrackerHost :exec
+INSERT INTO indexers_tracker_host (tracker_id, host) VALUES (sqlc.arg(tracker_id), sqlc.arg(host))
+ON CONFLICT DO NOTHING;
+
+-- name: MoveTrackerHosts :exec
+INSERT INTO indexers_tracker_host (tracker_id, host)
+SELECT sqlc.arg(into_id), h.host FROM indexers_tracker_host AS h WHERE h.tracker_id = sqlc.arg(from_id)
+ON CONFLICT DO NOTHING;
+
+-- name: ListTrackerHosts :many
+SELECT tracker_id, host FROM indexers_tracker_host ORDER BY host;

@@ -174,7 +174,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"tracker":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`"fault":{"kind":"unregistered","at":"T","sentence":"The release's tracker reports that the torrent is no longer registered."},"addedAt":"T",` +
-		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
+		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,"trackerId":null,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +
 		`"files":[{"index":0,"path":"Harbor/Harbor.mkv","size":1000,"done":1000,"itemId":"id4"}],` +

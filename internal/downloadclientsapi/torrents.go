@@ -226,6 +226,7 @@ type TorrentDetail struct {
 	SaveFolder string          `json:"saveFolder,omitempty" doc:"Where its Node keeps it, absent until its Node reports it"`
 	PieceSize  int64           `json:"pieceSize" minimum:"1" doc:"Bytes"`
 	Private    bool            `json:"private"`
+	TrackerID  *string         `json:"trackerId" format:"uuid" doc:"The Tracker its Grab's Release reached, null when no Grab named one"`
 	Trackers   []trackerDetail `json:"trackers" nullable:"false" doc:"In its metainfo's order"`
 	Files      []fileDetail    `json:"files" nullable:"false" doc:"In its metainfo's order"`
 	Grabs      []torrentGrab   `json:"grabs" nullable:"false" doc:"The Grabs that used it, newest first"`
@@ -266,6 +267,9 @@ func detailOf(d downloadclients.Detail) TorrentDetail {
 		TorrentRow: rowOf(d.Row), Downloaded: d.Totals.Downloaded, Active: int64(d.Totals.Active / time.Second),
 		InfoHash: d.InfoHash.String(), SaveFolder: d.SaveFolder, PieceSize: d.PieceSize, Private: d.Private,
 		Trackers: []trackerDetail{}, Files: []fileDetail{}, Grabs: []torrentGrab{}, Live: d.Live, AnnounceAt: when(d.AnnounceAt),
+	}
+	if d.Tracker != nil {
+		out.TrackerID = new(d.Tracker.String())
 	}
 	for _, t := range d.Trackers {
 		out.Trackers = append(out.Trackers, trackerDetail{

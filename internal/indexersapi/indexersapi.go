@@ -252,7 +252,7 @@ type newIndexer struct {
 	Name            string        `json:"name" minLength:"1" maxLength:"100"`
 	Address         string        `json:"address" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address. Write-only"`
 	APIKey          string        `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
-	TrackerName     string        `json:"trackerName,omitempty" maxLength:"100" doc:"The Tracker an RSS feed reaches; required for an RSS feed"`
+	TrackerName     string        `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
 	Media           []string      `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
 	AllowNoSize     bool          `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
 	Cookie          *pastedCookie `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one. Write-only"`
@@ -587,6 +587,29 @@ func Routes(r *api.Router, registry Registry) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "listTrackers", Method: http.MethodGet, Path: "/trackers", Summary: "List the Trackers and the Indexers that reach each", Status: http.StatusOK,
 	}, h.listTrackers)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "getTracker", Method: http.MethodGet, Path: "/trackers/{id}", Summary: "Get a Tracker", Status: http.StatusOK,
+		Errors: []*api.Code{trackerNotFound},
+	}, h.getTracker)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "renameTracker",
+		Method:  http.MethodPatch,
+		Path:    "/trackers/{id}",
+		Summary: "Rename a Tracker. Every Indexer and Release that reached it still does.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{trackerNotFound, trackerNameTaken},
+	}, h.renameTracker)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "mergeTracker",
+		Method:  http.MethodPost,
+		Path:    "/trackers/{id}/merge",
+		Summary: "Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{trackerNotFound, trackerMergeSelf},
+	}, h.mergeTracker)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "getIndexerSettings", Method: http.MethodGet, Path: "/indexer-settings", Summary: "Get the Indexer settings", Status: http.StatusOK,

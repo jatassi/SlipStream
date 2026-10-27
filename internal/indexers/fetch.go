@@ -12,11 +12,15 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Ticket is a Release made ready to fetch: its Indexer and the grab Take
-// reserved, zero for a magnet link, which reaches no site.
+// Ticket is a Release made ready to fetch: its Indexer, the grab Take
+// reserved (zero for a magnet link, which reaches no site) and the Tracker
+// the Release reaches.
 type Ticket struct {
 	Indexer ID
 	Query   QueryID
+	Tracker TrackerID
+	// reached is true when Take made the Tracker or its Indexer's reach.
+	reached bool
 }
 
 // NotTakenError is a Release whose fetch would wait for the Admin: its
@@ -29,7 +33,8 @@ func (e *NotTakenError) Error() string {
 
 // Take readies r inside the decision's Write: *NotTakenError while r's
 // Indexer is stopped, at its grab limit or deleted, else its Ticket with a
-// grab reserved, none for a magnet link.
+// grab reserved, none for a magnet link, and the Tracker r reaches, found
+// or made. The caller calls Taken once the Write commits.
 func (x *Indexers) Take(ctx context.Context, tx *storage.Tx[file], r Release) (Ticket, error) {
 	idx, err := Get(ctx, tx, r.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
@@ -46,14 +51,25 @@ func (x *Indexers) Take(ctx context.Context, tx *storage.Tx[file], r Release) (T
 		return Ticket{}, &NotTakenError{Outcome: Outcome{Kind: IsStopped, Cause: st.Cause, Text: st.Text, Node: st.Node}}
 	}
 	t := Ticket{Indexer: idx.ID}
-	if r.Offered().IsMagnet() {
-		return t, nil
+	if !r.Offered().IsMagnet() {
+		t.Query, err = reserve(ctx, tx, idx, UseFetch, storage.Now())
+		if limit, ok := errors.AsType[*LimitError](err); ok {
+			return Ticket{}, &NotTakenError{Outcome: Outcome{Kind: LimitReached, Until: limit.Until}}
+		}
+		if err != nil {
+			return Ticket{}, err
+		}
 	}
-	t.Query, err = reserve(ctx, tx, idx, UseFetch, storage.Now())
-	if limit, ok := errors.AsType[*LimitError](err); ok {
-		return Ticket{}, &NotTakenError{Outcome: Outcome{Kind: LimitReached, Until: limit.Until}}
-	}
+	t.Tracker, t.reached, err = reachTracker(ctx, tx, idx.ID, reachedBy(idx, r))
 	return t, err
+}
+
+// Taken tells the live clients of the Tracker t made or newly reached,
+// once the Write that took it commits.
+func (x *Indexers) Taken(ctx context.Context, t Ticket) {
+	if t.reached {
+		x.cfg.Trackers.Publish(ctx, TrackerChanged{TrackerID: t.Tracker.String()})
+	}
 }
 
 // Got is what a Release's link leads to: a Torrent or a Magnet.
