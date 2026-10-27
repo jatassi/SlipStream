@@ -24,8 +24,11 @@ type Request struct {
 	// feeds the response back. A redirect to a magnet link isn't followed:
 	// the caller feeds back the redirect response itself.
 	FollowRedirects bool
-	// ReplaceCookies is whether the response's cookies replace the site's
-	// jar, as a Prowlarr login does.
+	// ReplaceCookies marks a sign-in request. The caller sends the Cookie
+	// header given here, with any pasted cookie, in place of the site's
+	// jar. The cookies the request ends with, those it sent and those set
+	// along any redirect the caller followed, then replace the jar, as
+	// each Prowlarr login does.
 	ReplaceCookies bool
 	Purpose        Purpose
 }
@@ -45,6 +48,8 @@ const (
 // undecoded.
 type Response struct {
 	Status int
+	// Header holds the Set-Cookie headers of every redirect the caller
+	// followed as well as the final response's.
 	Header http.Header
 	Body   []byte
 	// URL is the address the response came from, after any redirect the
@@ -59,8 +64,8 @@ type step struct {
 	then func(Response) (*step, error)
 }
 
-// flow runs a chain of steps as an Exchange. Login, Search and Download
-// embed one.
+// flow runs a chain of steps as an Exchange. Login, CaptchaFetch, Search
+// and Download embed one.
 type flow struct {
 	cur *step
 	err error

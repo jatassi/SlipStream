@@ -274,7 +274,7 @@ func TestLoadUnrunnable(t *testing.T) {
 		{"search mode", "id: x\nlinks: [https://x/]\ncaps:\n  modes:\n    search: [q, imdbid]\n" + search, false, "its search modes can't be read"},
 		{"login method", base + search + "login:\n  method: twofactor\n", true, `it logs in with "twofactor", which SlipStream doesn't run`},
 		{"captcha type", base + search + "login:\n  path: l\n  captcha:\n    type: recaptcha\n", true, `it asks for a "recaptcha" captcha`},
-		{"unported feature", base + search + "login:\n  method: post\n  path: l\n", true, "it uses login method post, which SlipStream can't run yet"},
+		{"unported feature", base + search + "download:\n  selectors:\n    - selector: a\n", true, "it uses download selectors, which SlipStream can't run yet"},
 		{"setting type", base + search + "settings:\n  - {name: a, type: multi-select}\n", true, `it has a setting of type "multi-select"`},
 		{"undeclared setting", base + search + "  inputs:\n    q: \"{{ .Config.nope }}\"\n", false, `a template reads the setting "nope"`},
 		{"bad selector", base + "search:\n  path: s\n  rows:\n    selector: \"tr[\"\n", false, "its selector \"tr[\" at search.rows.selector can't be read"},

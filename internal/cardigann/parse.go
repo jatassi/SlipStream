@@ -61,13 +61,12 @@ func (x *Search) parse(p *searchPathBlock, reqURL *url.URL, r Response) error {
 // redirectTarget is RedirectUrl when HasHttpRedirect holds: the Location,
 // or the url in a Refresh header, read against the request's address.
 func redirectTarget(reqURL *url.URL, r Response) string {
-	refresh := r.Header.Get("Refresh")
-	if !slices.Contains(redirectStatuses, r.Status) && refresh == "" {
+	if !isRedirect(r) {
 		return ""
 	}
 	to := r.Header.Get("Location")
 	if to == "" {
-		m := refreshURL.FindStringSubmatch(refresh)
+		m := refreshURL.FindStringSubmatch(r.Header.Get("Refresh"))
 		if m == nil {
 			return ""
 		}
@@ -78,6 +77,11 @@ func redirectTarget(reqURL *url.URL, r Response) string {
 		return to
 	}
 	return u.String()
+}
+
+// isRedirect is HasHttpRedirect: a redirect status or a Refresh header.
+func isRedirect(r Response) bool {
+	return slices.Contains(redirectStatuses, r.Status) || r.Header.Get("Refresh") != ""
 }
 
 // parseDocument parses an HTML or XML response's rows. A row that fails
@@ -150,30 +154,39 @@ func mergeAfter(rows []*html.Node, after int) ([]*html.Node, error) {
 	return out, nil
 }
 
-// searchError is the first search.error selector that matches, with real
-// CSS :root, as a *Rejected carrying the element's text or the message
-// selector's value.
+// searchError is the first search.error selector that matches, as a
+// *Rejected with the site's words.
 func (x *Search) searchError(doc *html.Node) error {
-	for _, e := range x.d.def.Search.Error {
-		sel, err := compileSelector(e.Selector)
+	msg, found, err := matchError(x.d.def.Search.Error, doc, x.base)
+	if err != nil || !found {
+		return err
+	}
+	return &Rejected{Message: msg, Search: true}
+}
+
+// matchError is the message of the first error block whose selector
+// matches doc, with real CSS :root: the element's text, or the message
+// selector's value read from doc's top element.
+func matchError(blocks []errorBlock, doc *html.Node, env env) (msg string, found bool, err error) {
+	for _, e := range blocks {
+		el, err := firstMatch(doc, e.Selector)
 		if err != nil {
-			return err
+			return "", false, err
 		}
-		el := sel.First(doc)
 		if el == nil {
 			continue
 		}
 		msg := textContent(el)
 		if e.Message != nil {
-			v, err := e.Message.Select(firstElement(doc), x.base, true)
+			v, err := e.Message.Select(firstElement(doc), env, true)
 			if err != nil {
-				return fmt.Errorf("search error message: %w", err)
+				return "", false, fmt.Errorf("error message: %w", err)
 			}
 			msg = v.text
 		}
-		return &Rejected{Message: strings.TrimSpace(msg), Search: true}
+		return strings.TrimSpace(msg), true, nil
 	}
-	return nil
+	return "", false, nil
 }
 
 func (x *Search) parseHTMLRow(row *html.Node, reqURL *url.URL) (*parsed, error) {
