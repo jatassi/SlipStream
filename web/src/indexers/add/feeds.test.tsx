@@ -31,7 +31,9 @@ test("a Torznab feed is tested first; a feed that names no source asks for its T
   await expect.element(tracker).toHaveValue("Brook");
   await userEvent.fill(tracker, "Brook Tracker");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("heading", { name: "Brook", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Brook", exact: true, level: 1 }))
+    .toBeVisible();
   expect(posted(server.writes)).toEqual([
     expect.objectContaining({
       kind: "torznab",
@@ -99,7 +101,9 @@ test("an RSS feed shows why the Test refused it, and saves once Allow items with
   await expect.element(page.getByRole("alert").getByText(refusal)).toBeVisible();
   await userEvent.click(page.getByRole("checkbox", { name: "Allow items with no size" }));
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("heading", { name: "Ferry RSS", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Ferry RSS", exact: true, level: 1 }))
+    .toBeVisible();
   expect(posted(server.writes)).toEqual([
     expect.objectContaining({
       kind: "rss",

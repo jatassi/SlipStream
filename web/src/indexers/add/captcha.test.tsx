@@ -47,7 +47,9 @@ test("a failed Test shows the site's words and a new image, whose code the next 
   await expect.element(code()).toHaveValue("");
   await userEvent.fill(code(), "K7Q2");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("heading", { name: "Larkspur", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Larkspur", exact: true, level: 1 }))
+    .toBeVisible();
   expect(attempts(server.writes)).toEqual([
     { attempt: "attempt-1", answer: "WRONG" },
     { attempt: "attempt-2", answer: "K7Q2" },
@@ -70,7 +72,9 @@ test("an expired captcha says so, and New captcha loads another", async () => {
   await expect.element(image()).toHaveAttribute("src", captchas[1]?.image);
   await userEvent.fill(code(), "M3P9");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("heading", { name: "Larkspur", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Larkspur", exact: true, level: 1 }))
+    .toBeVisible();
   expect(attempts(server.writes)).toEqual([
     { attempt: "attempt-1", answer: "K7Q2" },
     { attempt: "attempt-2", answer: "M3P9" },

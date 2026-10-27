@@ -54,7 +54,9 @@ test("each field's value is sent by the definition's own name", async () => {
   await userEvent.click(page.getByRole("button", { name: "Continue" }));
   await userEvent.fill(page.getByRole("textbox", { name: "Code" }), "K7Q2");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("heading", { name: "Meadow", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Meadow", exact: true, level: 1 }))
+    .toBeVisible();
   expect(posted(server.writes)).toEqual([
     expect.objectContaining({
       kind: "catalog",
@@ -91,7 +93,9 @@ test("a definition with no session says it searches from home; its address and c
   await userEvent.click(page.getByRole("option", { name: "https://quarry.example.net/" }));
   await userEvent.click(page.getByRole("checkbox", { name: "TV" }));
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("heading", { name: "Quarry", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Quarry", exact: true, level: 1 }))
+    .toBeVisible();
   const [body] = posted(server.writes);
   expect(body).toMatchObject({
     baseAddress: "https://quarry.example.net/",
@@ -128,7 +132,9 @@ test("a cookie definition asks for the cookie and User-Agent and sends them toge
   await userEvent.fill(page.getByRole("textbox", { name: "Cookie" }), "cf_clearance=abc; uid=7");
   await userEvent.fill(page.getByRole("textbox", { name: "User-Agent" }), "Mozilla/5.0 Test");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("heading", { name: "Cinder", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Cinder", exact: true, level: 1 }))
+    .toBeVisible();
   expect(posted(server.writes)).toEqual([
     expect.objectContaining({
       values: {},
