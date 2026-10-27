@@ -67,16 +67,24 @@ var self = role.NodeID{UUID: storage.NewUUID()}
 
 func plannedWith(t *testing.T, names ...string) *planned {
 	t.Helper()
+	return plannedIn(t, indexerstest.Alone(self), self, names...)
+}
+
+// plannedIn is planned with roster's Nodes, its Indexers homed on home.
+func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names ...string) *planned {
+	t.Helper()
 	sealer := secrettest.Sealer(t)
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), works.Schema(), indexers.Schema())
 	p := &planned{t: t, lib: lib, node: &scripted{answers: map[string]searching.Answer{}}, ids: map[string]indexers.ID{}}
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if err := nodestest.Insert(ctx, tx, self, "home"); err != nil {
-			return err
+		for _, n := range roster.Holders {
+			if err := nodestest.Insert(ctx, tx, n, roster.Name(n)); err != nil {
+				return err
+			}
 		}
 		for _, name := range names {
 			p.ids[name] = indexers.ID{UUID: storage.NewUUID()}
-			if err := indexerstest.Torznab(ctx, tx, sealer, p.ids[name], name, self, "https://site.test/torznab", "k"); err != nil {
+			if err := indexerstest.Torznab(ctx, tx, sealer, p.ids[name], name, home, "https://site.test/torznab", "k"); err != nil {
 				return err
 			}
 		}
@@ -94,7 +102,7 @@ func plannedWith(t *testing.T, names ...string) *planned {
 		t.Fatal(err)
 	}
 	p.x = indexers.New(indexers.Config{
-		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(self),
+		Library: lib, Sealer: sealer, Roster: roster,
 		Searching: func(role.NodeID) searching.Remote { return p.node },
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}, contenttypetest.ID: fx},
 		Works:     w,
@@ -290,6 +298,34 @@ func TestAFetchDropsOnceItsIndexerStopsAndWaitsWhileItFails(t *testing.T) {
 	}
 	if _, err := p.x.Fetch(t.Context(), birch, link); !isDrop(err, indexers.DropRemoved) {
 		t.Fatalf("a fetch from a deleted Indexer = %v, want a drop", err)
+	}
+}
+
+func TestAStopMetOnAFailoverNodeWaitsForHome(t *testing.T) {
+	box := role.NodeID{UUID: storage.NewUUID()}
+	roster := indexerstest.Roster{
+		Controller: self, Holders: []role.NodeID{self, box}, Names: map[role.NodeID]string{self: "home", box: "seedbox"},
+		Absent: map[role.NodeID]nodes.Absence{box: {Since: time.Now(), Lapsed: true}},
+	}
+	p := plannedIn(t, roster, box, "Alder")
+	link := searching.LinkOf("https://site.test/a.torrent")
+	tk, err := p.take("Alder", searching.Release{Title: "Orchard.1080p", Link: link})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.node.answer(p.ids["Alder"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.ChallengeUnsolved}})
+	answers := p.search(p.plan())
+	if len(answers) != 1 || answers[0].Outcome != (indexers.Outcome{Kind: indexers.Waiting, Node: box}) {
+		t.Fatalf("a search whose failover Node met a challenge = %+v, want Alder waiting for seedbox", answers)
+	}
+	if line := p.x.Line("Alder", indexerstest.Type, &answers[0].Outcome); line != "Waiting for seedbox" {
+		t.Errorf("its line = %q, want Waiting for seedbox", line)
+	}
+	if lines := spelled(p.plan()); !slices.Equal(lines, []string{"Alder waiting"}) {
+		t.Errorf("the next plan = %q, want Alder waiting for seedbox rather than asked on home", lines)
+	}
+	if _, err := p.x.Fetch(t.Context(), tk, link); !isDrop(err, indexers.DropHomeOffline) {
+		t.Errorf("a fetch while Alder waits for its lapsed home = %v, want a drop for the offline home", err)
 	}
 }
 

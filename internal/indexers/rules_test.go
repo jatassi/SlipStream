@@ -109,13 +109,21 @@ func TestNext(t *testing.T) {
 	}
 }
 
-// roster holds Searching on holders, the first being the Controller.
+// roster holds Searching on holders, the first being the Controller, or
+// the Controller is covering, holding none.
 type roster struct {
-	holders []role.NodeID
-	away    map[role.NodeID]nodes.Absence
+	holders  []role.NodeID
+	covering role.NodeID
+	away     map[role.NodeID]nodes.Absence
 }
 
-func (r roster) Self() role.NodeID               { return r.holders[0] }
+func (r roster) Self() role.NodeID {
+	if !r.covering.IsZero() {
+		return r.covering
+	}
+	return r.holders[0]
+}
+
 func (r roster) Holding(role.Name) []role.NodeID { return r.holders }
 func (r roster) Name(n role.NodeID) string       { return n.String() }
 func (r roster) Away(_ role.Name, n role.NodeID) (nodes.Absence, bool) {
@@ -125,7 +133,7 @@ func (r roster) Away(_ role.Name, n role.NodeID) (nodes.Absence, bool) {
 
 func (r roster) may(n role.NodeID) bool {
 	_, away := r.away[n]
-	return slices.Contains(r.holders, n) && !away
+	return (slices.Contains(r.holders, n) || n == r.covering && !n.IsZero()) && !away
 }
 
 func (r roster) Pick(name role.Name, prefer role.NodeID) (role.NodeID, bool) {
@@ -136,7 +144,7 @@ func (r roster) Pick(name role.Name, prefer role.NodeID) (role.NodeID, bool) {
 }
 
 func (r roster) PickOther(_ role.Name, besides role.NodeID) (role.NodeID, bool) {
-	for _, n := range r.holders {
+	for _, n := range append([]role.NodeID{r.covering}, r.holders...) {
 		if n != besides && r.may(n) {
 			return n, true
 		}
@@ -151,7 +159,10 @@ func TestRoute(t *testing.T) {
 	catalog := Indexer{Kind: Catalog, Home: home, Source: Definition{Login: cardigann.SessionLogin}}
 	failover := Indexer{Kind: Catalog, Home: home, Source: Definition{Login: cardigann.SessionLogin}, AllowFailover: true}
 	keyed := Indexer{Kind: Catalog, Home: home, Source: Definition{Login: cardigann.StatelessLogin}}
+	cookie := Indexer{Kind: RSS, Home: home, Source: Feed{}, Pasted: true}
+	cookieFailover := Indexer{Kind: RSS, Home: home, Source: Feed{}, Pasted: true, AllowFailover: true}
 	both := []role.NodeID{seed, home}
+	covered := roster{holders: []role.NodeID{home}, covering: seed, away: map[role.NodeID]nodes.Absence{home: lapsed}}
 	for _, tc := range []struct {
 		name string
 		r    roster
@@ -168,6 +179,14 @@ func TestRoute(t *testing.T) {
 		{"failover moves a session", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, failover, Status{}, seed, nil},
 		{"a wait for home never moves", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, feed, Status{State: HomeOnly}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
 		{"no other holder", roster{holders: []role.NodeID{home}, away: map[role.NodeID]nodes.Absence{home: lapsed}}, feed, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
+		{"a pasted cookie stays past the grace", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, cookie, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
+		{"failover moves a pasted cookie", roster{holders: both, away: map[role.NodeID]nodes.Absence{home: lapsed}}, cookieFailover, Status{}, seed, nil},
+		{"the Controller covering takes a feed", covered, feed, Status{}, seed, nil},
+		{"the Controller covering takes a catalog Indexer that keeps no session", covered, keyed, Status{}, seed, nil},
+		{"a session waits while the Controller covers", covered, catalog, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
+		{"the Controller covering takes a session with failover", covered, failover, Status{}, seed, nil},
+		{"a wait for home stays while the Controller covers", covered, failover, Status{State: HomeOnly}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home, Since: t0, Lapsed: true}},
+		{"home back in step ends the move", roster{holders: both}, failover, Status{State: HomeOnly}, home, nil},
 		{"a feed homed off the holders goes to one", roster{holders: []role.NodeID{seed}}, feed, Status{}, seed, nil},
 		{"a session homed off the holders waits", roster{holders: []role.NodeID{seed}}, catalog, Status{}, role.NodeID{}, &Outcome{Kind: Waiting, Node: home}},
 	} {

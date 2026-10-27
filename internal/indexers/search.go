@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -193,7 +194,7 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, err
 	case err != nil:
 		return Answer{}, err
 	default:
-		out.Outcome = outcomeOf(a, st)
+		out.Outcome = outcomeOf(a, st, idx.Home)
 		for _, r := range a.Releases {
 			out.Releases = append(out.Releases, Release{Indexer: idx.ID, Priority: idx.Priority, Release: r})
 		}
@@ -201,14 +202,18 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, err
 	return out, nil
 }
 
-// outcomeOf is a's Outcome, timed by the status it left.
-func outcomeOf(a searching.Answer, st Status) Outcome {
+// outcomeOf is a's Outcome, timed by the status it left: a stop that
+// left the Indexer waiting for home, met on a Node it reached by
+// failover, is waiting for home.
+func outcomeOf(a searching.Answer, st Status, home role.NodeID) Outcome {
 	var stopped *searching.Stopped
 	switch {
 	case a.Outcome == nil && len(a.Releases) == 0:
 		return Outcome{Kind: NoReleases}
 	case a.Outcome == nil:
 		return Outcome{Kind: Found, Releases: len(a.Releases)}
+	case errors.As(a.Outcome, &stopped) && st.State == HomeOnly:
+		return Outcome{Kind: Waiting, Node: home}
 	case errors.As(a.Outcome, &stopped):
 		return Outcome{Kind: IsStopped, Cause: stopped.Cause, Text: stopped.Text, Node: st.Node}
 	case errors.As(a.Outcome, new(*searching.Limited)):

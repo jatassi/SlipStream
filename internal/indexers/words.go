@@ -77,7 +77,7 @@ func (e *TestFailedError) Error() string { return "the Indexer's Test ended " + 
 // testFailed is the TestFailedError of a Test of idx run on node that the
 // site answered with outcome, and the status the answer left.
 func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer, st Status) error {
-	o := outcomeOf(a, st)
+	o := outcomeOf(a, st, idx.Home)
 	var sentence string
 	var limited *searching.Limited
 	var stopped *searching.Stopped
@@ -214,7 +214,7 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	case Waiting:
 		home := x.cfg.Roster.Name(w.Node)
 		var fix string
-		if w.Lapsed && v.SignsIn && !v.AllowFailover {
+		if w.Lapsed && v.SignsIn && !v.AllowFailover && v.Status.State != HomeOnly {
 			fix = "Allow failover to search from another Node."
 		}
 		if w.Since.IsZero() {
