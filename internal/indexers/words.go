@@ -12,6 +12,20 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+// stopSaid is what a stop means, as its own sentence: %[1]s is the
+// Indexer, %[2]s the site's own words, %[3]s the Node it was met on.
+var stopSaid = map[Cause]string{
+	searching.CredentialsRejected:  "%[1]s rejected the username or password.",
+	searching.CaptchaNeeded:        "%[1]s needs a captcha to sign in again.",
+	searching.ChallengeUnsolved:    "%[1]s is behind a browser challenge, and %[3]s has no Challenge solver.",
+	searching.CookieExpired:        "%[1]s no longer accepts the browser cookie.",
+	searching.DefinitionUnloadable: "%[1]s's definition doesn't load.",
+	searching.AccountRefused:       "%[1]s refused the API key with '%[2]s'.",
+	searching.RequestRejected:      "%[1]s refused a search with '%[2]s'.",
+}
+
+const solverTriedSaid = "%[3]s's Challenge solver couldn't clear %[1]s's challenge."
+
 // stopFormFixes is how the Admin clears a stop from the Indexer's form,
 // said after the stop's cause: %[3]s is the Node it was met on.
 var stopFormFixes = map[Cause]string{
@@ -236,8 +250,7 @@ func (x *Indexers) retries(sentence string, until time.Time) string {
 }
 
 // stopItemFixes is how the Admin clears a stop, said in its Health item
-// after the stop's cause: %[1]s is the Indexer, %[3]s the Node it was met
-// on.
+// after the stop's cause: %[3]s is the Node it was met on.
 var stopItemFixes = map[Cause]string{
 	searching.CredentialsRejected:  "Update them on the Indexer and test it.",
 	searching.CaptchaNeeded:        "Open the Indexer and type the code.",
@@ -256,20 +269,6 @@ func (x *Indexers) stopItemWords(name string, st Status) string {
 	}
 	return fmt.Sprintf(said+" "+fix, name, st.Text, x.cfg.Roster.Name(st.Node))
 }
-
-// stopSaid is what a stop means, as its own sentence: %[1]s is the
-// Indexer, %[2]s the site's own words, %[3]s the Node it was met on.
-var stopSaid = map[Cause]string{
-	searching.CredentialsRejected:  "%[1]s rejected the username or password.",
-	searching.CaptchaNeeded:        "%[1]s needs a captcha to sign in again.",
-	searching.ChallengeUnsolved:    "%[1]s is behind a browser challenge, and %[3]s has no Challenge solver.",
-	searching.CookieExpired:        "%[1]s no longer accepts the browser cookie.",
-	searching.DefinitionUnloadable: "%[1]s's definition doesn't load.",
-	searching.AccountRefused:       "%[1]s refused the API key with '%[2]s'.",
-	searching.RequestRejected:      "%[1]s refused a search with '%[2]s'.",
-}
-
-const solverTriedSaid = "%[3]s's Challenge solver couldn't clear %[1]s's challenge."
 
 // failingItemWords is the Health item of Indexer name failing at st
 // longer than the long backoff.
