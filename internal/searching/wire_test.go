@@ -25,6 +25,14 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 		t.Fatalf("the job came across as %+v, %+v, %v; want %+v", got, site, err, job)
 	}
 
+	feed := Job{
+		ID: "f", Indexer: "b", Revision: 1, Kind: RSS, Address: "https://brook.test/rss?passkey=p", Session: session,
+		RSS: RSSReading{Link: "torrent", SizeFromDescription: true, SeedersFromDescription: true, AllowNoSize: true}, Call: RecentCall{},
+	}
+	if got, site, err := decodeJob(encodeJob(feed)); err != nil || !reflect.DeepEqual(got, feed) || site.RSS != feed.RSS {
+		t.Fatalf("the RSS job came across as %+v, %+v, %v; want %+v", got, site, err, feed)
+	}
+
 	hash := bencode.InfoHash{1, 2, 3}
 	answer := Answer{
 		Started: earned, Outcome: &Stopped{Cause: RequestRejected, Text: "Function not available", SolverTried: true}, Session: session,
@@ -44,6 +52,13 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 		a := Answer{Outcome: outcome, Report: &Report{Capabilities: Capabilities{Modes: map[string][]string{"search": {"q"}}, Categories: []int{2000}}, Items: 3, Sources: []string{"Larkspur"}}}
 		if back, err := decodeAnswer(encodeAnswer(a)); err != nil || !same(back, a) {
 			t.Fatalf("a Test's answer came across as %+v, %v; want %+v", back, err, a)
+		}
+	}
+	none := Capabilities{Modes: map[string][]string{}}
+	for _, r := range []*Report{{Capabilities: none, Items: 2, RSS: &RSSReading{Link: "enclosure", SeedersFromDescription: true}}, {Capabilities: none, Refusal: RSSRepeatedGUID}} {
+		a := Answer{Report: r}
+		if back, err := decodeAnswer(encodeAnswer(a)); err != nil || !same(back, a) {
+			t.Fatalf("an RSS Test's answer came across as %+v, %v; want %+v", back.Report, err, r)
 		}
 	}
 }

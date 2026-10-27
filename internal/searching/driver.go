@@ -43,7 +43,9 @@ type Job struct {
 	APIKey     string
 	Session    *Session
 	Categories []int
-	Call       Call
+	// RSS is how an RSS feed's items are read.
+	RSS  RSSReading
+	Call Call
 }
 
 // Call is what a Job asks: a SearchCall, RecentCall, FetchCall or TestCall.
@@ -152,6 +154,10 @@ type Report struct {
 	Items        int
 	// Sources are the different source names the items named.
 	Sources []string
+	// RSS is how an RSS feed's items are read, nil for every other kind
+	// and for a feed SlipStream can't use, whose Refusal says why.
+	RSS     *RSSReading
+	Refusal RSSRefusal
 }
 
 // Capabilities are an Indexer's search modes, by their t= value, each with

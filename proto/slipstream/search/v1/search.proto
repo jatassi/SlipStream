@@ -260,6 +260,17 @@ message TestReport {
   repeated string sources = 3;
   // rss is the reading rules found, RSS only.
   RSSReading rss = 4;
+  // refusal is why an RSS feed can't be used, unspecified when it can.
+  RSSRefusal refusal = 5;
+}
+
+enum RSSRefusal {
+  RSS_REFUSAL_UNSPECIFIED = 0;
+  RSS_REFUSAL_NO_ITEMS = 1;
+  RSS_REFUSAL_NO_TITLE = 2;
+  RSS_REFUSAL_NO_LINK = 3;
+  RSS_REFUSAL_REPEATED_GUID = 4;
+  RSS_REFUSAL_NO_SIZE = 5;
 }
 
 message Capabilities {

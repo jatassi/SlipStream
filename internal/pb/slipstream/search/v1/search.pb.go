@@ -78,6 +78,64 @@ func (Kind) EnumDescriptor() ([]byte, []int) {
 	return file_slipstream_search_v1_search_proto_rawDescGZIP(), []int{0}
 }
 
+type RSSRefusal int32
+
+const (
+	RSSRefusal_RSS_REFUSAL_UNSPECIFIED   RSSRefusal = 0
+	RSSRefusal_RSS_REFUSAL_NO_ITEMS      RSSRefusal = 1
+	RSSRefusal_RSS_REFUSAL_NO_TITLE      RSSRefusal = 2
+	RSSRefusal_RSS_REFUSAL_NO_LINK       RSSRefusal = 3
+	RSSRefusal_RSS_REFUSAL_REPEATED_GUID RSSRefusal = 4
+	RSSRefusal_RSS_REFUSAL_NO_SIZE       RSSRefusal = 5
+)
+
+// Enum value maps for RSSRefusal.
+var (
+	RSSRefusal_name = map[int32]string{
+		0: "RSS_REFUSAL_UNSPECIFIED",
+		1: "RSS_REFUSAL_NO_ITEMS",
+		2: "RSS_REFUSAL_NO_TITLE",
+		3: "RSS_REFUSAL_NO_LINK",
+		4: "RSS_REFUSAL_REPEATED_GUID",
+		5: "RSS_REFUSAL_NO_SIZE",
+	}
+	RSSRefusal_value = map[string]int32{
+		"RSS_REFUSAL_UNSPECIFIED":   0,
+		"RSS_REFUSAL_NO_ITEMS":      1,
+		"RSS_REFUSAL_NO_TITLE":      2,
+		"RSS_REFUSAL_NO_LINK":       3,
+		"RSS_REFUSAL_REPEATED_GUID": 4,
+		"RSS_REFUSAL_NO_SIZE":       5,
+	}
+)
+
+func (x RSSRefusal) Enum() *RSSRefusal {
+	p := new(RSSRefusal)
+	*p = x
+	return p
+}
+
+func (x RSSRefusal) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RSSRefusal) Descriptor() protoreflect.EnumDescriptor {
+	return file_slipstream_search_v1_search_proto_enumTypes[1].Descriptor()
+}
+
+func (RSSRefusal) Type() protoreflect.EnumType {
+	return &file_slipstream_search_v1_search_proto_enumTypes[1]
+}
+
+func (x RSSRefusal) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RSSRefusal.Descriptor instead.
+func (RSSRefusal) EnumDescriptor() ([]byte, []int) {
+	return file_slipstream_search_v1_search_proto_rawDescGZIP(), []int{1}
+}
+
 type RSSReading_Link int32
 
 const (
@@ -114,11 +172,11 @@ func (x RSSReading_Link) String() string {
 }
 
 func (RSSReading_Link) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_search_v1_search_proto_enumTypes[1].Descriptor()
+	return file_slipstream_search_v1_search_proto_enumTypes[2].Descriptor()
 }
 
 func (RSSReading_Link) Type() protoreflect.EnumType {
-	return &file_slipstream_search_v1_search_proto_enumTypes[1]
+	return &file_slipstream_search_v1_search_proto_enumTypes[2]
 }
 
 func (x RSSReading_Link) Number() protoreflect.EnumNumber {
@@ -178,11 +236,11 @@ func (x Stopped_Cause) String() string {
 }
 
 func (Stopped_Cause) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_search_v1_search_proto_enumTypes[2].Descriptor()
+	return file_slipstream_search_v1_search_proto_enumTypes[3].Descriptor()
 }
 
 func (Stopped_Cause) Type() protoreflect.EnumType {
-	return &file_slipstream_search_v1_search_proto_enumTypes[2]
+	return &file_slipstream_search_v1_search_proto_enumTypes[3]
 }
 
 func (x Stopped_Cause) Number() protoreflect.EnumNumber {
@@ -2139,7 +2197,9 @@ type TestReport struct {
 	// sources are the distinct source names the items named, Torznab only.
 	Sources []string `protobuf:"bytes,3,rep,name=sources,proto3" json:"sources,omitempty"`
 	// rss is the reading rules found, RSS only.
-	Rss           *RSSReading `protobuf:"bytes,4,opt,name=rss,proto3" json:"rss,omitempty"`
+	Rss *RSSReading `protobuf:"bytes,4,opt,name=rss,proto3" json:"rss,omitempty"`
+	// refusal is why an RSS feed can't be used, unspecified when it can.
+	Refusal       RSSRefusal `protobuf:"varint,5,opt,name=refusal,proto3,enum=slipstream.search.v1.RSSRefusal" json:"refusal,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2200,6 +2260,13 @@ func (x *TestReport) GetRss() *RSSReading {
 		return x.Rss
 	}
 	return nil
+}
+
+func (x *TestReport) GetRefusal() RSSRefusal {
+	if x != nil {
+		return x.Refusal
+	}
+	return RSSRefusal_RSS_REFUSAL_UNSPECIFIED
 }
 
 type Capabilities struct {
@@ -2623,13 +2690,14 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x03Got\x12\x1a\n" +
 	"\atorrent\x18\x01 \x01(\fH\x00R\atorrent\x12\x18\n" +
 	"\x06magnet\x18\x02 \x01(\tH\x00R\x06magnetB\x05\n" +
-	"\x03got\"\xb8\x01\n" +
+	"\x03got\"\xf4\x01\n" +
 	"\n" +
 	"TestReport\x12F\n" +
 	"\fcapabilities\x18\x01 \x01(\v2\".slipstream.search.v1.CapabilitiesR\fcapabilities\x12\x14\n" +
 	"\x05items\x18\x02 \x01(\x05R\x05items\x12\x18\n" +
 	"\asources\x18\x03 \x03(\tR\asources\x122\n" +
-	"\x03rss\x18\x04 \x01(\v2 .slipstream.search.v1.RSSReadingR\x03rss\"\xcf\x01\n" +
+	"\x03rss\x18\x04 \x01(\v2 .slipstream.search.v1.RSSReadingR\x03rss\x12:\n" +
+	"\arefusal\x18\x05 \x01(\x0e2 .slipstream.search.v1.RSSRefusalR\arefusal\"\xcf\x01\n" +
 	"\fCapabilities\x12C\n" +
 	"\x05modes\x18\x01 \x03(\v2-.slipstream.search.v1.Capabilities.ModesEntryR\x05modes\x12\x1e\n" +
 	"\n" +
@@ -2656,7 +2724,15 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fKIND_CATALOG\x10\x01\x12\x10\n" +
 	"\fKIND_TORZNAB\x10\x02\x12\f\n" +
-	"\bKIND_RSS\x10\x032\xd3\x01\n" +
+	"\bKIND_RSS\x10\x03*\xae\x01\n" +
+	"\n" +
+	"RSSRefusal\x12\x1b\n" +
+	"\x17RSS_REFUSAL_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14RSS_REFUSAL_NO_ITEMS\x10\x01\x12\x18\n" +
+	"\x14RSS_REFUSAL_NO_TITLE\x10\x02\x12\x17\n" +
+	"\x13RSS_REFUSAL_NO_LINK\x10\x03\x12\x1d\n" +
+	"\x19RSS_REFUSAL_REPEATED_GUID\x10\x04\x12\x17\n" +
+	"\x13RSS_REFUSAL_NO_SIZE\x10\x052\xd3\x01\n" +
 	"\x10SearchingService\x12J\n" +
 	"\x03Run\x12 .slipstream.search.v1.RunRequest\x1a!.slipstream.search.v1.RunResponse\x12b\n" +
 	"\vReachSolver\x12(.slipstream.search.v1.ReachSolverRequest\x1a).slipstream.search.v1.ReachSolverResponse\x1a\x0f\xc2\xf3\x18\v\x1a\tsearchingB\xe2\x01\n" +
@@ -2674,98 +2750,100 @@ func file_slipstream_search_v1_search_proto_rawDescGZIP() []byte {
 	return file_slipstream_search_v1_search_proto_rawDescData
 }
 
-var file_slipstream_search_v1_search_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_slipstream_search_v1_search_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_slipstream_search_v1_search_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_slipstream_search_v1_search_proto_goTypes = []any{
 	(Kind)(0),                   // 0: slipstream.search.v1.Kind
-	(RSSReading_Link)(0),        // 1: slipstream.search.v1.RSSReading.Link
-	(Stopped_Cause)(0),          // 2: slipstream.search.v1.Stopped.Cause
-	(*RunRequest)(nil),          // 3: slipstream.search.v1.RunRequest
-	(*Job)(nil),                 // 4: slipstream.search.v1.Job
-	(*Site)(nil),                // 5: slipstream.search.v1.Site
-	(*Definition)(nil),          // 6: slipstream.search.v1.Definition
-	(*Session)(nil),             // 7: slipstream.search.v1.Session
-	(*Cookie)(nil),              // 8: slipstream.search.v1.Cookie
-	(*Solver)(nil),              // 9: slipstream.search.v1.Solver
-	(*RSSReading)(nil),          // 10: slipstream.search.v1.RSSReading
-	(*Query)(nil),               // 11: slipstream.search.v1.Query
-	(*SearchCall)(nil),          // 12: slipstream.search.v1.SearchCall
-	(*RecentCall)(nil),          // 13: slipstream.search.v1.RecentCall
-	(*FetchCall)(nil),           // 14: slipstream.search.v1.FetchCall
-	(*TestCall)(nil),            // 15: slipstream.search.v1.TestCall
-	(*CaptchaAnswer)(nil),       // 16: slipstream.search.v1.CaptchaAnswer
-	(*CaptchaCall)(nil),         // 17: slipstream.search.v1.CaptchaCall
-	(*RunResponse)(nil),         // 18: slipstream.search.v1.RunResponse
-	(*Running)(nil),             // 19: slipstream.search.v1.Running
-	(*Answer)(nil),              // 20: slipstream.search.v1.Answer
-	(*Outcome)(nil),             // 21: slipstream.search.v1.Outcome
-	(*Ok)(nil),                  // 22: slipstream.search.v1.Ok
-	(*Limited)(nil),             // 23: slipstream.search.v1.Limited
-	(*Failing)(nil),             // 24: slipstream.search.v1.Failing
-	(*Stopped)(nil),             // 25: slipstream.search.v1.Stopped
-	(*Releases)(nil),            // 26: slipstream.search.v1.Releases
-	(*Release)(nil),             // 27: slipstream.search.v1.Release
-	(*Source)(nil),              // 28: slipstream.search.v1.Source
-	(*Got)(nil),                 // 29: slipstream.search.v1.Got
-	(*TestReport)(nil),          // 30: slipstream.search.v1.TestReport
-	(*Capabilities)(nil),        // 31: slipstream.search.v1.Capabilities
-	(*ModeParams)(nil),          // 32: slipstream.search.v1.ModeParams
-	(*CaptchaImage)(nil),        // 33: slipstream.search.v1.CaptchaImage
-	(*ReachSolverRequest)(nil),  // 34: slipstream.search.v1.ReachSolverRequest
-	(*ReachSolverResponse)(nil), // 35: slipstream.search.v1.ReachSolverResponse
-	nil,                         // 36: slipstream.search.v1.Site.SettingsEntry
-	nil,                         // 37: slipstream.search.v1.Query.IdsEntry
-	nil,                         // 38: slipstream.search.v1.Release.IdsEntry
-	nil,                         // 39: slipstream.search.v1.Capabilities.ModesEntry
+	(RSSRefusal)(0),             // 1: slipstream.search.v1.RSSRefusal
+	(RSSReading_Link)(0),        // 2: slipstream.search.v1.RSSReading.Link
+	(Stopped_Cause)(0),          // 3: slipstream.search.v1.Stopped.Cause
+	(*RunRequest)(nil),          // 4: slipstream.search.v1.RunRequest
+	(*Job)(nil),                 // 5: slipstream.search.v1.Job
+	(*Site)(nil),                // 6: slipstream.search.v1.Site
+	(*Definition)(nil),          // 7: slipstream.search.v1.Definition
+	(*Session)(nil),             // 8: slipstream.search.v1.Session
+	(*Cookie)(nil),              // 9: slipstream.search.v1.Cookie
+	(*Solver)(nil),              // 10: slipstream.search.v1.Solver
+	(*RSSReading)(nil),          // 11: slipstream.search.v1.RSSReading
+	(*Query)(nil),               // 12: slipstream.search.v1.Query
+	(*SearchCall)(nil),          // 13: slipstream.search.v1.SearchCall
+	(*RecentCall)(nil),          // 14: slipstream.search.v1.RecentCall
+	(*FetchCall)(nil),           // 15: slipstream.search.v1.FetchCall
+	(*TestCall)(nil),            // 16: slipstream.search.v1.TestCall
+	(*CaptchaAnswer)(nil),       // 17: slipstream.search.v1.CaptchaAnswer
+	(*CaptchaCall)(nil),         // 18: slipstream.search.v1.CaptchaCall
+	(*RunResponse)(nil),         // 19: slipstream.search.v1.RunResponse
+	(*Running)(nil),             // 20: slipstream.search.v1.Running
+	(*Answer)(nil),              // 21: slipstream.search.v1.Answer
+	(*Outcome)(nil),             // 22: slipstream.search.v1.Outcome
+	(*Ok)(nil),                  // 23: slipstream.search.v1.Ok
+	(*Limited)(nil),             // 24: slipstream.search.v1.Limited
+	(*Failing)(nil),             // 25: slipstream.search.v1.Failing
+	(*Stopped)(nil),             // 26: slipstream.search.v1.Stopped
+	(*Releases)(nil),            // 27: slipstream.search.v1.Releases
+	(*Release)(nil),             // 28: slipstream.search.v1.Release
+	(*Source)(nil),              // 29: slipstream.search.v1.Source
+	(*Got)(nil),                 // 30: slipstream.search.v1.Got
+	(*TestReport)(nil),          // 31: slipstream.search.v1.TestReport
+	(*Capabilities)(nil),        // 32: slipstream.search.v1.Capabilities
+	(*ModeParams)(nil),          // 33: slipstream.search.v1.ModeParams
+	(*CaptchaImage)(nil),        // 34: slipstream.search.v1.CaptchaImage
+	(*ReachSolverRequest)(nil),  // 35: slipstream.search.v1.ReachSolverRequest
+	(*ReachSolverResponse)(nil), // 36: slipstream.search.v1.ReachSolverResponse
+	nil,                         // 37: slipstream.search.v1.Site.SettingsEntry
+	nil,                         // 38: slipstream.search.v1.Query.IdsEntry
+	nil,                         // 39: slipstream.search.v1.Release.IdsEntry
+	nil,                         // 40: slipstream.search.v1.Capabilities.ModesEntry
 }
 var file_slipstream_search_v1_search_proto_depIdxs = []int32{
-	4,  // 0: slipstream.search.v1.RunRequest.job:type_name -> slipstream.search.v1.Job
-	5,  // 1: slipstream.search.v1.Job.site:type_name -> slipstream.search.v1.Site
-	12, // 2: slipstream.search.v1.Job.search:type_name -> slipstream.search.v1.SearchCall
-	13, // 3: slipstream.search.v1.Job.recent:type_name -> slipstream.search.v1.RecentCall
-	14, // 4: slipstream.search.v1.Job.fetch:type_name -> slipstream.search.v1.FetchCall
-	15, // 5: slipstream.search.v1.Job.test:type_name -> slipstream.search.v1.TestCall
-	17, // 6: slipstream.search.v1.Job.captcha:type_name -> slipstream.search.v1.CaptchaCall
+	5,  // 0: slipstream.search.v1.RunRequest.job:type_name -> slipstream.search.v1.Job
+	6,  // 1: slipstream.search.v1.Job.site:type_name -> slipstream.search.v1.Site
+	13, // 2: slipstream.search.v1.Job.search:type_name -> slipstream.search.v1.SearchCall
+	14, // 3: slipstream.search.v1.Job.recent:type_name -> slipstream.search.v1.RecentCall
+	15, // 4: slipstream.search.v1.Job.fetch:type_name -> slipstream.search.v1.FetchCall
+	16, // 5: slipstream.search.v1.Job.test:type_name -> slipstream.search.v1.TestCall
+	18, // 6: slipstream.search.v1.Job.captcha:type_name -> slipstream.search.v1.CaptchaCall
 	0,  // 7: slipstream.search.v1.Site.kind:type_name -> slipstream.search.v1.Kind
-	6,  // 8: slipstream.search.v1.Site.definition:type_name -> slipstream.search.v1.Definition
-	36, // 9: slipstream.search.v1.Site.settings:type_name -> slipstream.search.v1.Site.SettingsEntry
-	7,  // 10: slipstream.search.v1.Site.session:type_name -> slipstream.search.v1.Session
-	9,  // 11: slipstream.search.v1.Site.solver:type_name -> slipstream.search.v1.Solver
-	10, // 12: slipstream.search.v1.Site.rss:type_name -> slipstream.search.v1.RSSReading
-	8,  // 13: slipstream.search.v1.Session.cookies:type_name -> slipstream.search.v1.Cookie
-	1,  // 14: slipstream.search.v1.RSSReading.link:type_name -> slipstream.search.v1.RSSReading.Link
-	37, // 15: slipstream.search.v1.Query.ids:type_name -> slipstream.search.v1.Query.IdsEntry
-	11, // 16: slipstream.search.v1.SearchCall.query:type_name -> slipstream.search.v1.Query
-	16, // 17: slipstream.search.v1.TestCall.captcha:type_name -> slipstream.search.v1.CaptchaAnswer
-	19, // 18: slipstream.search.v1.RunResponse.running:type_name -> slipstream.search.v1.Running
-	20, // 19: slipstream.search.v1.RunResponse.done:type_name -> slipstream.search.v1.Answer
-	21, // 20: slipstream.search.v1.Answer.outcome:type_name -> slipstream.search.v1.Outcome
-	7,  // 21: slipstream.search.v1.Answer.session:type_name -> slipstream.search.v1.Session
-	26, // 22: slipstream.search.v1.Answer.releases:type_name -> slipstream.search.v1.Releases
-	29, // 23: slipstream.search.v1.Answer.got:type_name -> slipstream.search.v1.Got
-	30, // 24: slipstream.search.v1.Answer.test:type_name -> slipstream.search.v1.TestReport
-	33, // 25: slipstream.search.v1.Answer.captcha:type_name -> slipstream.search.v1.CaptchaImage
-	22, // 26: slipstream.search.v1.Outcome.ok:type_name -> slipstream.search.v1.Ok
-	23, // 27: slipstream.search.v1.Outcome.limited:type_name -> slipstream.search.v1.Limited
-	24, // 28: slipstream.search.v1.Outcome.failing:type_name -> slipstream.search.v1.Failing
-	25, // 29: slipstream.search.v1.Outcome.stopped:type_name -> slipstream.search.v1.Stopped
-	2,  // 30: slipstream.search.v1.Stopped.cause:type_name -> slipstream.search.v1.Stopped.Cause
-	27, // 31: slipstream.search.v1.Releases.releases:type_name -> slipstream.search.v1.Release
-	38, // 32: slipstream.search.v1.Release.ids:type_name -> slipstream.search.v1.Release.IdsEntry
-	28, // 33: slipstream.search.v1.Release.source:type_name -> slipstream.search.v1.Source
-	31, // 34: slipstream.search.v1.TestReport.capabilities:type_name -> slipstream.search.v1.Capabilities
-	10, // 35: slipstream.search.v1.TestReport.rss:type_name -> slipstream.search.v1.RSSReading
-	39, // 36: slipstream.search.v1.Capabilities.modes:type_name -> slipstream.search.v1.Capabilities.ModesEntry
-	32, // 37: slipstream.search.v1.Capabilities.ModesEntry.value:type_name -> slipstream.search.v1.ModeParams
-	3,  // 38: slipstream.search.v1.SearchingService.Run:input_type -> slipstream.search.v1.RunRequest
-	34, // 39: slipstream.search.v1.SearchingService.ReachSolver:input_type -> slipstream.search.v1.ReachSolverRequest
-	18, // 40: slipstream.search.v1.SearchingService.Run:output_type -> slipstream.search.v1.RunResponse
-	35, // 41: slipstream.search.v1.SearchingService.ReachSolver:output_type -> slipstream.search.v1.ReachSolverResponse
-	40, // [40:42] is the sub-list for method output_type
-	38, // [38:40] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	7,  // 8: slipstream.search.v1.Site.definition:type_name -> slipstream.search.v1.Definition
+	37, // 9: slipstream.search.v1.Site.settings:type_name -> slipstream.search.v1.Site.SettingsEntry
+	8,  // 10: slipstream.search.v1.Site.session:type_name -> slipstream.search.v1.Session
+	10, // 11: slipstream.search.v1.Site.solver:type_name -> slipstream.search.v1.Solver
+	11, // 12: slipstream.search.v1.Site.rss:type_name -> slipstream.search.v1.RSSReading
+	9,  // 13: slipstream.search.v1.Session.cookies:type_name -> slipstream.search.v1.Cookie
+	2,  // 14: slipstream.search.v1.RSSReading.link:type_name -> slipstream.search.v1.RSSReading.Link
+	38, // 15: slipstream.search.v1.Query.ids:type_name -> slipstream.search.v1.Query.IdsEntry
+	12, // 16: slipstream.search.v1.SearchCall.query:type_name -> slipstream.search.v1.Query
+	17, // 17: slipstream.search.v1.TestCall.captcha:type_name -> slipstream.search.v1.CaptchaAnswer
+	20, // 18: slipstream.search.v1.RunResponse.running:type_name -> slipstream.search.v1.Running
+	21, // 19: slipstream.search.v1.RunResponse.done:type_name -> slipstream.search.v1.Answer
+	22, // 20: slipstream.search.v1.Answer.outcome:type_name -> slipstream.search.v1.Outcome
+	8,  // 21: slipstream.search.v1.Answer.session:type_name -> slipstream.search.v1.Session
+	27, // 22: slipstream.search.v1.Answer.releases:type_name -> slipstream.search.v1.Releases
+	30, // 23: slipstream.search.v1.Answer.got:type_name -> slipstream.search.v1.Got
+	31, // 24: slipstream.search.v1.Answer.test:type_name -> slipstream.search.v1.TestReport
+	34, // 25: slipstream.search.v1.Answer.captcha:type_name -> slipstream.search.v1.CaptchaImage
+	23, // 26: slipstream.search.v1.Outcome.ok:type_name -> slipstream.search.v1.Ok
+	24, // 27: slipstream.search.v1.Outcome.limited:type_name -> slipstream.search.v1.Limited
+	25, // 28: slipstream.search.v1.Outcome.failing:type_name -> slipstream.search.v1.Failing
+	26, // 29: slipstream.search.v1.Outcome.stopped:type_name -> slipstream.search.v1.Stopped
+	3,  // 30: slipstream.search.v1.Stopped.cause:type_name -> slipstream.search.v1.Stopped.Cause
+	28, // 31: slipstream.search.v1.Releases.releases:type_name -> slipstream.search.v1.Release
+	39, // 32: slipstream.search.v1.Release.ids:type_name -> slipstream.search.v1.Release.IdsEntry
+	29, // 33: slipstream.search.v1.Release.source:type_name -> slipstream.search.v1.Source
+	32, // 34: slipstream.search.v1.TestReport.capabilities:type_name -> slipstream.search.v1.Capabilities
+	11, // 35: slipstream.search.v1.TestReport.rss:type_name -> slipstream.search.v1.RSSReading
+	1,  // 36: slipstream.search.v1.TestReport.refusal:type_name -> slipstream.search.v1.RSSRefusal
+	40, // 37: slipstream.search.v1.Capabilities.modes:type_name -> slipstream.search.v1.Capabilities.ModesEntry
+	33, // 38: slipstream.search.v1.Capabilities.ModesEntry.value:type_name -> slipstream.search.v1.ModeParams
+	4,  // 39: slipstream.search.v1.SearchingService.Run:input_type -> slipstream.search.v1.RunRequest
+	35, // 40: slipstream.search.v1.SearchingService.ReachSolver:input_type -> slipstream.search.v1.ReachSolverRequest
+	19, // 41: slipstream.search.v1.SearchingService.Run:output_type -> slipstream.search.v1.RunResponse
+	36, // 42: slipstream.search.v1.SearchingService.ReachSolver:output_type -> slipstream.search.v1.ReachSolverResponse
+	41, // [41:43] is the sub-list for method output_type
+	39, // [39:41] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_search_v1_search_proto_init() }
@@ -2805,7 +2883,7 @@ func file_slipstream_search_v1_search_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_search_v1_search_proto_rawDesc), len(file_slipstream_search_v1_search_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
