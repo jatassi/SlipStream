@@ -30,7 +30,6 @@ export function CatalogSection() {
             <KeyValues
               rows={[
                 ["Catalog refresh", <TaskCadence key="refresh" task="indexer-catalog-refresh" />],
-                ["Indexer health check", <TaskCadence key="check" task="indexer-health-check" />],
               ]}
             />
           </div>

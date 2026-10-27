@@ -30,14 +30,11 @@ test("the catalog leads with when it refreshed, and Refresh now runs the refresh
     .toEqual({ method: "POST", path: "indexer-catalog-refresh/runs", body: undefined });
 });
 
-test("under Details the address saves only where a catalog is read, and each task's cadence shows", async () => {
+test("under Details the address saves only where a catalog is read, beside the refresh's cadence", async () => {
   const server = render();
   await userEvent.click(catalog().getByRole("button", { name: "Details" }));
   await expect
     .element(catalog().getByRole("button", { name: "Runs every: Every day" }))
-    .toBeVisible();
-  await expect
-    .element(catalog().getByRole("button", { name: "Runs every: Every 6 hours" }))
     .toBeVisible();
   const address = catalog().getByRole("textbox", { name: "Address" });
   await userEvent.fill(address, "https://elsewhere.example.test");
