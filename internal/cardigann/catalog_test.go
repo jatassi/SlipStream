@@ -72,15 +72,12 @@ func catalogFile(t *testing.T, f string) (name string, src []byte) {
 	return strings.TrimSuffix(filepath.Base(f), ".yml"), src
 }
 
-// TestCatalogSearches runs every definition's search exchange, the
-// unported gate lifted, for each mode it offers, with its settings at
-// their defaults, feeding
-// each request an empty response. Every request must build, and an empty
+// TestCatalogSearches runs every definition's search exchange for each
+// mode it offers, with its settings at their defaults, feeding each request an empty response. Every request must build, and an empty
 // HTML or XML response must parse to no Releases. A JSON rows selector
 // that finds no array in the empty response is counted, since Prowlarr
 // fails there too.
 func TestCatalogSearches(t *testing.T) {
-	everyFeaturePorted(t)
 	queries := map[string]Query{
 		"search":       {Mode: "search", Text: "The Matrix"},
 		"movie-search": {Mode: "movie-search", Text: "The Matrix", Year: 1999, IDs: map[string]string{"imdbid": "tt0133093", "tmdbid": "603"}, Categories: []newznab.ID{2000}},
@@ -142,7 +139,6 @@ func emptySearch(x *Search) (int, error) {
 // empty page. Every request must build. The sign-in then ends refused by
 // the login test, or, for a form, finding no form on the empty page.
 func TestCatalogLogins(t *testing.T) {
-	everyFeaturePorted(t)
 	ends := map[string]int{}
 	for _, f := range catalogFiles(t) {
 		name, src := catalogFile(t, f)
@@ -220,14 +216,13 @@ func TestCatalogYTS(t *testing.T) {
 	}
 }
 
-// TestCatalogDownloads runs every definition's download exchange, the
-// unported gate lifted, with its settings at their defaults, answering
+// TestCatalogDownloads runs every definition's download exchange, with its
+// settings at their defaults, answering
 // each request with a .torrent file. Every request must build. A
 // definition whose selectors find no link, or whose infohash block reads
 // an empty hash, in that response is counted, and any other failure is an
 // error.
 func TestCatalogDownloads(t *testing.T) {
-	everyFeaturePorted(t)
 	file := torrentResponse(t)
 	definitions, blocks, requests := 0, 0, 0
 	outcomes := map[string]int{}

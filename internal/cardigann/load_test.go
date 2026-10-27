@@ -109,15 +109,6 @@ download:
       attribute: href
 `
 
-// everyFeaturePorted lifts the unported gate for a test of what Load reads
-// from a definition that uses a feature SlipStream can't run yet.
-func everyFeaturePorted(t *testing.T) {
-	t.Helper()
-	saved := unported
-	unported = nil
-	t.Cleanup(func() { unported = saved })
-}
-
 func mustLoad(t *testing.T, src string) *Definition {
 	t.Helper()
 	d, err := Load([]byte(src))
@@ -128,7 +119,6 @@ func mustLoad(t *testing.T, src string) *Definition {
 }
 
 func TestLoadModel(t *testing.T) {
-	everyFeaturePorted(t)
 	def := mustLoad(t, fullDefinition).def
 	if def.Description != "A site\tfor tests" {
 		t.Errorf("description = %q", def.Description)
@@ -165,7 +155,6 @@ func TestLoadModel(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
-	everyFeaturePorted(t)
 	def := mustLoad(t, `id: min
 links: [https://min.example/]
 caps:
@@ -195,7 +184,6 @@ search:
 }
 
 func TestSummary(t *testing.T) {
-	everyFeaturePorted(t)
 	s := mustLoad(t, fullDefinition).Summary()
 	want := Summary{
 		ID: "testsite", Name: "Test Site", Description: "A site\tfor tests", Language: "en-US",
@@ -227,7 +215,6 @@ func TestSummary(t *testing.T) {
 }
 
 func TestLoginClass(t *testing.T) {
-	everyFeaturePorted(t)
 	base := "id: x\nlinks: [https://x/]\ncaps:\n  modes:\n    search: [q]\nsearch:\n  path: s\n"
 	tests := []struct {
 		name, extra string
@@ -274,7 +261,6 @@ func TestLoadUnrunnable(t *testing.T) {
 		{"search mode", "id: x\nlinks: [https://x/]\ncaps:\n  modes:\n    search: [q, imdbid]\n" + search, false, "its search modes can't be read"},
 		{"login method", base + search + "login:\n  method: twofactor\n", true, `it logs in with "twofactor", which SlipStream doesn't run`},
 		{"captcha type", base + search + "login:\n  path: l\n  captcha:\n    type: recaptcha\n", true, `it asks for a "recaptcha" captcha`},
-		{"unported feature", base + search + "download:\n  selectors:\n    - selector: a\n", true, "it uses download selectors, which SlipStream can't run yet"},
 		{"setting type", base + search + "settings:\n  - {name: a, type: multi-select}\n", true, `it has a setting of type "multi-select"`},
 		{"undeclared setting", base + search + "  inputs:\n    q: \"{{ .Config.nope }}\"\n", false, `a template reads the setting "nope"`},
 		{"bad selector", base + "search:\n  path: s\n  rows:\n    selector: \"tr[\"\n", false, "its selector \"tr[\" at search.rows.selector can't be read"},

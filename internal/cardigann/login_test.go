@@ -30,21 +30,6 @@ func login(t *testing.T, d *Definition, c *Captcha, s site) ([]Request, error) {
 	return sent, x.Result()
 }
 
-func requestLines(sent []Request) []string {
-	out := make([]string, len(sent))
-	for i, r := range sent {
-		out[i] = r.Method + " " + r.URL.String()
-	}
-	return out
-}
-
-func wantRequests(t *testing.T, sent []Request, want ...string) {
-	t.Helper()
-	if got := requestLines(sent); !reflect.DeepEqual(got, want) {
-		t.Fatalf("requests =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
-	}
-}
-
 func wantHeaders(t *testing.T, r Request, want map[string]string) {
 	t.Helper()
 	for k, v := range want {

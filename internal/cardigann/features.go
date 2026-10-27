@@ -65,11 +65,6 @@ const (
 	methodPost = "post"
 )
 
-// unported are the features a definition may use that SlipStream can't run
-// yet. Load refuses a definition that uses one.
-var unported = []Feature{
-}
-
 type featureCheck struct {
 	feature Feature
 	uses    func(*cardigannDefinition) bool

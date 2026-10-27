@@ -137,7 +137,7 @@ var (
 )
 
 // checkSupport refuses a definition that uses a login method, captcha or
-// setting type SlipStream doesn't run, or a Feature not yet ported.
+// setting type SlipStream doesn't run.
 func checkSupport(d *Definition) *Unrunnable {
 	def := d.def
 	if def.Login != nil && !slices.Contains(loginMethods, def.Login.Method) {
@@ -149,11 +149,6 @@ func checkSupport(d *Definition) *Unrunnable {
 	for _, s := range def.Settings {
 		if !slices.Contains(settingTypes, s.Type) {
 			return unsupported("it has a setting of type %q, which SlipStream can't show", s.Type)
-		}
-	}
-	for _, f := range d.uses {
-		if slices.Contains(unported, f) {
-			return unsupported("it uses %s, which SlipStream can't run yet", f)
 		}
 	}
 	return nil
