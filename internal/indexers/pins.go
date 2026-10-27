@@ -139,11 +139,7 @@ func carry(plain, sealed map[string]string, from, to cardigann.Summary) carried 
 // stored reports whether an Indexer stores a value for f. Info fields are
 // help text, and a captcha is answered at each sign-in.
 func stored(f cardigann.Field) bool {
-	switch f.Type {
-	case cardigann.TextField, cardigann.PasswordField, cardigann.CheckboxField, cardigann.SelectField:
-		return true
-	}
-	return false
+	return slices.Contains([]cardigann.FieldType{cardigann.TextField, cardigann.PasswordField, cardigann.CheckboxField, cardigann.SelectField}, f.Type)
 }
 
 // Sealed reports whether an Indexer seals f's value: every text and

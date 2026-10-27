@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	conformance "github.com/jatassi/slipstream/conformance/indexercatalog"
 	"github.com/jatassi/slipstream/fakes/catalog"
@@ -37,7 +38,7 @@ func TestFakeCatalogConforms(t *testing.T) {
 	})
 }
 
-func status(t *testing.T, f faketest.Served, path, since string) (int, string) {
+func status(t *testing.T, f faketest.Served, path, since string) (code int, modified string) {
 	t.Helper()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, base(f)+path, http.NoBody)
 	if err != nil {
@@ -73,7 +74,7 @@ func TestTheIndexIsNotModifiedUntilACueChangesIt(t *testing.T) {
 func TestCuesChangeWhatTheCatalogLists(t *testing.T) {
 	inBothTiers(t, func(t *testing.T, f faketest.Served) {
 		read := func() map[string]string {
-			index, _, err := indexers.ReadCatalog(t.Context(), f.Client, base(f))
+			index, _, err := indexers.ReadCatalog(t.Context(), f.Client, base(f), time.Minute)
 			if err != nil {
 				t.Fatalf("ReadCatalog: %v", err)
 			}

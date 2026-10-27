@@ -15,6 +15,10 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 )
 
+// request is how long one request to the catalog may take: package.zip
+// is over a megabyte.
+const request = 2 * time.Minute
+
 type Target struct {
 	// Base is the catalog's base address, to which the client adds the
 	// schema.
@@ -39,7 +43,7 @@ type Report struct {
 // the first request of a search for the newest items, with nothing sent.
 func Run(t *testing.T, tgt Target) Report {
 	t.Helper()
-	index, files, err := indexers.ReadCatalog(t.Context(), tgt.Client, tgt.Base)
+	index, files, err := indexers.ReadCatalog(t.Context(), tgt.Client, tgt.Base, request)
 	if err != nil {
 		t.Fatalf("ReadCatalog(%s): %v", tgt.Base, err)
 	}

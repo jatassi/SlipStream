@@ -89,14 +89,14 @@ func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
 	srv := &server{schema: served, files: map[string][]byte{}, modified: time.Now().UTC().Truncate(time.Second)}
 	names, err := fs.Glob(definitions.FS, "*.yml")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list the definitions: %w", err)
 	}
 	for _, name := range names {
 		if version.MatchString(name) {
 			continue
 		}
 		if srv.files[strings.TrimSuffix(name, ".yml")], err = fs.ReadFile(definitions.FS, name); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read %s: %w", name, err)
 		}
 	}
 	for _, c := range []struct {
@@ -207,8 +207,13 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 		}
 		entries = append(entries, e)
 	}
+	body, err := json.Marshal(entries)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(entries)
+	_, _ = w.Write(body)
 }
 
 func (s *server) file(w http.ResponseWriter, r *http.Request) {

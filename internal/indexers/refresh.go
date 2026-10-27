@@ -44,11 +44,9 @@ type IndexEntry struct {
 
 // catalogSource is one catalog address, read over client.
 type catalogSource struct {
-	client *http.Client
-	base   string
-	// share is Timings.PackageShare.
-	share int
-	// request is Timings.CatalogRequest.
+	client  *http.Client
+	base    string
+	share   int
 	request time.Duration
 }
 
@@ -68,18 +66,18 @@ type fetched struct {
 // they are more than share percent of the index, else one by one. A file
 // the zip lacks or holds at another sha is fetched alone.
 func (c catalogSource) fetch(ctx context.Context, since string, want func(IndexEntry) bool) (fetched, error) {
-	res, body, err := c.get(ctx, "", since)
+	r, err := c.get(ctx, "", since)
 	if err != nil {
 		return fetched{}, err
 	}
-	if res.StatusCode == http.StatusNotModified {
+	if r.notModified {
 		return fetched{unchanged: true, lastModified: since}, nil
 	}
-	index, err := parseIndex(body)
+	index, err := parseIndex(r.body)
 	if err != nil {
 		return fetched{}, fmt.Errorf("read the index at %s: %w", c.url(""), err)
 	}
-	out := fetched{lastModified: res.Header.Get("Last-Modified"), index: index, files: map[string][]byte{}}
+	out := fetched{lastModified: r.lastModified, index: index, files: map[string][]byte{}}
 	var wanted []IndexEntry
 	for _, e := range index {
 		if want(e) {
@@ -87,24 +85,22 @@ func (c catalogSource) fetch(ctx context.Context, since string, want func(IndexE
 		}
 	}
 	if len(wanted)*100 > c.share*len(index) {
-		zipped, err := c.unzip(ctx, wanted)
-		if err != nil {
+		if out.files, err = c.unzip(ctx, wanted); err != nil {
 			return fetched{}, err
 		}
-		out.files = zipped
 	}
 	for _, e := range wanted {
 		if _, ok := out.files[e.File]; ok {
 			continue
 		}
-		_, src, err := c.get(ctx, e.File, "")
+		r, err := c.get(ctx, e.File, "")
 		if err != nil {
 			return fetched{}, err
 		}
-		if blobSHA(src) != e.SHA {
+		if blobSHA(r.body) != e.SHA {
 			return fetched{}, fmt.Errorf("%s doesn't match the sha its index lists", c.url(e.File))
 		}
-		out.files[e.File] = src
+		out.files[e.File] = r.body
 	}
 	return out, nil
 }
@@ -112,12 +108,12 @@ func (c catalogSource) fetch(ctx context.Context, since string, want func(IndexE
 // unzip is the files of wanted that package.zip holds at their sha. A zip
 // that can't be read gives none.
 func (c catalogSource) unzip(ctx context.Context, wanted []IndexEntry) (map[string][]byte, error) {
-	_, body, err := c.get(ctx, "package.zip", "")
+	r, err := c.get(ctx, "package.zip", "")
 	if err != nil {
 		return nil, err
 	}
 	out := map[string][]byte{}
-	archive, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	archive, err := zip.NewReader(bytes.NewReader(r.body), int64(len(r.body)))
 	if err != nil {
 		return out, nil //nolint:nilerr // each file is then fetched alone
 	}
@@ -141,47 +137,58 @@ func (c catalogSource) unzip(ctx context.Context, wanted []IndexEntry) (map[stri
 func readZipped(f *zip.File) ([]byte, error) {
 	r, err := f.Open()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open %s in package.zip: %w", f.Name, err)
 	}
 	defer func() { _ = r.Close() }()
-	return io.ReadAll(io.LimitReader(r, maxCatalogBody))
+	src, err := io.ReadAll(io.LimitReader(r, maxCatalogBody))
+	if err != nil {
+		return nil, fmt.Errorf("read %s in package.zip: %w", f.Name, err)
+	}
+	return src, nil
 }
 
 func (c catalogSource) url(path string) string {
 	return strings.TrimSuffix(c.base, "/") + "/" + strconv.Itoa(CatalogSchema) + "/" + path
 }
 
+// reply is a catalog response that get accepted.
+type reply struct {
+	notModified  bool
+	lastModified string
+	body         []byte
+}
+
 // get fetches path under the schema's folder. Any status but 200 and a 304
 // to since is an error.
-func (c catalogSource) get(ctx context.Context, path, since string) (*http.Response, []byte, error) {
+func (c catalogSource) get(ctx context.Context, path, since string) (reply, error) {
 	u := c.url(path)
 	ctx, cancel := context.WithTimeout(ctx, c.request)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
-		return nil, nil, fmt.Errorf("build the request for %s: %w", u, err)
+		return reply{}, fmt.Errorf("build the request for %s: %w", u, err)
 	}
 	if since != "" {
 		req.Header.Set("If-Modified-Since", since)
 	}
 	res, err := c.client.Do(req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("request %s: %w", u, err)
+		return reply{}, fmt.Errorf("request %s: %w", u, err)
 	}
 	defer func() { _ = res.Body.Close() }()
 	switch {
 	case res.StatusCode == http.StatusNotModified && since != "":
-		return res, nil, nil
+		return reply{notModified: true}, nil
 	case res.StatusCode == http.StatusNotFound && path == "":
-		return nil, nil, fmt.Errorf("%s has no schema %d index", c.base, CatalogSchema)
+		return reply{}, fmt.Errorf("%s has no schema %d index", c.base, CatalogSchema)
 	case res.StatusCode != http.StatusOK:
-		return nil, nil, fmt.Errorf("%s responded %s", u, res.Status)
+		return reply{}, fmt.Errorf("%s responded %s", u, res.Status)
 	}
 	body, err := io.ReadAll(io.LimitReader(res.Body, maxCatalogBody))
 	if err != nil {
-		return nil, nil, fmt.Errorf("read %s: %w", u, err)
+		return reply{}, fmt.Errorf("read %s: %w", u, err)
 	}
-	return res, body, nil
+	return reply{lastModified: res.Header.Get("Last-Modified"), body: body}, nil
 }
 
 func parseIndex(body []byte) ([]IndexEntry, error) {
@@ -213,10 +220,10 @@ func blobSHA(src []byte) string {
 }
 
 // ReadCatalog fetches every definition the schema 12 catalog at base
-// lists, each checked against its sha, by file.
-func ReadCatalog(ctx context.Context, client *http.Client, base string) ([]IndexEntry, map[string][]byte, error) {
-	t := DefaultTimings()
-	f, err := catalogSource{client: client, base: base, share: t.PackageShare, request: t.CatalogRequest}.fetch(ctx, "", func(IndexEntry) bool { return true })
+// lists, each checked against its sha, by file. Each request may take up
+// to request.
+func ReadCatalog(ctx context.Context, client *http.Client, base string, request time.Duration) ([]IndexEntry, map[string][]byte, error) {
+	f, err := catalogSource{client: client, base: base, request: request}.fetch(ctx, "", func(IndexEntry) bool { return true })
 	return f.index, f.files, err
 }
 
@@ -229,6 +236,33 @@ type definitionKey struct{ id, sha string }
 // catalog, moves every pin whose new version loads and drops the versions
 // no one lists or pins. Any failure keeps the last good catalog.
 func (x *Indexers) refresh(ctx context.Context) error {
+	state, have, err := x.catalogHeld(ctx)
+	if err != nil {
+		return err
+	}
+	since := deref(state.LastModified)
+	f, err := x.catalogSource(deref(state.Address)).fetch(ctx, since, func(e IndexEntry) bool { return !have[definitionKey{e.ID, e.SHA}] })
+	if err != nil {
+		return err
+	}
+	var moved []ID
+	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var err error
+		moved, err = x.store(ctx, tx, f, storage.Now())
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	x.catalogChanged(ctx)
+	for _, id := range moved {
+		x.changed(ctx, id)
+	}
+	return nil
+}
+
+// catalogHeld is the catalog's state and every definition version stored.
+func (x *Indexers) catalogHeld(ctx context.Context) (db.IndexersCatalogState, map[definitionKey]bool, error) {
 	var state db.IndexersCatalogState
 	have := map[definitionKey]bool{}
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
@@ -243,48 +277,35 @@ func (x *Indexers) refresh(ctx context.Context) error {
 		}
 		return err
 	})
-	if err != nil {
-		return err
+	return state, have, err
+}
+
+// store records what fetch read, in tx, and answers the Indexers whose
+// pins moved.
+func (x *Indexers) store(ctx context.Context, tx *storage.Tx[file], f fetched, now storage.Time) ([]ID, error) {
+	q := db.New(tx)
+	refreshed := db.SetCatalogRefreshedParams{RefreshedAt: now, LastModified: orNil(f.lastModified)}
+	if f.unchanged {
+		return nil, q.SetCatalogRefreshed(ctx, refreshed)
 	}
-	since := deref(state.LastModified)
-	f, err := x.catalogSource(deref(state.Address)).fetch(ctx, since, func(e IndexEntry) bool { return !have[definitionKey{e.ID, e.SHA}] })
-	if err != nil {
-		return err
-	}
-	now := storage.Now()
-	var moved []ID
-	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		if f.unchanged {
-			return q.SetCatalogRefreshed(ctx, db.SetCatalogRefreshedParams{RefreshedAt: now, LastModified: orNil(since)})
-		}
-		for _, e := range f.index {
-			if src, ok := f.files[e.File]; ok {
-				if err := q.InsertDefinition(ctx, definitionRow(e.ID, e.SHA, e.File, FromCatalog, src, now)); err != nil {
-					return err
-				}
+	for _, e := range f.index {
+		if src, ok := f.files[e.File]; ok {
+			if err := q.InsertDefinition(ctx, definitionRow(e.ID, e.SHA, e.File, FromCatalog, src, now)); err != nil {
+				return nil, err
 			}
 		}
-		if err := listCatalog(ctx, q, f.index); err != nil {
-			return err
-		}
-		var err error
-		if moved, err = x.movePins(ctx, tx, now); err != nil {
-			return err
-		}
-		if err := q.PruneDefinitions(ctx); err != nil {
-			return err
-		}
-		return q.SetCatalogRefreshed(ctx, db.SetCatalogRefreshedParams{RefreshedAt: now, LastModified: orNil(f.lastModified)})
-	})
+	}
+	if err := listCatalog(ctx, q, f.index); err != nil {
+		return nil, err
+	}
+	moved, err := x.movePins(ctx, tx, now)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	x.catalogChanged(ctx)
-	for _, id := range moved {
-		x.changed(ctx, id)
+	if err := q.PruneDefinitions(ctx); err != nil {
+		return nil, err
 	}
-	return nil
+	return moved, q.SetCatalogRefreshed(ctx, refreshed)
 }
 
 func (x *Indexers) catalogSource(address string) catalogSource {

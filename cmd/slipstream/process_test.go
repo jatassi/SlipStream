@@ -26,9 +26,12 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/example/shelf"
 )
 
-// localListeners keep parallel Nodes off each other's ports. startNode
-// always sets them.
-var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0"}
+// localListeners keep parallel Nodes off each other's ports, and the
+// Indexer catalog refresh at start off the internet. startNode always sets
+// them.
+var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0", noCatalog}
+
+const noCatalog = "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG=https://127.0.0.1:9/master"
 
 func TestMain(m *testing.M) {
 	os.Exit(testbin.Run(m))

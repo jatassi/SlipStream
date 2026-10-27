@@ -41,32 +41,11 @@ func (x *Indexers) AddCustom(ctx context.Context, _ identity.Admin, src []byte) 
 		if err := q.InsertDefinition(ctx, definitionRow(id, sha, id, FromCustom, src, now)); err != nil {
 			return err
 		}
-		pins, err := q.ListPins(ctx)
-		if err != nil {
+		if moved, err = x.moveCustomPins(ctx, tx, id, sha, now); err != nil {
 			return err
 		}
-		for _, p := range pins {
-			if Origin(p.Origin) != FromCustom || *p.DefinitionID != id || *p.DefinitionSha == sha {
-				continue
-			}
-			ok, err := x.movePin(ctx, tx, p, sha, now)
-			if err != nil {
-				return err
-			}
-			if ok {
-				moved = append(moved, p.ID)
-			}
-		}
-		older, err := q.ListCustom(ctx)
-		if err != nil {
+		if err := dropOlderCustom(ctx, q, id, sha); err != nil {
 			return err
-		}
-		for _, row := range older {
-			if string(row.ID) == id && row.Sha != sha {
-				if err := q.DeleteDefinition(ctx, db.DeleteDefinitionParams{ID: row.ID, Sha: row.Sha}); err != nil {
-					return err
-				}
-			}
 		}
 		def, err := q.GetDefinition(ctx, db.GetDefinitionParams{ID: db.DefinitionID(id), Sha: sha})
 		if err != nil {
@@ -83,6 +62,44 @@ func (x *Indexers) AddCustom(ctx context.Context, _ identity.Admin, src []byte) 
 		x.changed(ctx, id)
 	}
 	return entry, nil
+}
+
+// moveCustomPins moves the Indexers on another version of the custom
+// definition id to sha, answering those whose pin moved.
+func (x *Indexers) moveCustomPins(ctx context.Context, tx *storage.Tx[file], id, sha string, now storage.Time) ([]ID, error) {
+	pins, err := db.New(tx).ListPins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var moved []ID
+	for _, p := range pins {
+		if Origin(p.Origin) != FromCustom || *p.DefinitionID != id || *p.DefinitionSha == sha {
+			continue
+		}
+		ok, err := x.movePin(ctx, tx, p, sha, now)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			moved = append(moved, p.ID)
+		}
+	}
+	return moved, nil
+}
+
+func dropOlderCustom(ctx context.Context, q *db.Queries, id, sha string) error {
+	older, err := q.ListCustom(ctx)
+	if err != nil {
+		return err
+	}
+	for _, row := range older {
+		if string(row.ID) == id && row.Sha != sha {
+			if err := q.DeleteDefinition(ctx, db.DeleteDefinitionParams{ID: row.ID, Sha: row.Sha}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // DeleteCustom deletes the custom definition id: ErrNoDefinition when

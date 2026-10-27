@@ -48,7 +48,11 @@ func (r *recorder) RoundTrip(req *http.Request) (*http.Response, error) {
 	r.mu.Lock()
 	r.paths = append(r.paths, strings.TrimPrefix(req.URL.Path, catalog.Base+"/12/"))
 	r.mu.Unlock()
-	return r.next.RoundTrip(req)
+	res, err := r.next.RoundTrip(req)
+	if err != nil {
+		return nil, fmt.Errorf("send %s: %w", req.URL, err)
+	}
+	return res, nil
 }
 
 // take is the paths sent since the last take.
@@ -154,7 +158,7 @@ func (w *catalogWorld) pin(t *testing.T, name, definition string, plain, sealed 
 // fake's own index.
 func (w *catalogWorld) pinned(t *testing.T, definition string) string {
 	t.Helper()
-	index, _, err := indexers.ReadCatalog(t.Context(), w.fake.Client, w.fake.Address.URL(catalog.Base))
+	index, _, err := indexers.ReadCatalog(t.Context(), w.fake.Client, w.fake.Address.URL(catalog.Base), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +177,11 @@ func (w *catalogWorld) indexer(t *testing.T, id indexers.ID) (indexers.Indexer, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	return idx, idx.Source.(indexers.Definition)
+	def, ok := idx.Source.(indexers.Definition)
+	if !ok {
+		t.Fatalf("Indexer %s has no definition", idx.Name)
+	}
+	return idx, def
 }
 
 func (w *catalogWorld) health(t *testing.T) []health.Item {
