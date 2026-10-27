@@ -17,6 +17,7 @@ import type { LiveEffects } from "./types";
 
 const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
 const everyWork = everyPath(/^\/api\/v1\/works(\/[^/]+(\/cells)?)?$/u);
+const everyIndexersGrabs = everyPath(/^\/api\/v1\/indexers\/[^/]+\/grabs$/u);
 
 /** The library's events: Works, their files, Grabs and searches. A fetch or a search also moves the Diagram's machines. */
 export const libraryEffects = {
@@ -42,6 +43,7 @@ export const libraryEffects = {
   "grabs.changed": (data, { refresh }) => {
     refresh({ queryKey: getListGrabsQueryKey() });
     refresh({ queryKey: getGetGrabQueryKey(data.grabId) });
+    refresh(everyIndexersGrabs);
     refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
     refresh({ queryKey: getGetCountsQueryKey() });
   },
