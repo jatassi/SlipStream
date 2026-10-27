@@ -383,6 +383,26 @@ func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &v); err != nil || len(v.TrackerIDs) != 2 {
 		t.Fatalf("getIndexer = %s, want the two Trackers it reaches", body)
 	}
+
+	ids := map[string]string{}
+	for _, tr := range trackers.Trackers {
+		ids[tr.Name] = tr.ID
+	}
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/trackers/"+ids["Aither"], `{"name":"TorrentLeech"}`, http.StatusConflict,
+		`{"status":409,"code":"tracker_name_taken","title":"Another Tracker has that name"}`)
+	s.owner.Expect(t, http.MethodPost, "/api/v1/trackers/"+ids["Aither"]+"/merge", `{"into":"`+ids["Aither"]+`"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"tracker_merge_self","title":"A Tracker can't be merged into itself"}`)
+	s.owner.Expect(t, http.MethodPost, "/api/v1/trackers/"+ids["Aither"]+"/merge", `{"into":"`+storage.NewUUID().String()+`"}`, http.StatusNotFound,
+		`{"status":404,"code":"tracker_not_found","title":"No Tracker has that id"}`)
+	if code, got := s.owner.Call(t, http.MethodPatch, "/api/v1/trackers/"+ids["Orphan"], `{"name":"Lonely"}`); code != http.StatusOK || !strings.Contains(got, `"name":"Lonely"`) {
+		t.Fatalf("renameTracker = %d %s, want 200 with the new name", code, got)
+	}
+	if code, got := s.owner.Call(t, http.MethodPost, "/api/v1/trackers/"+ids["Aither"]+"/merge", `{"into":"`+ids["TorrentLeech"]+`"}`); code != http.StatusOK ||
+		!strings.Contains(got, `"name":"TorrentLeech"`) {
+		t.Fatalf("mergeTracker = %d %s, want 200 with TorrentLeech", code, got)
+	}
+	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/"+ids["Aither"], "", http.StatusNotFound,
+		`{"status":404,"code":"tracker_not_found","title":"No Tracker has that id"}`)
 }
 
 // reach adds each Tracker, reached by the Indexers with the given ids.
