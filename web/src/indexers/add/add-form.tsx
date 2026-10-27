@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { NodesNode } from "../../api/gen/model";
 import { Button } from "../../ui/button";
 import { nameSchema } from "../edit-values";
-import { searchingNodes } from "../move-indexer";
+import { searchingNodes } from "../move-edit";
 import { Fields, leadOf } from "./kind-fields";
 import { MoreFields } from "./more-fields";
 import type { Source } from "./source";

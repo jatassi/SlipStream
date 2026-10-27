@@ -29,6 +29,7 @@ export function Step({ add, source, home }: { add: Add; source: Source; home: st
         return (
           <CaptchaField
             form={form}
+            fields={{ captcha: "captcha" }}
             name={source.form.entry.name}
             home={home}
             step={step}

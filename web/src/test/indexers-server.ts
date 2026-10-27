@@ -1,4 +1,4 @@
-import { HttpResponse, type JsonBodyType, http } from "msw";
+import { HttpResponse, http } from "msw";
 import type { z } from "zod";
 
 import type {
@@ -6,7 +6,6 @@ import type {
   IndexersLimitUse,
   IndexersTracker,
   NodesNode,
-  SettingDurationField,
 } from "../api/gen/model";
 import {
   MergeTrackerBody,
@@ -15,6 +14,7 @@ import {
   UpdateIndexerSettingsBody,
 } from "../api/gen/zod/indexers/indexers.zod";
 import { problem } from "./handlers";
+import { type Server, find, missing, testHandlers, tested } from "./indexer-plays";
 import {
   larkspur,
   longBackoff,
@@ -26,32 +26,13 @@ import {
 } from "./indexers";
 import { home, nodesAre } from "./nodes";
 
-const testFailed = (detail: string) =>
-  HttpResponse.json(
-    { status: 422, code: "indexer_test_failed", title: "The Indexer's Test failed", detail },
-    { status: 422, headers: { "Content-Type": "application/problem+json" } },
-  );
-
-export type IndexerWrite = { method: string; id: string; body?: JsonBodyType };
-
-const missing = () => problem(404, "indexer_not_found", "No Indexer has that id");
-
-type Server = {
-  state: {
-    indexers: IndexersIndexer[];
-    trackers: IndexersTracker[];
-    settings: SettingDurationField[];
-  };
-  writes: IndexerWrite[];
-  failTest: string | undefined;
-};
-
-const find = ({ state }: Server, id: unknown) => state.indexers.find((row) => row.id === id);
-
 type Edit = z.output<typeof UpdateIndexerBody>;
 
 const testsOn = (body: Edit) =>
-  body.apiKey !== undefined || body.address !== undefined || body.homeNodeId !== undefined;
+  body.apiKey !== undefined ||
+  body.address !== undefined ||
+  body.homeNodeId !== undefined ||
+  body.cookie !== undefined;
 
 function readHandlers(server: Server) {
   return [
@@ -100,8 +81,9 @@ function edited(row: IndexersIndexer, edit: Edit): IndexersIndexer {
 
 function patchIndexer(server: Server, row: IndexersIndexer, body: Edit) {
   server.writes.push({ method: "PATCH", id: row.id, body });
-  if (server.failTest !== undefined && testsOn(body)) {
-    return testFailed(server.failTest);
+  const refused = testsOn(body) ? tested(server, body.captcha !== undefined) : undefined;
+  if (refused !== undefined) {
+    return refused;
   }
   const next = edited(row, body);
   server.state.indexers = server.state.indexers.map((other) =>
@@ -136,20 +118,17 @@ function writeHandlers(server: Server) {
       server.state.indexers = server.state.indexers.filter((other) => other.id !== row.id);
       return new HttpResponse(null, { status: 204 });
     }),
-    http.post("*/api/v1/indexers/:id/test", ({ params }) => {
-      const row = find(server, params["id"]);
-      if (row === undefined) {
-        return missing();
-      }
-      server.writes.push({ method: "TEST", id: row.id });
-      return server.failTest === undefined
-        ? HttpResponse.json({ searchModes: row.searchModes, items: 40, sources: [] })
-        : testFailed(server.failTest);
-    }),
   ];
 }
 
-const noTracker = () => problem(404, "tracker_not_found", "That Tracker no longer exists. It may have been merged into another Tracker.");
+const noTracker = () =>
+  problem(
+    404,
+    "tracker_not_found",
+    "That Tracker no longer exists. It may have been merged into another Tracker.",
+  );
+
+const folded = (name: string) => name.toLowerCase().replaceAll(/[^\p{L}\p{N}]/gu, "");
 
 const findTracker = ({ state }: Server, id: unknown) =>
   state.trackers.find((tracker) => tracker.id === id);
@@ -181,7 +160,7 @@ function trackerHandlers(server: Server) {
       const body = RenameTrackerBody.parse(await request.json());
       server.writes.push({ method: "PATCH", id: tracker.id, body });
       const taken = server.state.trackers.some(
-        (other) => other.id !== tracker.id && other.name === body.name,
+        (other) => other.id !== tracker.id && folded(other.name) === folded(body.name),
       );
       if (taken) {
         return problem(409, "tracker_name_taken", "Another Tracker has that name");
@@ -211,8 +190,8 @@ function trackerHandlers(server: Server) {
 /**
  * An Indexers server that keeps its list: a PATCH merges what it sends, a
  * DELETE drops the Indexer, and each is recorded in writes. A Test, and a
- * PATCH that tests, passes unless failTest gives indexer_test_failed's
- * sentence. A rename refuses a name another Tracker has, and a merge moves
+ * PATCH that tests, passes unless captchaTests or failTest give
+ * indexer_test_failed's sentence; each of captchaTests hands back a captcha. A rename refuses a name another Tracker has, and a merge moves
  * the Tracker's keys, hosts and Indexers to the one kept.
  */
 export function indexersServer({
@@ -220,11 +199,15 @@ export function indexersServer({
   trackerList = trackers,
   nodes = [home, searchingSeedbox],
   failTest,
+  captchaTests = [],
+  expireFirst = false,
 }: {
   indexers?: IndexersIndexer[];
   trackerList?: IndexersTracker[];
   nodes?: NodesNode[];
   failTest?: string;
+  captchaTests?: string[];
+  expireFirst?: boolean;
 } = {}) {
   const server: Server = {
     state: {
@@ -234,11 +217,15 @@ export function indexersServer({
     },
     writes: [],
     failTest,
+    captchaTests: [...captchaTests],
+    expireFirst,
+    captchasHanded: 0,
   };
   const handlers = [
     nodesAre(...nodes),
     ...readHandlers(server),
     ...writeHandlers(server),
+    ...testHandlers(server),
     ...trackerHandlers(server),
   ];
   return { handlers, state: server.state, writes: server.writes };

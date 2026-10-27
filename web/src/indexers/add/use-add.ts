@@ -14,6 +14,7 @@ import {
   testIndexerDraft,
 } from "../../api/gen/query/indexers/indexers";
 import { useAppForm } from "../../ui/form";
+import { captchaOf } from "../captcha-of";
 import { type SubmitErrors, submitErrors } from "../../ui/form-context";
 import { toast } from "../../ui/toast";
 import {
@@ -77,26 +78,6 @@ function refusalOf(source: Source, error: unknown): SubmitErrors {
   return submitErrors(error, { indexer_name_taken: "name" });
 }
 
-const isCaptcha = (value: unknown): value is IndexersCaptchaImage =>
-  typeof value === "object" &&
-  value !== null &&
-  "attempt" in value &&
-  typeof value.attempt === "string" &&
-  "image" in value &&
-  typeof value.image === "string" &&
-  "expiresAt" in value &&
-  typeof value.expiresAt === "string";
-
-/** The captcha a failed Test hands back, since each one is answered once. */
-function newCaptchaOf(error: unknown): IndexersCaptchaImage | undefined {
-  if (!isProblem(error, "indexer_test_failed")) {
-    return undefined;
-  }
-  const { body } = error;
-  const captcha = typeof body === "object" && body !== null && "captcha" in body && body.captcha;
-  return isCaptcha(captcha) ? captcha : undefined;
-}
-
 type Steps = {
   source: Source;
   setStep: (step: CaptchaStep) => void;
@@ -135,7 +116,7 @@ function afterRefusal(steps: Steps, error: unknown, value: AddValues) {
     steps.setStep({ kind: "expired", signIn, words: sentenceOf(error) });
     return;
   }
-  const captcha = newCaptchaOf(error);
+  const captcha = captchaOf(error);
   steps.setField("captcha", "");
   steps.setStep(captcha === undefined ? { kind: "none" } : { kind: "shown", captcha, signIn });
 }
