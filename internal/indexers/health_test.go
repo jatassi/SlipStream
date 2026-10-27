@@ -266,6 +266,15 @@ func TestTheHealthCheckTestsEachIndexerItMayRetry(t *testing.T) {
 			if want := map[bool][]string{true: {"Fixture Site"}, false: {}}[c.retried]; !slices.Equal(got, want) {
 				t.Fatalf("the health check's units after %s = %q, want %q", c.stop.Cause, got, want)
 			}
+			var shown bool
+			err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+				var err error
+				shown, err = task.Shown(ctx, r)
+				return err
+			})
+			if err != nil || !shown {
+				t.Fatalf("the health check is shown %t, %v; want it shown while an Indexer exists", shown, err)
+			}
 			jobs := w.site.jobs
 			if err := task.Run(t.Context(), tasks.Unit{Key: tasks.UnitKey(w.id.String())}, nil); err != nil {
 				t.Fatalf("the health check's unit = %v, want it to succeed whatever the Test finds", err)

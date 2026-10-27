@@ -57,6 +57,7 @@ func (x *Indexers) Tasks() []tasks.Task {
 		Cadence: tasks.Every{Interval: healthCheckCadence},
 		Noun:    setting.Noun{One: "Indexer", Many: "Indexers"},
 		Units:   x.healthUnits,
+		Shown:   anyIndexer,
 		Run:     func(ctx context.Context, u tasks.Unit, _ *tasks.Progress) error { return x.healthCheck(ctx, u.Key) },
 		Follows: []live.Event{ChangedEvent, StatusChangedEvent},
 		Health:  string(health.IndexersID),
@@ -88,6 +89,13 @@ func (x *Indexers) healthUnits(ctx context.Context, r storage.Reader[storage.Lib
 		out = append(out, tasks.Unit{Key: tasks.UnitKey(idx.ID.String()), Label: idx.Name, Place: place})
 	}
 	return out, nil
+}
+
+// anyIndexer shows the health check while an Indexer exists, though
+// every one is off or stopped.
+func anyIndexer(ctx context.Context, r storage.Reader[storage.Library]) (bool, error) {
+	all, err := All(ctx, r)
+	return len(all) > 0, err
 }
 
 // checked reports whether the health check tests an Indexer at st.

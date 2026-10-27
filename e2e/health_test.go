@@ -89,7 +89,7 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 		t.Fatalf("Check now on Nodes in step = %+v, want nothing unreached and no items", checked)
 	}
 	if indexers := checked.Report.items(t, "indexers"); len(indexers) != 0 {
-		t.Fatalf("the Indexers category holds %+v, want no items until its checks land", indexers)
+		t.Fatalf("the Indexers category holds %+v, want nothing while Fixture Site works", indexers)
 	}
 	if health, _ := healthAlerts(t, a); health != nil {
 		t.Fatalf("with every Node in step the Health alert is %s, want null", *health)
