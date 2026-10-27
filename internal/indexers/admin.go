@@ -283,6 +283,11 @@ func set[T any](to, v *T) {
 // clears its backoff and any stop. It fails with *TestFailedError,
 // ErrNoIndexer, *WaitError, *UnavailableError or ErrLate.
 func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID) (Report, error) {
+	return x.testSaved(ctx, id)
+}
+
+// testSaved is Test for an Admin or the health check.
+func (x *Indexers) testSaved(ctx context.Context, id ID) (Report, error) {
 	idx, err := Get(ctx, x.cfg.Library, id)
 	if err != nil {
 		return Report{}, err

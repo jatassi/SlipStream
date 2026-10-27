@@ -5140,6 +5140,10 @@
         ],
         "type": "object"
       },
+      "IndexersSettingsChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
       "IndexersStatus": {
         "additionalProperties": false,
         "properties": {
@@ -18819,6 +18823,32 @@
                           "event"
                         ],
                         "title": "Event indexers.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/IndexersSettingsChanged"
+                          },
+                          "event": {
+                            "const": "indexers.settings-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event indexers.settings-changed",
                         "type": "object"
                       },
                       {

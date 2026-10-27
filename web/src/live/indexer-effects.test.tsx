@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 
 import {
   getGetIndexerQueryKey,
+  getGetIndexerSettingsQueryKey,
   getListIndexerQueriesQueryKey,
   getListIndexersQueryKey,
   getListTrackersQueryKey,
@@ -22,7 +23,10 @@ test("indexers.changed refreshes the list, every Indexer page and the Trackers",
     trackers: getListTrackersQueryKey(),
     queries: getListIndexerQueriesQueryKey(quarry),
   });
-  server.clients[0]?.send({ event: "indexers.changed", data: { indexerId: quarry } });
+  server.clients[0]?.send({
+    event: "indexers.changed",
+    data: { indexerId: quarry },
+  });
   await expect
     .poll(invalidated)
     .toEqual({ list: true, quarry: true, trackers: true, queries: false });
@@ -38,8 +42,23 @@ test("indexers.status-changed refreshes the list, that Indexer and its queries",
     larkspur: getGetIndexerQueryKey(larkspur),
     queries: getListIndexerQueriesQueryKey(quarry),
   });
-  server.clients[0]?.send({ event: "indexers.status-changed", data: { indexerId: quarry } });
+  server.clients[0]?.send({
+    event: "indexers.status-changed",
+    data: { indexerId: quarry },
+  });
   await expect
     .poll(invalidated)
     .toEqual({ list: true, quarry: true, larkspur: false, queries: true });
+});
+
+test("indexers.settings-changed refreshes the Indexer settings", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    settings: getGetIndexerSettingsQueryKey(),
+    list: getListIndexersQueryKey(),
+  });
+  server.clients[0]?.send({ event: "indexers.settings-changed", data: {} });
+  await expect.poll(invalidated).toEqual({ settings: true, list: false });
 });
