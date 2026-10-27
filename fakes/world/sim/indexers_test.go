@@ -24,7 +24,7 @@ func TestAnIndexerFailingForTheLongBackoffWarnsAndTheHealthCheckRunsEverySixHour
 		synctest.Wait()
 		listed := decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", ""))
 		id := listed.Indexers[0].ID
-		if _, err := w.Faults().Set(fault.Rule{ID: "down", Target: "fixture-site", Route: "torznab", Fault: fault.Status{Code: http.StatusInternalServerError}}); err != nil {
+		if _, err := w.Faults().Set(fault.Rule{ID: "down", Target: "fixture-site", Route: "torznab.api", Fault: fault.Status{Code: http.StatusInternalServerError}}); err != nil {
 			t.Fatal(err)
 		}
 		if r := a.Admin("home", http.MethodPost, "/api/v1/indexers/"+id+"/test", ""); r.Status != http.StatusUnprocessableEntity {

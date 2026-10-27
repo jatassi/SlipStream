@@ -96,7 +96,7 @@ func newHealthWorld(t *testing.T) *healthWorld {
 func (w *healthWorld) test(t *testing.T, outcome error) {
 	t.Helper()
 	w.site.answer(outcome)
-	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id)
+	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id, nil)
 	if failed := new(indexers.TestFailedError); (outcome == nil) != (err == nil) || (err != nil && !errors.As(err, &failed)) {
 		t.Fatalf("Test with the site answering %v = %v", outcome, err)
 	}
@@ -119,6 +119,7 @@ func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToTheIndexer(t *testing.T) 
 		want string
 	}{
 		{&searching.Stopped{Cause: searching.CredentialsRejected}, "Fixture Site rejected the username or password. Update them on the Indexer and test it."},
+		{&searching.Stopped{Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Fixture Site refused the sign-in with 'Wrong code'. Check the username, password and any code on the Indexer, then test it."},
 		{&searching.Stopped{Cause: searching.CaptchaNeeded}, "Fixture Site needs a captcha to sign in again. Open the Indexer and type the code."},
 		{&searching.Stopped{Cause: searching.ChallengeUnsolved}, "Fixture Site is behind a browser challenge, and seedbox has no Challenge solver. Set one on seedbox, or paste a browser cookie on the Indexer."},
 		{&searching.Stopped{Cause: searching.ChallengeUnsolved, SolverTried: true}, "seedbox's Challenge solver couldn't clear Fixture Site's challenge. Paste a browser cookie on the Indexer."},
@@ -152,7 +153,7 @@ func TestAnIndexerThatIsOffRaisesNothing(t *testing.T) {
 	w := newHealthWorld(t)
 	w.test(t, &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"})
 	off := false
-	if _, err := w.x.Update(t.Context(), identity.Admin{}, w.id, indexers.Edit{On: &off}); err != nil {
+	if _, err := w.x.Update(t.Context(), identity.Admin{}, w.id, indexers.Edit{On: &off}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if a := w.answer(t); len(a.Items) != 0 || len(a.Unsure) != 0 {
@@ -299,7 +300,7 @@ func TestTheHealthCheckOfAFeedItCantUseSucceedsAndItsTestSaysWhy(t *testing.T) {
 	if a := w.answer(t); len(a.Items) != 0 {
 		t.Errorf("Health after a Test the site answered = %+v, want the stop cleared", a.Items)
 	}
-	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id)
+	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id, nil)
 	var refused *indexers.FeedRefusedError
 	if want := "Some items repeat the same GUID."; !errors.As(err, &refused) || refused.Sentence != want {
 		t.Errorf("Test of a feed SlipStream can't use = %v, want %q", err, want)
