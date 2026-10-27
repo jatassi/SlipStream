@@ -7,6 +7,7 @@ ignore ./web/node_modules
 require (
 	connectrpc.com/connect/v2 v2.0.1
 	fyne.io/systray v1.12.2
+	github.com/andybalholm/cascadia v1.3.5
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/dlclark/regexp2 v1.12.0
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6
@@ -25,6 +26,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.47.0
+	golang.org/x/net v0.61.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
