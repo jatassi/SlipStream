@@ -12,7 +12,7 @@ import {
   getListProfilesSuspenseQueryOptions,
 } from "../../../api/gen/query/targets/targets";
 import { ensureQuery } from "../../../api/query-client";
-import { loadWorkGrabs } from "../../../grabs/waiting";
+import { loadWorkGrabs } from "../../../grabs/work-sections";
 import { useAmbient } from "../../../shell/ambient/use-ambient";
 import { loaderTitle } from "../../../shell/titles";
 import { Skeleton } from "../../../ui/skeleton";

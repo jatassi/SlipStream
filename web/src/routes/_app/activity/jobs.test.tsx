@@ -118,9 +118,9 @@ test("Activity leads with what moves and what failed, then the failure, then eac
     .toMatchTextContent(
       "Orchard Harvest" +
         "Cause" +
-        "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer." +
+        "SlipStream couldn't download the Release's .torrent file or magnet link from the Indexer." +
         "Recovery" +
-        "Search again to pick another release." +
+        "Search again to pick another Release." +
         "Release" +
         "Orchard.Harvest.2019.720p.HDTV" +
         "Detail" +
@@ -196,7 +196,7 @@ test("Activity with no Grabs says what to do next", async () => {
   await expect
     .element(
       page.getByText(
-        "Nothing is downloading. Open a Work and choose Search to find a release for it.",
+        "Nothing is downloading. Open a Work and choose Search to find a Release for it.",
       ),
     )
     .toBeVisible();

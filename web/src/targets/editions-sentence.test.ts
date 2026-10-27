@@ -23,25 +23,25 @@ test.each<[string, EditionList, string, boolean]>([
   [
     "Standard and one other",
     { kind: "cuts", cuts: [standard, extended] },
-    "Every Item always wants Standard. It wants Extended only once a release or file of that cut has been seen for it.",
+    "Every Item always wants Standard. It wants Extended only once a Release or file of that cut has been seen for it.",
     false,
   ],
   [
     "Standard after others",
     { kind: "cuts", cuts: [extended, standard, directors, imax] },
-    "Every Item always wants Standard. It wants Extended, Director's Cut and IMAX only once a release or file of that cut has been seen for it.",
+    "Every Item always wants Standard. It wants Extended, Director's Cut and IMAX only once a Release or file of that cut has been seen for it.",
     false,
   ],
   [
     "one cut and no Standard",
     { kind: "cuts", cuts: [directors] },
-    "Every Item wants Director's Cut outright, even where no release of it has been seen. A release that names no cut is Standard, which this list doesn't want.",
+    "Every Item wants Director's Cut outright, even where no Release of it has been seen. A Release that names no cut is Standard, which this list doesn't want.",
     true,
   ],
   [
     "several cuts and no Standard",
     { kind: "cuts", cuts: [extended, directors] },
-    "Every Item wants Extended and Director's Cut outright, even where no release of them has been seen. A release that names no cut is Standard, which this list doesn't want.",
+    "Every Item wants Extended and Director's Cut outright, even where no Release of them has been seen. A Release that names no cut is Standard, which this list doesn't want.",
     true,
   ],
 ])("%s", (_shape, list, text, warning) => {

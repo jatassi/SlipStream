@@ -252,14 +252,14 @@ Steps on `targets`:
 
 Steps on `sizes`:
 
-- **Sizes.** Add The Quiet Orchard on `Films` and choose `Search`. The Searches list reads `Grabbed a release`; the searches view's `refused` lists `The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT` with `size_above` and `The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY` with `size_below`, both at `Sized`, and the file lands as `The Quiet Orchard (2021) - Sized.mkv`. Add The Lantern Keeper the same way and search it: its search grabs with `notes` holding `size_not_checked`.
+- **Sizes.** Add The Quiet Orchard on `Films` and choose `Search`. The Searches list reads `Grabbed a Release`; the searches view's `refused` lists `The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT` with `size_above` and `The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY` with `size_below`, both at `Sized`, and the file lands as `The Quiet Orchard (2021) - Sized.mkv`. Add The Lantern Keeper the same way and search it: its search grabs with `notes` holding `size_not_checked`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a release").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release").waitFor({ timeout: 30000 }); }'
   ORCHARD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[] | select(.label == "The Quiet Orchard") | .id')
   $FW exec $RUN --proof targets-and-profiles/sizes-refusals -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$ORCHARD/searches"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Files" }).getByText("The Quiet Orchard (2021) - Sized.mkv").waitFor({ timeout: 90000 }); }'
@@ -268,7 +268,7 @@ Steps on `sizes`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Lantern Keeper" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Lantern Keeper" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a release").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release").waitFor({ timeout: 30000 }); }'
   KEEPER=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[] | select(.label == "The Lantern Keeper") | .id')
   $FW exec $RUN --proof targets-and-profiles/sizes-refusals -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$KEEPER/searches"
   ```

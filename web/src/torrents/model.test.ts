@@ -134,7 +134,7 @@ test("rates, a pace only while downloading, and seed words", () => {
   );
 });
 
-test("a filter matches the tab, the Node, the Content Type and the Work or release name", () => {
+test("a filter matches the tab, the Node, the Content Type and the Work or Release name", () => {
   const row = torrent({
     state: "downloading",
     tabs: ["downloading", "all"],

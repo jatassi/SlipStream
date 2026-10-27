@@ -34,7 +34,7 @@ export function EditionsSection() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-[64ch]">
-          <Details summary="A cut is a version of a Work, such as Extended or the Director's Cut. SlipStream reads it from release titles and file names. Add a cut when your releases name one that isn't listed here.">
+          <Details summary="A cut is a version of a Work, such as Extended or the Director's Cut. SlipStream reads it from Release titles and file names. Add a cut when your Releases name one that isn't listed here.">
             <p className="max-w-[64ch]">
               Each phrase is matched as whole words, the longest first. A title that names no cut is
               Standard. Built-in cuts and the ones a Content Type adds can&apos;t be changed.

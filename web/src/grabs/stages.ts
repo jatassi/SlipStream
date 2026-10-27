@@ -58,24 +58,36 @@ export const movesBytes = (grab: GrabsGrab): boolean => byteStages.has(grab.stag
 
 export type Words = { readonly cause: string; readonly recovery?: string };
 
-const searchAgain = "Search again to pick another release.";
+const searchAgain = "Search again to pick another Release.";
+
+const nextRelease =
+  "SlipStream grabs the next acceptable Release from the same search, if there is one.";
 
 export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   indexer_unavailable: {
-    cause: "The Indexer didn't respond to the request for the release.",
+    cause: "The Indexer didn't respond to the request for the Release.",
     recovery: "Search again once the Indexer is back.",
   },
   indexer_removed: {
-    cause: "The Indexer was removed before SlipStream fetched the release's .torrent file.",
+    cause: "The Indexer was removed before SlipStream fetched the Release's .torrent file.",
     recovery: searchAgain,
+  },
+  indexer_stopped: {
+    cause: "The Indexer stopped before SlipStream fetched the Release's .torrent file.",
+    recovery: nextRelease,
+  },
+  home_offline: {
+    cause:
+      "The Indexer's home Node was offline past its grace before SlipStream fetched the Release's .torrent file.",
+    recovery: nextRelease,
   },
   torrent_unreachable: {
     cause:
-      "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer.",
+      "SlipStream couldn't download the Release's .torrent file or magnet link from the Indexer.",
     recovery: searchAgain,
   },
   magnet_invalid: {
-    cause: "The release's magnet link has no info hash SlipStream can read.",
+    cause: "The Release's magnet link has no info hash SlipStream can read.",
     recovery: searchAgain,
   },
   no_metadata: {
@@ -92,11 +104,11 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: searchAgain,
   },
   infohash_mismatch: {
-    cause: "The .torrent file isn't the release the Indexer listed.",
+    cause: "The .torrent file isn't the Release the Indexer listed.",
     recovery: searchAgain,
   },
   torrent_v2_only: {
-    cause: "The release only offers a BitTorrent v2 .torrent, which SlipStream can't download.",
+    cause: "The Release only offers a BitTorrent v2 .torrent, which SlipStream can't download.",
     recovery: searchAgain,
   },
   no_download_client: {

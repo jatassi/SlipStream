@@ -12,7 +12,7 @@ export function NoTorrents() {
         </Button>
       }
     >
-      No torrents yet. Open a Work and choose Search to grab a release. Its torrent shows here until
+      No torrents yet. Open a Work and choose Search to grab a Release. Its torrent shows here until
       you remove it.
     </Empty>
   );

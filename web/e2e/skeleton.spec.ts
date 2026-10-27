@@ -21,7 +21,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
   await pageAction(page, "Search").click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Search started");
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
-    "Grabbed a release2 releases found",
+    "Grabbed a Release2 Releases foundFixture SiteFound 2 Releases",
   );
 
   await navigate(page, "Activity");

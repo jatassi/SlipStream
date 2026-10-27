@@ -1,10 +1,11 @@
 import type { GrabsReason } from "./grabsReason.ts";
 import type { GrabsRefusal } from "./grabsRefusal.ts";
+import type { GrabsSearchIndexer } from "./grabsSearchIndexer.ts";
 import type { GrabsSearchOutcome } from "./grabsSearchOutcome.ts";
 
 export interface GrabsSearch {
   /**
-   * The releases in the Indexer's response
+   * The Releases the Indexers found, each Release listed twice counted once
    * @minimum 0
    */
   candidates: number;
@@ -14,25 +15,22 @@ export interface GrabsSearch {
    */
   finishedAt: string | null;
   /**
-   * The Grab the run made, null when none
+   * The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none
    * @nullable
    */
   grabId: string | null;
   id: string;
-  /**
-   * The Indexer the run asked, null until it asked or once the Indexer is deleted
-   * @nullable
-   */
-  indexerId: string | null;
+  /** Each Indexer the run asked or skipped, by priority */
+  indexers: GrabsSearchIndexer[];
   itemId: string;
-  /** The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for */
+  /** The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for */
   notes: GrabsReason[];
   /**
    * Null while the run searches
    * @nullable
    */
   outcome: GrabsSearchOutcome;
-  /** The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused */
+  /** The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused */
   refused: GrabsRefusal[];
   startedAt: string;
 }

@@ -1191,6 +1191,8 @@ export const GrabsFailure = zod.object({
   code: zod.enum([
     "indexer_unavailable",
     "indexer_removed",
+    "indexer_stopped",
+    "home_offline",
     "torrent_unreachable",
     "magnet_invalid",
     "no_metadata",
@@ -1216,6 +1218,21 @@ export const GrabsFailure = zod.object({
 
 export type GrabsFailure = zod.input<typeof GrabsFailure>;
 export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
+
+export const GrabsFetchWait = zod.object({
+  sentence: zod
+    .string()
+    .describe(
+      "Why the fetch waits, such as Waiting to fetch the .torrent from TorrentLeech. SlipStream retries at 14:20.",
+    ),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When SlipStream retries; null while it waits for the Indexer's home Node"),
+});
+
+export type GrabsFetchWait = zod.input<typeof GrabsFetchWait>;
+export type GrabsFetchWaitOutput = zod.output<typeof GrabsFetchWait>;
 
 export const grabsMetadataSearchPeersMin = 0;
 
@@ -1261,6 +1278,9 @@ export const GrabsGrab = zod.object({
     .describe(
       "The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did",
     ),
+  fetchWait: GrabsFetchWait.exactOptional().describe(
+    "Why fetching the .torrent waits on its Indexer, absent unless it does",
+  ),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
   indexerId: zod
@@ -1375,40 +1395,66 @@ export const GrabsRefusal = zod.object({
 export type GrabsRefusal = zod.input<typeof GrabsRefusal>;
 export type GrabsRefusalOutput = zod.output<typeof GrabsRefusal>;
 
+export const grabsSearchIndexerReleasesMin = 0;
+
+export const GrabsSearchIndexer = zod.object({
+  indexerId: zod.uuid().nullable().describe("Null once the Indexer is deleted"),
+  name: zod.string().describe("The Indexer's name when the run started"),
+  outcome: zod
+    .union([
+      zod.literal("found"),
+      zod.literal("no_releases"),
+      zod.literal("limited"),
+      zod.literal("failing"),
+      zod.literal("stopped"),
+      zod.literal("waiting"),
+      zod.literal("late"),
+      zod.literal("limit_reached"),
+      zod.literal("no_categories"),
+      zod.literal("removed"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Null while its search runs"),
+  releases: zod.int().min(grabsSearchIndexerReleasesMin).describe("The Releases it found"),
+  sentence: zod.string().describe("The outcome in words, such as Limit reached until 14:05"),
+});
+
+export type GrabsSearchIndexer = zod.input<typeof GrabsSearchIndexer>;
+export type GrabsSearchIndexerOutput = zod.output<typeof GrabsSearchIndexer>;
+
 export const grabsSearchCandidatesMin = 0;
 
 export const GrabsSearch = zod.object({
   candidates: zod
     .int()
     .min(grabsSearchCandidatesMin)
-    .describe("The releases in the Indexer's response"),
+    .describe("The Releases the Indexers found, each Release listed twice counted once"),
   finishedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null while the run searches"),
-  grabId: zod.uuid().nullable().describe("The Grab the run made, null when none"),
-  id: zod.uuid(),
-  indexerId: zod
+  grabId: zod
     .uuid()
     .nullable()
-    .describe("The Indexer the run asked, null until it asked or once the Indexer is deleted"),
+    .describe(
+      "The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none",
+    ),
+  id: zod.uuid(),
+  indexers: zod
+    .array(GrabsSearchIndexer)
+    .describe("Each Indexer the run asked or skipped, by priority"),
   itemId: zod.uuid(),
   notes: zod
     .array(GrabsReason)
     .describe(
-      "The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for",
+      "The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for",
     ),
   outcome: zod
-    .union([
-      zod.literal("grabbed"),
-      zod.literal("nothing_acceptable"),
-      zod.literal("indexer_unavailable"),
-      zod.literal("indexer_refused"),
-      zod.literal(null),
-    ])
+    .union([zod.literal("grabbed"), zod.literal("nothing_acceptable"), zod.literal(null)])
     .nullable()
     .describe("Null while the run searches"),
   refused: zod
     .array(GrabsRefusal)
     .describe(
-      "The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused",
+      "The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused",
     ),
   startedAt: zod.iso.datetime({ offset: true }),
 });
@@ -2320,7 +2366,10 @@ export const IndexersOutcome = zod.object({
     "removed",
   ]),
   lapsed: zod.boolean().describe("Waiting past the offline grace"),
-  nodeId: zod.uuid().nullable().describe("Set for waiting: the Node waited for"),
+  nodeId: zod
+    .uuid()
+    .nullable()
+    .describe("Set for waiting: the Node waited for; for stopped: the Node the stop was met on"),
   releases: zod.int().min(indexersOutcomeReleasesMin),
   since: zod.iso
     .datetime({ offset: true })

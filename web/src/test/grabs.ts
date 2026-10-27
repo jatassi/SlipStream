@@ -23,6 +23,16 @@ const fetched: GrabsGrab = {
   createdAt: "2026-10-12T09:01:00Z",
 };
 
+export const waitingToFetch: GrabsGrab = {
+  ...fetched,
+  torrentId: null,
+  infoHash: null,
+  fetchWait: {
+    sentence: "Waiting to fetch the .torrent from Fixture Site. SlipStream retries at 14:20.",
+    until: "2026-10-12T14:20:00Z",
+  },
+};
+
 export const downloading: GrabsGrab = {
   ...fetched,
   fetchNodeId: fetched.nodeId,

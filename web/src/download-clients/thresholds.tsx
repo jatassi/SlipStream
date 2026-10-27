@@ -15,7 +15,7 @@ const sections: readonly {
   readonly keys: readonly Key[];
 }[] = [
   {
-    title: "When a release counts as bad",
+    title: "When a Release counts as bad",
     about:
       "A download that gets no data at all for this long, or that its tracker reports as unregistered twice this far apart, counts as a bad release. Later automatic searches act on it.",
     keys: ["faultStall", "unregisteredGap"],
