@@ -912,15 +912,29 @@
               "runtime"
             ]
           },
-          "type": "array",
-          "minItems": 1
+          "type": "array"
+        },
+        "generated": {
+          "properties": {
+            "count": {
+              "type": "integer",
+              "maximum": 50000,
+              "minimum": 1
+            },
+            "seed": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "count",
+            "seed"
+          ]
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "movies"
-      ]
+      "type": "object"
     },
     "omdb": {
       "properties": {
@@ -1374,6 +1388,24 @@
             ]
           },
           "type": "array"
+        },
+        "works": {
+          "properties": {
+            "content_type": {
+              "type": "string",
+              "enum": [
+                "movie"
+              ]
+            },
+            "monitor": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "content_type"
+          ]
         }
       },
       "additionalProperties": false,

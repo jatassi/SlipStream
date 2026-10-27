@@ -7,13 +7,21 @@ import type {
   IndexersIndexer,
   IndexersWaiting,
   TargetsWants,
+  WorksWorkView,
 } from "../api/gen/model";
-import { getGetWorkCellsMockHandler } from "../api/gen/query/files/files.msw";
+import {
+  getGetWorkCellsMockHandler,
+  getListWorkFilesMockHandler,
+} from "../api/gen/query/files/files.msw";
 import {
   getListGrabsMockHandler,
   getListSearchesMockHandler,
 } from "../api/gen/query/grabs/grabs.msw";
 import { getListIndexersMockHandler } from "../api/gen/query/indexers/indexers.msw";
+import {
+  getListRootsMockHandler,
+  getListVolumesMockHandler,
+} from "../api/gen/query/roots/roots.msw";
 import { getGetWorkWantsMockHandler } from "../api/gen/query/targets/targets.msw";
 import {
   getGetWorkMockHandler,
@@ -21,88 +29,13 @@ import {
 } from "../api/gen/query/works/works.msw";
 import { downloading, grabId, imported } from "./grabs";
 import type { LiveMap } from "./handlers";
+// oxlint-disable-next-line import/max-dependencies -- the Work page reads every section's queries, the Nodes', Targets' and roots' included
 import { cinema, orchard, orchardId, orchardItemId } from "./library";
-// oxlint-disable-next-line import/max-dependencies -- the Work page reads every section's queries, the Nodes' and the Profiles' included
 import { home, nodesAre, seedbox, seedboxId } from "./nodes";
-import { films, profileHandlers } from "./profiles";
-
-const hd = "1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d";
-const uhd = "7b9d1f3a-5c7e-4a9b-8d1f-3a5c7e9b1d2f";
-const base = { itemId: orchardItemId, edition: "standard" } as const;
-
-const missing: FilesCellList = {
-  cells: [
-    {
-      ...base,
-      targetId: hd,
-      targetName: "1080p",
-      wanted: true,
-      state: "missing",
-    },
-    {
-      ...base,
-      targetId: uhd,
-      targetName: "2160p",
-      wanted: true,
-      state: "missing",
-    },
-  ],
-  items: [{ itemId: orchardItemId, status: "missing" }],
-};
-
-export const filled: FilesCellList = {
-  cells: [
-    {
-      ...base,
-      targetId: hd,
-      targetName: "1080p",
-      wanted: false,
-      state: "met",
-      file: {
-        id: "2a4c6e8f-0b1d-4e3f-9a5c-7e9b1d3f5a7c",
-        path: "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv",
-        size: 734_003_200,
-        quality: "webdl-1080p",
-        probe: { width: 1920, height: 1080 },
-      },
-    },
-    {
-      ...base,
-      targetId: uhd,
-      targetName: "2160p",
-      wanted: true,
-      state: "downloading",
-    },
-  ],
-  items: [{ itemId: orchardItemId, status: "downloading" }],
-};
-
-export const upgradable: FilesCellList = {
-  cells: [
-    {
-      ...base,
-      targetId: hd,
-      targetName: "1080p",
-      wanted: false,
-      state: "upgradable",
-      file: {
-        id: "4c6e8a0b-2d4f-4a6c-8e0b-2d4f6a8c0e1f",
-        path: "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv",
-        size: 524_288_000,
-        quality: "hdtv-1080p",
-        probe: { width: 1920, height: 1080 },
-      },
-    },
-    {
-      ...base,
-      targetId: uhd,
-      targetName: "2160p",
-      wanted: true,
-      state: "missing",
-    },
-  ],
-  items: [{ itemId: orchardItemId, status: "missing" }],
-};
+import { profileHandlers, ultra } from "./profiles";
+import { filmsRoot, mediaVolumes } from "./roots";
+import { targetHandlers } from "./targets";
+import { filesOf, missing } from "./work-cells";
 
 const otherWork: GrabsGrab = {
   ...imported,
@@ -145,11 +78,17 @@ export const grabbed: GrabsSearchList = {
   ],
 };
 
-/** The Quiet Orchard wants what Films wants, Edition list included. */
-export const fromFilms: TargetsWants = {
-  profileId: films.id,
-  profileName: films.name,
-  editions: films.editions,
+/** The Quiet Orchard on Ultra, wanting 2160p HDR and 1080p. */
+export const orchardOnUltra: WorksWorkView = {
+  ...orchard,
+  profile: { id: ultra.id, name: ultra.name },
+};
+
+/** The Quiet Orchard wants what Ultra wants, Edition list included. */
+export const fromUltra: TargetsWants = {
+  profileId: ultra.id,
+  profileName: ultra.name,
+  editions: ultra.editions,
   from: "profile",
 };
 
@@ -184,11 +123,26 @@ const fixtureSite: IndexersIndexer = {
 
 const fixedHandlers = () => [
   getListContentTypesMockHandler({ contentTypes: [cinema] }),
-  getGetWorkMockHandler(orchard),
-  getGetWorkWantsMockHandler(fromFilms),
+  getGetWorkMockHandler(orchardOnUltra),
+  getGetWorkWantsMockHandler(fromUltra),
   ...profileHandlers(),
+  ...targetHandlers(),
+  getListRootsMockHandler({ roots: [filmsRoot] }),
+  getListVolumesMockHandler({ nodes: [mediaVolumes] }),
   nodesAre(home, seedbox),
 ];
+
+function liveStream() {
+  const clients: Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"][] = [];
+  const send: (typeof clients)[number]["send"] = (event) => {
+    clients[0]?.send(event);
+  };
+  const handler = sse<LiveMap>("*/api/v1/events", ({ client }) => {
+    clients.push(client);
+    client.send({ event: "live.resync", data: {} });
+  });
+  return { handler, send };
+}
 
 export function workServer() {
   let cells = missing;
@@ -196,13 +150,11 @@ export function workServer() {
   let grabs: GrabsGrab[] = [otherWork];
   let indexer = fixtureSite;
   const searched: string[] = [];
-  const clients: Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"][] = [];
-  const send: (typeof clients)[number]["send"] = (event) => {
-    clients[0]?.send(event);
-  };
+  const { handler, send } = liveStream();
   const handlers = [
     ...fixedHandlers(),
     getGetWorkCellsMockHandler(() => cells),
+    getListWorkFilesMockHandler(() => filesOf(cells)),
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
     getListIndexersMockHandler(() => ({ indexers: [indexer] })),
@@ -210,10 +162,7 @@ export function workServer() {
       searched.push(String(params["workId"]));
       return HttpResponse.json({ searchIds: [searchId] }, { status: 202 });
     }),
-    sse<LiveMap>("*/api/v1/events", ({ client }) => {
-      clients.push(client);
-      client.send({ event: "live.resync", data: {} });
-    }),
+    handler,
   ];
   return {
     handlers,
@@ -236,7 +185,7 @@ export function workServer() {
     grabMoves(next: GrabsGrab, nextCells = cells) {
       grabs = [next, otherWork];
       cells = nextCells;
-      send({ event: "grabs.changed", data: { grabId, workId: orchardId } });
+      send({ event: "grabs.changed", data: { grabId, workId: orchardId, progress: false } });
     },
   };
 }

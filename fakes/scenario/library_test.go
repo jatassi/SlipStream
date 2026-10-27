@@ -112,3 +112,30 @@ func TestALibraryRootNamesAStorageNode(t *testing.T) {
 		t.Fatalf("a root on a controller no Node takes storage from: %v", err)
 	}
 }
+
+func TestLibraryWorksNeedTheMoviesAndARoot(t *testing.T) {
+	base := func(tmdb *TMDB, w LibraryWorks, roots ...LibraryRoot) Scenario {
+		s := singleMachine()
+		s.TMDB, s.Releases = tmdb, nil
+		s.Library = &Library{Roots: roots, Works: &w}
+		return s
+	}
+	movies := LibraryRoot{ContentType: "movie", Folder: "movies"}
+	for _, c := range []struct {
+		s    Scenario
+		want string
+	}{
+		{base(quietOrchard(), LibraryWorks{ContentType: "movie"}, movies), ""},
+		{base(quietOrchard(), LibraryWorks{ContentType: "music"}, movies), `scenario single-machine: library works content_type is "music"; only movie Works come from a catalog`},
+		{base(nil, LibraryWorks{ContentType: "movie"}, movies), "scenario single-machine: library works adds movies, and tmdb serves none"},
+		{base(quietOrchard(), LibraryWorks{ContentType: "movie"}), "scenario single-machine: library works adds movies, and library has no movie root"},
+	} {
+		got := ""
+		if err := c.s.Validate(); err != nil {
+			got = err.Error()
+		}
+		if got != c.want {
+			t.Errorf("Validate = %q, want %q", got, c.want)
+		}
+	}
+}

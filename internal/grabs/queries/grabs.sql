@@ -88,9 +88,14 @@ WHERE grabs_grab.work_id = sqlc.arg(work_id)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: ListTargetsOfWorks :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_target.target_id
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id IN (sqlc.slice(work_ids))
+ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
+
+-- name: ListEveryGrabTarget :many
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_target.target_id
+FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: SettleGrab :exec

@@ -23,6 +23,11 @@ import type {
   AddWork422,
   AddWork500,
   AddWork502,
+  DeleteWorks401,
+  DeleteWorks403,
+  DeleteWorks409,
+  DeleteWorks422,
+  DeleteWorks500,
   GetContentTypeSettings401,
   GetContentTypeSettings403,
   GetContentTypeSettings404,
@@ -39,13 +44,13 @@ import type {
   ListContentTypes403,
   ListContentTypes409,
   ListContentTypes500,
-  ListWorks401,
-  ListWorks403,
-  ListWorks404,
-  ListWorks409,
-  ListWorks422,
-  ListWorks500,
-  ListWorksParams,
+  ListLibrary401,
+  ListLibrary403,
+  ListLibrary404,
+  ListLibrary409,
+  ListLibrary422,
+  ListLibrary500,
+  ListLibraryParams,
   PreviewCatalogRecord401,
   PreviewCatalogRecord403,
   PreviewCatalogRecord404,
@@ -53,13 +58,11 @@ import type {
   PreviewCatalogRecord422,
   PreviewCatalogRecord500,
   PreviewCatalogRecord502,
-  RefreshWork401,
-  RefreshWork403,
-  RefreshWork404,
-  RefreshWork409,
-  RefreshWork422,
-  RefreshWork500,
-  RefreshWork502,
+  RefreshWorks401,
+  RefreshWorks403,
+  RefreshWorks409,
+  RefreshWorks422,
+  RefreshWorks500,
   SearchCatalog401,
   SearchCatalog403,
   SearchCatalog404,
@@ -68,12 +71,36 @@ import type {
   SearchCatalog500,
   SearchCatalog502,
   SearchCatalogParams,
+  SearchWorks401,
+  SearchWorks403,
+  SearchWorks404,
+  SearchWorks409,
+  SearchWorks422,
+  SearchWorks500,
+  SearchWorksParams,
   SetContentTypeEnabled401,
   SetContentTypeEnabled403,
   SetContentTypeEnabled404,
   SetContentTypeEnabled409,
   SetContentTypeEnabled422,
   SetContentTypeEnabled500,
+  SetWorksMonitored401,
+  SetWorksMonitored403,
+  SetWorksMonitored409,
+  SetWorksMonitored422,
+  SetWorksMonitored500,
+  SetWorksProfile401,
+  SetWorksProfile403,
+  SetWorksProfile409,
+  SetWorksProfile422,
+  SetWorksProfile500,
+  SetWorksProfileParams,
+  SetWorksRoot401,
+  SetWorksRoot403,
+  SetWorksRoot404,
+  SetWorksRoot409,
+  SetWorksRoot422,
+  SetWorksRoot500,
   UpdateContentTypeSettings401,
   UpdateContentTypeSettings403,
   UpdateContentTypeSettings404,
@@ -84,13 +111,22 @@ import type {
   WorksCandidateList,
   WorksContentType,
   WorksContentTypeList,
+  WorksDeleted,
+  WorksDeleting,
   WorksEnabled,
+  WorksLibraryRows,
+  WorksMonitoredChange,
   WorksNewWork,
+  WorksOutcomeList,
   WorksPreviewed,
+  WorksProfileChange,
+  WorksProfileChanged,
+  WorksRefreshing,
+  WorksRootChange,
+  WorksSearchResult,
   WorksSettingsChange,
-  WorksTree,
   WorksTypeSettings,
-  WorksWorkList,
+  WorksWorkView,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -1032,7 +1068,7 @@ export const useUpdateContentTypeSettings = <
 > => {
   return useMutation(getUpdateContentTypeSettingsMutationOptions(options), queryClient);
 };
-export const getListWorksUrl = (params?: ListWorksParams) => {
+export const getListLibraryUrl = (params?: ListLibraryParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -1043,118 +1079,156 @@ export const getListWorksUrl = (params?: ListWorksParams) => {
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/v1/works?${stringifiedParams}` : `/api/v1/works`;
+  return stringifiedParams.length > 0 ? `/api/v1/library?${stringifiedParams}` : `/api/v1/library`;
 };
 
 /**
- * @summary List the Works, or one Content Type's
+ * @summary List every Work as a Library row, or one Content Type's, or the named ones
  */
-export const listWorks = async (
-  params?: ListWorksParams,
+export const listLibrary = async (
+  params?: ListLibraryParams,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<WorksWorkList> => {
-  return apiFetch<WorksWorkList>(getListWorksUrl(params), {
+): Promise<WorksLibraryRows> => {
+  return apiFetch<WorksLibraryRows>(getListLibraryUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListWorksQueryKey = (params?: ListWorksParams) => {
-  return [`/api/v1/works`, ...(params ? [params] : [])] as const;
+export const getListLibraryQueryKey = (params?: ListLibraryParams) => {
+  return [`/api/v1/library`, ...(params ? [params] : [])] as const;
 };
 
-export const getListWorksSuspenseQueryOptions = <
-  TData = Awaited<ReturnType<typeof listWorks>>,
+export const getListLibrarySuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLibrary>>,
   TError = ErrorType<
-    ListWorks401 | ListWorks403 | ListWorks404 | ListWorks409 | ListWorks422 | ListWorks500
+    | ListLibrary401
+    | ListLibrary403
+    | ListLibrary404
+    | ListLibrary409
+    | ListLibrary422
+    | ListLibrary500
   >,
 >(
-  params?: ListWorksParams,
+  params?: ListLibraryParams,
   options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorks>>, TError, TData>>;
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listLibrary>>, TError, TData>
+    >;
     request?: SecondParameter<typeof apiFetch>;
   },
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListWorksQueryKey(params);
+  const queryKey = queryOptions?.queryKey ?? getListLibraryQueryKey(params);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorks>>> = ({ signal }) =>
-    listWorks(params, { signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listLibrary>>> = ({ signal }) =>
+    listLibrary(params, { signal, ...requestOptions });
 
   return queryOptionsBuilder({
     queryKey,
     ...queryOptions,
     queryFn: queryOptions?.queryFn ?? queryFn,
-  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorks>>, TError, TData> & {
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listLibrary>>, TError, TData> & {
     queryKey: DataTag<QueryKey, TData, TError>;
   } & {
     throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
   };
 };
 
-export type ListWorksSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listWorks>>>;
-export type ListWorksSuspenseQueryError = ErrorType<
-  ListWorks401 | ListWorks403 | ListWorks404 | ListWorks409 | ListWorks422 | ListWorks500
+export type ListLibrarySuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listLibrary>>>;
+export type ListLibrarySuspenseQueryError = ErrorType<
+  | ListLibrary401
+  | ListLibrary403
+  | ListLibrary404
+  | ListLibrary409
+  | ListLibrary422
+  | ListLibrary500
 >;
 
-export function useListWorksSuspense<
-  TData = Awaited<ReturnType<typeof listWorks>>,
+export function useListLibrarySuspense<
+  TData = Awaited<ReturnType<typeof listLibrary>>,
   TError = ErrorType<
-    ListWorks401 | ListWorks403 | ListWorks404 | ListWorks409 | ListWorks422 | ListWorks500
+    | ListLibrary401
+    | ListLibrary403
+    | ListLibrary404
+    | ListLibrary409
+    | ListLibrary422
+    | ListLibrary500
   >,
 >(
-  params: undefined | ListWorksParams,
+  params: undefined | ListLibraryParams,
   options: {
-    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorks>>, TError, TData>>;
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listLibrary>>, TError, TData>>;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-export function useListWorksSuspense<
-  TData = Awaited<ReturnType<typeof listWorks>>,
+export function useListLibrarySuspense<
+  TData = Awaited<ReturnType<typeof listLibrary>>,
   TError = ErrorType<
-    ListWorks401 | ListWorks403 | ListWorks404 | ListWorks409 | ListWorks422 | ListWorks500
+    | ListLibrary401
+    | ListLibrary403
+    | ListLibrary404
+    | ListLibrary409
+    | ListLibrary422
+    | ListLibrary500
   >,
 >(
-  params?: ListWorksParams,
+  params?: ListLibraryParams,
   options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorks>>, TError, TData>>;
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listLibrary>>, TError, TData>
+    >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-export function useListWorksSuspense<
-  TData = Awaited<ReturnType<typeof listWorks>>,
+export function useListLibrarySuspense<
+  TData = Awaited<ReturnType<typeof listLibrary>>,
   TError = ErrorType<
-    ListWorks401 | ListWorks403 | ListWorks404 | ListWorks409 | ListWorks422 | ListWorks500
+    | ListLibrary401
+    | ListLibrary403
+    | ListLibrary404
+    | ListLibrary409
+    | ListLibrary422
+    | ListLibrary500
   >,
 >(
-  params?: ListWorksParams,
+  params?: ListLibraryParams,
   options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorks>>, TError, TData>>;
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listLibrary>>, TError, TData>
+    >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the Works, or one Content Type's
+ * @summary List every Work as a Library row, or one Content Type's, or the named ones
  */
 
-export function useListWorksSuspense<
-  TData = Awaited<ReturnType<typeof listWorks>>,
+export function useListLibrarySuspense<
+  TData = Awaited<ReturnType<typeof listLibrary>>,
   TError = ErrorType<
-    ListWorks401 | ListWorks403 | ListWorks404 | ListWorks409 | ListWorks422 | ListWorks500
+    | ListLibrary401
+    | ListLibrary403
+    | ListLibrary404
+    | ListLibrary409
+    | ListLibrary422
+    | ListLibrary500
   >,
 >(
-  params?: ListWorksParams,
+  params?: ListLibraryParams,
   options?: {
-    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorks>>, TError, TData>>;
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listLibrary>>, TError, TData>
+    >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getListWorksSuspenseQueryOptions(params, options);
+  const queryOptions = getListLibrarySuspenseQueryOptions(params, options);
 
   const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
     TData,
@@ -1276,18 +1350,809 @@ export const useAddWork = <
 > => {
   return useMutation(getAddWorkMutationOptions(options), queryClient);
 };
+export const getDeleteWorksUrl = () => {
+  return `/api/v1/works/delete`;
+};
+
+/**
+ * @summary Remove each Work from the library, deleting its files or leaving them, with an outcome per Work
+ */
+export const deleteWorks = async (
+  worksDeleting: WorksDeleting,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksDeleted> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksDeleted>(getDeleteWorksUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksDeleting),
+  });
+};
+
+export const getDeleteWorksMutationKey = () => ["deleteWorks"] as const;
+
+export const getDeleteWorksMutationOptions = <
+  TError = ErrorType<
+    DeleteWorks401 | DeleteWorks403 | DeleteWorks409 | DeleteWorks422 | DeleteWorks500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorks>>,
+    TError,
+    DeleteWorksMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorks>>,
+  TError,
+  DeleteWorksMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteWorksMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorks>>,
+    DeleteWorksMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return deleteWorks(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWorksMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorks>>>;
+export type DeleteWorksMutationBody = WorksDeleting;
+export type DeleteWorksMutationError = ErrorType<
+  DeleteWorks401 | DeleteWorks403 | DeleteWorks409 | DeleteWorks422 | DeleteWorks500
+>;
+export type DeleteWorksMutationVariables = { data: WorksDeleting };
+
+/**
+ * @summary Remove each Work from the library, deleting its files or leaving them, with an outcome per Work
+ */
+export const useDeleteWorks = <
+  TError = ErrorType<
+    DeleteWorks401 | DeleteWorks403 | DeleteWorks409 | DeleteWorks422 | DeleteWorks500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteWorks>>,
+      TError,
+      DeleteWorksMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorks>>,
+  TError,
+  DeleteWorksMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeleteWorksMutationOptions(options), queryClient);
+};
+export const getSetWorksMonitoredUrl = () => {
+  return `/api/v1/works/monitored`;
+};
+
+/**
+ * @summary Monitor every Item of each Work, or none, with an outcome per Work
+ */
+export const setWorksMonitored = async (
+  worksMonitoredChange: WorksMonitoredChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksOutcomeList> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksOutcomeList>(getSetWorksMonitoredUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksMonitoredChange),
+  });
+};
+
+export const getSetWorksMonitoredMutationKey = () => ["setWorksMonitored"] as const;
+
+export const getSetWorksMonitoredMutationOptions = <
+  TError = ErrorType<
+    | SetWorksMonitored401
+    | SetWorksMonitored403
+    | SetWorksMonitored409
+    | SetWorksMonitored422
+    | SetWorksMonitored500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorksMonitored>>,
+    TError,
+    SetWorksMonitoredMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorksMonitored>>,
+  TError,
+  SetWorksMonitoredMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetWorksMonitoredMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorksMonitored>>,
+    SetWorksMonitoredMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setWorksMonitored(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorksMonitoredMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setWorksMonitored>>
+>;
+export type SetWorksMonitoredMutationBody = WorksMonitoredChange;
+export type SetWorksMonitoredMutationError = ErrorType<
+  | SetWorksMonitored401
+  | SetWorksMonitored403
+  | SetWorksMonitored409
+  | SetWorksMonitored422
+  | SetWorksMonitored500
+>;
+export type SetWorksMonitoredMutationVariables = { data: WorksMonitoredChange };
+
+/**
+ * @summary Monitor every Item of each Work, or none, with an outcome per Work
+ */
+export const useSetWorksMonitored = <
+  TError = ErrorType<
+    | SetWorksMonitored401
+    | SetWorksMonitored403
+    | SetWorksMonitored409
+    | SetWorksMonitored422
+    | SetWorksMonitored500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setWorksMonitored>>,
+      TError,
+      SetWorksMonitoredMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setWorksMonitored>>,
+  TError,
+  SetWorksMonitoredMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetWorksMonitoredMutationOptions(options), queryClient);
+};
+export const getSetWorksProfileUrl = (params?: SetWorksProfileParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/works/profile?${stringifiedParams}`
+    : `/api/v1/works/profile`;
+};
+
+/**
+ * @summary Give each Work a Profile through one Impact, with an outcome per Work
+ */
+export const setWorksProfile = async (
+  worksProfileChange: WorksProfileChange,
+  params?: SetWorksProfileParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksProfileChanged> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksProfileChanged>(getSetWorksProfileUrl(params), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksProfileChange),
+  });
+};
+
+export const getSetWorksProfileMutationKey = () => ["setWorksProfile"] as const;
+
+export const getSetWorksProfileMutationOptions = <
+  TError = ErrorType<
+    | SetWorksProfile401
+    | SetWorksProfile403
+    | SetWorksProfile409
+    | SetWorksProfile422
+    | SetWorksProfile500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorksProfile>>,
+    TError,
+    SetWorksProfileMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorksProfile>>,
+  TError,
+  SetWorksProfileMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetWorksProfileMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorksProfile>>,
+    SetWorksProfileMutationVariables
+  > = (props) => {
+    const { data, params } = props ?? {};
+
+    return setWorksProfile(data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorksProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setWorksProfile>>
+>;
+export type SetWorksProfileMutationBody = WorksProfileChange;
+export type SetWorksProfileMutationError = ErrorType<
+  | SetWorksProfile401
+  | SetWorksProfile403
+  | SetWorksProfile409
+  | SetWorksProfile422
+  | SetWorksProfile500
+>;
+export type SetWorksProfileMutationVariables = {
+  data: WorksProfileChange;
+  params?: SetWorksProfileParams;
+};
+
+/**
+ * @summary Give each Work a Profile through one Impact, with an outcome per Work
+ */
+export const useSetWorksProfile = <
+  TError = ErrorType<
+    | SetWorksProfile401
+    | SetWorksProfile403
+    | SetWorksProfile409
+    | SetWorksProfile422
+    | SetWorksProfile500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setWorksProfile>>,
+      TError,
+      SetWorksProfileMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setWorksProfile>>,
+  TError,
+  SetWorksProfileMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetWorksProfileMutationOptions(options), queryClient);
+};
+export const getRefreshWorksUrl = () => {
+  return `/api/v1/works/refresh`;
+};
+
+/**
+ * @summary Refresh each Work from its metadata source, keeping every id, with an outcome per Work
+ */
+export const refreshWorks = async (
+  worksRefreshing: WorksRefreshing,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksOutcomeList> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksOutcomeList>(getRefreshWorksUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksRefreshing),
+  });
+};
+
+export const getRefreshWorksMutationKey = () => ["refreshWorks"] as const;
+
+export const getRefreshWorksMutationOptions = <
+  TError = ErrorType<
+    RefreshWorks401 | RefreshWorks403 | RefreshWorks409 | RefreshWorks422 | RefreshWorks500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshWorks>>,
+    TError,
+    RefreshWorksMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof refreshWorks>>,
+  TError,
+  RefreshWorksMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRefreshWorksMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof refreshWorks>>,
+    RefreshWorksMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return refreshWorks(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RefreshWorksMutationResult = NonNullable<Awaited<ReturnType<typeof refreshWorks>>>;
+export type RefreshWorksMutationBody = WorksRefreshing;
+export type RefreshWorksMutationError = ErrorType<
+  RefreshWorks401 | RefreshWorks403 | RefreshWorks409 | RefreshWorks422 | RefreshWorks500
+>;
+export type RefreshWorksMutationVariables = { data: WorksRefreshing };
+
+/**
+ * @summary Refresh each Work from its metadata source, keeping every id, with an outcome per Work
+ */
+export const useRefreshWorks = <
+  TError = ErrorType<
+    RefreshWorks401 | RefreshWorks403 | RefreshWorks409 | RefreshWorks422 | RefreshWorks500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof refreshWorks>>,
+      TError,
+      RefreshWorksMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof refreshWorks>>,
+  TError,
+  RefreshWorksMutationVariables,
+  TContext
+> => {
+  return useMutation(getRefreshWorksMutationOptions(options), queryClient);
+};
+export const getSetWorksRootUrl = () => {
+  return `/api/v1/works/root`;
+};
+
+/**
+ * @summary Move each Work without files to a root, with an outcome per Work
+ */
+export const setWorksRoot = async (
+  worksRootChange: WorksRootChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksOutcomeList> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksOutcomeList>(getSetWorksRootUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksRootChange),
+  });
+};
+
+export const getSetWorksRootMutationKey = () => ["setWorksRoot"] as const;
+
+export const getSetWorksRootMutationOptions = <
+  TError = ErrorType<
+    | SetWorksRoot401
+    | SetWorksRoot403
+    | SetWorksRoot404
+    | SetWorksRoot409
+    | SetWorksRoot422
+    | SetWorksRoot500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorksRoot>>,
+    TError,
+    SetWorksRootMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorksRoot>>,
+  TError,
+  SetWorksRootMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetWorksRootMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorksRoot>>,
+    SetWorksRootMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setWorksRoot(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorksRootMutationResult = NonNullable<Awaited<ReturnType<typeof setWorksRoot>>>;
+export type SetWorksRootMutationBody = WorksRootChange;
+export type SetWorksRootMutationError = ErrorType<
+  | SetWorksRoot401
+  | SetWorksRoot403
+  | SetWorksRoot404
+  | SetWorksRoot409
+  | SetWorksRoot422
+  | SetWorksRoot500
+>;
+export type SetWorksRootMutationVariables = { data: WorksRootChange };
+
+/**
+ * @summary Move each Work without files to a root, with an outcome per Work
+ */
+export const useSetWorksRoot = <
+  TError = ErrorType<
+    | SetWorksRoot401
+    | SetWorksRoot403
+    | SetWorksRoot404
+    | SetWorksRoot409
+    | SetWorksRoot422
+    | SetWorksRoot500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setWorksRoot>>,
+      TError,
+      SetWorksRootMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setWorksRoot>>,
+  TError,
+  SetWorksRootMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetWorksRootMutationOptions(options), queryClient);
+};
+export const getSearchWorksUrl = (params: SearchWorksParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/works/search?${stringifiedParams}`
+    : `/api/v1/works/search`;
+};
+
+/**
+ * @summary Search the library's Works by every title they go by, best first
+ */
+export const searchWorks = async (
+  params: SearchWorksParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksSearchResult> => {
+  return apiFetch<WorksSearchResult>(getSearchWorksUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchWorksQueryKey = (params?: SearchWorksParams) => {
+  return [`/api/v1/works/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchWorksSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchWorks>>,
+  TError = ErrorType<
+    | SearchWorks401
+    | SearchWorks403
+    | SearchWorks404
+    | SearchWorks409
+    | SearchWorks422
+    | SearchWorks500
+  >,
+>(
+  params: SearchWorksParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof searchWorks>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchWorksQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchWorks>>> = ({ signal }) =>
+    searchWorks(params, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof searchWorks>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type SearchWorksSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof searchWorks>>>;
+export type SearchWorksSuspenseQueryError = ErrorType<
+  | SearchWorks401
+  | SearchWorks403
+  | SearchWorks404
+  | SearchWorks409
+  | SearchWorks422
+  | SearchWorks500
+>;
+
+export function useSearchWorksSuspense<
+  TData = Awaited<ReturnType<typeof searchWorks>>,
+  TError = ErrorType<
+    | SearchWorks401
+    | SearchWorks403
+    | SearchWorks404
+    | SearchWorks409
+    | SearchWorks422
+    | SearchWorks500
+  >,
+>(
+  params: SearchWorksParams,
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof searchWorks>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchWorksSuspense<
+  TData = Awaited<ReturnType<typeof searchWorks>>,
+  TError = ErrorType<
+    | SearchWorks401
+    | SearchWorks403
+    | SearchWorks404
+    | SearchWorks409
+    | SearchWorks422
+    | SearchWorks500
+  >,
+>(
+  params: SearchWorksParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof searchWorks>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchWorksSuspense<
+  TData = Awaited<ReturnType<typeof searchWorks>>,
+  TError = ErrorType<
+    | SearchWorks401
+    | SearchWorks403
+    | SearchWorks404
+    | SearchWorks409
+    | SearchWorks422
+    | SearchWorks500
+  >,
+>(
+  params: SearchWorksParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof searchWorks>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Search the library's Works by every title they go by, best first
+ */
+
+export function useSearchWorksSuspense<
+  TData = Awaited<ReturnType<typeof searchWorks>>,
+  TError = ErrorType<
+    | SearchWorks401
+    | SearchWorks403
+    | SearchWorks404
+    | SearchWorks409
+    | SearchWorks422
+    | SearchWorks500
+  >,
+>(
+  params: SearchWorksParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof searchWorks>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getSearchWorksSuspenseQueryOptions(params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getGetWorkUrl = (workId: string) => {
   return `/api/v1/works/${workId}`;
 };
 
 /**
- * @summary Get a Work's tree with each node's fields
+ * @summary Get a Work's tree with each node's fields, its links, Profile and root
  */
 export const getWork = async (
   workId: string,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<WorksTree> => {
-  return apiFetch<WorksTree>(getGetWorkUrl(workId), {
+): Promise<WorksWorkView> => {
+  return apiFetch<WorksWorkView>(getGetWorkUrl(workId), {
     ...options,
     method: "GET",
   });
@@ -1364,7 +2229,7 @@ export function useGetWorkSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get a Work's tree with each node's fields
+ * @summary Get a Work's tree with each node's fields, its links, Profile and root
  */
 
 export function useGetWorkSuspense<
@@ -1387,113 +2252,3 @@ export function useGetWorkSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-export const getRefreshWorkUrl = (workId: string) => {
-  return `/api/v1/works/${workId}/refresh`;
-};
-
-/**
- * @summary Refresh a Work from its metadata source, keeping every id
- */
-export const refreshWork = async (
-  workId: string,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<WorksTree> => {
-  return apiFetch<WorksTree>(getRefreshWorkUrl(workId), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getRefreshWorkMutationKey = () => ["refreshWork"] as const;
-
-export const getRefreshWorkMutationOptions = <
-  TError = ErrorType<
-    | RefreshWork401
-    | RefreshWork403
-    | RefreshWork404
-    | RefreshWork409
-    | RefreshWork422
-    | RefreshWork500
-    | RefreshWork502
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof refreshWork>>,
-    TError,
-    RefreshWorkMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof refreshWork>>,
-  TError,
-  RefreshWorkMutationVariables,
-  TContext
-> => {
-  const mutationKey = getRefreshWorkMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof refreshWork>>,
-    RefreshWorkMutationVariables
-  > = (props) => {
-    const { workId } = props ?? {};
-
-    return refreshWork(workId, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type RefreshWorkMutationResult = NonNullable<Awaited<ReturnType<typeof refreshWork>>>;
-
-export type RefreshWorkMutationError = ErrorType<
-  | RefreshWork401
-  | RefreshWork403
-  | RefreshWork404
-  | RefreshWork409
-  | RefreshWork422
-  | RefreshWork500
-  | RefreshWork502
->;
-export type RefreshWorkMutationVariables = { workId: string };
-
-/**
- * @summary Refresh a Work from its metadata source, keeping every id
- */
-export const useRefreshWork = <
-  TError = ErrorType<
-    | RefreshWork401
-    | RefreshWork403
-    | RefreshWork404
-    | RefreshWork409
-    | RefreshWork422
-    | RefreshWork500
-    | RefreshWork502
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof refreshWork>>,
-      TError,
-      RefreshWorkMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof refreshWork>>,
-  TError,
-  RefreshWorkMutationVariables,
-  TContext
-> => {
-  return useMutation(getRefreshWorkMutationOptions(options), queryClient);
-};

@@ -98,8 +98,9 @@ func DefaultTimings() Timings {
 }
 
 type Changed struct {
-	GrabID string `json:"grabId" format:"uuid"`
-	WorkID string `json:"workId" format:"uuid"`
+	GrabID   string `json:"grabId" format:"uuid"`
+	WorkID   string `json:"workId" format:"uuid"`
+	Progress bool   `json:"progress" doc:"True when only the download's progress moved"`
 }
 
 type SearchChanged struct {

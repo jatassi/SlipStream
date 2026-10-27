@@ -35,7 +35,7 @@ var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, contenttype
 	Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
 		return &Source{mb: musicbrainz.New(d.Lines, e.Metadata), covers: covers{host: e.CoverArt}}
 	},
-	Library: func(contenttype.LibraryDeps) contenttype.Library { return &Music{} },
+	Library: func(contenttype.LibraryDeps, Endpoints) contenttype.Library { return &Music{} },
 })
 
 type Endpoints struct {
@@ -53,15 +53,17 @@ func DefaultEndpoints() Endpoints {
 var Description = works.Description{
 	Name:   "Music",
 	Icon:   works.IconNote,
+	Source: "MusicBrainz",
 	Work:   works.Noun{One: "Artist", Many: "Artists"},
 	Levels: []works.Noun{{One: "Album", Many: "Albums"}},
 	Item:   works.Noun{One: "Track", Many: "Tracks"},
+	Items:  works.ItemsMany,
 	Fields: []works.FieldSpec{
-		{Key: "country", Label: "Country", Tier: works.TierWork, Kind: works.KindText},
-		{Key: "released", Label: "Released", Tier: works.TierLevel(1), Kind: works.KindDate},
-		{Key: "kind", Label: "Kind", Tier: works.TierLevel(1), Kind: works.KindText},
-		{Key: "disc", Label: "Disc", Tier: works.TierItem, Kind: works.KindNumber},
-		{Key: "length", Label: "Length", Tier: works.TierItem, Kind: works.KindDuration},
+		{Key: "country", Label: "Country", Tier: works.TierWork, Kind: works.KindText, In: []works.Place{works.PlaceFacts, works.PlaceAbout}},
+		{Key: "released", Label: "Released", Tier: works.TierLevel(1), Kind: works.KindDate, In: []works.Place{works.PlaceFacts}},
+		{Key: "kind", Label: "Kind", Tier: works.TierLevel(1), Kind: works.KindText, In: []works.Place{works.PlaceFacts}},
+		{Key: "disc", Label: "Disc", Tier: works.TierItem, Kind: works.KindNumber, In: []works.Place{works.PlaceDetails}},
+		{Key: "length", Label: "Length", Tier: works.TierItem, Kind: works.KindDuration, In: []works.Place{works.PlaceFacts}},
 	},
 	Artwork: []artwork.Kind{coverKind},
 }
@@ -186,6 +188,19 @@ func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, 
 	return rows > 0, nil
 }
 
+// ListFields answers none: music lists no field.
+func (*Music) ListFields(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID][]works.FieldValue, error) {
+	return nil, nil
+}
+
+// Titles answers none: an artist is searched by its name and sort name.
+func (*Music) Titles(context.Context, storage.Reader[file], works.WorkID) ([]string, error) {
+	return nil, nil
+}
+
+// Links answers none: music links nowhere.
+func (*Music) Links(works.Key, []works.FieldValue) []works.WebLink { return nil }
+
 // SettingFields answers none: music keeps no settings.
 func (*Music) SettingFields(context.Context, storage.Reader[file]) ([]setting.Field, error) {
 	return nil, nil
@@ -261,9 +276,10 @@ func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (
 }
 
 // Timings answers each track's length and its album's release date.
-func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
 	q := db.New(r)
-	albums, err := q.ListAlbumsOf(ctx, ws)
+	listed := works.Only(ws.IDs())
+	albums, err := works.Read(listed, nil, func(ids []works.WorkID) ([]db.MusicAlbum, error) { return q.ListAlbumsOf(ctx, ids) })
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +294,7 @@ func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.Wo
 		}
 		released[a.LevelID] = release.Known(d)
 	}
-	tracks, err := q.ListTracksOf(ctx, ws)
+	tracks, err := works.Read(listed, nil, func(ids []works.WorkID) ([]db.MusicTrack, error) { return q.ListTracksOf(ctx, ids) })
 	if err != nil {
 		return nil, err
 	}

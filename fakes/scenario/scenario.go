@@ -176,6 +176,7 @@ func (s Scenario) Validate() error {
 		}
 		s.Library.check(add)
 		s.checkRootNodes(add)
+		s.checkWorks(add)
 		switch holders := s.searching(); {
 		case len(s.Library.Indexers) == 0:
 		case len(holders) == 0:
@@ -369,6 +370,19 @@ func (s Scenario) RootNode(r LibraryRoot) string {
 		}
 	}
 	return ""
+}
+
+func (s Scenario) checkWorks(add func(format string, args ...any)) {
+	w := s.Library.Works
+	switch {
+	case w == nil:
+	case w.ContentType != "movie":
+		add("library works content_type is %q; only movie Works come from a catalog", w.ContentType)
+	case s.TMDB == nil:
+		add("library works adds movies, and tmdb serves none")
+	case !slices.ContainsFunc(s.Library.Roots, func(r LibraryRoot) bool { return r.ContentType == w.ContentType }):
+		add("library works adds movies, and library has no movie root")
+	}
 }
 
 func (s Scenario) checkRootNodes(add func(format string, args ...any)) {

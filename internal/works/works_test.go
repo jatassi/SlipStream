@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -47,7 +48,7 @@ type harness struct {
 	works   *works.Works
 	lib     *storage.DB[storage.Library]
 	fx      *contenttypetest.Fixture
-	changed *recorder[works.WorkChanged]
+	changed *recorder[works.Changed]
 	types   *recorder[works.ContentTypesChanged]
 	log     *bytes.Buffer
 	art     *prefetched
@@ -66,7 +67,7 @@ func (p *prefetched) Prefetch(wants []artwork.Want) {
 
 func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog, source works.Source) (*works.Works, *harness) {
 	t.Helper()
-	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}}
+	h := &harness{lib: lib, changed: &recorder[works.Changed]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}}
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     catalogs,
@@ -89,6 +90,20 @@ func dropTime(_ []string, a slog.Attr) slog.Attr {
 		return slog.Attr{}
 	}
 	return a
+}
+
+func (h *harness) rows(t *testing.T) []works.Row {
+	t.Helper()
+	var rows []works.Row
+	err := h.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		rows, err = h.works.RowsIn(ctx, r, works.Scope{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rows
 }
 
 func newHarness(t *testing.T) *harness {
@@ -199,8 +214,8 @@ func TestAddRunsAlsoInItsWriteOnlyWhenItCreatesTheWork(t *testing.T) {
 	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", also(refuse)); !errors.Is(err, refuse) {
 		t.Fatalf("an add whose Also fails = %v, want its error", err)
 	}
-	if list, err := h.works.List(t.Context(), admin, nil); err != nil || len(list) != 0 {
-		t.Fatalf("after a failed Also the library lists %v, %v; want no Work", list, err)
+	if rows := h.rows(t); len(rows) != 0 {
+		t.Fatalf("after a failed Also the library lists %v, want no Work", rows)
 	}
 	tree, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", also(nil))
 	if err != nil || !created {
@@ -234,7 +249,7 @@ func TestAddTwiceFetchesOnce(t *testing.T) {
 	if got := render(tree); got != want {
 		t.Fatalf("tree =\n%s\nwant\n%s", got, want)
 	}
-	if got := h.changed.take(); len(got) != 1 || got[0].WorkID != tree.ID.String() {
+	if got := h.changed.take(); len(got) != 1 || !slices.Equal(got[0].WorkIDs, []string{tree.ID.String()}) {
 		t.Fatalf("published %v, want one works.changed for %s", got, tree.ID)
 	}
 
@@ -273,9 +288,8 @@ func TestRacingAddsMakeOneWork(t *testing.T) {
 		t.Fatalf("racing adds = (%s %t %v) and (%s %t %v); want one Work, created once", a.tree.ID, a.created, a.err, b.tree.ID, b.created, b.err)
 	}
 	sameIDs(t, a.tree, b.tree)
-	list, err := h.works.List(t.Context(), admin, nil)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("works = %v, %v; want one", list, err)
+	if rows := h.rows(t); len(rows) != 1 {
+		t.Fatalf("works = %v, want one", rows)
 	}
 }
 
@@ -310,7 +324,7 @@ func TestRefreshKeepsEveryID(t *testing.T) {
 		t.Fatalf("refreshed tree =\n%s\nwant\n%s", got, want)
 	}
 	sameIDs(t, first, second)
-	if got := h.changed.take(); len(got) != 1 || got[0].WorkID != first.ID.String() {
+	if got := h.changed.take(); len(got) != 1 || !slices.Equal(got[0].WorkIDs, []string{first.ID.String()}) {
 		t.Fatalf("published %v, want one works.changed for %s", got, first.ID)
 	}
 
@@ -371,7 +385,7 @@ func TestGoneUpstreamMarksAndChangesNothingElse(t *testing.T) {
 	if encode(t, unmarked) != encode(t, tree) {
 		t.Fatalf("marking it gone changed more than the mark:\n%s\n%s", encode(t, unmarked), encode(t, tree))
 	}
-	if got := h.changed.take(); len(got) != 1 || got[0].WorkID != tree.ID.String() {
+	if got := h.changed.take(); len(got) != 1 || !slices.Equal(got[0].WorkIDs, []string{tree.ID.String()}) {
 		t.Fatalf("marking it gone published %v, want one works.changed for %s", got, tree.ID)
 	}
 	if _, err := h.works.Refresh(t.Context(), admin, tree.ID); !errors.Is(err, works.ErrGoneUpstream) {
@@ -427,8 +441,8 @@ func TestAnInvalidTreeIsRefusedWhole(t *testing.T) {
 	if want := `level=WARN msg="metadata invalid" contentType=fixture key=w1 err="the metadata source sent a record SlipStream can't use: box b2: two Items have key c1"`; strings.TrimSpace(h.log.String()) != want {
 		t.Fatalf("log = %q, want %q", h.log.String(), want)
 	}
-	if list, err := h.works.List(t.Context(), admin, nil); err != nil || len(list) != 0 {
-		t.Fatalf("works = %v, %v; want none", list, err)
+	if rows := h.rows(t); len(rows) != 0 {
+		t.Fatalf("works = %v, want none", rows)
 	}
 }
 
@@ -566,8 +580,12 @@ func TestAnUnregisteredTypeIsNotFound(t *testing.T) {
 	if _, err := h.works.Search(t.Context(), admin, ghost, "x"); !errors.Is(err, works.ErrNoType) {
 		t.Errorf("search = %v, want ErrNoType", err)
 	}
-	if _, err := h.works.List(t.Context(), admin, &ghost); !errors.Is(err, works.ErrNoType) {
-		t.Errorf("list = %v, want ErrNoType", err)
+	err := h.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		_, err := h.works.RowsIn(ctx, r, works.Scope{Type: &ghost})
+		return err
+	})
+	if !errors.Is(err, works.ErrNoType) {
+		t.Errorf("rows = %v, want ErrNoType", err)
 	}
 	if _, err := h.works.SetEnabled(t.Context(), admin, ghost, false); !errors.Is(err, works.ErrNoType) {
 		t.Errorf("set enabled = %v, want ErrNoType", err)
@@ -654,6 +672,86 @@ func TestOpenPanicsOnADescriptionThatBreaksARule(t *testing.T) {
 		}),
 		"works: content type fixture: noun {One:Box Many:} needs both One and Many": bad(func(d *works.Description) {
 			d.Levels = []works.Noun{{One: "Box"}}
+		}),
+		"works: content type fixture: it names no source": bad(func(d *works.Description) {
+			d.Source = ""
+		}),
+		"works: content type fixture: it has no Items shape": bad(func(d *works.Description) {
+			d.Items = 0
+		}),
+		"works: content type fixture: it holds one Item and declares levels": bad(func(d *works.Description) {
+			d.Items = works.ItemsOne
+		}),
+		"works: content type fixture: field origin is in no place": bad(func(d *works.Description) {
+			d.Fields[0].In = nil
+		}),
+		"works: content type fixture: field origin is in place 9, which doesn't exist": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{9}
+		}),
+		"works: content type fixture: field origin is in about twice": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{works.PlaceAbout, works.PlaceAbout}
+		}),
+		"works: content type fixture: field tags is texts, and tagline takes text only": bad(func(d *works.Description) {
+			d.Fields[4].In = []works.Place{works.PlaceTagline}
+		}),
+		"works: content type fixture: fields origin and blurb are both in overview, which takes one": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{works.PlaceOverview}
+			d.Fields = append(d.Fields, works.FieldSpec{Key: "blurb", Label: "Blurb", Kind: works.KindText, In: []works.Place{works.PlaceOverview}})
+		}),
+		"works: content type fixture: field origin is text, and credits takes people only": bad(func(d *works.Description) {
+			d.Fields[0].In = []works.Place{works.PlaceCredits}
+		}),
+		"works: content type fixture: field makers is people, which facts doesn't take": bad(func(d *works.Description) {
+			d.Fields[5].In = []works.Place{works.PlaceFacts}
+		}),
+		"works: content type fixture: field origin has list flags 1000, which aren't all flags": bad(func(d *works.Description) {
+			d.Fields[0].List = 8
+		}),
+		"works: content type fixture: field count sits at the Items and is listed, and only Work-tier fields are": bad(func(d *works.Description) {
+			d.Fields[2].List = works.ListColumn
+		}),
+		"works: content type fixture: field makers is people, which the Library can't list": bad(func(d *works.Description) {
+			d.Fields[5].List = works.ListColumn
+		}),
+		"works: content type fixture: field page is link, which the Library can't list": bad(func(d *works.Description) {
+			d.Fields[6].List = works.ListFilter
+		}),
+		"works: content type fixture: field tags is texts, which the Library can't sort by": bad(func(d *works.Description) {
+			d.Fields[4].List = works.ListSort
+		}),
+		"works: content type fixture: field origin is shown with nowhere, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[0].With = "nowhere"
+		}),
+		"works: content type fixture: field origin is shown with tags, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[0].With = "tags"
+		}),
+		"works: content type fixture: field origin is shown with origin, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[0].With = "origin"
+		}),
+		"works: content type fixture: field origin is shown with packed, which is no other text field of the Work": bad(func(d *works.Description) {
+			d.Fields[1].Kind = works.KindText
+			d.Fields[0].With = "packed"
+		}),
+		"works: content type fixture: field origin shows art nope, which is no Work-tier artwork kind": bad(func(d *works.Description) {
+			d.Fields[0].Art = "nope"
+		}),
+		"works: content type fixture: field origin shows art snap, which is no Work-tier artwork kind": bad(func(d *works.Description) {
+			d.Fields[0].Art = "snap"
+		}),
+		"works: content type fixture: its poster art nope is no Work-tier artwork kind of shape poster": bad(func(d *works.Description) {
+			d.Art.Poster = "nope"
+		}),
+		"works: content type fixture: its backdrop art photo is no Work-tier artwork kind of shape backdrop": bad(func(d *works.Description) {
+			d.Art.Backdrop = "photo"
+		}),
+		"works: content type fixture: its title art snap is no Work-tier artwork kind of shape logo": bad(func(d *works.Description) {
+			d.Art.Title = "snap"
+		}),
+		"works: content type fixture: it shows ratings from letterboxd, which RatingSources doesn't list": bad(func(d *works.Description) {
+			d.Ratings = []works.RatingSource{"letterboxd"}
+		}),
+		"works: content type fixture: it shows ratings from imdb twice": bad(func(d *works.Description) {
+			d.Ratings = []works.RatingSource{"imdb", "tmdb", "imdb"}
 		}),
 	} {
 		func() {

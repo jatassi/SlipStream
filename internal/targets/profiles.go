@@ -67,7 +67,7 @@ func (t *Targets) CreateProfile(ctx context.Context, _ identity.Admin, s Profile
 	if err != nil {
 		return Profile{}, err
 	}
-	t.cfg.Changed.Publish(ctx, Changed{})
+	t.cfg.Changed.Publish(ctx, changedOf(nil))
 	return p, nil
 }
 
@@ -153,32 +153,39 @@ func (t *Targets) GetProfile(ctx context.Context, by identity.Admin, id ProfileI
 // MakeDefault makes Profile id its Content Type's default. Existing Works
 // keep the Profile they have.
 func (t *Targets) MakeDefault(ctx context.Context, by identity.Admin, id ProfileID) (Profile, error) {
-	changed := false
+	var changed bool
 	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		changed = false
-		q := db.New(tx)
-		p, err := q.GetProfile(ctx, id)
-		switch {
-		case errors.Is(err, storage.ErrNoRows):
-			return ErrNoProfile
-		case err != nil:
-			return err
-		case p.IsDefault:
-			return nil
-		}
-		changed = true
-		if err := q.ClearDefault(ctx, p.ContentType); err != nil {
-			return err
-		}
-		return q.SetDefault(ctx, id)
+		var err error
+		changed, err = MakeDefaultIn(ctx, tx, id)
+		return err
 	})
 	if err != nil {
 		return Profile{}, err
 	}
 	if changed {
-		t.cfg.Changed.Publish(ctx, Changed{})
+		t.cfg.Changed.Publish(ctx, changedOf(nil))
 	}
 	return t.GetProfile(ctx, by, id)
+}
+
+// MakeDefaultIn makes Profile id its Content Type's default in tx, writing
+// only when it isn't already. changed is whether it wrote. Its caller
+// publishes targets.changed after commit when it did.
+func MakeDefaultIn(ctx context.Context, tx *storage.Tx[file], id ProfileID) (changed bool, err error) {
+	q := db.New(tx)
+	p, err := q.GetProfile(ctx, id)
+	switch {
+	case errors.Is(err, storage.ErrNoRows):
+		return false, ErrNoProfile
+	case err != nil:
+		return false, err
+	case p.IsDefault:
+		return false, nil
+	}
+	if err := q.ClearDefault(ctx, p.ContentType); err != nil {
+		return false, err
+	}
+	return true, q.SetDefault(ctx, id)
 }
 
 func listProfiles(ctx context.Context, q *db.Queries) ([]Profile, error) {

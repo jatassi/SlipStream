@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -44,10 +45,11 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 		return works.Fetched{}, err
 	}
 	f := works.Fetched{
-		Label:    r.Title,
-		Children: []works.Entry{{Key: itemKey, Label: r.Title}},
-		Ratings:  tmdbRating(tm),
-		Artwork:  artworkOf(tm, ask.Language),
+		Label:     r.Title,
+		SortLabel: sortLabelOf(r.Title, ask.Language),
+		Children:  []works.Entry{{Key: itemKey, Label: r.Title}},
+		Ratings:   tmdbRating(tm),
+		Artwork:   artworkOf(tm, ask.Language),
 	}
 	if ask.Ratings && r.IMDbID != nil {
 		t, err := s.omdb.Title(ctx, ask, string(*r.IMDbID))
@@ -62,6 +64,21 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 		return works.Fetched{}, fmt.Errorf("encode movie %s: %w", key, err)
 	}
 	return f, nil
+}
+
+// sortLabelOf moves an English title's leading article to its end, so
+// "The Salt Road" sorts as "Salt Road, The". It is empty when the title
+// sorts as it reads.
+func sortLabelOf(title, language string) string {
+	if !strings.HasPrefix(language, "en") {
+		return ""
+	}
+	for _, article := range []string{"The", "An", "A"} {
+		if rest, ok := strings.CutPrefix(title, article+" "); ok && rest != "" {
+			return rest + ", " + article
+		}
+	}
+	return ""
 }
 
 // Changes reads one page of the movies TMDB changed from since to until.

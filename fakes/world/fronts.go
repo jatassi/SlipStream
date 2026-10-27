@@ -237,5 +237,17 @@ func (r *Run) endpoints(name string) (node.EndpointsBlock, error) {
 			}
 		}
 	}
+	for _, t := range r.probe.ContentTypes {
+		for key, host := range browserOnly[t] {
+			e.ContentTypes.Set(t, key, host)
+		}
+	}
 	return e, nil
+}
+
+// browserOnly is, by Content Type, every host a browser opens from a
+// Work's links, which no fake serves, under .invalid. The end-to-end suite
+// asserts each href and never follows it.
+var browserOnly = map[string]map[string]string{
+	"movie": {"imdb": "https://www.imdb.invalid", "tmdb_site": "https://www.tmdb.invalid", "trakt": "https://trakt.invalid", "youtube": "https://www.youtube.invalid"},
 }

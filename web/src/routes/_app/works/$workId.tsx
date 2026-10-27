@@ -1,51 +1,57 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 
-import { getGetWorkCellsSuspenseQueryOptions } from "../../../api/gen/query/files/files";
 import {
-  getGetWorkSuspenseQueryOptions,
-  getListContentTypesSuspenseQueryOptions,
   useGetWorkSuspense,
+  useListContentTypesSuspense,
 } from "../../../api/gen/query/works/works";
-import {
-  getGetWorkWantsSuspenseQueryOptions,
-  getListCutsSuspenseQueryOptions,
-  getListProfilesSuspenseQueryOptions,
-} from "../../../api/gen/query/targets/targets";
-import { ensureQuery } from "../../../api/query-client";
-import { loadWorkGrabs } from "../../../grabs/waiting";
-import { useAmbient } from "../../../shell/ambient/use-ambient";
+import { useRemoved } from "../../../live/removed";
 import { loaderTitle } from "../../../shell/titles";
 import { Skeleton } from "../../../ui/skeleton";
-import { libraryTrail } from "../../../works/fields";
-// oxlint-disable-next-line import/max-dependencies -- the page loads every section's queries, the Profile and Editions sheet's included
-import { WorkBody } from "./-work-body";
+import { toast } from "../../../ui/toast";
+import { typeOf } from "../../../works/fields";
+import { loadWork } from "../../../works/page/load";
+import { WorkPage } from "../../../works/page/work-page";
 
 export const Route = createFileRoute("/_app/works/$workId")({
   staticData: { title: loaderTitle },
-  loader: async ({ context, params: { workId } }) => {
-    const [{ contentTypes }, work] = await Promise.all([
-      ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getGetWorkSuspenseQueryOptions(workId)),
-      ensureQuery(context.queryClient, getGetWorkCellsSuspenseQueryOptions(workId)),
-      loadWorkGrabs(context.queryClient, workId),
-      ensureQuery(context.queryClient, getGetWorkWantsSuspenseQueryOptions(workId)),
-      ensureQuery(context.queryClient, getListProfilesSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getListCutsSuspenseQueryOptions()),
-    ]);
-    return {
-      title: work.label,
-      trail: libraryTrail(contentTypes, work.contentType),
-    };
-  },
+  loader: ({ context, params: { workId } }) => loadWork(context.queryClient, workId),
   pendingComponent: () => <Skeleton label="Loading the Work" />,
-  component: WorkPage,
+  component: WorkRoute,
 });
 
-function WorkPage() {
+// A Work deleted while its page is open leaves for its Library, saying so
+// unless the delete started here, whose own toast already did.
+function WorkRoute() {
   const { workId } = Route.useParams();
-  const work = useGetWorkSuspense(workId).data;
-  useAmbient(neutral);
-  return <WorkBody workId={workId} work={work} />;
+  const { title, trail } = Route.useLoaderData();
+  const removed = useRemoved(workId);
+  const deletedHere = useRef(false);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!removed) {
+      return;
+    }
+    if (!deletedHere.current) {
+      toast(`${title} was deleted.`);
+    }
+    void navigate({ to: trail.at(-1)?.pathname ?? "/library", replace: true });
+  }, [removed, title, trail, navigate]);
+  if (removed) {
+    return null;
+  }
+  return (
+    <Shown
+      workId={workId}
+      onDeleting={() => {
+        deletedHere.current = true;
+      }}
+    />
+  );
 }
 
-const neutral = { kind: "neutral" } as const;
+function Shown({ workId, onDeleting }: { workId: string; onDeleting: () => void }) {
+  const work = useGetWorkSuspense(workId).data;
+  const type = typeOf(useListContentTypesSuspense().data.contentTypes, work.contentType);
+  return <WorkPage type={type} work={work} onDeleting={onDeleting} />;
+}

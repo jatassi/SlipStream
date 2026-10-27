@@ -193,6 +193,19 @@ func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentTyp
 	return root.ID, err
 }
 
+// AddWork adds the Work of contentType whose catalog key is key, or gets
+// the one already added.
+func AddWork(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, key string, monitor bool) error {
+	return call(ctx, c, request{
+		what: "add " + contentType + " " + key, method: http.MethodPost, url: baseURL + "/api/v1/works",
+		header: apiKeyHeader(apiKey), body: struct {
+			ContentType string `json:"contentType"`
+			Key         string `json:"key"`
+			Monitor     bool   `json:"monitor"`
+		}{contentType, key, monitor}, want: http.StatusOK,
+	}, nil)
+}
+
 // CreateIndexer creates an Indexer and returns its id.
 func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, url, indexerKey string) (string, error) {
 	var indexer struct {

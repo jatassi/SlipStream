@@ -62,6 +62,22 @@
         ],
         "type": "object"
       },
+      "Bare": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        ]
+      },
       "CheckFolderInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1639,11 +1655,24 @@
               "$ref": "#/components/schemas/FilesItemStatus"
             },
             "type": "array"
+          },
+          "needsYou": {
+            "description": "What the Work needs from an Admin, failures first",
+            "items": {
+              "$ref": "#/components/schemas/FilesNeed"
+            },
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/FilesSummary",
+            "description": "What the cells add up to for the Work"
           }
         },
         "required": [
           "cells",
-          "items"
+          "items",
+          "summary",
+          "needsYou"
         ],
         "type": "object"
       },
@@ -1738,6 +1767,98 @@
         ],
         "type": "object"
       },
+      "FilesFailedNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cells want",
+            "type": "string"
+          },
+          "grabId": {
+            "description": "The Grab that failed",
+            "format": "uuid",
+            "type": "string"
+          },
+          "itemIds": {
+            "description": "A run of Items in tree order whose entries match",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "failed"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "description": "The Target whose download failed",
+            "format": "uuid",
+            "type": "string"
+          },
+          "waiting": {
+            "description": "The Targets of the same Items and Edition, still missing, that wait on the failed one",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "itemIds",
+          "edition",
+          "targetId",
+          "waiting",
+          "grabId"
+        ],
+        "type": "object"
+      },
+      "FilesFileList": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "description": "Filling files first, in Profile order of the first Target each fills, then Kept files",
+            "items": {
+              "$ref": "#/components/schemas/FilesListedFile"
+            },
+            "type": "array"
+          },
+          "folder": {
+            "description": "The Work's folder under its root, the one its naming template gives while it has no file",
+            "type": "string"
+          }
+        },
+        "required": [
+          "folder",
+          "files"
+        ],
+        "type": "object"
+      },
+      "FilesFill": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cell wants",
+            "type": "string"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "itemId",
+          "edition",
+          "targetId"
+        ],
+        "type": "object"
+      },
       "FilesItemStatus": {
         "additionalProperties": false,
         "properties": {
@@ -1746,19 +1867,15 @@
             "type": "string"
           },
           "status": {
-            "description": "The first state its cells hold, in the glossary's order; null for an Item with no cell",
-            "enum": [
-              "unreleased",
-              "missing",
-              "downloading",
-              "failed",
-              "upgradable",
-              "met"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesState"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "type": [
-              "string",
-              "null"
-            ]
+            "description": "The first state its cells hold, in the glossary's order; null for an Item with no cell"
           }
         },
         "required": [
@@ -1811,6 +1928,76 @@
           }
         },
         "required": [
+          "id",
+          "path",
+          "size",
+          "quality",
+          "probe"
+        ],
+        "type": "object"
+      },
+      "FilesListedFile": {
+        "additionalProperties": false,
+        "properties": {
+          "fills": {
+            "description": "The cells it fills; empty for a Kept file",
+            "items": {
+              "$ref": "#/components/schemas/FilesFill"
+            },
+            "type": "array"
+          },
+          "folder": {
+            "description": "The folder it sits in, relative to its root, / separated",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kept": {
+            "description": "A Kept file, which fills no cell",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Relative to its root, / separated",
+            "type": "string"
+          },
+          "probe": {
+            "$ref": "#/components/schemas/FilesProbe"
+          },
+          "quality": {
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "folder",
+          "kept",
+          "fills",
           "id",
           "path",
           "size",
@@ -1902,6 +2089,47 @@
         ],
         "type": "object"
       },
+      "FilesNeed": {
+        "discriminator": {
+          "mapping": {
+            "failed": "#/components/schemas/FilesFailedNeed",
+            "no_root": "#/components/schemas/FilesNoRootNeed",
+            "upgrade": "#/components/schemas/FilesUpgradeNeed",
+            "waiting": "#/components/schemas/FilesWaitingNeed"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FilesFailedNeed"
+          },
+          {
+            "$ref": "#/components/schemas/FilesUpgradeNeed"
+          },
+          {
+            "$ref": "#/components/schemas/FilesWaitingNeed"
+          },
+          {
+            "$ref": "#/components/schemas/FilesNoRootNeed"
+          }
+        ]
+      },
+      "FilesNoRootNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "The Work has no root. Its downloads wait until it has one",
+            "enum": [
+              "no_root"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "FilesProbe": {
         "additionalProperties": false,
         "properties": {
@@ -1919,6 +2147,83 @@
         "required": [
           "width",
           "height"
+        ],
+        "type": "object"
+      },
+      "FilesState": {
+        "enum": [
+          "unreleased",
+          "missing",
+          "downloading",
+          "failed",
+          "upgradable",
+          "met"
+        ],
+        "type": "string"
+      },
+      "FilesStateCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "downloading": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "failed": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "met": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "missing": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "unreleased": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "upgradable": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FilesSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "$ref": "#/components/schemas/FilesStateCounts",
+            "description": "Its cells by state"
+          },
+          "itemStatus": {
+            "$ref": "#/components/schemas/FilesStateCounts",
+            "description": "Its Items by status; an Item with no cell isn't counted"
+          },
+          "items": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first status its Items hold, in the glossary's order; null for a Work with no cell"
+          }
+        },
+        "required": [
+          "status",
+          "cells",
+          "items",
+          "itemStatus"
         ],
         "type": "object"
       },
@@ -2006,6 +2311,70 @@
         ],
         "type": "object"
       },
+      "FilesUpgradeNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cells want",
+            "type": "string"
+          },
+          "itemIds": {
+            "description": "A run of Items in tree order whose entries match",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "upgrade"
+            ],
+            "type": "string"
+          },
+          "upgrades": {
+            "description": "Every upgradable Target of the Items and Edition",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "itemIds",
+          "edition",
+          "upgrades"
+        ],
+        "type": "object"
+      },
+      "FilesWaitingNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Why the Grab waits: node_away while its Node is out of step",
+            "enum": [
+              "node_away"
+            ],
+            "type": "string"
+          },
+          "grabId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "waiting"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "grabId",
+          "code"
+        ],
+        "type": "object"
+      },
       "FirstRunStepInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2088,6 +2457,10 @@
             "format": "uuid",
             "type": "string"
           },
+          "progress": {
+            "description": "True when only the download's progress moved",
+            "type": "boolean"
+          },
           "workId": {
             "format": "uuid",
             "type": "string"
@@ -2095,7 +2468,8 @@
         },
         "required": [
           "grabId",
-          "workId"
+          "workId",
+          "progress"
         ],
         "type": "object"
       },
@@ -4297,6 +4671,27 @@
         ],
         "type": "object"
       },
+      "MetadataAttribution": {
+        "additionalProperties": false,
+        "properties": {
+          "logo": {
+            "description": "The logo the web app bundles to show beside it",
+            "enum": [
+              "tmdb"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "description": "The sentence to show, word for word",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "logo"
+        ],
+        "type": "object"
+      },
       "MetadataChanged": {
         "additionalProperties": false,
         "properties": {
@@ -4380,6 +4775,17 @@
       "MetadataProvider": {
         "additionalProperties": false,
         "properties": {
+          "attribution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetadataAttribution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the provider's terms require SlipStream to show; null when they require nothing"
+          },
           "details": {
             "$ref": "#/components/schemas/MetadataDetails"
           },
@@ -4395,6 +4801,19 @@
               "yours"
             ],
             "type": "string"
+          },
+          "keyPage": {
+            "description": "Where an Admin gets a key, opened in the browser",
+            "format": "uri",
+            "type": "string"
+          },
+          "keySetAt": {
+            "description": "When the Admin set the key in use; null unless it is theirs",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "label": {
             "type": "string"
@@ -4431,6 +4850,9 @@
           "key",
           "state",
           "until",
+          "keySetAt",
+          "keyPage",
+          "attribution",
           "details"
         ],
         "type": "object"
@@ -4471,6 +4893,28 @@
           "nodeId",
           "reached",
           "at"
+        ],
+        "type": "object"
+      },
+      "MetadataRefreshAllRun": {
+        "additionalProperties": false,
+        "properties": {
+          "lastRunAt": {
+            "description": "When the latest Refresh all of the type ran; null until one has",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "running": {
+            "description": "Whether a run that refreshes every Work of the type is open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "lastRunAt",
+          "running"
         ],
         "type": "object"
       },
@@ -7208,24 +7652,6 @@
         ],
         "type": "object"
       },
-      "RootsWorkRoot": {
-        "additionalProperties": false,
-        "properties": {
-          "rootId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "workId": {
-            "format": "uuid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "workId",
-          "rootId"
-        ],
-        "type": "object"
-      },
       "ServingWorker": {
         "additionalProperties": false,
         "properties": {
@@ -7265,19 +7691,6 @@
           "controller",
           "holding",
           "seeding"
-        ],
-        "type": "object"
-      },
-      "SetWorkRootInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "rootId": {
-            "format": "uuid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "rootId"
         ],
         "type": "object"
       },
@@ -8627,6 +9040,17 @@
       },
       "TargetsChanged": {
         "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
         "type": "object"
       },
       "TargetsCut": {
@@ -9025,14 +9449,9 @@
               }
             ],
             "description": "The Work's own Edition list, or null for its Profile's"
-          },
-          "profileId": {
-            "format": "uuid",
-            "type": "string"
           }
         },
         "required": [
-          "profileId",
           "editions"
         ],
         "type": "object"
@@ -10439,7 +10858,7 @@
             "type": "boolean"
           },
           "work": {
-            "$ref": "#/components/schemas/WorksTree"
+            "$ref": "#/components/schemas/WorksWorkView"
           }
         },
         "required": [
@@ -10463,6 +10882,38 @@
         "required": [
           "kind",
           "url"
+        ],
+        "type": "object"
+      },
+      "WorksArtRoles": {
+        "additionalProperties": false,
+        "properties": {
+          "backdrop": {
+            "description": "The kind shown behind the Work page's header; null when none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "poster": {
+            "description": "The kind the Library and the Work page show as its poster; null when none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "description": "The kind of logo shown as the Work's title; null when none",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "poster",
+          "backdrop",
+          "title"
         ],
         "type": "object"
       },
@@ -10587,9 +11038,27 @@
         ],
         "type": "object"
       },
+      "WorksChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
+        "type": "object"
+      },
       "WorksContentType": {
         "additionalProperties": false,
         "properties": {
+          "art": {
+            "$ref": "#/components/schemas/WorksArtRoles"
+          },
           "artwork": {
             "description": "The kinds of image its Works and Items carry",
             "items": {
@@ -10626,6 +11095,14 @@
           "item": {
             "$ref": "#/components/schemas/WorksNoun"
           },
+          "items": {
+            "description": "How many Items a Work holds, which sets the Work page's layout",
+            "enum": [
+              "one",
+              "many"
+            ],
+            "type": "string"
+          },
           "levels": {
             "description": "Outermost first; empty when Items hang off the Work",
             "items": {
@@ -10634,6 +11111,17 @@
             "type": "array"
           },
           "name": {
+            "type": "string"
+          },
+          "ratings": {
+            "description": "The ratings sources its Works show, in order. The first a Work holds is its hero rating",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "description": "Its metadata source's name, such as TMDB",
             "type": "string"
           },
           "work": {
@@ -10649,7 +11137,11 @@
           "levels",
           "item",
           "fields",
-          "artwork"
+          "artwork",
+          "source",
+          "items",
+          "art",
+          "ratings"
         ],
         "type": "object"
       },
@@ -10706,6 +11198,121 @@
         ],
         "type": "object"
       },
+      "WorksDeletePlan": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "The size of their library files",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "downloading": {
+            "description": "Their unfinished downloads, whose torrents keep downloading and seeding in the client",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "description": "Their library files, Kept files included",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "kept": {
+            "description": "Their Kept files",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "works": {
+            "description": "The Works it removes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "works",
+          "files",
+          "kept",
+          "bytes",
+          "downloading"
+        ],
+        "type": "object"
+      },
+      "WorksDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "description": "One per Work, in request order",
+            "items": {
+              "$ref": "#/components/schemas/WorksOutcome"
+            },
+            "type": "array"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/WorksDeletePlan"
+          }
+        },
+        "required": [
+          "plan",
+          "outcomes"
+        ],
+        "type": "object"
+      },
+      "WorksDeleting": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "description": "Delete the Works' library files from disk, or leave them where they are",
+            "enum": [
+              "delete",
+              "leave"
+            ],
+            "type": "string"
+          },
+          "preview": {
+            "description": "Return the plan and the outcomes it predicts, and delete nothing",
+            "type": "boolean"
+          },
+          "workIds": {
+            "description": "A repeated id counts once",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds",
+          "files"
+        ],
+        "type": "object"
+      },
+      "WorksDoneOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "done"
+            ],
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "outcome"
+        ],
+        "type": "object"
+      },
       "WorksDurationValue": {
         "additionalProperties": false,
         "properties": {
@@ -10743,14 +11350,60 @@
         ],
         "type": "object"
       },
+      "WorksFailedOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "failed"
+            ],
+            "type": "string"
+          },
+          "problem": {
+            "$ref": "#/components/schemas/WorksOutcomeProblem"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "outcome",
+          "problem"
+        ],
+        "type": "object"
+      },
       "WorksFieldSpec": {
         "additionalProperties": false,
         "properties": {
+          "art": {
+            "description": "The key of a Work artwork kind shown beside it, such as a studio's logo; null when none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "depth": {
             "description": "The level's depth, 1 for the outermost; present only on tier level",
             "format": "int64",
             "minimum": 1,
             "type": "integer"
+          },
+          "in": {
+            "description": "Every place the Work page shows it",
+            "items": {
+              "enum": [
+                "facts",
+                "tagline",
+                "overview",
+                "about",
+                "credits",
+                "details"
+              ],
+              "type": "string"
+            },
+            "type": "array"
           },
           "key": {
             "type": "string"
@@ -10770,6 +11423,10 @@
           "label": {
             "type": "string"
           },
+          "list": {
+            "$ref": "#/components/schemas/WorksListing",
+            "description": "Where the Library uses it; all false for a field of a level or an Item"
+          },
           "tier": {
             "enum": [
               "work",
@@ -10777,13 +11434,24 @@
               "item"
             ],
             "type": "string"
+          },
+          "with": {
+            "description": "The key of a text field of the same tier shown in brackets after it; null when none",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "key",
           "label",
           "tier",
-          "kind"
+          "kind",
+          "in",
+          "list",
+          "with",
+          "art"
         ],
         "type": "object"
       },
@@ -10959,6 +11627,195 @@
         ],
         "type": "object"
       },
+      "WorksLibraryRow": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "availableOn": {
+            "description": "Its one Item's availability date, or for many Items the earliest not yet out, else the latest out; null while no Item has a date",
+            "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bytes": {
+            "description": "The size of its library files, Kept files included",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cells": {
+            "$ref": "#/components/schemas/FilesStateCounts",
+            "description": "Its cells by state"
+          },
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          },
+          "failed": {
+            "description": "Its wanted cells whose download failed",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "description": "Its library files, Kept files included",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "goneUpstreamAt": {
+            "description": "When the metadata source last reported that it no longer has this Work; null while it has it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "itemStatus": {
+            "$ref": "#/components/schemas/FilesStateCounts",
+            "description": "Its Items by status; an Item with no cell isn't counted"
+          },
+          "items": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "kept": {
+            "description": "Its Kept files",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "monitored": {
+            "description": "How many of its Items are monitored",
+            "enum": [
+              "all",
+              "some",
+              "none"
+            ],
+            "type": "string"
+          },
+          "needsYou": {
+            "description": "The entries of its Needs you",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "posterUrl": {
+            "description": "The artwork route for its poster, without a size; null when it has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksRowRating"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first of its Content Type's ratings sources that it holds; null when it holds none"
+          },
+          "refreshedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rootId": {
+            "description": "Null while the Work has no root",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortLabel": {
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first status its Items hold, in the glossary's order; null for a Work with no cell"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Bare"
+            },
+            "description": "Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out",
+            "type": "object"
+          }
+        },
+        "required": [
+          "monitored",
+          "profileId",
+          "rootId",
+          "posterUrl",
+          "rating",
+          "availableOn",
+          "bytes",
+          "files",
+          "kept",
+          "status",
+          "cells",
+          "failed",
+          "items",
+          "itemStatus",
+          "needsYou",
+          "values",
+          "id",
+          "contentType",
+          "key",
+          "label",
+          "sortLabel",
+          "addedAt",
+          "refreshedAt",
+          "goneUpstreamAt"
+        ],
+        "type": "object"
+      },
+      "WorksLibraryRows": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "description": "By sort label, then id",
+            "items": {
+              "$ref": "#/components/schemas/WorksLibraryRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "type": "object"
+      },
       "WorksLinkValue": {
         "additionalProperties": false,
         "properties": {
@@ -10987,68 +11844,50 @@
         ],
         "type": "object"
       },
-      "WorksListedWork": {
+      "WorksListing": {
         "additionalProperties": false,
         "properties": {
-          "addedAt": {
-            "format": "date-time",
-            "type": "string"
+          "column": {
+            "description": "A column of the Library's table",
+            "type": "boolean"
           },
-          "artwork": {
-            "description": "The Work's own images, by kind",
-            "items": {
-              "$ref": "#/components/schemas/WorksArt"
-            },
-            "type": "array"
+          "filter": {
+            "description": "A filter: picked values for text and texts, a range for number, date and duration",
+            "type": "boolean"
           },
-          "contentType": {
-            "pattern": "^[a-z][a-z0-9]{1,15}$",
-            "type": "string"
-          },
-          "fields": {
-            "description": "The Work's own fields",
-            "items": {
-              "$ref": "#/components/schemas/WorksFieldValue"
-            },
-            "type": "array"
-          },
-          "goneUpstreamAt": {
-            "description": "When the metadata source last reported that it no longer has this Work; null while it has it",
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "key": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "refreshedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "sortLabel": {
-            "type": "string"
+          "sort": {
+            "description": "A sort, with sections by its value",
+            "type": "boolean"
           }
         },
         "required": [
-          "fields",
-          "artwork",
-          "id",
-          "contentType",
-          "key",
-          "label",
-          "sortLabel",
-          "addedAt",
-          "refreshedAt",
-          "goneUpstreamAt"
+          "column",
+          "sort",
+          "filter"
+        ],
+        "type": "object"
+      },
+      "WorksMonitoredChange": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "description": "Monitor every Item of each Work, or none",
+            "type": "boolean"
+          },
+          "workIds": {
+            "description": "A repeated id counts once",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds",
+          "on"
         ],
         "type": "object"
       },
@@ -11066,13 +11905,17 @@
             "type": "string"
           },
           "monitor": {
-            "description": "Monitor a new Work's Items; adding a Work already in the library changes nothing",
+            "description": "Monitor a new Work's Items; left out, the type's add default. Adding a Work already in the library changes nothing",
             "type": "boolean"
           },
           "profileId": {
             "description": "The Profile of the Content Type a new Work wants from; left out, the type's default",
             "format": "uuid",
             "type": "string"
+          },
+          "remember": {
+            "description": "Make each choice given here its type's default for the next add. Adding a Work already in the library changes no default",
+            "type": "boolean"
           },
           "rootId": {
             "description": "The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root",
@@ -11123,6 +11966,63 @@
           "key",
           "kind",
           "number"
+        ],
+        "type": "object"
+      },
+      "WorksOutcome": {
+        "discriminator": {
+          "mapping": {
+            "done": "#/components/schemas/WorksDoneOutcome",
+            "failed": "#/components/schemas/WorksFailedOutcome",
+            "skipped": "#/components/schemas/WorksSkippedOutcome"
+          },
+          "propertyName": "outcome"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/WorksDoneOutcome"
+          },
+          {
+            "$ref": "#/components/schemas/WorksSkippedOutcome"
+          },
+          {
+            "$ref": "#/components/schemas/WorksFailedOutcome"
+          }
+        ]
+      },
+      "WorksOutcomeList": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "description": "One per Work, in request order",
+            "items": {
+              "$ref": "#/components/schemas/WorksOutcome"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "outcomes"
+        ],
+        "type": "object"
+      },
+      "WorksOutcomeProblem": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The code a request for this Work alone would have been refused with",
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "title"
         ],
         "type": "object"
       },
@@ -11200,6 +12100,51 @@
         ],
         "type": "object"
       },
+      "WorksProfileChange": {
+        "additionalProperties": false,
+        "properties": {
+          "profileId": {
+            "description": "The Profile each Work wants from; a Work with its own Edition list keeps it",
+            "format": "uuid",
+            "type": "string"
+          },
+          "workIds": {
+            "description": "A repeated id counts once",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds",
+          "profileId"
+        ],
+        "type": "object"
+      },
+      "WorksProfileChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          },
+          "outcomes": {
+            "description": "One per Work, in request order",
+            "items": {
+              "$ref": "#/components/schemas/WorksOutcome"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "impact",
+          "outcomes"
+        ],
+        "type": "object"
+      },
       "WorksRating": {
         "additionalProperties": false,
         "properties": {
@@ -11246,6 +12191,115 @@
         ],
         "type": "object"
       },
+      "WorksRefreshing": {
+        "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "description": "A repeated id counts once",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
+        "type": "object"
+      },
+      "WorksRemoved": {
+        "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
+        "type": "object"
+      },
+      "WorksRootChange": {
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "description": "The root each Work moves to; a Work with files stays where it is",
+            "format": "uuid",
+            "type": "string"
+          },
+          "workIds": {
+            "description": "A repeated id counts once",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds",
+          "rootId"
+        ],
+        "type": "object"
+      },
+      "WorksRowRating": {
+        "additionalProperties": false,
+        "properties": {
+          "scale": {
+            "description": "The value's maximum",
+            "exclusiveMinimum": 0,
+            "format": "double",
+            "type": "number"
+          },
+          "source": {
+            "description": "The ratings source, such as imdb",
+            "type": "string"
+          },
+          "value": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "source",
+          "value",
+          "scale"
+        ],
+        "type": "object"
+      },
+      "WorksSearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "description": "The rows of the first limit of them, in the same order",
+            "items": {
+              "$ref": "#/components/schemas/WorksLibraryRow"
+            },
+            "type": "array"
+          },
+          "workIds": {
+            "description": "Every matching Work, best first",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds",
+          "rows"
+        ],
+        "type": "object"
+      },
       "WorksSettingsChange": {
         "additionalProperties": false,
         "properties": {
@@ -11257,6 +12311,37 @@
         },
         "required": [
           "values"
+        ],
+        "type": "object"
+      },
+      "WorksSkippedOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "skipped"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the action left the Work as it was",
+            "enum": [
+              "already",
+              "work_has_files",
+              "work_gone_upstream",
+              "work_not_found"
+            ],
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "outcome",
+          "reason"
         ],
         "type": "object"
       },
@@ -11427,32 +12512,188 @@
         ],
         "type": "object"
       },
-      "WorksWorkChanged": {
+      "WorksWebLink": {
         "additionalProperties": false,
         "properties": {
-          "workId": {
-            "format": "uuid",
+          "key": {
+            "description": "The link's key, such as imdb",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "page",
+              "trailer"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "The site's name as a person reads it",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
             "type": "string"
           }
         },
         "required": [
-          "workId"
+          "key",
+          "label",
+          "url",
+          "kind"
         ],
         "type": "object"
       },
-      "WorksWorkList": {
+      "WorksWorkProfile": {
         "additionalProperties": false,
         "properties": {
-          "works": {
-            "description": "By sort label, then id",
-            "items": {
-              "$ref": "#/components/schemas/WorksListedWork"
-            },
-            "type": "array"
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         },
         "required": [
-          "works"
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorksWorkRoot": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Storage Node whose disk holds it",
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "description": "The folder's path on that Node, in that Node's format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nodeId",
+          "path"
+        ],
+        "type": "object"
+      },
+      "WorksWorkView": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "artwork": {
+            "description": "The Work's own images, by kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
+          },
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/WorksFieldValue"
+            },
+            "type": "array"
+          },
+          "goneUpstreamAt": {
+            "description": "When the metadata source last reported that it no longer has this Work; null while it has it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "items": {
+            "description": "By their level's order, live before withdrawn, then position",
+            "items": {
+              "$ref": "#/components/schemas/WorksItem"
+            },
+            "type": "array"
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "levels": {
+            "description": "By depth, then their parent's order, live before withdrawn, then position",
+            "items": {
+              "$ref": "#/components/schemas/WorksLevel"
+            },
+            "type": "array"
+          },
+          "links": {
+            "description": "Pages about the Work on other sites, in its Content Type's order",
+            "items": {
+              "$ref": "#/components/schemas/WorksWebLink"
+            },
+            "type": "array"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/WorksWorkProfile",
+            "description": "The Profile the Work wants from"
+          },
+          "ratings": {
+            "description": "The Work's own, by source",
+            "items": {
+              "$ref": "#/components/schemas/WorksRating"
+            },
+            "type": "array"
+          },
+          "refreshedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksWorkRoot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The root the Work lives in; null while it has none"
+          },
+          "sortLabel": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "links",
+          "profile",
+          "root",
+          "fields",
+          "ratings",
+          "artwork",
+          "levels",
+          "items",
+          "id",
+          "contentType",
+          "key",
+          "label",
+          "sortLabel",
+          "addedAt",
+          "refreshedAt",
+          "goneUpstreamAt"
         ],
         "type": "object"
       }
@@ -14817,6 +16058,198 @@
       }
     },
     "/content-types/{contentType}/refresh": {
+      "get": {
+        "operationId": "getContentTypeRefresh",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentType",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataRefreshAllRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open",
+        "tags": [
+          "metadata"
+        ],
+        "x-slipstream-access": "admin"
+      },
       "post": {
         "operationId": "refreshContentType",
         "parameters": [
@@ -17921,7 +19354,7 @@
                       {
                         "properties": {
                           "data": {
-                            "$ref": "#/components/schemas/WorksWorkChanged"
+                            "$ref": "#/components/schemas/WorksChanged"
                           },
                           "event": {
                             "const": "works.changed",
@@ -17968,6 +19401,32 @@
                           "event"
                         ],
                         "title": "Event works.content-types-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/WorksRemoved"
+                          },
+                          "event": {
+                            "const": "works.removed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event works.removed",
                         "type": "object"
                       },
                       {
@@ -21000,6 +22459,221 @@
         "summary": "Dial the Node waiting at a Node address, which pairs with the code over that session",
         "tags": [
           "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/library": {
+      "get": {
+        "operationId": "listLibrary",
+        "parameters": [
+          {
+            "description": "Only this Content Type's Works",
+            "explode": false,
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "description": "Only this Content Type's Works",
+              "pattern": "^[a-z][a-z0-9]{1,15}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only these Works, such as the ones a works.changed named; not with contentType",
+            "explode": false,
+            "in": "query",
+            "name": "workIds",
+            "schema": {
+              "description": "Only these Works, such as the ones a works.changed named; not with contentType",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksLibraryRows"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List every Work as a Library row, or one Content Type's, or the named ones",
+        "tags": [
+          "works"
         ],
         "x-slipstream-access": "admin"
       }
@@ -39252,199 +40926,6 @@
       }
     },
     "/works": {
-      "get": {
-        "operationId": "listWorks",
-        "parameters": [
-          {
-            "explode": false,
-            "in": "query",
-            "name": "contentType",
-            "schema": {
-              "pattern": "^[a-z][a-z0-9]{1,15}$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorksWorkList"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "api_key_wrong",
-                            "signed_out"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "needs_admin",
-                            "pin_required"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "content_type_not_found"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "worker_node"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "invalid"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unprocessable Entity"
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "internal"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          }
-        },
-        "security": [
-          {
-            "session": [
-              "admin"
-            ]
-          },
-          {
-            "apiKey": []
-          }
-        ],
-        "summary": "List the Works, or one Content Type's",
-        "tags": [
-          "works"
-        ],
-        "x-slipstream-access": "admin"
-      },
       "post": {
         "operationId": "addWork",
         "requestBody": {
@@ -39671,6 +41152,1141 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/works/delete": {
+      "post": {
+        "operationId": "deleteWorks",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksDeleting"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksDeleted"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove each Work from the library, deleting its files or leaving them, with an outcome per Work",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/monitored": {
+      "put": {
+        "operationId": "setWorksMonitored",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksMonitoredChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksOutcomeList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Monitor every Item of each Work, or none, with an outcome per Work",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/profile": {
+      "put": {
+        "operationId": "setWorksProfile",
+        "parameters": [
+          {
+            "description": "Return the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Return the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksProfileChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksProfileChanged"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "profile_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Give each Work a Profile through one Impact, with an outcome per Work",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/refresh": {
+      "post": {
+        "operationId": "refreshWorks",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksRefreshing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksOutcomeList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Refresh each Work from its metadata source, keeping every id, with an outcome per Work",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/root": {
+      "put": {
+        "operationId": "setWorksRoot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksRootChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksOutcomeList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "root_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Move each Work without files to a root, with an outcome per Work",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/search": {
+      "get": {
+        "operationId": "searchWorks",
+        "parameters": [
+          {
+            "description": "Words each match's titles hold as word prefixes, case and accents ignored",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Words each match's titles hold as word prefixes, case and accents ignored",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many rows to return; 0 returns ids only",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 8,
+              "description": "How many rows to return; 0 returns ids only",
+              "format": "int64",
+              "maximum": 20000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only this Content Type's Works",
+            "explode": false,
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "description": "Only this Content Type's Works",
+              "pattern": "^[a-z][a-z0-9]{1,15}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksSearchResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Search the library's Works by every title they go by, best first",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/works/{workId}": {
       "get": {
         "operationId": "getWork",
@@ -39690,7 +42306,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorksTree"
+                  "$ref": "#/components/schemas/WorksWorkView"
                 }
               }
             },
@@ -39859,215 +42475,9 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Work's tree with each node's fields",
+        "summary": "Get a Work's tree with each node's fields, its links, Profile and root",
         "tags": [
           "works"
-        ],
-        "x-slipstream-access": "admin"
-      },
-      "patch": {
-        "operationId": "setWorkRoot",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "workId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetWorkRootInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RootsWorkRoot"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "api_key_wrong",
-                            "signed_out"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "needs_admin",
-                            "pin_required"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "root_not_found",
-                            "work_not_found"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "work_has_files",
-                            "worker_node"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "invalid",
-                            "root_wrong_type"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unprocessable Entity"
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "internal"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          }
-        },
-        "security": [
-          {
-            "session": [
-              "admin"
-            ]
-          },
-          {
-            "apiKey": []
-          }
-        ],
-        "summary": "Move a Work that has no files into another root of its Content Type",
-        "tags": [
-          "roots"
         ],
         "x-slipstream-access": "admin"
       }
@@ -40267,9 +42677,9 @@
         "x-slipstream-access": "admin"
       }
     },
-    "/works/{workId}/refresh": {
-      "post": {
-        "operationId": "refreshWork",
+    "/works/{workId}/files": {
+      "get": {
+        "operationId": "listWorkFiles",
         "parameters": [
           {
             "in": "path",
@@ -40286,7 +42696,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorksTree"
+                  "$ref": "#/components/schemas/FilesFileList"
                 }
               }
             },
@@ -40381,7 +42791,6 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "work_gone_upstream",
                             "worker_node"
                           ],
                           "type": "string"
@@ -40444,33 +42853,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "502": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "metadata_invalid",
-                            "metadata_refused",
-                            "metadata_unavailable"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Bad Gateway"
           }
         },
         "security": [
@@ -40483,9 +42865,9 @@
             "apiKey": []
           }
         ],
-        "summary": "Refresh a Work from its metadata source, keeping every id",
+        "summary": "List a Work's library files with the cells each fills, and the folder they sit in",
         "tags": [
-          "works"
+          "files"
         ],
         "x-slipstream-access": "admin"
       }
@@ -41266,9 +43648,7 @@
                         "code": {
                           "enum": [
                             "cut_not_found",
-                            "invalid",
-                            "profile_not_found",
-                            "profile_wrong_type"
+                            "invalid"
                           ],
                           "type": "string"
                         }
@@ -41317,7 +43697,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
+        "summary": "Set a Work's own Edition list, or its Profile's, refilling and renaming its files, or preview the change's Impact",
         "tags": [
           "targets"
         ],

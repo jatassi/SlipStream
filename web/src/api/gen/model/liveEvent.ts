@@ -26,6 +26,7 @@ import type { LiveEventTorrentsLive } from "./liveEventTorrentsLive.ts";
 import type { LiveEventVolumesChanged } from "./liveEventVolumesChanged.ts";
 import type { LiveEventWorksChanged } from "./liveEventWorksChanged.ts";
 import type { LiveEventWorksContentTypesChanged } from "./liveEventWorksContentTypesChanged.ts";
+import type { LiveEventWorksRemoved } from "./liveEventWorksRemoved.ts";
 import type { LiveEventWorksTypeChanged } from "./liveEventWorksTypeChanged.ts";
 
 export type LiveEvent =
@@ -57,4 +58,5 @@ export type LiveEvent =
   | LiveEventVolumesChanged
   | LiveEventWorksChanged
   | LiveEventWorksContentTypesChanged
+  | LiveEventWorksRemoved
   | LiveEventWorksTypeChanged;

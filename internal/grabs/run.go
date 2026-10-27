@@ -108,11 +108,21 @@ func classify(ctx context.Context, err error, code Code) outcome {
 	case ctx.Err() != nil:
 		return stopped{}
 	case notSent && why == rpc.NotHolder:
-		return fail{IndexerUnavailable, err.Error()}
+		return fail{IndexerUnavailable, detail(err)}
 	case notSent, rpc.Lost(err), errors.Is(err, transfers.ErrBroken), errors.Is(err, downloading.ErrNotPresent):
 		return wait{cause: err}
 	}
-	return fail{code, err.Error()}
+	return fail{code, detail(err)}
+}
+
+// detail is a remote step's error as its failure's Detail: the cause the
+// remote Node gave, without the call's code or the wrapping the failure's
+// code already says.
+func detail(err error) string {
+	if u, ok := errors.AsType[*indexers.UnavailableError](err); ok {
+		return u.Reason()
+	}
+	return rpc.MessageOf(err)
 }
 
 // local is the outcome of an error reading or writing the library inside
@@ -428,7 +438,8 @@ var errLeft = errors.New("the Grab left the stage")
 // commit applies o to g in one Write that compares on g's stage, so a
 // repeated step converges, then publishes. It is the only code that moves
 // a Grab's stage. A fetch's commit attaches the Grab to its Torrent, and
-// fails with downloadclients.ErrRemoving while that must wait.
+// fails with downloadclients.ErrRemoving while that must wait. A Grab
+// whose Work was deleted went with it, so its commit commits nothing.
 func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	now := storage.Now()
 	var params db.AdvanceParams
@@ -452,7 +463,7 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	switch {
 	case errors.Is(err, files.ErrRootChanged):
 		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
-	case errors.Is(err, errLeft):
+	case errors.Is(err, errLeft), errors.Is(err, works.ErrNoWork):
 		return nil
 	case err != nil:
 		return err
@@ -675,6 +686,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 		searches, grabs, err := gr.settled(ctx)
 		now := time.Now()
 		if err == nil {
+			s.keep(searches, grabs)
 			for _, run := range searches {
 				gr.start(ctx, &s, now, run.ID.UUID, done, func() result { return gr.search(ctx, run) })
 			}
@@ -744,6 +756,30 @@ func (gr *Grabs) start(ctx context.Context, s *schedule, now time.Time, id stora
 	go func() { done <- report{id, job()} }()
 }
 
+// keep forgets each job neither open nor running, as one whose Work was
+// deleted: a vanished job ends as a finished one does, and its past retry
+// never wakes the reconciler again.
+func (s *schedule) keep(searches []Search, grabs []Grab) {
+	open := make(map[storage.UUID]bool, len(searches)+len(grabs))
+	for _, run := range searches {
+		open[run.ID.UUID] = true
+	}
+	for _, g := range grabs {
+		open[g.ID.UUID] = true
+	}
+	for id := range s.retryAt {
+		if !open[id] && !s.inflight[id] {
+			delete(s.retryAt, id)
+			delete(s.attempts, id)
+		}
+	}
+	for id := range s.shown {
+		if !open[id.UUID] {
+			delete(s.shown, id)
+		}
+	}
+}
+
 func (s *schedule) record(r report, now time.Time, t Timings, rnd *rand.Rand) {
 	switch r.result {
 	case committed, rerun:
@@ -786,7 +822,7 @@ func (gr *Grabs) publishProgress(ctx context.Context, s *schedule, now time.Time
 			continue
 		}
 		s.shown[g.ID] = *p
-		gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
+		gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String(), Progress: true})
 	}
 }
 

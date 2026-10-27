@@ -52,7 +52,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
@@ -96,7 +96,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		filesapi.Routes(r, library{files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})})
+		filesapi.Routes(r, library{files.New(files.Config{Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})})
 	})
 
 	code, body := s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
@@ -109,7 +109,9 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"unreleased"}],` +
-		`"items":[{"itemId":"` + scarf + `","status":"missing"},{"itemId":"` + mittens + `","status":"unreleased"}]}` + "\n"
+		`"items":[{"itemId":"` + scarf + `","status":"missing"},{"itemId":"` + mittens + `","status":"unreleased"}],` +
+		`"summary":{"status":"unreleased","cells":{"met":1,"missing":1,"unreleased":3,"upgradable":1},"items":2,"itemStatus":{"missing":1,"unreleased":1}},` +
+		`"needsYou":[{"kind":"upgrade","itemIds":["` + scarf + `"],"edition":"any","upgrades":["` + hd.ID.String() + `"]}]}` + "\n"
 	if code != http.StatusOK || body != want {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)
 	}
@@ -127,7 +129,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+bare.ID.String()+"/cells", "", http.StatusOK,
-		`{"cells":[],"items":[{"itemId":"id1","status":null}]}`)
+		`{"cells":[],"items":[{"itemId":"id1","status":null}],"summary":{"status":null,"cells":{},"items":1,"itemStatus":{}},"needsYou":[]}`)
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String()+"/cells", "", http.StatusNotFound,
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 }

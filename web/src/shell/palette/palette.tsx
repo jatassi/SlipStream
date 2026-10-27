@@ -1,15 +1,8 @@
 import { useEffect, useState } from "react";
 
-import type { WorksContentType } from "../../api/gen/model";
-import {
-  CommandPalette,
-  CommandSearch,
-  type PaletteGroup,
-  type PaletteOption,
-} from "../../ui/command-palette";
-import { addLabel } from "../../works/fields";
-import { type CommandContext, useAdminCommands, useCommandContext } from "../commands";
-import { contentTypeIcons } from "../icons";
+import { CommandPalette, CommandSearch, type PaletteGroup } from "../../ui/command-palette";
+import { addLabel, enabledTypes } from "../../works/fields";
+import { useAdminCommands, useCommandContext } from "../commands";
 import { useContentTypes } from "../nav";
 import {
   closePalette,
@@ -19,7 +12,8 @@ import {
   usePaletteOpen,
 } from "../palette-state";
 import { matches } from "./match";
-import { type FoundWork, libraryProvider } from "./provider";
+import { addGroup, closingThen, workOptions } from "./options";
+import { useCatalogResults, useFoundWorks } from "./provider";
 
 const label = "Search Works or run a command";
 
@@ -57,41 +51,16 @@ export function Palette() {
   );
 }
 
-const closingThen = (run: () => void) => () => {
-  closePalette();
-  run();
-};
-
-function workOptions(
-  works: readonly FoundWork[],
-  contentTypes: readonly WorksContentType[],
-  { navigate }: CommandContext,
-): PaletteOption[] {
-  const types = new Map(contentTypes.map((type) => [type.id, type]));
-  return works.flatMap((work) => {
-    const type = types.get(work.contentType);
-    return type === undefined
-      ? []
-      : [
-          {
-            id: work.id,
-            label: work.label,
-            meta: type.work.one,
-            icon: contentTypeIcons[type.icon],
-            choose: closingThen(() => {
-              void navigate({ to: "/works/$workId", params: { workId: work.id } });
-            }),
-          },
-        ];
-  });
-}
-
 function Results() {
   const [query, setQuery] = useState("");
   const context = useCommandContext();
   const contentTypes = useContentTypes();
+  const catalogs = useCatalogResults(query, enabledTypes(contentTypes));
   const groups: PaletteGroup[] = [
-    { label: "Works", items: workOptions(libraryProvider.useWorks(query), contentTypes, context) },
+    { label: "Works", items: workOptions(useFoundWorks(query), contentTypes, context) },
+    ...catalogs
+      .filter((results) => results.candidates.length > 0)
+      .map((results) => addGroup(results, context)),
     {
       label: "Commands",
       items: useAdminCommands()

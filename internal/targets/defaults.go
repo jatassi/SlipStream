@@ -22,9 +22,11 @@ const StarterName = "1080p"
 // default Profile, and that every Work has a wants row. It runs at claim
 // and at every Controller start, and publishes only when it wrote.
 func Open(ctx context.Context, cfg Config) (*Targets, error) {
-	wrote := false
+	var (
+		wrote    bool
+		assigned []works.WorkID
+	)
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		wrote = false
 		q := db.New(tx)
 		starter, made, err := ensureStarter(ctx, q)
 		if err != nil {
@@ -34,15 +36,15 @@ func Open(ctx context.Context, cfg Config) (*Targets, error) {
 		if err != nil {
 			return err
 		}
-		assigned, err := ensureWants(ctx, tx, q, defaults)
-		wrote = made || named || assigned
+		assigned, err = ensureWants(ctx, tx, q, defaults)
+		wrote = made || named || len(assigned) > 0
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	if wrote {
-		cfg.Changed.Publish(ctx, Changed{})
+		cfg.Changed.Publish(ctx, changedOf(assigned))
 	}
 	return &Targets{cfg: cfg}, nil
 }
@@ -134,32 +136,32 @@ func freeProfileName(ctx context.Context, q *db.Queries, name string) (string, e
 }
 
 // ensureWants gives every Work with no wants row its type's default.
-func ensureWants(ctx context.Context, tx *storage.Tx[file], q *db.Queries, defaults map[works.TypeID]ProfileID) (bool, error) {
+func ensureWants(ctx context.Context, tx *storage.Tx[file], q *db.Queries, defaults map[works.TypeID]ProfileID) ([]works.WorkID, error) {
 	all, err := works.Summaries(ctx, tx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	rows, err := q.ListWants(ctx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	has := make(map[works.WorkID]bool, len(rows))
 	for _, row := range rows {
 		has[row.WorkID] = true
 	}
-	made := false
+	var made []works.WorkID
 	for _, w := range all {
 		if has[w.ID] {
 			continue
 		}
 		profile, ok := defaults[w.ContentType]
 		if !ok {
-			return false, fmt.Errorf("targets: Work %s is of Content Type %s, which isn't registered", w.ID, w.ContentType)
+			return nil, fmt.Errorf("targets: Work %s is of Content Type %s, which isn't registered", w.ID, w.ContentType)
 		}
 		if err := q.InsertWants(ctx, db.InsertWantsParams{WorkID: w.ID, ProfileID: profile}); err != nil {
-			return false, err
+			return nil, err
 		}
-		made = true
+		made = append(made, w.ID)
 	}
 	return made, nil
 }

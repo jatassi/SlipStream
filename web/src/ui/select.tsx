@@ -73,7 +73,9 @@ function SelectPopup<V extends string>({
         collisionPadding={12}
         className="z-50 outline-none"
       >
-        <BaseSelect.Popup className={`min-w-(--anchor-width) p-1 ${floatingPanel}`}>
+        <BaseSelect.Popup
+          className={`min-w-[min(var(--anchor-width),var(--available-width))] max-w-(--available-width) p-1 ${floatingPanel}`}
+        >
           <BaseSelect.List className="max-h-(--available-height) overflow-y-auto">
             {options.map((option) => (
               <BaseSelect.Item
@@ -81,13 +83,13 @@ function SelectPopup<V extends string>({
                 value={option.value}
                 className="flex h-(--menu-item-height) cursor-default items-center gap-2 rounded-item px-3 text-body outline-none select-none in-data-[density=touch]:text-body-touch data-highlighted:bg-fill-hover"
               >
-                <span className="flex w-4">
+                <span className="flex w-4 shrink-0">
                   <BaseSelect.ItemIndicator>
                     <Icon icon={Tick02Icon} className="size-4" />
                   </BaseSelect.ItemIndicator>
                 </span>
                 {option.leading}
-                <BaseSelect.ItemText>{option.label}</BaseSelect.ItemText>
+                <BaseSelect.ItemText className="truncate">{option.label}</BaseSelect.ItemText>
               </BaseSelect.Item>
             ))}
           </BaseSelect.List>

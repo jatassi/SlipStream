@@ -43,9 +43,9 @@ func must[T any](t *testing.T) func(T, error) T {
 	}
 }
 
-type grabbing map[files.CellKey]files.GrabState
+type grabbing map[files.CellKey]files.GrabCell
 
-func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[files.CellKey]files.GrabState, error) {
+func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return g, nil
 }
 
@@ -75,7 +75,7 @@ func open(t testing.TB) *library {
 		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
 		Source:       fx.Source(),
 		Artwork:      fx,
-		Changed:      discard[works.WorkChanged]{},
+		Changed:      discard[works.Changed]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {
@@ -101,7 +101,7 @@ func (l *library) files(cells files.Inflight) *files.Files {
 // on is the files owner over l whose disk queue works through disk.
 func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 	return files.New(files.Config{
-		Library: l.lib, Works: l.works, Targets: l.targets, Grabs: cells,
+		Library: l.lib, Targets: l.targets, Grabs: cells,
 		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Today: func() time.Time { return today },
 		Disk: disk, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
@@ -191,11 +191,11 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - HD.mkv", release.WEBRip1080p, hd.ID)
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - UHD.mkv", release.WEBDL2160p, uhd.ID)
 	svc := l.files(grabbing{
-		{Item: mittens, Edition: targets.AnyEdition, Target: uhd.ID}: files.GrabDownloading,
-		{Item: mittens, Edition: targets.AnyEdition, Target: hd.ID}:  files.GrabFailed,
-		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:    files.GrabDownloading,
+		{Item: mittens, Edition: targets.AnyEdition, Target: uhd.ID}: {State: files.GrabDownloading},
+		{Item: mittens, Edition: targets.AnyEdition, Target: hd.ID}:  {State: files.GrabFailed},
+		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:    {State: files.GrabDownloading},
 	})
-	_, cells, err := svc.WorkCells(t.Context(), admin, watched.ID)
+	_, cells, _, err := svc.WorkCells(t.Context(), admin, watched.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	}
 
 	unwatched := l.work(t, "w2", false, &small)
-	_, cells, err = svc.WorkCells(t.Context(), admin, unwatched.ID)
+	_, cells, _, err = svc.WorkCells(t.Context(), admin, unwatched.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	}
 
 	defaulted := l.work(t, "w3", true, nil)
-	_, cells, err = svc.WorkCells(t.Context(), admin, defaulted.ID)
+	_, cells, _, err = svc.WorkCells(t.Context(), admin, defaulted.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestAnItemNotOutYetIsUnreleasedAndUnwanted(t *testing.T) {
 	l.fx.SetTiming(scarf, targets.Timing{Released: release.Known(tomorrow)})
 	l.fx.SetTiming(mittens, targets.Timing{})
 	starter := must[[]targets.Target](t)(l.targets.ListTargets(t.Context(), admin))[0]
-	items, cells, err := l.files(grabbing{{Item: mittens, Edition: targets.AnyEdition, Target: starter.ID}: files.GrabFailed}).WorkCells(t.Context(), admin, tree.ID)
+	items, cells, _, err := l.files(grabbing{{Item: mittens, Edition: targets.AnyEdition, Target: starter.ID}: {State: files.GrabFailed}}).WorkCells(t.Context(), admin, tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,11 +283,11 @@ func TestAWorkWhoseProfileHoldsNoTargetHasNoCells(t *testing.T) {
 	empty := l.profile(t, "Empty")
 	tree := l.work(t, "w1", true, &empty)
 	svc := l.files(files.NoGrabs{})
-	items, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	items, cells, _, err := svc.WorkCells(t.Context(), admin, tree.ID)
 	if err != nil || len(cells) != 0 || len(items) != 2 {
 		t.Fatalf("WorkCells = %v, %v, %v; want two Items and no cell", items, cells, err)
 	}
-	if _, _, err := svc.WorkCells(t.Context(), admin, works.WorkID{UUID: storage.NewUUID()}); !errors.Is(err, works.ErrNoWork) {
+	if _, _, _, err := svc.WorkCells(t.Context(), admin, works.WorkID{UUID: storage.NewUUID()}); !errors.Is(err, works.ErrNoWork) {
 		t.Fatalf("cells of no Work: err = %v, want works.ErrNoWork", err)
 	}
 }
@@ -362,7 +362,7 @@ func TestANamedListWantsStandardAndEachOtherCutOnceSeen(t *testing.T) {
 	svc := l.files(files.NoGrabs{})
 	cells := func(w works.WorkID) string {
 		t.Helper()
-		_, cells, err := svc.WorkCells(t.Context(), admin, w)
+		_, cells, _, err := svc.WorkCells(t.Context(), admin, w)
 		if err != nil {
 			t.Fatal(err)
 		}
