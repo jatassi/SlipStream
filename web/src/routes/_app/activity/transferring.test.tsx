@@ -3,14 +3,13 @@ import { page } from "vitest/browser";
 
 import type { GrabsGrab } from "../../../api/gen/model";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
-import { getListWorksMockHandler } from "../../../api/gen/query/works/works.msw";
 import { downloading } from "../../../test/grabs";
-import { orchardListed } from "../../../test/library";
+import { libraryServer, orchardRow } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
 import { renderApp } from "../../../test/render-app";
 import { starter, targetHandlers } from "../../../test/targets";
-// oxlint-disable-next-line import/max-dependencies -- the Jobs table reads Grabs, Works, Targets, Torrents, Transfers and the live stream
 import { torrentsServer } from "../../../test/torrents";
+// oxlint-disable-next-line import/max-dependencies -- the Jobs table reads Grabs, Works, Targets, Torrents, Transfers and the live stream
 import { copying, transfersApi, waiting } from "../../../test/transfers";
 
 const transferring: GrabsGrab = {
@@ -28,7 +27,7 @@ test("a transferring Job reads its Transfer: where it copies from and how fast, 
     path: "/activity",
     handlers: [
       ...targetHandlers([{ ...starter, id: transferring.targetIds[0] ?? "" }]),
-      getListWorksMockHandler({ works: [orchardListed] }),
+      libraryServer([orchardRow]).handler,
       getListGrabsMockHandler({ grabs: [transferring] }),
       ...torrentsServer([]).handlers,
       ...transfers.handlers,

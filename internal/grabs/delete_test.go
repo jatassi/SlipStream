@@ -27,7 +27,7 @@ func TestADeletedWorksGrabLosesItsTransfer(t *testing.T) {
 
 	err := p.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		if _, ok, err := p.copies.Find(ctx, r, transfers.Grab, id.String()); err != nil || ok {
-			t.Fatalf("the Grab's Transfer is still recorded (%t, %v), want it cancelled", ok, err)
+			t.Fatalf("the Grab's Transfer is still recorded (%t, %v), want it canceled", ok, err)
 		}
 		return nil
 	})

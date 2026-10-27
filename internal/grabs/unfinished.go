@@ -38,6 +38,6 @@ func (gr *Grabs) CancelTransfersIn(ctx context.Context, tx *storage.Tx[storage.L
 	return nil
 }
 
-// TouchTransfers tells the Transfers loop a delete's Write cancelled
+// TouchTransfers tells the Transfers loop a delete's Write canceled
 // Transfers.
 func (gr *Grabs) TouchTransfers() { gr.cfg.Transfers.Touch() }
