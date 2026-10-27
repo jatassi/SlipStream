@@ -81,7 +81,7 @@ test("deleting the last custom definition leaves the way to add one", async () =
   await userEvent.click(page.getByRole("dialog").getByRole("button", { name: "Delete" }));
   await expect.element(page.getByText("Deleted the custom definition Marsh")).toBeVisible();
   await expect
-    .element(catalog().getByText(/^No custom definitions\. A custom definition runs a site/u))
+    .element(catalog().getByText(/^No custom definitions yet\. A custom definition runs a site/u))
     .toBeVisible();
   await expect
     .element(catalog().getByRole("link", { name: "Add a custom definition" }))

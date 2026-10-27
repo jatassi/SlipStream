@@ -19,7 +19,7 @@ export function CustomDefinitions({ catalog }: { catalog: IndexersIndexerCatalog
   if (custom.length === 0) {
     return (
       <p className="text-ink-2">
-        No custom definitions. A custom definition runs a site the catalog lacks. {addCustom}
+        No custom definitions yet. A custom definition runs a site the catalog lacks. {addCustom}
       </p>
     );
   }

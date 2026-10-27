@@ -85,7 +85,7 @@ export function CatalogAddress({ catalog }: { catalog: IndexersIndexerCatalog })
               type="url"
               autoComplete="off"
               data
-              description="Prowlarr's catalog unless you change it. Saving checks that the address serves a catalog first."
+              description="SlipStream downloads Prowlarr's catalog unless you change this. Saving checks that the address serves a catalog first."
             />
           )}
         </form.AppField>
