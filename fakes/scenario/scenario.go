@@ -176,13 +176,7 @@ func (s Scenario) Validate() error {
 		}
 		s.Library.check(add)
 		s.checkRootNodes(add)
-		switch holders := s.searching(); {
-		case len(s.Library.Indexers) == 0:
-		case len(holders) == 0:
-			add("library has indexers, and no node holds searching")
-		case len(holders) > 1:
-			add("library has indexers, and nodes %s all hold searching; exactly one does", strings.Join(holders, ", "))
-		}
+		s.checkHomes(add)
 	}
 	checkFaults(add, s.Faults)
 	if problems != nil {
@@ -334,6 +328,33 @@ func (s Scenario) document() *yaml.Node {
 		break
 	}
 	return &doc
+}
+
+// checkHomes refuses a library with Indexers and no Node that holds
+// Searching, and one where several do unless every Indexer names its home.
+// A home holds Searching.
+func (s Scenario) checkHomes(add func(format string, args ...any)) {
+	holders := s.searching()
+	if len(s.Library.Indexers) > 0 && len(holders) == 0 {
+		add("library has indexers, and no node holds searching")
+		return
+	}
+	for _, ix := range s.Library.Indexers {
+		switch {
+		case ix.Home != "" && !slices.Contains(holders, ix.Home):
+			add("library indexer %s's home %s doesn't hold searching", ix.Name, ix.Home)
+		case ix.Home == "" && len(holders) > 1:
+			add("library indexer %s names no home, and nodes %s all hold searching", ix.Name, strings.Join(holders, ", "))
+		}
+	}
+}
+
+// Home is the Node Indexer ix searches from.
+func (s Scenario) Home(ix LibraryIndexer) string {
+	if ix.Home != "" {
+		return ix.Home
+	}
+	return s.searching()[0]
 }
 
 // searching names each Node that holds Searching once set up: a join or

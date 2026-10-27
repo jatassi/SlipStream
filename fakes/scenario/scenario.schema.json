@@ -1417,17 +1417,47 @@
               "name": {
                 "type": "string"
               },
-              "site": {
+              "kind": {
                 "type": "string",
                 "enum": [
-                  "fixture-site"
+                  "catalog",
+                  "torznab",
+                  "rss"
                 ]
+              },
+              "site": {
+                "type": "string"
+              },
+              "definition": {
+                "type": "string"
+              },
+              "home": {
+                "type": "string"
+              },
+              "settings": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "tracker": {
+                "type": "string"
+              },
+              "media": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "allow_failover": {
+                "type": "boolean"
               }
             },
             "additionalProperties": false,
             "type": "object",
             "required": [
               "name",
+              "kind",
               "site"
             ]
           },

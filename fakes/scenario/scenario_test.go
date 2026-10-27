@@ -39,7 +39,7 @@ func movieLibrary() *Library {
 	return &Library{
 		StorageLevels: &LibraryLevels{},
 		Roots:         []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
-		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
+		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Kind: "torznab", Site: "torznab"}},
 	}
 }
 
@@ -342,7 +342,8 @@ library:
       folder: movies
   indexers:
     - name: Fixture Site
-      site: fixture-site
+      kind: torznab
+      site: torznab
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)

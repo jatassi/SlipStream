@@ -28,8 +28,8 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 			{Name: "Starter", ContentType: "music", Targets: []string{"1080p"}},
 		},
 		Indexers: []LibraryIndexer{
-			{Name: "Site", Site: "fixture-site"},
-			{Name: "Site", Site: "other-site"},
+			{Name: "Site", Kind: "torznab", Site: "torznab"},
+			{Name: "Site", Kind: "rss", Site: "torznab"},
 		},
 	}}
 	want := []string{
@@ -45,7 +45,8 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 		"scenario x: library has two profiles named Standard",
 		"scenario x: library has two default profiles for content type music",
 		"scenario x: library has two indexers named Site",
-		`scenario x: library indexer Site is on site "other-site", which no fake serves`,
+		`scenario x: library indexer Site is a rss Indexer on site "torznab", which fixture-site doesn't serve as one`,
+		"scenario x: library indexer Site is an RSS feed with no tracker or media",
 		"scenario x: library has indexers, and no node holds searching",
 	}
 	err := s.Validate()
@@ -66,7 +67,7 @@ func TestValidateRefusesTwoSearchingHoldersForIndexers(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Nodes[0].Roles = nil
-	want := "scenario home: library has indexers, and nodes home, seedbox all hold searching; exactly one does"
+	want := "scenario home: library indexer Fixture Site names no home, and nodes home, seedbox all hold searching"
 	if err := s.Validate(); err == nil || err.Error() != want {
 		t.Fatalf("Validate = %v, want %s", err, want)
 	}
