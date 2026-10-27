@@ -4,8 +4,8 @@ Settings > Indexers > Add Indexer leads with the Indexer catalog: a search that 
 
 ## Sub-features
 
-- `add-indexer-picker` on `catalog-sites`, `/settings/indexers/new` lists the catalog with Quarry, Larkspur, Cinder and the rest, filters by Privacy and Language with counts, and a search that matches nothing reads `No definition matches <words>.` (P-109)
-- `add-indexer-torznab` `Torznab feed` with a wrong API key reads `<Name> refused the API key with 'Invalid API Key'. Check the account, then test again.`; with the run's key, `Test` reads `The feed passed the Test and listed <n> items.` and shows `Tracker` filled with the Name, and `Save` opens the new Indexer's page. (P-108)
+- `add-indexer-picker` on `catalog-sites`, `/settings/indexers/new` lists the catalog with Quarry, Larkspur, Cinder and the rest, filters by Privacy and Language with counts, and a search that matches nothing reads `No definition matches <words>.` (P-109, P-118)
+- `add-indexer-torznab` `Torznab feed` with a wrong API key reads `<Name> refused the API key with 'Invalid API Key'. Check the account, then test again.`; with the run's key, `Test` reads `The feed passed the Test and listed <n> items.` and shows `Tracker` filled with the Name, and `Save` opens the new Indexer's page. (P-108, P-119, P-361)
 - `add-indexer-captcha` Larkspur's form signs in from home; `Continue` loads the captcha home fetched, a wrong password reads `Larkspur refused the sign-in with '<site's words>'. Check the username, password and any code, then test again.` with a new image, and the right password with the new code saves. (P-111)
 - `add-indexer-rss` `RSS feed` saves Brook's feed with its cookie, or reads the feed's refusal such as `Some items have no size. Turn on Allow items with no size to use the feed anyway.` (P-112)
 - `add-indexer-custom` `Custom definition` takes pasted YAML or a file; one SlipStream can't run reads `SlipStream can't run this definition yet.` with the reason under Details, and one that loads opens its form. (P-110)
