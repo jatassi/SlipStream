@@ -137,6 +137,49 @@ func emptySearch(x *Search) (int, error) {
 	return sent, err
 }
 
+// TestCatalogLogins signs in with every definition that has a login
+// block, its settings at their defaults, answering each request with an
+// empty page. Every request must build. The sign-in then ends refused by
+// the login test, or, for a form, finding no form on the empty page.
+func TestCatalogLogins(t *testing.T) {
+	everyFeaturePorted(t)
+	ends := map[string]int{}
+	for _, f := range catalogFiles(t) {
+		name, src := catalogFile(t, f)
+		d, err := Load(src)
+		if err != nil || d.def.Login == nil {
+			continue
+		}
+		x := d.Login(Settings{}, nil, testClock)
+		for {
+			req, ok := x.Next()
+			if !ok {
+				break
+			}
+			if req.URL.Host == "" {
+				t.Errorf("%s: a request has no host: %s", name, req.URL)
+			}
+			if x.Feed(page("")) != nil {
+				break
+			}
+		}
+		err = x.Result()
+		end := d.def.Login.Method + ": "
+		switch {
+		case err == nil, errors.Is(err, ErrSignInRefused):
+			end += fmt.Sprint(err)
+		case strings.Contains(err.Error(), "no form matching"):
+			end += "no form"
+		default:
+			t.Errorf("%s: %v", name, err)
+		}
+		ends[end]++
+	}
+	for end, n := range ends {
+		t.Logf("%4d %s", n, end)
+	}
+}
+
 // TestCatalogYTS runs the catalog's YTS definition, a JSON API with
 // multiple torrents per movie and fields read from the parent row, against
 // a response written in the shape of YTS's.
