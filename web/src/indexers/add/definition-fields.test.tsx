@@ -39,7 +39,9 @@ test("a definition draws each field type, sealing secrets and keeping info as pl
   expect(page.getByText("Use FlareSolverr.").query()).toBeNull();
   expect(page.getByText("CAPTCHA").query()).toBeNull();
   await userEvent.click(page.getByRole("link", { name: "Set a Challenge solver on home" }));
-  expect(router.state.location.pathname).toBe("/nodes/4a2c6e8f-1b3d-4f5a-9c7e-2d4f6a8b0c1e/searching");
+  expect(router.state.location.pathname).toBe(
+    "/nodes/4a2c6e8f-1b3d-4f5a-9c7e-2d4f6a8b0c1e/searching",
+  );
 });
 
 test("each field's value is sent by the definition's own name", async () => {

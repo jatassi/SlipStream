@@ -13,16 +13,12 @@ import { indexersServer } from "../test/indexers-server";
 import { renderApp } from "../test/render-app";
 
 const path = "/settings/indexers";
-const byName = (list: IndexersTracker[]) =>
-  list.toSorted((a, b) => a.name.localeCompare(b.name));
-const heading = (name: string) =>
-  page.getByRole("heading", { name, exact: true });
+const byName = (list: IndexersTracker[]) => list.toSorted((a, b) => a.name.localeCompare(b.name));
+const heading = (name: string) => page.getByRole("heading", { name, exact: true });
 const group = (name: string) => page.getByRole("list", { name });
 
 async function choose(tracker: string, item: string) {
-  await userEvent.click(
-    page.getByRole("button", { name: `${tracker} actions` }),
-  );
+  await userEvent.click(page.getByRole("button", { name: `${tracker} actions` }));
   await userEvent.click(page.getByRole("menuitem", { name: item }));
 }
 
@@ -35,9 +31,7 @@ test("Rename saves the new name and the group takes it", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Rename" }));
   await expect.element(heading("TL")).toBeVisible();
   await expect
-    .element(
-      group("Indexers reaching TL").getByRole("listitem", { name: "Prowlarr" }),
-    )
+    .element(group("Indexers reaching TL").getByRole("listitem", { name: "Prowlarr" }))
     .toBeVisible();
   expect(server.writes).toEqual([
     { method: "PATCH", id: torrentLeechTrackerId, body: { name: "TL" } },
@@ -51,13 +45,8 @@ test("Rename to another Tracker's name says so on the field and keeps the dialog
   const dialog = page.getByRole("dialog", { name: "Rename TorrentLeech" });
   await userEvent.fill(dialog.getByRole("textbox", { name: "Name" }), "Aither");
   await userEvent.click(dialog.getByRole("button", { name: "Rename" }));
-  await expect
-    .element(dialog.getByText("Another Tracker has that name"))
-    .toBeVisible();
-  expect(server.state.trackers.map((tracker) => tracker.name)).toEqual([
-    "Aither",
-    "TorrentLeech",
-  ]);
+  await expect.element(dialog.getByText("Another Tracker has that name")).toBeVisible();
+  expect(server.state.trackers.map((tracker) => tracker.name)).toEqual(["Aither", "TorrentLeech"]);
 });
 
 test("Merge into offers every other Tracker but never the Tracker itself, and moves its Indexers to the one kept", async () => {
@@ -68,9 +57,7 @@ test("Merge into offers every other Tracker but never the Tracker itself, and mo
   await choose("Aither", "Merge into…");
   const dialog = page.getByRole("dialog", { name: "Merge Aither" });
   await userEvent.click(dialog.getByRole("combobox", { name: "Merge into" }));
-  await expect
-    .element(page.getByRole("option", { name: "TorrentLeech" }))
-    .toBeVisible();
+  await expect.element(page.getByRole("option", { name: "TorrentLeech" })).toBeVisible();
   expect(
     page
       .getByRole("option")
@@ -80,12 +67,9 @@ test("Merge into offers every other Tracker but never the Tracker itself, and mo
   await userEvent.click(page.getByRole("option", { name: "TorrentLeech" }));
   await expect
     .element(
-      dialog.getByText(
-        "Aither's Indexers, Grabs and torrents move to TorrentLeech",
-        {
-          exact: false,
-        },
-      ),
+      dialog.getByText("Aither's Indexers, Grabs and torrents move to TorrentLeech", {
+        exact: false,
+      }),
     )
     .toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Merge" }));
@@ -104,10 +88,9 @@ test("Merge into offers every other Tracker but never the Tracker itself, and mo
       body: { into: torrentLeechTrackerId },
     },
   ]);
-  expect(
-    server.state.indexers.find((indexer) => indexer.id === prowlarrId)
-      ?.trackerIds,
-  ).toEqual([torrentLeechTrackerId]);
+  expect(server.state.indexers.find((indexer) => indexer.id === prowlarrId)?.trackerIds).toEqual([
+    torrentLeechTrackerId,
+  ]);
 });
 
 test("a merge the server refuses keeps the dialog open with its reason", async () => {
@@ -134,9 +117,7 @@ test("a Tracker no Indexer reaches stays, says so and keeps its keys and hosts u
   await expect.element(heading("BeyondHD")).toBeVisible();
   const section = page.getByRole("region", { name: "BeyondHD" });
   await expect
-    .element(
-      section.getByText("No Indexer reaches this Tracker.", { exact: false }),
-    )
+    .element(section.getByText("No Indexer reaches this Tracker.", { exact: false }))
     .toBeVisible();
   expect(section.getByRole("list").query()).toBeNull();
   await userEvent.click(section.getByRole("button", { name: "Details" }));
@@ -144,9 +125,7 @@ test("a Tracker no Indexer reaches stays, says so and keeps its keys and hosts u
   await expect.element(section.getByText("tracker.beyond-hd.me")).toBeVisible();
   await expect
     .element(
-      page
-        .getByRole("region", { name: "TorrentLeech" })
-        .getByText("TorrentLeech is private."),
+      page.getByRole("region", { name: "TorrentLeech" }).getByText("TorrentLeech is private."),
     )
     .toBeVisible();
 });
@@ -154,21 +133,14 @@ test("a Tracker no Indexer reaches stays, says so and keeps its keys and hosts u
 test("with one Tracker its menu has Rename and no Merge into…", async () => {
   renderApp({
     path,
-    handlers: indexersServer({ trackerList: [beyondHd], indexers: [] })
-      .handlers,
+    handlers: indexersServer({ trackerList: [beyondHd], indexers: [] }).handlers,
   });
   await expect
     .element(
-      page.getByText(
-        "No Indexers yet. Every search asks each Indexer added here that is on.",
-      ),
+      page.getByText("No Indexers yet. Every search asks each Indexer added here that is on."),
     )
     .toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "BeyondHD actions" }));
-  await expect
-    .element(page.getByRole("menuitem", { name: "Rename" }))
-    .toBeVisible();
-  expect(
-    page.getByRole("menuitem", { name: "Merge into…" }).query(),
-  ).toBeNull();
+  await expect.element(page.getByRole("menuitem", { name: "Rename" })).toBeVisible();
+  expect(page.getByRole("menuitem", { name: "Merge into…" }).query()).toBeNull();
 });
