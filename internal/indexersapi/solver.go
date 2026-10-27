@@ -72,23 +72,3 @@ func (h handlers) setChallengeSolver(ctx context.Context, by identity.Admin, in 
 	}
 	return solverOf(s), nil
 }
-
-func solverRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "getChallengeSolver",
-		Method:  http.MethodGet,
-		Path:    "/nodes/{id}/challenge-solver",
-		Summary: "Get the Challenge solver of a Node that stands in Searching",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotSearching},
-	}, h.getChallengeSolver)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "setChallengeSolver",
-		Method:  http.MethodPut,
-		Path:    "/nodes/{id}/challenge-solver",
-		Summary: "Set a Node's Challenge solver once the Node reaches the solver's /health, or remove it with an empty address",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotSearching, challengeSolverUnreachable, indexerUnavailable},
-	}, h.setChallengeSolver)
-}
