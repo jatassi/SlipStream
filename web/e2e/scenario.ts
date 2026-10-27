@@ -8,4 +8,5 @@ export type Scenario =
   | "targets"
   | "torrents"
   | "cgnat-home"
-  | "catalog-sites";
+  | "catalog-sites"
+  | "indexers";
