@@ -50,6 +50,7 @@ test("the page shows the Trackers it reaches and how much of each limit is used"
   renderApp({ path: pageOf(torrentLeechId), handlers: indexersServer().handlers });
   await expect.element(page.getByText("TorrentLeech is working.")).toBeVisible();
   await expect.element(page.getByText("4 of 10 per hour")).toBeVisible();
+  await expect.element(page.getByText("orchard", { exact: true })).toBeVisible();
   await expect.element(page.getByRole("meter", { name: "Searches used" })).toBeVisible();
   await expect.element(page.getByRole("switch", { name: "Allow failover" })).toBeVisible();
   await expect.element(page.getByText("seedbox", { exact: true }).first()).toBeVisible();
