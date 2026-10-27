@@ -11,6 +11,8 @@ import type {
   IndexersIndexer,
   IndexersIndexerList,
   IndexersSettings,
+  IndexersTracker,
+  IndexersTrackerList,
   RootsRootSettings,
   SystemNodeConfig,
   TasksOverview,
@@ -30,7 +32,9 @@ import {
 import {
   getGetIndexerQueryKey,
   getGetIndexerSettingsQueryKey,
+  getGetTrackerQueryKey,
   getListIndexersQueryKey,
+  getListTrackersQueryKey,
 } from "../api/gen/query/indexers/indexers";
 import { getGetRootSettingsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
@@ -138,4 +142,28 @@ export function dropIndexer(queryClient: QueryClient, id: string) {
 
 export function adoptIndexerSettings(queryClient: QueryClient, settings: IndexersSettings) {
   queryClient.setQueryData(getGetIndexerSettingsQueryKey(), settings);
+}
+
+export function adoptTracker(queryClient: QueryClient, saved: IndexersTracker) {
+  queryClient.setQueryData(getGetTrackerQueryKey(saved.id), saved);
+  queryClient.setQueryData<IndexersTrackerList>(
+    getListTrackersQueryKey(),
+    (list) =>
+      list && { trackers: list.trackers.map((shown) => (shown.id === saved.id ? saved : shown)) },
+  );
+}
+
+/** from is gone, and kept now lists from's Indexers. */
+export function adoptMerge(queryClient: QueryClient, from: string, kept: IndexersTracker) {
+  queryClient.removeQueries({ queryKey: getGetTrackerQueryKey(from), exact: true });
+  queryClient.setQueryData(getGetTrackerQueryKey(kept.id), kept);
+  queryClient.setQueryData<IndexersTrackerList>(
+    getListTrackersQueryKey(),
+    (list) =>
+      list && {
+        trackers: list.trackers
+          .filter((shown) => shown.id !== from)
+          .map((shown) => (shown.id === kept.id ? kept : shown)),
+      },
+  );
 }
