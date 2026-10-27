@@ -436,6 +436,8 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{indexerNotFound},
 	}, h.listIndexerQueries)
+
+	catalogRoutes(o, h)
 }
 
 type handlers struct{ registry Registry }

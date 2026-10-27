@@ -1,13 +1,59 @@
 import * as zod from "zod";
 
 import {
+  IndexersCatalogAddress,
+  IndexersCatalogEntry,
+  IndexersCustomDefinition,
+  IndexersDefinitionForm,
   IndexersIndexer,
+  IndexersIndexerCatalog,
   IndexersIndexerEdit,
   IndexersIndexerList,
   IndexersNewIndexer,
   IndexersQueryList,
   IndexersReport,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed
+ */
+export const GetIndexerCatalogResponse = IndexersIndexerCatalog;
+
+/**
+ * @summary Change the Indexer catalog's address once SlipStream reads a schema 12 index there. The next refresh reads it in full.
+ */
+export const SetCatalogAddressBody = IndexersCatalogAddress;
+
+export const SetCatalogAddressResponse = IndexersIndexerCatalog;
+
+/**
+ * @summary Add a custom definition, or replace the custom definition with its id and move that definition's Indexers to it
+ */
+export const AddCustomDefinitionBody = IndexersCustomDefinition;
+
+export const AddCustomDefinitionResponse = IndexersCatalogEntry;
+
+/**
+ * @summary Delete a custom definition that no Indexer runs
+ */
+export const deleteCustomDefinitionPathIdMax = 200;
+
+export const DeleteCustomDefinitionParams = zod.object({
+  id: zod.string().max(deleteCustomDefinitionPathIdMax),
+});
+
+export const DeleteCustomDefinitionResponse = zod.void();
+
+/**
+ * @summary Get the fields of a definition's add form, from the custom definition with the id or else the catalog's
+ */
+export const getCatalogDefinitionPathIdMax = 200;
+
+export const GetCatalogDefinitionParams = zod.object({
+  id: zod.string().max(getCatalogDefinitionPathIdMax),
+});
+
+export const GetCatalogDefinitionResponse = IndexersDefinitionForm;
 
 /**
  * @summary List the Indexers

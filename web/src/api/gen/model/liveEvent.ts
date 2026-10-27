@@ -9,6 +9,7 @@ import type { LiveEventIdentityAddressChanged } from "./liveEventIdentityAddress
 import type { LiveEventIdentityLinksChanged } from "./liveEventIdentityLinksChanged.ts";
 import type { LiveEventIdentityPasskeysChanged } from "./liveEventIdentityPasskeysChanged.ts";
 import type { LiveEventIdentitySessionsChanged } from "./liveEventIdentitySessionsChanged.ts";
+import type { LiveEventIndexersCatalogChanged } from "./liveEventIndexersCatalogChanged.ts";
 import type { LiveEventIndexersChanged } from "./liveEventIndexersChanged.ts";
 import type { LiveEventIndexersStatusChanged } from "./liveEventIndexersStatusChanged.ts";
 import type { LiveEventLiveAccessChanged } from "./liveEventLiveAccessChanged.ts";
@@ -41,6 +42,7 @@ export type LiveEvent =
   | LiveEventIdentityLinksChanged
   | LiveEventIdentityPasskeysChanged
   | LiveEventIdentitySessionsChanged
+  | LiveEventIndexersCatalogChanged
   | LiveEventIndexersChanged
   | LiveEventIndexersStatusChanged
   | LiveEventLiveAccessChanged
