@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -58,6 +59,9 @@ func refusedWithCaptcha(t *testing.T, what string, r worldtest.Reply, want strin
 func TestAnAdminAddsLarkspurByItsCaptchaAndGrabsFromIt(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "catalog-sites")
+	if _, open := healthItems(t, w.a, "indexers")["unserved.movie"]; open {
+		t.Fatal("Health says no Indexer searches for movies, want Quarry's definition to serve them")
+	}
 	body := func(answer *captchaView) string {
 		draft := map[string]any{
 			"kind": "catalog", "name": "Larkspur", "definition": site.Larkspur, "on": true, "automaticSearch": true, "priority": 10,
@@ -127,5 +131,12 @@ func TestAnAdminAddsLarkspurByItsCaptchaAndGrabsFromIt(t *testing.T) {
 		if ix.Outcome != "found" || ix.Releases != 2 {
 			t.Errorf("%s's search ended %s with %d Releases, want both found", ix.Name, ix.Outcome, ix.Releases)
 		}
+	}
+	grabbed, _, _ := w.trackedBy(t, w.grab.ID)
+	var tracker trackerView
+	decode(t, "getTracker", w.a.Admin("home", http.MethodGet, "/api/v1/trackers/"+grabbed, ""), &tracker)
+	if tracker.Name != "Larkspur" || tracker.Privacy != "private" || !slices.Equal(tracker.Keys, []string{"definition:" + site.Larkspur}) ||
+		!slices.Equal(tracker.IndexerIDs, []string{larkspur.ID}) {
+		t.Errorf("the Grab reached %+v, want the private Larkspur Tracker that adding Larkspur made", tracker)
 	}
 }

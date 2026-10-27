@@ -77,7 +77,7 @@ func (x *Indexers) catalogDraft(ctx context.Context, d Draft) (Definition, map[s
 	if err != nil {
 		return Definition{}, nil, err
 	}
-	def := Definition{ID: string(row.ID), SHA: row.Sha, BaseAddress: d.BaseAddress, Login: s.Login, Captcha: s.Captcha}
+	def := Definition{ID: string(row.ID), SHA: row.Sha, BaseAddress: d.BaseAddress, Name: s.Name, Privacy: s.Privacy, Login: s.Login, Captcha: s.Captcha}
 	if def.BaseAddress == "" && len(s.Links) > 0 {
 		def.BaseAddress = s.Links[0]
 	}

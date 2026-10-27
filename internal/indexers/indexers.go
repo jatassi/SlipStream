@@ -129,8 +129,10 @@ type Definition struct {
 	BaseAddress string
 	// Plain is the select and checkbox values and the username.
 	Plain map[string]string
-	// Login and Captcha are the pinned version's, read from its summary:
-	// NoLogin and false while that version doesn't load.
+	// Name, Privacy, Login and Captcha are the pinned version's, read
+	// from its summary: zero while that version doesn't load.
+	Name    string
+	Privacy cardigann.Privacy
 	Login   cardigann.LoginClass
 	Captcha bool
 }
@@ -430,7 +432,7 @@ func indexerOf(row db.IndexersIndexer, summary *string) (Indexer, error) {
 			if err := decode(*summary, &s); err != nil {
 				return Indexer{}, fmt.Errorf("indexer %s: definition summary: %w", row.ID, err)
 			}
-			d.Login, d.Captcha = s.Login, s.Captcha
+			d.Name, d.Privacy, d.Login, d.Captcha = s.Name, s.Privacy, s.Login, s.Captcha
 		}
 		idx.Source = d
 	} else {

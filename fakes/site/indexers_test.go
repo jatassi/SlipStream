@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -24,13 +25,14 @@ import (
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 // controlled is a Controller whose one Searching Node reaches w's
 // fixture-site, with every catalog site's definition added as a custom
 // one.
-func controlled(t *testing.T, w catalogWorld) *indexers.Indexers {
+func controlled(t *testing.T, w catalogWorld) (*indexers.Indexers, *storage.DB[storage.Library]) {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), indexers.Schema())
 	self := role.NodeID{UUID: storage.NewUUID()}
@@ -47,6 +49,7 @@ func controlled(t *testing.T, w catalogWorld) *indexers.Indexers {
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}},
 		Changed:   discard[indexers.Changed]{},
 		Status:    discard[indexers.StatusChanged]{},
+		Trackers:  discard[indexers.TrackerChanged]{},
 		Catalogs:  discard[indexers.CatalogChanged]{},
 		Timings:   indexers.DefaultTimings(),
 		Log:       slog.New(slog.DiscardHandler),
@@ -60,7 +63,7 @@ func controlled(t *testing.T, w catalogWorld) *indexers.Indexers {
 			t.Fatal(err)
 		}
 	}
-	return x
+	return x, lib
 }
 
 // failedWith is err's new captcha when it is a failed Test whose sentence
@@ -86,7 +89,7 @@ func shows(t *testing.T, c indexers.Captcha) string {
 func TestAnAdminAddsLarkspurByTypingItsCaptcha(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newCatalogWorld(t, faketest.InMemory)
-		x := controlled(t, w)
+		x, _ := controlled(t, w)
 		admin := identity.Admin{}
 		d := indexers.Draft{
 			Kind: indexers.Catalog, Name: "Larkspur", Definition: site.Larkspur, On: true, AutoSearch: true,
@@ -134,7 +137,7 @@ func TestAnAdminAddsLarkspurByTypingItsCaptcha(t *testing.T) {
 func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newCatalogWorld(t, faketest.InMemory)
-		x := controlled(t, w)
+		x, _ := controlled(t, w)
 		admin := identity.Admin{}
 		quarry := indexers.Draft{Kind: indexers.Catalog, Name: "Quarry", Definition: site.Quarry, Values: map[string]string{"apikey": site.Key(w.s, site.Quarry)}}
 		create := func(d indexers.Draft) error { _, err := x.Create(t.Context(), admin, d, nil); return err }
@@ -185,6 +188,84 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 		}
 		if v, err := x.Create(t.Context(), admin, cinder, nil); err != nil || !v.SignsIn || v.Session == nil || !v.Session.Pasted {
 			t.Errorf("Cinder with a pasted cookie = %+v, %v; want it signed in with the pasted session", v, err)
+		}
+	})
+}
+
+func TestACatalogIndexerReachesItsDefinitionsTrackerFromTheStart(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newCatalogWorld(t, faketest.InMemory)
+		x, lib := controlled(t, w)
+		admin := identity.Admin{}
+		v, err := x.Create(t.Context(), admin, indexers.Draft{
+			Kind: indexers.Catalog, Name: "Quarry on seedbox", Definition: site.Quarry, Values: map[string]string{"apikey": site.Key(w.s, site.Quarry)},
+		}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		all, err := x.Trackers(t.Context(), admin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(all) != 1 || all[0].Name != "Quarry" || all[0].Privacy != indexers.SemiPrivate ||
+			!slices.Equal(all[0].Keys, []string{"definition:" + site.Quarry}) || !slices.Equal(all[0].Indexers, []indexers.ID{v.ID}) {
+			t.Fatalf("after adding Quarry the Trackers are %+v, want one Quarry, semi-private, keyed by its definition and reached by the Indexer", all)
+		}
+		var tk indexers.Ticket
+		err = lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			tk, err = x.Take(ctx, tx, indexers.Release{Indexer: v.ID, Release: searching.Release{
+				Title: "Orchard.1080p", Link: searching.LinkOf("https://" + site.Host(site.Quarry) + "/a.torrent"),
+			}})
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if tk.Tracker != all[0].ID {
+			t.Errorf("a Take from Quarry reached Tracker %s, want Quarry (%s)", tk.Tracker, all[0].ID)
+		}
+	})
+}
+
+func TestTheHealthCheckStopsALarkspurWhoseSignInNeedsACaptchaWithoutLoadingOne(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newCatalogWorld(t, faketest.InMemory)
+		x, _ := controlled(t, w)
+		admin := identity.Admin{}
+		d := indexers.Draft{
+			Kind: indexers.Catalog, Name: "Larkspur", Definition: site.Larkspur, On: true,
+			Values: map[string]string{"username": site.Username, "password": site.Password(w.s, site.Larkspur)},
+		}
+		_, err := x.Create(t.Context(), admin, d, nil)
+		c := failedWith(t, err, "needs a captcha")
+		v, err := x.Create(t.Context(), admin, d, &indexers.CaptchaAnswer{Attempt: c.Attempt, Text: shows(t, c)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.f.Cue(t, site.Expire.Name, site.SiteArgs{Site: site.Larkspur})
+		captchas := func() int {
+			n := 0
+			for _, r := range w.f.Records(t) {
+				if r.Kind == site.CaptchaShown.Kind {
+					n++
+				}
+			}
+			return n
+		}
+		before := captchas()
+		i := slices.IndexFunc(x.Tasks(), func(task tasks.Task) bool { return task.ID == indexers.HealthCheckTaskID })
+		if err := x.Tasks()[i].Run(t.Context(), tasks.Unit{Key: tasks.UnitKey(v.ID.String())}, nil); err != nil {
+			t.Fatalf("the health check's unit = %v, want it to succeed whatever the Test finds", err)
+		}
+		got, err := x.Get(t.Context(), admin, v.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Status.State != indexers.Stopped || got.Status.Cause != searching.CaptchaNeeded {
+			t.Errorf("after the health check Larkspur stands at %+v, want stopped for a captcha", got.Status)
+		}
+		if n := captchas(); n != before {
+			t.Errorf("the health check loaded %d captchas, want none: only an Admin can type the code", n-before)
 		}
 	})
 }

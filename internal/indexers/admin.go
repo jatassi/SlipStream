@@ -89,8 +89,8 @@ type Report struct {
 // Create runs the Test on the Node the Indexer will search from, signing
 // in with c when the Admin answered a captcha, then saves in one Write the
 // Indexer at revision 1, its status, the session the Test earned, the
-// Test's query row and, when the Test's items named no source, the
-// Tracker the feed reaches. It fails with *TestFailedError,
+// Test's query row and, for a catalog Indexer or a feed whose Test's items
+// named no source, the Tracker it reaches. It fails with *TestFailedError,
 // ErrCaptchaExpired, ErrNameTaken, ErrNoSearchingNode, ErrNotSearching,
 // *WaitError, *UnavailableError or ErrLate, and for a catalog Indexer with
 // ErrNoDefinition, ErrCatalogUnavailable, *cardigann.Unrunnable,
@@ -121,14 +121,11 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft, c *Ca
 		if err := db.New(tx).InsertIndexer(ctx, p); err != nil {
 			return err
 		}
-		if _, feed := idx.Source.(Feed); feed && len(reportOf(a.Report).Sources) == 0 {
+		if len(reportOf(a.Report).Sources) == 0 {
 			if named, _, err = reachTracker(ctx, tx, idx.ID, reachedBy(idx, Release{})); err != nil {
 				return err
 			}
 		}
-		// TODO(P7 Trackers): create or reuse a catalog Indexer's Tracker here,
-		// in this Write, keyed "definition:<id>" and named by the definition
-		// summary's name and privacy, through trackerFor or reachTracker.
 		return x.recordTest(ctx, tx, q, node, idx, a, session, created)
 	})
 	if err != nil {
