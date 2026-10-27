@@ -60,7 +60,7 @@ export const DownloadclientsRefusal = zod.object({
   acceptsAt: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("window: when every tracker accepts an announce"),
+    .describe("window: when every announce URL accepts an announce"),
   code: zod.enum([
     "not_found",
     "removed",
@@ -147,7 +147,7 @@ export const DownloadclientsClientFacts = zod.object({
   listenError: zod.string().exactOptional().describe("Why it has no listener"),
   peerIdPrefix: zod
     .string()
-    .describe("The peer ID prefix it announces, which a tracker's allow list names"),
+    .describe("The peer ID prefix it announces, which a Tracker's allow list names"),
   reach: zod
     .enum(["reachable", "unproven"])
     .describe(
@@ -606,15 +606,15 @@ export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrent
 export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
 
 export const DownloadclientsTrackerCell = zod.object({
-  host: zod.string().describe("Empty when its tracker list is unknown"),
+  host: zod.string().describe("Empty when its announce URLs are unknown"),
   message: zod
     .string()
     .exactOptional()
-    .describe("The tracker's failure reason or warning, verbatim"),
+    .describe("The announce URL's failure reason or warning, verbatim"),
   retryAt: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("When it tries a failing tracker again"),
+    .describe("When it tries a failing announce URL again"),
   status: zod.enum(["working", "updating", "error", "unregistered", "not_contacted"]),
 });
 
@@ -637,7 +637,7 @@ export const DownloadclientsTrackerDetail = zod.object({
   message: zod
     .string()
     .exactOptional()
-    .describe("The tracker's failure reason or warning, verbatim"),
+    .describe("The announce URL's failure reason or warning, verbatim"),
   minIntervalSeconds: zod
     .int()
     .min(downloadclientsTrackerDetailMinIntervalSecondsMin)
@@ -650,7 +650,7 @@ export const DownloadclientsTrackerDetail = zod.object({
   retryAt: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("When it tries a failing tracker again, from the last report"),
+    .describe("When it tries a failing announce URL again, from the last report"),
   status: zod.enum(["working", "updating", "error", "unregistered", "not_contacted"]),
   tier: zod.int().min(downloadclientsTrackerDetailTierMin),
   url: zod.string().describe("With its passkey hidden"),
@@ -684,7 +684,7 @@ export const DownloadclientsTorrentDetail = zod.object({
   announceAt: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("The earliest every tracker accepts an announce, set while live"),
+    .describe("The earliest every announce URL accepts an announce, set while live"),
   contentType: zod.string().describe("The Content Type it was first grabbed for"),
   done: zod
     .int()
@@ -723,7 +723,7 @@ export const DownloadclientsTorrentDetail = zod.object({
   live: zod
     .boolean()
     .describe(
-      "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
+      "Its Node responded, so announce URLs and files are live. Otherwise they are from its last report",
     ),
   name: zod
     .string()
@@ -792,7 +792,7 @@ export const DownloadclientsTorrentDetail = zod.object({
     .array(zod.enum(["downloading", "seeding", "problems", "all"]))
     .describe("The Torrents view's tabs it shows under"),
   tracker: DownloadclientsTrackerCell.exactOptional().describe(
-    "Absent when its metainfo names no tracker",
+    "Absent when its metainfo names no announce URL",
   ),
   trackerId: zod
     .uuid()
@@ -919,7 +919,7 @@ export const DownloadclientsTorrentRow = zod.object({
     .array(zod.enum(["downloading", "seeding", "problems", "all"]))
     .describe("The Torrents view's tabs it shows under"),
   tracker: DownloadclientsTrackerCell.exactOptional().describe(
-    "Absent when its metainfo names no tracker",
+    "Absent when its metainfo names no announce URL",
   ),
   until: zod.iso
     .datetime({ offset: true })

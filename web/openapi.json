@@ -277,7 +277,7 @@
             "type": "string"
           },
           "peerIdPrefix": {
-            "description": "The peer ID prefix it announces, which a tracker's allow list names",
+            "description": "The peer ID prefix it announces, which a Tracker's allow list names",
             "type": "string"
           },
           "reach": {
@@ -690,7 +690,7 @@
         "additionalProperties": false,
         "properties": {
           "acceptsAt": {
-            "description": "window: when every tracker accepts an announce",
+            "description": "window: when every announce URL accepts an announce",
             "format": "date-time",
             "type": "string"
           },
@@ -943,7 +943,7 @@
             "type": "string"
           },
           "announceAt": {
-            "description": "The earliest every tracker accepts an announce, set while live",
+            "description": "The earliest every announce URL accepts an announce, set while live",
             "format": "date-time",
             "type": "string"
           },
@@ -1017,7 +1017,7 @@
             "type": "string"
           },
           "live": {
-            "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
+            "description": "Its Node responded, so announce URLs and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
           "name": {
@@ -1134,7 +1134,7 @@
           },
           "tracker": {
             "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no tracker"
+            "description": "Absent when its metainfo names no announce URL"
           },
           "trackerId": {
             "description": "The Tracker its Grab's Release reached, null when no Grab named one",
@@ -1406,7 +1406,7 @@
           },
           "tracker": {
             "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no tracker"
+            "description": "Absent when its metainfo names no announce URL"
           },
           "until": {
             "description": "When a window hold starts it, or a check resumes it",
@@ -1480,15 +1480,15 @@
         "additionalProperties": false,
         "properties": {
           "host": {
-            "description": "Empty when its tracker list is unknown",
+            "description": "Empty when its announce URLs are unknown",
             "type": "string"
           },
           "message": {
-            "description": "The tracker's failure reason or warning, verbatim",
+            "description": "The announce URL's failure reason or warning, verbatim",
             "type": "string"
           },
           "retryAt": {
-            "description": "When it tries a failing tracker again",
+            "description": "When it tries a failing announce URL again",
             "format": "date-time",
             "type": "string"
           },
@@ -1523,7 +1523,7 @@
             "type": "string"
           },
           "message": {
-            "description": "The tracker's failure reason or warning, verbatim",
+            "description": "The announce URL's failure reason or warning, verbatim",
             "type": "string"
           },
           "minIntervalSeconds": {
@@ -1538,7 +1538,7 @@
             "type": "string"
           },
           "retryAt": {
-            "description": "When it tries a failing tracker again, from the last report",
+            "description": "When it tries a failing announce URL again, from the last report",
             "format": "date-time",
             "type": "string"
           },
@@ -43935,7 +43935,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
+        "summary": "Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds",
         "tags": [
           "downloadclients"
         ],

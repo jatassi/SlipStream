@@ -95,7 +95,7 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: searchAgain,
   },
   no_peer_source: {
-    cause: "The magnet link names no tracker, and DHT is off on the Node that downloads it.",
+    cause: "The magnet link names no announce URL, and DHT is off on the Node that downloads it.",
     recovery:
       "Turn on DHT for public torrents in that Node's torrent client settings, or search again.",
   },
