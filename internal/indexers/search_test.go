@@ -59,6 +59,8 @@ type planned struct {
 	x    *indexers.Indexers
 	node *scripted
 	ids  map[string]indexers.ID
+	// repointed is each merge's from and into, as the Repoints saw them.
+	repointed [][2]indexers.TrackerID
 }
 
 var self = role.NodeID{UUID: storage.NewUUID()}
@@ -96,7 +98,11 @@ func plannedWith(t *testing.T, names ...string) *planned {
 		Searching: func(role.NodeID) searching.Remote { return p.node },
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}, contenttypetest.ID: fx},
 		Works:     w,
-		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{},
+		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
+		Repoints: []indexers.Repoint{func(_ context.Context, _ *storage.Tx[storage.Library], from, into indexers.TrackerID) error {
+			p.repointed = append(p.repointed, [2]indexers.TrackerID{from, into})
+			return nil
+		}},
 		Timings: indexers.DefaultTimings(), Zone: time.UTC,
 		Log: slog.New(slog.DiscardHandler),
 	})

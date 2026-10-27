@@ -133,6 +133,7 @@ export const getListGrabsResponseMock = (
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
     torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     workId: faker.string.uuid(),
   })),
   ...overrideResponse,
@@ -265,6 +266,7 @@ export const getGetGrabResponseMock = (
     () => faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
   torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   workId: faker.string.uuid(),
   ...overrideResponse,
 });

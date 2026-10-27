@@ -251,6 +251,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Changed:   indexers.ChangedEvent.Bind(n.hub),
 		Status:    indexers.StatusChangedEvent.Bind(n.hub),
 		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),
+		Trackers:  indexers.TrackersEvent.Bind(n.hub),
+		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker},
 		HTTP:      client,
 		Endpoints: n.cfg.Endpoints.Indexers,
 		CatalogNext: func(ctx context.Context) (time.Time, error) {

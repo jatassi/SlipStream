@@ -29,7 +29,8 @@ type Draft struct {
 	// RSS feed's whole address.
 	Address string
 	APIKey  string
-	// Tracker names the Tracker an RSS feed reaches.
+	// Tracker names the Tracker the feed reaches when its items name no
+	// source, "" for the Indexer's name.
 	Tracker string
 	// Media is the Content Types an RSS feed carries.
 	Media       []works.TypeID
@@ -77,7 +78,8 @@ type Report struct {
 
 // Create runs the Test on the Node the Indexer will search from, then
 // saves in one Write the Indexer at revision 1, its status, the session
-// the Test earned and the Test's query row. It fails with
+// the Test earned, the Test's query row and, when the Test's items named
+// no source, the Tracker the feed reaches. It fails with
 // *TestFailedError, ErrNameTaken, ErrNoSearchingNode, ErrNotSearching,
 // *WaitError, *UnavailableError or ErrLate.
 func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View, error) {
@@ -92,7 +94,7 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View
 	idx := Indexer{
 		ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Kind: cmp.Or(d.Kind, Torznab), Home: home, On: d.On, AutoSearch: d.AutoSearch, RSS: d.RSS,
 		AllowFailover: d.AllowFailover, Priority: cmp.Or(d.Priority, DefaultPriority), Categories: d.Categories, Media: d.Media,
-		Searches: d.Searches, Grabs: d.Grabs, Source: Feed{Tracker: d.Tracker, AllowNoSize: d.AllowNoSize}, FeedHost: hostOf(d.Address),
+		Searches: d.Searches, Grabs: d.Grabs, Source: Feed{Tracker: cmp.Or(d.Tracker, d.Name), AllowNoSize: d.AllowNoSize}, FeedHost: hostOf(d.Address),
 		Revision: 1, Created: created.Time(),
 	}
 	if err := checkMedia(idx, x.cfg.Types); err != nil {
@@ -110,6 +112,7 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View
 		return View{}, err
 	}
 	idx = read(idx, a)
+	var named TrackerID
 	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		if err := x.nameFree(ctx, tx, idx.Name, ID{}); err != nil {
 			return err
@@ -121,10 +124,18 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View
 		if err := db.New(tx).InsertIndexer(ctx, p); err != nil {
 			return err
 		}
+		if len(reportOf(a.Report).Sources) == 0 {
+			if named, _, err = reachTracker(ctx, tx, idx.ID, reachedBy(idx, Release{})); err != nil {
+				return err
+			}
+		}
 		return x.recordTest(ctx, tx, q, node, idx, a, session, created)
 	})
 	if err != nil {
 		return View{}, err
+	}
+	if !named.IsZero() {
+		x.cfg.Trackers.Publish(ctx, TrackerChanged{TrackerID: named.String()})
 	}
 	x.saved(ctx, idx.ID)
 	return x.Get(ctx, by, idx.ID)

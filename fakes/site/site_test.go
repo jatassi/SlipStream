@@ -182,6 +182,7 @@ func created(t *testing.T) (faketest.Served, *indexers.Indexers, *storage.DB[sto
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}},
 		Changed:   discard[indexers.Changed]{},
 		Status:    discard[indexers.StatusChanged]{},
+		Trackers:  discard[indexers.TrackerChanged]{},
 		Timings:   indexers.DefaultTimings(),
 		Log:       slog.New(slog.DiscardHandler),
 	})

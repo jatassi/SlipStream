@@ -121,6 +121,7 @@ export function detailOf(
     saveFolder: `/srv/downloads/Movies/0102030405060708090a0b0c0d0e0f1011121314`,
     pieceSize: 4 * 1024 * 1024,
     private: true,
+    trackerId: null,
     trackers: [],
     files: [{ index: 0, path: `${row.name}/${row.name}.mkv`, size: row.size, done: row.done }],
     grabs: [],

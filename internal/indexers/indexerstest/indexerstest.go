@@ -84,7 +84,8 @@ func (Facet) Categories() []newznab.ID { return newznab.Family(2000) }
 const Caps = `{"modes":{"search":["q"],"movie":["q","imdbid","tmdbid"]},"categories":[2000]}`
 
 // Torznab saves a Torznab Indexer homed on home, at revision 1 with no
-// status and Caps, in tx.
+// status and Caps, whose sourceless items reach a Tracker of its name, in
+// tx.
 func Torznab(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secret.Sealer, id indexers.ID, name string, home role.NodeID, address, key string) error {
 	u, err := url.Parse(address)
 	if err != nil {
@@ -98,7 +99,7 @@ func Torznab(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secre
 		ID: id, Name: name, Kind: string(indexers.Torznab), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
 		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", Plain: "{}",
 		SecretsSealed: sealer.Seal(plain, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
-		FeedHost:      &u.Host, Caps: Caps, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
+		FeedHost:      &u.Host, TrackerName: &name, Caps: Caps, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
 	if err != nil {
 		return fmt.Errorf("save Indexer %s: %w", name, err)

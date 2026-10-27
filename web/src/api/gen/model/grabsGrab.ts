@@ -52,5 +52,10 @@ export interface GrabsGrab {
    * @nullable
    */
   torrentId: string | null;
+  /**
+   * The Tracker its Release reached, null for a Grab older than Trackers
+   * @nullable
+   */
+  trackerId: string | null;
   workId: string;
 }

@@ -200,7 +200,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 	xs := indexers.New(indexers.Config{
 		Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searching.Remote { return remote },
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: w,
-		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
 	g := grabs.New(grabs.Config{
 		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
@@ -291,8 +291,13 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
 			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
 			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
+	trackers, err := f.xs.Trackers(ctx, admin)
+	if err != nil || len(trackers) != 1 || trackers[0].Name != "Fixture Site" {
+		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", trackers, err)
+	}
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
-		`"releaseTitle":"The.Attic.1080p.WEB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"infoHash":null,` +
+		`"releaseTitle":"The.Attic.1080p.WEB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
+		`"trackerId":"` + trackers[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"infoHash":null,` +
 		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"bencode: the metainfo is not a dictionary"},` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)

@@ -91,6 +91,11 @@ export interface DownloadclientsTorrentDetail {
   tabs: DownloadclientsTorrentDetailTabsItem[];
   /** Absent when its metainfo names no tracker */
   tracker?: DownloadclientsTrackerCell;
+  /**
+   * The Tracker its Grab's Release reached, null when no Grab named one
+   * @nullable
+   */
+  trackerId: string | null;
   /** In its metainfo's order */
   trackers: DownloadclientsTrackerDetail[];
   /** When a window hold starts it, or a check resumes it */

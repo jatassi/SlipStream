@@ -98,11 +98,12 @@ func serve(t *testing.T, r indexerstest.Roster, down role.NodeID) *served {
 			}
 			return home
 		},
-		Changed: srv.changed,
-		Status:  discard[indexers.StatusChanged]{},
-		Timings: indexers.DefaultTimings(),
-		Zone:    time.UTC,
-		Log:     slog.New(slog.DiscardHandler),
+		Changed:  srv.changed,
+		Status:   discard[indexers.StatusChanged]{},
+		Trackers: discard[indexers.TrackerChanged]{},
+		Timings:  indexers.DefaultTimings(),
+		Zone:     time.UTC,
+		Log:      slog.New(slog.DiscardHandler),
 	})
 	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { indexersapi.Routes(r, registry{x}) })
 	return srv
@@ -150,7 +151,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 	return `{"id":"id1","name":"Fixture Site","kind":"torznab","homeNodeId":"id2",` + switches + `,"priority":` + strconv.Itoa(priority) +
 		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
-		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":[],` +
+		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
 		`"waits":null,"session":null,"feedHost":"` + feedHost + `",` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
 }
 
@@ -356,9 +357,9 @@ func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
 	s.reach(t, map[string][]string{"TorrentLeech": {feed, torrentLeech}, "Aither": {feed}, "Orphan": nil})
 	_, list := s.owner.Call(t, http.MethodGet, "/api/v1/trackers", "")
 	want := `{"trackers":[` +
-		`{"id":"Aither","name":"Aither","privacy":"private","indexerIds":["Prowlarr"]},` +
-		`{"id":"Orphan","name":"Orphan","privacy":"private","indexerIds":[]},` +
-		`{"id":"TorrentLeech","name":"TorrentLeech","privacy":"private","indexerIds":["Prowlarr","TorrentLeech"]}]}` + "\n"
+		`{"id":"Aither","name":"Aither","privacy":"private","hosts":[],"keys":[],"indexerIds":["Prowlarr"]},` +
+		`{"id":"Orphan","name":"Orphan","privacy":"private","hosts":[],"keys":[],"indexerIds":[]},` +
+		`{"id":"TorrentLeech","name":"TorrentLeech","privacy":"private","hosts":[],"keys":[],"indexerIds":["Prowlarr","TorrentLeech"]}]}` + "\n"
 	var trackers struct {
 		Trackers []struct {
 			ID   string `json:"id"`
@@ -382,6 +383,26 @@ func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &v); err != nil || len(v.TrackerIDs) != 2 {
 		t.Fatalf("getIndexer = %s, want the two Trackers it reaches", body)
 	}
+
+	ids := map[string]string{}
+	for _, tr := range trackers.Trackers {
+		ids[tr.Name] = tr.ID
+	}
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/trackers/"+ids["Aither"], `{"name":"TorrentLeech"}`, http.StatusConflict,
+		`{"status":409,"code":"tracker_name_taken","title":"Another Tracker has that name"}`)
+	s.owner.Expect(t, http.MethodPost, "/api/v1/trackers/"+ids["Aither"]+"/merge", `{"into":"`+ids["Aither"]+`"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"tracker_merge_self","title":"A Tracker can't be merged into itself"}`)
+	s.owner.Expect(t, http.MethodPost, "/api/v1/trackers/"+ids["Aither"]+"/merge", `{"into":"`+storage.NewUUID().String()+`"}`, http.StatusNotFound,
+		`{"status":404,"code":"tracker_not_found","title":"No Tracker has that id"}`)
+	if code, got := s.owner.Call(t, http.MethodPatch, "/api/v1/trackers/"+ids["Orphan"], `{"name":"Lonely"}`); code != http.StatusOK || !strings.Contains(got, `"name":"Lonely"`) {
+		t.Fatalf("renameTracker = %d %s, want 200 with the new name", code, got)
+	}
+	if code, got := s.owner.Call(t, http.MethodPost, "/api/v1/trackers/"+ids["Aither"]+"/merge", `{"into":"`+ids["TorrentLeech"]+`"}`); code != http.StatusOK ||
+		!strings.Contains(got, `"name":"TorrentLeech"`) {
+		t.Fatalf("mergeTracker = %d %s, want 200 with TorrentLeech", code, got)
+	}
+	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/"+ids["Aither"], "", http.StatusNotFound,
+		`{"status":404,"code":"tracker_not_found","title":"No Tracker has that id"}`)
 }
 
 // reach adds each Tracker, reached by the Indexers with the given ids.

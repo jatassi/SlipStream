@@ -794,6 +794,10 @@ export const DownloadclientsTorrentDetail = zod.object({
   tracker: DownloadclientsTrackerCell.exactOptional().describe(
     "Absent when its metainfo names no tracker",
   ),
+  trackerId: zod
+    .uuid()
+    .nullable()
+    .describe("The Tracker its Grab's Release reached, null when no Grab named one"),
   trackers: zod.array(DownloadclientsTrackerDetail).describe("In its metainfo's order"),
   until: zod.iso
     .datetime({ offset: true })
@@ -1342,6 +1346,10 @@ export const GrabsGrab = zod.object({
     .uuid()
     .nullable()
     .describe("The Torrent it downloads, null until the .torrent is fetched"),
+  trackerId: zod
+    .uuid()
+    .nullable()
+    .describe("The Tracker its Release reached, null for a Grab older than Trackers"),
   workId: zod.uuid(),
 });
 
@@ -2617,7 +2625,9 @@ export const IndexersNewIndexer = zod.object({
     .string()
     .max(indexersNewIndexerTrackerNameMax)
     .exactOptional()
-    .describe("The Tracker an RSS feed reaches; required for an RSS feed"),
+    .describe(
+      "The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name",
+    ),
 });
 
 export type IndexersNewIndexer = zod.input<typeof IndexersNewIndexer>;
@@ -2878,14 +2888,27 @@ export type IndexersStatusChanged = zod.input<typeof IndexersStatusChanged>;
 export type IndexersStatusChangedOutput = zod.output<typeof IndexersStatusChanged>;
 
 export const IndexersTracker = zod.object({
+  hosts: zod.array(zod.string()).describe("The announce hosts of its private torrents"),
   id: zod.uuid(),
   indexerIds: zod.array(zod.string()).describe("The Indexers that reach it, by name"),
+  keys: zod
+    .array(zod.string())
+    .describe(
+      "How a Release finds it: definition:<id>, prowlarr:<feed Indexer>:<source id> or named:<Indexer>",
+    ),
   name: zod.string(),
   privacy: zod.enum(["private", "semi-private", "public", "unknown"]),
 });
 
 export type IndexersTracker = zod.input<typeof IndexersTracker>;
 export type IndexersTrackerOutput = zod.output<typeof IndexersTracker>;
+
+export const IndexersTrackerChanged = zod.object({
+  trackerId: zod.uuid(),
+});
+
+export type IndexersTrackerChanged = zod.input<typeof IndexersTrackerChanged>;
+export type IndexersTrackerChangedOutput = zod.output<typeof IndexersTrackerChanged>;
 
 export const IndexersTrackerList = zod.object({
   trackers: zod.array(IndexersTracker).describe("By name"),
@@ -2978,6 +3001,13 @@ export const MakeFolderInputBody = zod.object({
 
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
+
+export const MergeTrackerInputBody = zod.object({
+  into: zod.uuid().describe("The Tracker it merges into, which is kept"),
+});
+
+export type MergeTrackerInputBody = zod.input<typeof MergeTrackerInputBody>;
+export type MergeTrackerInputBodyOutput = zod.output<typeof MergeTrackerInputBody>;
 
 export const MetadataChanged = zod.object({
   provider: zod.string().describe("The provider whose status changed"),
@@ -4054,6 +4084,15 @@ export const RehomeRootInputBody = zod.object({
 
 export type RehomeRootInputBody = zod.input<typeof RehomeRootInputBody>;
 export type RehomeRootInputBodyOutput = zod.output<typeof RehomeRootInputBody>;
+
+export const renameTrackerInputBodyNameMax = 100;
+
+export const RenameTrackerInputBody = zod.object({
+  name: zod.string().min(1).max(renameTrackerInputBodyNameMax),
+});
+
+export type RenameTrackerInputBody = zod.input<typeof RenameTrackerInputBody>;
+export type RenameTrackerInputBodyOutput = zod.output<typeof RenameTrackerInputBody>;
 
 export const ResetLinkInputBody = zod.object({
   removePasskeys: zod
@@ -6015,6 +6054,14 @@ export const LiveEventTorrentsLive = zod.object({
 export type LiveEventTorrentsLive = zod.input<typeof LiveEventTorrentsLive>;
 export type LiveEventTorrentsLiveOutput = zod.output<typeof LiveEventTorrentsLive>;
 
+export const LiveEventTrackersChanged = zod.object({
+  event: zod.enum(["trackers.changed"]),
+  data: IndexersTrackerChanged,
+});
+
+export type LiveEventTrackersChanged = zod.input<typeof LiveEventTrackersChanged>;
+export type LiveEventTrackersChangedOutput = zod.output<typeof LiveEventTrackersChanged>;
+
 export const LiveEventVolumesChanged = zod.object({
   event: zod.enum(["volumes.changed"]),
   data: RootsVolumesChanged,
@@ -6077,6 +6124,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventTasksProgress,
   LiveEventTorrentsChanged,
   LiveEventTorrentsLive,
+  LiveEventTrackersChanged,
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,

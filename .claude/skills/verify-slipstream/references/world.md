@@ -28,7 +28,7 @@ Each Node reaches each fake through its own front, a listener on `127.0.0.1` tha
 | `link/<node>` | the Node link to the Node that listens, for example `link/home` |
 | `dht` | KRPC queries to fake-dht, the Node's one DHT router. A UDP socket per Node, not a front, so fault rules don't play on it |
 
-The Indexer was entered as `https://torznab.fixture-site.fake.localhost/torznab`. Each Node's `endpoints.searching.sites` sends every host under `fixture-site.fake.localhost` to that Node's own fixture-site front, so a fault rule on `fixture-site@seedbox` plays on the seedbox's searches and one on `fixture-site@home` on the Controller's.
+The Indexer was entered as `https://torznab.fixture-site.fake.localhost/torznab`. Each Node's `endpoints.searching.sites` sends every host under `fixture-site.fake.localhost` to that Node's own fixture-site front, so a fault rule on `fixture-site@seedbox` plays on the seedbox's searches and one on `fixture-site@home` on the Controller's. A feed entered at `https://prowlarr.fixture-site.fake.localhost/torznab` lists the same Releases with each item naming the source `Fixture Source`, as Prowlarr does, so its first Grab makes that Tracker.
 
 ## Faults
 

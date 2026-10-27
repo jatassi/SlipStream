@@ -49,7 +49,7 @@ export interface IndexersNewIndexer {
   rss?: boolean;
   searches?: IndexersLimit;
   /**
-   * The Tracker an RSS feed reaches; required for an RSS feed
+   * The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name
    * @maxLength 100
    */
   trackerName?: string;

@@ -132,8 +132,8 @@ type Definition struct {
 
 // Feed is a Torznab or RSS feed.
 type Feed struct {
-	// Tracker is the Tracker name the Admin gave, for an RSS feed or a
-	// Torznab feed whose items name no source.
+	// Tracker is the name of the Tracker that a feed item naming no
+	// source reaches.
 	Tracker     string
 	AllowNoSize bool
 	// Reading is how an RSS feed's items are read, from its last passing
@@ -227,6 +227,10 @@ type StatusChanged struct {
 	IndexerID string `json:"indexerId" format:"uuid"`
 }
 
+type TrackerChanged struct {
+	TrackerID string `json:"trackerId" format:"uuid"`
+}
+
 type CatalogChanged struct {
 	RefreshedAt *time.Time `json:"refreshedAt" doc:"Null until a refresh has read the catalog"`
 }
@@ -235,6 +239,7 @@ var (
 	ChangedEvent        = live.AdminEvent[Changed]("indexers.changed")
 	StatusChangedEvent  = live.AdminEvent[StatusChanged]("indexers.status-changed")
 	CatalogChangedEvent = live.AdminEvent[CatalogChanged]("indexers.catalog-changed")
+	TrackersEvent       = live.AdminEvent[TrackerChanged]("trackers.changed")
 )
 
 type Publisher[T any] interface {
@@ -286,6 +291,9 @@ type Config struct {
 	Changed  Publisher[Changed]
 	Status   Publisher[StatusChanged]
 	Catalogs Publisher[CatalogChanged]
+	Trackers Publisher[TrackerChanged]
+	// Repoints move the rows naming a Tracker when it merges into another.
+	Repoints []Repoint
 	// HTTP reaches the Indexer catalog from the Controller.
 	HTTP      *http.Client
 	Endpoints Endpoints

@@ -88,7 +88,7 @@ func newCatalogWorld(t *testing.T) *catalogWorld {
 		HTTP:        &http.Client{Transport: sent},
 		Endpoints:   indexers.Endpoints{Catalog: endpoint.MustParseURL(f.Address.URL(catalog.Base))},
 		CatalogNext: func(context.Context) (time.Time, error) { return nextRefresh, nil },
-		Changed:     discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Catalogs: discard[indexers.CatalogChanged]{},
+		Changed:     discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Catalogs: discard[indexers.CatalogChanged]{},
 		Timings: indexers.DefaultTimings(), Zone: time.UTC, Log: slog.New(slog.DiscardHandler),
 	})
 	err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {

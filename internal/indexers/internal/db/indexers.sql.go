@@ -14,6 +14,39 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const addReach = `-- name: AddReach :execrows
+INSERT INTO indexers_reach (indexer_id, tracker_id) VALUES (?1, ?2)
+ON CONFLICT DO NOTHING
+`
+
+type AddReachParams struct {
+	IndexerID IndexerID
+	TrackerID TrackerID
+}
+
+func (q *Queries) AddReach(ctx context.Context, arg AddReachParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, addReach, arg.IndexerID, arg.TrackerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const addTrackerHost = `-- name: AddTrackerHost :exec
+INSERT INTO indexers_tracker_host (tracker_id, host) VALUES (?1, ?2)
+ON CONFLICT DO NOTHING
+`
+
+type AddTrackerHostParams struct {
+	TrackerID TrackerID
+	Host      string
+}
+
+func (q *Queries) AddTrackerHost(ctx context.Context, arg AddTrackerHostParams) error {
+	_, err := q.db.ExecContext(ctx, addTrackerHost, arg.TrackerID, arg.Host)
+	return err
+}
+
 const clearCatalog = `-- name: ClearCatalog :exec
 DELETE FROM indexers_catalog
 `
@@ -113,6 +146,15 @@ DELETE FROM indexers_session WHERE indexer_id = ?1
 
 func (q *Queries) DeleteSessions(ctx context.Context, indexerID IndexerID) error {
 	_, err := q.db.ExecContext(ctx, deleteSessions, indexerID)
+	return err
+}
+
+const deleteTracker = `-- name: DeleteTracker :exec
+DELETE FROM indexers_tracker WHERE id = ?1
+`
+
+func (q *Queries) DeleteTracker(ctx context.Context, id TrackerID) error {
+	_, err := q.db.ExecContext(ctx, deleteTracker, id)
 	return err
 }
 
@@ -299,6 +341,33 @@ func (q *Queries) GetStatus(ctx context.Context, indexerID IndexerID) (IndexersS
 	return i, err
 }
 
+const getTracker = `-- name: GetTracker :one
+SELECT id, name, privacy, created_at FROM indexers_tracker WHERE id = ?1
+`
+
+func (q *Queries) GetTracker(ctx context.Context, id TrackerID) (IndexersTracker, error) {
+	row := q.db.QueryRowContext(ctx, getTracker, id)
+	var i IndexersTracker
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Privacy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getTrackerOfKey = `-- name: GetTrackerOfKey :one
+SELECT tracker_id FROM indexers_tracker_key WHERE key = ?1
+`
+
+func (q *Queries) GetTrackerOfKey(ctx context.Context, key string) (TrackerID, error) {
+	row := q.db.QueryRowContext(ctx, getTrackerOfKey, key)
+	var tracker_id TrackerID
+	err := row.Scan(&tracker_id)
+	return tracker_id, err
+}
+
 const insertCatalogEntry = `-- name: InsertCatalogEntry :exec
 INSERT INTO indexers_catalog (id, file, sha, name, description, privacy, language, categories)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -464,6 +533,42 @@ func (q *Queries) InsertQuery(ctx context.Context, arg InsertQueryParams) error 
 		arg.Revision,
 		arg.Sha,
 	)
+	return err
+}
+
+const insertTracker = `-- name: InsertTracker :exec
+INSERT INTO indexers_tracker (id, name, privacy, created_at)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertTrackerParams struct {
+	ID        TrackerID
+	Name      string
+	Privacy   string
+	CreatedAt storage.Time
+}
+
+func (q *Queries) InsertTracker(ctx context.Context, arg InsertTrackerParams) error {
+	_, err := q.db.ExecContext(ctx, insertTracker,
+		arg.ID,
+		arg.Name,
+		arg.Privacy,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertTrackerKey = `-- name: InsertTrackerKey :exec
+INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (?1, ?2)
+`
+
+type InsertTrackerKeyParams struct {
+	Key       string
+	TrackerID TrackerID
+}
+
+func (q *Queries) InsertTrackerKey(ctx context.Context, arg InsertTrackerKeyParams) error {
+	_, err := q.db.ExecContext(ctx, insertTrackerKey, arg.Key, arg.TrackerID)
 	return err
 }
 
@@ -850,6 +955,60 @@ func (q *Queries) ListStatuses(ctx context.Context) ([]IndexersStatus, error) {
 	return items, nil
 }
 
+const listTrackerHosts = `-- name: ListTrackerHosts :many
+SELECT tracker_id, host FROM indexers_tracker_host ORDER BY host
+`
+
+func (q *Queries) ListTrackerHosts(ctx context.Context) ([]IndexersTrackerHost, error) {
+	rows, err := q.db.QueryContext(ctx, listTrackerHosts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IndexersTrackerHost
+	for rows.Next() {
+		var i IndexersTrackerHost
+		if err := rows.Scan(&i.TrackerID, &i.Host); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrackerKeys = `-- name: ListTrackerKeys :many
+SELECT key, tracker_id FROM indexers_tracker_key ORDER BY key
+`
+
+func (q *Queries) ListTrackerKeys(ctx context.Context) ([]IndexersTrackerKey, error) {
+	rows, err := q.db.QueryContext(ctx, listTrackerKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IndexersTrackerKey
+	for rows.Next() {
+		var i IndexersTrackerKey
+		if err := rows.Scan(&i.Key, &i.TrackerID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTrackers = `-- name: ListTrackers :many
 SELECT id, name, privacy, created_at FROM indexers_tracker ORDER BY name
 `
@@ -913,6 +1072,52 @@ func (q *Queries) MovePin(ctx context.Context, arg MovePinParams) (int64, error)
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const moveReach = `-- name: MoveReach :exec
+INSERT INTO indexers_reach (indexer_id, tracker_id)
+SELECT r.indexer_id, ?1 FROM indexers_reach AS r WHERE r.tracker_id = ?2
+ON CONFLICT DO NOTHING
+`
+
+type MoveReachParams struct {
+	IntoID TrackerID
+	FromID TrackerID
+}
+
+func (q *Queries) MoveReach(ctx context.Context, arg MoveReachParams) error {
+	_, err := q.db.ExecContext(ctx, moveReach, arg.IntoID, arg.FromID)
+	return err
+}
+
+const moveTrackerHosts = `-- name: MoveTrackerHosts :exec
+INSERT INTO indexers_tracker_host (tracker_id, host)
+SELECT ?1, h.host FROM indexers_tracker_host AS h WHERE h.tracker_id = ?2
+ON CONFLICT DO NOTHING
+`
+
+type MoveTrackerHostsParams struct {
+	IntoID TrackerID
+	FromID TrackerID
+}
+
+func (q *Queries) MoveTrackerHosts(ctx context.Context, arg MoveTrackerHostsParams) error {
+	_, err := q.db.ExecContext(ctx, moveTrackerHosts, arg.IntoID, arg.FromID)
+	return err
+}
+
+const moveTrackerKeys = `-- name: MoveTrackerKeys :exec
+UPDATE indexers_tracker_key SET tracker_id = ?1 WHERE tracker_id = ?2
+`
+
+type MoveTrackerKeysParams struct {
+	IntoID TrackerID
+	FromID TrackerID
+}
+
+func (q *Queries) MoveTrackerKeys(ctx context.Context, arg MoveTrackerKeysParams) error {
+	_, err := q.db.ExecContext(ctx, moveTrackerKeys, arg.IntoID, arg.FromID)
+	return err
 }
 
 const nameTaken = `-- name: NameTaken :one
@@ -1047,6 +1252,23 @@ func (q *Queries) Rehome(ctx context.Context, arg RehomeParams) error {
 	return err
 }
 
+const renameTracker = `-- name: RenameTracker :execrows
+UPDATE indexers_tracker SET name = ?1 WHERE id = ?2
+`
+
+type RenameTrackerParams struct {
+	Name string
+	ID   TrackerID
+}
+
+func (q *Queries) RenameTracker(ctx context.Context, arg RenameTrackerParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, renameTracker, arg.Name, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const reservedOfSince = `-- name: ReservedOfSince :many
 SELECT reserved_at FROM indexers_query
 WHERE indexer_id = ?1 AND reserved_at > ?2 AND use IN (/*SLICE:uses*/?)
@@ -1173,6 +1395,36 @@ UPDATE indexers_settings SET long_backoff_seconds = ?1
 func (q *Queries) SetLongBackoff(ctx context.Context, longBackoffSeconds *int64) error {
 	_, err := q.db.ExecContext(ctx, setLongBackoff, longBackoffSeconds)
 	return err
+}
+
+const setUnknownPrivacy = `-- name: SetUnknownPrivacy :exec
+UPDATE indexers_tracker SET privacy = ?1 WHERE id = ?2 AND privacy = 'unknown'
+`
+
+type SetUnknownPrivacyParams struct {
+	Privacy string
+	ID      TrackerID
+}
+
+func (q *Queries) SetUnknownPrivacy(ctx context.Context, arg SetUnknownPrivacyParams) error {
+	_, err := q.db.ExecContext(ctx, setUnknownPrivacy, arg.Privacy, arg.ID)
+	return err
+}
+
+const trackerNameTaken = `-- name: TrackerNameTaken :one
+SELECT EXISTS (SELECT 1 FROM indexers_tracker WHERE name = ?1 AND id IS NOT ?2)
+`
+
+type TrackerNameTakenParams struct {
+	Name   string
+	Except TrackerID
+}
+
+func (q *Queries) TrackerNameTaken(ctx context.Context, arg TrackerNameTakenParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, trackerNameTaken, arg.Name, arg.Except)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const updateIndexer = `-- name: UpdateIndexer :execrows

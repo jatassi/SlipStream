@@ -1,8 +1,9 @@
 -- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size,
     release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor,
     upload_factor, stage, created_at, updated_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), 'search', sqlc.arg(indexer_id), sqlc.arg(node_id),
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), 'search', sqlc.arg(indexer_id), sqlc.arg(tracker_id),
+    sqlc.arg(node_id),
     sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
     sqlc.narg(release_info_hash), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
     sqlc.arg(download_factor), sqlc.arg(upload_factor), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
@@ -156,3 +157,6 @@ UPDATE grabs_grab SET root_id = NULL WHERE root_id = sqlc.arg(root_id) AND stage
 UPDATE grabs_grab SET metadata_started_at = coalesce(metadata_started_at, sqlc.arg(at))
 WHERE id = sqlc.arg(id) AND stage = 'fetching'
 RETURNING metadata_started_at;
+
+-- name: RepointTracker :exec
+UPDATE grabs_grab SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);

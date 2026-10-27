@@ -77,7 +77,7 @@ func searchOn(t *testing.T, n *slowNode) (indexers.Answer, *storage.DB[storage.L
 		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home),
 		Searching: func(role.NodeID) searching.Remote { return n },
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}},
-		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{},
+		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		Timings: indexers.Timings{Job: 2 * time.Minute, Poll: time.Second, Limited: time.Minute, Ladder: []time.Duration{time.Minute}},
 		Log:     slog.New(slog.DiscardHandler),
 	})

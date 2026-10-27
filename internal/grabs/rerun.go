@@ -35,6 +35,16 @@ type keptRelease struct {
 	UploadFactor   float64           `json:"uploadFactor"`
 	MinRatio       float64           `json:"minRatio,omitempty"`
 	MinSeedSeconds int64             `json:"minSeedSeconds,omitempty"`
+	Source         *keptSource       `json:"source,omitempty"`
+}
+
+// keptSource is the site a Torznab feed said the Release came from, which
+// picks its Tracker when a rerun takes it.
+type keptSource struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Privacy string `json:"privacy"`
+	Origin  string `json:"origin"`
 }
 
 // keep stores c in run's kept Releases, at its position in the run.
@@ -46,6 +56,9 @@ func (gr *Grabs) keep(ctx context.Context, q *db.Queries, run SearchID, c candid
 	}
 	if r.InfoHash != nil {
 		k.InfoHash = r.InfoHash.String()
+	}
+	if s := r.Source; s != nil {
+		k.Source = &keptSource{ID: s.ID, Name: s.Name, Privacy: s.Privacy, Origin: s.Origin}
 	}
 	b, err := json.Marshal(k)
 	if err != nil {
@@ -78,6 +91,9 @@ func (gr *Grabs) kept(row db.GrabsRelease) (indexers.Release, error) {
 			return indexers.Release{}, fmt.Errorf("search %s: kept Release %d: %w", row.SearchID, row.Position, err)
 		}
 		r.InfoHash = &h
+	}
+	if s := k.Source; s != nil {
+		r.Source = &searching.Source{ID: s.ID, Name: s.Name, Privacy: s.Privacy, Origin: s.Origin}
 	}
 	if link := searching.LinkOf(string(raw)); link.IsMagnet() {
 		r.Magnet = link

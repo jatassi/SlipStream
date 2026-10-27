@@ -14,6 +14,7 @@ const fetched: GrabsGrab = {
   quality: "webdl-1080p",
   releaseSize: 734_003_200,
   indexerId,
+  trackerId: null,
   nodeId: "4a6c8e0f-2b4d-4f6a-8c0e-2a4c6e8f0b1d",
   fetchNodeId: null,
   torrentId: "3e5a7c9b-1d3f-4a5c-8e7a-9c1b3d5f7a9c",
