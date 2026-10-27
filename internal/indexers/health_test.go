@@ -86,8 +86,9 @@ func newHealthWorld(t *testing.T) *healthWorld {
 		Searching: func(role.NodeID) searching.Remote { return w.site },
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}},
 		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Settings: discard[indexers.SettingsChanged]{},
-		Timings: indexers.Timings{Job: 2 * time.Minute, Poll: time.Second, Limited: time.Minute, Ladder: []time.Duration{time.Minute, time.Hour}},
-		Zone:    time.UTC, Log: slog.New(slog.DiscardHandler),
+		Trackers: discard[indexers.TrackerChanged]{},
+		Timings:  indexers.Timings{Job: 2 * time.Minute, Poll: time.Second, Limited: time.Minute, Ladder: []time.Duration{time.Minute, time.Hour}},
+		Zone:     time.UTC, Log: slog.New(slog.DiscardHandler),
 	})
 	return w
 }
@@ -304,5 +305,44 @@ func TestTheHealthCheckOfAFeedItCantUseSucceedsAndItsTestSaysWhy(t *testing.T) {
 	var refused *indexers.FeedRefusedError
 	if want := "Some items repeat the same GUID."; !errors.As(err, &refused) || refused.Sentence != want {
 		t.Errorf("Test of a feed SlipStream can't use = %v, want %q", err, want)
+	}
+}
+
+func TestAnIndexerWithAPastedCookieWaitingOnALapsedHomeWarnsUntilItAllowsFailover(t *testing.T) {
+	w := newHealthWorld(t)
+	v, err := w.x.Create(t.Context(), identity.Admin{}, indexers.Draft{
+		Kind: indexers.RSS, Name: "Brook", Home: w.box, On: true, Address: "https://brook.test/rss", Media: []works.TypeID{indexerstest.Type},
+		Cookie: &indexers.PastedCookie{Cookie: "uid=1; pass=2", UserAgent: "Firefox"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.SignsIn {
+		t.Fatalf("an RSS feed added with a pasted cookie = %+v, want it to hold a login session", v)
+	}
+	since := time.Date(2026, 10, 27, 8, 0, 0, 0, time.UTC)
+	w.roster.Absent[w.box] = nodes.Absence{Since: since}
+	if a := w.answer(t); len(a.Items) != 0 {
+		t.Fatalf("Health inside seedbox's grace = %+v, want nothing", a.Items)
+	}
+
+	w.roster.Absent[w.box] = nodes.Absence{Since: since, Lapsed: true}
+	a := w.answer(t)
+	want := "Brook is waiting for seedbox, which has been offline since 08:00. Allow failover to search from another Node."
+	if len(a.Items) != 1 {
+		t.Fatalf("Health past seedbox's grace = %+v, want one Warn for Brook and nothing for the Torznab Fixture Site, which moves to home", a.Items)
+	}
+	it := a.Items[0]
+	if it.Key != health.KeyOf("waiting", v.ID.String()) || it.Level != health.Warn || it.Subject != "Brook" || it.Text != want ||
+		it.Action.Href() != "/settings/indexers/"+v.ID.String()+"#allow-failover" {
+		t.Errorf("the waiting item = %+v, want a Warn %q linking to Allow failover", it, want)
+	}
+
+	allow := true
+	if _, err := w.x.Update(t.Context(), identity.Admin{}, v.ID, indexers.Edit{AllowFailover: &allow}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if a := w.answer(t); len(a.Items) != 0 {
+		t.Errorf("Health once Brook allows failover = %+v, want nothing", a.Items)
 	}
 }

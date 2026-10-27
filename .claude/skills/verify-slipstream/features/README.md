@@ -7,7 +7,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
 - The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
-- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, `serving` is `home` with Serving on seedbox too, `movies` is `home` with a full movie record and OMDb's ratings to read, `low-space` is one Controller whose volume is below both Storage levels, and `catalog-sites` is one Controller that searches catalog Indexers, with Quarry added at setup.
+- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, `serving` is `home` with Serving on seedbox too, `movies` is `home` with a full movie record and OMDb's ratings to read, `low-space` is one Controller whose volume is below both Storage levels, `catalog-sites` is one Controller that searches catalog Indexers, with Quarry added at setup, and `indexers` is home and seedbox both holding Searching, with Quarry, Larkspur, Marsh and Cinder homed on seedbox and a Torznab and an RSS feed on home.
 
 ## Conventions
 

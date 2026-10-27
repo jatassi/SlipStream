@@ -75,7 +75,19 @@ func (as *attempts) take(id string, like attempt) (attempt, bool) {
 	defer as.mu.Unlock()
 	a, ok := as.byID[id]
 	delete(as.byID, id)
-	return a, ok && time.Now().Before(a.expires) && a.node == like.node && a.definition == like.definition && a.username == like.username
+	return a, ok && time.Now().Before(a.expires) && a.sameSignIn(like)
+}
+
+// sameSignIn reports whether a was shown for the same sign-in as like.
+func (a attempt) sameSignIn(like attempt) bool {
+	return a.node == like.node && a.definition == like.definition && a.username == like.username
+}
+
+// discard removes every attempt shown for a sign-in like like.
+func (as *attempts) discard(like attempt) {
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	maps.DeleteFunc(as.byID, func(_ string, a attempt) bool { return a.sameSignIn(like) })
 }
 
 // signInOf is the sign-in a captcha of idx on node is for.
