@@ -10,7 +10,7 @@ import (
 )
 
 // SearchingOwner counts the Indexers homed on a Node, the work that moves
-// to another Searching Node when it lets Searching go.
+// to another Searching Node when it lets Searching go or is written off.
 var SearchingOwner = nodes.Owner{Role: role.Searching, Held: homedOn, Unassigned: rehome}
 
 func homedOn(ctx context.Context, r storage.Reader[file], node role.NodeID) (nodes.Held, error) {
@@ -18,6 +18,13 @@ func homedOn(ctx context.Context, r storage.Reader[file], node role.NodeID) (nod
 	return nodes.Held{Units: n, Noun: nodes.Noun{One: "Indexer", Many: "Indexers"}}, err
 }
 
+// rehome moves every Indexer homed on node to heir, the default home, and
+// deletes node's sessions, since a session holds only on the Node that
+// earned it.
 func rehome(ctx context.Context, tx *storage.Tx[file], node, heir role.NodeID) error {
-	return db.New(tx).Rehome(ctx, db.RehomeParams{Heir: heir, HomeNodeID: node})
+	q := db.New(tx)
+	if err := q.Rehome(ctx, db.RehomeParams{Heir: heir, HomeNodeID: node}); err != nil {
+		return err
+	}
+	return q.DeleteSessionsOn(ctx, node)
 }

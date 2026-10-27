@@ -154,7 +154,9 @@ func (x *Indexers) TestDraft(ctx context.Context, _ identity.Admin, d Draft, c *
 
 // Update saves e in one Write that bumps the revision, running the Test
 // first, with c when the Admin answered a captcha, when e changes a field
-// the Test reads. It fails as Create does, and with ErrNoIndexer.
+// the Test reads. Moving the Indexer or changing its username discards
+// the captchas shown for its old sign-in. It fails as Create does, and
+// with ErrNoIndexer.
 func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit, c *CaptchaAnswer) (View, error) {
 	idx, err := Get(ctx, x.cfg.Library, id)
 	if err != nil {
@@ -165,6 +167,7 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit,
 			return View{}, err
 		}
 	}
+	was := idx
 	if idx, err = x.edited(ctx, idx, e); err != nil {
 		return View{}, err
 	}
@@ -211,6 +214,9 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit,
 	})
 	if err != nil {
 		return View{}, err
+	}
+	if before := signInOf(was, was.Home); !before.sameSignIn(signInOf(idx, idx.Home)) {
+		x.attempts.discard(before)
 	}
 	x.saved(ctx, id)
 	return x.Get(ctx, by, id)
@@ -259,6 +265,7 @@ func (x *Indexers) edited(ctx context.Context, idx Indexer, e Edit) (Indexer, er
 		set(&f.AllowNoSize, e.AllowNoSize)
 		idx.Source = f
 	}
+	idx.Pasted = idx.Pasted || e.Cookie != nil
 	idx.Revision++
 	return idx, checkMedia(idx, x.cfg.Types)
 }

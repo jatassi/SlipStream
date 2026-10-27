@@ -26,12 +26,14 @@ UPDATE indexers_indexer SET
 WHERE id = sqlc.arg(id);
 
 -- name: ListIndexers :many
-SELECT sqlc.embed(i), d.summary AS definition_summary
+SELECT sqlc.embed(i), d.summary AS definition_summary,
+    EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 ORDER BY i.name;
 
 -- name: GetIndexer :one
-SELECT sqlc.embed(i), d.summary AS definition_summary
+SELECT sqlc.embed(i), d.summary AS definition_summary,
+    EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 WHERE i.id = sqlc.arg(id);
 
@@ -74,8 +76,18 @@ SELECT * FROM indexers_session WHERE indexer_id = sqlc.arg(indexer_id) AND node_
 -- name: ListSessions :many
 SELECT indexer_id, node_id, pasted, earned_at FROM indexers_session ORDER BY indexer_id, earned_at DESC;
 
--- name: DeleteSessions :exec
-DELETE FROM indexers_session WHERE indexer_id = sqlc.arg(indexer_id);
+-- name: DeleteSessionsOn :exec
+DELETE FROM indexers_session WHERE node_id = sqlc.arg(node_id);
+
+-- name: ListSessionNodes :many
+SELECT DISTINCT node_id FROM indexers_session ORDER BY node_id;
+
+-- name: PruneQueries :execrows
+DELETE FROM indexers_query WHERE reserved_at < sqlc.arg(before);
+
+-- name: LoseUnanswered :execrows
+UPDATE indexers_query SET completed_at = sqlc.arg(now), outcome = 'lost'
+WHERE completed_at IS NULL AND reserved_at < sqlc.arg(before);
 
 -- name: InsertQuery :exec
 INSERT INTO indexers_query (id, indexer_id, use, reserved_at, revision, sha)

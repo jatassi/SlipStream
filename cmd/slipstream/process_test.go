@@ -577,6 +577,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.indexers.package_share", Value: "25", Default: "25", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_PACKAGE_SHARE"},
 			{Key: "timings.indexers.catalog_request", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_CATALOG_REQUEST"},
 			{Key: "timings.indexers.captcha", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_CAPTCHA"},
+			{Key: "timings.indexers.keep_queries", Value: "720h0m0s", Default: "720h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_KEEP_QUERIES"},
+			{Key: "timings.indexers.unanswered", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_UNANSWERED"},
 			{Key: "timings.searching.request", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_REQUEST"},
 			{Key: "timings.searching.floor", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_FLOOR"},
 			{Key: "timings.searching.hold", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_HOLD"},
