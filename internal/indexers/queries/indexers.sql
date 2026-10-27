@@ -22,7 +22,7 @@ UPDATE indexers_indexer SET
     search_window = sqlc.arg(search_window), grab_limit = sqlc.arg(grab_limit), grab_window = sqlc.arg(grab_window),
     base_address = sqlc.narg(base_address), plain = sqlc.arg(plain), secrets_sealed = sqlc.arg(secrets_sealed),
     feed_host = sqlc.narg(feed_host), tracker_name = sqlc.narg(tracker_name), allow_no_size = sqlc.arg(allow_no_size),
-    caps = sqlc.arg(caps), revision = sqlc.arg(revision), updated_at = sqlc.arg(updated_at)
+    rss_reading = sqlc.narg(rss_reading), caps = sqlc.arg(caps), revision = sqlc.arg(revision), updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id);
 
 -- name: ListIndexers :many

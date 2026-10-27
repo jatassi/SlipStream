@@ -48,6 +48,10 @@ func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, n
 		ID: q.String(), Indexer: idx.ID.String(), Revision: idx.Revision, Kind: kindOnWire[idx.Kind], Address: secrets.Address,
 		APIKey: secrets.APIKey, Session: session, Call: c,
 	}
+	if f, ok := idx.Source.(Feed); ok {
+		w.RSS = f.Reading
+		w.RSS.AllowNoSize = f.AllowNoSize
+	}
 	if d, ok := idx.Source.(Definition); ok {
 		w.Address = d.BaseAddress
 		w.Settings = map[string]string{}

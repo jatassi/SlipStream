@@ -148,7 +148,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 		sentence = "Fixture Site is off."
 	}
 	return `{"id":"id1","name":"Fixture Site","kind":"torznab","homeNodeId":"id2",` + switches + `,"priority":` + strconv.Itoa(priority) +
-		`,"categories":` + categories + `,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
+		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
 		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":[],` +
 		`"waits":null,"session":null,"feedHost":"` + feedHost + `",` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
@@ -194,7 +194,7 @@ func TestEachCreateErrorAnswersItsProblem(t *testing.T) {
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.site.Address.URL("/elsewhere"), s.key), http.StatusUnprocessableEntity,
 		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site failed the Test with 'the Indexer responded with status 404'. Check the address and test again."}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body("ftp://example.test/torznab", "k"), http.StatusUnprocessableEntity,
-		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.address","message":"expected string to match pattern ^https?://[^/?#]+(/[^?#]*)?$"}]}`)
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.address","message":"expected string to match pattern ^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$"}]}`)
 	s.create(t)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.address(), s.key), http.StatusConflict,
 		`{"status":409,"code":"indexer_name_taken","title":"Another Indexer has that name"}`)

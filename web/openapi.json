@@ -4298,6 +4298,10 @@
             "description": "Read only for an Indexer that signs in",
             "type": "boolean"
           },
+          "allowNoSize": {
+            "description": "An RSS feed whose items may have no size",
+            "type": "boolean"
+          },
           "automaticSearch": {
             "type": "boolean"
           },
@@ -4349,6 +4353,16 @@
               "rss"
             ],
             "type": "string"
+          },
+          "media": {
+            "description": "The Content Types an RSS feed carries; null for every other kind",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "name": {
             "type": "string"
@@ -4433,6 +4447,8 @@
           "allowFailover",
           "priority",
           "categories",
+          "media",
+          "allowNoSize",
           "searches",
           "grabs",
           "status",
@@ -4506,7 +4522,7 @@
           "address": {
             "description": "Write-only",
             "maxLength": 2048,
-            "pattern": "^https?://[^/?#]+(/[^?#]*)?$",
+            "pattern": "^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$",
             "type": "string"
           },
           "allowFailover": {
@@ -4515,6 +4531,10 @@
               "boolean",
               "null"
             ]
+          },
+          "allowNoSize": {
+            "description": "An RSS feed's",
+            "type": "boolean"
           },
           "apiKey": {
             "description": "Write-only",
@@ -4539,6 +4559,10 @@
               "null"
             ]
           },
+          "cookie": {
+            "$ref": "#/components/schemas/IndexersPastedCookie",
+            "description": "A new browser cookie for an RSS feed. Write-only"
+          },
           "grabs": {
             "anyOf": [
               {
@@ -4554,6 +4578,13 @@
             "description": "A Node that holds Searching",
             "format": "uuid",
             "type": "string"
+          },
+          "media": {
+            "description": "An RSS feed's Content Types",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "name": {
             "maxLength": 100,
@@ -4682,16 +4713,20 @@
         "additionalProperties": false,
         "properties": {
           "address": {
-            "description": "The Torznab feed's base; SlipStream adds /api. Write-only",
+            "description": "A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address. Write-only",
             "maxLength": 2048,
-            "pattern": "^https?://[^/?#]+(/[^?#]*)?$",
+            "pattern": "^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$",
             "type": "string"
           },
           "allowFailover": {
             "type": "boolean"
           },
+          "allowNoSize": {
+            "description": "Use an RSS feed whose items have no size",
+            "type": "boolean"
+          },
           "apiKey": {
-            "description": "Write-only",
+            "description": "A Torznab feed's. Write-only",
             "maxLength": 256,
             "type": "string"
           },
@@ -4710,6 +4745,10 @@
               "null"
             ]
           },
+          "cookie": {
+            "$ref": "#/components/schemas/IndexersPastedCookie",
+            "description": "A browser cookie for an RSS feed that needs one. Write-only"
+          },
           "grabs": {
             "$ref": "#/components/schemas/IndexersLimit"
           },
@@ -4721,9 +4760,20 @@
           "kind": {
             "description": "The kinds SlipStream can add so far",
             "enum": [
-              "torznab"
+              "torznab",
+              "rss"
             ],
             "type": "string"
+          },
+          "media": {
+            "description": "The Content Types an RSS feed carries, in place of categories; required for an RSS feed",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "name": {
             "maxLength": 100,
@@ -4747,13 +4797,17 @@
           },
           "searches": {
             "$ref": "#/components/schemas/IndexersLimit"
+          },
+          "trackerName": {
+            "description": "The Tracker an RSS feed reaches; required for an RSS feed",
+            "maxLength": 100,
+            "type": "string"
           }
         },
         "required": [
           "kind",
           "name",
-          "address",
-          "apiKey"
+          "address"
         ],
         "type": "object"
       },
@@ -4848,6 +4902,26 @@
           "lapsed",
           "cause",
           "text"
+        ],
+        "type": "object"
+      },
+      "IndexersPastedCookie": {
+        "additionalProperties": false,
+        "properties": {
+          "cookie": {
+            "description": "The Cookie header's value from a signed-in browser: name=value pairs separated by semicolons",
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "userAgent": {
+            "description": "The User-Agent of that browser, sent with the cookie",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "required": [
+          "cookie"
         ],
         "type": "object"
       },

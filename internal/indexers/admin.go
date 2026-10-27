@@ -15,16 +15,27 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Draft is a Torznab feed as an Admin enters it.
+// Draft is a Torznab or RSS feed as an Admin enters it.
 type Draft struct {
+	// Kind is Torznab when empty.
+	Kind Kind
 	Name string
 	// Home is zero for the default home.
 	Home role.NodeID
-	// Address is the feed's base, to which the Node adds /api.
-	Address       string
-	APIKey        string
+	// Address is a Torznab feed's base, to which the Node adds /api, or an
+	// RSS feed's whole address.
+	Address string
+	APIKey  string
+	// Tracker names the Tracker an RSS feed reaches.
+	Tracker string
+	// Media is the Content Types an RSS feed carries.
+	Media       []works.TypeID
+	AllowNoSize bool
+	// Cookie is an RSS feed's, nil for none.
+	Cookie        *PastedCookie
 	On            bool
 	AutoSearch    bool
 	RSS           bool
@@ -45,10 +56,15 @@ type Edit struct {
 	Priority                           *int
 	Categories                         *[]newznab.ID
 	Searches, Grabs                    *Limit
+	Media                              *[]works.TypeID
+	AllowNoSize                        *bool
+	Cookie                             *PastedCookie
 }
 
 // tested reports whether e changes a field the Test reads.
-func (e Edit) tested() bool { return e.Home != nil || e.Address != nil || e.APIKey != nil }
+func (e Edit) tested() bool {
+	return e.Home != nil || e.Address != nil || e.APIKey != nil || e.AllowNoSize != nil || e.Cookie != nil
+}
 
 // Report is what a passing Test learned.
 type Report struct {
@@ -74,17 +90,26 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View
 	}
 	created := storage.Now()
 	idx := Indexer{
-		ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Kind: Torznab, Home: home, On: d.On, AutoSearch: d.AutoSearch, RSS: d.RSS,
-		AllowFailover: d.AllowFailover, Priority: cmp.Or(d.Priority, DefaultPriority), Categories: d.Categories, Searches: d.Searches, Grabs: d.Grabs,
-		Source: Feed{}, FeedHost: hostOf(d.Address), Revision: 1, Created: created.Time(),
+		ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Kind: cmp.Or(d.Kind, Torznab), Home: home, On: d.On, AutoSearch: d.AutoSearch, RSS: d.RSS,
+		AllowFailover: d.AllowFailover, Priority: cmp.Or(d.Priority, DefaultPriority), Categories: d.Categories, Media: d.Media,
+		Searches: d.Searches, Grabs: d.Grabs, Source: Feed{Tracker: d.Tracker, AllowNoSize: d.AllowNoSize}, FeedHost: hostOf(d.Address),
+		Revision: 1, Created: created.Time(),
+	}
+	if err := checkMedia(idx, x.cfg.MediaTypes); err != nil {
+		return View{}, err
+	}
+	session, err := pasted(d.Cookie, idx)
+	if err != nil {
+		return View{}, err
 	}
 	if idx.Secrets, err = x.seal(idx.ID, Secrets{Address: d.Address, APIKey: d.APIKey}); err != nil {
 		return View{}, err
 	}
-	q, node, a, err := x.test(ctx, idx)
+	q, node, a, err := x.test(ctx, idx, session)
 	if err != nil {
 		return View{}, err
 	}
+	idx = read(idx, a)
 	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		if err := x.nameFree(ctx, tx, idx.Name, ID{}); err != nil {
 			return err
@@ -95,6 +120,11 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft) (View
 		}
 		if err := db.New(tx).InsertIndexer(ctx, p); err != nil {
 			return err
+		}
+		if session != nil {
+			if err := x.offer(ctx, tx, idx.ID, node, *session); err != nil {
+				return err
+			}
 		}
 		return x.recordTest(ctx, tx, q, node, idx, a, created)
 	})
@@ -111,11 +141,21 @@ func (x *Indexers) TestDraft(ctx context.Context, _ identity.Admin, d Draft) (Re
 	if err != nil {
 		return Report{}, err
 	}
-	idx := Indexer{ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Kind: Torznab, Home: home, AllowFailover: d.AllowFailover, Source: Feed{}, Revision: 1}
+	idx := Indexer{
+		ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Kind: cmp.Or(d.Kind, Torznab), Home: home, AllowFailover: d.AllowFailover, Media: d.Media,
+		Source: Feed{Tracker: d.Tracker, AllowNoSize: d.AllowNoSize}, FeedHost: hostOf(d.Address), Revision: 1,
+	}
+	if err := checkMedia(idx, x.cfg.MediaTypes); err != nil {
+		return Report{}, err
+	}
+	session, err := pasted(d.Cookie, idx)
+	if err != nil {
+		return Report{}, err
+	}
 	if idx.Secrets, err = x.seal(idx.ID, Secrets{Address: d.Address, APIKey: d.APIKey}); err != nil {
 		return Report{}, err
 	}
-	_, _, a, err := x.test(ctx, idx)
+	_, _, a, err := x.test(ctx, idx, session)
 	if err != nil {
 		return Report{}, err
 	}
@@ -138,13 +178,21 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit)
 	if idx, err = x.edited(idx, e); err != nil {
 		return View{}, err
 	}
+	if err := checkMedia(idx, x.cfg.MediaTypes); err != nil {
+		return View{}, err
+	}
+	session, err := pasted(e.Cookie, idx)
+	if err != nil {
+		return View{}, err
+	}
 	var q QueryID
 	var node role.NodeID
 	var a searching.Answer
 	if e.tested() {
-		if q, node, a, err = x.test(ctx, idx); err != nil {
+		if q, node, a, err = x.test(ctx, idx, session); err != nil {
 			return View{}, err
 		}
+		idx = read(idx, a)
 	}
 	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		if e.Name != nil {
@@ -161,7 +209,7 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit)
 			Name: p.Name, HomeNodeID: p.HomeNodeID, IsOn: p.IsOn, AutoSearch: p.AutoSearch, Rss: p.Rss, AllowFailover: p.AllowFailover,
 			Priority: p.Priority, Categories: p.Categories, Media: p.Media, SearchLimit: p.SearchLimit, SearchWindow: p.SearchWindow,
 			GrabLimit: p.GrabLimit, GrabWindow: p.GrabWindow, BaseAddress: p.BaseAddress, Plain: p.Plain, SecretsSealed: p.SecretsSealed,
-			FeedHost: p.FeedHost, TrackerName: p.TrackerName, AllowNoSize: p.AllowNoSize, Caps: p.Caps, Revision: p.Revision,
+			FeedHost: p.FeedHost, TrackerName: p.TrackerName, AllowNoSize: p.AllowNoSize, RssReading: p.RssReading, Caps: p.Caps, Revision: p.Revision,
 			UpdatedAt: now, ID: id,
 		})
 		switch {
@@ -171,6 +219,10 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit)
 			return ErrNoIndexer
 		case !e.tested():
 			return nil
+		case session != nil:
+			if err := x.offer(ctx, tx, id, node, *session); err != nil {
+				return err
+			}
 		}
 		return x.recordTest(ctx, tx, q, node, idx, a, now)
 	})
@@ -213,6 +265,11 @@ func (x *Indexers) edited(idx Indexer, e Edit) (Indexer, error) {
 	set(&idx.Categories, e.Categories)
 	set(&idx.Searches, e.Searches)
 	set(&idx.Grabs, e.Grabs)
+	set(&idx.Media, e.Media)
+	if f, ok := idx.Source.(Feed); ok {
+		set(&f.AllowNoSize, e.AllowNoSize)
+		idx.Source = f
+	}
 	idx.Revision++
 	return idx, nil
 }
@@ -253,9 +310,10 @@ func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID) (Report, e
 }
 
 // test runs idx's Test, unsaved or at its next revision, on the Node it
-// will search from, and returns the job's query id and the answer once it
-// passed. Nothing is recorded: the caller saves the answer with the edit.
-func (x *Indexers) test(ctx context.Context, idx Indexer) (QueryID, role.NodeID, searching.Answer, error) {
+// will search from, with session in place of its stored one unless nil,
+// and returns the job's query id and the answer once it passed. Nothing
+// is recorded: the caller saves the answer with the edit.
+func (x *Indexers) test(ctx context.Context, idx Indexer, session *searching.Session) (QueryID, role.NodeID, searching.Answer, error) {
 	node, wait := route(x.cfg.Roster, idx, Status{State: OK})
 	if wait != nil {
 		return QueryID{}, role.NodeID{}, searching.Answer{}, &WaitError{Outcome: *wait}
@@ -265,12 +323,18 @@ func (x *Indexers) test(ctx context.Context, idx Indexer) (QueryID, role.NodeID,
 	if err != nil {
 		return QueryID{}, role.NodeID{}, searching.Answer{}, err
 	}
+	if session != nil {
+		j.wire.Session = session
+	}
 	a, err := x.ask(ctx, j)
 	if err != nil {
 		return QueryID{}, role.NodeID{}, searching.Answer{}, err
 	}
 	if a.Outcome != nil {
 		return QueryID{}, role.NodeID{}, searching.Answer{}, x.testFailed(idx, node, a, Status{})
+	}
+	if err := refused(a); err != nil {
+		return QueryID{}, role.NodeID{}, searching.Answer{}, err
 	}
 	return q, node, a, nil
 }

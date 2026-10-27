@@ -26,7 +26,7 @@ func TestHomeSeedsTheFixtureSiteIndexerOnTheSeedbox(t *testing.T) {
 	decode(t, "listIndexers", reply, &listed)
 	ix := listed.Indexers[0]
 	worldtest.Expect(t, "listIndexers", reply, worldtest.Reply{Status: 200, Body: `{"indexers":[{"id":"` + ix.ID + `","name":"Fixture Site","kind":"torznab",` +
-		`"homeNodeId":"` + m.Nodes[1].NodeID + `","on":true,"automaticSearch":true,"rss":true,"allowFailover":false,"priority":25,"categories":null,` +
+		`"homeNodeId":"` + m.Nodes[1].NodeID + `","on":true,"automaticSearch":true,"rss":true,"allowFailover":false,"priority":25,"categories":null,"media":null,"allowNoSize":false,` +
 		`"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"` + ix.Status.SuccessAt + `"},` +
 		`"sentence":"Fixture Site is working.","fix":null,"signsIn":false,"trackerIds":[],"waits":null,"session":null,"feedHost":"` + site.Host("torznab") + `",` +

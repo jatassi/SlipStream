@@ -32,6 +32,8 @@ export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "
     allowFailover: false,
     priority: 25,
     categories: null,
+    media: null,
+    allowNoSize: false,
     searches: unlimited,
     grabs: unlimited,
     status: okStatus,
