@@ -390,8 +390,9 @@ func (s *Scheduler) status(l look, t Task, units []Unit, next time.Time) Status 
 	for _, a := range s.running {
 		if a.run.task.ID == t.ID {
 			done, total := a.progress.now()
+			running := Running{Run: a.run.id, Trigger: a.run.trigger, Since: a.run.started.Time(), Done: done, Total: total}
 			s.mu.Unlock()
-			return Running{Run: a.run.id, Trigger: a.run.trigger, Since: a.run.started.Time(), Done: done, Total: total}
+			return running
 		}
 	}
 	s.mu.Unlock()
