@@ -256,7 +256,7 @@ func (catalogDriver) drive(ctx context.Context, s *Site, x cardigann.Exchange, j
 		if err != nil {
 			return false, cur, err
 		}
-		if signedOut && !toMagnet(res) && s.def.LoggedOut(res) {
+		if signedOut && readsSignedOut(s.def, req, res) {
 			return true, cur, nil
 		}
 		if x.Feed(res) != nil {
@@ -265,10 +265,18 @@ func (catalogDriver) drive(ctx context.Context, s *Site, x cardigann.Exchange, j
 	}
 }
 
-// toMagnet reports whether r redirects to a magnet link, which a download
-// reads and which never means the site signed SlipStream out.
-func toMagnet(r cardigann.Response) bool {
-	return strings.HasPrefix(strings.ToLower(r.Header.Get("Location")), "magnet:")
+// readsSignedOut reports whether res reads as the site having signed
+// SlipStream out. A redirect to a magnet link never does. Nor does a page
+// a download reads, since its selectors try links that may answer any
+// page in place of a .torrent.
+func readsSignedOut(def *cardigann.Definition, req cardigann.Request, res cardigann.Response) bool {
+	switch {
+	case strings.HasPrefix(strings.ToLower(res.Header.Get("Location")), "magnet:"):
+		return false
+	case req.Purpose == cardigann.ForDownload && res.Status == http.StatusOK:
+		return false
+	}
+	return def.LoggedOut(res)
 }
 
 // exchange sends a Cardigann request with j's cookies and hands back its
