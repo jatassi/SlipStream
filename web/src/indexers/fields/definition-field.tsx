@@ -46,7 +46,7 @@ export function SolverHint({
       {name} is behind a browser challenge. {home.name} needs a Challenge solver to get past it, or
       a cookie pasted from a browser on the same network.{" "}
       <Link
-        to="/nodes/$nodeId"
+        to="/nodes/$nodeId/searching"
         params={{ nodeId: home.id }}
         className="rounded-item font-medium text-ink-1 underline-offset-4 hover:underline"
       >
