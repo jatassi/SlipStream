@@ -1,5 +1,4 @@
 import {
-  getGetIndexerSettingsSuspenseQueryOptions,
   getListIndexersSuspenseQueryOptions,
   getListTrackersSuspenseQueryOptions,
   useListIndexersSuspense,
@@ -9,12 +8,12 @@ import {
   getListNodesSuspenseQueryOptions,
   useListNodesSuspense,
 } from "../api/gen/query/nodes/nodes";
-import { ensureQuery, freshQuery } from "../api/query-client";
+import { ensureQuery } from "../api/query-client";
 import type { SettingsSection } from "../settings/section";
 import { Empty } from "../shell/empty";
 import { Section } from "../ui/section";
 import { AddIndexerButton } from "./add/add-button";
-import { LongBackoff } from "./long-backoff";
+import { SectionTail, loadSectionTail } from "./section-tail";
 import { TrackerGroup, UngroupedIndexers, groupsOf } from "./tracker-group";
 import { summaryOf } from "./words";
 
@@ -54,7 +53,7 @@ function IndexersSection() {
           )}
         </div>
       </Section>
-      <LongBackoff />
+      <SectionTail />
     </>
   );
 }
@@ -67,7 +66,7 @@ export const indexersSection: SettingsSection = {
       ensureQuery(queryClient, getListIndexersSuspenseQueryOptions()),
       ensureQuery(queryClient, getListTrackersSuspenseQueryOptions()),
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
-      freshQuery(queryClient, getGetIndexerSettingsSuspenseQueryOptions()),
+      loadSectionTail(queryClient),
     ]);
   },
   component: IndexersSection,

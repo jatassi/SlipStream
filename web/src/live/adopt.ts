@@ -10,6 +10,7 @@ import type {
   HealthVolumeList,
   IndexersChallengeSolver,
   IndexersIndexer,
+  IndexersIndexerCatalog,
   IndexersIndexerList,
   IndexersSettings,
   IndexersTracker,
@@ -32,6 +33,7 @@ import {
 } from "../api/gen/query/health/health";
 import {
   getGetChallengeSolverQueryKey,
+  getGetIndexerCatalogQueryKey,
   getGetIndexerQueryKey,
   getGetIndexerSettingsQueryKey,
   getGetTrackerQueryKey,
@@ -148,6 +150,10 @@ export function dropIndexer(queryClient: QueryClient, id: string) {
     getListIndexersQueryKey(),
     (list) => list && { indexers: list.indexers.filter((shown) => shown.id !== id) },
   );
+}
+
+export function adoptCatalog(queryClient: QueryClient, catalog: IndexersIndexerCatalog) {
+  queryClient.setQueryData(getGetIndexerCatalogQueryKey(), catalog);
 }
 
 export function adoptIndexerSettings(queryClient: QueryClient, settings: IndexersSettings) {

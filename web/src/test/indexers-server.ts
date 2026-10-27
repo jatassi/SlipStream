@@ -13,6 +13,7 @@ import {
   UpdateIndexerBody,
   UpdateIndexerSettingsBody,
 } from "../api/gen/zod/indexers/indexers.zod";
+import { catalogServer } from "./catalog-server";
 import { imported } from "./grabs";
 import { problem } from "./handlers";
 import { type Server, find, missing, testHandlers, tested } from "./indexer-plays";
@@ -233,6 +234,7 @@ export function indexersServer({
     ...writeHandlers(server),
     ...testHandlers(server),
     ...trackerHandlers(server),
+    ...catalogServer().handlers,
   ];
   return { handlers, state: server.state, writes: server.writes };
 }
