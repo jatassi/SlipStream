@@ -135,8 +135,9 @@ func TestACustomDefinitionRunsAnIndexerOnlyWhenItLoadsUnderItsOwnID(t *testing.T
 }
 
 // TestDeletingAnIndexerKeepsItsGrabsUnderItsTracker deletes the Indexer
-// the first search grabbed from: the Grab keeps its Tracker, the Tracker
-// stays, and the search still lists the line it answered.
+// the first search grabbed from, whose page listed the Grab: the Grab keeps
+// its Tracker, the Tracker stays, and the search still lists the line it
+// answered.
 func TestDeletingAnIndexerKeepsItsGrabsUnderItsTracker(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "indexers")
@@ -148,6 +149,16 @@ func TestDeletingAnIndexerKeepsItsGrabsUnderItsTracker(t *testing.T) {
 	g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*s.GrabID, ""), &trackedGrab{})
 	if g.TrackerID == nil {
 		t.Fatalf("Grab %s names no Tracker", *s.GrabID)
+	}
+
+	var page struct {
+		Grabs []struct {
+			ID string `json:"id"`
+		} `json:"grabs"`
+	}
+	decode(t, "listIndexerGrabs", w.a.Admin("home", http.MethodGet, "/api/v1/indexers/"+from+"/grabs", ""), &page)
+	if len(page.Grabs) != 1 || page.Grabs[0].ID != *s.GrabID {
+		t.Errorf("the Indexer's page lists Grabs %+v, want the search's Grab %s", page.Grabs, *s.GrabID)
 	}
 
 	if r := w.a.Admin("home", http.MethodDelete, "/api/v1/indexers/"+from, ""); r.Status != http.StatusNoContent {

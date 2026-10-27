@@ -243,6 +243,9 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+storage.NewUUID().String(), http.StatusNotFound,
 		`{"status":404,"code":"grab_not_found","title":"No Grab has that id"}`)
+	ofIndexer := "/api/v1/indexers/" + indexer.String() + "/grabs"
+	expect(t, s, http.MethodGet, ofIndexer, http.StatusNotFound,
+		`{"status":404,"code":"indexer_not_found","title":"No Indexer has that id"}`)
 	none := storage.NewUUID().String()
 	expect(t, s, http.MethodPost, "/api/v1/works/"+none+"/search", http.StatusNotFound,
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
@@ -307,6 +310,8 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)
+	expect(t, s, http.MethodGet, ofIndexer, http.StatusOK, `{"grabs":[`+want+`],"nextOffset":null}`)
+	expect(t, s, http.MethodGet, ofIndexer+"?offset=1", http.StatusOK, `{"grabs":[],"nextOffset":null}`)
 }
 
 type failedGrab struct {

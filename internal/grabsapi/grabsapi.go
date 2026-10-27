@@ -1,6 +1,6 @@
 // Package grabsapi is the search and Grab operations: start a Work's
-// search, list its search runs, and list and read Grabs with their live
-// progress.
+// search, list its search runs, list an Indexer's Grabs, and list and read
+// Grabs with their live progress.
 package grabsapi
 
 import (
@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -38,6 +39,7 @@ var (
 	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "The Work's library root is on a Node that takes no new files now")
 	notSearchable   = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
+	indexerNotFound = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )
 
 func answer(err error) error {
@@ -54,6 +56,8 @@ func answer(err error) error {
 		return notSearchable
 	case errors.Is(err, grabs.ErrNoGrab):
 		return grabNotFound
+	case errors.Is(err, indexers.ErrNoIndexer):
+		return indexerNotFound
 	}
 	if e, ok := errors.AsType[*grabs.RootUnreachableError](err); ok {
 		return rootUnreachable.Because(e.Why)
@@ -252,6 +256,20 @@ type grabList struct {
 
 type grabListOutput struct{ Body grabList }
 
+const indexerGrabsPage = 50
+
+type indexerGrabList struct {
+	Grabs      []grab `json:"grabs" nullable:"false" doc:"Newest first"`
+	NextOffset *int   `json:"nextOffset" doc:"The offset of the next page; null on the last"`
+}
+
+type indexerGrabsInput struct {
+	ID     string `path:"id" format:"uuid"`
+	Offset int    `query:"offset" minimum:"0" doc:"How many of the newest to skip"`
+}
+
+type indexerGrabsOutput struct{ Body indexerGrabList }
+
 type grabInput struct {
 	GrabID string `path:"grabId" format:"uuid"`
 }
@@ -293,6 +311,14 @@ func Routes(r *api.Router, p Pipeline) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{grabNotFound},
 	}, h.getGrab)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listIndexerGrabs",
+		Method:  http.MethodGet,
+		Path:    "/indexers/{id}/grabs",
+		Summary: "List the Grabs taken from an Indexer, 50 at a time",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{indexerNotFound},
+	}, h.listIndexerGrabs)
 }
 
 type handlers struct{ p Pipeline }
@@ -351,4 +377,23 @@ func (h handlers) getGrab(ctx context.Context, by identity.Admin, in *grabInput)
 		return nil, answer(err)
 	}
 	return &grabOutput{Body: grabOf(v)}, nil
+}
+
+func (h handlers) listIndexerGrabs(ctx context.Context, by identity.Admin, in *indexerGrabsInput) (*indexerGrabsOutput, error) {
+	u, err := storage.ParseUUID(in.ID)
+	if err != nil {
+		return nil, indexerNotFound
+	}
+	views, err := open(h.p).OfIndexer(ctx, by, indexers.ID{UUID: u}, indexers.Page{Offset: in.Offset, Limit: indexerGrabsPage + 1})
+	if err != nil {
+		return nil, answer(err)
+	}
+	out := indexerGrabList{Grabs: []grab{}}
+	if len(views) > indexerGrabsPage {
+		views, out.NextOffset = views[:indexerGrabsPage], new(in.Offset+indexerGrabsPage)
+	}
+	for _, v := range views {
+		out.Grabs = append(out.Grabs, grabOf(v))
+	}
+	return &indexerGrabsOutput{Body: out}, nil
 }

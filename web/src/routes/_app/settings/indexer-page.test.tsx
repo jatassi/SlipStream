@@ -28,6 +28,12 @@ test("the page leads with the status sentence and its fix, with the machinery un
     .toBeVisible();
   await expect.element(page.getByText("Found 12 Releases")).toBeVisible();
   await expect.element(page.getByText(".torrent fetch")).toBeVisible();
+  await expect
+    .element(page.getByRole("link", { name: "The.Quiet.Orchard.2021.1080p.WEB-DL" }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("list", { name: "Recent grabs" }).getByText("Imported"))
+    .toBeVisible();
   expect(page.getByText("Not signed in on any Node").query()).toBeNull();
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   await expect.element(page.getByText("Not signed in on any Node")).toBeVisible();

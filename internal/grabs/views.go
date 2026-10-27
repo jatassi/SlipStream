@@ -25,11 +25,28 @@ type View struct {
 
 // List lists every Grab, newest first.
 func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
+	return gr.views(ctx, func(ctx context.Context, r storage.Reader[file]) ([]db.GrabsGrab, error) {
+		return db.New(r).ListGrabs(ctx)
+	})
+}
+
+// OfIndexer lists the page p of Indexer id's Grabs, newest first,
+// indexers.ErrNoIndexer when no Indexer has id.
+func (gr *Grabs) OfIndexer(ctx context.Context, _ identity.Admin, id indexers.ID, p indexers.Page) ([]View, error) {
+	return gr.views(ctx, func(ctx context.Context, r storage.Reader[file]) ([]db.GrabsGrab, error) {
+		if _, err := indexers.Get(ctx, r, id); err != nil {
+			return nil, err
+		}
+		return db.New(r).ListGrabsOfIndexer(ctx, db.ListGrabsOfIndexerParams{IndexerID: id, Lim: int64(p.Limit), Off: int64(p.Offset)})
+	})
+}
+
+func (gr *Grabs) views(ctx context.Context, list func(context.Context, storage.Reader[file]) ([]db.GrabsGrab, error)) ([]View, error) {
 	var grabs []Grab
 	var wait time.Duration
 	var waits map[indexers.ID]indexers.FetchWait
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		rows, err := db.New(r).ListGrabs(ctx)
+		rows, err := list(ctx, r)
 		if err != nil {
 			return err
 		}

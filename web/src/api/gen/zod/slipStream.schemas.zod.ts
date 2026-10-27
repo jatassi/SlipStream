@@ -1363,6 +1363,14 @@ export const GrabsGrabList = zod.object({
 export type GrabsGrabList = zod.input<typeof GrabsGrabList>;
 export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
 
+export const GrabsIndexerGrabList = zod.object({
+  grabs: zod.array(GrabsGrab).describe("Newest first"),
+  nextOffset: zod.int().nullable().describe("The offset of the next page; null on the last"),
+});
+
+export type GrabsIndexerGrabList = zod.input<typeof GrabsIndexerGrabList>;
+export type GrabsIndexerGrabListOutput = zod.output<typeof GrabsIndexerGrabList>;
+
 export const GrabsReason = zod.object({
   attribute: zod
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])

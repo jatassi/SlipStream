@@ -585,6 +585,73 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 	return items, nil
 }
 
+const listGrabsOfIndexer = `-- name: ListGrabsOfIndexer :many
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE indexer_id = ?1 ORDER BY created_at DESC, id DESC
+LIMIT ?3 OFFSET ?2
+`
+
+type ListGrabsOfIndexerParams struct {
+	IndexerID indexers.ID
+	Off       int64
+	Lim       int64
+}
+
+func (q *Queries) ListGrabsOfIndexer(ctx context.Context, arg ListGrabsOfIndexerParams) ([]GrabsGrab, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabsOfIndexer, arg.IndexerID, arg.Off, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsGrab
+	for rows.Next() {
+		var i GrabsGrab
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Edition,
+			&i.Source,
+			&i.IndexerID,
+			&i.TrackerID,
+			&i.NodeID,
+			&i.ReleaseTitle,
+			&i.ReleaseSize,
+			&i.ReleaseLinkSealed,
+			&i.ReleaseMagnet,
+			&i.ReleaseInfoHash,
+			&i.FetchQueryID,
+			&i.MinRatio,
+			&i.MinSeedSeconds,
+			&i.DownloadFactor,
+			&i.UploadFactor,
+			&i.Stage,
+			&i.TorrentID,
+			&i.FileIndex,
+			&i.Probe,
+			&i.RootID,
+			&i.Path,
+			&i.FailedStage,
+			&i.FailureCode,
+			&i.FailureMessage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Unwanted,
+			&i.FetchNodeID,
+			&i.MetadataStartedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGrabsOfTorrents = `-- name: ListGrabsOfTorrents :many
 SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, created_at FROM grabs_grab
 WHERE torrent_id IN (/*SLICE:torrent_ids*/?)

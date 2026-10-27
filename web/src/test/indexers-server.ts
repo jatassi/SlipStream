@@ -13,6 +13,7 @@ import {
   UpdateIndexerBody,
   UpdateIndexerSettingsBody,
 } from "../api/gen/zod/indexers/indexers.zod";
+import { imported } from "./grabs";
 import { problem } from "./handlers";
 import { type Server, find, missing, testHandlers, tested } from "./indexer-plays";
 import {
@@ -45,6 +46,11 @@ function readHandlers(server: Server) {
       find(server, params["id"]) === undefined
         ? missing()
         : HttpResponse.json({ queries, nextOffset: null }),
+    ),
+    http.get("*/api/v1/indexers/:id/grabs", ({ params }) =>
+      find(server, params["id"]) === undefined
+        ? missing()
+        : HttpResponse.json({ grabs: [imported], nextOffset: null }),
     ),
     http.get("*/api/v1/indexers/:id", ({ params }) => {
       const row = find(server, params["id"]);

@@ -1,8 +1,14 @@
-import type { IndexersIndexer, IndexersQuery, IndexersTracker, NodesNode } from "../api/gen/model";
+import type {
+  GrabsGrab,
+  IndexersIndexer,
+  IndexersQuery,
+  IndexersTracker,
+  NodesNode,
+} from "../api/gen/model";
 import { useShell } from "../ui/shell-context";
 import { IndexerActions } from "./indexer-actions";
 import { IndexerFacts } from "./indexer-facts";
-import { IndexerMachinery, RecentQueries } from "./indexer-history";
+import { IndexerMachinery, RecentGrabs, RecentQueries } from "./indexer-history";
 import { StatusLine } from "./status-line";
 import { IndexerSwitch } from "./switches";
 
@@ -31,11 +37,13 @@ function Lead({ indexer }: { indexer: IndexersIndexer }) {
 export function IndexerPage({
   indexer,
   queries,
+  grabs,
   nodes,
   trackers,
 }: {
   indexer: IndexersIndexer;
   queries: readonly IndexersQuery[];
+  grabs: readonly GrabsGrab[];
   nodes: readonly NodesNode[];
   trackers: readonly IndexersTracker[];
 }) {
@@ -45,6 +53,7 @@ export function IndexerPage({
       <IndexerActions indexer={indexer} nodes={nodes} />
       <IndexerFacts indexer={indexer} nodes={nodes} trackers={trackers} />
       <RecentQueries queries={queries} />
+      <RecentGrabs grabs={grabs} />
       <IndexerMachinery indexer={indexer} nodes={nodes} />
     </div>
   );

@@ -3,6 +3,7 @@ import * as zod from "zod";
 import {
   GrabsGrab,
   GrabsGrabList,
+  GrabsIndexerGrabList,
   GrabsSearchList,
   GrabsSearchStarted,
 } from "../slipStream.schemas.zod.ts";
@@ -20,6 +21,25 @@ export const GetGrabParams = zod.object({
 });
 
 export const GetGrabResponse = GrabsGrab;
+
+/**
+ * @summary List the Grabs taken from an Indexer, 50 at a time
+ */
+export const ListIndexerGrabsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const listIndexerGrabsQueryOffsetMin = 0;
+
+export const ListIndexerGrabsQueryParams = zod.object({
+  offset: zod
+    .int()
+    .min(listIndexerGrabsQueryOffsetMin)
+    .exactOptional()
+    .describe("How many of the newest to skip"),
+});
+
+export const ListIndexerGrabsResponse = GrabsIndexerGrabList;
 
 /**
  * @summary Search for each of a Work's wanted cells and grab the best release

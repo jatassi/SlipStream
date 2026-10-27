@@ -36,6 +36,10 @@ WHERE id = sqlc.arg(id) AND stage = sqlc.arg(stage);
 -- name: ListGrabs :many
 SELECT * FROM grabs_grab ORDER BY created_at DESC, id DESC;
 
+-- name: ListGrabsOfIndexer :many
+SELECT * FROM grabs_grab WHERE indexer_id = sqlc.arg(indexer_id) ORDER BY created_at DESC, id DESC
+LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
+
 -- name: ListOpenGrabs :many
 SELECT * FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
