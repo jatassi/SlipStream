@@ -190,13 +190,13 @@ export const everyOutcome: GrabsSearchList = {
         line(
           "Fir",
           "5f6a7b8c-9d0e-4f1a-9b2c-4d5e6f7a8b9c",
-          "Fir isn't responding. SlipStream retries at 14:20.",
+          "Isn't responding. SlipStream retries at 14:20.",
           "failing",
         ),
         line(
           "Gale",
           "6a7b8c9d-0e1f-4a2b-8c3d-5e6f7a8b9c0d",
-          "Stopped because Gale rejected the username or password.",
+          "Stopped because the username or password was rejected.",
           "stopped",
         ),
         line(

@@ -322,7 +322,7 @@ func TestAStopMetOnAFailoverNodeWaitsForHome(t *testing.T) {
 	if len(answers) != 1 || answers[0].Outcome != (indexers.Outcome{Kind: indexers.Waiting, Node: box}) {
 		t.Fatalf("a search whose failover Node met a challenge = %+v, want Alder waiting for seedbox", answers)
 	}
-	if line := p.x.Line("Alder", indexerstest.Type, &answers[0].Outcome); line != "Waiting for seedbox" {
+	if line := p.x.Line(indexerstest.Type, &answers[0].Outcome); line != "Waiting for seedbox" {
 		t.Errorf("its line = %q, want Waiting for seedbox", line)
 	}
 	if lines := spelled(p.plan()); !slices.Equal(lines, []string{"Alder waiting"}) {
@@ -362,14 +362,20 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 		{&indexers.Outcome{Kind: indexers.IsLimited, Until: at}, "Limit reached until 14:05"},
 		{&indexers.Outcome{Kind: indexers.LimitReached, Until: at}, "Limit reached until 14:05"},
 		{&indexers.Outcome{Kind: indexers.Waiting, Node: self}, "Waiting for home"},
-		{&indexers.Outcome{Kind: indexers.IsFailing, Until: at}, "TorrentLeech isn't responding. SlipStream retries at 14:05."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected}, "Stopped because TorrentLeech rejected the username or password."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.AccountRefused, Text: "Account suspended"}, "Stopped because TorrentLeech refused the API key with 'Account suspended'."},
+		{&indexers.Outcome{Kind: indexers.IsFailing, Until: at}, "Isn't responding. SlipStream retries at 14:05."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected}, "Stopped because the username or password was rejected."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Stopped because the sign-in was refused with 'Wrong code'."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CaptchaNeeded}, "Stopped because signing in again needs a captcha."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.ChallengeUnsolved, Node: self}, "Stopped at a browser challenge because home has no Challenge solver."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CookieExpired}, "Stopped because the browser cookie is no longer accepted."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.DefinitionUnloadable}, "Stopped because its definition doesn't load."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.AccountRefused, Text: "Account suspended"}, "Stopped because the API key was refused with 'Account suspended'."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Stopped because a search was refused with 'Incorrect parameter'."},
 		{&indexers.Outcome{Kind: indexers.NoCategories}, "Skipped because it has no shelf categories"},
 		{&indexers.Outcome{Kind: indexers.Late}, "Didn't finish in time"},
 		{&indexers.Outcome{Kind: indexers.Removed}, "Deleted since this search"},
 	} {
-		if got := p.x.Line("TorrentLeech", contenttypetest.ID, tc.o); got != tc.want {
+		if got := p.x.Line(contenttypetest.ID, tc.o); got != tc.want {
 			t.Errorf("Line(%+v) = %q, want %q", tc.o, got, tc.want)
 		}
 	}

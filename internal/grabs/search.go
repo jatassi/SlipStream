@@ -498,7 +498,7 @@ func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.Work
 		for _, row := range asked {
 			o := outcomeOf(row)
 			lines[row.SearchID] = append(lines[row.SearchID], SearchIndexer{
-				Indexer: row.IndexerID, Name: row.IndexerName, Outcome: o, Line: gr.cfg.Indexers.Line(row.IndexerName, tree.ContentType, o),
+				Indexer: row.IndexerID, Name: row.IndexerName, Outcome: o, Line: gr.cfg.Indexers.Line(tree.ContentType, o),
 			})
 		}
 		refused := map[SearchID][]Refusal{}
