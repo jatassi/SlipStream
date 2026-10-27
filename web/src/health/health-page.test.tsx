@@ -11,7 +11,10 @@ import {
   healthServer,
   minutesAgo,
   reportOf,
+  stoppedIndexer,
 } from "../test/health";
+import { larkspurId } from "../test/indexers";
+import { indexersServer } from "../test/indexers-server";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { asPhone } from "../test/viewport";
@@ -34,12 +37,16 @@ const rowOf = (subject: string) =>
 test("with nothing wrong the page says everything is working and names what it checked", async () => {
   renderApp({ path: "/health", handlers: healthServer(reportOf()).handlers });
   await expect.element(page.getByText("Everything is working.")).toBeVisible();
-  await expect.element(page.getByText("Checked storage, Nodes and scheduled tasks")).toBeVisible();
+  await expect
+    .element(page.getByText("Checked storage, Nodes, Indexers and scheduled tasks"))
+    .toBeVisible();
   await expect.element(region("Storage").getByText("Nothing is wrong with storage.")).toBeVisible();
   await expect
     .element(region("Storage").getByRole("button", { name: "Check now: Storage" }))
     .toBeVisible();
   await expect.element(region("Nodes")).toHaveTextContent("Nothing is wrong with Nodes.Check now");
+  await expect.element(region("Indexers")).toHaveTextContent("Nothing is wrong with Indexers.");
+  expect(region("Indexers").getByRole("button").query()).toBeNull();
   await expect
     .element(region("Scheduled tasks"))
     .toHaveTextContent("Nothing is wrong with scheduled tasks.");
@@ -68,6 +75,7 @@ test("categories with errors come first, then warnings, then the quiet ones", as
   expect([...document.querySelectorAll("section[id]")].map((section) => section.id)).toEqual([
     "nodes",
     "storage",
+    "indexers",
     "scheduled-tasks",
   ]);
 });
@@ -146,6 +154,22 @@ test("an item's link leads to its page", async () => {
   await expect
     .element(page.getByRole("button", { name: "Open seedbox" }))
     .toHaveAttribute("href", `/nodes/${awayNode.key}`);
+});
+
+test("a link with a fragment lands on that part of the page", async () => {
+  atHealthNow();
+  const { router } = renderApp({
+    path: "/health",
+    handlers: [
+      ...healthServer(reportOf({ indexers: [stoppedIndexer] })).handlers,
+      ...indexersServer().handlers,
+    ],
+  });
+  await userEvent.click(rowOf(stoppedIndexer.subject));
+  await userEvent.click(page.getByRole("button", { name: "Open Larkspur" }));
+  await expect
+    .poll(() => ({ path: router.state.location.pathname, hash: router.state.location.hash }))
+    .toEqual({ path: `/settings/indexers/${larkspurId}`, hash: "allow-failover" });
 });
 
 test("Check all and a category's Check now post their checks", async () => {

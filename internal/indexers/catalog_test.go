@@ -35,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // recorder keeps the path of every request the catalog client sends.
@@ -81,7 +82,7 @@ func newCatalogWorld(t *testing.T) *catalogWorld {
 	sent := &recorder{next: f.Client.Transport}
 	w := &catalogWorld{
 		fake: f, sent: sent, sealer: secrettest.Sealer(t), home: role.NodeID{UUID: storage.NewUUID()},
-		lib: storagetest.Library(t, secret.Schema(), nodes.Schema(), indexers.Schema()),
+		lib: storagetest.Library(t, secret.Schema(), nodes.Schema(), works.Schema(), indexers.Schema()),
 	}
 	w.x = indexers.New(indexers.Config{
 		Library: w.lib, Sealer: w.sealer, Roster: indexerstest.Alone(w.home),

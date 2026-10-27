@@ -48,7 +48,12 @@ func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 	if err != nil {
 		return err
 	}
-	return p.x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err = p.x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		return db.New(tx).SetLongBackoff(ctx, v.Override())
 	})
+	if err != nil {
+		return err
+	}
+	p.x.cfg.Settings.Publish(ctx, SettingsChanged{})
+	return nil
 }

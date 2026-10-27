@@ -2880,6 +2880,11 @@ export const IndexersSettingsChange = zod.object({
 export type IndexersSettingsChange = zod.input<typeof IndexersSettingsChange>;
 export type IndexersSettingsChangeOutput = zod.output<typeof IndexersSettingsChange>;
 
+export const IndexersSettingsChanged = zod.object({});
+
+export type IndexersSettingsChanged = zod.input<typeof IndexersSettingsChanged>;
+export type IndexersSettingsChangedOutput = zod.output<typeof IndexersSettingsChanged>;
+
 export const IndexersStatusChanged = zod.object({
   indexerId: zod.uuid(),
 });
@@ -5940,6 +5945,16 @@ export const LiveEventIndexersChanged = zod.object({
 export type LiveEventIndexersChanged = zod.input<typeof LiveEventIndexersChanged>;
 export type LiveEventIndexersChangedOutput = zod.output<typeof LiveEventIndexersChanged>;
 
+export const LiveEventIndexersSettingsChanged = zod.object({
+  event: zod.enum(["indexers.settings-changed"]),
+  data: IndexersSettingsChanged,
+});
+
+export type LiveEventIndexersSettingsChanged = zod.input<typeof LiveEventIndexersSettingsChanged>;
+export type LiveEventIndexersSettingsChangedOutput = zod.output<
+  typeof LiveEventIndexersSettingsChanged
+>;
+
 export const LiveEventIndexersStatusChanged = zod.object({
   event: zod.enum(["indexers.status-changed"]),
   data: IndexersStatusChanged,
@@ -6110,6 +6125,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventIdentitySessionsChanged,
   LiveEventIndexersCatalogChanged,
   LiveEventIndexersChanged,
+  LiveEventIndexersSettingsChanged,
   LiveEventIndexersStatusChanged,
   LiveEventLiveAccessChanged,
   LiveEventLiveResync,

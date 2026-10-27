@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 
 import {
   getGetIndexerQueryKey,
+  getGetIndexerSettingsQueryKey,
   getListIndexerQueriesQueryKey,
   getListIndexersQueryKey,
   getListTrackersQueryKey,
@@ -42,4 +43,16 @@ test("indexers.status-changed refreshes the list, that Indexer and its queries",
   await expect
     .poll(invalidated)
     .toEqual({ list: true, quarry: true, larkspur: false, queries: true });
+});
+
+test("indexers.settings-changed refreshes the Indexer settings", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    settings: getGetIndexerSettingsQueryKey(),
+    list: getListIndexersQueryKey(),
+  });
+  server.clients[0]?.send({ event: "indexers.settings-changed", data: {} });
+  await expect.poll(invalidated).toEqual({ settings: true, list: false });
 });

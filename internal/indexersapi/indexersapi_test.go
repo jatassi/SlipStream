@@ -101,6 +101,7 @@ func serve(t *testing.T, r indexerstest.Roster, down role.NodeID) *served {
 		Changed:  srv.changed,
 		Status:   discard[indexers.StatusChanged]{},
 		Trackers: discard[indexers.TrackerChanged]{},
+		Settings: discard[indexers.SettingsChanged]{},
 		Timings:  indexers.DefaultTimings(),
 		Zone:     time.UTC,
 		Log:      slog.New(slog.DiscardHandler),

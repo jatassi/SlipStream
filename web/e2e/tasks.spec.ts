@@ -40,7 +40,9 @@ test("Tasks shows Housekeeping in the Controller group with its cadence, next ru
     return;
   }
   await expect(row).toContainText("Daily in the Maintenance window");
-  await expect(page.getByRole("columnheader", { name: "Nodes" })).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Controller" }).getByRole("columnheader", { name: "Nodes" }),
+  ).toBeVisible();
   await expect(row).toContainText("home, seedbox");
 });
 

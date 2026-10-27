@@ -20,11 +20,13 @@ import (
 )
 
 // Roster is an indexers.Roster where Holders hold Searching, the
-// Controller first, and Absent are away.
+// Controller first, and Absent are away. A Node missing from Names is
+// "home" when it is the Controller, else "node <id>".
 type Roster struct {
 	Controller role.NodeID
 	Holders    []role.NodeID
 	Absent     map[role.NodeID]nodes.Absence
+	Names      map[role.NodeID]string
 }
 
 // Alone is a roster of one Node holding Searching.
@@ -61,6 +63,9 @@ func (r Roster) Away(_ role.Name, n role.NodeID) (nodes.Absence, bool) {
 }
 
 func (r Roster) Name(n role.NodeID) string {
+	if name, ok := r.Names[n]; ok {
+		return name
+	}
 	if n == r.Controller {
 		return "home"
 	}

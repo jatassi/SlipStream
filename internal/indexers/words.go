@@ -12,17 +12,30 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// stopWords is what a stop means and how the Admin clears it from the
-// Indexer's form: %[1]s is the Indexer, %[2]s the site's own words, %[3]s
-// the Node it was met on.
-var stopWords = map[Cause]string{
-	searching.CredentialsRejected:  "%[1]s rejected the username or password. Check them and test again.",
-	searching.CaptchaNeeded:        "%[1]s needs a captcha to sign in again. Type the code and test again.",
-	searching.ChallengeUnsolved:    "%[1]s is behind a browser challenge, and %[3]s has no Challenge solver. Set one on %[3]s, or paste a browser cookie.",
-	searching.CookieExpired:        "%[1]s no longer accepts the browser cookie. Paste a new one and test again.",
-	searching.DefinitionUnloadable: "%[1]s's definition doesn't load. Replace the custom definition, or wait for a catalog fix.",
-	searching.AccountRefused:       "%[1]s refused the API key with '%[2]s'. Check the account, then test again.",
-	searching.RequestRejected:      "%[1]s refused a search with '%[2]s'. Test again after the feed is fixed.",
+// stopSaid is what a stop means, as its own sentence: %[1]s is the
+// Indexer, %[2]s the site's own words, %[3]s the Node it was met on.
+var stopSaid = map[Cause]string{
+	searching.CredentialsRejected:  "%[1]s rejected the username or password.",
+	searching.CaptchaNeeded:        "%[1]s needs a captcha to sign in again.",
+	searching.ChallengeUnsolved:    "%[1]s is behind a browser challenge, and %[3]s has no Challenge solver.",
+	searching.CookieExpired:        "%[1]s no longer accepts the browser cookie.",
+	searching.DefinitionUnloadable: "%[1]s's definition doesn't load.",
+	searching.AccountRefused:       "%[1]s refused the API key with '%[2]s'.",
+	searching.RequestRejected:      "%[1]s refused a search with '%[2]s'.",
+}
+
+const solverTriedSaid = "%[3]s's Challenge solver couldn't clear %[1]s's challenge."
+
+// stopFormFixes is how the Admin clears a stop from the Indexer's form,
+// said after the stop's cause: %[3]s is the Node it was met on.
+var stopFormFixes = map[Cause]string{
+	searching.CredentialsRejected:  "Check them and test again.",
+	searching.CaptchaNeeded:        "Type the code and test again.",
+	searching.ChallengeUnsolved:    "Set one on %[3]s, or paste a browser cookie.",
+	searching.CookieExpired:        "Paste a new one and test again.",
+	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
+	searching.AccountRefused:       "Check the account, then test again.",
+	searching.RequestRejected:      "Test again after the feed is fixed.",
 }
 
 // refusalWords is why an RSS feed can't be used, for the form.
@@ -33,8 +46,6 @@ var refusalWords = map[searching.RSSRefusal]string{
 	searching.RSSRepeatedGUID: "Some items repeat the same GUID.",
 	searching.RSSNoSize:       "Some items have no size. Turn on Allow items with no size to use the feed anyway.",
 }
-
-const solverTriedWords = "%[3]s's Challenge solver couldn't clear %[1]s's challenge. Paste a browser cookie and test again."
 
 // TestFailedError is a Test the site answered with an outcome other than
 // ok.
@@ -55,11 +66,11 @@ func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer,
 	var stopped *searching.Stopped
 	switch {
 	case errors.As(a.Outcome, &stopped):
-		words := stopWords[stopped.Cause]
+		said, fix := stopSaid[stopped.Cause], stopFormFixes[stopped.Cause]
 		if stopped.SolverTried {
-			words = solverTriedWords
+			said, fix = solverTriedSaid, "Paste a browser cookie and test again."
 		}
-		sentence = fmt.Sprintf(words, idx.Name, stopped.Text, x.cfg.Roster.Name(node))
+		sentence = fmt.Sprintf(said+" "+fix, idx.Name, stopped.Text, x.cfg.Roster.Name(node))
 	case errors.As(a.Outcome, &limited):
 		until := o.Until
 		if until.IsZero() {
@@ -236,4 +247,41 @@ func (x *Indexers) retries(sentence string, until time.Time) string {
 		return sentence + " SlipStream retries automatically."
 	}
 	return sentence + " SlipStream retries at " + x.clock(until) + "."
+}
+
+// stopItemFixes is how the Admin clears a stop, said in its Health item
+// after the stop's cause: %[3]s is the Node it was met on.
+var stopItemFixes = map[Cause]string{
+	searching.CredentialsRejected:  "Update them on the Indexer and test it.",
+	searching.CaptchaNeeded:        "Open the Indexer and type the code.",
+	searching.ChallengeUnsolved:    "Set one on %[3]s, or paste a browser cookie on the Indexer.",
+	searching.CookieExpired:        "Paste a new one on the Indexer.",
+	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
+	searching.AccountRefused:       "Check the account, then test the Indexer.",
+	searching.RequestRejected:      "Test the Indexer after the feed is fixed.",
+}
+
+// stopItemWords is the Health item of Indexer name stopped at st.
+func (x *Indexers) stopItemWords(name string, st Status) string {
+	said, fix := stopSaid[st.Cause], stopItemFixes[st.Cause]
+	if st.SolverTried {
+		said, fix = solverTriedSaid, "Paste a browser cookie on the Indexer."
+	}
+	return fmt.Sprintf(said+" "+fix, name, st.Text, x.cfg.Roster.Name(st.Node))
+}
+
+// failingItemWords is the Health item of Indexer name failing at st
+// longer than the long backoff.
+func (x *Indexers) failingItemWords(name string, st Status, now time.Time) string {
+	until := st.Until
+	if !now.Before(until) {
+		until = time.Time{}
+	}
+	return x.retries(fmt.Sprintf("Every request to %s has failed since %s.", name, x.clock(st.Since)), until)
+}
+
+// unservedWords is the Health item of a Content Type whose Works, many,
+// no usable Indexer searches for.
+func unservedWords(many string) string {
+	return "No Indexer can search for " + strings.ToLower(many) + ". Add an Indexer or turn one on."
 }

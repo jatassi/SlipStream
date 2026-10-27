@@ -59,6 +59,7 @@ func Payload(release string) []byte {
 }
 
 type walk struct {
+	faults   *fault.Plan
 	mediaDir string
 	site     fake.Address
 	announce string
@@ -119,7 +120,9 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		listing = append(listing, item)
 	}
-	log, faults := slog.New(slog.NewTextHandler(t.Output(), nil)), fault.NewPlan(nil, nil)
+	log := slog.New(slog.NewTextHandler(t.Output(), nil))
+	faults := fault.NewPlan([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, nil)
+	w.faults = faults
 	movies, err := tmdb.Fake.New(s, fake.NewEnv(s, tmdb.Fake, log, faults, nil))
 	if err != nil {
 		t.Fatal(err)
@@ -134,6 +137,10 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	site.Fake.Endpoints(endpoints, w.site)
 	return w
 }
+
+// Faults is the Plan the walk's fakes read. A rule's Target names the fake,
+// such as fixture-site.
+func (w *World) Faults() *fault.Plan { return w.walk.faults }
 
 // Announce is the tracker URL the walk's torrents and magnet links name,
 // which each Node's swarm runs.

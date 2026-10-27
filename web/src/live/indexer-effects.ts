@@ -1,6 +1,7 @@
 import {
   getGetIndexerCatalogQueryKey,
   getGetIndexerQueryKey,
+  getGetIndexerSettingsQueryKey,
   getListIndexerQueriesQueryKey,
   getListIndexersQueryKey,
   getGetTrackerQueryKey,
@@ -27,6 +28,9 @@ export const indexerEffects = {
     refresh({ queryKey: getGetIndexerCatalogQueryKey() });
     refresh(everyCatalogDefinition);
   },
+  "indexers.settings-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getGetIndexerSettingsQueryKey() });
+  },
   "trackers.changed": (data, { refresh }) => {
     refresh({ queryKey: getListTrackersQueryKey() });
     refresh({ queryKey: getGetTrackerQueryKey(data.trackerId) });
@@ -35,5 +39,9 @@ export const indexerEffects = {
   },
 } satisfies Pick<
   LiveEffects,
-  "indexers.changed" | "indexers.status-changed" | "indexers.catalog-changed" | "trackers.changed"
+  | "indexers.changed"
+  | "indexers.status-changed"
+  | "indexers.catalog-changed"
+  | "indexers.settings-changed"
+  | "trackers.changed"
 >;

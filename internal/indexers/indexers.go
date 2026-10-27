@@ -231,15 +231,19 @@ type TrackerChanged struct {
 	TrackerID string `json:"trackerId" format:"uuid"`
 }
 
+// SettingsChanged tells Admins that the Indexer settings changed.
+type SettingsChanged struct{}
+
 type CatalogChanged struct {
 	RefreshedAt *time.Time `json:"refreshedAt" doc:"Null until a refresh has read the catalog"`
 }
 
 var (
-	ChangedEvent        = live.AdminEvent[Changed]("indexers.changed")
-	StatusChangedEvent  = live.AdminEvent[StatusChanged]("indexers.status-changed")
-	CatalogChangedEvent = live.AdminEvent[CatalogChanged]("indexers.catalog-changed")
-	TrackersEvent       = live.AdminEvent[TrackerChanged]("trackers.changed")
+	ChangedEvent         = live.AdminEvent[Changed]("indexers.changed")
+	StatusChangedEvent   = live.AdminEvent[StatusChanged]("indexers.status-changed")
+	CatalogChangedEvent  = live.AdminEvent[CatalogChanged]("indexers.catalog-changed")
+	SettingsChangedEvent = live.AdminEvent[SettingsChanged]("indexers.settings-changed")
+	TrackersEvent        = live.AdminEvent[TrackerChanged]("trackers.changed")
 )
 
 type Publisher[T any] interface {
@@ -292,6 +296,7 @@ type Config struct {
 	Status   Publisher[StatusChanged]
 	Catalogs Publisher[CatalogChanged]
 	Trackers Publisher[TrackerChanged]
+	Settings Publisher[SettingsChanged]
 	// Repoints move the rows naming a Tracker when it merges into another.
 	Repoints []Repoint
 	// HTTP reaches the Indexer catalog from the Controller.
