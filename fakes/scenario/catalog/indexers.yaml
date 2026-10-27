@@ -1,12 +1,14 @@
 # yaml-language-server: $schema=../scenario.schema.json
 description: >-
-  Two Nodes that hold Searching. The Controller home holds every Role but
-  Relaying, and the Worker seedbox pairs by Join Code and holds Searching.
-  On seedbox, Quarry signs in with an API key and keeps no session,
-  Larkspur signs in with a form and a captcha, Marsh signs in by POST, and
-  Cinder takes a pasted cookie behind a browser challenge cleared for
-  seedbox only. On home, Fixture Site is a Torznab feed and Brook an RSS
-  feed. Four movies each have one release, so each search can grab.
+  Three Nodes. The Controller home holds every Role but Relaying and has no
+  Challenge solver. The Worker seedbox pairs by Join Code, holds Searching
+  and has a Challenge solver. The Worker den pairs by Join Code and holds
+  no Role until a test gives it Searching, and has no Challenge solver. On
+  seedbox, Quarry signs in with an API key and keeps no session, Larkspur
+  signs in with a form and a captcha, Marsh signs in by POST, and Cinder
+  takes a pasted cookie behind a browser challenge that seedbox's solver
+  clears. On home, Fixture Site is a Torznab feed and Brook an RSS feed.
+  Four movies each have one release, so each search can grab.
 seed: indexers
 admin:
   email: ada@example.test
@@ -19,9 +21,20 @@ nodes:
   - name: seedbox
     setup: join
     roles: [searching]
+    challenge_solver: true
+  - name: den
+    setup: join
 timings:
   node:
     stop_deadline: 5s
+  indexers:
+    job: 15s
+    ladder: [1s, 2s, 4s]
+    limited: 2s
+    captcha: 10s
+  searching:
+    floor: 100ms
+    hold: 1s
 tmdb:
   movies:
     - id: 9000001

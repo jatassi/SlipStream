@@ -91,6 +91,9 @@
             },
             "type": "array",
             "uniqueItems": true
+          },
+          "challenge_solver": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false,

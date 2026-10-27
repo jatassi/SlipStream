@@ -112,7 +112,8 @@ const BrowserUserAgent = "Mozilla/5.0 (fixture)"
 // Credentials are what an Admin enters to add an Indexer for the catalog
 // site label that searches from Node origin, in a world with Scenario s:
 // its settings, and the browser cookie it pastes with BrowserUserAgent, ""
-// for none.
+// for none. Cinder's cookie carries the browser's clearance of its
+// challenge unless origin has a Challenge solver to clear it.
 func Credentials(s scenario.Scenario, label, origin string) (settings map[string]string, cookie string) {
 	switch label {
 	case Quarry:
@@ -120,6 +121,9 @@ func Credentials(s scenario.Scenario, label, origin string) (settings map[string
 	case Ferry:
 		return map[string]string{"passkey": Key(s, Ferry)}, ""
 	case Cinder:
+		if s.Solving(origin) {
+			return map[string]string{}, SessionCookie(s)
+		}
 		return map[string]string{}, SessionCookie(s) + "; " + ClearanceCookie + "=" + Clearance(s, origin, BrowserUserAgent)
 	}
 	return map[string]string{"username": Username, "password": Password(s, label)}, ""

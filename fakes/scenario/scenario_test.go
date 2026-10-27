@@ -199,6 +199,11 @@ func TestParseRefuses(t *testing.T) {
 			"scenario x: node home has roles, but only controller and join nodes hold Roles",
 		},
 		{
+			"a challenge solver on a node outside searching",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: home, setup: controller, roles: [storage], challenge_solver: true}]\n",
+			"scenario x: node home has a challenge solver, but doesn't hold searching",
+		},
+		{
 			"a role twice",
 			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: home, setup: controller, roles: [searching, storage, searching]}]\n",
 			"scenario x: node home holds role searching twice",

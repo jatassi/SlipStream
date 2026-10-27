@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	"github.com/jatassi/slipstream/fakes/challengesolver"
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -701,7 +702,13 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 	for _, f := range r.fakes {
 		sites[f.spec.Name] = f.at
 	}
-	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), sites); err != nil {
+	solvers := map[string]string{}
+	for _, n := range r.scenario.Nodes {
+		if at, ok := r.table.Find(fault.Target(challengesolver.Fake.Name), n.Name); ok {
+			solvers[n.Name] = challengesolver.Fake.URL(at)
+		}
+	}
+	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), sites, solvers); err != nil {
 		return err
 	}
 	r.log.Info("library seeded")

@@ -141,5 +141,5 @@ Steps:
 - The alert stays `warn` while seedbox settles after it is back, since home still covers Searching; it clears a minute after the link is up.
 - A Worker whose link answers pings but whose Sync stream goes silent for `timings.role.stall` (45 s) loses its link and dials again; this recipe can't drive that, and `TestAWorkerSilentOnSyncLosesItsLink` proves it.
 - `fakeworld node stop seedbox` makes doctor's cluster check fail until `node start`.
-- Larkspur shows a captcha at every sign-in, so allowing it to fail over makes it wait for seedbox again at its first search from home, as does Cinder's browser challenge, cleared for seedbox only. Marsh is the one that keeps searching from home. A wait for home ends only once seedbox answers again.
+- Larkspur shows a captcha at every sign-in, so allowing it to fail over makes it wait for seedbox again at its first search from home, as does Cinder's browser challenge, which seedbox's Challenge solver clears and home has none for. Marsh is the one that keeps searching from home. A wait for home ends only once seedbox answers again.
 - The waiting warn needs the home past the grace and the Indexer signing in without Allow failover. One that allows failover and still waits for home, as Larkspur does after its captcha, raises none.

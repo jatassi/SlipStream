@@ -154,7 +154,7 @@ func (w *World) InfoHash(release string) bencode.InfoHash { return w.walk.hashes
 func (w *walk) seed(world *World, ready []node.Ready) {
 	t := world.t
 	t.Helper()
-	err := setup.Library(t.Context(), world.client, world.scenario, ready, world.claims, w.mediaDir, map[string]fake.Address{site.Fake.Name: w.site})
+	err := setup.Library(t.Context(), world.client, world.scenario, ready, world.claims, w.mediaDir, map[string]fake.Address{site.Fake.Name: w.site}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

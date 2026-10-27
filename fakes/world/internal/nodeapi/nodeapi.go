@@ -557,6 +557,16 @@ func SetStorageLevels(ctx context.Context, c *http.Client, baseURL, apiKey strin
 	}, &settings)
 }
 
+// SetChallengeSolver sets the Challenge solver of the Node with id to
+// address, as an Admin does in that Node's Searching section.
+func SetChallengeSolver(ctx context.Context, c *http.Client, baseURL, apiKey, id, address string) error {
+	var solver struct{}
+	return call(ctx, c, request{
+		what: "set the Challenge solver", method: http.MethodPut, url: baseURL + "/api/v1/nodes/" + id + "/challenge-solver",
+		header: apiKeyHeader(apiKey), body: map[string]string{"address": address}, want: http.StatusOK,
+	}, &solver)
+}
+
 func apiKeyHeader(key string) http.Header { return http.Header{"X-Api-Key": {key}} }
 
 type request struct {

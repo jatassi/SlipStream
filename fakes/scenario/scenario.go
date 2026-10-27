@@ -81,6 +81,9 @@ type Node struct {
 	Setup Setup  `yaml:"setup"`
 	// Roles are the Roles the world assigns a controller or join Node.
 	Roles []role.Name `jsonschema:"uniqueItems=true" yaml:"roles,omitempty"`
+	// ChallengeSolver has the world set the Node's Challenge solver to its
+	// fake-challenge-solver front before it adds the library's Indexers.
+	ChallengeSolver bool `yaml:"challenge_solver,omitempty"`
 }
 
 const MaxNodes = 31
@@ -264,6 +267,9 @@ func (n Node) checkRoles(add func(format string, args ...any)) {
 	if n.Setup == SetupNone && len(n.Roles) > 0 {
 		add("node %s has roles, but only controller and join nodes hold Roles", n.Name)
 	}
+	if n.ChallengeSolver && !n.searches() {
+		add("node %s has a challenge solver, but doesn't hold searching", n.Name)
+	}
 	for i, r := range n.Roles {
 		if _, err := role.ParseName(string(r)); err != nil {
 			add("node %s role %s", n.Name, err)
@@ -363,11 +369,23 @@ func (s Scenario) Home(ix LibraryIndexer) string {
 func (s Scenario) searching() []string {
 	var holders []string
 	for _, n := range s.Nodes {
-		if (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching)) {
+		if n.searches() {
 			holders = append(holders, n.Name)
 		}
 	}
 	return holders
+}
+
+// searches reports whether n holds Searching once set up: a join or
+// controller Node listing it, and a controller Node that lists no Roles.
+func (n Node) searches() bool {
+	return (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching))
+}
+
+// Solving is whether the Node named name has a Challenge solver once set
+// up.
+func (s Scenario) Solving(name string) bool {
+	return slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Name == name && n.ChallengeSolver })
 }
 
 func (s Scenario) RootNode(r LibraryRoot) string {

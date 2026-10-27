@@ -22,8 +22,9 @@ import (
 // with the Controller's API key: its Storage levels, each root's folder
 // under mediaDir and the root on its Node, which shares the machine and so
 // the media dir, then the Targets and Profiles as goals makes them, then
+// each Node's Challenge solver at the address solvers names for it, and
 // the Indexers on the site fakes at sites, as an Admin would.
-func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address) error {
+func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address, solvers map[string]string) error {
 	if err := StorageLevels(ctx, c, s, ready, claims); err != nil {
 		return err
 	}
@@ -41,6 +42,13 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 	}
 	if err := goals(ctx, c, s.Library, controller, apiKey); err != nil {
 		return err
+	}
+	for i, n := range s.Nodes {
+		if n.ChallengeSolver {
+			if err := nodeapi.SetChallengeSolver(ctx, c, controller, apiKey, claims.Members[i].ID, solvers[n.Name]); err != nil {
+				return err
+			}
+		}
 	}
 	return addIndexers(ctx, c, s, claims, controller, sites[site.Fake.Name])
 }
