@@ -64,7 +64,7 @@ func (s *site) quarrySearch(w http.ResponseWriter, r *http.Request) {
 	}
 	rows := []quarryRow{}
 	for _, rel := range s.found(query) {
-		link := "https://" + Host(Quarry) + "/api/download?" + url.Values{"id": {rel.InfoHash}, "apikey": {Key(s.scenario, Quarry)}}.Encode()
+		link := originOf(r) + "/api/download?" + url.Values{"id": {rel.InfoHash}, "apikey": {Key(s.scenario, Quarry)}}.Encode()
 		rows = append(rows, quarryRow{
 			Category: "movies", Name: rel.Name, Link: link, Size: rel.Size, Seeders: rel.Seeders, Leechers: rel.Leechers,
 			Added: "2026-06-01T12:00:00Z", Freeleech: rel.Freeleech,

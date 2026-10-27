@@ -435,10 +435,7 @@ const caps = `<?xml version="1.0" encoding="UTF-8"?>
 // feed lists the releases keep keeps in the window the request asks for.
 // An extended request gets every attribute.
 func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) bool) {
-	origin := "https://" + r.Host
-	if r.TLS == nil {
-		origin = "http://" + r.Host
-	}
+	origin := originOf(r)
 	win := windowOf(r.URL.Query())
 	extended := r.URL.Query().Get("extended") == "1"
 	var source string
@@ -488,6 +485,14 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())
+}
+
+// originOf is the scheme and host r was sent to.
+func originOf(r *http.Request) string {
+	if r.TLS == nil {
+		return "http://" + r.Host
+	}
+	return "https://" + r.Host
 }
 
 // extendedAttrs are the attributes only an extended feed lists: every one
