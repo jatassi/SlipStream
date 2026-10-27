@@ -6,9 +6,9 @@ import { adoptIndexer } from "../live/adopt";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { useAppForm } from "../ui/form";
-import { Segmented } from "../ui/segmented";
 import { toast } from "../ui/toast";
 import { editOf, editSchema, refusal, valuesOf } from "./edit-values";
+import { LimitField } from "./fields/limit-field";
 
 function useEditForm(indexer: IndexersIndexer, onDone: () => void) {
   const queryClient = useQueryClient();
@@ -32,46 +32,6 @@ function useEditForm(indexer: IndexersIndexer, onDone: () => void) {
 }
 
 type EditForm = ReturnType<typeof useEditForm>;
-
-const windows = [
-  { value: "hour", label: "per hour" },
-  { value: "day", label: "per day" },
-] as const;
-
-/** A limit's count, where 0 is no limit, and its sliding window. */
-function Limit({
-  form,
-  name,
-  label,
-}: {
-  form: EditForm;
-  name: "searches" | "grabs";
-  label: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="w-40">
-        <form.AppField name={name}>
-          {(field) => (
-            <field.TextField label={label} inputMode="numeric" description="0 is no limit." />
-          )}
-        </form.AppField>
-      </div>
-      <div className="pb-6">
-        <form.Field name={name === "searches" ? "searchesPer" : "grabsPer"}>
-          {(field) => (
-            <Segmented
-              label={`${label} window`}
-              options={windows}
-              value={field.state.value}
-              onValueChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-      </div>
-    </div>
-  );
-}
 
 function Secrets({ form, indexer }: { form: EditForm; indexer: IndexersIndexer }) {
   if (indexer.kind === "catalog") {
@@ -127,8 +87,8 @@ function EditFields({ indexer, onDone }: { indexer: IndexersIndexer; onDone: () 
             />
           )}
         </form.AppField>
-        <Limit form={form} name="searches" label="Searches" />
-        <Limit form={form} name="grabs" label="Grabs" />
+        <LimitField form={form} fields="searches" label="Searches" />
+        <LimitField form={form} fields="grabs" label="Grabs" />
         <form.FormAlert />
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={onDone}>Cancel</Button>
