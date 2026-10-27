@@ -2101,12 +2101,119 @@ export const IdentitySignupLinkURL = zod.object({
 export type IdentitySignupLinkURL = zod.input<typeof IdentitySignupLinkURL>;
 export type IdentitySignupLinkURLOutput = zod.output<typeof IdentitySignupLinkURL>;
 
+export const indexersCatalogAddressAddressMax = 2048;
+
+export const IndexersCatalogAddress = zod.object({
+  address: zod
+    .string()
+    .max(indexersCatalogAddressAddressMax)
+    .nullable()
+    .describe(
+      "The base address, to which SlipStream adds the schema version; null resets it to the default",
+    ),
+});
+
+export type IndexersCatalogAddress = zod.input<typeof IndexersCatalogAddress>;
+export type IndexersCatalogAddressOutput = zod.output<typeof IndexersCatalogAddress>;
+
+export const IndexersCatalogChanged = zod.object({
+  refreshedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Null until a refresh has read the catalog"),
+});
+
+export type IndexersCatalogChanged = zod.input<typeof IndexersCatalogChanged>;
+export type IndexersCatalogChangedOutput = zod.output<typeof IndexersCatalogChanged>;
+
+export const IndexersCatalogEntry = zod.object({
+  categories: zod.array(zod.int()).describe("The Newznab category ids it maps to"),
+  description: zod.string().describe("The definition's own words"),
+  id: zod.string(),
+  language: zod.string().describe("A language tag such as en-US"),
+  name: zod.string(),
+  origin: zod.enum(["catalog", "custom"]),
+  privacy: zod.enum(["private", "semi-private", "public"]),
+  reason: zod.string().nullable().describe("Why SlipStream can't run it; null when it can"),
+  replacedByCustom: zod
+    .boolean()
+    .describe("A custom definition has this catalog entry's id and runs in its place"),
+  version: zod.iso.datetime({ offset: true }).describe("When SlipStream downloaded this version"),
+});
+
+export type IndexersCatalogEntry = zod.input<typeof IndexersCatalogEntry>;
+export type IndexersCatalogEntryOutput = zod.output<typeof IndexersCatalogEntry>;
+
 export const IndexersChanged = zod.object({
   indexerId: zod.uuid(),
 });
 
 export type IndexersChanged = zod.input<typeof IndexersChanged>;
 export type IndexersChangedOutput = zod.output<typeof IndexersChanged>;
+
+export const indexersCustomDefinitionYamlMax = 1048576;
+
+export const IndexersCustomDefinition = zod.object({
+  yaml: zod
+    .string()
+    .min(1)
+    .max(indexersCustomDefinitionYamlMax)
+    .describe("The definition's YAML file"),
+});
+
+export type IndexersCustomDefinition = zod.input<typeof IndexersCustomDefinition>;
+export type IndexersCustomDefinitionOutput = zod.output<typeof IndexersCustomDefinition>;
+
+export const IndexersOption = zod.object({
+  label: zod.string(),
+  value: zod.string(),
+});
+
+export type IndexersOption = zod.input<typeof IndexersOption>;
+export type IndexersOptionOutput = zod.output<typeof IndexersOption>;
+
+export const IndexersDefinitionField = zod.object({
+  default: zod.string().nullable().describe("Null when the field has none"),
+  help: zod
+    .string()
+    .nullable()
+    .describe("An info field's text, written by the definition's authors"),
+  label: zod.string(),
+  name: zod.string().describe("May hold hyphens or start with a digit"),
+  options: zod.array(IndexersOption).describe("A select's choices, by value"),
+  sealed: zod.boolean().describe("Its saved value is never returned"),
+  type: zod.enum([
+    "text",
+    "password",
+    "checkbox",
+    "select",
+    "info",
+    "info_cookie",
+    "info_flaresolverr",
+    "info_useragent",
+    "info_category_8000",
+    "cardigannCaptcha",
+  ]),
+});
+
+export type IndexersDefinitionField = zod.input<typeof IndexersDefinitionField>;
+export type IndexersDefinitionFieldOutput = zod.output<typeof IndexersDefinitionField>;
+
+export const IndexersDefinitionForm = zod.object({
+  captcha: zod.boolean().describe("Signing in asks for an image captcha"),
+  entry: IndexersCatalogEntry,
+  fields: zod
+    .array(IndexersDefinitionField)
+    .describe("In the definition's order, the captcha last"),
+  links: zod.array(zod.string()).describe("The site's addresses, the first being the default"),
+  session: zod.boolean().describe("Its Indexers sign in and keep a session on their Node"),
+  solver: zod
+    .boolean()
+    .describe("The site sits behind a browser challenge that a Challenge solver can clear"),
+});
+
+export type IndexersDefinitionForm = zod.input<typeof IndexersDefinitionForm>;
+export type IndexersDefinitionFormOutput = zod.output<typeof IndexersDefinitionForm>;
 
 export const IndexersFailure = zod.object({
   at: zod.iso.datetime({ offset: true }),
@@ -2267,6 +2374,28 @@ export const IndexersIndexer = zod.object({
 
 export type IndexersIndexer = zod.input<typeof IndexersIndexer>;
 export type IndexersIndexerOutput = zod.output<typeof IndexersIndexer>;
+
+export const IndexersIndexerCatalog = zod.object({
+  address: zod
+    .string()
+    .describe("The catalog's base address, to which SlipStream adds the schema version"),
+  addressIsDefault: zod.boolean(),
+  entries: zod
+    .array(IndexersCatalogEntry)
+    .describe("The catalog's definitions by name, then the custom definitions by id"),
+  nextRefreshAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Indexer catalog refresh runs next; null while it runs or waits"),
+  notice: zod.string().nullable().describe("Why the catalog lists no site yet; null once it does"),
+  refreshedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Null until a refresh has downloaded the catalog"),
+});
+
+export type IndexersIndexerCatalog = zod.input<typeof IndexersIndexerCatalog>;
+export type IndexersIndexerCatalogOutput = zod.output<typeof IndexersIndexerCatalog>;
 
 export const indexersLimitCountMin = 0;
 export const indexersLimitCountMax = 100000;
@@ -5601,6 +5730,16 @@ export type LiveEventIdentitySessionsChangedOutput = zod.output<
   typeof LiveEventIdentitySessionsChanged
 >;
 
+export const LiveEventIndexersCatalogChanged = zod.object({
+  event: zod.enum(["indexers.catalog-changed"]),
+  data: IndexersCatalogChanged,
+});
+
+export type LiveEventIndexersCatalogChanged = zod.input<typeof LiveEventIndexersCatalogChanged>;
+export type LiveEventIndexersCatalogChangedOutput = zod.output<
+  typeof LiveEventIndexersCatalogChanged
+>;
+
 export const LiveEventIndexersChanged = zod.object({
   event: zod.enum(["indexers.changed"]),
   data: IndexersChanged,
@@ -5769,6 +5908,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventIdentityLinksChanged,
   LiveEventIdentityPasskeysChanged,
   LiveEventIdentitySessionsChanged,
+  LiveEventIndexersCatalogChanged,
   LiveEventIndexersChanged,
   LiveEventIndexersStatusChanged,
   LiveEventLiveAccessChanged,

@@ -19,12 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -182,6 +184,12 @@ type Timings struct {
 	Limited time.Duration `yaml:"limited"`
 	// Ladder is how long a failing Indexer backs off at each rung.
 	Ladder []time.Duration `yaml:"ladder"`
+	// PackageShare is the percent of the catalog's files that, once
+	// changed, a refresh fetches as package.zip in place of one by one.
+	PackageShare int `yaml:"package_share"`
+	// CatalogRequest is how long one request to the Indexer catalog may
+	// take.
+	CatalogRequest time.Duration `yaml:"catalog_request"`
 }
 
 func DefaultTimings() Timings {
@@ -191,7 +199,19 @@ func DefaultTimings() Timings {
 			time.Minute, 5 * time.Minute, 15 * time.Minute, 30 * time.Minute, time.Hour,
 			3 * time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour,
 		},
+		PackageShare: 25, CatalogRequest: 2 * time.Minute,
 	}
+}
+
+// Endpoints is read on the Controller only. A Worker's value is unused.
+type Endpoints struct {
+	// Catalog is the Indexer catalog's base address, to which SlipStream
+	// adds the schema version it reads.
+	Catalog endpoint.URL `yaml:"catalog"`
+}
+
+func DefaultEndpoints() Endpoints {
+	return Endpoints{Catalog: endpoint.MustParseURL("https://indexers.prowlarr.com/master")}
 }
 
 type Changed struct {
@@ -202,9 +222,14 @@ type StatusChanged struct {
 	IndexerID string `json:"indexerId" format:"uuid"`
 }
 
+type CatalogChanged struct {
+	RefreshedAt *time.Time `json:"refreshedAt" doc:"Null until a refresh has read the catalog"`
+}
+
 var (
-	ChangedEvent       = live.AdminEvent[Changed]("indexers.changed")
-	StatusChangedEvent = live.AdminEvent[StatusChanged]("indexers.status-changed")
+	ChangedEvent        = live.AdminEvent[Changed]("indexers.changed")
+	StatusChangedEvent  = live.AdminEvent[StatusChanged]("indexers.status-changed")
+	CatalogChangedEvent = live.AdminEvent[CatalogChanged]("indexers.catalog-changed")
 )
 
 type Publisher[T any] interface {
@@ -248,7 +273,14 @@ type Config struct {
 	Searching func(role.NodeID) searching.Remote
 	Changed   Publisher[Changed]
 	Status    Publisher[StatusChanged]
-	Timings   Timings
+	Catalogs  Publisher[CatalogChanged]
+	// HTTP reaches the Indexer catalog from the Controller.
+	HTTP      *http.Client
+	Endpoints Endpoints
+	// CatalogNext is when the Indexer catalog refresh runs next, zero when
+	// it isn't waiting for a slot.
+	CatalogNext func(context.Context) (time.Time, error)
+	Timings     Timings
 	// Zone is the zone of the times inside sentences.
 	Zone *time.Location
 	Log  *slog.Logger

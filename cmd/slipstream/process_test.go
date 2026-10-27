@@ -26,9 +26,12 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/example/shelf"
 )
 
-// localListeners keep parallel Nodes off each other's ports. startNode
-// always sets them.
-var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0"}
+// localListeners keep parallel Nodes off each other's ports, and the
+// Indexer catalog refresh at start off the internet. startNode always sets
+// them.
+var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0", noCatalog}
+
+const noCatalog = "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG=https://127.0.0.1:9/master"
 
 func TestMain(m *testing.M) {
 	os.Exit(testbin.Run(m))
@@ -233,6 +236,7 @@ func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 			{Key: "torrent.listen", Value: "127.0.0.1:0", Default: "0.0.0.0:6881", Source: "env", Env: "SLIPSTREAM_TORRENT_LISTEN"},
 			{Key: "http.listen", Value: "127.0.0.1:0", Default: "[::]:8484", Source: "env", Env: "SLIPSTREAM_HTTP_LISTEN"},
 			{Key: "link.listen", Value: "127.0.0.1:0", Default: "[::]:8485", Source: "env", Env: "SLIPSTREAM_LINK_LISTEN"},
+			{Key: "endpoints.indexers.catalog", Value: "https://127.0.0.1:9/master", Default: "https://indexers.prowlarr.com/master", Source: "env", Env: "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG"},
 		}
 		if !slices.Equal(c.ready.Overrides, want) {
 			t.Errorf("overrides = %+v, want %+v", c.ready.Overrides, want)
@@ -534,6 +538,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "endpoints.tmdb.images", Value: "https://image.tmdb.org/t/p", Default: "https://image.tmdb.org/t/p", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_IMAGES"},
 			{Key: "endpoints.omdb.api", Value: "https://www.omdbapi.com", Default: "https://www.omdbapi.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_API"},
 			{Key: "endpoints.torrent.dht_routers", Value: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Default: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TORRENT_DHT_ROUTERS"},
+			{Key: "endpoints.indexers.catalog", Value: "https://indexers.prowlarr.com/master", Default: "https://indexers.prowlarr.com/master", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
 			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
@@ -568,6 +573,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.indexers.poll", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_POLL"},
 			{Key: "timings.indexers.limited", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_LIMITED"},
 			{Key: "timings.indexers.ladder", Value: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s,24h0m0s", Default: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s,24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_LADDER"},
+			{Key: "timings.indexers.package_share", Value: "25", Default: "25", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_PACKAGE_SHARE"},
+			{Key: "timings.indexers.catalog_request", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_CATALOG_REQUEST"},
 			{Key: "timings.searching.request", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_REQUEST"},
 			{Key: "timings.searching.floor", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_FLOOR"},
 			{Key: "timings.searching.hold", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_HOLD"},
@@ -613,7 +620,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.health.retry", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_RETRY"},
 			{Key: "timings.health.check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_CHECK"},
 		},
-		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers"},
+		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog"},
 		ContentTypes: []string{"movie"},
 	}
 	if !reflect.DeepEqual(got, want) {

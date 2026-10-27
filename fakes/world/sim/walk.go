@@ -1,11 +1,9 @@
 package sim
 
 import (
-	"context"
 	"crypto/sha256"
 	"log/slog"
 	"math/rand/v2"
-	"net/netip"
 	"path/filepath"
 	"testing"
 	"time"
@@ -70,20 +68,16 @@ type walk struct {
 	served []bencode.Metainfo
 	hashes map[string]bencode.InfoHash
 	probes map[string]media.Probe
-	cancel context.CancelFunc
-	done   []chan error
 }
 
 // startWalk serves the walk's fakes on local and points endpoints at them.
-func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func(*site.Release), endpoints *node.EndpointsBlock) *walk {
+func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *servers, listed func(*site.Release), endpoints *node.EndpointsBlock) *walk {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
 	w := &walk{
 		mediaDir: filepath.Join(shortTempDir(t), "media"),
 		payloads: map[bencode.InfoHash][]byte{},
 		hashes:   map[string]bencode.InfoHash{},
 		probes:   map[string]media.Probe{},
-		cancel:   cancel,
 	}
 	imdb := map[int64]string{}
 	for _, m := range s.TMDB.Movies {
@@ -130,26 +124,14 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmdb.Fake.Endpoints(endpoints, w.serve(ctx, t, local, movies))
+	tmdb.Fake.Endpoints(endpoints, fakes.serve(t, local, movies))
 	ratings, err := omdb.Fake.New(s, fake.NewEnv(s, omdb.Fake, log, faults, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	omdb.Fake.Endpoints(endpoints, w.serve(ctx, t, local, ratings))
-	w.site = w.serve(ctx, t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing, func(string) (string, error) { return announce, nil })))
+	omdb.Fake.Endpoints(endpoints, fakes.serve(t, local, ratings))
+	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing, func(string) (string, error) { return announce, nil })))
 	return w
-}
-
-func (w *walk) serve(ctx context.Context, t *testing.T, local *fault.Host, server fake.Server) fake.Address {
-	t.Helper()
-	l, err := local.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan error, 1)
-	go func() { done <- server.Serve(ctx, l) }()
-	w.done = append(w.done, done)
-	return fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String())}
 }
 
 // Announce is the tracker URL the walk's torrents and magnet links name,
@@ -187,13 +169,4 @@ func (w *walk) env(n *Node, e *node.Env) {
 		return swarm.Open(cfg)
 	}
 	e.Media = mediatest.Prober{Of: w.probes}
-}
-
-func (w *walk) stop(t *testing.T) {
-	w.cancel()
-	for _, done := range w.done {
-		if err := <-done; err != nil {
-			t.Errorf("a walk fake: %v", err)
-		}
-	}
 }

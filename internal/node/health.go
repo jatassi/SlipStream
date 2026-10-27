@@ -19,7 +19,7 @@ func healthCategories(h *half) []health.Category {
 	return []health.Category{
 		{About: nodes.HealthAbout, Source: h.nodes.HealthSource()},
 		{About: downloadclients.HealthAbout, Source: h.clients.HealthSource()},
-		{About: indexers.HealthAbout, Source: h.indexers.HealthSource()},
+		{About: indexers.HealthAbout, Source: health.Join(h.indexers.HealthSource(), h.tasks.HealthSource(health.IndexersID))},
 		{About: tasks.HealthAbout, Source: h.tasks.HealthSource(health.ScheduledTasksID)},
 	}
 }

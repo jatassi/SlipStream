@@ -81,10 +81,15 @@ func (x *Indexers) Unreached(err error) string {
 	return err.Error()
 }
 
-func (x *Indexers) clock(t time.Time) string {
+func (x *Indexers) clock(t time.Time) string { return x.inZone(t).Format("15:04") }
+
+// day is t's date in sentences, such as "3 Oct".
+func (x *Indexers) day(t time.Time) string { return x.inZone(t).Format("2 Jan") }
+
+func (x *Indexers) inZone(t time.Time) time.Time {
 	zone := x.cfg.Zone
 	if zone == nil {
 		zone = time.Local
 	}
-	return t.In(zone).Format("15:04")
+	return t.In(zone)
 }

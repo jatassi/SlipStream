@@ -282,6 +282,25 @@ func (s *Scheduler) Task(ctx context.Context, id TaskID) (Detail, error) {
 	return d, err
 }
 
+// Next is when task id next opens on schedule, zero while it runs or
+// waits for its Node.
+func (s *Scheduler) Next(ctx context.Context, id TaskID) (time.Time, error) {
+	l, err := s.look(ctx, id)
+	if err != nil {
+		return time.Time{}, err
+	}
+	for _, v := range s.views(l, time.Now()) {
+		if v.Task.ID != id {
+			continue
+		}
+		if idle, ok := v.Status.(Idle); ok {
+			return idle.Next, nil
+		}
+		return time.Time{}, nil
+	}
+	return time.Time{}, ErrUnknownTask
+}
+
 // Running is every open run this process runs, oldest first.
 func (s *Scheduler) Running(ctx context.Context) ([]Active, error) {
 	names, err := s.cfg.Roster.Names(ctx)
@@ -371,8 +390,9 @@ func (s *Scheduler) status(l look, t Task, units []Unit, next time.Time) Status 
 	for _, a := range s.running {
 		if a.run.task.ID == t.ID {
 			done, total := a.progress.now()
+			running := Running{Run: a.run.id, Trigger: a.run.trigger, Since: a.run.started.Time(), Done: done, Total: total}
 			s.mu.Unlock()
-			return Running{Run: a.run.id, Trigger: a.run.trigger, Since: a.run.started.Time(), Done: done, Total: total}
+			return running
 		}
 	}
 	s.mu.Unlock()

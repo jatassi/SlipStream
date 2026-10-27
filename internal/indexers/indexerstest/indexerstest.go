@@ -1,5 +1,5 @@
 // Package indexerstest is fixtures for the tests of the indexers' callers:
-// a roster and a saved Torznab Indexer.
+// a roster and a saved Torznab or catalog Indexer.
 package indexerstest
 
 import (
@@ -81,6 +81,31 @@ func Torznab(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secre
 		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", Plain: "{}",
 		SecretsSealed: sealer.Seal(plain, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		FeedHost:      &u.Host, Caps: `{"modes":{}}`, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("save Indexer %s: %w", name, err)
+	}
+	return nil
+}
+
+// Catalog saves a catalog Indexer homed on home that pins version sha of
+// definition, which tx already holds, with its plain settings and its
+// sealed fields, at revision 1 with no status.
+func Catalog(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secret.Sealer, id indexers.ID, name string, home role.NodeID, definition, sha string, plain, sealed map[string]string) error {
+	secrets, err := json.Marshal(indexers.Secrets{Fields: sealed}) //nolint:gosec // G117: sealed below
+	if err != nil {
+		return fmt.Errorf("encode the secrets: %w", err)
+	}
+	settings, err := json.Marshal(plain)
+	if err != nil {
+		return fmt.Errorf("encode the settings: %w", err)
+	}
+	base := ""
+	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
+		ID: id, Name: name, Kind: string(indexers.Catalog), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
+		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", DefinitionID: &definition, DefinitionSha: &sha, BaseAddress: &base,
+		Plain: string(settings), SecretsSealed: sealer.Seal(secrets, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
+		Caps: `{"modes":{}}`, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
 	if err != nil {
 		return fmt.Errorf("save Indexer %s: %w", name, err)

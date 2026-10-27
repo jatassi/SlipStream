@@ -1,0 +1,62 @@
+---
+id: quarry
+name: Quarry
+description: "Quarry is a fictional semi-private tracker whose API takes a key."
+language: en-US
+type: semi-private
+encoding: UTF-8
+links:
+  - https://quarry.fixture-site.fake.localhost/
+
+caps:
+  categorymappings:
+    - {id: movies, cat: Movies, desc: "Movies"}
+    - {id: series, cat: TV, desc: "Series"}
+  modes:
+    search: [q]
+    movie-search: [q, imdbid, tmdbid]
+    tv-search: [q, season, ep, imdbid, tvdbid]
+
+settings:
+  - name: apikey
+    type: text
+    label: API key
+  - name: info_key
+    type: info
+    label: About the API key
+    default: "Your API key is on your Quarry profile page."
+
+login:
+  method: get
+  path: api/auth
+  inputs:
+    apikey: "{{ .Config.apikey }}"
+  test:
+    path: api/me
+
+search:
+  paths:
+    - path: api/torrents
+      response:
+        type: json
+  inputs:
+    apikey: "{{ .Config.apikey }}"
+    q: "{{ .Keywords }}"
+    imdb: "{{ .Query.IMDBIDShort }}"
+  rows:
+    selector: data
+  fields:
+    category:
+      selector: category
+    title:
+      selector: name
+    download:
+      selector: link
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    date:
+      selector: added

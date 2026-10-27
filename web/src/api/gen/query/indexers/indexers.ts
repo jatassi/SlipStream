@@ -16,25 +16,52 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AddCustomDefinition401,
+  AddCustomDefinition403,
+  AddCustomDefinition409,
+  AddCustomDefinition422,
+  AddCustomDefinition500,
   CreateIndexer401,
   CreateIndexer403,
   CreateIndexer409,
   CreateIndexer422,
   CreateIndexer500,
   CreateIndexer502,
+  DeleteCustomDefinition401,
+  DeleteCustomDefinition403,
+  DeleteCustomDefinition404,
+  DeleteCustomDefinition409,
+  DeleteCustomDefinition422,
+  DeleteCustomDefinition500,
   DeleteIndexer401,
   DeleteIndexer403,
   DeleteIndexer404,
   DeleteIndexer409,
   DeleteIndexer422,
   DeleteIndexer500,
+  GetCatalogDefinition401,
+  GetCatalogDefinition403,
+  GetCatalogDefinition404,
+  GetCatalogDefinition409,
+  GetCatalogDefinition422,
+  GetCatalogDefinition500,
+  GetCatalogDefinition503,
   GetIndexer401,
   GetIndexer403,
   GetIndexer404,
   GetIndexer409,
   GetIndexer422,
   GetIndexer500,
+  GetIndexerCatalog401,
+  GetIndexerCatalog403,
+  GetIndexerCatalog409,
+  GetIndexerCatalog500,
+  IndexersCatalogAddress,
+  IndexersCatalogEntry,
+  IndexersCustomDefinition,
+  IndexersDefinitionForm,
   IndexersIndexer,
+  IndexersIndexerCatalog,
   IndexersIndexerEdit,
   IndexersIndexerList,
   IndexersNewIndexer,
@@ -51,6 +78,11 @@ import type {
   ListIndexers403,
   ListIndexers409,
   ListIndexers500,
+  SetCatalogAddress401,
+  SetCatalogAddress403,
+  SetCatalogAddress409,
+  SetCatalogAddress422,
+  SetCatalogAddress500,
   TestIndexer401,
   TestIndexer403,
   TestIndexer404,
@@ -92,6 +124,662 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetIndexerCatalogUrl = () => {
+  return `/api/v1/indexer-catalog`;
+};
+
+/**
+ * @summary List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed
+ */
+export const getIndexerCatalog = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersIndexerCatalog> => {
+  return apiFetch<IndexersIndexerCatalog>(getGetIndexerCatalogUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIndexerCatalogQueryKey = () => {
+  return [`/api/v1/indexer-catalog`] as const;
+};
+
+export const getGetIndexerCatalogSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIndexerCatalog>>,
+  TError = ErrorType<
+    GetIndexerCatalog401 | GetIndexerCatalog403 | GetIndexerCatalog409 | GetIndexerCatalog500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerCatalog>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetIndexerCatalogQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getIndexerCatalog>>> = ({ signal }) =>
+    getIndexerCatalog({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerCatalog>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetIndexerCatalogSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIndexerCatalog>>
+>;
+export type GetIndexerCatalogSuspenseQueryError = ErrorType<
+  GetIndexerCatalog401 | GetIndexerCatalog403 | GetIndexerCatalog409 | GetIndexerCatalog500
+>;
+
+export function useGetIndexerCatalogSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerCatalog>>,
+  TError = ErrorType<
+    GetIndexerCatalog401 | GetIndexerCatalog403 | GetIndexerCatalog409 | GetIndexerCatalog500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerCatalog>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetIndexerCatalogSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerCatalog>>,
+  TError = ErrorType<
+    GetIndexerCatalog401 | GetIndexerCatalog403 | GetIndexerCatalog409 | GetIndexerCatalog500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerCatalog>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetIndexerCatalogSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerCatalog>>,
+  TError = ErrorType<
+    GetIndexerCatalog401 | GetIndexerCatalog403 | GetIndexerCatalog409 | GetIndexerCatalog500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerCatalog>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed
+ */
+
+export function useGetIndexerCatalogSuspense<
+  TData = Awaited<ReturnType<typeof getIndexerCatalog>>,
+  TError = ErrorType<
+    GetIndexerCatalog401 | GetIndexerCatalog403 | GetIndexerCatalog409 | GetIndexerCatalog500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIndexerCatalog>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetIndexerCatalogSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSetCatalogAddressUrl = () => {
+  return `/api/v1/indexer-catalog/address`;
+};
+
+/**
+ * @summary Change the Indexer catalog's address once SlipStream reads a schema 12 index there. The next refresh reads it in full.
+ */
+export const setCatalogAddress = async (
+  indexersCatalogAddress: IndexersCatalogAddress,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersIndexerCatalog> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersIndexerCatalog>(getSetCatalogAddressUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersCatalogAddress),
+  });
+};
+
+export const getSetCatalogAddressMutationKey = () => ["setCatalogAddress"] as const;
+
+export const getSetCatalogAddressMutationOptions = <
+  TError = ErrorType<
+    | SetCatalogAddress401
+    | SetCatalogAddress403
+    | SetCatalogAddress409
+    | SetCatalogAddress422
+    | SetCatalogAddress500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCatalogAddress>>,
+    TError,
+    SetCatalogAddressMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setCatalogAddress>>,
+  TError,
+  SetCatalogAddressMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetCatalogAddressMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setCatalogAddress>>,
+    SetCatalogAddressMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setCatalogAddress(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetCatalogAddressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setCatalogAddress>>
+>;
+export type SetCatalogAddressMutationBody = IndexersCatalogAddress;
+export type SetCatalogAddressMutationError = ErrorType<
+  | SetCatalogAddress401
+  | SetCatalogAddress403
+  | SetCatalogAddress409
+  | SetCatalogAddress422
+  | SetCatalogAddress500
+>;
+export type SetCatalogAddressMutationVariables = { data: IndexersCatalogAddress };
+
+/**
+ * @summary Change the Indexer catalog's address once SlipStream reads a schema 12 index there. The next refresh reads it in full.
+ */
+export const useSetCatalogAddress = <
+  TError = ErrorType<
+    | SetCatalogAddress401
+    | SetCatalogAddress403
+    | SetCatalogAddress409
+    | SetCatalogAddress422
+    | SetCatalogAddress500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setCatalogAddress>>,
+      TError,
+      SetCatalogAddressMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setCatalogAddress>>,
+  TError,
+  SetCatalogAddressMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetCatalogAddressMutationOptions(options), queryClient);
+};
+export const getAddCustomDefinitionUrl = () => {
+  return `/api/v1/indexer-catalog/custom`;
+};
+
+/**
+ * @summary Add a custom definition, or replace the custom definition with its id and move that definition's Indexers to it
+ */
+export const addCustomDefinition = async (
+  indexersCustomDefinition: IndexersCustomDefinition,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersCatalogEntry> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersCatalogEntry>(getAddCustomDefinitionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersCustomDefinition),
+  });
+};
+
+export const getAddCustomDefinitionMutationKey = () => ["addCustomDefinition"] as const;
+
+export const getAddCustomDefinitionMutationOptions = <
+  TError = ErrorType<
+    | AddCustomDefinition401
+    | AddCustomDefinition403
+    | AddCustomDefinition409
+    | AddCustomDefinition422
+    | AddCustomDefinition500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addCustomDefinition>>,
+    TError,
+    AddCustomDefinitionMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addCustomDefinition>>,
+  TError,
+  AddCustomDefinitionMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAddCustomDefinitionMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addCustomDefinition>>,
+    AddCustomDefinitionMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return addCustomDefinition(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddCustomDefinitionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addCustomDefinition>>
+>;
+export type AddCustomDefinitionMutationBody = IndexersCustomDefinition;
+export type AddCustomDefinitionMutationError = ErrorType<
+  | AddCustomDefinition401
+  | AddCustomDefinition403
+  | AddCustomDefinition409
+  | AddCustomDefinition422
+  | AddCustomDefinition500
+>;
+export type AddCustomDefinitionMutationVariables = { data: IndexersCustomDefinition };
+
+/**
+ * @summary Add a custom definition, or replace the custom definition with its id and move that definition's Indexers to it
+ */
+export const useAddCustomDefinition = <
+  TError = ErrorType<
+    | AddCustomDefinition401
+    | AddCustomDefinition403
+    | AddCustomDefinition409
+    | AddCustomDefinition422
+    | AddCustomDefinition500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof addCustomDefinition>>,
+      TError,
+      AddCustomDefinitionMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof addCustomDefinition>>,
+  TError,
+  AddCustomDefinitionMutationVariables,
+  TContext
+> => {
+  return useMutation(getAddCustomDefinitionMutationOptions(options), queryClient);
+};
+export const getDeleteCustomDefinitionUrl = (id: string) => {
+  return `/api/v1/indexer-catalog/custom/${id}`;
+};
+
+/**
+ * @summary Delete a custom definition that no Indexer runs
+ */
+export const deleteCustomDefinition = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getDeleteCustomDefinitionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCustomDefinitionMutationKey = () => ["deleteCustomDefinition"] as const;
+
+export const getDeleteCustomDefinitionMutationOptions = <
+  TError = ErrorType<
+    | DeleteCustomDefinition401
+    | DeleteCustomDefinition403
+    | DeleteCustomDefinition404
+    | DeleteCustomDefinition409
+    | DeleteCustomDefinition422
+    | DeleteCustomDefinition500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCustomDefinition>>,
+    TError,
+    DeleteCustomDefinitionMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCustomDefinition>>,
+  TError,
+  DeleteCustomDefinitionMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteCustomDefinitionMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCustomDefinition>>,
+    DeleteCustomDefinitionMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCustomDefinition(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCustomDefinitionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCustomDefinition>>
+>;
+
+export type DeleteCustomDefinitionMutationError = ErrorType<
+  | DeleteCustomDefinition401
+  | DeleteCustomDefinition403
+  | DeleteCustomDefinition404
+  | DeleteCustomDefinition409
+  | DeleteCustomDefinition422
+  | DeleteCustomDefinition500
+>;
+export type DeleteCustomDefinitionMutationVariables = { id: string };
+
+/**
+ * @summary Delete a custom definition that no Indexer runs
+ */
+export const useDeleteCustomDefinition = <
+  TError = ErrorType<
+    | DeleteCustomDefinition401
+    | DeleteCustomDefinition403
+    | DeleteCustomDefinition404
+    | DeleteCustomDefinition409
+    | DeleteCustomDefinition422
+    | DeleteCustomDefinition500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteCustomDefinition>>,
+      TError,
+      DeleteCustomDefinitionMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCustomDefinition>>,
+  TError,
+  DeleteCustomDefinitionMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeleteCustomDefinitionMutationOptions(options), queryClient);
+};
+export const getGetCatalogDefinitionUrl = (id: string) => {
+  return `/api/v1/indexer-catalog/${id}`;
+};
+
+/**
+ * @summary Get the fields of a definition's add form, from the custom definition with the id or else the catalog's
+ */
+export const getCatalogDefinition = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersDefinitionForm> => {
+  return apiFetch<IndexersDefinitionForm>(getGetCatalogDefinitionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCatalogDefinitionQueryKey = (id: string) => {
+  return [`/api/v1/indexer-catalog/${id}`] as const;
+};
+
+export const getGetCatalogDefinitionSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCatalogDefinition>>,
+  TError = ErrorType<
+    | GetCatalogDefinition401
+    | GetCatalogDefinition403
+    | GetCatalogDefinition404
+    | GetCatalogDefinition409
+    | GetCatalogDefinition422
+    | GetCatalogDefinition500
+    | GetCatalogDefinition503
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getCatalogDefinition>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCatalogDefinitionQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCatalogDefinition>>> = ({ signal }) =>
+    getCatalogDefinition(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getCatalogDefinition>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetCatalogDefinitionSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCatalogDefinition>>
+>;
+export type GetCatalogDefinitionSuspenseQueryError = ErrorType<
+  | GetCatalogDefinition401
+  | GetCatalogDefinition403
+  | GetCatalogDefinition404
+  | GetCatalogDefinition409
+  | GetCatalogDefinition422
+  | GetCatalogDefinition500
+  | GetCatalogDefinition503
+>;
+
+export function useGetCatalogDefinitionSuspense<
+  TData = Awaited<ReturnType<typeof getCatalogDefinition>>,
+  TError = ErrorType<
+    | GetCatalogDefinition401
+    | GetCatalogDefinition403
+    | GetCatalogDefinition404
+    | GetCatalogDefinition409
+    | GetCatalogDefinition422
+    | GetCatalogDefinition500
+    | GetCatalogDefinition503
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getCatalogDefinition>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetCatalogDefinitionSuspense<
+  TData = Awaited<ReturnType<typeof getCatalogDefinition>>,
+  TError = ErrorType<
+    | GetCatalogDefinition401
+    | GetCatalogDefinition403
+    | GetCatalogDefinition404
+    | GetCatalogDefinition409
+    | GetCatalogDefinition422
+    | GetCatalogDefinition500
+    | GetCatalogDefinition503
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getCatalogDefinition>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetCatalogDefinitionSuspense<
+  TData = Awaited<ReturnType<typeof getCatalogDefinition>>,
+  TError = ErrorType<
+    | GetCatalogDefinition401
+    | GetCatalogDefinition403
+    | GetCatalogDefinition404
+    | GetCatalogDefinition409
+    | GetCatalogDefinition422
+    | GetCatalogDefinition500
+    | GetCatalogDefinition503
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getCatalogDefinition>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the fields of a definition's add form, from the custom definition with the id or else the catalog's
+ */
+
+export function useGetCatalogDefinitionSuspense<
+  TData = Awaited<ReturnType<typeof getCatalogDefinition>>,
+  TError = ErrorType<
+    | GetCatalogDefinition401
+    | GetCatalogDefinition403
+    | GetCatalogDefinition404
+    | GetCatalogDefinition409
+    | GetCatalogDefinition422
+    | GetCatalogDefinition500
+    | GetCatalogDefinition503
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getCatalogDefinition>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetCatalogDefinitionSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getListIndexersUrl = () => {
   return `/api/v1/indexers`;

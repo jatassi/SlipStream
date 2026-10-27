@@ -1,0 +1,91 @@
+---
+id: larkspur
+name: Larkspur
+description: "Larkspur is a fictional private tracker for films. Signing in asks for a captcha. It no longer sorts by seeders."
+language: en-US
+type: private
+encoding: UTF-8
+requestDelay: 3
+links:
+  - https://larkspur.fixture-site.fake.localhost/
+
+caps:
+  categorymappings:
+    - {id: 1, cat: Movies/SD, desc: "Films SD"}
+    - {id: 2, cat: Movies/HD, desc: "Films HD", default: true}
+    - {id: 3, cat: Movies/UHD, desc: "Films UHD"}
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+
+settings:
+  - name: username
+    type: text
+    label: Username
+  - name: password
+    type: password
+    label: Password
+  - name: sort
+    type: select
+    label: Sort requested from site
+    default: added
+    options:
+      added: created
+      size: size
+
+login:
+  path: login.php
+  method: form
+  form: form#login
+  captcha:
+    type: image
+    selector: img#captcha
+    input: captcha
+  inputs:
+    username: "{{ .Config.username }}"
+    password: "{{ .Config.password }}"
+  error:
+    - selector: div.error
+  test:
+    path: browse.php
+    selector: a[href="logout.php"]
+
+search:
+  paths:
+    - path: browse.php
+  inputs:
+    $raw: "{{ range .Categories }}c{{.}}=1&{{end}}"
+    search: "{{ if .Query.IMDBID }}{{ .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+    sort: "{{ .Config.sort }}"
+  rows:
+    selector: table#torrents tr.torrent
+  fields:
+    category:
+      selector: a[href^="browse.php?cat="]
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    title:
+      selector: a.title
+    details:
+      selector: a.title
+      attribute: href
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: td.size
+    seeders:
+      selector: td.seeders
+    leechers:
+      selector: td.leechers
+    date:
+      selector: td.added
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd HH:mm"
+    downloadvolumefactor:
+      text: 1
+    uploadvolumefactor:
+      text: 1

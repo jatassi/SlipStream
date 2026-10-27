@@ -238,6 +238,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
+	var scheduler *tasks.Scheduler
 	registry := indexers.New(indexers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -245,8 +246,14 @@ func (n *Node) startController(ctx context.Context) error {
 		Searching: func(node role.NodeID) searching.Remote {
 			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
-		Changed: indexers.ChangedEvent.Bind(n.hub),
-		Status:  indexers.StatusChangedEvent.Bind(n.hub),
+		Changed:   indexers.ChangedEvent.Bind(n.hub),
+		Status:    indexers.StatusChangedEvent.Bind(n.hub),
+		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),
+		HTTP:      client,
+		Endpoints: n.cfg.Endpoints.Indexers,
+		CatalogNext: func(ctx context.Context) (time.Time, error) {
+			return scheduler.Next(ctx, indexers.CatalogRefreshTaskID)
+		},
 		Timings: n.cfg.Timings.Indexers,
 		Zone:    n.zone(),
 		Log:     n.rootLog.With("subsystem", "indexers"),
@@ -320,7 +327,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
-	scheduler, err := tasks.Open(ctx, tasks.Config{
+	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
 			Library:  lib.db,
@@ -337,7 +344,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}), n.env.Test.tasks(started)...),
+		}), append(registry.Tasks(), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,

@@ -436,6 +436,50 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{indexerNotFound},
 	}, h.listIndexerQueries)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCatalog",
+		Method:  http.MethodGet,
+		Path:    "/indexer-catalog",
+		Summary: "List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed",
+		Status:  http.StatusOK,
+	}, h.getCatalog)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getCatalogDefinition",
+		Method:  http.MethodGet,
+		Path:    "/indexer-catalog/{id}",
+		Summary: "Get the fields of a definition's add form, from the custom definition with the id or else the catalog's",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{definitionNotFound, catalogUnavailable},
+	}, h.getDefinition)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setCatalogAddress",
+		Method:  http.MethodPut,
+		Path:    "/indexer-catalog/address",
+		Summary: "Change the Indexer catalog's address once SlipStream reads a schema 12 index there. The next refresh reads it in full.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{catalogAddressUnreachable},
+	}, h.setAddress)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "addCustomDefinition",
+		Method:  http.MethodPost,
+		Path:    "/indexer-catalog/custom",
+		Summary: "Add a custom definition, or replace the custom definition with its id and move that definition's Indexers to it",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{definitionUnloadable, definitionIDTaken},
+	}, h.addCustom)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteCustomDefinition",
+		Method:  http.MethodDelete,
+		Path:    "/indexer-catalog/custom/{id}",
+		Summary: "Delete a custom definition that no Indexer runs",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{definitionNotFound, definitionInUse},
+	}, h.deleteCustom)
 }
 
 type handlers struct{ registry Registry }
