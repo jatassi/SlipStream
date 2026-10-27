@@ -42,7 +42,7 @@ export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "
     waits: null,
     session: null,
     feedHost: "prowlarr.lan:9696",
-    searchModes: [{ mode: "movie", params: ["q", "imdbid"] }],
+    searchModes: [{ mode: "search", params: ["q"] }],
     revision: 3,
     createdAt: "2026-10-20T08:00:00Z",
     ...over,

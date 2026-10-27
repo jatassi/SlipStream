@@ -3,7 +3,6 @@ package indexersapi
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -21,21 +20,6 @@ type settingsInput struct{ Body settingsChange }
 
 type settingsChange struct {
 	Values map[string]json.RawMessage `json:"values" doc:"Each setting's new value by key, all or none; null resets one to its default"`
-}
-
-func settingsRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID: "getIndexerSettings", Method: http.MethodGet, Path: "/indexer-settings", Summary: "Get the Indexer settings", Status: http.StatusOK,
-	}, h.getSettings)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "updateIndexerSettings",
-		Method:  http.MethodPatch,
-		Path:    "/indexer-settings",
-		Summary: "Change Indexer settings by key, all or none",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
-	}, h.updateSettings)
 }
 
 func (h handlers) getSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*settingsOutput, error) {

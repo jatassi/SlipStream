@@ -43,7 +43,9 @@ function Saved({
           Replace
         </Button>
       </div>
-      <FieldMessage error={error} description={description} />
+      <Field.Root className="contents">
+        <FieldMessage error={error} description={description} />
+      </Field.Root>
     </fieldset>
   );
 }

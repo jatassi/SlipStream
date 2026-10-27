@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -492,8 +493,22 @@ func Routes(r *api.Router, registry Registry) {
 		Errors:  []*api.Code{definitionNotFound, definitionInUse},
 	}, h.deleteCustom)
 
-	settingsRoutes(o, h)
-	trackersRoutes(o, h)
+	api.Register(o, api.Admin, api.Op{
+		ID: "listTrackers", Method: http.MethodGet, Path: "/trackers", Summary: "List the Trackers and the Indexers that reach each", Status: http.StatusOK,
+	}, h.listTrackers)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "getIndexerSettings", Method: http.MethodGet, Path: "/indexer-settings", Summary: "Get the Indexer settings", Status: http.StatusOK,
+	}, h.getSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateIndexerSettings",
+		Method:  http.MethodPatch,
+		Path:    "/indexer-settings",
+		Summary: "Change Indexer settings by key, all or none",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateSettings)
 }
 
 type handlers struct{ registry Registry }

@@ -352,31 +352,8 @@ func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers", "", http.StatusOK, `{"trackers":[]}`)
 	feed := s.plant(t, "Prowlarr", s.key)
-	site := s.plant(t, "TorrentLeech", s.key)
-	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		for _, t := range []struct {
-			name     string
-			indexers []string
-		}{{"TorrentLeech", []string{feed, site}}, {"Aither", []string{feed}}, {"Orphan", nil}} {
-			id := storage.NewUUID()
-			if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_tracker (id, name, privacy, created_at) VALUES (?, ?, 'private', 0)`, id, t.name); err != nil {
-				return err
-			}
-			for _, idx := range t.indexers {
-				indexer, err := storage.ParseUUID(idx)
-				if err != nil {
-					return err
-				}
-				if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_reach (indexer_id, tracker_id) VALUES (?, ?)`, indexer, id); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	torrentLeech := s.plant(t, "TorrentLeech", s.key)
+	s.reach(t, map[string][]string{"TorrentLeech": {feed, torrentLeech}, "Aither": {feed}, "Orphan": nil})
 	_, list := s.owner.Call(t, http.MethodGet, "/api/v1/trackers", "")
 	want := `{"trackers":[` +
 		`{"id":"Aither","name":"Aither","privacy":"private","indexerIds":["Prowlarr"]},` +
@@ -391,7 +368,7 @@ func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
 	if err := json.Unmarshal([]byte(list), &trackers); err != nil {
 		t.Fatal(err)
 	}
-	names := []string{feed, "Prowlarr", site, "TorrentLeech"}
+	names := []string{feed, "Prowlarr", torrentLeech, "TorrentLeech"}
 	for _, tr := range trackers.Trackers {
 		names = append(names, tr.ID, tr.Name)
 	}
@@ -404,5 +381,31 @@ func TestTrackersListTheIndexersThatReachThem(t *testing.T) {
 	_, body := s.owner.Call(t, http.MethodGet, "/api/v1/indexers/"+feed, "")
 	if err := json.Unmarshal([]byte(body), &v); err != nil || len(v.TrackerIDs) != 2 {
 		t.Fatalf("getIndexer = %s, want the two Trackers it reaches", body)
+	}
+}
+
+// reach adds each Tracker, reached by the Indexers with the given ids.
+func (s *served) reach(t *testing.T, trackers map[string][]string) {
+	t.Helper()
+	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for name, indexers := range trackers {
+			id := storage.NewUUID()
+			if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_tracker (id, name, privacy, created_at) VALUES (?, ?, 'private', 0)`, id, name); err != nil {
+				return err
+			}
+			for _, raw := range indexers {
+				indexer, err := storage.ParseUUID(raw)
+				if err != nil {
+					return err
+				}
+				if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_reach (indexer_id, tracker_id) VALUES (?, ?)`, indexer, id); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

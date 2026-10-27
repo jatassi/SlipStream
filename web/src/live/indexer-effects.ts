@@ -26,4 +26,7 @@ export const indexerEffects = {
     refresh({ queryKey: getGetIndexerCatalogQueryKey() });
     refresh(everyCatalogDefinition);
   },
-} satisfies Pick<LiveEffects, "indexers.changed" | "indexers.status-changed" | "indexers.catalog-changed">;
+} satisfies Pick<
+  LiveEffects,
+  "indexers.changed" | "indexers.status-changed" | "indexers.catalog-changed"
+>;

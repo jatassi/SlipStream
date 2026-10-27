@@ -25,7 +25,7 @@ export function RecentQueries({ queries }: { queries: readonly IndexersQuery[] }
               className="flex min-h-(--row-height) flex-wrap items-center gap-x-3 px-4 py-2 not-first:shadow-[inset_0_1px_0_var(--color-hairline)]"
             >
               <span className="w-28 shrink-0 text-ink-3">{useWords[query.use]}</span>
-              <span className="min-w-0 flex-1 text-ink-1">{outcomeWords(query)}</span>
+              <span className="min-w-0 flex-1 basis-40 text-ink-1">{outcomeWords(query)}</span>
               <Data className="shrink-0 text-ink-3">{clock(query.reservedAt)}</Data>
             </li>
           ))}

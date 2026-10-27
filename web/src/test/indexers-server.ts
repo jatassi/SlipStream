@@ -67,21 +67,27 @@ const limitOf = (was: IndexersLimitUse, sent: Edit["searches"]): IndexersLimitUs
   sent === undefined ? was : { ...was, count: sent?.count ?? 0, per: sent?.per ?? "hour" };
 
 /** row after edit, as the server saves it: null resets a field to its default. */
-const edited = (row: IndexersIndexer, edit: Edit): IndexersIndexer => ({
-  ...row,
-  name: edit.name ?? row.name,
-  homeNodeId: edit.homeNodeId ?? row.homeNodeId,
-  on: edit.on === undefined ? row.on : (edit.on ?? true),
-  automaticSearch:
-    edit.automaticSearch === undefined ? row.automaticSearch : (edit.automaticSearch ?? true),
-  rss: edit.rss === undefined ? row.rss : (edit.rss ?? true),
-  allowFailover:
-    edit.allowFailover === undefined ? row.allowFailover : (edit.allowFailover ?? false),
-  priority: edit.priority === undefined ? row.priority : (edit.priority ?? 25),
-  searches: limitOf(row.searches, edit.searches),
-  grabs: limitOf(row.grabs, edit.grabs),
-  revision: row.revision + 1,
-});
+const switched = (was: boolean, sent: boolean | null | undefined, unset: boolean) =>
+  sent === undefined ? was : (sent ?? unset);
+
+/** row after edit, as the server saves it: null resets a field to its default. */
+function edited(row: IndexersIndexer, edit: Edit): IndexersIndexer {
+  const on = switched(row.on, edit.on, true);
+  return {
+    ...row,
+    name: edit.name ?? row.name,
+    homeNodeId: edit.homeNodeId ?? row.homeNodeId,
+    on,
+    automaticSearch: switched(row.automaticSearch, edit.automaticSearch, true),
+    rss: switched(row.rss, edit.rss, true),
+    allowFailover: switched(row.allowFailover, edit.allowFailover, false),
+    priority: edit.priority === undefined ? row.priority : (edit.priority ?? 25),
+    searches: limitOf(row.searches, edit.searches),
+    grabs: limitOf(row.grabs, edit.grabs),
+    sentence: on ? row.sentence : `${row.name} is off.`,
+    revision: row.revision + 1,
+  };
+}
 
 function patchIndexer(server: Server, row: IndexersIndexer, body: Edit) {
   server.writes.push({ method: "PATCH", id: row.id, body });

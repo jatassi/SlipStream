@@ -126,7 +126,7 @@ const (
 
 // words is v's status as a sentence, and what the Admin can do about it,
 // "" when nothing.
-func (x *Indexers) words(v View) (string, string) {
+func (x *Indexers) words(v View) (sentence, fix string) {
 	name := v.Name
 	if !v.On {
 		return name + " is off.", ""
@@ -143,7 +143,7 @@ func (x *Indexers) words(v View) (string, string) {
 	return name + " is working.", ""
 }
 
-func (x *Indexers) waitWords(v View, w Outcome) (string, string) {
+func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	name := v.Name
 	switch w.Kind {
 	case IsStopped:

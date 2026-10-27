@@ -2,9 +2,7 @@ package indexersapi
 
 import (
 	"context"
-	"net/http"
 
-	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
@@ -20,12 +18,6 @@ type trackerList struct {
 }
 
 type trackerListOutput struct{ Body trackerList }
-
-func trackersRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID: "listTrackers", Method: http.MethodGet, Path: "/trackers", Summary: "List the Trackers and the Indexers that reach each", Status: http.StatusOK,
-	}, h.listTrackers)
-}
 
 func (h handlers) listTrackers(ctx context.Context, by identity.Admin, _ *struct{}) (*trackerListOutput, error) {
 	list, err := open(h.registry).Trackers(ctx, by)
