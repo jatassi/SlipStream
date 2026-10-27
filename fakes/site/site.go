@@ -1,6 +1,7 @@
 // Package site is fixture-site: a private tracker's site, of which the
 // skeleton serves the Torznab API and the .torrent downloads. Its API key
-// is derived from the Scenario's seed.
+// is derived from the Scenario's seed. Every site it hosts has a host
+// under Domain, which each Node dials at its own front.
 package site
 
 import (
@@ -22,20 +23,24 @@ import (
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/searching"
 )
 
 // List lists an unlisted release from now on: {"release": "<name>"}.
 var List = fake.CueSpec{Name: "fixture-site-list"}
 
-// Fake reaches no Endpoints entry: an Admin enters an Indexer's URL.
+// Fake sends a Node's every host under Domain to that Node's front. An
+// Admin enters an Indexer's URL with its site's host.
 var Fake = fake.Spec{
-	Name:      "fixture-site",
-	TLS:       fake.FrontTLS,
-	New:       newServer,
-	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
-	Online:    fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
-	Cues:      []fake.CueSpec{List},
-	Entered:   indexers,
+	Name: "fixture-site",
+	TLS:  fake.FrontTLS,
+	New:  newServer,
+	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
+		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
+	},
+	Online:  fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
+	Cues:    []fake.CueSpec{List},
+	Entered: indexers,
 }
 
 // indexers are the Indexers an Admin added, each dialed at its feed's
@@ -133,12 +138,25 @@ func APIKey(s scenario.Scenario) string {
 	return fmt.Sprintf("%016x%016x", r.Uint64(), r.Uint64())
 }
 
+// Domain is the domain every site of fixture-site has its host under.
+const Domain = "fixture-site.fake.localhost"
+
+// Host is the host of the site whose label is label.
+func Host(label string) string { return label + "." + Domain }
+
 // TorznabPath is the Torznab feed's base, the Indexer URL an Admin enters
 // less the site's origin.
 const TorznabPath = "/torznab"
 
-// URL is the Indexer URL of the site at at.
-func URL(at fake.Address) string { return at.URL(TorznabPath) }
+// URL is the Indexer URL of the Torznab site, in the scheme the front at
+// serves.
+func URL(at fake.Address) string {
+	scheme := "http"
+	if at.TLS {
+		scheme = "https"
+	}
+	return scheme + "://" + Host("torznab") + TorznabPath
+}
 
 type site struct {
 	apiKey   string

@@ -61,6 +61,7 @@ type EndpointsBlock struct {
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
 	Indexers     indexers.Endpoints   `yaml:"indexers"`
+	Searching    searching.Endpoints  `yaml:"searching"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
 

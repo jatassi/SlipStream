@@ -55,7 +55,7 @@ var listing = []site.Release{
 func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", Seed: "site-test"} }
 
 func spec(rels []site.Release) fake.Spec {
-	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, Endpoints: site.Fake.Endpoints, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		return fake.HTTP(env, site.Routes(site.APIKey(s), rels, func(string) (string, error) { return announce, nil })), nil
 	}}
 }
@@ -320,7 +320,7 @@ func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
 	}
 	got := a.Releases[0]
 	want := fmt.Sprintf("%s 1000 2026-06-01T12:00:00Z 7/3/40 %s %v %v map[imdbid:tt9000001 tmdbid:9000001] {0 1} {1 48h0m0s} %s",
-		many[0].Name, many[0].InfoHash, []int{2000}, true, f.Address.URL("/details/"+many[0].InfoHash))
+		many[0].Name, many[0].InfoHash, []int{2000}, true, "https://"+site.Host("torznab")+"/details/"+many[0].InfoHash)
 	if s := fmt.Sprintf("%s %d %s %d/%d/%d %s %v %v %v %v %v %s", got.Title, got.Size, got.Published.Format(time.RFC3339), got.Seeders, got.Leechers, got.Grabs,
 		got.InfoHash, got.Categories, got.Magnet.IsZero(), got.IDs, got.Factors, got.Floor, got.Details); s != want {
 		t.Fatalf("the first Release =\n%s\nwant\n%s", s, want)

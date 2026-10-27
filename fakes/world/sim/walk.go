@@ -131,6 +131,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	}
 	omdb.Fake.Endpoints(endpoints, fakes.serve(t, local, ratings))
 	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing, func(string) (string, error) { return announce, nil })))
+	site.Fake.Endpoints(endpoints, w.site)
 	return w
 }
 

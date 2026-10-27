@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/worktree"
 )
 
@@ -91,14 +92,14 @@ func TestDoctorPassesThenFailsOnAnEditedWorktree(t *testing.T) {
 // TestDoctorCatchesARealIndexerURL plants an Indexer at a real address on
 // a stand-in Controller, since creating one through the API fails its caps
 // call.
-func TestDoctorCatchesARealIndexerURL(t *testing.T) {
+func TestDoctorCatchesARealIndexerURLAndPassesAMappedSite(t *testing.T) {
 	t.Parallel()
 	controller := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/indexers" || r.Header.Get("X-Api-Key") != "ssk_test" {
 			http.NotFound(w, r)
 			return
 		}
-		_, _ = w.Write([]byte(`{"indexers":[{"name":"Planted","feedHost":"example.org","homeNodeId":"n1"}]}`))
+		_, _ = w.Write([]byte(`{"indexers":[{"name":"Planted","feedHost":"example.org","homeNodeId":"n1"},{"name":"Fixture Site","feedHost":"torznab.fixture-site.fake.localhost","homeNodeId":"n1"}]}`))
 	}))
 	t.Cleanup(controller.Close)
 
@@ -109,7 +110,8 @@ func TestDoctorCatchesARealIndexerURL(t *testing.T) {
 	}
 	m := world.Manifest{
 		RunDir: runDir, CA: world.CAFile{File: ca}, APIKey: "ssk_test",
-		Nodes:  []world.Node{{Name: "home", Setup: scenario.SetupController, URL: controller.URL, NodeID: "n1", State: world.NodeRunning, PID: os.Getpid()}},
+		Nodes: []world.Node{{Name: "home", Setup: scenario.SetupController, URL: controller.URL, NodeID: "n1", State: world.NodeRunning, PID: os.Getpid(),
+			Overrides: []node.Key{{Key: "endpoints.searching.sites", Value: "fixture-site.fake.localhost=127.0.0.1:1"}}}},
 		Fakes:  []world.Fake{{Name: "fixture-site"}},
 		Fronts: []world.Front{{Target: "fixture-site", Node: "home", Address: "127.0.0.1:1"}},
 	}

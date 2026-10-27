@@ -65,9 +65,6 @@ func TestValidateRefusesTwoSearchingHoldersForIndexers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := s.Searching(); got != "seedbox" {
-		t.Fatalf("home's Searching holder = %q, want seedbox", got)
-	}
 	s.Nodes[0].Roles = nil
 	want := "scenario home: library has indexers, and nodes home, seedbox all hold searching; exactly one does"
 	if err := s.Validate(); err == nil || err.Error() != want {

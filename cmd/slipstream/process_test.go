@@ -539,6 +539,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "endpoints.omdb.api", Value: "https://www.omdbapi.com", Default: "https://www.omdbapi.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_API"},
 			{Key: "endpoints.torrent.dht_routers", Value: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Default: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TORRENT_DHT_ROUTERS"},
 			{Key: "endpoints.indexers.catalog", Value: "https://indexers.prowlarr.com/master", Default: "https://indexers.prowlarr.com/master", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG"},
+			{Key: "endpoints.searching.sites", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_SEARCHING_SITES"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
 			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},

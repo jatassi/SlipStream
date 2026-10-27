@@ -154,7 +154,7 @@ func (r *Run) serveFronts(f *fakeRun) error {
 // leaves are the certificates a fake's fronts present: a leaf from the run
 // CA, and the bad leaf each TLS failure plays.
 func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
-	names := leafNames(name)
+	names := fake.LeafNames(name)
 	good, err := r.leaf(name)
 	if err != nil {
 		return nil, err
@@ -179,9 +179,7 @@ func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
 	return func(f fault.Front) *tls.Config { return front.TLS(r.faults, f, good, bad) }, nil
 }
 
-func leafNames(name string) []string { return []string{"127.0.0.1", name + ".fake.localhost"} }
-
-func (r *Run) leaf(name string) (tls.Certificate, error) { return r.ca.Leaf(leafNames(name)...) }
+func (r *Run) leaf(name string) (tls.Certificate, error) { return r.ca.Leaf(fake.LeafNames(name)...) }
 
 // LinkTarget is the fault target of the link front of the Node named
 // name: one front every peer dials, since each dials the one address the
