@@ -100,7 +100,7 @@ type outcome struct {
 	Releases int        `json:"releases" minimum:"0"`
 	Until    *time.Time `json:"until" doc:"Set for limited, failing and limit_reached"`
 	Since    *time.Time `json:"since" doc:"Set for waiting: since when the home Node is away; null when it holds no Role to search with"`
-	NodeID   *string    `json:"nodeId" format:"uuid" doc:"Set for waiting: the Node waited for"`
+	NodeID   *string    `json:"nodeId" format:"uuid" doc:"Set for waiting: the Node waited for; for stopped: the Node the stop was met on"`
 	Lapsed   bool       `json:"lapsed" doc:"Waiting past the offline grace"`
 	Cause    *string    `json:"cause" doc:"Set for stopped"`
 	Text     *string    `json:"text" doc:"Set for stopped: the site's own words"`

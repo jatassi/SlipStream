@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -57,14 +58,22 @@ func searched(t *testing.T, a *worldtest.API, work string) string {
 	eventually(t, "the search finishes", func() bool {
 		runs := decode[struct {
 			Searches []struct {
-				ID      string  `json:"id"`
-				Outcome *string `json:"outcome"`
+				ID       string  `json:"id"`
+				Outcome  *string `json:"outcome"`
+				Indexers []struct {
+					Outcome *string `json:"outcome"`
+				} `json:"indexers"`
 			} `json:"searches"`
 		}](t, "listSearches", a.Admin("home", http.MethodGet, "/api/v1/works/"+work+"/searches", "")).Searches
 		for _, r := range runs {
-			if r.ID == run && r.Outcome != nil {
-				outcome = *r.Outcome
+			if r.ID != run || r.Outcome == nil {
+				continue
 			}
+			var lines []string
+			for _, l := range r.Indexers {
+				lines = append(lines, *l.Outcome)
+			}
+			outcome = *r.Outcome + " (" + strings.Join(lines, ", ") + ")"
 		}
 		return outcome != ""
 	})
@@ -108,7 +117,7 @@ func expectSearch(t *testing.T, a *worldtest.API, work, when, want string) {
 // TestAnOfflineSeedboxsSearchesWaitThenGoHome stops seedbox, which holds
 // Searching and Downloading and is the Indexer's home, with the offline
 // grace at its 1 min floor. Within the grace the Indexer waits for it and a
-// search finishes indexer_unavailable; past the grace home covers
+// search finds nothing while the Indexer's line waits; past the grace home covers
 // Searching, so a search grabs through home while the Grab waits for a
 // Node that downloads. Once seedbox is back and settled, the Grab is
 // fetched and downloaded on seedbox and the nav alert clears.
@@ -132,7 +141,7 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 		synctest.Wait()
 		left := time.Now()
 		expectStanding(t, a, "just stopped", view{"away", "none", "waiting"})
-		expectSearch(t, a, work, "within the grace", "indexer_unavailable")
+		expectSearch(t, a, work, "within the grace", "nothing_acceptable (waiting)")
 		seen, err := time.Parse(time.RFC3339Nano, seedbox(t, a).Link.Since)
 		if err != nil {
 			t.Fatal(err)
@@ -144,7 +153,7 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 		time.Sleep(time.Until(seen.Add(time.Minute)))
 		synctest.Wait()
 		expectStanding(t, a, "past the grace", view{"lapsed", "fail", "none"})
-		expectSearch(t, a, work, "past the grace, through home", "grabbed")
+		expectSearch(t, a, work, "past the grace, through home", "grabbed (found)")
 		time.Sleep(time.Minute)
 		synctest.Wait()
 		if gs := grabsOn(t, a); len(gs) != 1 || gs[0].Stage != "fetching" || gs[0].FetchNodeID != "" {

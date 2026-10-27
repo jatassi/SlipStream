@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // slowNode is a Node whose one job waits queue for its first request,
@@ -75,6 +76,7 @@ func searchOn(t *testing.T, n *slowNode) (indexers.Answer, *storage.DB[storage.L
 	x := indexers.New(indexers.Config{
 		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home),
 		Searching: func(role.NodeID) searching.Remote { return n },
+		Types:     map[works.TypeID]indexers.Facet{indexerstest.Movie: indexerstest.Movies{}},
 		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{},
 		Timings: indexers.Timings{Job: 2 * time.Minute, Poll: time.Second, Limited: time.Minute, Ladder: []time.Duration{time.Minute}},
 		Log:     slog.New(slog.DiscardHandler),
@@ -89,15 +91,19 @@ func searchOn(t *testing.T, n *slowNode) (indexers.Answer, *storage.DB[storage.L
 		stop()
 		<-ran
 	})
-	idx, err := indexers.Get(t.Context(), lib, id)
+	var lines []indexers.Line
+	err = lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		lines, err = x.Plan(ctx, tx, indexerstest.Movie)
+		return err
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "search", Query: "orchard"})
-	if err != nil {
-		t.Fatal(err)
+	answers, err := x.Search(t.Context(), indexers.Search{Type: indexerstest.Movie, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: lines})
+	if err != nil || len(answers) != 1 {
+		t.Fatalf("search = %+v, %v; want one answer", answers, err)
 	}
-	return a, lib, id
+	return answers[0], lib, id
 }
 
 type discard[T any] struct{}

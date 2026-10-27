@@ -246,6 +246,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Searching: func(node role.NodeID) searching.Remote {
 			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
+		Types:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
+		Works:     tree,
 		Changed:   indexers.ChangedEvent.Bind(n.hub),
 		Status:    indexers.StatusChangedEvent.Bind(n.hub),
 		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),

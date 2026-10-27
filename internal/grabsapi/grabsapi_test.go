@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/magnet"
+	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/release"
@@ -57,6 +58,8 @@ type terms struct{ t indexers.Terms }
 func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
 	return s.t, nil
 }
+
+func (*terms) Categories() []newznab.ID { return newznab.Family(2000) }
 
 // alone is a roster of one Node holding every Role.
 type alone struct{ self role.NodeID }
@@ -176,6 +179,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searching.Remote { return site{} },
+			Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: w,
 			Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 		}),
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
@@ -225,9 +229,9 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("searchWork = %d %s, want 202 %s", code, body, want)
 	}
 	item := tree.Items[0].ID.String()
-	run1 := `{"id":"` + run + `","itemId":"` + item + `","indexerId":`
+	run1 := `{"id":"` + run + `","itemId":"` + item + `","startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`null,"startedAt":"T","finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
+		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
 	if got := <-searched; got != (grabs.SearchChanged{SearchID: run, WorkID: tree.ID.String()}) {
 		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
 	}
@@ -247,7 +251,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("grabs.changed = %+v, want the Grab %s failing", failed, grab)
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"`+indexer.String()+`","startedAt":"T","finishedAt":"T","outcome":"grabbed","candidates":2,`+
+		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
 			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
 			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +

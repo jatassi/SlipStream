@@ -20,7 +20,7 @@ func TestFetchReadsAMagnetLinkWithoutANode(t *testing.T) {
 		calls++
 		return nil
 	}})
-	got, err := x.Fetch(t.Context(), indexers.Indexer{}, searching.LinkOf(link))
+	got, err := x.Fetch(t.Context(), indexers.Ticket{}, searching.LinkOf(link))
 	want := indexers.Magnet{Link: magnet.Link{
 		InfoHash: must(bencode.ParseInfoHash("0123456789abcdef0123456789abcdef01234567")),
 		Name:     "Night Harbor", Trackers: []string{"https://tracker.example.test/announce"},
@@ -28,35 +28,11 @@ func TestFetchReadsAMagnetLinkWithoutANode(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(got, want) || calls != 0 {
 		t.Fatalf("Fetch of a magnet link = %+v, %v after %d Node calls; want %+v after none", got, err, calls, want)
 	}
-	if _, err := x.Fetch(t.Context(), indexers.Indexer{}, searching.LinkOf("magnet:?xt=urn:btmh:1220aa")); !errors.Is(err, bencode.ErrV2Only) {
+	if _, err := x.Fetch(t.Context(), indexers.Ticket{}, searching.LinkOf("magnet:?xt=urn:btmh:1220aa")); !errors.Is(err, bencode.ErrV2Only) {
 		t.Errorf("Fetch of a btmh-only magnet link = %v, want ErrV2Only", err)
 	}
-	if _, err := x.Fetch(t.Context(), indexers.Indexer{}, searching.LinkOf("magnet:?dn=a")); !errors.As(err, new(*magnet.InvalidError)) {
+	if _, err := x.Fetch(t.Context(), indexers.Ticket{}, searching.LinkOf("magnet:?dn=a")); !errors.As(err, new(*magnet.InvalidError)) {
 		t.Errorf("Fetch of a magnet link with no info hash = %v, want *magnet.InvalidError", err)
-	}
-}
-
-func TestQueryTakesTheFirstIDTheModeListsElseText(t *testing.T) {
-	caps := indexers.Caps{Modes: map[string][]string{
-		"search":   {"q"},
-		"tvsearch": {"q", "season", "tvdbid", "imdbid"},
-	}}
-	ids := map[string]string{"imdbid": "tt0000901", "tvdbid": "901"}
-	for _, tc := range []struct {
-		name  string
-		terms indexers.Terms
-		want  searching.Query
-	}{
-		{"the first id the caps list", indexers.Terms{Mode: "tvsearch", IDs: ids, Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "901"}}},
-		{"an id the type lacks is skipped", indexers.Terms{Mode: "tvsearch", IDs: map[string]string{"imdbid": "tt0000901"}, Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"imdbid": "tt0000901"}}},
-		{"no id the caps list", indexers.Terms{Mode: "tvsearch", IDs: map[string]string{"tmdbid": "901"}, Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
-		{"a mode the caps lack", indexers.Terms{Mode: "book", IDs: ids, Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := indexers.Query(caps, tc.terms); !reflect.DeepEqual(got, tc.want) {
-				t.Fatalf("query = %+v, want %+v", got, tc.want)
-			}
-		})
 	}
 }
 

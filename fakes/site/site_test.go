@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 const (
@@ -159,7 +160,7 @@ func (discard[T]) Publish(context.Context, T) {}
 
 // created is the site served in f as an Indexer created on one Node that
 // spaces nothing.
-func created(t *testing.T) (faketest.Served, *indexers.Indexers, indexers.Indexer) {
+func created(t *testing.T) (faketest.Served, *indexers.Indexers, *storage.DB[storage.Library], indexers.Indexer) {
 	t.Helper()
 	s := scenarioWithSeed()
 	f := faketest.Loopback(t, spec(listing), s)
@@ -178,27 +179,62 @@ func created(t *testing.T) (faketest.Served, *indexers.Indexers, indexers.Indexe
 		Sealer:    secrettest.Sealer(t),
 		Roster:    indexerstest.Alone(self),
 		Searching: func(role.NodeID) searching.Remote { return home },
+		Types:     map[works.TypeID]indexers.Facet{indexerstest.Movie: indexerstest.Movies{}},
 		Changed:   discard[indexers.Changed]{},
 		Status:    discard[indexers.StatusChanged]{},
 		Timings:   indexers.DefaultTimings(),
 		Log:       slog.New(slog.DiscardHandler),
 	})
-	v, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", Address: site.URL(f.Address), APIKey: site.APIKey(s)})
+	v, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", Address: site.URL(f.Address), APIKey: site.APIKey(s), On: true, AutoSearch: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return f, x, v.Indexer
+	return f, x, lib, v.Indexer
+}
+
+// search plans one Movies search and asks its one line, the Indexer.
+func search(t *testing.T, x *indexers.Indexers, lib *storage.DB[storage.Library], terms indexers.Terms) indexers.Answer {
+	t.Helper()
+	var lines []indexers.Line
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		lines, err = x.Plan(ctx, tx, indexerstest.Movie)
+		return err
+	})
+	if err != nil || len(lines) != 1 || lines[0].Skipped != nil {
+		t.Fatalf("Plan = %+v, %v; want the Indexer asked", lines, err)
+	}
+	answers, err := x.Search(t.Context(), indexers.Search{Type: indexerstest.Movie, Terms: terms, Asked: lines})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return answers[0]
+}
+
+// fetch takes r, offering link, and fetches it.
+func fetch(t *testing.T, x *indexers.Indexers, lib *storage.DB[storage.Library], r indexers.Release, link searching.Link) (indexers.Got, error) {
+	t.Helper()
+	var ticket indexers.Ticket
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		ticket, err = x.Take(ctx, tx, r)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return x.Fetch(t.Context(), ticket, link)
 }
 
 func TestTheSearchingServiceReadsTheSite(t *testing.T) {
-	_, x, idx := created(t)
+	_, x, lib, idx := created(t)
 	if got, want := idx.Caps.Modes["movie"], []string{"q", "tmdbid", "imdbid"}; strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("movie caps = %v, want %v", got, want)
 	}
 
-	a, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
-	if err != nil || a.Outcome.Kind != indexers.Found {
-		t.Fatalf("Search = %+v, %v; want found", a.Outcome, err)
+	a := search(t, x, lib, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
+	if a.Outcome.Kind != indexers.Found {
+		t.Fatalf("Search = %+v; want found", a.Outcome)
 	}
 	found := a.Releases
 	var got []string
@@ -213,21 +249,16 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("releases =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	fetched, err := x.Fetch(t.Context(), idx, found[0].Link)
+	fetched, err := fetch(t, x, lib, found[0], found[0].Link)
 	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten {
 		t.Fatalf("Fetch = %+v, %v, want the .torrent %q", fetched, err, rewritten)
 	}
-	m, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}})
-	magnets := m.Releases
-	if err != nil || len(magnets) != 2 {
-		t.Fatalf("Search for the magnet releases = %+v, %v; want two", magnets, err)
+	magnets := search(t, x, lib, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}}).Releases
+	if len(magnets) != 2 {
+		t.Fatalf("Search for the magnet releases = %+v; want two", magnets)
 	}
 	for i, want := range []string{strings.Repeat("e", 40), strings.Repeat("f", 40)} {
-		link := magnets[i].Link
-		if link.IsZero() {
-			link = magnets[i].Magnet
-		}
-		fetched, err := x.Fetch(t.Context(), idx, link)
+		fetched, err := fetch(t, x, lib, magnets[i], magnets[i].Offered())
 		got, ok := fetched.(indexers.Magnet)
 		if err != nil || !ok || got.Link.InfoHash.String() != want || len(got.Link.Trackers) != 1 || got.Link.Trackers[0] != announce {
 			t.Errorf("Fetch of %s = %+v, %v; want the magnet link of %s announcing to %s", magnets[i].Title, fetched, err, want, announce)
@@ -236,21 +267,21 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 }
 
 func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
-	f, x, idx := created(t)
+	f, x, lib, idx := created(t)
+	r := indexers.Release{Indexer: idx.ID}
 	var asked string
 	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		asked = r.URL.String()
 		_, _ = w.Write([]byte(rewritten))
 	}))
 	t.Cleanup(elsewhere.Close)
-	fetched, err := x.Fetch(t.Context(), idx, searching.LinkOf(elsewhere.URL+"/a.torrent?id=1"))
+	fetched, err := fetch(t, x, lib, r, searching.LinkOf(elsewhere.URL+"/a.torrent?id=1"))
 	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten || asked != "/a.torrent?id=1" {
 		t.Fatalf("a Fetch from another host = %+v, %v after asking for %s; want the .torrent asked for without the key", fetched, err, asked)
 	}
-	_, err = x.Fetch(t.Context(), idx, searching.LinkOf(f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent")))
-	var unavailable *indexers.UnavailableError
-	if !errors.As(err, &unavailable) || unavailable.Wait || err.Error() != "the Indexer is unavailable: the Indexer responded with status 404" {
-		t.Fatalf("a missing torrent = %v, want an unavailable error that does not wait", err)
+	_, err = fetch(t, x, lib, r, searching.LinkOf(f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent")))
+	if wait, ok := errors.AsType[*indexers.WaitError](err); !ok || wait.Outcome.Kind != indexers.IsFailing {
+		t.Fatalf("a missing torrent = %v, want a wait while the Indexer fails", err)
 	}
 
 	wrong := "wrong"

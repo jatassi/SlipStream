@@ -441,8 +441,8 @@ func TestATransferResumes(t *testing.T) {
 }
 
 // TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing stalls
-// seedbox, the Indexer's home Node, before the search: the run ends
-// indexer_unavailable and makes no Grab.
+// seedbox, the Indexer's home Node, before the search: the Indexer's line
+// waits for seedbox, and the run finds nothing and makes no Grab.
 func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk())
@@ -453,18 +453,22 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 		time.Sleep(time.Minute)
 		var searches struct {
 			Searches []struct {
-				ID, IndexerID, StartedAt string
-				FinishedAt               *string
+				ID, StartedAt string
+				FinishedAt    *string
+				Indexers      []struct {
+					IndexerID string `json:"indexerId"`
+				} `json:"indexers"`
 			} `json:"searches"`
 		}
 		reply := w.API().Admin("home", http.MethodGet, "/api/v1/works/"+work+"/searches", "")
-		if err := json.Unmarshal([]byte(reply.Body), &searches); err != nil || len(searches.Searches) != 1 || searches.Searches[0].FinishedAt == nil {
+		if err := json.Unmarshal([]byte(reply.Body), &searches); err != nil || len(searches.Searches) != 1 || searches.Searches[0].FinishedAt == nil || len(searches.Searches[0].Indexers) != 1 {
 			t.Fatalf("listSearches = %s, want one finished run", reply.Body)
 		}
 		s := searches.Searches[0]
 		worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + run + `","itemId":"` + itemOf(t, w, work) +
-			`","indexerId":"` + s.IndexerID + `","startedAt":"` + s.StartedAt + `","finishedAt":"` + *s.FinishedAt +
-			`","outcome":"indexer_unavailable","candidates":0,"refused":[],"grabId":null,"notes":[]}]}` + "\n"})
+			`","startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID +
+			`","name":"Fixture Site","outcome":"waiting","releases":0,"sentence":"Waiting for seedbox"}],"finishedAt":"` + *s.FinishedAt +
+			`","outcome":"nothing_acceptable","candidates":0,"refused":[],"grabId":null,"notes":[]}]}` + "\n"})
 		if gs := grabsListed(t, w); len(gs) != 0 {
 			t.Fatalf("listGrabs = %+v, want none", gs)
 		}

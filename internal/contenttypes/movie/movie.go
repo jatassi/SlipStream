@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -196,6 +197,9 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	}
 	return t, nil
 }
+
+// Categories are the Movies Newznab family.
+func (*Movie) Categories() []newznab.ID { return newznab.Family(2000) }
 
 // Timings answers each movie's runtime, and its release date as the day
 // it counts as out under the movie settings in the region.

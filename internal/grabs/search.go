@@ -2,6 +2,8 @@ package grabs
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -11,24 +13,23 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/roots"
-	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Search is one search run: one Item searched on the first Indexer.
+// Search is one search run: one Item searched on every Indexer it planned
+// to ask.
 type Search struct {
-	ID     SearchID
-	WorkID works.WorkID
-	ItemID works.ItemID
-	// Indexer is the Indexer the run asked: zero until it asked, or once
-	// the Indexer is deleted.
-	Indexer indexers.ID
+	ID      SearchID
+	WorkID  works.WorkID
+	ItemID  works.ItemID
 	Started time.Time
+	// Indexers are the Indexers the run asked or skipped, by priority.
+	Indexers []SearchIndexer
 	// Finished, Outcome, Candidates and Refused are set once the run
-	// finished, and GrabID and Notes, the grabbed release's, when it
-	// grabbed.
+	// finished, and GrabID and Notes, its Grab's, while it has one: the
+	// decision's, or the rerun's once a dropped Grab reran it.
 	Finished   time.Time
 	Outcome    Outcome
 	Candidates int
@@ -37,19 +38,25 @@ type Search struct {
 	Notes      []Reason
 }
 
-func searchOf(row db.GrabsSearch, refused []Refusal, asked []db.GrabsSearchIndexer) (Search, error) {
+// SearchIndexer is one Indexer a run asked or skipped.
+type SearchIndexer struct {
+	// Indexer is zero once the Indexer is deleted.
+	Indexer indexers.ID
+	// Name is the Indexer's name when the run was planned.
+	Name string
+	// Outcome is nil while the Indexer's job runs.
+	Outcome *indexers.Outcome
+	// Line is Outcome in words.
+	Line string
+}
+
+func searchOf(row db.GrabsSearch, refused []Refusal, lines []SearchIndexer) (Search, error) {
 	s := Search{
-		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Started: row.StartedAt.Time(),
+		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Started: row.StartedAt.Time(), Indexers: lines,
 		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), Refused: refused, GrabID: row.GrabID,
 	}
 	if row.Outcome != nil {
 		s.Outcome = *row.Outcome
-	}
-	if len(asked) > 0 {
-		s.Indexer = asked[0].IndexerID
-		if s.Outcome == NothingAcceptable && asked[0].Outcome != nil {
-			s.Outcome = runOutcome[*asked[0].Outcome]
-		}
 	}
 	if row.Notes != nil {
 		notes, err := decodeReasons(*row.Notes)
@@ -61,18 +68,54 @@ func searchOf(row db.GrabsSearch, refused []Refusal, asked []db.GrabsSearchIndex
 	return s, nil
 }
 
-// runOutcome is how a run that found nothing reads after its Indexer's
-// outcome.
-var runOutcome = map[indexers.OutcomeKind]Outcome{
-	indexers.Found: NothingAcceptable, indexers.NoReleases: NothingAcceptable, indexers.NoCategories: NothingAcceptable,
-	indexers.IsStopped: SearchIndexerRefused, indexers.Removed: SearchIndexerUnavailable,
-	indexers.IsLimited: SearchIndexerUnavailable, indexers.IsFailing: SearchIndexerUnavailable, indexers.Waiting: SearchIndexerUnavailable,
-	indexers.Late: SearchIndexerUnavailable, indexers.LimitReached: SearchIndexerUnavailable,
+// lineRow is line l of run, at position.
+func lineRow(run SearchID, position int, l indexers.Line) db.InsertSearchIndexerParams {
+	p := db.InsertSearchIndexerParams{SearchID: run, Position: int64(position), IndexerID: l.Indexer, IndexerName: l.Name, QueryID: l.Query}
+	if l.Skipped != nil {
+		a := outcomeRow(*l.Skipped)
+		p.Outcome, p.Releases, p.UntilAt, p.SinceAt, p.NodeID, p.Lapsed, p.Cause, p.Text =
+			a.Outcome, a.Releases, a.UntilAt, a.SinceAt, a.NodeID, a.Lapsed, a.Cause, a.Text
+	}
+	return p
+}
+
+// outcomeRow is o as grabs_search_indexer keeps it.
+func outcomeRow(o indexers.Outcome) db.AnswerSearchIndexerParams {
+	p := db.AnswerSearchIndexerParams{Outcome: &o.Kind, UntilAt: storage.FromTime(o.Until), SinceAt: storage.FromTime(o.Since), NodeID: o.Node}
+	switch o.Kind {
+	case indexers.Found, indexers.NoReleases:
+		p.Releases = new(int64(o.Releases))
+	case indexers.Waiting:
+		p.Lapsed = &o.Lapsed
+	case indexers.IsStopped:
+		p.Cause, p.Text = &o.Cause, &o.Text
+	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed:
+	}
+	return p
+}
+
+// outcomeOf is row's outcome, nil while its job runs.
+func outcomeOf(row db.GrabsSearchIndexer) *indexers.Outcome {
+	if row.Outcome == nil {
+		return nil
+	}
+	o := &indexers.Outcome{Kind: *row.Outcome, Until: row.UntilAt.Time(), Since: row.SinceAt.Time(), Node: row.NodeID, Text: deref(row.Text)}
+	if row.Releases != nil {
+		o.Releases = int(*row.Releases)
+	}
+	if row.Lapsed != nil {
+		o.Lapsed = *row.Lapsed
+	}
+	if row.Cause != nil {
+		o.Cause = *row.Cause
+	}
+	return o
 }
 
 // SearchWork records a search run for each Item of work with a wanted cell
-// no unfinished Grab holds, and returns their ids. Run searches them on
-// the first Indexer by name.
+// no unfinished Grab holds, each with the Indexers it asks and skips and a
+// query reserved on each it asks, and returns their ids. Run searches
+// them.
 func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.WorkID) ([]SearchID, error) {
 	var ids []SearchID
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -96,6 +139,15 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 			id := SearchID{UUID: storage.NewUUID()}
 			if err := q.InsertSearch(ctx, db.InsertSearchParams{ID: id, WorkID: work, ItemID: it.ID, StartedAt: started}); err != nil {
 				return err
+			}
+			lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType)
+			if err != nil {
+				return err
+			}
+			for i, l := range lines {
+				if err := q.InsertSearchIndexer(ctx, lineRow(id, i, l)); err != nil {
+					return err
+				}
 			}
 			ids = append(ids, id)
 		}
@@ -167,46 +219,45 @@ func (gr *Grabs) openCells(ctx context.Context, r storage.Reader[file], work wor
 	return open, nil
 }
 
-// search runs one search on the first Indexer by name and finishes its run
-// in one Write, with the Grab it picked. A search never waits on the
-// Indexer: an Indexer that couldn't search finishes the run, and the Admin
-// searches again.
+// search asks every Indexer run planned to ask, then finishes the run in
+// one Write with the Grab its decision took. A search never waits on an
+// Indexer: each one that couldn't answer is its line's outcome, and the
+// Admin searches again.
 func (gr *Grabs) search(ctx context.Context, run Search) result {
-	var idx *indexers.Indexer
-	var terms indexers.Terms
+	var s indexers.Search
+	var asked []db.GrabsSearchIndexer
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		all, err := indexers.All(ctx, r)
-		if err != nil {
-			return err
-		}
-		if len(all) > 0 {
-			idx = &all[0]
-		}
 		tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
 		if err != nil {
 			return err
 		}
-		terms, err = gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.ItemID)
+		s.Type = tree.ContentType
+		if s.Terms, err = gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.ItemID); err != nil {
+			return err
+		}
+		rows, err := db.New(r).ListSearchIndexersOfSearch(ctx, run.ID)
+		for _, row := range rows {
+			if row.Outcome == nil {
+				asked = append(asked, row)
+				s.Asked = append(s.Asked, indexers.Line{Indexer: row.IndexerID, Name: row.IndexerName, Query: row.QueryID})
+			}
+		}
 		return err
 	})
 	if err != nil {
 		return gr.searchWaits(ctx, run, err)
 	}
-	var answer *indexers.Answer
-	if idx != nil {
-		a, err := gr.cfg.Indexers.Search(ctx, *idx, terms)
-		if ctx.Err() != nil {
-			return halted
-		}
-		if err != nil {
-			return gr.searchWaits(ctx, run, err)
-		}
-		answer = &a
+	answers, err := gr.cfg.Indexers.Search(ctx, s)
+	if ctx.Err() != nil {
+		return halted
+	}
+	if err != nil {
+		return gr.searchWaits(ctx, run, err)
 	}
 	var grab *Grab
 	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
-		grab, err = gr.finish(ctx, tx, run, idx, terms, answer)
+		grab, err = gr.finish(ctx, tx, run, s.Terms, asked, answers)
 		return err
 	})
 	if err != nil {
@@ -219,98 +270,32 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	return committed
 }
 
-// finish ends run in tx with idx's answer, and the Grab it picks from its
-// Releases, nil when it picks none. idx and answer are nil when no
-// Indexer was left to ask.
-func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, idx *indexers.Indexer, terms indexers.Terms, answer *indexers.Answer) (*Grab, error) {
+// finish ends run in tx with each asked line's answer and decides once
+// over every Release they found, keeping the ones its Grab didn't take
+// for a rerun. It returns the Grab, nil when the run takes none.
+func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, asked []db.GrabsSearchIndexer, answers []indexers.Answer) (*Grab, error) {
 	q := db.New(tx)
-	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: storage.Now()}
-	outcome := NothingAcceptable
-	var grab *Grab
-	if answer != nil {
-		if err := insertAsked(ctx, q, run, *idx, answer.Outcome); err != nil {
+	var releases []indexers.Release
+	for i, a := range answers {
+		p := outcomeRow(a.Outcome)
+		p.SearchID, p.Position = run.ID, asked[i].Position
+		if err := q.AnswerSearchIndexer(ctx, p); err != nil {
 			return nil, err
 		}
-		finish.Candidates = int64(len(answer.Releases))
+		releases = append(releases, a.Releases...)
 	}
-	if answer != nil && answer.Outcome.Kind == indexers.Found {
-		pick, err := gr.pick(ctx, tx, run, terms, answer.Releases)
-		if err != nil {
-			return nil, err
-		}
-		if pick != nil {
-			g, err := gr.insertGrab(ctx, q, run, *idx, *pick, finish.FinishedAt)
-			if err != nil {
-				return nil, err
-			}
-			notes, err := encodeReasons(pick.Notes)
-			if err != nil {
-				return nil, err
-			}
-			grab, finish.GrabID, finish.Notes, outcome = &g, g.ID, &notes, Grabbed
-		}
-	}
-	finish.Outcome = &outcome
-	return grab, q.FinishSearch(ctx, finish)
-}
-
-// insertAsked records idx's outcome in run, with its name at search time.
-func insertAsked(ctx context.Context, q *db.Queries, run Search, idx indexers.Indexer, o indexers.Outcome) error {
-	p := db.InsertSearchIndexerParams{
-		SearchID: run.ID, Position: 0, IndexerID: idx.ID, IndexerName: idx.Name, Outcome: &o.Kind,
-		UntilAt: storage.FromTime(o.Until), SinceAt: storage.FromTime(o.Since), NodeID: o.Node,
-	}
-	switch o.Kind {
-	case indexers.Found, indexers.NoReleases:
-		releases := int64(o.Releases)
-		p.Releases = &releases
-	case indexers.Waiting:
-		p.Lapsed = &o.Lapsed
-	case indexers.IsStopped:
-		p.Cause, p.Text = &o.Cause, &o.Text
-	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed:
-	}
-	return q.InsertSearchIndexer(ctx, p)
-}
-
-// pick decides among releases for run's Item's open cells and stores the
-// releases it refused. Every listed release of this Work records a
-// sighting of its cut first, so a cut seen now is wanted now.
-func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, releases []indexers.Release) (*Pick, error) {
-	tree, err := gr.cfg.Works.TreeIn(ctx, tx, run.WorkID)
+	candidates, err := gr.candidates(ctx, tx, run, releases)
 	if err != nil {
 		return nil, err
 	}
-	known, err := gr.cfg.Targets.CutsIn(ctx, tx)
+	if err := sight(ctx, tx, run, terms, candidates); err != nil {
+		return nil, err
+	}
+	kept := dedupe(candidates)
+	picks, refused, err := gr.decision(ctx, tx, run, terms, kept)
 	if err != nil {
 		return nil, err
 	}
-	timings, err := gr.cfg.Targets.TimingsIn(ctx, tx, tree.ContentType, []works.WorkID{run.WorkID})
-	if err != nil {
-		return nil, err
-	}
-	candidates := make([]candidate, len(releases))
-	for i, r := range releases {
-		candidates[i] = candidateOf(r, known.For(tree.ContentType), run.ItemID, timings[run.ItemID].Runtime)
-		if wrongWork(r, terms) {
-			continue
-		}
-		if err := targets.See(ctx, tx, run.ItemID, candidates[i].Facts.Cut, releaseKey(r)); err != nil {
-			return nil, err
-		}
-	}
-	open, err := gr.openCells(ctx, tx, run.WorkID)
-	if err != nil {
-		return nil, err
-	}
-	var item []files.Cell
-	for _, c := range open {
-		if c.Item.ID == run.ItemID {
-			item = append(item, c)
-		}
-	}
-	pick, refused := decide(item, terms, candidates)
-	q := db.New(tx)
 	for i, r := range refused {
 		reasons, err := encodeReasons(r.Reasons)
 		if err != nil {
@@ -320,7 +305,101 @@ func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, ter
 			return nil, err
 		}
 	}
-	return pick, nil
+	finished := storage.Now()
+	grab, pick, err := gr.take(ctx, tx, run, picks, finished)
+	if err != nil {
+		return nil, err
+	}
+	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: finished, Outcome: new(NothingAcceptable), Candidates: int64(len(kept))}
+	if grab == nil {
+		return nil, q.FinishSearch(ctx, finish)
+	}
+	notes, err := encodeReasons(pick.Notes)
+	if err != nil {
+		return nil, err
+	}
+	finish.Outcome, finish.GrabID, finish.Notes = new(Grabbed), grab.ID, &notes
+	for _, c := range candidates {
+		if c.at == pick.at {
+			continue
+		}
+		if err := gr.keep(ctx, q, run.ID, c); err != nil {
+			return nil, err
+		}
+	}
+	return grab, q.FinishSearch(ctx, finish)
+}
+
+// candidates is releases as run's Item's candidates, each at its position
+// in the run.
+func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Search, releases []indexers.Release) ([]candidate, error) {
+	tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
+	if err != nil {
+		return nil, err
+	}
+	known, err := gr.cfg.Targets.CutsIn(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	timings, err := gr.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, []works.WorkID{run.WorkID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidate, len(releases))
+	for i, rel := range releases {
+		out[i] = candidateOf(rel, known.For(tree.ContentType), run.ItemID, timings[run.ItemID].Runtime)
+		out[i].at = i
+	}
+	return out, nil
+}
+
+// sight records a sighting of the cut of every listed release of run's
+// Work, so a cut seen now is wanted now.
+func sight(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, candidates []candidate) error {
+	for _, c := range candidates {
+		if wrongWork(c.Release, terms) {
+			continue
+		}
+		if err := targets.See(ctx, tx, run.ItemID, c.Facts.Cut, releaseKey(c.Release)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// decision judges candidates against run's Item's open cells: the
+// grabbable in rank order and the refused.
+func (gr *Grabs) decision(ctx context.Context, r storage.Reader[file], run Search, terms indexers.Terms, candidates []candidate) ([]Pick, []Refusal, error) {
+	open, err := gr.openCells(ctx, r, run.WorkID)
+	if err != nil {
+		return nil, nil, err
+	}
+	var item []files.Cell
+	for _, c := range open {
+		if c.Item.ID == run.ItemID {
+			item = append(item, c)
+		}
+	}
+	picks, refused := decide(item, terms, candidates)
+	return picks, refused, nil
+}
+
+// take grabs the first of picks whose Indexer takes it, nil when none
+// does: an Indexer that is stopped, at its grab limit or deleted would
+// make the Grab wait for the Admin.
+func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, picks []Pick, now storage.Time) (*Grab, Pick, error) {
+	for _, p := range picks {
+		t, err := gr.cfg.Indexers.Take(ctx, tx, p.Release)
+		if errors.As(err, new(*indexers.NotTakenError)) {
+			continue
+		}
+		if err != nil {
+			return nil, Pick{}, err
+		}
+		g, err := gr.insertGrab(ctx, tx, run, p, t, now)
+		return &g, p, err
+	}
+	return nil, Pick{}, nil
 }
 
 // releaseKey is what a sighting keys it by: its info hash in hex, else its
@@ -340,13 +419,21 @@ func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result 
 	return waited
 }
 
-func (gr *Grabs) insertGrab(ctx context.Context, q *db.Queries, run Search, idx indexers.Indexer, pick Pick, now storage.Time) (Grab, error) {
+// insertGrab inserts the Grab of pick that t readied, at fetching on the
+// Indexer's home Node.
+func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Search, pick Pick, t indexers.Ticket, now storage.Time) (Grab, error) {
+	q := db.New(tx)
+	r := pick.Release
 	g := Grab{
 		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: pick.Edition, Targets: pick.Targets,
-		Release: Release{Title: pick.Release.Title, Size: pick.Release.Size, Indexer: idx.ID, InfoHash: pick.Release.InfoHash},
-		Node:    idx.Home, Stage: Fetching, Created: now.Time(),
+		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
 	}
-	if link := offered(pick.Release); link.IsMagnet() {
+	idx, err := indexers.Get(ctx, tx, t.Indexer)
+	if err != nil {
+		return Grab{}, err
+	}
+	g.Node = idx.Home
+	if link := r.Offered(); link.IsMagnet() {
 		g.Release.magnet = link.Reveal()
 	} else {
 		g.Release.link = gr.cfg.Sealer.Seal([]byte(link.Reveal()), linkColumn.Row(g.ID.String()))
@@ -355,36 +442,32 @@ func (gr *Grabs) insertGrab(ctx context.Context, q *db.Queries, run Search, idx 
 	if h := g.Release.InfoHash; h != nil {
 		hint = h[:]
 	}
-	err := q.InsertGrab(ctx, db.InsertGrabParams{
-		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: idx.ID, NodeID: g.Node,
+	err = q.InsertGrab(ctx, db.InsertGrabParams{
+		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: t.Indexer, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
-		ReleaseInfoHash: hint, CreatedAt: now,
+		ReleaseInfoHash: hint, FetchQueryID: t.Query, CreatedAt: now,
+		MinRatio:       sql.NullFloat64{Float64: r.Floor.MinRatio, Valid: r.Floor.MinRatio > 0},
+		MinSeedSeconds: sql.NullInt64{Int64: int64(r.Floor.MinSeed.Seconds()), Valid: r.Floor.MinSeed > 0},
+		DownloadFactor: sql.NullFloat64{Float64: r.Factors.Download, Valid: true},
+		UploadFactor:   sql.NullFloat64{Float64: r.Factors.Upload, Valid: true},
 	})
 	if err != nil {
 		return Grab{}, err
 	}
-	for i, t := range g.Targets {
-		if err := q.InsertTarget(ctx, db.InsertTargetParams{GrabID: g.ID, Position: int64(i), TargetID: t}); err != nil {
+	for i, target := range g.Targets {
+		if err := q.InsertTarget(ctx, db.InsertTargetParams{GrabID: g.ID, Position: int64(i), TargetID: target}); err != nil {
 			return Grab{}, err
 		}
 	}
 	return g, q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: Fetching, EnteredAt: now})
 }
 
-// offered is the link a Grab of r fetches: its .torrent link, else its
-// magnet link, since a .torrent's info dictionary needs no peer.
-func offered(r indexers.Release) searching.Link {
-	if r.Link.IsZero() {
-		return r.Magnet
-	}
-	return r.Link
-}
-
 // Searches lists work's search runs, newest first.
 func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.WorkID) ([]Search, error) {
 	var out []Search
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		if _, err := gr.cfg.Works.TreeIn(ctx, r, work); err != nil {
+		tree, err := gr.cfg.Works.TreeIn(ctx, r, work)
+		if err != nil {
 			return err
 		}
 		q := db.New(r)
@@ -396,13 +479,16 @@ func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.Work
 		if err != nil {
 			return err
 		}
-		lines, err := q.ListSearchIndexersOfWork(ctx, work)
+		asked, err := q.ListSearchIndexersOfWork(ctx, work)
 		if err != nil {
 			return err
 		}
-		asked := map[SearchID][]db.GrabsSearchIndexer{}
-		for _, l := range lines {
-			asked[l.SearchID] = append(asked[l.SearchID], l)
+		lines := map[SearchID][]SearchIndexer{}
+		for _, row := range asked {
+			o := outcomeOf(row)
+			lines[row.SearchID] = append(lines[row.SearchID], SearchIndexer{
+				Indexer: row.IndexerID, Name: row.IndexerName, Outcome: o, Line: gr.cfg.Indexers.Line(row.IndexerName, tree.ContentType, o),
+			})
 		}
 		refused := map[SearchID][]Refusal{}
 		for _, row := range refusals {
@@ -413,7 +499,7 @@ func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.Work
 			refused[row.SearchID] = append(refused[row.SearchID], Refusal{Title: row.Title, Reasons: reasons})
 		}
 		for _, row := range rows {
-			s, err := searchOf(row, refused[row.ID], asked[row.ID])
+			s, err := searchOf(row, refused[row.ID], lines[row.ID])
 			if err != nil {
 				return err
 			}

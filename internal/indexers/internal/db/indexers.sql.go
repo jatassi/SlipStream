@@ -1022,6 +1022,17 @@ func (q *Queries) PutStatus(ctx context.Context, arg PutStatusParams) error {
 	return err
 }
 
+const queryCompleted = `-- name: QueryCompleted :one
+SELECT EXISTS (SELECT 1 FROM indexers_query WHERE id = ?1 AND completed_at IS NOT NULL)
+`
+
+func (q *Queries) QueryCompleted(ctx context.Context, id QueryID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, queryCompleted, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const rehome = `-- name: Rehome :exec
 UPDATE indexers_indexer SET home_node_id = ?1 WHERE home_node_id = ?2
 `

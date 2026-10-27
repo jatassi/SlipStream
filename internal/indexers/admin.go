@@ -231,7 +231,18 @@ func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID) (Report, e
 	if err != nil {
 		return Report{}, err
 	}
-	a, j, st, err := x.call(ctx, idx, UseTest, searching.TestCall{})
+	q := QueryID{UUID: storage.NewUUID()}
+	j, err := x.routed(ctx, q, idx, UseTest, searching.TestCall{})
+	if err != nil {
+		return Report{}, err
+	}
+	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		return insertQuery(ctx, tx, q, idx, UseTest, storage.Now())
+	})
+	if err != nil {
+		return Report{}, err
+	}
+	a, st, err := x.run(ctx, j)
 	if err != nil {
 		return Report{}, err
 	}
@@ -245,7 +256,7 @@ func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID) (Report, e
 // will search from, and returns the job's query id and the answer once it
 // passed. Nothing is recorded: the caller saves the answer with the edit.
 func (x *Indexers) test(ctx context.Context, idx Indexer) (QueryID, role.NodeID, searching.Answer, error) {
-	node, wait := route(x.cfg.Roster, idx, Status{State: OK}, holdsSession(idx))
+	node, wait := route(x.cfg.Roster, idx, Status{State: OK})
 	if wait != nil {
 		return QueryID{}, role.NodeID{}, searching.Answer{}, &WaitError{Outcome: *wait}
 	}
@@ -413,7 +424,7 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 		if s, ok := sessions[idx.ID]; ok {
 			v.Session = &s
 		}
-		v.Waits = x.waits(idx, st, v.Usage, now)
+		_, v.Waits = gate(idx, st, v.Usage, x.cfg.Roster, UseSearch, now)
 		v.SignsIn, v.Trackers = holdsSession(idx), reach.trackers[idx.ID]
 		v.Sentence, v.Fix = x.words(v)
 		out[i] = v

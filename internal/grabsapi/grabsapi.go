@@ -95,17 +95,25 @@ type refusal struct {
 	Reasons []reason `json:"reasons" nullable:"false" doc:"Each open cell's Target's failures and notes, in Profile order"`
 }
 
+type searchIndexer struct {
+	IndexerID *string `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
+	Name      string  `json:"name" doc:"The Indexer's name when the run started"`
+	Outcome   *string `json:"outcome" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed" doc:"Null while its search runs"`
+	Releases  int     `json:"releases" minimum:"0" doc:"The Releases it found"`
+	Sentence  string  `json:"sentence" doc:"The outcome in words, such as Limit reached until 14:05"`
+}
+
 type search struct {
-	ID         string     `json:"id" format:"uuid"`
-	ItemID     string     `json:"itemId" format:"uuid"`
-	IndexerID  *string    `json:"indexerId" format:"uuid" doc:"The Indexer the run asked, null until it asked or once the Indexer is deleted"`
-	StartedAt  time.Time  `json:"startedAt"`
-	FinishedAt *time.Time `json:"finishedAt" doc:"Null while the run searches"`
-	Outcome    *string    `json:"outcome" enum:"grabbed,nothing_acceptable,indexer_unavailable,indexer_refused" doc:"Null while the run searches"`
-	Candidates int        `json:"candidates" minimum:"0" doc:"The releases in the Indexer's response"`
-	Refused    []refusal  `json:"refused" nullable:"false" doc:"The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused"`
-	GrabID     *string    `json:"grabId" format:"uuid" doc:"The Grab the run made, null when none"`
-	Notes      []reason   `json:"notes" nullable:"false" doc:"The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for"`
+	ID         string          `json:"id" format:"uuid"`
+	ItemID     string          `json:"itemId" format:"uuid"`
+	StartedAt  time.Time       `json:"startedAt"`
+	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
+	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
+	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable" doc:"Null while the run searches"`
+	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
+	Refused    []refusal       `json:"refused" nullable:"false" doc:"The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused"`
+	GrabID     *string         `json:"grabId" format:"uuid" doc:"The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none"`
+	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
 }
 
 type searchList struct {
@@ -116,8 +124,15 @@ type searchListOutput struct{ Body searchList }
 
 func searchOf(s grabs.Search) search {
 	out := search{
-		ID: s.ID.String(), ItemID: s.ItemID.String(), IndexerID: idOrNil(s.Indexer.UUID), StartedAt: s.Started, Candidates: s.Candidates,
+		ID: s.ID.String(), ItemID: s.ItemID.String(), StartedAt: s.Started, Indexers: []searchIndexer{}, Candidates: s.Candidates,
 		Refused: []refusal{}, Notes: reasonsOf(s.Notes),
+	}
+	for _, l := range s.Indexers {
+		w := searchIndexer{IndexerID: idOrNil(l.Indexer.UUID), Name: l.Name, Sentence: l.Line}
+		if l.Outcome != nil {
+			w.Outcome, w.Releases = new(string(l.Outcome.Kind)), l.Outcome.Releases
+		}
+		out.Indexers = append(out.Indexers, w)
 	}
 	for _, r := range s.Refused {
 		out.Refused = append(out.Refused, refusal{Title: r.Title, Reasons: reasonsOf(r.Reasons)})
@@ -142,7 +157,7 @@ func idOrNil(id storage.UUID) *string {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
+	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
 	Message string `json:"message"`
 }
 
@@ -159,6 +174,11 @@ type progress struct {
 type metadataSearch struct {
 	Peers  int       `json:"peers" minimum:"0" doc:"Peers connected at the Downloading Node's last response"`
 	EndsAt time.Time `json:"endsAt" doc:"When the Grab fails unless a peer has sent the metadata"`
+}
+
+type fetchWait struct {
+	Sentence string     `json:"sentence" doc:"Why the fetch waits, such as Waiting to fetch the .torrent from TorrentLeech. SlipStream retries at 14:20."`
+	Until    *time.Time `json:"until" doc:"When SlipStream retries; null while it waits for the Indexer's home Node"`
 }
 
 type grab struct {
@@ -180,13 +200,14 @@ type grab struct {
 	History      []entered       `json:"history" nullable:"false" doc:"Each stage it entered, oldest first"`
 	Progress     *progress       `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
+	FetchWait    *fetchWait      `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
 	CreatedAt    time.Time       `json:"createdAt"`
 }
 
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Release.Indexer.UUID), NodeID: v.Node.String(),
+		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID), NodeID: v.Node.String(),
 		Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
 	}
 	if !v.FetchNode.IsZero() {
@@ -214,6 +235,12 @@ func grabOf(v grabs.View) grab {
 	}
 	if v.Metadata != nil {
 		out.Metadata = &metadataSearch{Peers: v.Metadata.Peers, EndsAt: v.Metadata.EndsAt}
+	}
+	if w := v.FetchWait; w != nil {
+		out.FetchWait = &fetchWait{Sentence: w.Sentence}
+		if !w.Outcome.Until.IsZero() {
+			out.FetchWait.Until = &w.Outcome.Until
+		}
 	}
 	return out
 }

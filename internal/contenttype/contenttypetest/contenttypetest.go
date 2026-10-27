@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -436,6 +437,9 @@ func (*Fixture) DefaultTemplates() naming.Templates {
 func (*Fixture) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
 }
+
+// Categories are none: the Fixture can't be searched.
+func (*Fixture) Categories() []newznab.ID { return nil }
 
 // SetTiming makes Timings answer t for item, in place of Released and an
 // unknown runtime.

@@ -159,10 +159,12 @@ type Caps struct {
 	Categories []newznab.ID        `json:"categories,omitempty"`
 }
 
-// Facet is how a Content Type's Items are searched. A type that can't be
-// searched answers the zero Terms.
+// Facet is how a Content Type's Items are searched. Categories are the
+// type's Newznab categories, such as Movies' Family(2000). A type that
+// can't be searched answers no categories and the zero Terms.
 type Facet interface {
 	SearchTerms(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (Terms, error)
+	Categories() []newznab.ID
 }
 
 type Terms struct {
@@ -271,9 +273,13 @@ type Config struct {
 	Roster Roster
 	// Searching reaches the Searching service on a Node.
 	Searching func(role.NodeID) searching.Remote
-	Changed   Publisher[Changed]
-	Status    Publisher[StatusChanged]
-	Catalogs  Publisher[CatalogChanged]
+	// Types are how each Content Type is searched.
+	Types map[works.TypeID]Facet
+	// Works names each Content Type's Works in sentences.
+	Works    *works.Works
+	Changed  Publisher[Changed]
+	Status   Publisher[StatusChanged]
+	Catalogs Publisher[CatalogChanged]
 	// HTTP reaches the Indexer catalog from the Controller.
 	HTTP      *http.Client
 	Endpoints Endpoints
@@ -289,9 +295,26 @@ type Config struct {
 type Indexers struct {
 	cfg  Config
 	late background
+
+	mu   sync.Mutex
+	next chan struct{}
 }
 
-func New(cfg Config) *Indexers { return &Indexers{cfg: cfg} }
+func New(cfg Config) *Indexers { return &Indexers{cfg: cfg, next: make(chan struct{})} }
+
+// Changed is closed at the next change of an Indexer or its status.
+func (x *Indexers) Changed() <-chan struct{} {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return x.next
+}
+
+func (x *Indexers) moved() {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	close(x.next)
+	x.next = make(chan struct{})
+}
 
 // Run keeps late jobs polled until ctx ends, then waits for the ones still
 // polling, which end with ctx.
@@ -493,5 +516,6 @@ func (x *Indexers) seal(id ID, s Secrets) (secret.Sealed, error) {
 }
 
 func (x *Indexers) changed(ctx context.Context, id ID) {
+	x.moved()
 	x.cfg.Changed.Publish(ctx, Changed{IndexerID: id.String()})
 }

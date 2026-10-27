@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -259,6 +260,9 @@ func (*Music) DefaultTemplates() naming.Templates {
 func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
 }
+
+// Categories are none: music isn't searched.
+func (*Music) Categories() []newznab.ID { return nil }
 
 // Timings answers each track's length and its album's release date.
 func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {

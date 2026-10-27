@@ -1,9 +1,11 @@
 -- name: InsertGrab :exec
 INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
-    release_link_sealed, release_magnet, release_info_hash, stage, created_at, updated_at)
+    release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor,
+    upload_factor, stage, created_at, updated_at)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), 'search', sqlc.arg(indexer_id), sqlc.arg(node_id),
     sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
-    sqlc.narg(release_info_hash), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
+    sqlc.narg(release_info_hash), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
+    sqlc.arg(download_factor), sqlc.arg(upload_factor), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
 
 -- name: InsertTarget :exec
 INSERT INTO grabs_target (grab_id, position, target_id) VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(target_id));
@@ -66,6 +68,15 @@ INSERT INTO grabs_search_indexer (search_id, position, indexer_id, indexer_name,
 VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(indexer_name), sqlc.narg(query_id), sqlc.narg(outcome),
     sqlc.narg(releases), sqlc.narg(until_at), sqlc.narg(since_at), sqlc.narg(node_id), sqlc.narg(lapsed), sqlc.narg(cause), sqlc.narg(text));
 
+-- name: ListSearchIndexersOfSearch :many
+SELECT * FROM grabs_search_indexer WHERE search_id = sqlc.arg(search_id) ORDER BY position;
+
+-- name: AnswerSearchIndexer :exec
+UPDATE grabs_search_indexer SET outcome = sqlc.arg(outcome), releases = sqlc.narg(releases), until_at = sqlc.narg(until_at),
+    since_at = sqlc.narg(since_at), node_id = sqlc.narg(node_id), lapsed = sqlc.narg(lapsed), cause = sqlc.narg(cause),
+    text = sqlc.narg(text)
+WHERE search_id = sqlc.arg(search_id) AND position = sqlc.arg(position) AND outcome IS NULL;
+
 -- name: ListSearchIndexersOfWork :many
 SELECT grabs_search_indexer.* FROM grabs_search_indexer
 JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
@@ -76,6 +87,29 @@ ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position;
 UPDATE grabs_search SET finished_at = sqlc.arg(finished_at), outcome = sqlc.arg(outcome), candidates = sqlc.arg(candidates),
     grab_id = sqlc.narg(grab_id), notes = sqlc.narg(notes)
 WHERE id = sqlc.arg(id) AND finished_at IS NULL;
+
+-- name: Redecide :exec
+UPDATE grabs_search SET outcome = sqlc.arg(outcome), grab_id = sqlc.narg(grab_id), notes = sqlc.narg(notes)
+WHERE id = sqlc.arg(id);
+
+-- name: GetSearchOfGrab :one
+SELECT * FROM grabs_search WHERE grab_id = sqlc.arg(grab_id);
+
+-- name: InsertRelease :exec
+INSERT INTO grabs_release (search_id, position, indexer_id, release, link_sealed)
+VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(release), sqlc.arg(link_sealed));
+
+-- name: ListReleasesOfSearch :many
+SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) ORDER BY position;
+
+-- name: DeleteRelease :exec
+DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND position = sqlc.arg(position);
+
+-- name: DeleteReleasesOfGrab :exec
+DELETE FROM grabs_release WHERE search_id IN (SELECT id FROM grabs_search WHERE grab_id = sqlc.arg(grab_id));
+
+-- name: DeleteReleasesOfSearch :exec
+DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id);
 
 -- name: ListOpenSearches :many
 SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;
