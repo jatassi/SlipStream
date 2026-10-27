@@ -60,3 +60,10 @@ search:
       selector: leechers
     date:
       selector: added
+    downloadvolumefactor:
+      selector: freeleech
+      case:
+        True: 0
+        False: 1
+    uploadvolumefactor:
+      text: 1

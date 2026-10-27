@@ -1,0 +1,70 @@
+---
+id: marsh
+name: Marsh
+description: "Marsh is a fictional private tracker that writes in windows-1251."
+language: ru-RU
+type: private
+encoding: windows-1251
+links:
+  - https://marsh.fixture-site.fake.localhost/
+
+caps:
+  categorymappings:
+    - {id: "Фильмы", cat: Movies, desc: "Фильмы"}
+  modes:
+    search: [q]
+
+settings:
+  - name: username
+    type: text
+    label: Username
+  - name: password
+    type: password
+    label: Password
+
+login:
+  path: takelogin.php
+  method: post
+  inputs:
+    username: "{{ .Config.username }}"
+    password: "{{ .Config.password }}"
+  error:
+    - selector: div.error
+  test:
+    path: index.php
+    selector: a.logout
+
+search:
+  paths:
+    - path: search.php
+      response:
+        type: xml
+  inputs:
+    q: "{{ .Keywords }}"
+  error:
+    - selector: error
+  rows:
+    selector: row
+    after: 1
+    dateheaders:
+      selector: date
+      filters:
+        - name: dateparse
+          args: "dd.MM.yyyy"
+  fields:
+    category:
+      selector: cat
+    title:
+      selector: title
+    download:
+      selector: link
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    downloadvolumefactor:
+      text: 1
+    uploadvolumefactor:
+      text: 1

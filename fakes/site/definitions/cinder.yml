@@ -56,3 +56,10 @@ search:
       selector: span.seeders
     leechers:
       selector: span.leechers
+
+download:
+  infohash:
+    hash:
+      selector: span.hash
+    title:
+      selector: h1

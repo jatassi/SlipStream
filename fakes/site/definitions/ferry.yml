@@ -1,0 +1,89 @@
+---
+id: ferry
+name: Ferry
+description: "Ferry is a fictional private tracker that signs in with a passkey link and lists magnet links."
+language: en-US
+type: private
+encoding: UTF-8
+links:
+  - https://ferry.fixture-site.fake.localhost/
+
+caps:
+  categorymappings:
+    - {id: film, cat: Movies, desc: "Film"}
+  modes:
+    search: [q]
+
+settings:
+  - name: passkey
+    type: text
+    label: Passkey
+
+login:
+  method: oneurl
+  path: login/
+  inputs:
+    oneurl: "{{ .Config.passkey }}"
+  test:
+    path: browse
+    selector: a.logout
+
+search:
+  paths:
+    - path: browse
+  keywordsfilters:
+    - name: tolower
+  inputs:
+    q: "{{ .Keywords }}"
+  rows:
+    selector: li.release
+  fields:
+    category:
+      text: film
+    title:
+      selector: span.name
+      filters:
+        - name: re_replace
+          args: ["\\s*\\[ferry\\]$", ""]
+        - name: trim
+    details:
+      selector: a.page
+      attribute: href
+    download:
+      selector: a.page
+      attribute: href
+    magnet:
+      selector: a.magnet
+      attribute: href
+    size:
+      selector: span.size
+      filters:
+        - name: replace
+          args: [",", ""]
+        - name: append
+          args: " B"
+    seeders:
+      selector: span.peers
+      filters:
+        - name: split
+          args: ["/", 0]
+    leechers:
+      selector: span.peers
+      filters:
+        - name: split
+          args: ["/", 1]
+    date:
+      selector: span.age
+      filters:
+        - name: timeago
+    downloadvolumefactor:
+      text: 1
+    uploadvolumefactor:
+      text: 1
+
+download:
+  selectors:
+    - selector: a.mirror
+      attribute: href
+    - selector: a.torrent
+      attribute: href
