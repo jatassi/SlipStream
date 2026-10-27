@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"image"
 	"image/color"
@@ -24,7 +25,7 @@ func captchaImage(code string) ([]byte, error) {
 	}
 	var b bytes.Buffer
 	if err := png.Encode(&b, img); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("encode the captcha: %w", err)
 	}
 	raw := b.Bytes()
 	const afterHeader = 8 + 4 + 4 + 13 + 4

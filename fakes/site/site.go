@@ -121,7 +121,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	if site.captchas, err = env.Capture(CaptchaShown.Name); err != nil {
 		return nil, err
 	}
-	if site.signins, err = env.Capture(SignedIn.Name); err != nil {
+	if site.signIns, err = env.Capture(SignedIn.Name); err != nil {
 		return nil, err
 	}
 	for _, cue := range []error{
@@ -211,10 +211,10 @@ type site struct {
 	// cookie is Brook's session cookie, name=value.
 	cookie string
 
-	// captchas and signins record what the catalog sites showed and who
+	// captchas and signIns record what the catalog sites showed and who
 	// signed in, nil where no event log keeps them.
 	captchas *fake.Capture
-	signins  *fake.Capture
+	signIns  *fake.Capture
 
 	mu        sync.Mutex
 	listed    map[string]bool

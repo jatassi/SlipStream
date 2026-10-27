@@ -21,9 +21,14 @@ func (s *site) quarry() fake.Routes {
 }
 
 func quarryJSON(w http.ResponseWriter, status int, v any) {
+	body, err := json.Marshal(v)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_, _ = w.Write(append(body, '\n'))
 }
 
 // quarryKeyed reports whether r carries Quarry's API key, refusing it with

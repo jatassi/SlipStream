@@ -49,7 +49,7 @@ var (
 	CaptchaShown = fake.CaptureSpec{Name: "captchas", Kind: "fixture-site.captcha"}
 	// SignedIn records each sign-in a site accepted: its site and the
 	// sign-in's method.
-	SignedIn = fake.CaptureSpec{Name: "signins", Kind: "fixture-site.signin"}
+	SignedIn = fake.CaptureSpec{Name: "sign-ins", Kind: "fixture-site.signin"}
 )
 
 // SiteArgs name a catalog site for a cue.
@@ -113,7 +113,7 @@ const BrowserUserAgent = "Mozilla/5.0 (fixture)"
 // site label that searches from Node origin, in a world with Scenario s:
 // its settings, and the browser cookie it pastes with BrowserUserAgent, ""
 // for none.
-func Credentials(s scenario.Scenario, label, origin string) (map[string]string, string) {
+func Credentials(s scenario.Scenario, label, origin string) (settings map[string]string, cookie string) {
 	switch label {
 	case Quarry:
 		return map[string]string{"apikey": Key(s, Quarry)}, ""
@@ -148,9 +148,9 @@ func (s *site) signIn(w http.ResponseWriter, r *http.Request, label, method stri
 	s.mu.Lock()
 	s.sessions[token] = session{site: label, origin: fake.OriginOf(r.Context())}
 	s.mu.Unlock()
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie(label), Value: token, Path: "/", HttpOnly: true})
-	if s.signins != nil {
-		s.signins.Record(r.Context(), SignIn{Site: label, Method: method})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie(label), Value: token, Path: "/", HttpOnly: true}) //nolint:gosec // G124: a fixture site serves plain HTTP too, where a Secure cookie never returns
+	if s.signIns != nil {
+		s.signIns.Record(r.Context(), SignIn{Site: label, Method: method})
 	}
 }
 

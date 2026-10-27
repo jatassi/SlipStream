@@ -137,28 +137,27 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 		x := controlled(t, w)
 		admin := identity.Admin{}
 		quarry := indexers.Draft{Kind: indexers.Catalog, Name: "Quarry", Definition: site.Quarry, Values: map[string]string{"apikey": site.Key(w.s, site.Quarry)}}
+		create := func(d indexers.Draft) error { _, err := x.Create(t.Context(), admin, d, nil); return err }
 		for _, tc := range []struct {
 			name string
 			edit func(*indexers.Draft)
+			try  func(indexers.Draft) error
 			want func(error) bool
 		}{
-			{"a definition the custom ones lack before the catalog is downloaded", func(d *indexers.Draft) { d.Definition = "nowhere" }, func(err error) bool { return errors.Is(err, indexers.ErrCatalogUnavailable) }},
-			{"an address it doesn't list", func(d *indexers.Draft) { d.BaseAddress = "https://elsewhere.test/" }, func(err error) bool { return errors.Is(err, indexers.ErrNotALink) }},
-			{"a setting it doesn't have", func(d *indexers.Draft) { d.Values = map[string]string{"passkey": "x"} }, func(err error) bool {
+			{"a definition the custom ones lack before the catalog is downloaded", func(d *indexers.Draft) { d.Definition = "nowhere" }, create, func(err error) bool { return errors.Is(err, indexers.ErrCatalogUnavailable) }},
+			{"an address it doesn't list", func(d *indexers.Draft) { d.BaseAddress = "https://elsewhere.test/" }, create, func(err error) bool { return errors.Is(err, indexers.ErrNotALink) }},
+			{"a setting it doesn't have", func(d *indexers.Draft) { d.Values = map[string]string{"passkey": "x"} }, create, func(err error) bool {
 				var v *indexers.ValueError
 				return errors.As(err, &v) && v.Field == "passkey"
 			}},
-			{"a captcha it doesn't show", func(*indexers.Draft) {}, func(err error) bool { return errors.Is(err, indexers.ErrNoCaptcha) }},
+			{"a captcha it doesn't show", func(*indexers.Draft) {}, func(d indexers.Draft) error {
+				_, err := x.Captcha(t.Context(), admin, indexers.CaptchaFor{Draft: &d})
+				return err
+			}, func(err error) bool { return errors.Is(err, indexers.ErrNoCaptcha) }},
 		} {
 			d := quarry
 			tc.edit(&d)
-			var err error
-			if tc.name == "a captcha it doesn't show" {
-				_, err = x.Captcha(t.Context(), admin, indexers.CaptchaFor{Draft: &d})
-			} else {
-				_, err = x.Create(t.Context(), admin, d, nil)
-			}
-			if !tc.want(err) {
+			if err := tc.try(d); !tc.want(err) {
 				t.Errorf("%s: %v", tc.name, err)
 			}
 		}

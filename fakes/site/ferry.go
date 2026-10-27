@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/jatassi/slipstream/fakes/fake"
@@ -53,7 +54,7 @@ func (s *site) ferryBrowse(w http.ResponseWriter, r *http.Request) {
 
 // thousands writes n with a comma between each group of three digits.
 func thousands(n int64) string {
-	d := fmt.Sprint(n)
+	d := strconv.FormatInt(n, 10)
 	var b strings.Builder
 	for i, c := range d {
 		if i > 0 && (len(d)-i)%3 == 0 {

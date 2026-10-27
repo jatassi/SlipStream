@@ -5,7 +5,9 @@
 package nodeapi
 
 import (
+	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -235,12 +237,12 @@ func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey string, 
 
 // IndexerCaptcha loads the captcha of ix's sign-in and returns its attempt
 // and its image.
-func IndexerCaptcha(ctx context.Context, c *http.Client, baseURL, apiKey string, ix NewIndexer) (string, []byte, error) {
+func IndexerCaptcha(ctx context.Context, c *http.Client, baseURL, apiKey string, ix NewIndexer) (attempt string, image []byte, err error) {
 	var captcha struct {
 		Attempt string `json:"attempt"`
 		Image   string `json:"image"`
 	}
-	err := call(ctx, c, request{
+	err = call(ctx, c, request{
 		what: "load Indexer " + ix.Name + "'s captcha", method: http.MethodPost, url: baseURL + "/api/v1/indexers/captcha",
 		header: apiKeyHeader(apiKey), body: ix, want: http.StatusOK,
 	}, &captcha)
@@ -251,11 +253,10 @@ func IndexerCaptcha(ctx context.Context, c *http.Client, baseURL, apiKey string,
 	if !ok {
 		return "", nil, fmt.Errorf("load Indexer %s's captcha: the image isn't a base64 data URL", ix.Name)
 	}
-	img, err := base64.StdEncoding.DecodeString(data)
-	if err != nil {
+	if image, err = base64.StdEncoding.DecodeString(data); err != nil {
 		return "", nil, fmt.Errorf("load Indexer %s's captcha: %w", ix.Name, err)
 	}
-	return captcha.Attempt, img, nil
+	return captcha.Attempt, image, nil
 }
 
 // SignInCaptcha reports whether signing in with definition id asks for a
@@ -281,6 +282,63 @@ func CatalogRefreshed(ctx context.Context, c *http.Client, baseURL, apiKey strin
 		header: apiKeyHeader(apiKey), want: http.StatusOK,
 	}, &catalog)
 	return catalog.RefreshedAt != nil, err
+}
+
+// AwaitCatalog returns once a refresh has read the Indexer catalog. It
+// reads session's event stream until indexers.catalog-changed, and checks
+// the catalog when the stream's first message ends, so a refresh that
+// finished before the stream opened counts too.
+func AwaitCatalog(ctx context.Context, c *http.Client, baseURL, apiKey string, session *http.Cookie) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/events", http.NoBody)
+	if err != nil {
+		return fmt.Errorf("open the event stream: %w", err)
+	}
+	req.Header.Set("Cookie", session.String())
+	res, err := c.Do(req)
+	if err != nil {
+		return fmt.Errorf("open the event stream: %w", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		reply, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("open the event stream: %d %s", res.StatusCode, bytes.TrimSpace(reply))
+	}
+	lines := bufio.NewScanner(res.Body)
+	checked := false
+	for lines.Scan() {
+		switch line := lines.Text(); {
+		case line == "event: indexers.catalog-changed":
+			return nil
+		case line == "" && !checked:
+			checked = true
+			if done, err := CatalogRefreshed(ctx, c, baseURL, apiKey); err != nil || done {
+				return err
+			}
+		}
+	}
+	return fmt.Errorf("the event stream ended before the Indexer catalog refreshed: %w", cmp.Or(lines.Err(), ctx.Err(), io.ErrUnexpectedEOF))
+}
+
+// SignIn signs in as the Account with email and pin and returns its
+// session cookie.
+func SignIn(ctx context.Context, c *http.Client, baseURL, email, pin string) (*http.Cookie, error) {
+	var cookies []*http.Cookie
+	err := call(ctx, c, request{
+		what: "sign in as " + email, method: http.MethodPost, url: baseURL + "/api/v1/session",
+		body: struct {
+			Email string `json:"email"`
+			PIN   string `json:"pin"`
+		}{email, pin}, want: http.StatusOK, cookies: &cookies,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, ck := range cookies {
+		if ck.Name == identity.CookieName {
+			return ck, nil
+		}
+	}
+	return nil, fmt.Errorf("sign in as %s: no session cookie", email)
 }
 
 // CreateTarget creates the Scenario Target t and returns its id.

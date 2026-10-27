@@ -171,7 +171,7 @@ func answered(t *testing.T, ix *indexer, text string) searching.TestCall {
 	return searching.TestCall{Captcha: &searching.CaptchaAnswer{PreLogin: a.Captcha.PreLogin, Text: text}}
 }
 
-func TestLarkspurSignsInPastACaptchaAndThanksBeforeADownload(t *testing.T) {
+func TestLarkspurRefusesASignInWithoutItsCaptchaOrPassword(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newCatalogWorld(t, faketest.InMemory)
 		ix := w.indexer(t, site.Larkspur, map[string]string{"username": site.Username, "password": site.Password(w.s, site.Larkspur), "sort": "added"})
@@ -185,6 +185,13 @@ func TestLarkspurSignsInPastACaptchaAndThanksBeforeADownload(t *testing.T) {
 		if got := stated(wrong.ask(t, answered(t, wrong, ""))); !strings.HasSuffix(got, ": "+site.WrongPassword) {
 			t.Errorf("a Test with a wrong password = %s, want the site's %q", got, site.WrongPassword)
 		}
+	})
+}
+
+func TestLarkspurSignsInPastACaptchaAndThanksBeforeADownload(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newCatalogWorld(t, faketest.InMemory)
+		ix := w.indexer(t, site.Larkspur, map[string]string{"username": site.Username, "password": site.Password(w.s, site.Larkspur), "sort": "added"})
 		test := ix.ask(t, answered(t, ix, ""))
 		if test.Report == nil || test.Report.Items != 2 || test.Session == nil {
 			t.Fatalf("a Test with the shown text = %s, session %+v; want 2 items and a session", stated(test), test.Session)

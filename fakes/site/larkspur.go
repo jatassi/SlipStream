@@ -30,8 +30,8 @@ func (s *site) larkspur() fake.Routes {
 	}
 }
 
-func (s *site) larkspurLanding(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: larkspurPre, Value: s.mint("pre", Larkspur), Path: "/", HttpOnly: true})
+func (s *site) larkspurLanding(w http.ResponseWriter, _ *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: larkspurPre, Value: s.mint("pre", Larkspur), Path: "/", HttpOnly: true}) //nolint:gosec // G124: a fixture site serves plain HTTP too, where a Secure cookie never returns
 	page(w, `<form id="login" action="takelogin.php" method="post">
 <input type="hidden" name="returnto" value="/browse.php">
 <input name="username"><input type="password" name="password">
