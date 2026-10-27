@@ -11,9 +11,7 @@ import { everyPath } from "./refresh";
 import type { LiveEffects } from "./types";
 
 const everyIndexer = everyPath(/^\/api\/v1\/indexers\/[^/]+$/u);
-const everyCatalogDefinition = everyPath(
-  /^\/api\/v1\/indexer-catalog\/[^/]+$/u,
-);
+const everyCatalogDefinition = everyPath(/^\/api\/v1\/indexer-catalog\/[^/]+$/u);
 
 export const indexerEffects = {
   "indexers.changed": (_data, { refresh }) => {

@@ -13,11 +13,9 @@ import type {
   SettingAmount,
   SettingSpaceField,
 } from "../api/gen/model";
-import {
-  UpdateHealthSettingsBody,
-  UpdateHealthVolumeBody,
-} from "../api/gen/zod/health/health.zod";
+import { UpdateHealthSettingsBody, UpdateHealthVolumeBody } from "../api/gen/zod/health/health.zod";
 import { globalLevels } from "./health-levels";
+import { larkspurId } from "./indexers";
 import { seedboxId } from "./nodes";
 
 // 06:00 UTC is a morning or an evening everywhere, so an item a few minutes
@@ -69,7 +67,7 @@ export const awayNode: HealthItem = {
 
 /** Larkspur stopped for its password, linking to Allow failover on its page. */
 export const stoppedIndexer: HealthItem = {
-  key: "stopped.6d8f0a2c-4e6a-4c8e-8a2c-4e6a8c0e2a4c",
+  key: `stopped.${larkspurId}`,
   subject: "Larkspur",
   level: "fail",
   text: "Larkspur rejected the username or password. Update them on the Indexer and test it.",
@@ -79,7 +77,7 @@ export const stoppedIndexer: HealthItem = {
   detail: [{ label: "Stopped since", at: minutesAgo(20) }],
   action: {
     kind: "link",
-    href: "/settings/indexers/6d8f0a2c-4e6a-4c8e-8a2c-4e6a8c0e2a4c#allow-failover",
+    href: `/settings/indexers/${larkspurId}#allow-failover`,
     label: "Open Larkspur",
   },
 };
@@ -109,14 +107,7 @@ const category = (
   phrase: string,
   canCheck: boolean,
   items: HealthItem[],
-): HealthCategory => ({
-  id,
-  label,
-  phrase,
-  canCheck,
-  level: worst(items),
-  items,
-});
+): HealthCategory => ({ id, label, phrase, canCheck, level: worst(items), items });
 
 /** A report in registry order: Storage, Nodes, Indexers, then Scheduled tasks. */
 export function reportOf({
@@ -134,31 +125,20 @@ export function reportOf({
     category("storage", "Storage", "storage", true, storage),
     category("nodes", "Nodes", "Nodes", true, nodes),
     category("indexers", "Indexers", "Indexers", false, indexers),
-    category(
-      "scheduled-tasks",
-      "Scheduled tasks",
-      "scheduled tasks",
-      false,
-      tasks,
-    ),
+    category("scheduled-tasks", "Scheduled tasks", "scheduled tasks", false, tasks),
   ];
   const all = categories.flatMap((shown) =>
     shown.items.map((item) => ({ category: shown.id, item })),
   );
   const first =
-    all.find(({ item }) => item.level === "fail") ??
-    all.find(({ item }) => item.level === "warn");
+    all.find(({ item }) => item.level === "fail") ?? all.find(({ item }) => item.level === "warn");
   return {
     categories,
     level: worst(all.map(({ item }) => item)),
     first:
       first === undefined
         ? null
-        : {
-            category: first.category,
-            key: first.item.key,
-            text: first.item.text,
-          },
+        : { category: first.category, key: first.item.key, text: first.item.text },
   };
 }
 
@@ -167,55 +147,29 @@ const quietReport = reportOf();
 /** A Health API with nothing wrong, the levels at their defaults and no volume reporting. */
 export const quietHealth = [
   http.get("*/api/v1/system/health", () => HttpResponse.json(quietReport)),
-  http.get("*/api/v1/system/health/settings", () =>
-    HttpResponse.json(globalLevels),
-  ),
+  http.get("*/api/v1/system/health/settings", () => HttpResponse.json(globalLevels)),
   http.get("*/api/v1/system/health/volumes", () =>
     HttpResponse.json({ volumes: [], notReporting: [] }),
   ),
 ];
 
-function withLevel(
-  field: SettingSpaceField,
-  follows: SettingAmount,
-  own: SettingAmount | null,
-) {
+function withLevel(field: SettingSpaceField, follows: SettingAmount, own: SettingAmount | null) {
   return own === null
     ? { ...field, isDefault: true, value: follows, running: follows }
-    : {
-        ...field,
-        isDefault: false,
-        source: "database" as const,
-        value: own,
-        running: own,
-      };
+    : { ...field, isDefault: false, source: "database" as const, value: own, running: own };
 }
 
-const withGlobal = (
-  field: SettingSpaceField,
-  own: SettingAmount | null | undefined,
-) => (own === undefined ? field : withLevel(field, field.default, own));
+const withGlobal = (field: SettingSpaceField, own: SettingAmount | null | undefined) =>
+  own === undefined ? field : withLevel(field, field.default, own);
 
-function levelsSet(
-  volume: HealthVolume,
-  body: HealthVolumeInputBody,
-  global: HealthSettings,
-) {
+function levelsSet(volume: HealthVolume, body: HealthVolumeInputBody, global: HealthSettings) {
   return {
     ...volume,
     ...(body.warnBelow !== undefined && {
-      warnBelow: withLevel(
-        volume.warnBelow,
-        global.warnBelow.value,
-        body.warnBelow,
-      ),
+      warnBelow: withLevel(volume.warnBelow, global.warnBelow.value, body.warnBelow),
     }),
     ...(body.errorBelow !== undefined && {
-      errorBelow: withLevel(
-        volume.errorBelow,
-        global.errorBelow.value,
-        body.errorBelow,
-      ),
+      errorBelow: withLevel(volume.errorBelow, global.errorBelow.value, body.errorBelow),
     }),
   };
 }
@@ -244,26 +198,18 @@ const checksOf = (state: HealthState, sent: HealthSent) => {
   };
   return [
     http.get("*/api/v1/system/health", () => HttpResponse.json(state.report)),
-    http.post("*/api/v1/system/health/check", () =>
-      HttpResponse.json(checked("all")),
-    ),
+    http.post("*/api/v1/system/health/check", () => HttpResponse.json(checked("all"))),
     http.post("*/api/v1/system/health/:category/check", ({ params }) =>
       HttpResponse.json(checked(String(params["category"]))),
     ),
-    http.post(
-      "*/api/v1/system/health/:category/items/:key/check",
-      ({ params }) =>
-        HttpResponse.json(
-          checked(`${String(params["category"])}/${String(params["key"])}`),
-        ),
+    http.post("*/api/v1/system/health/:category/items/:key/check", ({ params }) =>
+      HttpResponse.json(checked(`${String(params["category"])}/${String(params["key"])}`)),
     ),
   ];
 };
 
 const levelsOf = (state: HealthState, sent: HealthSent) => [
-  http.get("*/api/v1/system/health/settings", () =>
-    HttpResponse.json(state.settings),
-  ),
+  http.get("*/api/v1/system/health/settings", () => HttpResponse.json(state.settings)),
   http.patch("*/api/v1/system/health/settings", async ({ request }) => {
     const body = UpdateHealthSettingsBody.parse(await request.json());
     sent.settings.push(body);
@@ -279,16 +225,12 @@ const levelsOf = (state: HealthState, sent: HealthSent) => [
 ];
 
 const isVolume =
-  (nodeId: string | null, mount: string | null) =>
-  (volume: { nodeId: string; mount: string }) =>
+  (nodeId: string | null, mount: string | null) => (volume: { nodeId: string; mount: string }) =>
     volume.nodeId === nodeId && volume.mount === mount;
 
 const volumesOf = (state: HealthState, sent: HealthSent) => [
   http.get("*/api/v1/system/health/volumes", () =>
-    HttpResponse.json({
-      volumes: state.volumes,
-      notReporting: state.notReporting,
-    }),
+    HttpResponse.json({ volumes: state.volumes, notReporting: state.notReporting }),
   ),
   http.patch("*/api/v1/system/health/volumes", async ({ request }) => {
     const body = UpdateHealthVolumeBody.parse(await request.json());
@@ -317,16 +259,7 @@ export function healthServer(initial: HealthReport) {
     volumes: [],
     notReporting: [],
   };
-  const sent: HealthSent = {
-    checks: [],
-    settings: [],
-    volumes: [],
-    removed: [],
-  };
-  const handlers = [
-    ...checksOf(state, sent),
-    ...levelsOf(state, sent),
-    ...volumesOf(state, sent),
-  ];
+  const sent: HealthSent = { checks: [], settings: [], volumes: [], removed: [] };
+  const handlers = [...checksOf(state, sent), ...levelsOf(state, sent), ...volumesOf(state, sent)];
   return { handlers, state, checks: sent.checks, sent };
 }
