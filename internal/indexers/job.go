@@ -137,8 +137,11 @@ func (x *Indexers) lose(ctx context.Context, q QueryID) {
 
 // ask runs j on its Node. It polls Run until the answer or the job's
 // deadline, Timings.Job from when the Node started it, and never waits
-// past the deadline once the start is known. A job past it is ErrLate,
-// and settle polls it on in the background and records it.
+// past the deadline once the start is known. A job past it is ErrLate, as
+// is one whose call the deadline ended, which the Node may end a moment
+// before this clock reads the deadline, since the call's timeout reaches
+// it in whole milliseconds. settle polls a late job on in the background
+// and records it.
 func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
 	remote := x.cfg.Searching(j.node)
 	var deadline time.Time
@@ -150,7 +153,7 @@ func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
 			return searching.Answer{}, fmt.Errorf("ask the Searching Node: %w", ctx.Err())
 		case err == nil && poll.Answer != nil:
 			return *poll.Answer, nil
-		case !deadline.IsZero() && !time.Now().Before(deadline):
+		case !deadline.IsZero() && (!time.Now().Before(deadline) || rpc.CodeOf(err) == rpc.CodeDeadlineExceeded):
 			if j.untracked {
 				return searching.Answer{}, ErrLate
 			}
