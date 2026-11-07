@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone } from "./shell.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 test.use({ scenario: "torrents" });
 test.describe.configure({ timeout: 120_000 });
@@ -162,7 +163,7 @@ test("the Inspector reads one torrent, and a remove with its download copy cance
   await expect(
     inspector.getByRole("definition").filter({ hasText: /[/\\]Movies[/\\]/u }),
   ).toHaveText(/[/\\]downloads[/\\]Movies[/\\][\da-f]{40}$/u);
-  await page.screenshot({ path: testInfo.outputPath("inspector.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("inspector.png"));
 
   await inspector.getByRole("button", { name: "Remove", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: `Remove ${work}?` });
