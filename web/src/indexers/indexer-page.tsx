@@ -8,7 +8,8 @@ import type {
 import { useShell } from "../ui/shell-context";
 import { IndexerActions } from "./indexer-actions";
 import { IndexerFacts } from "./indexer-facts";
-import { IndexerMachinery, RecentGrabs, RecentQueries } from "./indexer-history";
+import { RecentGrabs, RecentQueries } from "./indexer-history";
+import { IndexerMachinery } from "./indexer-machinery";
 import { StatusLine } from "./status-line";
 import { IndexerSwitch } from "./switches";
 

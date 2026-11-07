@@ -1,10 +1,11 @@
+import { useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { IndexersIndexer, NodesNode } from "../api/gen/model";
 import { Button } from "../ui/button";
 import { EditIndexerDialog } from "./edit-indexer";
 import { DeleteIndexerDialog } from "./delete-indexer";
-import { CaptchaField } from "./fields/captcha";
+import { CaptchaField, CodeField } from "./fields/captcha";
 import { MoveIndexerDialog } from "./move-indexer";
 import { type TestForm, type TestResult, useIndexerTest } from "./test-indexer";
 import { nodeName } from "./words";
@@ -24,9 +25,22 @@ function Result({ result }: { result: TestResult | undefined }) {
   );
 }
 
-function Buttons({ form, onOpen }: { form: TestForm; onOpen: (dialog: Open) => void }) {
+function Buttons({
+  form,
+  onOpen,
+  onCode,
+}: {
+  form: TestForm;
+  onOpen: (dialog: Open) => void;
+  onCode: (() => void) | undefined;
+}) {
   return (
     <div className="flex flex-wrap gap-2">
+      {onCode !== undefined && (
+        <Button look="fail" onClick={onCode}>
+          Type code
+        </Button>
+      )}
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(testing) => (
           <Button type="submit" busy={testing}>
@@ -60,7 +74,12 @@ function Buttons({ form, onOpen }: { form: TestForm; onOpen: (dialog: Open) => v
   );
 }
 
-/** Test with the buttons that open the dialogs, then the captcha a failed Test hands back and the Test's answer. */
+/**
+ * Test with the buttons that open the dialogs, then the step a sign-in
+ * needs (the captcha a failed Test hands back, or the two-factor code) and
+ * the Test's answer. A stop for a code offers Type code, which opens its
+ * step, and the page opened at #code starts on it.
+ */
 function TestPanel({
   indexer,
   home,
@@ -70,7 +89,9 @@ function TestPanel({
   home: string;
   onOpen: (dialog: Open) => void;
 }) {
-  const { form, step, result, reload } = useIndexerTest(indexer);
+  const codeAsked = useLocation({ select: (location) => location.hash === "code" });
+  const { form, step, result, reload, askCode } = useIndexerTest(indexer, codeAsked);
+  const offersCode = indexer.status.cause === "code_needed" && step.kind !== "code";
   return (
     <form
       noValidate
@@ -81,8 +102,13 @@ function TestPanel({
       }}
     >
       <form.AppForm>
-        <Buttons form={form} onOpen={onOpen} />
-        {step.kind !== "none" && (
+        <Buttons form={form} onOpen={onOpen} onCode={offersCode ? askCode : undefined} />
+        {step.kind === "code" && (
+          <div id="code" className="scroll-mt-20">
+            <CodeField form={form} fields={{ code: "code" }} name={indexer.name} />
+          </div>
+        )}
+        {(step.kind === "shown" || step.kind === "expired") && (
           <CaptchaField
             form={form}
             fields={{ captcha: "captcha" }}

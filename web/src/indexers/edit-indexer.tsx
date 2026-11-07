@@ -1,40 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query";
-
 import type { IndexersIndexer } from "../api/gen/model";
-import { updateIndexer } from "../api/gen/query/indexers/indexers";
-import { adoptIndexer } from "../live/adopt";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
-import { useAppForm } from "../ui/form";
-import { toast } from "../ui/toast";
-import { editOf, editSchema, refusal, valuesOf } from "./edit-values";
+import { Skeleton } from "../ui/skeleton";
+import { type SettingsForm, useSettingsForm } from "./definition-form";
+import { type EditForm, useEditForm } from "./edit-form";
+import { EditSettings } from "./edit-settings";
+import { CodeField } from "./fields/captcha";
 import { LimitField } from "./fields/limit-field";
 
-function useEditForm(indexer: IndexersIndexer, onDone: () => void) {
-  const queryClient = useQueryClient();
-  return useAppForm({
-    defaultValues: valuesOf(indexer),
-    validators: { onSubmit: editSchema },
-    onSubmit: async ({ value, formApi }) => {
-      const edit = editOf(indexer, value);
-      if (Object.keys(edit).length > 0) {
-        try {
-          adoptIndexer(queryClient, await updateIndexer(indexer.id, edit));
-        } catch (error) {
-          formApi.setErrorMap({ onSubmit: refusal(error) });
-          return;
-        }
-        toast(`Saved ${edit.name ?? indexer.name}`);
-      }
-      onDone();
-    },
-  });
-}
-
-type EditForm = ReturnType<typeof useEditForm>;
-
 function Secrets({ form, indexer }: { form: EditForm; indexer: IndexersIndexer }) {
-  if (indexer.kind === "catalog") {
+  if (indexer.kind === "catalog" || indexer.kind === "native") {
     return null;
   }
   return (
@@ -62,8 +37,16 @@ function Secrets({ form, indexer }: { form: EditForm; indexer: IndexersIndexer }
   );
 }
 
-function EditFields({ indexer, onDone }: { indexer: IndexersIndexer; onDone: () => void }) {
-  const form = useEditForm(indexer, onDone);
+function EditFields({
+  indexer,
+  settings,
+  onDone,
+}: {
+  indexer: IndexersIndexer;
+  settings: SettingsForm | undefined;
+  onDone: () => void;
+}) {
+  const { form, codeShown } = useEditForm(indexer, settings, onDone);
   return (
     <form
       noValidate
@@ -78,6 +61,7 @@ function EditFields({ indexer, onDone }: { indexer: IndexersIndexer; onDone: () 
           {(field) => <field.TextField label="Name" autoComplete="off" />}
         </form.AppField>
         <Secrets form={form} indexer={indexer} />
+        {settings !== undefined && <EditSettings form={form} settings={settings} />}
         <form.AppField name="priority">
           {(field) => (
             <field.TextField
@@ -89,6 +73,7 @@ function EditFields({ indexer, onDone }: { indexer: IndexersIndexer; onDone: () 
         </form.AppField>
         <LimitField form={form} fields="searches" label="Searches" />
         <LimitField form={form} fields="grabs" label="Grabs" />
+        {codeShown && <CodeField form={form} fields={{ code: "code" }} name={indexer.name} />}
         <form.FormAlert />
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={onDone}>Cancel</Button>
@@ -97,6 +82,15 @@ function EditFields({ indexer, onDone }: { indexer: IndexersIndexer; onDone: () 
       </form.AppForm>
     </form>
   );
+}
+
+/** The form once a catalog or native Indexer's settings form is read; a feed has none to read. */
+function Loaded({ indexer, onDone }: { indexer: IndexersIndexer; onDone: () => void }) {
+  const settings = useSettingsForm(indexer);
+  if (settings.isPending && settings.fetchStatus !== "idle") {
+    return <Skeleton label="Loading the settings" />;
+  }
+  return <EditFields indexer={indexer} settings={settings.data} onDone={onDone} />;
 }
 
 export function EditIndexerDialog({
@@ -110,7 +104,7 @@ export function EditIndexerDialog({
 }) {
   return (
     <Dialog title={`Edit ${indexer.name}`} open={open} onOpenChange={onOpenChange}>
-      <EditFields
+      <Loaded
         indexer={indexer}
         onDone={() => {
           onOpenChange(false);

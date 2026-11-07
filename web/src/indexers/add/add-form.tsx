@@ -37,7 +37,11 @@ export function AddIndexerForm({ source, nodes }: { source: Source; nodes: reado
       }}
     >
       <form.AppForm>
-        <p className="text-ink-1">{leadOf(source, home?.name ?? "its home Node")}</p>
+        {leadOf(source, home?.name ?? "its home Node").map((lead) => (
+          <p key={lead} className="text-ink-1">
+            {lead}
+          </p>
+        ))}
         <form.AppField
           name="name"
           validators={{

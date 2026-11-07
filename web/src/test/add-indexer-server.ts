@@ -9,8 +9,10 @@ import type {
 } from "../api/gen/model";
 import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw";
 import { captchas, catalog as fullCatalog, entry, forms } from "./catalog";
+import { codeNeededFailure } from "./indexer-plays";
 import { indexer } from "./indexers";
 import { indexersServer } from "./indexers-server";
+import { portForms, portPinOf } from "./ports";
 import { cinema } from "./library";
 
 export const addedId = "5e4d3c2b-1a0f-4e9d-8c7b-6a5f4e3d2c1b";
@@ -43,6 +45,8 @@ type Options = {
   failSaves?: string[];
   /** The first save with a captcha finds it expired. */
   expireFirst?: boolean;
+  /** The sentence of a save whose sign-in needs a two-factor code, until one is sent. */
+  codeNeeded?: string;
   contentTypes?: WorksContentType[];
 };
 
@@ -53,6 +57,7 @@ type Server = {
   captchasHanded: number;
   report: IndexersReport;
   failTest: string | undefined;
+  codeNeeded: string | undefined;
 };
 
 const handOut = (server: Server) => {
@@ -101,11 +106,24 @@ function createHandler(server: Server, added: ReturnType<typeof indexersServer>[
     if (failed !== undefined) {
       return testFailed(failed, "captcha" in body ? handOut(server) : undefined);
     }
-    const name = typeof body["name"] === "string" ? body["name"] : "";
-    const made = indexer({ id: addedId, name, kind: "catalog" });
+    if (server.codeNeeded !== undefined && !("code" in body)) {
+      return codeNeededFailure(server.codeNeeded);
+    }
+    const made = madeOf(body);
     added.indexers.push(made);
     return HttpResponse.json(made, { status: 201 });
   });
+}
+
+/** The Indexer a save makes: a catalog one, or a native one on the port it names. */
+function madeOf(body: Record<string, unknown>) {
+  const name = typeof body["name"] === "string" ? body["name"] : "";
+  const ported = portForms.find((form) => form.entry.id === body["port"]);
+  if (ported === undefined) {
+    return indexer({ id: addedId, name, kind: "catalog" });
+  }
+  const address = typeof body["baseAddress"] === "string" ? body["baseAddress"] : "";
+  return indexer({ id: addedId, name, kind: "native", port: portPinOf(ported, address) });
 }
 
 const takenId = /^id:\s*marsh$/mu;
@@ -142,11 +160,12 @@ function customHandler(server: Server) {
  */
 export function addIndexerServer({
   catalog = fullCatalog,
-  definitions = forms,
+  definitions = [...forms, ...portForms],
   report = passed,
   failTest,
   failSaves = [],
   expireFirst = false,
+  codeNeeded,
   contentTypes = [cinema],
 }: Options = {}) {
   const indexers = indexersServer();
@@ -157,6 +176,7 @@ export function addIndexerServer({
     captchasHanded: 0,
     report,
     failTest,
+    codeNeeded,
   };
   const handlers = [
     http.get("*/api/v1/indexer-catalog", () => HttpResponse.json(catalog)),

@@ -2,7 +2,7 @@ import type { IndexersIndexer, NodesNode } from "../api/gen/model";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { Select } from "../ui/select";
-import type { CaptchaStep } from "./add/use-add";
+import type { SignInStep } from "./add/use-add";
 import { CaptchaField } from "./fields/captcha";
 import { searchingNodes } from "./move-edit";
 import { type MoveForm, useMoveForm } from "./move-form";
@@ -60,7 +60,7 @@ function Moving({
   indexer: IndexersIndexer;
   nodes: readonly NodesNode[];
   to: string;
-  step: CaptchaStep;
+  step: SignInStep;
 }) {
   const name = nodeName(nodes, to);
   return (

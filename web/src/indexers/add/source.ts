@@ -1,5 +1,4 @@
 import type {
-  IndexersDefinitionField,
   IndexersDefinitionForm,
   IndexersNewIndexer,
   NodesNode,
@@ -7,11 +6,15 @@ import type {
 } from "../../api/gen/model";
 import { type LimitValues, noLimit } from "../fields/limit-field";
 import { limitOf, limitSchema } from "../edit-values";
+import type { PortForm } from "../port-shape";
+import { type AddressValues, addressOf, startAddress } from "../fields/address-field";
+import { settingAt, settingsOf, startValue } from "../fields/settings";
 import { familiesOf } from "./families";
 
-/** What a new Indexer is added from: a definition, or a feed of a kind. */
+/** What a new Indexer is added from: a definition, a ported site, or a feed of a kind. */
 export type Source =
   | { readonly kind: "catalog"; readonly form: IndexersDefinitionForm }
+  | { readonly kind: "native"; readonly form: PortForm }
   | { readonly kind: "torznab" }
   | { readonly kind: "rss"; readonly contentTypes: readonly WorksContentType[] };
 
@@ -29,7 +32,7 @@ export type AddValues = {
   on: boolean;
   automaticSearch: boolean;
   rss: boolean;
-  baseAddress: string;
+  baseAddress: AddressValues;
   values: string[];
   families: string[];
   cookie: string;
@@ -40,24 +43,18 @@ export type AddValues = {
   media: string[];
   allowNoSize: boolean;
   captcha: string;
+  code: string;
 };
 
-/** A definition field that holds a value, which an info field and the captcha don't. */
-export const holdsValue = ({ type }: IndexersDefinitionField) =>
-  type === "text" || type === "password" || type === "checkbox" || type === "select";
+/** The form of a source drawn from a definition's fields, a catalog one or a port's. */
+export const formOf = (source: Source) =>
+  source.kind === "catalog" || source.kind === "native" ? source.form : undefined;
 
-function startValue(field: IndexersDefinitionField): string {
-  if (field.type === "checkbox") {
-    return field.default === "true" ? "true" : "false";
-  }
-  if (field.type === "select") {
-    return field.default ?? field.options[0]?.value ?? "";
-  }
-  return holdsValue(field) ? (field.default ?? "") : "";
-}
+/** A ported site with no list of new Releases keeps RSS off, since RSS sync can't read it. */
+export const listsRecent = (source: Source) => source.kind !== "native" || source.form.recent;
 
 export function startValues(source: Source, home: NodesNode | undefined, name = ""): AddValues {
-  const form = source.kind === "catalog" ? source.form : undefined;
+  const form = formOf(source);
   const enabled = source.kind === "rss" ? source.contentTypes.filter((type) => type.enabled) : [];
   return {
     name: form?.entry.name ?? name,
@@ -67,8 +64,8 @@ export function startValues(source: Source, home: NodesNode | undefined, name = 
     grabs: noLimit,
     on: true,
     automaticSearch: true,
-    rss: true,
-    baseAddress: form?.links[0] ?? "",
+    rss: listsRecent(source),
+    baseAddress: startAddress(form?.links ?? []),
     values: form?.fields.map(startValue) ?? [],
     families: form === undefined ? [] : familiesOf(form.entry.categories).map(String),
     cookie: "",
@@ -79,29 +76,22 @@ export function startValues(source: Source, home: NodesNode | undefined, name = 
     media: enabled.length === 1 ? enabled.map((type) => type.id) : [],
     allowNoSize: false,
     captcha: "",
+    code: "",
   };
 }
 
 /** The username a captcha is shown for, which a new one needs once it changes. */
 export function signInOf(source: Source, values: AddValues): string {
-  if (source.kind !== "catalog") {
+  const form = formOf(source);
+  if (form === undefined) {
     return "";
   }
-  const username = source.form.fields.findIndex((field) => field.name === "username");
+  const username = form.fields.findIndex((field) => field.name === "username");
   return `${values.homeNodeId}\n${username < 0 ? "" : values.values[username]}`;
 }
 
 /** The feed a Torznab Test read, which a new Test needs once it changes. */
 export const feedOf = (values: AddValues) => `${values.address.trim()}\n${values.apiKey}`;
-
-function settingsOf(form: IndexersDefinitionForm, values: AddValues) {
-  return Object.fromEntries(
-    form.fields.flatMap((field, index) => {
-      const value = values.values[index] ?? "";
-      return holdsValue(field) && value !== "" ? [[field.name, value]] : [];
-    }),
-  );
-}
 
 /** The categories a narrowed choice of families keeps; null for all of them. */
 function categoriesOf(form: IndexersDefinitionForm, families: readonly string[]) {
@@ -130,18 +120,25 @@ export function draftOf(source: Source, values: AddValues, homeShown: boolean): 
       ? undefined
       : { cookie: values.cookie.trim(), userAgent: values.userAgent.trim() };
   switch (source.kind) {
-    case "catalog": {
+    case "catalog":
+    case "native": {
       const { form } = source;
       const categories = categoriesOf(form, values.families);
-      return {
-        ...shared,
-        kind: "catalog",
-        definition: form.entry.id,
-        ...(values.baseAddress !== form.links[0] && { baseAddress: values.baseAddress }),
-        values: settingsOf(form, values),
+      const address = addressOf(values.baseAddress);
+      const settings = {
+        values: settingsOf(form.fields, values.values),
         ...(categories !== null && { categories }),
         ...(form.cookie && cookie !== undefined && { cookie }),
       };
+      return source.kind === "native"
+        ? { ...shared, kind: "native", port: form.entry.id, baseAddress: address, ...settings }
+        : {
+            ...shared,
+            kind: "catalog",
+            definition: form.entry.id,
+            ...(address !== form.links[0] && { baseAddress: address }),
+            ...settings,
+          };
     }
     case "torznab":
       return {
@@ -166,14 +163,14 @@ export function draftOf(source: Source, values: AddValues, homeShown: boolean): 
   }
 }
 
-/** Where a refusal's field lands in the form: a setting by its index. */
+/** Where a refusal's field lands in the form: a setting by its index, an address by its field. */
 export function fieldOf(source: Source, location: string): string {
   if (location.startsWith("cookie")) {
     return "cookie";
   }
-  if (source.kind === "catalog" && location.startsWith("values.")) {
-    const index = source.form.fields.findIndex((field) => `values.${field.name}` === location);
-    return index < 0 ? location : `values[${index}]`;
+  const form = formOf(source);
+  if (form !== undefined && location.startsWith("values.")) {
+    return settingAt(form.fields, location);
   }
-  return location;
+  return location === "baseAddress" ? "baseAddress.typed" : location;
 }
