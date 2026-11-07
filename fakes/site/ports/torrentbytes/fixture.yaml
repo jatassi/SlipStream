@@ -1,0 +1,96 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "uid={{uid}}; pass={{pass}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}", Accept: text/html}
+          query: {incldead: "1", search: tt0000001, sc: "2"}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 1, episode: "2"}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {incldead: "1", search: Harbor Lights S01E02, sc: "1"}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {incldead: "1", search: Juniper Falls, sc: "1"}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: empty.html
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {incldead: "1", search: "", sc: "1"}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: recent.html
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /takelogin.php
+          headers: {Referer: "https://torrentbytes.fixture-site.fake.localhost/takelogin.php"}
+          form: {username: fixture-user, password: "{{password}}", returnto: /}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: loginfailed.html
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "uid={{uid}}; pass={{expiredPass}}"}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{expiredPass}}"}
+        response:
+          status: 302
+          headers: {Location: "/login.php?returnto=%2Fbrowse.php"}
+      - request: {path: /login.php}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: login.html
+      - request:
+          method: POST
+          path: /takelogin.php
+          form: {username: fixture-user, password: "{{password}}", returnto: /}
+        response:
+          status: 302
+          headers:
+            Location: /
+            Set-Cookie: "uid={{uid}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/"
+      - request: {path: /}
+        response:
+          headers:
+            Content-Type: text/html; charset=iso-8859-1
+            Set-Cookie: "pass={{pass}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/"
+          body: index.html
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}"}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: recent.html
