@@ -46,6 +46,7 @@ func scheduler(r Registry) *tasks.Scheduler {
 var (
 	providerNotFound    = api.NewCode(http.StatusNotFound, "metadata_provider_not_found", "No metadata provider has that id")
 	keyRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_key_refused", "The metadata provider refused that key, so SlipStream didn't save it")
+	pinRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_pin_refused", "The metadata provider refused that PIN, so SlipStream didn't save it")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
@@ -60,6 +61,8 @@ func answer(err error) error {
 		return providerNotFound
 	case isSource && errors.Is(err, metadata.ErrKeyRefused):
 		return keyRefused.Because(se.Source + " " + se.Words)
+	case isSource && errors.Is(err, metadata.ErrPinRefused):
+		return pinRefused.Because(se.Source + " " + se.Words)
 	case isSource && errors.Is(err, works.ErrUnavailable):
 		return metadataUnavailable.Because(se.Error())
 	case errors.Is(err, works.ErrNoType):
@@ -220,7 +223,7 @@ func Routes(r *api.Router, registry Registry) {
 		Path:    "/metadata/providers/{provider}/key",
 		Summary: "Use your own key for a provider, once the provider takes it on a test call",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{providerNotFound, keyRefused, metadataUnavailable},
+		Errors:  []*api.Code{providerNotFound, keyRefused, pinRefused, metadataUnavailable},
 	}, h.setKey)
 
 	api.Register(o, api.Admin, api.Op{

@@ -63,6 +63,9 @@ var (
 	// ErrKeyRefused is a key the provider refused when tested; nothing was
 	// stored.
 	ErrKeyRefused = errors.New("the provider refused the key")
+	// ErrPinRefused is a PIN the provider refused beside a key it takes;
+	// nothing was stored.
+	ErrPinRefused = errors.New("the provider refused the PIN")
 )
 
 var keyColumn = secret.NewColumn("metadata_key.api_key_sealed")

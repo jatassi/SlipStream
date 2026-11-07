@@ -193,6 +193,8 @@ func TestAnAdminKeyIsTestedOnSaveAndShownInUse(t *testing.T) {
 	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/tmdb/key", `{"key":"typo"}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"metadata_key_refused","title":"The metadata provider refused that key, so SlipStream didn't save it","detail":"TMDB refused the key: Invalid API key: You must be granted a valid key."}`)
 	s.owner.Expect(t, http.MethodGet, "/api/v1/metadata/providers", "", http.StatusOK, `{"providers":[`+unusedTMDB+`,`+unusedOMDb+`]}`)
+	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/tmdb/key", `{"pin":"1234"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body","message":"expected required property key to be present"}]}`)
 
 	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/tmdb/key", `{"key":"mine"}`, http.StatusOK,
 		`{"id":"tmdb","label":"TMDB","summary":"TMDB is working.","key":"yours","state":"working","until":null,"keySetAt":"T","keyPage":"https://www.tmdb.invalid/settings/api","takesPin":false,"pinSet":false,"attribution":{"text":"This product uses the TMDB API but is not endorsed or certified by TMDB.","logo":"tmdb"},"details":{"lastSuccess":"T","lastError":null,"nodes":[{"nodeId":"id1","reached":true,"at":"T"}]}}`)

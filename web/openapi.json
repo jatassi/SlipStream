@@ -24564,7 +24564,8 @@
                         "code": {
                           "enum": [
                             "invalid",
-                            "metadata_key_refused"
+                            "metadata_key_refused",
+                            "metadata_pin_refused"
                           ],
                           "type": "string"
                         }
