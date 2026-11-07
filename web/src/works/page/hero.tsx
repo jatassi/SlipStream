@@ -47,7 +47,7 @@ export function Hero({
               </span>
             )}
           </p>
-          <Summary summary={summary} />
+          <Summary summary={summary} holds={type.items} />
         </div>
       </div>
       <div className="mt-4 flex flex-col gap-4">

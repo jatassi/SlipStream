@@ -2,8 +2,10 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import type { WorksContentType, WorksFieldSpec, WorksWorkView } from "../../api/gen/model";
+import { anthologies, longShelf } from "../../test/anthology";
 import { cinema, orchard } from "../../test/library";
 import { renderKit } from "../../test/render-kit";
+import { shelfCells } from "../../test/shelf-cells";
 import { About } from "./about";
 
 const spec = (key: string, label: string, more: Partial<WorksFieldSpec>): WorksFieldSpec => ({
@@ -42,7 +44,7 @@ const work: WorksWorkView = {
 };
 
 test("About brackets a field's With value and shows its Art beside it", async () => {
-  renderKit(<About type={rated} work={work} />);
+  renderKit(<About type={rated} work={work} statuses={[]} />);
   const about = page.getByRole("region", { name: "About" });
   await expect
     .element(about.getByRole("definition").first())
@@ -65,7 +67,7 @@ test("About brackets a field's With value and shows its Art beside it", async ()
 });
 
 test("its links open the source's page and the trailer in a new tab", async () => {
-  renderKit(<About type={rated} work={work} />);
+  renderKit(<About type={rated} work={work} statuses={[]} />);
   await expect.element(page.getByRole("list", { name: "Links" })).toBeVisible();
   expect(
     page
@@ -85,4 +87,19 @@ test("its links open the source's page and the trailer in a new tab", async () =
     ["TMDB", "https://www.themoviedb.org/movie/9000001", "_blank", "noopener noreferrer"],
     ["Trailer", "https://www.youtube.com/watch?v=x", "_blank", "noopener noreferrer"],
   ]);
+});
+
+test("a many-Item Work's About names the latest Item out and the next one to come", async () => {
+  const [, , next, later] = longShelf.items;
+  const cells = shelfCells(longShelf, (item) =>
+    item === next || item === later ? "unreleased" : "met",
+  );
+  renderKit(<About type={anthologies} work={longShelf} statuses={cells.items} />);
+  const about = page.getByRole("region", { name: "About" });
+  await expect
+    .element(about.getByText("The latest story, V01S27, counted as out on January 28, 2020."))
+    .toBeVisible();
+  await expect
+    .element(about.getByText("The next story, V01S03, counts as out on January 4, 2020."))
+    .toBeVisible();
 });

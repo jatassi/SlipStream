@@ -1,10 +1,10 @@
-import type { FilesState, FilesSummary } from "../../api/gen/model";
+import type { FilesState, FilesSummary, WorksContentTypeItems } from "../../api/gen/model";
 
 export type PillTone = "met" | "fail" | "live" | "plain";
 
 export type Pill = { readonly tone: PillTone; readonly words: string };
 
-/** What the hero says of the Work's cells: pills first, then the rest in tertiary text. */
+/** What the hero says of the Work's cells or Items: pills first, then the rest in tertiary text. */
 export type Pills = {
   readonly pills: readonly Pill[];
   readonly rest: readonly string[];
@@ -41,10 +41,18 @@ const order = [
   "unreleased",
 ] as const satisfies readonly (keyof typeof counted)[];
 
-/** "3 of 9 met", "1 failed" and "2 in flight", then "1 upgrade available · 2 missing". */
-export function pillsOf({ cells }: FilesSummary): Pills {
-  const met = cells.met ?? 0;
-  const total = order.reduce((sum, state) => sum + (cells[state] ?? 0), met);
+/**
+ * "3 of 9 met", "1 failed" and "2 in flight", then "1 upgrade available · 2 missing".
+ * One Item counts cells. Many Items count the Items that count, as the poster does.
+ */
+export function pillsOf(
+  { cells, itemStatus, items }: FilesSummary,
+  holds: WorksContentTypeItems,
+): Pills {
+  const counts = holds === "many" ? itemStatus : cells;
+  const met = counts.met ?? 0;
+  const total =
+    holds === "many" ? items : order.reduce((sum, state) => sum + (counts[state] ?? 0), met);
   if (total === 0) {
     return { pills: [], rest: [] };
   }
@@ -53,7 +61,7 @@ export function pillsOf({ cells }: FilesSummary): Pills {
   ];
   const rest: string[] = [];
   for (const state of order) {
-    const count = cells[state];
+    const count = counts[state];
     if (count === undefined) {
       continue;
     }
