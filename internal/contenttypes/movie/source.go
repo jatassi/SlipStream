@@ -31,7 +31,6 @@ func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.tmdb.Ima
 // OMDb ratings and awards when ask asks for ratings and the movie has an
 // IMDb id. A title OMDb doesn't know is read with none; an OMDb that
 // doesn't answer leaves them as stored.
-// Fetch reads a movie the one way TMDB lists it, so it takes no options.
 func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key, _ []byte) (works.Fetched, error) {
 	id, err := strconv.ParseInt(string(key), 10, 64)
 	if err != nil {
