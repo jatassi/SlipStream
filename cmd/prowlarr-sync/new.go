@@ -21,8 +21,8 @@ const module = "github.com/jatassi/slipstream"
 
 var portID = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 
-// logins are the --auth values: the Login family a port's DoLogin
-// takes, and the auth family it derives.
+// logins maps each --auth value, a Login family of port.Impl, to the
+// auth family it derives.
 var logins = map[string]port.Auth{
 	"none": port.StatelessKey, "form": port.FormCookie, "token": port.BearerToken, "cookie": port.PastedCookie, "code": port.FormWithCode,
 }
@@ -77,7 +77,7 @@ func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.T
 	}
 	fixture, err := ports.Skeleton(port.ID(id), auth).Marshal()
 	if err != nil {
-		return err //nolint:wrapcheck // Marshal names the fixture
+		return err
 	}
 	if err := writeNew(repo, "fakes/site/ports/"+id+"/fixture.yaml", string(fixture)); err != nil {
 		return err

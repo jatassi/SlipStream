@@ -133,7 +133,7 @@ func TestAnExchangeMatchesOnlyAQueryWithoutTheParametersItRulesOut(t *testing.T)
 		"/api/search?q=orchard&freeleech=1": "its query has freeleech",
 		"/api/search?q=orchard&freeleech=":  "its query has freeleech",
 	} {
-		req, err := http.NewRequest(http.MethodGet, Address(testport.ID)+strings.TrimPrefix(target, "/"), http.NoBody)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, Address(testport.ID)+strings.TrimPrefix(target, "/"), http.NoBody)
 		if err != nil {
 			t.Fatal(err)
 		}

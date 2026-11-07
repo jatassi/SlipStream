@@ -29,7 +29,6 @@ func (c *NameValueCollection) index(name string) int {
 	return -1
 }
 
-// Add appends value to name's values.
 func (c *NameValueCollection) Add(name, value string) {
 	if i := c.index(name); i >= 0 {
 		c.values[i] = append(c.values[i], value)
@@ -56,7 +55,6 @@ func (c *NameValueCollection) Get(name string) string {
 	return ""
 }
 
-// Count is how many names the collection holds.
 func (c *NameValueCollection) Count() int { return len(c.names) }
 
 // QueryString are GetQueryString's optional parameters. The zero value
