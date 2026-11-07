@@ -8,7 +8,7 @@ A series' Work page shows the series' facts in the hero, then one collapsible se
 - `series-seasons` `Seasons` holds `Season 1`, `Season 2`, `Season 3` and `Specials` in that order. Season 1 is open with `0 of 3 met`, and the unmonitored seasons are closed and read `Not monitored` (P-050).
 - `series-rows` `S01E01` reads `First Flame`, `January 10, 2020` and its cell `S01E01 1080p, Missing`; opening Season 2 shows `S02E01` `The Northern Lamp` with `Not monitored` (P-050).
 - `series-popover` hovering `S01E01 1080p, Missing` opens the detail `S01E01 1080p` reading `Missing`, clicking pins it while the pointer leaves, and `Escape` closes it.
-- `series-fold` after fake-tvdb announces a fourth season and a refresh, Season 4 reads one line `Episodes 1 to 3 air <day> to <day>` in place of three rows, and dropping `Fog Signal` leaves Season 2 reading `0 of 2 met` with no row for it (P-050).
+- `series-fold` after fake-tvdb announces a fourth season and a refresh, Season 4 reads one line `Episodes 1 to 3 air <day> to <day>` in place of three rows, and dropping `Fog Signal` leaves Season 2 with `S02E01` and `S02E03` and no row for it (P-050).
 - `series-phone` on the phone shell a row is one button, and `S01E01` opens the sheet `S01E01 First Flame` with its `Cells`, a `Monitor` switch and `Details`.
 
 ## How to get to it (user POV)
@@ -55,6 +55,8 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Season 4", exact: true })'
   $FW exec $RUN --proof series-work-page/series-fold -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-fold/season-4.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const season = page.getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Season 2", exact: true }); if (await season.getAttribute("aria-expanded") !== "true") await season.click(); }'
+  $FW exec $RUN --proof series-work-page/series-fold -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-fold/season-2.aria.yml
   ```
 
 - **Phone.** Open the phone session on the page and tap `S01E01`.
