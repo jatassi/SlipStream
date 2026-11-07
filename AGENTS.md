@@ -16,6 +16,10 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 Every string a person reads follows [WRITING.md](WRITING.md). Its Scope section lists those strings, and its Reviewing section sets how a review checks them.
 
+## Settings
+
+A feature that adds a Settings section places it in a group by the rules in [docs/settings-groups.md](docs/settings-groups.md), and updates that doc's table in the same PR.
+
 ## Third-party code
 
 Adopt a library for standards, file formats and accessibility, and build the durable core and external clients ([ADR 0021](docs/adr/0021-slipstream-builds-its-durable-core-and-clients-and-adopts-libraries-for-standards.md)). Never port code from Jackett, which is GPL-2.0-only. Port Cardigann behaviour from Prowlarr instead.

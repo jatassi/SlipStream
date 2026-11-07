@@ -14,8 +14,6 @@ import {
   RootsSuggestions,
   RootsVerdict,
   RootsVolumeList,
-  RootsWorkRoot,
-  SetWorkRootInputBody,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -145,14 +143,3 @@ export const MakeDefaultRootResponse = zod.void();
  * @summary List each Storage Node's volumes that hold a library root
  */
 export const ListVolumesResponse = RootsVolumeList;
-
-/**
- * @summary Move a Work that has no files into another root of its Content Type
- */
-export const SetWorkRootParams = zod.object({
-  workId: zod.uuid(),
-});
-
-export const SetWorkRootBody = SetWorkRootInputBody;
-
-export const SetWorkRootResponse = RootsWorkRoot;

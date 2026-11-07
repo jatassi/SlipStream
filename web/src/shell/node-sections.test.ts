@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import type { NodesRoleViewState } from "../api/gen/model";
-import { home } from "../test/nodes";
+import { home, seedbox } from "../test/nodes";
 import { sectionsFor } from "./node-sections";
 
 const downloading = (state: NodesRoleViewState) => ({
@@ -12,7 +12,8 @@ const downloading = (state: NodesRoleViewState) => ({
   ],
 });
 
-const ids = (node: Parameters<typeof sectionsFor>[0]) => sectionsFor(node).map(({ id }) => id);
+const ids = (node: Parameters<typeof sectionsFor>[0], nodes = [node]) =>
+  sectionsFor(node, nodes).map(({ id }) => id);
 
 test("a Node without Downloading has no Torrent client section", () => {
   expect(ids({ ...home, roles: [{ role: "searching", state: "holding" }] })).toEqual([
@@ -56,3 +57,18 @@ test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] a
     ]);
   },
 );
+
+test("with more than one Node, each Node has Transfers after Torrent client and Searching", () => {
+  expect(ids(home, [home, seedbox])).toEqual([
+    "overview",
+    "roles",
+    "web",
+    "torrent-client",
+    "searching",
+    "transfers",
+    "logs",
+    "log-settings",
+  ]);
+  expect(ids(seedbox, [home, seedbox])).toContain("transfers");
+  expect(ids(home)).not.toContain("transfers");
+});

@@ -18,14 +18,13 @@ const (
 	marrowBay = "a1000000-0000-4000-8000-000000000002"
 )
 
-const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,` +
-	`"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"item":{"one":"Track","many":"Tracks"},` +
-	`"fields":[{"key":"country","label":"Country","tier":"work","kind":"text"},` +
-	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date"},` +
-	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text"},` +
-	`{"key":"disc","label":"Disc","tier":"item","kind":"number"},` +
-	`{"key":"length","label":"Length","tier":"item","kind":"duration"}],` +
-	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}]}`
+const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"item":{"one":"Track","many":"Tracks"},"fields":[` +
+	`{"key":"country","label":"Country","tier":"work","kind":"text","in":["facts","about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"disc","label":"Disc","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"length","label":"Length","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
+	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}],"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[]}`
 
 func searchLanterns(workID string) worldtest.Reply {
 	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `}]}` + "\n"}
@@ -151,7 +150,7 @@ func TestMusic(t *testing.T) {
 	worldtest.Expect(t, "searchCatalog for The Lanterns", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns("null"))
 
 	stream := worldtest.NewMessages(t, run.Manifest(), world.AdminIdentity)
-	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`"}`), &added{})
+	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","monitor":false}`), &added{})
 	var ids []string
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
@@ -167,17 +166,22 @@ func TestMusic(t *testing.T) {
 		"    #7 1 Night Ferry [disc=1 length=190000ms]",
 		"    #8 2 Signal Fires [disc=1 length=224000ms]",
 	}, "\n"))
-	event(t, stream, "works.changed", `{"workId":"`+tr.ID+`"}`)
+	event(t, stream, "works.changed", `{"workIds":["`+tr.ID+`"]}`)
 
-	again := decode(t, "addWork again", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`"}`), &added{})
+	again := decode(t, "addWork again", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","monitor":false}`), &added{})
 	if again.Created || string(again.Work) != string(first.Work) {
 		t.Fatalf("addWork again created %t with work\n%s\nwant false with\n%s", again.Created, again.Work, first.Work)
 	}
 	worldtest.Expect(t, "searchCatalog once added", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns(`"`+tr.ID+`"`))
 
-	refresh := "/api/v1/works/" + tr.ID + "/refresh"
-	refreshed := a.Admin("home", http.MethodPost, refresh, "")
-	checkOutline(t, "the refreshed tree", *decode(t, "refreshWork", refreshed, &tree{}), &ids, strings.Join([]string{
+	refresh := func() worldtest.Reply {
+		t.Helper()
+		worldtest.Expect(t, "refreshWorks", a.Admin("home", http.MethodPost, "/api/v1/works/refresh", `{"workIds":["`+tr.ID+`"]}`),
+			worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + tr.ID + `","outcome":"done"}]}` + "\n"})
+		return a.Admin("home", http.MethodGet, "/api/v1/works/"+tr.ID, "")
+	}
+	refreshed := refresh()
+	checkOutline(t, "the refreshed tree", *decode(t, "getWork after refreshWorks", refreshed, &tree{}), &ids, strings.Join([]string{
 		"#1 music The Lanterns (Lanterns, The) " + lanterns + " [country=GB]",
 		"  #2 1 Harbor Lights [released=2001-03-12 kind=Album]",
 		"    #3 1 Tidewater [disc=1 length=205000ms]",
@@ -188,12 +192,12 @@ func TestMusic(t *testing.T) {
 		"    #7 1 Night Ferry [disc=1 length=190000ms]",
 		"    #8 2 Signal Fires [disc=1 length=224000ms]",
 	}, "\n"))
-	twice := a.Admin("home", http.MethodPost, refresh, "")
+	twice := refresh()
 	if twice.Status != http.StatusOK || refreshedAt.ReplaceAllString(twice.Body, "") != refreshedAt.ReplaceAllString(refreshed.Body, "") {
-		t.Fatalf("a second refreshWork = %d\n%s\nwant the first's body apart from refreshedAt\n%s", twice.Status, twice.Body, refreshed.Body)
+		t.Fatalf("getWork after a second refreshWorks = %d\n%s\nwant the first's body apart from refreshedAt\n%s", twice.Status, twice.Body, refreshed.Body)
 	}
 
-	addBay := `{"contentType":"music","key":"` + marrowBay + `"}`
+	addBay := `{"contentType":"music","key":"` + marrowBay + `","monitor":false}`
 	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't respond. Try again later.", "MusicBrainz: responded with 503 Service Unavailable"))
 	bay := decode(t, "addWork for Marrow Bay again", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), &added{})
 	var bayTree tree

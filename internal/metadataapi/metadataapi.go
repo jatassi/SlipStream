@@ -89,13 +89,21 @@ var states = map[metadata.State]string{
 }
 
 type provider struct {
-	ID      string                  `json:"id" doc:"The provider, such as tmdb"`
-	Label   string                  `json:"label"`
-	Summary string                  `json:"summary" doc:"How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details"`
-	Key     string                  `json:"key" enum:"none,bundled,yours" doc:"Whose key calls carry: none in this build, SlipStream's, or the Admin's"`
-	State   string                  `json:"state" enum:"unused,working,key_refused,rate_limited,out_of_allowance,unreachable" doc:"From the latest outcome of a call or test, unused until one"`
-	Until   api.Nullable[time.Time] `json:"until" doc:"When a rate limited provider, or one out of its daily allowance, takes calls again"`
-	Details details                 `json:"details"`
+	ID          string                    `json:"id" doc:"The provider, such as tmdb"`
+	Label       string                    `json:"label"`
+	Summary     string                    `json:"summary" doc:"How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details"`
+	Key         string                    `json:"key" enum:"none,bundled,yours" doc:"Whose key calls carry: none in this build, SlipStream's, or the Admin's"`
+	State       string                    `json:"state" enum:"unused,working,key_refused,rate_limited,out_of_allowance,unreachable" doc:"From the latest outcome of a call or test, unused until one"`
+	Until       api.Nullable[time.Time]   `json:"until" doc:"When a rate limited provider, or one out of its daily allowance, takes calls again"`
+	KeySetAt    api.Nullable[time.Time]   `json:"keySetAt" doc:"When the Admin set the key in use; null unless it is theirs"`
+	KeyPage     string                    `json:"keyPage" format:"uri" doc:"Where an Admin gets a key, opened in the browser"`
+	Attribution api.Nullable[attribution] `json:"attribution" doc:"What the provider's terms require SlipStream to show; null when they require nothing"`
+	Details     details                   `json:"details"`
+}
+
+type attribution struct {
+	Text string `json:"text" doc:"The sentence to show, word for word"`
+	Logo string `json:"logo" enum:"tmdb" doc:"The logo the web app bundles to show beside it"`
 }
 
 type details struct {
@@ -116,7 +124,13 @@ type reach struct {
 }
 
 func providerOf(s metadata.ProviderStatus) provider {
-	out := provider{ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], State: states[s.State], Details: details{Nodes: []reach{}}}
+	out := provider{ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], KeyPage: s.KeyPage, State: states[s.State], Details: details{Nodes: []reach{}}}
+	if !s.KeySetAt.IsZero() {
+		out.KeySetAt = api.Some(s.KeySetAt)
+	}
+	if a := s.Attribution; a != nil {
+		out.Attribution = api.Some(attribution{Text: a.Text, Logo: a.Logo})
+	}
 	if !s.Until.IsZero() {
 		out.Until = api.Some(s.Until)
 	}
@@ -162,6 +176,13 @@ type refreshStarted struct {
 }
 
 type refreshStartedOutput struct{ Body refreshStarted }
+
+type refreshAllRun struct {
+	LastRunAt api.Nullable[time.Time] `json:"lastRunAt" doc:"When the latest Refresh all of the type ran; null until one has"`
+	Running   bool                    `json:"running" doc:"Whether a run that refreshes every Work of the type is open"`
+}
+
+type refreshAllRunOutput struct{ Body refreshAllRun }
 
 type settings struct {
 	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"Language and region first, then the cache, OMDb's ratings and the artwork store"`
@@ -248,6 +269,15 @@ func Routes(r *api.Router, registry Registry) {
 		Errors:  []*api.Code{contentTypeNotFound, taskUnknown, taskRunning},
 	}, h.refreshAll)
 
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getContentTypeRefresh",
+		Method:  http.MethodGet,
+		Path:    "/content-types/{contentType}/refresh",
+		Summary: "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{contentTypeNotFound},
+	}, h.getRefreshAll)
+
 	api.RegisterImage(o, api.Account, api.Op{
 		ID:      "getArtwork",
 		Method:  http.MethodGet,
@@ -325,6 +355,34 @@ func (h handlers) refreshAll(ctx context.Context, by identity.Admin, in *refresh
 		return nil, answer(err)
 	}
 	return &refreshStartedOutput{Body: refreshStarted{RunID: int64(id)}}, nil
+}
+
+// getRefreshAll reads the run that does the latest Refresh all: the first
+// Metadata refresh run started at or after it was asked. Until that run
+// starts, none has run since the ask, which is the only one kept.
+func (h handlers) getRefreshAll(ctx context.Context, by identity.Admin, in *refreshInput) (*refreshAllRunOutput, error) {
+	asked, err := open(h.registry).RefreshAllAt(ctx, by, works.TypeID(in.ContentType))
+	if err != nil {
+		return nil, answer(err)
+	}
+	var out refreshAllRun
+	if asked.IsZero() {
+		return &refreshAllRunOutput{Body: out}, nil
+	}
+	task, err := scheduler(h.registry).Task(ctx, metadata.RefreshTaskID)
+	if errors.Is(err, tasks.ErrUnknownTask) {
+		return &refreshAllRunOutput{Body: out}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, run := range task.Runs {
+		if run.Started.Before(asked) {
+			break
+		}
+		out = refreshAllRun{LastRunAt: api.Some(run.Started), Running: run.Ended.IsZero()}
+	}
+	return &refreshAllRunOutput{Body: out}, nil
 }
 
 func (h handlers) clearCache(_ context.Context, by identity.Admin, _ *struct{}) (*struct{}, error) {

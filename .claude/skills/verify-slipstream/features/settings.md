@@ -1,9 +1,10 @@
-# Settings: Address, Email and Sign-in
+# Settings: its groups, Address, Email and Sign-in
 
-Settings holds the Controller-wide settings an Admin tunes. Address is the origin every link is built on, refusing an IP address and warning about plain HTTP. Email is the one SMTP server every SlipStream email goes through, from the Node that holds Notifying, with a write-only password and Send a test email. Sign-in holds every PIN limit and lifetime, each bounded by a floor and a ceiling.
+Settings holds the Controller-wide settings an Admin tunes, with its sections in groups ([docs/settings-groups.md](../../../../docs/settings-groups.md)). Address is the origin every link is built on, refusing an IP address and warning about plain HTTP. Email is the one SMTP server every SlipStream email goes through, from the Node that holds Notifying, with a write-only password and Send a test email. Sign-in holds every PIN limit and lifetime, each bounded by a floor and a ceiling.
 
 ## Sub-features
 
+- `settings-groups` On a desktop browser, Settings opens on Content Types with a column named `Settings` holding the groups `Library` (Content Types, Library roots, Metadata), `Files to keep` (Targets, Profiles, Editions), `Search and download` (Indexers, Download Clients), `Access` (Address, Sign-in, API key) and `System` (Nodes, Email), in that order. On phone, `/settings` lists one group of rows per group under the same labels, and each row pushes its section with a back link `Settings`.
 - `settings-address` Settings > Address shows the saved address, suggests the one in use while none is set, warns `Passkeys don't work on a plain-HTTP address. Use an https:// address.` for a plain-HTTP address other than `localhost` or `*.localhost`, refuses an IP address with `The address must be a name, not an IP address` and saves with `Saved the address`.
 - `settings-email` Settings > Email reads `Every email SlipStream sends goes through <host>.` over the fields `Server`, `Port`, `Security`, `Username`, `Password`, `From address` and `From name`, keeps the password write-only and saves with `Saved the email settings`.
 - `settings-email-test` `Send a test email` reads `Sent a test email to ada@example.test.` and the `mail` capture holds it; under `smtp-reject` it reads `The test email failed: 550 5.1.1 Mailbox unavailable`.
@@ -18,9 +19,18 @@ Settings holds the Controller-wide settings an Admin tunes. Address is the origi
 
 Preconditions:
 
-- A `home` run with doctor passing and the `{runId}-admin-desktop` session. The Scenario's `mail: true` saved the `smtp` front for `home` as the server, without TLS or sign-in.
+- A `home` run with doctor passing and the `{runId}-admin-desktop` and `{runId}-admin-phone` sessions. The Scenario's `mail: true` saved the `smtp` front for `home` as the server, without TLS or sign-in.
 
 Steps:
+
+- **Groups.** Open `/settings`. It lands on `/settings/content-types`, and the `Settings` column shows the five groups with their links. Open `/settings` in the `{runId}-admin-phone` session and it lists the same groups.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings'
+  $FW exec $RUN --proof settings/settings-groups -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/settings/settings-groups/desktop.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto '{nodes.home.browserUrl}/settings'
+  $FW exec $RUN --proof settings/settings-groups -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/settings/settings-groups/phone.png
+  ```
 
 - **Address.** Open `/settings/address`. The field `Address` holds `{nodes.home.browserUrl}` with `Signup, Reset and email links use this address.` Typing `http://127.0.0.2:8484` and choosing `Save` is refused on the field; leave the page without saving another.
 

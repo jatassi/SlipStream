@@ -92,7 +92,8 @@ service StorageService {
   // Move renames within a root and converges on a repeat.
   rpc Move(MoveRequest) returns (MoveResponse);
   // Remove removes a root-relative file; a missing one is
-  // FOLDER_ERROR_KIND_NOT_FOUND.
+  // FOLDER_ERROR_KIND_NOT_FOUND. A recursive Remove removes a folder and
+  // everything in it, and a missing one is already removed.
   rpc Remove(RemoveRequest) returns (RemoveResponse);
   // List names the files in a root's holding or staging folder.
   rpc List(ListRequest) returns (ListResponse);
@@ -282,6 +283,7 @@ message MoveResponse {
 message RemoveRequest {
   bytes root_id = 1;
   string path = 2;
+  bool recursive = 3;
 }
 
 message RemoveResponse {}

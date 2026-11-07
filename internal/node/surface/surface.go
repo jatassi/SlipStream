@@ -40,6 +40,8 @@ import (
 	"github.com/jatassi/slipstream/internal/targetsapi"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/tasksapi"
+	"github.com/jatassi/slipstream/internal/transfers"
+	"github.com/jatassi/slipstream/internal/transfersapi"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -56,6 +58,7 @@ var Events = []live.Event{
 	nodes.SettingsChangedEvent,
 	nodes.TrafficEvent,
 	works.ChangedEvent,
+	works.RemovedEvent,
 	works.ContentTypesChangedEvent,
 	works.TypeChangedEvent,
 	metadata.ChangedEvent,
@@ -73,6 +76,7 @@ var Events = []live.Event{
 	downloadclients.ChangedEvent,
 	downloadclients.LiveEvent,
 	downloadclients.ClientsChangedEvent,
+	transfers.ChangedEvent,
 	tasks.ChangedEvent,
 	tasks.ProgressEvent,
 	health.ChangedEvent,
@@ -96,6 +100,7 @@ type Node interface {
 	filesapi.Library
 	grabsapi.Pipeline
 	downloadclientsapi.Clients
+	transfersapi.Copies
 	shellapi.Shell
 	systemapi.Systems
 	Removal() (pairing.Removal, bool)
@@ -129,6 +134,7 @@ func Mount(r *api.Router, s Services) {
 	filesapi.Routes(r, s.Node)
 	grabsapi.Routes(r, s.Node)
 	downloadclientsapi.Routes(r, s.Node)
+	transfersapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)
 	servingapi.Routes(r, s.Node)

@@ -108,13 +108,17 @@ type judged struct {
 
 // judge is each of roots' State, reading each Node's facts once.
 func (r *Roots) judge(roots []Root, lost map[ID]bool) ([]judged, error) {
+	return judgeRoots(roots, lost, r.cfg.Storage, r.cfg.Roster)
+}
+
+func judgeRoots(roots []Root, lost map[ID]bool, s Storage, roster Roster) ([]judged, error) {
 	facts := map[role.NodeID]map[ID]placed{}
 	out := make([]judged, len(roots))
 	for i, root := range roots {
 		of, ok := facts[root.Node]
 		if !ok {
 			var err error
-			if of, err = r.reportedOn(root.Node); err != nil {
+			if of, err = reportedOn(s, root.Node); err != nil {
 				return nil, err
 			}
 			facts[root.Node] = of
@@ -123,13 +127,13 @@ func (r *Roots) judge(roots []Root, lost map[ID]bool) ([]judged, error) {
 		if p, ok := of[root.ID]; ok && p.place == root.Place {
 			rep = p.report
 		}
-		out[i] = judged{stateOf(lost[root.ID], r.cfg.Roster.InStep(root.Node), rep.state), rep.detail}
+		out[i] = judged{stateOf(lost[root.ID], roster.InStep(root.Node), rep.state), rep.detail}
 	}
 	return out, nil
 }
 
-func (r *Roots) reportedOn(node role.NodeID) (map[ID]placed, error) {
-	f, ok := r.cfg.Storage.Facts(node)
+func reportedOn(s Storage, node role.NodeID) (map[ID]placed, error) {
+	f, ok := s.Facts(node)
 	if !ok {
 		return nil, nil
 	}

@@ -75,7 +75,7 @@ func (d Def[I, F, R]) Serve(
 	derive func(context.Context, storage.Reader[storage.Library], NodeID) (I, error),
 	apply func(context.Context, *storage.Tx[storage.Library], NodeID, R) error,
 ) *Control[I, F, R] {
-	return &Control[I, F, R]{name: d.Name, derive: derive, apply: apply, notable: d.Notable}
+	return &Control[I, F, R]{name: string(d.Name), derive: derive, apply: apply, notable: d.Notable}
 }
 
 // Hold is the Role's holder half: the supervisor runs run while this Node
@@ -83,7 +83,7 @@ func (d Def[I, F, R]) Serve(
 // it neither holds nor drains it. Release lets go of what the Role's runs
 // left behind; a shutdown or a restart after a failure never calls it.
 func (d Def[I, F, R]) Hold(run func(context.Context, Holder[I, F, R]) error, release func(context.Context) error) Held {
-	return Held{name: d.Name, scoped: true, release: release, run: func(ctx context.Context, h *Holding) error {
+	return Held{name: string(d.Name), scoped: true, release: release, run: func(ctx context.Context, h *Holding) error {
 		return run(ctx, holder[I, F, R]{h: h, scope: string(d.Name)})
 	}}
 }
@@ -92,37 +92,71 @@ func (d Def[I, F, R]) Hold(run func(context.Context, Holder[I, F, R]) error, rel
 // supervisor runs run while this Node holds or drains Role n, and calls
 // release as Hold does.
 func HoldRun(n Name, run, release func(context.Context) error) Held {
-	return Held{name: n, release: release, run: func(ctx context.Context, _ *Holding) error { return run(ctx) }}
+	return Held{name: string(n), release: release, run: func(ctx context.Context, _ *Holding) error { return run(ctx) }}
 }
 
-// Held is one Role's run and release functions, for the supervisor. A
-// scoped Role runs only once its intent is cached.
+// WideDef binds a Node-wide channel's name to its intent, facts and result
+// messages.
+type WideDef[I, F, R proto.Message] struct {
+	Name Wide
+	// Notable is as Def's.
+	Notable func(last, next F) bool
+}
+
+// Serve is the channel's Controller half: derive computes the intent of
+// every Node with a session, whatever Roles it holds, and apply applies
+// one of its results.
+func (d WideDef[I, F, R]) Serve(
+	derive func(context.Context, storage.Reader[storage.Library], NodeID) (I, error),
+	apply func(context.Context, *storage.Tx[storage.Library], NodeID, R) error,
+) *Control[I, F, R] {
+	return &Control[I, F, R]{name: string(d.Name), wide: true, derive: derive, apply: apply, notable: d.Notable}
+}
+
+// Hold is the channel's holder half: the supervisor runs run while its
+// intent is cached, from the first intent after claim until Holding.Reset
+// at removal, which then calls release. A shutdown or a restart after a
+// failure never calls it.
+func (d WideDef[I, F, R]) Hold(run func(context.Context, Holder[I, F, R]) error, release func(context.Context) error) Held {
+	return Held{name: string(d.Name), scoped: true, wide: true, release: release, run: func(ctx context.Context, h *Holding) error {
+		return run(ctx, holder[I, F, R]{h: h, scope: string(d.Name)})
+	}}
+}
+
+// Held is the run and release functions of a Role or a Node-wide channel,
+// for the supervisor. A scoped one runs only once its intent is cached. A
+// wide one runs whatever Roles the Node holds.
 type Held struct {
-	name    Name
+	name    string
 	scoped  bool
+	wide    bool
 	run     func(context.Context, *Holding) error
 	release func(context.Context) error
 }
 
-// Control is one Role's Controller half.
+// Control is the Controller half of a Role or a Node-wide channel.
 type Control[I, F, R proto.Message] struct {
-	name     Name
+	name     string
+	wide     bool
 	derive   func(context.Context, storage.Reader[storage.Library], NodeID) (I, error)
 	apply    func(context.Context, *storage.Tx[storage.Library], NodeID, R) error
 	notable  func(last, next F) bool
 	controls *Controls
 }
 
-// Touch tells the Controls the Role's intent for nodes may have changed.
+// Touch tells the Controls the scope's intent for nodes may have changed.
 // Call it after the commit that changed it.
 func (c *Control[I, F, R]) Touch(nodes ...NodeID) {
-	c.controls.touch(string(c.name), nodes)
+	c.controls.touch(c.name, nodes)
+	if !c.wide && c.controls.cfg.Touched != nil {
+		c.controls.cfg.Touched(c.name, nodes)
+	}
 }
 
-// Facts is node's latest facts for the Role, false while it has none.
+// Facts is node's latest facts for the scope, false while it has none.
 func (c *Control[I, F, R]) Facts(node NodeID) (F, bool) {
 	f := newMessage[F]()
-	payload, ok := c.controls.factsOf(node, string(c.name))
+	payload, ok := c.controls.factsOf(node, c.name)
 	if !ok {
 		return f, false
 	}
@@ -135,13 +169,15 @@ func (c *Control[I, F, R]) Facts(node NodeID) (F, bool) {
 // Served is a Control, as NewControls takes it.
 type Served interface {
 	scope() string
+	nodeWide() bool
 	bind(c *Controls)
 	deriveAny(ctx context.Context, r storage.Reader[storage.Library], node NodeID) (proto.Message, error)
 	applyAny(ctx context.Context, tx *storage.Tx[storage.Library], node NodeID, payload *anypb.Any) error
 	notableAny(last, next *anypb.Any) bool
 }
 
-func (c *Control[I, F, R]) scope() string     { return string(c.name) }
+func (c *Control[I, F, R]) scope() string     { return c.name }
+func (c *Control[I, F, R]) nodeWide() bool    { return c.wide }
 func (c *Control[I, F, R]) bind(cs *Controls) { c.controls = cs }
 
 func (c *Control[I, F, R]) deriveAny(ctx context.Context, r storage.Reader[storage.Library], node NodeID) (proto.Message, error) {

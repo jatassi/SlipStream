@@ -174,6 +174,15 @@ func (r Remote) Remove(ctx context.Context, at At, rel Rel) error {
 	return err
 }
 
+// RemoveAll removes the folder rel from the root and everything in it; a
+// folder already gone is removed.
+func (r Remote) RemoveAll(ctx context.Context, at At, rel Rel) error {
+	if _, err := r(at.Node).Remove(ctx, &storagev1.RemoveRequest{RootId: at.Root.Bytes(), Path: rel.String(), Recursive: true}); err != nil {
+		return answer(err)
+	}
+	return nil
+}
+
 func (r Remote) List(ctx context.Context, at At, folder HeldFolder) ([]string, error) {
 	res, err := r(at.Node).List(ctx, &storagev1.ListRequest{RootId: at.Root.Bytes(), Folder: folder.Wire()})
 	if err != nil {

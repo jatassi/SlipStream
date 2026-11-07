@@ -107,7 +107,8 @@ type StorageServiceClient interface {
 	// Move renames within a root and converges on a repeat.
 	Move(context.Context, *v1.MoveRequest) (*v1.MoveResponse, error)
 	// Remove removes a root-relative file; a missing one is
-	// FOLDER_ERROR_KIND_NOT_FOUND.
+	// FOLDER_ERROR_KIND_NOT_FOUND. A recursive Remove removes a folder and
+	// everything in it, and a missing one is already removed.
 	Remove(context.Context, *v1.RemoveRequest) (*v1.RemoveResponse, error)
 	// List names the files in a root's holding or staging folder.
 	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)
@@ -131,7 +132,8 @@ type StorageServiceHandler interface {
 	// Move renames within a root and converges on a repeat.
 	Move(context.Context, *v1.MoveRequest) (*v1.MoveResponse, error)
 	// Remove removes a root-relative file; a missing one is
-	// FOLDER_ERROR_KIND_NOT_FOUND.
+	// FOLDER_ERROR_KIND_NOT_FOUND. A recursive Remove removes a folder and
+	// everything in it, and a missing one is already removed.
 	Remove(context.Context, *v1.RemoveRequest) (*v1.RemoveResponse, error)
 	// List names the files in a root's holding or staging folder.
 	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)

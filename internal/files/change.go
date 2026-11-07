@@ -64,12 +64,16 @@ var errPreview = errors.New("files: a preview rolls back")
 // again, refills and names them, writes the fills, names, dooms and moves
 // and settles the downloads in flight for cells that go. A Preview then
 // rolls it all back, so its Impact is the save's. A save publishes
-// targets.changed and pokes the disk queue once it commits.
+// targets.changed naming the Works it touched and pokes the disk queue
+// once it commits.
 func (f *Files) Change(ctx context.Context, _ identity.Admin, c targets.Change, m Mode) (Impact, error) {
-	var impact Impact
+	var (
+		impact  Impact
+		touched []works.WorkID
+	)
 	err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
-		impact, err = f.change(ctx, tx, c, m)
+		impact, touched, err = f.change(ctx, tx, c, m)
 		switch {
 		case err != nil:
 			return err
@@ -86,66 +90,71 @@ func (f *Files) Change(ctx context.Context, _ identity.Admin, c targets.Change, 
 	case err != nil:
 		return Impact{}, err
 	}
-	f.cfg.Targets.Publish(ctx)
+	f.cfg.Targets.Publish(ctx, touched)
 	f.Poke()
 	return impact, nil
 }
 
-func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Change, m Mode) (Impact, error) {
+// change answers the Impact and the Works c touches.
+func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Change, m Mode) (Impact, []works.WorkID, error) {
 	touched, err := targets.Touches(ctx, tx, c)
 	if err != nil {
-		return Impact{}, err
+		return Impact{}, nil, err
 	}
 	q := db.New(tx)
 	tagged, err := q.ListWorksOfCuts(ctx, touched.Cuts)
 	if err != nil {
-		return Impact{}, err
+		return Impact{}, nil, err
 	}
-	var trees []works.Tree
+	var (
+		trees []works.Bare
+		ids   []works.WorkID
+	)
 	for _, w := range append(touched.Works, tagged...) {
-		if slices.ContainsFunc(trees, func(t works.Tree) bool { return t.ID == w }) {
+		if slices.ContainsFunc(trees, func(t works.Bare) bool { return t.ID == w }) {
 			continue
 		}
-		tree, err := f.cfg.Works.TreeIn(ctx, tx, w)
+		tree, err := works.BareIn(ctx, tx, w)
 		if err != nil {
-			return Impact{}, err
+			return Impact{}, nil, err
 		}
 		trees = append(trees, tree)
+		ids = append(ids, w)
 	}
-	before, err := f.worlds(ctx, tx, trees)
+	before, err := f.worlds(ctx, tx, trees, works.Only(ids), wholeFiles)
 	if err != nil {
-		return Impact{}, err
+		return Impact{}, nil, err
 	}
 	known, err := f.cfg.Targets.CutsIn(ctx, tx)
 	if err != nil {
-		return Impact{}, err
+		return Impact{}, nil, err
 	}
 	if err := targets.Apply(ctx, tx, known, c); err != nil {
-		return Impact{}, err
+		return Impact{}, nil, err
 	}
-	afters, err := f.worlds(ctx, tx, trees)
+	afters, err := f.worlds(ctx, tx, trees, works.Only(ids), wholeFiles)
 	if err != nil {
-		return Impact{}, err
+		return Impact{}, nil, err
 	}
 	impact := Impact{OwnList: touched.OwnList}
 	for i, was := range before {
 		after := afters[i]
 		p, err := f.converge(ctx, tx, was, after, refill(after), func(File) bool { return m.Unwanted == Delete })
 		if err != nil {
-			return Impact{}, err
+			return Impact{}, nil, err
 		}
 		from, to := cells(was), cells(p.settled())
 		impact.add(p, from, to)
 		if err := apply(ctx, q, p); err != nil {
-			return Impact{}, err
+			return Impact{}, nil, err
 		}
 		n, err := f.cfg.Grabs.Settle(ctx, tx, was.tree.ID, gone(from, to), m.Unwanted)
 		if err != nil {
-			return Impact{}, err
+			return Impact{}, nil, err
 		}
 		impact.Downloading += n
 	}
-	return impact, nil
+	return impact, ids, nil
 }
 
 // settled is p's world once applied: its files and their new fills.

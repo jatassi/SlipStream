@@ -27,7 +27,7 @@ func assertPanics(t *testing.T, want string, fn func()) {
 
 var open = contenttype.Halves[struct{}]{
 	Provider: func(contenttype.ProviderDeps, struct{}) metadata.Source { return nil },
-	Library:  func(contenttype.LibraryDeps) contenttype.Library { return contenttypetest.New() },
+	Library:  func(contenttype.LibraryDeps, struct{}) contenttype.Library { return contenttypetest.New() },
 }
 
 func TestDefineRefusesABadID(t *testing.T) {

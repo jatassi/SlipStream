@@ -2,7 +2,7 @@ import { type ReactNode, useState } from "react";
 
 import { sentenceOf } from "../api/errors";
 import { actOnTorrents } from "../api/gen/query/downloadclients/downloadclients";
-import { useListWorksSuspense } from "../api/gen/query/works/works";
+import { useProjection } from "../library/projection";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
 import { type Subject, type TorrentAction, outcomeWords } from "./actions";
@@ -15,8 +15,8 @@ type Asking = {
 };
 
 function useWorkNames(): (id: string) => string | undefined {
-  const works = new Map(useListWorksSuspense().data.works.map((work) => [work.id, work.label]));
-  return (id) => works.get(id);
+  const works = useProjection().byId;
+  return (id) => works.get(id)?.label;
 }
 
 async function actAndSay(

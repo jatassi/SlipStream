@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/searching")({
   staticData: { title: section.label },
   loader: async ({ context: { queryClient }, params: { nodeId } }) => {
     const { nodes } = await ensureQuery(queryClient, getListNodesSuspenseQueryOptions());
-    if (section.shows?.(nodeOf(nodes, nodeId)) === false) {
+    if (section.shows?.(nodeOf(nodes, nodeId), nodes) === false) {
       // oxlint-disable-next-line typescript/only-throw-error -- the router renders its own notFound() as the not-found page
       throw notFound();
     }

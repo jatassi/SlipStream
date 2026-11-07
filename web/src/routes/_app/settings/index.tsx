@@ -1,12 +1,10 @@
-import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
+import { Navigate, createFileRoute } from "@tanstack/react-router";
 
 import { getGetSystemHealthSuspenseQueryOptions } from "../../../api/gen/query/health/health";
 import { ensureQuery } from "../../../api/query-client";
-import { SectionDot } from "../../../settings/section-alert";
-import { settingsSections } from "../../../settings/sections";
+import { settingsGroups } from "../../../settings/sections";
+import { SettingsList } from "../../../settings/settings-list";
 import { Page } from "../../../shell/page";
-import { Chevron } from "../../../ui/chevron";
-import { List, ListRow } from "../../../ui/list";
 import { useShell } from "../../../ui/shell-context";
 import { Skeleton } from "../../../ui/skeleton";
 
@@ -18,31 +16,21 @@ export const Route = createFileRoute("/_app/settings/")({
   component: SettingsTop,
 });
 
-// The desktop shell opens Settings on its first tab; on phone Settings is the
-// list of sections, each a pushed page.
+// The desktop shell opens Settings on its first section; on phone Settings
+// lists its sections by group, each a pushed page.
 function SettingsTop() {
   if (useShell() === "desktop") {
     return (
-      <Navigate to="/settings/$section" params={{ section: settingsSections[0].id }} replace />
+      <Navigate
+        to="/settings/$section"
+        params={{ section: settingsGroups[0].sections[0].id }}
+        replace
+      />
     );
   }
   return (
     <Page>
-      <List label="Settings">
-        {settingsSections.map((section) => (
-          <ListRow
-            key={section.id}
-            title={section.label}
-            trailing={
-              <span className="flex items-center gap-2">
-                <SectionDot section={section} />
-                <Chevron />
-              </span>
-            }
-            render={<Link to="/settings/$section" params={{ section: section.id }} />}
-          />
-        ))}
-      </List>
+      <SettingsList />
     </Page>
   );
 }

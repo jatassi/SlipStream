@@ -148,6 +148,33 @@ func TestRefuseRefusesDialsUntilCleared(t *testing.T) {
 	})
 }
 
+func TestRefuseWithAnOriginRefusesOneDirection(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := fault.NewNetwork()
+		for _, a := range []netip.Addr{home, seedbox} {
+			l, err := n.Host(a).Listen("tcp", netip.AddrPortFrom(a, 8485).String())
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = l.Close() })
+		}
+		if _, err := n.Path(seedbox, home).Set(fault.Rule{ID: "home-out", Origin: home.String(), Fault: fault.Refuse{}}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := n.Host(home).DialContext(t.Context(), "tcp", "127.0.0.3:8485"); !errors.Is(err, fault.ErrRefused) {
+			t.Fatalf("home dialed seedbox under home's refuse: %v", err)
+		}
+		c, err := n.Host(seedbox).DialContext(t.Context(), "tcp", "127.0.0.2:8485")
+		if err != nil {
+			t.Fatalf("seedbox dialed home under home's refuse: %v", err)
+		}
+		_ = c.Close()
+		if _, err := n.Path(home, seedbox).Set(fault.Rule{ID: "elsewhere", Origin: "127.0.0.9", Fault: fault.Refuse{}}); err == nil {
+			t.Fatal("a refuse from an address off the path was set")
+		}
+	})
+}
+
 func TestCutPassesExactlyNBytes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := fault.NewNetwork()

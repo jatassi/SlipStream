@@ -12,11 +12,12 @@ A movie's poster, backdrop, title treatment and studio logo, and a person's phot
 - `artwork-forged` a token SlipStream didn't issue answers 404 `artwork_unavailable` with `detail` `SlipStream didn't issue that artwork token` and `Cache-Control: no-store`.
 - `artwork-worker` with Metadata moved to seedbox alone and home's image-cdn front reset, an image never asked for answers 200, and `events.jsonl` holds a `front.open` on seedbox's `image-cdn` front: the Controller fetches through the Metadata holder.
 - `artwork-account` the API key alone gets 403 `needs_account`: the route serves signed-in Accounts.
+- `artwork-work-page` the Work page requests its backdrop at `size=large`, its poster and title treatment at `size=medium`, and the studio logo and credit photos at `size=small`, each answering 200 (P-059).
 
 ## How to get to it (user POV)
 
-- Desktop and phone shells: no screen shows artwork yet; S20 (Library, the add flow and the Work page) builds them. Opening an artwork URL with `?size=` in a signed-in tab shows the image.
-- API: `GET /api/v1/works/{id}`, `GET /api/v1/works`, `GET /api/v1/content-types/{contentType}/catalog?query=` (`posterUrl`), then `GET /api/v1/artwork/{token}?size=small|medium|large|original` with the session cookie.
+- Desktop and phone shells: the Work page shows the backdrop at `large`, the poster and title treatment at `medium`, and the studio logo and people's photos at `small` (`work-page.md`). Opening an artwork URL with `?size=` in a signed-in tab shows the image.
+- API: `GET /api/v1/works/{id}`, `GET /api/v1/library` (`posterUrl`), `GET /api/v1/content-types/{contentType}/catalog?query=` (`posterUrl`), then `GET /api/v1/artwork/{token}?size=small|medium|large|original` with the session cookie.
 
 ## Driving it with fakeworld and playwright cli
 
@@ -98,6 +99,14 @@ Steps:
 
   ```sh
   $FW exec $RUN --proof artwork/artwork-account -- curl -sS -i -H 'X-Api-Key: {apiKey}' "{nodes.home.url}$P?size=medium"
+  ```
+
+- **On the Work page.** Open the Work and list each image the page loaded with its size and status: the backdrop at `large`, the poster and title treatment at `medium`, 200 each.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/<id from the add>"
+  $FW exec $RUN --proof artwork/artwork-work-page -- $PW cli -s={runId}-admin-desktop run-code 'async page => page.evaluate(() => performance.getEntriesByType("resource").filter((e) => e.name.includes("/api/v1/artwork/")).map((e) => [new URL(e.name).search, e.responseStatus]))'
+  $FW exec $RUN --proof artwork/artwork-work-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/artwork/artwork-work-page/work.png
   ```
 
 ## Gotchas

@@ -19,6 +19,7 @@ import type {
   SystemNodeConfig,
   TasksOverview,
   TasksSchedule,
+  TransfersSettings,
   WorksContentType,
   WorksContentTypeList,
 } from "../api/gen/model";
@@ -43,6 +44,7 @@ import {
 import { getGetRootSettingsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
 import { getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
+import { getGetTransferSettingsQueryKey } from "../api/gen/query/transfers/transfers";
 import { getListContentTypesQueryKey } from "../api/gen/query/works/works";
 
 // A save answers with the settings as written, so the page shows them at once
@@ -77,6 +79,14 @@ export function adoptChallengeSolver(
   solver: IndexersChallengeSolver,
 ) {
   queryClient.setQueryData(getGetChallengeSolverQueryKey(nodeId), solver);
+}
+
+export function adoptTransferSettings(
+  queryClient: QueryClient,
+  nodeId: string,
+  settings: TransfersSettings,
+) {
+  queryClient.setQueryData(getGetTransferSettingsQueryKey(nodeId), settings);
 }
 
 export function adoptThresholds(queryClient: QueryClient, thresholds: DownloadclientsThresholds) {

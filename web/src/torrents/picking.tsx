@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Checkbox } from "../ui/checkbox";
 import type { Row } from "./model";
 import type { Names } from "./names";
-import { noPicks, pickedOf, toggle, toggleAll } from "./selection";
+import { noPicks, pickedOf, toggle, toggleAll } from "../ui/picks";
 
 export type Picking = {
   readonly has: (id: string) => boolean;

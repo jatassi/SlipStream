@@ -23,8 +23,17 @@ ON CONFLICT (work_id) DO UPDATE SET imdb_id = excluded.imdb_id, title = excluded
 -- name: GetMovie :one
 SELECT * FROM movie_movie WHERE work_id = sqlc.arg(work_id);
 
--- name: ListMovies :many
-SELECT * FROM movie_movie WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+-- name: ListTimingsOf :many
+SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListEveryTiming :many
+SELECT work_id, tmdb_id, primary_release, runtime_minutes FROM movie_movie ORDER BY rowid;
+
+-- name: ListReleaseDatesOf :many
+SELECT work_id, country, kind, date FROM movie_release WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListEveryReleaseDate :many
+SELECT work_id, country, kind, date FROM movie_release ORDER BY rowid;
 
 -- name: ListGenres :many
 SELECT name FROM movie_genre WHERE work_id = sqlc.arg(work_id) ORDER BY position;

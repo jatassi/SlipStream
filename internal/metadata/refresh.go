@@ -77,6 +77,20 @@ func (m *Metadata) RefreshAll(ctx context.Context, _ identity.Admin, t works.Typ
 	})
 }
 
+// RefreshAllAt is when every Work of t was last asked to refresh, by
+// Refresh all or a new language or region, zero if never. The first run
+// of Metadata refresh started at or after it refreshes them all.
+func (m *Metadata) RefreshAllAt(ctx context.Context, _ identity.Admin, t works.TypeID) (time.Time, error) {
+	if !slices.Contains(m.cfg.Types, t) {
+		return time.Time{}, works.ErrNoType
+	}
+	at, err := db.New(m.cfg.Library).GetRefreshAll(ctx, string(t))
+	if errors.Is(err, storage.ErrNoRows) {
+		return time.Time{}, nil
+	}
+	return at.Time(), err
+}
+
 // shown lists the task once the library holds a Work.
 func shown(ctx context.Context, r storage.Reader[storage.Library]) (bool, error) {
 	held, err := works.Held(ctx, r)
@@ -265,11 +279,11 @@ func (r refresh) units(ctx context.Context, rd storage.Reader[storage.Library]) 
 // tiersOf notes which of type t's Works ids have an Item not out by now,
 // and which can still gain Items.
 func (r refresh) tiersOf(ctx context.Context, rd storage.Reader[storage.Library], t works.TypeID, ids []works.WorkID, now time.Time, unreleased, growing map[works.WorkID]bool) error {
-	items, err := works.ItemsOf(ctx, rd, ids)
+	items, err := works.ItemsOf(ctx, rd, works.Only(ids))
 	if err != nil {
 		return err
 	}
-	timings, err := r.cfg.Targets.TimingsIn(ctx, rd, t, ids)
+	timings, err := r.cfg.Targets.TimingsIn(ctx, rd, t, works.Only(ids))
 	if err != nil {
 		return fmt.Errorf("read the %s timings: %w", t, err)
 	}

@@ -13,9 +13,9 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// View is a Grab with its live download progress, nil when none, its
-// metadata search, nil unless it fetches from a magnet link, and why its
-// fetch waits on its Indexer, nil unless it does.
+// View is a Grab with its live download or Transfer progress, nil when
+// none, its metadata search, nil unless it fetches from a magnet link,
+// and why its fetch waits on its Indexer, nil unless it does.
 type View struct {
 	Grab
 	Progress  *Progress
@@ -25,7 +25,7 @@ type View struct {
 
 // List lists every Grab, newest first.
 func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
-	return gr.views(ctx, func(ctx context.Context, r storage.Reader[file]) ([]db.GrabsGrab, error) {
+	return gr.listed(ctx, func(ctx context.Context, r storage.Reader[file]) ([]db.GrabsGrab, error) {
 		return db.New(r).ListGrabs(ctx)
 	})
 }
@@ -33,7 +33,7 @@ func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 // OfIndexer lists the page p of Indexer id's Grabs, newest first,
 // indexers.ErrNoIndexer when no Indexer has id.
 func (gr *Grabs) OfIndexer(ctx context.Context, _ identity.Admin, id indexers.ID, p indexers.Page) ([]View, error) {
-	return gr.views(ctx, func(ctx context.Context, r storage.Reader[file]) ([]db.GrabsGrab, error) {
+	return gr.listed(ctx, func(ctx context.Context, r storage.Reader[file]) ([]db.GrabsGrab, error) {
 		if _, err := indexers.Get(ctx, r, id); err != nil {
 			return nil, err
 		}
@@ -41,7 +41,7 @@ func (gr *Grabs) OfIndexer(ctx context.Context, _ identity.Admin, id indexers.ID
 	})
 }
 
-func (gr *Grabs) views(ctx context.Context, list func(context.Context, storage.Reader[file]) ([]db.GrabsGrab, error)) ([]View, error) {
+func (gr *Grabs) listed(ctx context.Context, list func(context.Context, storage.Reader[file]) ([]db.GrabsGrab, error)) ([]View, error) {
 	var grabs []Grab
 	var wait time.Duration
 	var waits map[indexers.ID]indexers.FetchWait
@@ -62,11 +62,7 @@ func (gr *Grabs) views(ctx context.Context, list func(context.Context, storage.R
 	if err != nil {
 		return nil, err
 	}
-	out := make([]View, len(grabs))
-	for i, g := range grabs {
-		out[i] = gr.view(g, wait, waits)
-	}
-	return out, nil
+	return gr.views(ctx, grabs, wait, waits)
 }
 
 // fetchWaits is why the fetch of each of grabs that fetches a .torrent
@@ -129,15 +125,26 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 	if err != nil {
 		return View{}, err
 	}
-	return gr.view(g, wait, waits), nil
+	views, err := gr.views(ctx, []Grab{g}, wait, waits)
+	if err != nil {
+		return View{}, err
+	}
+	return views[0], nil
 }
 
-func (gr *Grabs) view(g Grab, wait time.Duration, waits map[indexers.ID]indexers.FetchWait) View {
-	v := View{Grab: g, Progress: gr.progress(g), Metadata: gr.metadataSearch(g, wait)}
-	if w, ok := waits[g.Ticket.Indexer]; ok && fromIndexer(g) {
-		v.FetchWait = &w
+func (gr *Grabs) views(ctx context.Context, grabs []Grab, wait time.Duration, waits map[indexers.ID]indexers.FetchWait) ([]View, error) {
+	progress, err := gr.progress(ctx, grabs)
+	if err != nil {
+		return nil, err
 	}
-	return v
+	out := make([]View, len(grabs))
+	for i, g := range grabs {
+		out[i] = View{Grab: g, Progress: progress[g.ID], Metadata: gr.metadataSearch(g, wait)}
+		if w, ok := waits[g.Ticket.Indexer]; ok && fromIndexer(g) {
+			out[i].FetchWait = &w
+		}
+	}
+	return out, nil
 }
 
 func metadataWaitIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {

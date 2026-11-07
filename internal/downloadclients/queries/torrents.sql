@@ -71,6 +71,11 @@ SELECT id, info_hash, size, removed_reason, report, completion, fault, fault_at 
 WHERE id IN (sqlc.slice(ids))
 ORDER BY id;
 
+-- name: ListSources :many
+SELECT info_hash, name, removed_reason, report FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND info_hash IN (sqlc.slice(hashes))
+ORDER BY added_order;
+
 -- name: ListIntent :many
 SELECT id, info_hash, wanted, added_order, removed_at, delete_files FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL

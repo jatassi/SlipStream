@@ -137,7 +137,9 @@ type pipeline struct {
 	changed *published
 	node    role.NodeID
 	work    works.WorkID
+	root    roots.ID
 	indexer indexers.ID
+	copies  *transfers.Transfers
 }
 
 func newPipeline(t *testing.T, answers ...answer) *pipeline {
@@ -155,11 +157,11 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		}
 		return indexerstest.Torznab(ctx, tx, sealer, p.indexer, "Fixture Site", p.node, "https://site.test/api", "k")
 	})
-	rootstest.Root(t, lib, p.node, contenttypetest.ID, t.TempDir())
+	p.root = rootstest.Root(t, lib, p.node, contenttypetest.ID, t.TempDir()).ID
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -175,13 +177,14 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		t.Fatal(err)
 	}
 	p.work = tree.ID
+	p.copies = transfers.New(transfers.ControllerConfig{Library: lib})
 	p.g = grabs.New(grabs.Config{
 		Library: lib, Works: w, Sealer: sealer,
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		}),
 		Roster: p.roster, Downloads: p.swarm,
-		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
+		Transfers: p.copies,
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, Log: slog.New(slog.DiscardHandler),
 	})
@@ -191,7 +194,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 func schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
 		secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(),
+		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema(),
 	}
 }
 

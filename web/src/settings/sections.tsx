@@ -23,88 +23,110 @@ import { ProfilesSection } from "../targets/profiles-section";
 import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
+import { contentTypesSection } from "./content-types";
 import { EmailSection } from "./email";
 import { metadataSection } from "./metadata";
 import { nodesSection } from "./nodes";
-import type { SettingsSection } from "./section";
+import type { SettingsGroup, SettingsSection } from "./section";
 import { SignInSection } from "./sign-in";
 
-export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] = [
+const addressSection: SettingsSection = {
+  id: "address",
+  label: "Address",
+  load: async (queryClient) => {
+    await freshQuery(queryClient, getGetAddressSuspenseQueryOptions());
+  },
+  component: AddressSection,
+};
+
+const emailSection: SettingsSection = {
+  id: "email",
+  label: "Email",
+  load: async (queryClient) => {
+    await freshQuery(queryClient, getGetMailSettingsSuspenseQueryOptions());
+  },
+  component: EmailSection,
+};
+
+const signInSection: SettingsSection = {
+  id: "sign-in",
+  label: "Sign-in",
+  load: async (queryClient) => {
+    await freshQuery(queryClient, getGetIdentitySettingsSuspenseQueryOptions());
+  },
+  component: SignInSection,
+};
+
+const apiKeySection: SettingsSection = {
+  id: "api-key",
+  label: "API key",
+  load: async (queryClient) => {
+    await freshQuery(queryClient, getGetAPIKeySuspenseQueryOptions());
+  },
+  component: ApiKeySection,
+};
+
+const targetsSection: SettingsSection = {
+  id: "targets",
+  label: "Targets",
+  load: async (queryClient) => {
+    await Promise.all([
+      ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
+    ]);
+  },
+  component: TargetsSection,
+  wide: true,
+};
+
+const profilesSection: SettingsSection = {
+  id: "profiles",
+  label: "Profiles",
+  load: async (queryClient) => {
+    await Promise.all([
+      ensureQuery(queryClient, getListProfilesSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+    ]);
+  },
+  component: ProfilesSection,
+  wide: true,
+};
+
+const editionsSection: SettingsSection = {
+  id: "editions",
+  label: "Editions",
+  load: async (queryClient) => {
+    await Promise.all([
+      ensureQuery(queryClient, getListCutsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+    ]);
+  },
+  component: EditionsSection,
+  wide: true,
+};
+
+export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
   {
-    id: "address",
-    label: "Address",
-    load: async (queryClient) => {
-      await freshQuery(queryClient, getGetAddressSuspenseQueryOptions());
-    },
-    component: AddressSection,
+    id: "library",
+    label: "Library",
+    sections: [contentTypesSection, libraryRootsSection, metadataSection],
   },
   {
-    id: "email",
-    label: "Email",
-    load: async (queryClient) => {
-      await freshQuery(queryClient, getGetMailSettingsSuspenseQueryOptions());
-    },
-    component: EmailSection,
+    id: "files",
+    label: "Files to keep",
+    sections: [targetsSection, profilesSection, editionsSection],
   },
   {
-    id: "sign-in",
-    label: "Sign-in",
-    load: async (queryClient) => {
-      await freshQuery(queryClient, getGetIdentitySettingsSuspenseQueryOptions());
-    },
-    component: SignInSection,
+    id: "search-download",
+    label: "Search and download",
+    sections: [indexersSection, downloadClientsSection],
   },
-  nodesSection,
-  downloadClientsSection,
-  indexersSection,
-  {
-    id: "api-key",
-    label: "API key",
-    load: async (queryClient) => {
-      await freshQuery(queryClient, getGetAPIKeySuspenseQueryOptions());
-    },
-    component: ApiKeySection,
-  },
-  libraryRootsSection,
-  metadataSection,
-  {
-    id: "targets",
-    label: "Targets",
-    load: async (queryClient) => {
-      await Promise.all([
-        ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
-        ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
-      ]);
-    },
-    component: TargetsSection,
-    wide: true,
-  },
-  {
-    id: "profiles",
-    label: "Profiles",
-    load: async (queryClient) => {
-      await Promise.all([
-        ensureQuery(queryClient, getListProfilesSuspenseQueryOptions()),
-        ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
-        ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
-      ]);
-    },
-    component: ProfilesSection,
-    wide: true,
-  },
-  {
-    id: "editions",
-    label: "Editions",
-    load: async (queryClient) => {
-      await Promise.all([
-        ensureQuery(queryClient, getListCutsSuspenseQueryOptions()),
-        ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
-      ]);
-    },
-    component: EditionsSection,
-    wide: true,
-  },
+  { id: "access", label: "Access", sections: [addressSection, signInSection, apiKeySection] },
+  { id: "system", label: "System", sections: [nodesSection, emailSection] },
 ];
+
+const settingsSections = settingsGroups.flatMap((group) => group.sections);
 
 export function sectionOf(id: string): SettingsSection {
   const section = settingsSections.find((row) => row.id === id);

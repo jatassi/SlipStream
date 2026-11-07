@@ -227,21 +227,37 @@ func testBrowser(ctx context.Context, root string, o testOptions) error {
 	if err := run(ctx, web, env, "bun", "run", "e2e:install"); err != nil {
 		return err
 	}
-	return run(ctx, web, env, "bun", append([]string{"run", "e2e"}, playwrightArgs(o)...)...)
+	for _, args := range playwrightRuns(o) {
+		if err := run(ctx, web, env, "bun", append([]string{"run", "e2e"}, args...)...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func playwrightArgs(o testOptions) []string {
-	var args []string
+// alone tags a browser test that loads the whole runner, as the Library's
+// 20,000-Work measure does. A test beside it on a Windows runner stalls past
+// its timeout, and the measure would count that test's work as its own.
+const alone = "@alone"
+
+// playwrightRuns runs the tests tagged alone after the rest, on one worker.
+// A filter can match tests of one run only, so neither fails for finding
+// none, as go test -run doesn't.
+func playwrightRuns(o testOptions) [][]string {
+	shared := []string{"--pass-with-no-tests"}
 	if o.shard != (shard{}) {
-		args = append(args, "--shard="+o.shard.String())
-	}
-	if o.filter != "" {
-		args = append(args, "--grep="+o.filter)
+		shared = append(shared, "--shard="+o.shard.String())
 	}
 	if o.repeat > 1 {
-		args = append(args, "--repeat-each="+strconv.Itoa(o.repeat))
+		shared = append(shared, "--repeat-each="+strconv.Itoa(o.repeat))
 	}
-	return args
+	rest := append([]string{"--grep-invert=" + alone}, shared...)
+	tagged := alone
+	if o.filter != "" {
+		rest = append(rest, "--grep="+o.filter)
+		tagged = "(?=.*" + alone + ")(?=.*(?:" + o.filter + "))"
+	}
+	return [][]string{rest, append([]string{"--workers=1", "--grep=" + tagged}, shared...)}
 }
 
 // testBinary is the variable's path, read from the repo root as testbin

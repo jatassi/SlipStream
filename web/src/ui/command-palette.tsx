@@ -20,6 +20,8 @@ export type PaletteOption = {
   readonly label: string;
   readonly meta?: string | undefined;
   readonly icon: IconSvgElement;
+  /** Shown in the icon's place, such as a Work's poster. */
+  readonly art?: ReactNode;
   readonly choose: () => void;
 };
 
@@ -179,7 +181,7 @@ function Option({ option }: { option: PaletteOption }) {
       onClick={option.choose}
       className={`flex cursor-default scroll-my-2 items-center gap-3 text-ink-1 outline-none select-none data-highlighted:bg-fill-hover ${options[useShell()]}`}
     >
-      <Icon icon={option.icon} className="size-4.5 shrink-0 text-ink-2" />
+      {option.art ?? <Icon icon={option.icon} className="size-4.5 shrink-0 text-ink-2" />}
       <span className="min-w-0 flex-1 truncate">{option.label}</span>
       {option.meta !== undefined && (
         <span className="shrink-0 text-meta text-ink-3">{option.meta}</span>

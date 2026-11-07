@@ -107,7 +107,10 @@ test("grabs.changed invalidates the Grabs, that Grab, every Indexer's Grabs and 
     harvest: getGetWorkCellsQueryKey(harvest),
   });
 
-  server.clients[0]?.send({ event: "grabs.changed", data: { grabId: grab, workId: orchard } });
+  server.clients[0]?.send({
+    event: "grabs.changed",
+    data: { grabId: grab, workId: orchard, progress: false },
+  });
   await expect.poll(invalidated).toEqual({
     grabs: true,
     grab: true,

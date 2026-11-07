@@ -5,7 +5,7 @@ import { page } from "vitest/browser";
 import type { DownloadclientsLiveRow } from "../api/gen/model";
 import { listOf, torrent } from "../test/torrents";
 import { renderKit } from "../test/render-kit";
-import { splice } from "./torrents-splice";
+import { splice } from "./splice";
 import { takeTorrents, useLiveRow } from "./torrents";
 
 const renders = new Map<string, number>();

@@ -89,10 +89,10 @@ func (l *Link) start(c *counted, tc *tls.Conn, dialed bool) (*session, error) {
 	return s, nil
 }
 
-// unnotified is a session's TLS connection, closed by closing its TCP
-// connection. The mux frames every stream, so a close_notify adds nothing,
-// and writing one could hold the close for 5 s on a peer that stopped
-// reading.
+// unnotified is a session's or a lane's TLS connection, closed by closing
+// its TCP connection. The mux and the chunk protocol frame what they
+// carry, so a close_notify adds nothing, and writing one could hold the
+// close for 5 s on a peer that stopped reading.
 type unnotified struct {
 	*tls.Conn
 	tcp net.Conn

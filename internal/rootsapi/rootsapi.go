@@ -34,7 +34,6 @@ func open(f Folders) *roots.Roots {
 var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
-	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	nodeNotStorage      = api.NewCode(http.StatusConflict, "node_not_storage", "The Node doesn't hold Storage")
 	nodeNotFound        = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 	nodeOffline         = api.NewCode(http.StatusServiceUnavailable, "node_offline", "The Node is offline")
@@ -42,8 +41,6 @@ var (
 	folderUnreadable    = api.NewCarrying[folderProblem](http.StatusUnprocessableEntity, "folder_unreadable", "The Node can't read the folder", "problem")
 	folderInvalid       = api.NewCode(http.StatusUnprocessableEntity, "folder_invalid", "The Node can't use that path or folder name")
 	folderExists        = api.NewCode(http.StatusConflict, "folder_exists", "A folder of that name is already there")
-	rootWrongType       = api.NewCode(http.StatusUnprocessableEntity, "root_wrong_type", "The root holds another Content Type's Works")
-	workHasFiles        = api.NewCode(http.StatusConflict, "work_has_files", "The Work has files, so its root can't change")
 	rehomeMissing       = api.NewCarrying[missingFiles](http.StatusConflict, "rehome_missing", "Recorded files aren't at the new place", "missing")
 	rootInUse           = api.NewCarrying[inUse](http.StatusConflict, "root_in_use", "The root holds files or has a Grab in flight", "use")
 	rootIsDefault       = api.NewCode(http.StatusConflict, "root_is_default", "The root is its Content Type's default while another root exists")
@@ -57,12 +54,9 @@ var codes = []struct {
 }{
 	{roots.ErrNoType, contentTypeNotFound},
 	{roots.ErrNotFound, rootNotFound},
-	{works.ErrNoWork, workNotFound},
 	{roots.ErrNotStorage, nodeNotStorage},
 	{roots.ErrNoNode, nodeNotFound},
 	{roots.ErrNodeAway, nodeOffline},
-	{roots.ErrWrongType, rootWrongType},
-	{roots.ErrHasFiles, workHasFiles},
 	{roots.ErrIsDefault, rootIsDefault},
 	{roots.ErrWorksTo, worksToRequired},
 	{roots.ErrWorksToType, worksToWrongType},
@@ -233,20 +227,6 @@ type deleteRootInput struct {
 	RootID  string `path:"rootId" format:"uuid"`
 	WorksTo string `query:"worksTo" format:"uuid" doc:"The root of the same Content Type its Works go to; required while it has Works and another root of its Content Type exists"`
 }
-
-type workRoot struct {
-	WorkID string `json:"workId" format:"uuid"`
-	RootID string `json:"rootId" format:"uuid"`
-}
-
-type setWorkRootInput struct {
-	WorkID string `path:"workId" format:"uuid"`
-	Body   struct {
-		RootID string `json:"rootId" format:"uuid"`
-	}
-}
-
-type workRootOutput struct{ Body workRoot }
 
 type browseInput struct {
 	NodeID string `path:"id" format:"uuid"`
@@ -445,15 +425,6 @@ func Routes(r *api.Router, folders Folders) {
 	}, h.deleteRoot)
 
 	api.Register(o, api.Admin, api.Op{
-		ID:      "setWorkRoot",
-		Method:  http.MethodPatch,
-		Path:    "/works/{workId}",
-		Summary: "Move a Work that has no files into another root of its Content Type",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, rootNotFound, workHasFiles, rootWrongType},
-	}, h.setWorkRoot)
-
-	api.Register(o, api.Admin, api.Op{
 		ID:      "browseFolders",
 		Method:  http.MethodGet,
 		Path:    "/nodes/{id}/folders",
@@ -640,21 +611,6 @@ func (h handlers) deleteRoot(ctx context.Context, by identity.Admin, in *deleteR
 		to = &dest
 	}
 	return nil, answer(open(h.folders).Delete(ctx, by, id, to))
-}
-
-func (h handlers) setWorkRoot(ctx context.Context, by identity.Admin, in *setWorkRootInput) (*workRootOutput, error) {
-	u, err := storage.ParseUUID(in.WorkID)
-	if err != nil {
-		return nil, workNotFound
-	}
-	id, err := rootID(in.Body.RootID)
-	if err != nil {
-		return nil, err
-	}
-	if err := open(h.folders).SetWorkRoot(ctx, by, works.WorkID{UUID: u}, id); err != nil {
-		return nil, answer(err)
-	}
-	return &workRootOutput{Body: workRoot{WorkID: u.String(), RootID: id.String()}}, nil
 }
 
 func (h handlers) browseFolders(ctx context.Context, by identity.Admin, in *browseInput) (*listingOutput, error) {

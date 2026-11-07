@@ -126,12 +126,12 @@ func TestEveryChangePreviewsWithoutSavingThenSavesWhatItPreviewed(t *testing.T) 
 			impact(1, 1, 0), `"targets":[{"targetId":"@web","sourcing":"download"},{"targetId":"@starter","sourcing":"download"}]`,
 		},
 		{
-			"moving the Work to Small with its own list", http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"any"}}`,
-			impact(1, 0, 0), `"profileId":"@small","profileName":"Small","editions":{"kind":"any"},"from":"work"`,
+			"giving the Work its own list", http.MethodPut, "/api/v1/works/@work/wants", `{"editions":{"kind":"any"}}`,
+			impact(0, 0, 0), `"profileId":"@fixture","profileName":"Fixture","editions":{"kind":"any"},"from":"work"`,
 		},
-		{"deleting Small into the default", http.MethodDelete, "/api/v1/profiles/@small?moveTo=@fixture", "", impact(1, 0, 1), `"name":"Fixture"`},
+		{"deleting Small into the default", http.MethodDelete, "/api/v1/profiles/@small?moveTo=@fixture", "", impact(0, 0, 0), `"name":"Fixture"`},
 		{
-			"resetting the Work's list", http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@fixture","editions":null}`,
+			"resetting the Work's list", http.MethodPut, "/api/v1/works/@work/wants", `{"editions":null}`,
 			impact(0, 0, 0), `"from":"profile"`,
 		},
 	} {
@@ -169,7 +169,7 @@ func TestASaveDeletingMoreThanItsPreviewConfirmedIsRefused(t *testing.T) {
 	}
 	before := s.seen(t, ids)
 	s.Expect(t, http.MethodPut, path+"?confirm=0", empty, http.StatusConflict,
-		`{"status":409,"code":"impact_changed","title":"The change now does more than its preview showed","detail":"the change now leaves 1 files unwanted, not 0"}`)
+		`{"status":409,"code":"impact_changed","title":"The change now does more than its preview showed","detail":"The save now leaves 1 file unwanted, and the preview showed 0. Preview the change again."}`)
 	if after := s.seen(t, ids); after != before || s.changed.n != 0 {
 		t.Fatalf("the refused save published %d times and changed\n%s\nto\n%s", s.changed.n, before, after)
 	}
@@ -221,13 +221,12 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.moveTo","message":"a Profile's Works can't move to the Profile being deleted"}]}`,
 		},
 		{http.MethodDelete, "/api/v1/profiles/@small", "", http.StatusUnprocessableEntity, `@invalid`},
-		{http.MethodPut, "/api/v1/works/@none/wants", `{"profileId":"@small","editions":null}`, http.StatusNotFound, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`},
-		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@none","editions":null}`, http.StatusUnprocessableEntity, `{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`},
-		{http.MethodPut, "/api/v1/works/@work/wants?unwanted=maybe", `{"profileId":"@small","editions":null}`, http.StatusUnprocessableEntity, `@invalid`},
-		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"cuts"}}`, http.StatusUnprocessableEntity, `@invalid`},
-		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"bogus"}}`, http.StatusUnprocessableEntity, `@invalid`},
-		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"cuts","cuts":[]}}`, http.StatusUnprocessableEntity, `@invalid`},
-		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"cuts","cuts":["a","a"]}}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@none/wants", `{"editions":null}`, http.StatusNotFound, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`},
+		{http.MethodPut, "/api/v1/works/@work/wants?unwanted=maybe", `{"editions":null}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@work/wants", `{"editions":{"kind":"cuts"}}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@work/wants", `{"editions":{"kind":"bogus"}}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@work/wants", `{"editions":{"kind":"cuts","cuts":[]}}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@work/wants", `{"editions":{"kind":"cuts","cuts":["a","a"]}}`, http.StatusUnprocessableEntity, `@invalid`},
 	} {
 		path, body := fill(c.path, ids), fill(c.body, ids)
 		if c.want == "@invalid" {

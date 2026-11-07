@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -76,10 +77,7 @@ const (
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
 	RootChanged        Code = "root_changed"
-	NeedsTransfer      Code = "needs_transfer"
 )
-
-const needsTransferWords = "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
 
 const (
 	Grabbed           Outcome = "grabbed"
@@ -101,8 +99,9 @@ func DefaultTimings() Timings {
 }
 
 type Changed struct {
-	GrabID string `json:"grabId" format:"uuid"`
-	WorkID string `json:"workId" format:"uuid"`
+	GrabID   string `json:"grabId" format:"uuid"`
+	WorkID   string `json:"workId" format:"uuid"`
+	Progress bool   `json:"progress" doc:"True when only the download's progress moved"`
 }
 
 type SearchChanged struct {
@@ -168,14 +167,6 @@ type Roots interface {
 	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error)
 }
 
-// Staging is the Controller's own Storage, where a Transfer brings a file
-// into a root on the Controller.
-type Staging interface {
-	// Local is rel under root on this Node, *storing.NotReady while root
-	// may not take new bytes.
-	Local(ctx context.Context, root storage.UUID, rel storing.Rel) (string, error)
-}
-
 type Config struct {
 	Library  *storage.DB[file]
 	Works    *works.Works
@@ -183,16 +174,15 @@ type Config struct {
 	Files    *files.Files
 	Indexers *indexers.Indexers
 	// Sealer seals each Grab's release link.
-	Sealer     *secret.Sealer
-	Terms      map[works.TypeID]indexers.Facet
-	Roster     Roster
-	Downloads  Downloads
-	Media      media.Remote
-	Roots      Roots
-	Staging    Staging
-	Controller role.NodeID
-	// Transfers receives a file from the Node that downloaded it.
-	Transfers     *transfers.Receiver
+	Sealer    *secret.Sealer
+	Terms     map[works.TypeID]indexers.Facet
+	Roster    Roster
+	Downloads Downloads
+	Media     media.Remote
+	Roots     Roots
+	// Transfers copies a Grab's file from the Node that downloaded it to
+	// the Node that holds its root.
+	Transfers     *transfers.Transfers
 	Timings       Timings
 	Rand          *rand.Rand
 	Changed       Publisher[Changed]
@@ -208,10 +198,24 @@ type Grabs struct {
 	cfg       Config
 	poke      chan struct{}
 	searching metadataPeers
+
+	mu sync.Mutex
+	// moved is each Grab a transfers hook moved, for grabs.changed once
+	// the hook's Write commits.
+	moved map[string]Changed
 }
 
+// New builds the Grab pipeline and registers its Transfers purpose.
 func New(cfg Config) *Grabs {
-	return &Grabs{cfg: cfg, poke: make(chan struct{}, 1), searching: metadataPeers{peers: map[GrabID]int{}}}
+	gr := &Grabs{cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: metadataPeers{peers: map[GrabID]int{}}}
+	cfg.Transfers.Register(transfers.Purpose{
+		Kind:     transfers.Grab,
+		Verified: gr.transferVerified,
+		Failed:   gr.transferFailed,
+		After:    gr.transfersCommitted,
+		Names:    transferNames,
+	})
+	return gr
 }
 
 // Release is the release a Grab took, as the Indexer answered it.

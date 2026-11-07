@@ -10,9 +10,9 @@ const table = () => page.getByRole("table", { name: "Targets" });
 
 test("Targets lists each Target's quality span, cutoff and the Profiles using it", async () => {
   renderApp({ path: "/settings/targets", handlers: targetHandlers() });
-  const tabs = page.getByRole("navigation", { name: "Settings" });
+  const nav = page.getByRole("navigation", { name: "Settings" });
   await expect
-    .element(tabs.getByRole("link", { name: "Targets" }))
+    .element(nav.getByRole("link", { name: "Targets" }))
     .toHaveAttribute("aria-current", "page");
   const rows = table().getByRole("row");
   await expect

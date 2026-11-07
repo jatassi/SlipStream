@@ -119,7 +119,7 @@ func TestATieKeepsTheIncumbentElseTheOldestFile(t *testing.T) {
 	}
 	older, newer, better := file(release.WEBDL1080p), file(release.WEBRip1080p), file(release.Remux1080p)
 	at := func(fills map[CellKey]ID, fs ...File) ID {
-		w := world{tree: works.Tree{Items: []works.Item{item}}, goals: targets.Goals{Targets: []targets.Target{hd}}, files: fs, fills: fills}
+		w := world{tree: works.Bare{Items: []works.Item{item}}, goals: targets.Goals{Targets: []targets.Target{hd}}, files: fs, fills: fills}
 		return refill(w)[key]
 	}
 	if got := at(map[CellKey]ID{}, older, newer); got != older.ID {

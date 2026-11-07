@@ -4,3 +4,4 @@
 /release
 /.verify/
 /.dev/
+.env

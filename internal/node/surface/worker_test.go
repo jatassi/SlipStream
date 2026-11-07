@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -30,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -62,11 +64,14 @@ func (worker) Roots() (*roots.Roots, bool) { return nil, false }
 
 func (worker) Files() (*files.Files, bool) { return nil, false }
 
+func (worker) Library() (*library.Library, bool) { return nil, false }
+
 func (worker) Grabs() (*grabs.Grabs, bool) { return nil, false }
 
 func (worker) Tasks() (*tasks.Scheduler, bool) { return nil, false }
 
 func (worker) DownloadClients() (*downloadclients.Clients, bool) { return nil, false }
+func (worker) Transfers() (*transfers.Transfers, bool)           { return nil, false }
 
 func (worker) Health() (*health.Health, bool) { return nil, false }
 

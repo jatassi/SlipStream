@@ -56,6 +56,7 @@ import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nod
 import { Route as AppNodesNodeIdRolesRouteImport } from "./routes/_app/nodes/$nodeId/roles";
 import { Route as AppNodesNodeIdSearchingRouteImport } from "./routes/_app/nodes/$nodeId/searching";
 import { Route as AppNodesNodeIdTorrentClientRouteImport } from "./routes/_app/nodes/$nodeId/torrent-client";
+import { Route as AppNodesNodeIdTransfersRouteImport } from "./routes/_app/nodes/$nodeId/transfers";
 import { Route as AppNodesNodeIdWebRouteImport } from "./routes/_app/nodes/$nodeId/web";
 import { Route as AppSettingsIndexersIndexerIdRouteImport } from "./routes/_app/settings/indexers.$indexerId";
 import { Route as AppSettingsProfilesProfileIdRouteImport } from "./routes/_app/settings/profiles.$profileId";
@@ -305,6 +306,11 @@ const AppNodesNodeIdTorrentClientRoute =
     path: "/torrent-client",
     getParentRoute: () => AppNodesNodeIdRouteRoute,
   } as any);
+const AppNodesNodeIdTransfersRoute = AppNodesNodeIdTransfersRouteImport.update({
+  id: "/transfers",
+  path: "/transfers",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
+} as any);
 const AppNodesNodeIdWebRoute = AppNodesNodeIdWebRouteImport.update({
   id: "/web",
   path: "/web",
@@ -415,6 +421,7 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
+  "/nodes/$nodeId/transfers": typeof AppNodesNodeIdTransfersRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
@@ -468,6 +475,7 @@ export interface FileRoutesByTo {
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
+  "/nodes/$nodeId/transfers": typeof AppNodesNodeIdTransfersRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
@@ -529,6 +537,7 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/_app/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/_app/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
+  "/_app/nodes/$nodeId/transfers": typeof AppNodesNodeIdTransfersRoute;
   "/_app/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/_app/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/_app/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
@@ -590,6 +599,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/searching"
     | "/nodes/$nodeId/torrent-client"
+    | "/nodes/$nodeId/transfers"
     | "/nodes/$nodeId/web"
     | "/settings/indexers/$indexerId"
     | "/settings/profiles/$profileId"
@@ -643,6 +653,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/searching"
     | "/nodes/$nodeId/torrent-client"
+    | "/nodes/$nodeId/transfers"
     | "/nodes/$nodeId/web"
     | "/settings/indexers/$indexerId"
     | "/settings/profiles/$profileId"
@@ -703,6 +714,7 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId/roles"
     | "/_app/nodes/$nodeId/searching"
     | "/_app/nodes/$nodeId/torrent-client"
+    | "/_app/nodes/$nodeId/transfers"
     | "/_app/nodes/$nodeId/web"
     | "/_app/settings/indexers/$indexerId"
     | "/_app/settings/profiles/$profileId"
@@ -1063,6 +1075,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdTorrentClientRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/nodes/$nodeId/transfers": {
+      id: "/_app/nodes/$nodeId/transfers";
+      path: "/transfers";
+      fullPath: "/nodes/$nodeId/transfers";
+      preLoaderRoute: typeof AppNodesNodeIdTransfersRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
     "/_app/nodes/$nodeId/web": {
       id: "/_app/nodes/$nodeId/web";
       path: "/web";
@@ -1187,6 +1206,7 @@ interface AppNodesNodeIdRouteRouteChildren {
   AppNodesNodeIdRolesRoute: typeof AppNodesNodeIdRolesRoute;
   AppNodesNodeIdSearchingRoute: typeof AppNodesNodeIdSearchingRoute;
   AppNodesNodeIdTorrentClientRoute: typeof AppNodesNodeIdTorrentClientRoute;
+  AppNodesNodeIdTransfersRoute: typeof AppNodesNodeIdTransfersRoute;
   AppNodesNodeIdWebRoute: typeof AppNodesNodeIdWebRoute;
   AppNodesNodeIdIndexRoute: typeof AppNodesNodeIdIndexRoute;
 }
@@ -1197,6 +1217,7 @@ const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
   AppNodesNodeIdRolesRoute: AppNodesNodeIdRolesRoute,
   AppNodesNodeIdSearchingRoute: AppNodesNodeIdSearchingRoute,
   AppNodesNodeIdTorrentClientRoute: AppNodesNodeIdTorrentClientRoute,
+  AppNodesNodeIdTransfersRoute: AppNodesNodeIdTransfersRoute,
   AppNodesNodeIdWebRoute: AppNodesNodeIdWebRoute,
   AppNodesNodeIdIndexRoute: AppNodesNodeIdIndexRoute,
 };

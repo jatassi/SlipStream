@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -82,7 +83,7 @@ func addAttic(t *testing.T, lib library) works.WorkID {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +112,7 @@ func (noDownloads) Resolve(context.Context, role.NodeID, magnet.Link, time.Time)
 
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {
 	t.Helper()
-	v, err := grabs.New(grabs.Config{Library: lib, Downloads: noDownloads{}}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
+	v, err := grabs.New(grabs.Config{Library: lib, Downloads: noDownloads{}, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ An Admin keeps every place SlipStream stores files in Settings > Library roots. 
 - `roots-section` `/settings/library-roots` groups roots by Content Type under `Movies`, each row reading its folder, `Default` on the default, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
 - `roots-add-browser` `Add a library root` on seedbox, once it holds Storage, opens `Choose a folder on seedbox`, read by seedbox. Its data folder reads `Can't use this folder because it's inside SlipStream's data folder.` with `Use seedbox` disabled; a typed path goes there, `New folder` makes `worker-movies` and opens it, the footer reads `This folder is on /, <size> free.`, and `Use worker-movies` fills the dialog's `Folder`. With `Make this the default for Movies` ticked, `Add` toasts `Added <path>. New Movies go there.` (P-027, P-021, P-022).
 - `roots-import-worker` The Quiet Orchard, added and searched with the seedbox root as the default, downloads on seedbox and imports there with no Transfer: its Grab's history runs fetching, downloading, probing, importing, imported, and the placed file under `worker-movies` matches the release with 2 links, a hard link to seedbox's download.
+- `roots-move-works` `PUT /api/v1/works/root` moves each Work without files into another root of its Content Type in one Write and answers one outcome per Work, in request order. The Quiet Orchard, whose file sits in `worker-movies`, answers `skipped` with `work_has_files` and stays, and an id no Work has answers `failed` with `work_not_found`.
 - `roots-storage` the Storage block lists `Volumes on home` and `Volumes on seedbox`, each volume with `<free> free of <total>`, a meter named `<volume> used` and the roots on it; the Diagram's Storage cabinet on seedbox has one drawer with `data-used`, and its Inspector `Storage on seedbox` reads `1 root on 1 volume, <size> free.` and links `Library roots` (P-028).
 - `roots-sample-every` the Storage block's Details sets `Check storage every` to 10 minutes, and the summary reads `Storage Nodes check each volume every 10 min, and again after each import.` (P-028).
 - `roots-write-off` unticking Storage on seedbox drains it, its Roster chip reading `Storage · Draining, 1 root (<size>) stays`; writing seedbox's Storage off marks the root `Node written off` with `Re-home` first in its menu, the Work's cell reads `missing`, and its search answers 409 `root_unreachable`, `seedbox's Storage was written off, so the library root there takes no new files.`
@@ -18,7 +19,7 @@ An Admin keeps every place SlipStream stores files in Settings > Library roots. 
 - Desktop shell: the sidebar's `Settings`, then `Library roots` in the `Settings` navigation (`/settings/library-roots`). `Add a library root`, `Add a root for Movies` and a row's `Actions for <path>` open the dialogs; the dialog's `Browse` opens the folder browser.
 - Phone shell: More, `Settings`, then `Library roots`, a pushed page. The dialogs and the folder browser are sheets; the browser's `Folder actions` holds `New folder` and `Show hidden`, and its back link, named after the parent folder, goes up.
 - Both shells: `Nodes` with `?view=diagram`, then the Storage machine on a tile, opens `Storage on <Node>`, whose `Library roots` link opens the section.
-- API (Admin): `GET`, `POST /api/v1/roots`, `POST /api/v1/nodes/{nodeId}/folders/check {"purpose": "root"|"downloads", …}`, `PATCH`, `DELETE /api/v1/roots/{rootId}?worksTo=<rootId>`, `POST /api/v1/roots/{rootId}/default`, `GET`, `PATCH /api/v1/roots/settings`, `GET /api/v1/volumes`, `GET /api/v1/nodes/{nodeId}/folders?path=&hidden=`, `GET /api/v1/nodes/{nodeId}/folders/suggest?text=`, `POST /api/v1/nodes/{nodeId}/folders`, `PATCH /api/v1/works/{workId} {"rootId": …}`. Changes publish `roots.changed` and `volumes.changed`.
+- API (Admin): `GET`, `POST /api/v1/roots`, `POST /api/v1/nodes/{nodeId}/folders/check {"purpose": "root"|"downloads", …}`, `PATCH`, `DELETE /api/v1/roots/{rootId}?worksTo=<rootId>`, `POST /api/v1/roots/{rootId}/default`, `GET`, `PATCH /api/v1/roots/settings`, `GET /api/v1/volumes`, `GET /api/v1/nodes/{nodeId}/folders?path=&hidden=`, `GET /api/v1/nodes/{nodeId}/folders/suggest?text=`, `POST /api/v1/nodes/{nodeId}/folders`, `PUT /api/v1/works/root {"workIds": […], "rootId": …}`. Changes publish `roots.changed` and `volumes.changed`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -98,6 +99,15 @@ Steps:
   $FW exec $RUN --proof library-roots/roots-import-worker -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   $FW exec $RUN --proof library-roots/roots-import-worker -- $FW fs match {runDir} '{mediaDir}/worker-movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   $FW exec $RUN --proof library-roots/roots-import-worker -- $FW fs stat {runDir} '{mediaDir}/worker-movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv'
+  ```
+
+- **Move a Work with files.** Move The Quiet Orchard into `{mediaDir}/movies` over the API. Its file sits in `worker-movies`, so it answers `skipped` with `work_has_files`, and an id no Work has answers `failed` with `work_not_found`. Nothing moves, so the roots read as before.
+
+  ```sh
+  ORCHARD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[0].id')
+  MOVIES=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots' | jq -r '.roots[] | select(.path | endswith("/movies")) | .id')
+  $FW exec $RUN --proof library-roots/roots-move-works -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"workIds\":[\"$ORCHARD\",\"01a00000-0000-7000-8000-000000000000\"],\"rootId\":\"$MOVIES\"}" '{nodes.home.url}/api/v1/works/root'
+  $FW exec $RUN --proof library-roots/roots-move-works -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
   ```
 
 - **Storage.** Open the section again. The worker root reads `1 Movie, 3.5 MB`, and the Storage block lists `Volumes on home` and `Volumes on seedbox`, each with `/`, `<free> free of <total>` and its root. Set `Check storage every` to 10 under Details.
@@ -194,4 +204,5 @@ Steps:
 - After seedbox lets Storage go, the Edit dialog defaults its `Node` to home, the only Storage Node left; the row still names seedbox until Save.
 - A re-home with one file checks it too fast to see `Checked <n> of <m> files at the new place`; the progress line shows only on a large root.
 - The Storage block counts a volume once per Node. home and seedbox share the container's `/`, so each Node lists its own `/`.
+- A move into another root that succeeds needs a Work with no file, and `home`'s catalog holds one movie, so `e2e/library_test.go` drives it: `TestSeveralRootsPerTypeWithOneDefault` moves a Work with no file into `films` and reads the counts.
 - `Re-home` with missing files and `Save anyway, forget <n> files`, deleting a root whose Works move to another, the empty state and the phone sheets are driven by `web/e2e/library-roots.spec.ts` on the browser tier.

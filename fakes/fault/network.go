@@ -38,11 +38,15 @@ func NewNetwork() *Network {
 	return &Network{paths: map[[2]netip.Addr]*Plan{}, listeners: map[endpoint]*listener{}}
 }
 
-// path is the one front of a path's Plan. A rule with no Target covers it.
-var path = Front{Layers: Conn}
+// dialedFrom is the front of a path's Plan that the connections addr
+// dials go through. A rule with no Target and no Origin covers both of a
+// path's fronts.
+func dialedFrom(addr netip.Addr) Front { return Front{Origin: addr.String(), Layers: Conn} }
 
 // Path returns the Plan of the path between a and b, either way round.
-// It plays connection faults only, and Refuse refuses dials.
+// It plays connection faults only, and Refuse refuses dials. A rule whose
+// Origin is a or b plays only on the connections that address dials, so
+// it can refuse one direction and leave the other open.
 func (n *Network) Path(a, b netip.Addr) *Plan {
 	if b.Less(a) {
 		a, b = b, a
@@ -52,7 +56,7 @@ func (n *Network) Path(a, b netip.Addr) *Plan {
 	key := [2]netip.Addr{a, b}
 	p := n.paths[key]
 	if p == nil {
-		p = NewPlan([]Front{path}, nil)
+		p = NewPlan([]Front{dialedFrom(a), dialedFrom(b)}, nil)
 		n.paths[key] = p
 	}
 	return p
@@ -149,8 +153,8 @@ func (h *Host) dialTCP(ctx context.Context, ap netip.AddrPort) (net.Conn, error)
 	if i < 0 {
 		return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: remote, Err: errUnreachable}
 	}
-	plan := h.net.Path(h.addrs[i], ap.Addr())
-	switch plan.dialing() {
+	plan, front := h.net.Path(h.addrs[i], ap.Addr()), dialedFrom(h.addrs[i])
+	switch plan.dialing(front) {
 	case Refuse{}:
 		return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: remote, Err: ErrRefused}
 	case Stall{}:
@@ -161,7 +165,7 @@ func (h *Host) dialTCP(ctx context.Context, ap netip.AddrPort) (net.Conn, error)
 	local := net.TCPAddrFromAddrPort(netip.AddrPortFrom(h.addrs[i], h.net.ephemeral()))
 	h.net.mu.Unlock()
 	client, server := Pipe(local, remote)
-	return h.net.connect(endpoint{tcp: ap}, remote, client, plan.Conn(server, path))
+	return h.net.connect(endpoint{tcp: ap}, remote, client, plan.Conn(server, front))
 }
 
 // connect queues s on the listener at e and returns c, or refuses at once

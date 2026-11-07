@@ -105,13 +105,25 @@ func TestLongPath(t *testing.T) {
 	}
 }
 
+func TestStableFSName(t *testing.T) {
+	for name, want := range map[string]bool{"NTFS": true, "ReFS": true, "FAT": false, "FAT32": false, "exFAT": false} {
+		if got := stableFSName(name); got != want {
+			t.Errorf("stableFSName(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
+
 func TestUNCPath(t *testing.T) {
 	ctx, d, dir := t.Context(), newOSDisk(t), t.TempDir()
 	vol := filepath.VolumeName(dir)
 	share := `\\localhost\` + strings.TrimSuffix(vol, ":") + `$`
 	unc := share + dir[len(vol):]
-	if _, err := d.Stat(ctx, unc); err != nil {
+	info, err := d.Stat(ctx, unc)
+	if err != nil {
 		t.Skipf("no administrative share to reach %s: %v", unc, err)
+	}
+	if info.FileID() != nil {
+		t.Errorf("a folder on a share has the file id %x, want none", info.FileID())
 	}
 	v, err := d.Volume(ctx, unc)
 	if err != nil {

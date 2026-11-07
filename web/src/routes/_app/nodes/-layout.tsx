@@ -33,7 +33,7 @@ export function NodeLayout({ nodeId }: { nodeId: string }) {
       <Page {...(top && { action: actions })}>
         {top && nodes.length > 1 && <PhoneNodePicker nodes={nodes} current={node} />}
         {body}
-        {top && <SectionList node={node} />}
+        {top && <SectionList node={node} nodes={nodes} />}
       </Page>
     );
   }
@@ -41,7 +41,7 @@ export function NodeLayout({ nodeId }: { nodeId: string }) {
     <Page title={node.name} action={actions}>
       {nodes.length > 1 && <NodePicker nodes={nodes} current={node.id} />}
       <PageTabs label={node.name}>
-        {sectionsFor(node).map((section) => (
+        {sectionsFor(node, nodes).map((section) => (
           <Link
             key={section.id}
             to={section.to}

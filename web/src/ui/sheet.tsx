@@ -83,18 +83,24 @@ export function SheetGroup({ children }: { children: ReactNode }) {
 export function SheetItem({
   icon,
   tone = "default",
+  disabled = false,
   trailing,
   onClick,
   children,
 }: {
   icon?: IconSvgElement | undefined;
   tone?: Tone | undefined;
+  disabled?: boolean | undefined;
   trailing?: ReactNode;
   onClick: () => void;
   children: ReactNode;
 }) {
   return (
-    <Drawer.Close onClick={onClick} className={`${row} ${tones[tone]}`}>
+    <Drawer.Close
+      disabled={disabled}
+      onClick={onClick}
+      className={`${row} ${tones[tone]} disabled:opacity-40`}
+    >
       <RowIcon icon={icon} />
       <span className="flex-1">{children}</span>
       {trailing}

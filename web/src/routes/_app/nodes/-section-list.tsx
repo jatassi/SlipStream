@@ -8,11 +8,11 @@ import { List, ListRow } from "../../../ui/list";
 import { Section } from "../../../ui/section";
 
 /** On phone, the Node's page lists its other sections, each a pushed page. */
-export function SectionList({ node }: { node: NodesNode }) {
+export function SectionList({ node, nodes }: { node: NodesNode; nodes: readonly NodesNode[] }) {
   return (
     <Section title="Sections">
       <List label={node.name}>
-        {sectionsFor(node)
+        {sectionsFor(node, nodes)
           .filter((section) => section.id !== "overview")
           .map((section) => (
             <ListRow

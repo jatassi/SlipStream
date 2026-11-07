@@ -47,12 +47,23 @@ func TestTestRefusesFlagsTheTierDoesNotTake(t *testing.T) {
 	}
 }
 
-func TestPlaywrightArgs(t *testing.T) {
-	got := playwrightArgs(testOptions{shard: shard{2, 3}, filter: "@phone", repeat: 5})
-	if want := []string{"--shard=2/3", "--grep=@phone", "--repeat-each=5"}; !slices.Equal(got, want) {
-		t.Errorf("playwrightArgs = %q, want %q", got, want)
-	}
-	if got := playwrightArgs(testOptions{repeat: 1}); got != nil {
-		t.Errorf("playwrightArgs of the whole tier = %q, want none", got)
+func TestPlaywrightRuns(t *testing.T) {
+	for _, c := range []struct {
+		o    testOptions
+		want [][]string
+	}{
+		{testOptions{shard: shard{2, 3}, filter: "@phone", repeat: 5}, [][]string{
+			{"--grep-invert=@alone", "--pass-with-no-tests", "--shard=2/3", "--repeat-each=5", "--grep=@phone"},
+			{"--workers=1", "--grep=(?=.*@alone)(?=.*(?:@phone))", "--pass-with-no-tests", "--shard=2/3", "--repeat-each=5"},
+		}},
+		{testOptions{repeat: 1}, [][]string{
+			{"--grep-invert=@alone", "--pass-with-no-tests"},
+			{"--workers=1", "--grep=@alone", "--pass-with-no-tests"},
+		}},
+	} {
+		got := playwrightRuns(c.o)
+		if !slices.EqualFunc(got, c.want, slices.Equal) {
+			t.Errorf("playwrightRuns(%+v) = %q, want %q", c.o, got, c.want)
+		}
 	}
 }

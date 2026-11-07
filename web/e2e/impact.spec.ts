@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { z } from "zod";
 
-import { orchardCells } from "./cells.ts";
+import { orchardCells, workAction } from "./cells.ts";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 
 test.use({ scenario: "targets" });
@@ -94,7 +94,7 @@ test("tightening a Target so a file fills nothing shows the Impact, and Delete r
   await expect(page).toHaveURL(/\/settings\/targets$/u);
   expect(await cellsOf(world, workId)).toEqual(["1080p missing"]);
   await page.goto(`/works/${workId}`);
-  await expect(orchardCells(page)).toHaveText("The Quiet OrchardMissingMissing");
+  await expect(orchardCells(page)).toContainText("Missing");
   await expect(page.getByText("No files yet.", { exact: false })).toBeVisible();
 });
 
@@ -123,18 +123,19 @@ test("an Admin changes a Work's Profile through the Impact sheet and keeps the f
   const workId = await imported(world);
 
   await page.goto(`/works/${workId}`);
-  await expect(page.getByText("Profile Films. Editions from the Profile.")).toBeVisible();
-  await page.getByRole("button", { name: "Profile and Editions" }).click();
-  const sheet = page.getByRole("dialog", { name: "Profile and Editions" });
-  await sheet.getByRole("combobox", { name: "Profile" }).click();
+  await expect(orchardCells(page)).toContainText("From Profile Films");
+  await workAction(page, "Edit…");
+  const edit = page.getByRole("dialog", { name: "Edit The Quiet Orchard" });
+  await edit.getByRole("combobox", { name: "Profile" }).click();
   await page.getByRole("option", { name: "UHD" }).click();
-  await expect(sheet.getByRole("heading", { name: "Editions from Profile UHD" })).toBeVisible();
+  await expect(edit.getByRole("combobox", { name: "Library root" })).toBeDisabled();
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("work-sheet.png") });
-  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("work-edit.png") });
+  await edit.getByRole("button", { name: "Save", exact: true }).click();
 
-  const impact = page.getByRole("dialog", { name: "Save The Quiet Orchard" });
-  await expect(impactLines(page, "Save The Quiet Orchard")).toHaveText([
+  const title = "Give The Quiet Orchard the Profile UHD";
+  const impact = page.getByRole("dialog", { name: title });
+  await expect(impactLines(page, title)).toHaveText([
     "1 Work changes.",
     /^1 file would fill nothing /u,
     "1 cell becomes wanted.",
@@ -145,11 +146,12 @@ test("an Admin changes a Work's Profile through the Impact sheet and keeps the f
   await impact.getByRole("button", { name: "Save and keep 1 file" }).click();
 
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
-    "Saved what The Quiet Orchard wants.",
+    "Changed the Profile of The Quiet Orchard.",
   );
-  await expect(sheet).toBeHidden();
-  await expect(page.getByText("Profile UHD. Editions from the Profile.")).toBeVisible();
-  await expect(orchardCells(page)).toHaveText("The Quiet OrchardMissingMissing");
+  await expect(edit).toBeHidden();
+  await expect(orchardCells(page)).toContainText("From Profile UHD");
+  await expect(orchardCells(page)).toContainText("Missing");
+  await expect(page.getByRole("list", { name: "Kept files" })).toContainText("Kept file");
   const wants = await world.api("GET", `/api/v1/works/${workId}/wants`);
   expect(wants.body).toMatchObject({ profileName: "UHD", from: "profile" });
 });

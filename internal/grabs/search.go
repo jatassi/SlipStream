@@ -354,7 +354,7 @@ func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Sea
 	if err != nil {
 		return nil, err
 	}
-	timings, err := gr.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, []works.WorkID{run.WorkID})
+	timings, err := gr.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, works.Only([]works.WorkID{run.WorkID}))
 	if err != nil {
 		return nil, err
 	}

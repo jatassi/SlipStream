@@ -18,8 +18,16 @@ func See(ctx context.Context, tx *storage.Tx[file], item works.ItemID, cut relea
 
 // SeenIn reads, in r, the cuts sighted for each of items. A file of a
 // cut counts as seen too, which files adds.
-func SeenIn(ctx context.Context, r storage.Reader[file], items []works.ItemID) (map[works.ItemID][]release.CutKey, error) {
-	rows, err := db.New(r).ListSightingsOf(ctx, items)
+func SeenIn(ctx context.Context, r storage.Reader[file], items works.Among[works.ItemID]) (map[works.ItemID][]release.CutKey, error) {
+	q := db.New(r)
+	rows, err := works.Read(items, func() ([]db.ListSightingsOfRow, error) {
+		rows, err := q.ListEverySighting(ctx)
+		out := make([]db.ListSightingsOfRow, len(rows))
+		for i, row := range rows {
+			out[i] = db.ListSightingsOfRow(row)
+		}
+		return out, err
+	}, func(ids []works.ItemID) ([]db.ListSightingsOfRow, error) { return q.ListSightingsOf(ctx, ids) })
 	if err != nil {
 		return nil, err
 	}

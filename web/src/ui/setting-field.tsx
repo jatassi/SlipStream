@@ -70,7 +70,7 @@ function Body<K extends SettingKind>({ kind, field, onSave, onSaved }: BodyProps
 }
 
 const rowLook =
-  "-mx-2 inline-flex min-h-(--control-height) max-w-full items-center gap-1.5 rounded-item px-2 py-1 text-left text-pretty text-ink-1 transition-colors duration-(--duration-control) ease-standard hover:bg-fill data-popup-open:bg-fill";
+  "-mx-2 inline-flex min-h-(--control-height) max-w-[calc(100%+1rem)] items-center gap-1.5 rounded-item px-2 py-1 text-left text-pretty text-ink-1 transition-colors duration-(--duration-control) ease-standard hover:bg-fill data-popup-open:bg-fill";
 
 const withUnitsKept = (words: string): string => words.replaceAll(/(?<=\d) (?=\S)/gu, "\u00A0");
 

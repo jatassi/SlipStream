@@ -214,7 +214,7 @@ func (sv sources) tmdbOf(t *testing.T, ask metadata.Ask, id int64) tmdb.Movie {
 }
 
 func library() contenttype.Library {
-	return movie.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)})
+	return movie.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, movie.Def.Endpoints())
 }
 
 func ask(language, region string) metadata.Ask {
@@ -322,8 +322,12 @@ func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
 	inEachTier(t, func(t *testing.T, m metadata.Source) {
 		preview := metadata.NewAsk(metadata.AskOptions{Language: metadata.DefaultLanguage, Region: metadata.DefaultRegion})
 		got, err := m.Fetch(t.Context(), preview, "9000001")
-		if err != nil || got.Label != "The Quiet Orchard" || !reflect.DeepEqual(got.Children, []works.Entry{{Key: "movie", Label: "The Quiet Orchard"}}) || got.RatingsRead {
-			t.Fatalf("Fetch = %+v, %v; want The Quiet Orchard with one Item movie and no ratings read", got, err)
+		if err != nil || got.Label != "The Quiet Orchard" || got.SortLabel != "Quiet Orchard, The" || !reflect.DeepEqual(got.Children, []works.Entry{{Key: "movie", Label: "The Quiet Orchard"}}) || got.RatingsRead {
+			t.Fatalf("Fetch = %+v, %v; want The Quiet Orchard sorting as Quiet Orchard, The, with one Item movie and no ratings read", got, err)
+		}
+		french := metadata.NewAsk(metadata.AskOptions{Language: "fr-FR", Region: metadata.DefaultRegion})
+		if got, err := m.Fetch(t.Context(), french, "9000001"); err != nil || got.SortLabel != "" {
+			t.Fatalf("Fetch in French = sort label %q, %v; want none, since only English articles move", got.SortLabel, err)
 		}
 		_, err = m.Fetch(t.Context(), preview, "9000003")
 		if want := "GET /movie/9000003: TMDB: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
@@ -342,7 +346,7 @@ func (discard[T]) Publish(context.Context, T) {}
 
 type published struct{ n atomic.Int64 }
 
-func (p *published) Publish(context.Context, works.WorkChanged) { p.n.Add(1) }
+func (p *published) Publish(context.Context, works.Changed) { p.n.Add(1) }
 
 // retyped records each works.type-changed by its Content Type.
 type retyped struct {
@@ -549,9 +553,14 @@ func TestPreviewSkipsOMDbAndCommitsNothing(t *testing.T) {
 	if sv.omdbSent.sent.Load() != 0 || sv.tmdbSent.sent.Load() != 1 {
 		t.Fatalf("preview sent %d TMDB and %d OMDb requests, want 1 and none", sv.tmdbSent.sent.Load(), sv.omdbSent.sent.Load())
 	}
-	listed, err := sh.works.List(t.Context(), identity.Admin{}, nil)
-	if err != nil || len(listed) != 0 || sh.sent.n.Load() != 0 {
-		t.Fatalf("after a preview the library lists %v, %v and published %d works.changed, want nothing", listed, err, sh.sent.n.Load())
+	var listed []works.Row
+	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		listed, err = sh.works.RowsIn(ctx, r, works.Scope{})
+		return err
+	})
+	if len(listed) != 0 || sh.sent.n.Load() != 0 {
+		t.Fatalf("after a preview the library lists %v and published %d works.changed, want nothing", listed, sh.sent.n.Load())
 	}
 	if len(preview.Ratings) != 1 || preview.Ratings[0].Source != "tmdb" || !preview.RatingsReadAt.IsZero() {
 		t.Fatalf("preview ratings %+v read at %v, want only TMDB's and no ratings read", preview.Ratings, preview.RatingsReadAt)
@@ -846,7 +855,7 @@ func timings(t *testing.T, key works.Key) (tree works.Tree, got map[works.ItemID
 	sh, tree := added(t, key)
 	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = sh.m.Timings(ctx, r, []works.WorkID{tree.ID})
+		got, err = sh.m.Timings(ctx, r, works.Only([]works.WorkID{tree.ID}))
 		return err
 	})
 	return tree, got
@@ -926,25 +935,37 @@ func TestAvailabilityRule(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			sh.set(t, reset)
 			sh.set(t, c.patch)
-			got := map[works.Key]availability{}
-			sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-				items, err := works.ItemsOf(ctx, r, slices.Collect(maps.Keys(added)))
-				if err != nil {
-					return err
+			ids := slices.Collect(maps.Keys(added))
+			for _, ws := range []works.Among[works.WorkID]{works.Only(ids), works.Every(ids)} {
+				got := sh.availabilities(t, ws, added)
+				if !reflect.DeepEqual(got, c.want) {
+					t.Fatalf("availability of every movie (%t) = %v, want %v (9000004 has no date)", ws.Every(), got, c.want)
 				}
-				timings, err := sh.m.Timings(ctx, r, slices.Collect(maps.Keys(added)))
-				for w, its := range items {
-					if d, known := timings[its[0].ID].Released.Get(); known {
-						got[added[w]] = availability{d.String(), timings[its[0].ID].Basis}
-					}
-				}
-				return err
-			})
-			if !reflect.DeepEqual(got, c.want) {
-				t.Fatalf("availability = %v, want %v (9000004 has no date)", got, c.want)
 			}
 		})
 	}
+}
+
+func (sh shelf) availabilities(t *testing.T, ws works.Among[works.WorkID], added map[works.WorkID]works.Key) map[works.Key]availability {
+	t.Helper()
+	got := map[works.Key]availability{}
+	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		items, err := works.ItemsOf(ctx, r, ws)
+		if err != nil {
+			return err
+		}
+		timings, err := sh.m.Timings(ctx, r, ws)
+		if err != nil {
+			return err
+		}
+		for w, its := range items {
+			if d, known := timings[its[0].ID].Released.Get(); known {
+				got[added[w]] = availability{d.String(), timings[its[0].ID].Basis}
+			}
+		}
+		return nil
+	})
+	return got
 }
 
 func (sh shelf) set(t *testing.T, p setting.Patch) []setting.Field {
@@ -961,6 +982,7 @@ func TestATypeSettingChangePublishesOneTypeChanged(t *testing.T) {
 	cinema := setting.Patch{movie.CountsAs.Key: json.RawMessage(`"cinema"`), movie.CinemaDelay.Key: json.RawMessage(`604800`)}
 	fields := sh.set(t, cinema)
 	want := []setting.Field{
+		setting.Switch{Key: "movie.add.monitor", Label: "New movies are monitored", Default: true}.Field(nil),
 		movie.CountsAs.Field(ptr(movie.CountsAs.Options[1].Value)),
 		movie.CinemaDelay.Field(ptr(int64(604800))),
 	}

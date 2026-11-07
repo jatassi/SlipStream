@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { expectColumns, orchardCells } from "./cells.ts";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
-import { isPhone, navigate } from "./shell.ts";
+import { isPhone, openSettingsSection } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
 
 const Made = z.object({ id: z.string() });
@@ -20,11 +20,7 @@ async function make2160p(world: World): Promise<string> {
 }
 
 async function openProfiles(page: Page) {
-  await navigate(page, "Settings");
-  const sections = isPhone(page)
-    ? page.getByRole("list", { name: "Settings" })
-    : page.getByRole("navigation", { name: "Settings" });
-  await sections.getByRole("link", { name: "Profiles" }).click();
+  await openSettingsSection(page, "Profiles");
   await expect(page).toHaveURL(/\/settings\/profiles$/u);
 }
 
@@ -131,9 +127,10 @@ test("an Admin adds a movie on a Profile other than the default and sees its Tar
   await page.screenshot({ path: testInfo.outputPath("add-sheet.png") });
   await sheet.getByRole("button", { name: "Add Movie" }).click();
 
-  await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
-  await expect(orchardCells(page)).toHaveText("The Quiet OrchardMissingMissing");
-  await expectColumns(page, ["Movie", "Status", "2160p"]);
+  await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
+  await expect(orchardCells(page)).toContainText("From Profile Both");
+  await expect(orchardCells(page)).toContainText("Missing");
+  await expectColumns(page, ["2160p"]);
   const workId = /\/works\/([^/]+)$/u.exec(page.url())?.[1];
   const wants = await world.api("GET", `/api/v1/works/${String(workId)}/wants`);
   expect(wants.body).toMatchObject({

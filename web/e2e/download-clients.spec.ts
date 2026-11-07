@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
-import { isPhone, navigate } from "./shell.ts";
+import { openSettingsSection } from "./shell.ts";
 
 const Thresholds = z.object({
   thresholds: z.object({ unregisteredGap: z.object({ value: z.number() }) }),
@@ -14,11 +14,7 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
   adminPage: page,
   world,
 }, testInfo) => {
-  await navigate(page, "Settings");
-  const sections = isPhone(page)
-    ? page.getByRole("list", { name: "Settings" })
-    : page.getByRole("navigation", { name: "Settings" });
-  await sections.getByRole("link", { name: "Download Clients" }).click();
+  await openSettingsSection(page, "Download Clients");
   await expect(page).toHaveURL(/\/settings\/download-clients$/u);
 
   const card = page.getByRole("article", { name: "Built-in client on home" });

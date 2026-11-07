@@ -49,7 +49,7 @@ func (r *Roots) Delete(ctx context.Context, _ identity.Admin, id ID, worksTo *ID
 			return err
 		}
 		if to != nil && len(homed) > 0 {
-			if err := r.homeAll(ctx, tx, homed, *to); err != nil {
+			if err := r.moveWorks(ctx, tx, homed, *to); err != nil {
 				return err
 			}
 			changed = append(changed, *to)
@@ -67,7 +67,7 @@ func (r *Roots) Delete(ctx context.Context, _ identity.Admin, id ID, worksTo *ID
 	return nil
 }
 
-func (r *Roots) homeAll(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID, root ID) error {
+func (r *Roots) moveWorks(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID, root ID) error {
 	for _, w := range ws {
 		if err := r.Home(ctx, tx, w, root); err != nil {
 			return err

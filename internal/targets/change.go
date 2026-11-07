@@ -36,12 +36,18 @@ type UpdateProfile struct {
 // moves its Works to To, of the same type. They keep their own lists.
 type DeleteProfile struct{ ID, To ProfileID }
 
-// SetWants has Work want from Profile, of its type, with Own as its own
-// Edition list, or its Profile's when Own is nil.
+// SetWants gives Work Own as its own Edition list, or its Profile's when
+// Own is nil. Its Profile changes only through SetProfiles.
 type SetWants struct {
-	Work    works.WorkID
+	Work works.WorkID
+	Own  *Editions
+}
+
+// SetProfiles has each of Works want from Profile, of their Content Type,
+// with its Edition list, except a Work with its own list, which keeps it.
+type SetProfiles struct {
+	Works   []works.WorkID
 	Profile ProfileID
-	Own     *Editions
 }
 
 // UpdateCut replaces custom cut Key's name and aliases with Spec. Its key
@@ -201,9 +207,6 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 	if err != nil {
 		return err
 	}
-	if err := sameType(ctx, q, c.Profile, now.ContentType); err != nil {
-		return err
-	}
 	var own *db.List
 	if c.Own != nil {
 		if err := known.check(*c.Own, now.ContentType); err != nil {
@@ -211,7 +214,7 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 		}
 		own = new(listOf(*c.Own))
 	}
-	if err := q.SetWants(ctx, db.SetWantsParams{WorkID: c.Work, ProfileID: c.Profile, Editions: own}); err != nil {
+	if err := q.SetWants(ctx, db.SetWantsParams{WorkID: c.Work, Editions: own}); err != nil {
 		return err
 	}
 	if err := q.DeleteWantsCuts(ctx, c.Work); err != nil {
@@ -226,6 +229,25 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 		}
 	}
 	return nil
+}
+
+func (c SetProfiles) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+	own, err := q.CountOwnListsOf(ctx, c.Works)
+	return Touched{Works: c.Works, OwnList: int(own)}, err
+}
+
+func (c SetProfiles) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	p, err := profileIn(ctx, q, c.Profile)
+	if err != nil {
+		return err
+	}
+	switch other, err := q.CountWantsOfOtherType(ctx, db.CountWantsOfOtherTypeParams{ContentType: p.ContentType, WorkIds: c.Works}); {
+	case err != nil:
+		return err
+	case other > 0:
+		return ErrProfileWrongType
+	}
+	return q.SetProfileOfWorks(ctx, db.SetProfileOfWorksParams{ProfileID: c.Profile, WorkIds: c.Works})
 }
 
 func (c UpdateCut) touches(context.Context, *db.Queries) (Touched, error) { //nolint:unparam // the other kinds read to answer

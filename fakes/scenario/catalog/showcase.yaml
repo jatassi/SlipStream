@@ -1,0 +1,858 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  home's two Nodes with ten real movies recorded from TMDB and OMDb, with
+  their real posters, backdrops, title treatments and cast photos, so the
+  Library and Work pages look as they do against the live providers. Each
+  movie has one seeded 1080p release to grab. Re-record with
+  `go run ./fakes/tmdb/record -scenario fakes/scenario/catalog/showcase.yaml`
+  and the ids below.
+seed: showcase
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 155
+      imdb_id: tt0468569
+      title: The Dark Knight
+      runtime: 152m
+      dates:
+        - {country: US, kind: premiere, date: "2008-07-14", certification: PG-13, note: New York City}
+        - {country: US, kind: cinema, date: "2008-07-18", certification: PG-13}
+        - {country: US, kind: physical, date: "2008-12-09", certification: PG-13, note: Blu-ray / DVD}
+        - {country: GB, kind: cinema, date: "2008-07-24", certification: 12A}
+        - {country: GB, kind: physical, date: "2008-10-22", certification: "12"}
+        - {country: FR, kind: cinema, date: "2008-08-13", certification: "12"}
+        - {country: FR, kind: digital, date: "2011-11-30"}
+        - {country: FR, kind: digital, date: "2021-11-15", note: Prime Video}
+        - {country: FR, kind: digital, date: "2018-08-15", note: Netflix}
+        - {country: FR, kind: physical, date: "2009-02-13", note: Blu-ray / DVD}
+        - {country: FR, kind: tv, date: "2026-02-09", note: TMC}
+        - {country: FR, kind: tv, date: "2026-03-26", note: Canal+ Grand Écran}
+        - {country: DE, kind: cinema, date: "2008-08-21", certification: "16"}
+        - {country: DE, kind: digital, date: "2026-01-13", certification: "16", note: HBO Max}
+        - {country: DE, kind: physical, date: "2008-12-22", certification: "16"}
+      original_title: The Dark Knight
+      original_language: en
+      overview: Batman raises the stakes in his war on crime. With the help of Lt. Jim Gordon and District Attorney Harvey Dent, Batman sets out to dismantle the remaining criminal organizations that plague the streets. The partnership proves to be effective, but they soon find themselves prey to a reign of chaos unleashed by a rising criminal mastermind known to the terrified citizens of Gotham as the Joker.
+      tagline: Welcome to a world without rules.
+      genres: [Action, Thriller, Crime]
+      status: Released
+      titles:
+        - {country: US, title: 'Batman: The Dark Knight'}
+        - {country: FR, title: 'Batman, Le Chevalier Noir'}
+        - {country: US, title: 'Batman II: The Dark Knight', kind: alternative title}
+        - {country: US, title: 'The Dark Knight 2: The Dark Knight', kind: Full Formal}
+        - {country: US, title: The Dark Knight}
+      translations:
+        - language: fr-FR
+          title: 'The Dark Knight : Le Chevalier noir'
+          overview: 'Batman aborde une phase décisive de sa guerre contre le crime à Gotham City. Avec l''aide du lieutenant de police Jim Gordon et du nouveau procureur Harvey Dent, il entreprend de démanteler les dernières organisations criminelles qui infestent les rues de la ville. L''association s''avère efficace, mais le trio se heurte bientôt à un nouveau génie du crime qui répand la terreur et le chaos dans Gotham : le Joker. On ne sait pas d''où il vient ni qui il est. Ce criminel possède une intelligence redoutable doublé d''un humour sordide et n''hésite pas à s''attaquer à la pègre locale dans le seul but de semer le chaos.'
+        - language: de-DE
+          overview: Gemeinsam mit Bezirksstaatsanwalt Harvey Dent und Lieutenant James Gordon versucht der im Fledermauskostüm agierende Milliardär Bruce Wayne dem Verbrechen in Gotham City Einhalt zu gebieten. Wie aus dem Nichts taucht plötzlich ein psychotischer Superverbrecher auf - der Joker. In seiner wahnhaften Vision möchte er die Stadt in Chaos und Anarchie stürzen und Batman scheint der einzige, der ihn stoppen kann. Bis es zum endgültigen Show-Down kommt, wird aber viel Blut fließen und auch Menschen die Bruce Wayne nahe stehen, könnten Opfer werden.
+          tagline: Warum so ernst?
+        - language: es-ES
+          title: El caballero oscuro
+          overview: Batman/Bruce Wayne regresa para continuar su guerra contra el crimen. Con la ayuda del teniente Jim Gordon y del Fiscal del Distrito Harvey Dent, Batman se propone destruir el crimen organizado en la ciudad de Gotham. El triunvirato demuestra su eficacia, pero, de repente, aparece Joker, un nuevo criminal que desencadena el caos y tiene aterrados a los ciudadanos.
+          tagline: Algunos hombres sólo quieren ver el mundo arder.
+      credits:
+        cast:
+          - {id: 3894, name: Christian Bale, character: Bruce Wayne, profile: /7Pxez9J8fuPd2Mn9kex13YALrCQ.jpg}
+          - {id: 1810, name: Heath Ledger, character: Joker, profile: /p2z2bURSg7nuMsN9P2s61e2RvNz.jpg}
+          - {id: 6383, name: Aaron Eckhart, character: Harvey Dent, profile: /5EFQvRHlpP1Iaw2e6vjOaBny6DV.jpg}
+          - {id: 3895, name: Michael Caine, character: Alfred, profile: /bVZRMlpjTAO2pJK6v90buFgVbSW.jpg}
+          - {id: 1579, name: Maggie Gyllenhaal, character: Rachel, profile: /vsfkWdYWmA9CpzMHTJzrFxlDnEZ.jpg}
+          - {id: 64, name: Gary Oldman, character: Gordon, profile: /yhaSM5habNNI1Tf4ALRwRk3VvSZ.jpg}
+          - {id: 192, name: Morgan Freeman, character: Lucius Fox, profile: /905k0RFzH0Kd6gx8oSxRdnr6FL.jpg}
+          - {id: 53651, name: Monique Gabriela Curnen, character: Ramirez, profile: /lJgLQs7cfM49m8VzVviwxIByz76.jpg}
+          - {id: 57597, name: Ron Dean, character: Wuertz, profile: /mgqdr4VFrTVZatkki2suNLYxeDG.jpg}
+          - {id: 2037, name: Cillian Murphy, character: Scarecrow, profile: /2lKs67r7FI4bPu0AXxMUJZxmUXn.jpg}
+        crew:
+          - {id: 527, name: Jonathan Nolan, department: Writing, job: Screenplay, profile: /qgTOwfg2B4C0ZFGAP4EnRZ7domo.jpg}
+          - {id: 525, name: Christopher Nolan, department: Writing, job: Screenplay, profile: /xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg}
+          - {id: 3893, name: David S. Goyer, department: Writing, job: Story, profile: /gf44Hr3HJuWK7ZMHQKzDNBe0ylI.jpg}
+          - {id: 3794, name: Bob Kane, department: Writing, job: Characters, profile: /vuXwrlqaUydA4t5SFVdQkK9KsZL.jpg}
+          - {id: 525, name: Christopher Nolan, department: Directing, job: Director, profile: /xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg}
+          - {id: 525, name: Christopher Nolan, department: Writing, job: Story, profile: /xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg}
+      trailer: _PZpmTj1Q8Q
+      collection: {id: 263, name: The Dark Knight Collection}
+      studio: {id: 174, name: Warner Bros. Pictures}
+      images:
+        - {shape: poster, language: en, votes: 6.608, path: /r3UKPGdQC5mPiA9bE9otM9CN4lW.jpg, width: 2000, height: 2815}
+        - {shape: backdrop, votes: 5.962, path: /cfT29Im5VDvjE0RpyKOSdCKZal7.jpg, width: 3697, height: 2080}
+        - {shape: logo, language: en, votes: 6.546, path: /nO5Uix3Qr4WjOyU1BMPv0okyNWm.png, width: 1278, height: 393}
+      vote_average: 8.54
+      vote_count: 37248
+    - id: 194
+      imdb_id: tt0211915
+      title: Amélie
+      runtime: 122m
+      dates:
+        - {country: US, kind: premiere, date: "2001-11-02", certification: R, note: 'Los Angeles, California'}
+        - {country: US, kind: premiere, date: "2001-10-03", certification: R, note: Aspen Film Festval}
+        - {country: US, kind: limited, date: "2001-11-16", certification: R}
+        - {country: US, kind: limited, date: "2024-02-14", certification: R, note: Re-release}
+        - {country: US, kind: cinema, date: "2002-02-08", certification: R}
+        - {country: GB, kind: premiere, date: "2001-08-12", certification: "15", note: Edinburgh International Film Festival}
+        - {country: GB, kind: cinema, date: "2001-10-05", certification: "15"}
+        - {country: GB, kind: physical, date: "2002-07-08", certification: "15", note: DVD}
+        - {country: FR, kind: cinema, date: "2001-04-25", certification: TP}
+        - {country: FR, kind: digital, date: "2026-01-28", note: Arte•tv}
+        - {country: FR, kind: tv, date: "2026-01-28", note: Arte}
+        - {country: DE, kind: cinema, date: "2001-08-16", certification: "6"}
+      original_title: Le Fabuleux Destin d'Amélie Poulain
+      original_language: fr
+      overview: At a tiny Parisian café, the adorable yet painfully shy Amélie accidentally discovers a gift for helping others. Soon Amelie is spending her days as a matchmaker, guardian angel, and all-around do-gooder. But when she bumps into a handsome stranger, will she find the courage to become the star of her very own love story?
+      tagline: She’ll change your life.
+      genres: [Comedy, Romance]
+      status: Released
+      titles:
+        - {country: US, title: The Fabulous Destiny of Amelie Poulain}
+        - {country: FR, title: Amélie Poulain}
+        - {country: US, title: Amelie}
+        - {country: GB, title: Amélie from Montmartre}
+        - {country: GB, title: Amelie from Montmartre}
+      translations:
+        - language: fr-FR
+          overview: 'Amélie, une jeune serveuse dans un bar de Montmartre, passe son temps à observer les gens et à laisser son imagination divaguer. Elle s''est fixée un but : faire le bien de ceux qui l''entourent. Elle invente alors des stratagèmes pour intervenir incognito dans leur existence. Le chemin d''Amélie est jalonné de rencontres: Georgette, la buraliste hypocondriaque, Lucien, le commis d''épicerie, Madeleine Wallace, la concierge portée sur le porto et les chiens empaillés, ou encore Raymond Dufayel alias « l''homme de verre », son voisin qui ne vit qu''à travers une reproduction d''un tableau de Renoir. Cette quête du bonheur amène Amélie à faire la connaissance de Nino Quincampoix, un étrange « prince charmant ». Celui-ci partage son temps entre un train fantôme et un sex-shop, et cherche à identifier un inconnu dont la photo réapparaît sans cesse dans plusieurs cabines de photomaton.'
+          tagline: Une personne peut changer votre vie pour toujours.
+        - language: de-DE
+          title: Die fabelhafte Welt der Amélie
+          overview: Im Herzen von Paris arbeitet die schüchterne Amélie als Kellnerin in einem kleinen Straßencafé. Eine Wendung nimmt das vergleichsweise ereignisarme, von kuriosen Alltagsbeobachtungen gewürzte Leben der jungen Frau, als sie eine Schachtel mit Kindheitserinnerungen eines Fremden entdeckt und dem ursprünglichen Besitzer damit große Freude bereitet. Fortan macht es sich Amélie zur Lebensaufgabe, helfend in das Schicksal ihrer Mitmenschen einzugreifen. Nur als es um das eigene Liebesglück geht, scheint ihr Talent zu versagen.
+        - language: es-ES
+          title: Amelie
+          overview: Amélie Poulain (Audrey Tautou) es una joven camarera que vive en París y que tiene una imaginación desbordante. Un día, encuentra una caja con objetos antiguos que pertenecían al antiguo inquilino de su apartamento. Amélie decide devolver la caja a su dueño y ver su reacción. Al ver la felicidad que le provoca, Amélie se propone hacer felices a los demás con pequeños gestos. Así, ayuda a sus vecinos, a sus compañeros de trabajo y a su padre, mientras se divierte con sus ocurrencias. Pero en su búsqueda de la felicidad ajena, Amélie se olvida de la suya propia, hasta que conoce a Nino Quincampoix (Mathieu Kassovitz), un joven coleccionista de fotos que le roba el corazón.
+          tagline: Una persona puede cambiar tu vida para siempre.
+      credits:
+        cast:
+          - {id: 2405, name: Audrey Tautou, character: Amélie Poulain, profile: /d1HVrV8zXy1FJVptmOCkHWG8Jf2.jpg}
+          - {id: 2406, name: Mathieu Kassovitz, character: Nino Quincampoix, profile: /3FRBEdKKlxhvPWPt0jzgmSjeHwn.jpg}
+          - {id: 2407, name: Rufus, character: Raphaël Poulain, profile: /aC6rEJrBgCNjeG6vetJPBdgj5h3.jpg}
+          - {id: 2410, name: Serge Merlin, character: Raymond Dufayel, profile: /90Kwb8hfORDXcEeA1lzikAubcQe.jpg}
+          - {id: 2408, name: Jamel Debbouze, character: Lucien, profile: /aiqWSWbRJ6rrjxxVE6y2Xb3KdSp.jpg}
+          - {id: 2411, name: Clotilde Mollet, character: Gina, profile: /pu1sHxq0mvv61gTJGRhYGfMbZ18.jpg}
+          - {id: 1654, name: Claire Maurier, character: Suzanne, profile: /rlMYKpiTIzZCw2ee3YGENJZQKPC.jpg}
+          - {id: 2412, name: Isabelle Nanty, character: Georgette, profile: /9EQOZfhnqTL8enSFGFHMVU99q2P.jpg}
+          - {id: 2413, name: Dominique Pinon, character: Joseph, profile: /rIPUhNwGSglgKLgMQWz0JNCqIzf.jpg}
+          - {id: 2414, name: Artus de Penguern, character: Hipolito, profile: /aSiprhwozCkCe4hHfQ34YVM6lIo.jpg}
+        crew:
+          - {id: 2420, name: Guillaume Laurant, department: Writing, job: Dialogue, profile: /4l92fKi1WuJmTlS8lrTVVSSK2XG.jpg}
+          - {id: 2419, name: Jean-Pierre Jeunet, department: Directing, job: Director, profile: /4DhPaNaxYnkgxVJHVLyL5gKmKpG.jpg}
+          - {id: 2420, name: Guillaume Laurant, department: Writing, job: Screenplay, profile: /4l92fKi1WuJmTlS8lrTVVSSK2XG.jpg}
+          - {id: 2419, name: Jean-Pierre Jeunet, department: Writing, job: Screenplay, profile: /4DhPaNaxYnkgxVJHVLyL5gKmKpG.jpg}
+      trailer: 555A7T_kmIc
+      studio: {id: 25020, name: Victoires Productions}
+      images:
+        - {shape: poster, language: en, votes: 6.722, path: /nSxDa3M9aMvGVLoItzWTepQ5h5d.jpg, width: 2000, height: 3000}
+        - {shape: backdrop, votes: 6.346, path: /6n53UI4mX9QMfe2S0Pgt8mGebY1.jpg, width: 3840, height: 2160}
+        - {shape: logo, language: en, votes: 3.334, path: /pIjwwbSgqq6sMbL0Umr7zKmEEUF.png, width: 4174, height: 1257}
+      vote_average: 7.9
+      vote_count: 12807
+    - id: 27205
+      imdb_id: tt1375666
+      title: Inception
+      runtime: 148m
+      dates:
+        - {country: US, kind: premiere, date: "2010-07-13", note: 'Hollywood, California'}
+        - {country: US, kind: cinema, date: "2010-07-16", certification: PG-13}
+        - {country: US, kind: cinema, date: "2020-08-21", certification: PG-13, note: Re-release}
+        - {country: US, kind: physical, date: "2010-12-07", certification: PG-13, note: Blu-ray / DVD}
+        - {country: GB, kind: premiere, date: "2010-07-08", note: London}
+        - {country: GB, kind: cinema, date: "2010-07-16", certification: 12A}
+        - {country: GB, kind: cinema, date: "2020-08-12", note: Re-release}
+        - {country: FR, kind: cinema, date: "2010-07-21", certification: TP}
+        - {country: FR, kind: tv, date: "2013-04-07", note: TF1}
+        - {country: DE, kind: cinema, date: "2010-07-29", certification: "12"}
+        - {country: DE, kind: physical, date: "2010-12-03", certification: "12", note: DVD}
+      original_title: Inception
+      original_language: en
+      overview: 'Cobb, a skilled thief who commits corporate espionage by infiltrating the subconscious of his targets is offered a chance to regain his old life as payment for a task considered to be impossible: "inception", the implantation of another person''s idea into a target''s subconscious.'
+      tagline: Your mind is the scene of the crime.
+      genres: [Action, Science Fiction, Crime]
+      status: Released
+      titles:
+        - {country: GB, title: Dechreuad y Creu}
+      translations:
+        - language: fr-FR
+          overview: Dom Cobb est un voleur expérimenté, le meilleur dans l'art dangereux de l'extraction, voler les secrets les plus intimes enfouis au plus profond du subconscient durant une phase de rêve, lorsque l'esprit est le plus vulnérable. Les capacités de Cobb ont fait des envieux dans le monde tourmenté de l'espionnage industriel alors qu'il devient fugitif en perdant tout ce qu'il a un jour aimé. Une chance de se racheter lui est alors offerte. Une ultime mission grâce à laquelle il pourrait retrouver sa vie passée mais uniquement s'il parvient à accomplir l'impossible inception.
+          tagline: Votre esprit abrite la scène du crime.
+        - language: de-DE
+          overview: Beim Versuch in das Unterbewusstsein des Industriellen Saito einzudringen, stoßen Cobb und seine Mitstreiter auf unerwartete Schwierigkeiten. Saito hatte Verteidigungsstrategien gegen den Gedankendiebstahl trainiert und baut nun einen Abwehrriegel auf, doch erst der Verrat eines Kollegen lässt den Versuch scheitern, dem Schlafenden Geheimnisse zu entlocken. Da seine Auftraggeber unbedingten Erfolg gefordert hatten, muss Cobb, der auf Grund einer drohenden Verurteilung nicht mehr in die USA zurück kann, fliehen, doch Saito kommt ihm zuvor. Allerdings nicht um ihn zu bestrafen, sondern um ihm einen Deal vorzuschlagen.
+          tagline: Dein Verstand ist der Ort des Verbrechens.
+        - language: es-ES
+          title: Origen
+          overview: 'Dom Cobb es un ladrón hábil, el mejor de todos, especializado en el peligroso arte de extracción: el robo de secretos valiosos desde las profundidades del subconsciente durante el estado de sueño cuando la mente está más vulnerable. Esta habilidad excepcional de Cobb le ha hecho un jugador codiciado en el traicionero nuevo mundo de espionaje corporativo, pero al mismo tiempo, le ha convertido en un fugitivo internacional y ha tenido que sacrificar todo que le importaba. Ahora a Cobb se le ofrece una oportunidad para redimirse. Con un último trabajo podría recuperar su vida anterior, pero solamente si logra lo imposible.'
+          tagline: Tu mente es la escena del crimen.
+      credits:
+        cast:
+          - {id: 6193, name: Leonardo DiCaprio, character: Dom Cobb, profile: /wo2hJpn04vbtmh0B9utCFdsQhxM.jpg}
+          - {id: 24045, name: Joseph Gordon-Levitt, character: Arthur, profile: /z2FA8js799xqtfiFjBTicFYdfk.jpg}
+          - {id: 3899, name: Ken Watanabe, character: Saito, profile: /psAXOYp9SBOXvg6AXzARDedNQ9P.jpg}
+          - {id: 2524, name: Tom Hardy, character: Eames, profile: /d81K0RH8UX7tZj49tZaQhZ9ewH.jpg}
+          - {id: 27578, name: Elliot Page, character: Ariadne, profile: /nXO8DE4biVXY4UDYP0NdIY1zvXS.jpg}
+          - {id: 95697, name: Dileep Rao, character: Yusuf, profile: /jRNn8SZqFXuI5wOOlHwYsWh0hXs.jpg}
+          - {id: 2037, name: Cillian Murphy, character: 'Robert Fischer, Jr.', profile: /2lKs67r7FI4bPu0AXxMUJZxmUXn.jpg}
+          - {id: 13022, name: Tom Berenger, character: Peter Browning, profile: /8PSsSsFI1EpEvxifq8rPe3412iv.jpg}
+          - {id: 8293, name: Marion Cotillard, character: Mal Cobb, profile: /biitzOF0GffIqFYLyOPkoiaOngQ.jpg}
+          - {id: 4935, name: Pete Postlethwaite, character: Maurice Fischer, profile: /2gpa75Ci4y2OKmOc8WXnaeGgyKF.jpg}
+        crew:
+          - {id: 525, name: Christopher Nolan, department: Writing, job: Writer, profile: /xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg}
+          - {id: 525, name: Christopher Nolan, department: Directing, job: Director, profile: /xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg}
+      trailer: JE9z-gy4De4
+      studio: {id: 174, name: Warner Bros. Pictures}
+      images:
+        - {shape: poster, language: en, votes: 8.034, path: /xlaY2zyzMfkhk0HSC5VUwzoZPU1.jpg, width: 2000, height: 3000}
+        - {shape: backdrop, votes: 6.834, path: /8ZTVqvKDQ8emSGUEMjsS4yHAwrp.jpg, width: 3840, height: 2160}
+        - {shape: logo, language: en, votes: 8.034, path: /eS5TjZsO30LTfZISyBbPiXshAKd.png, width: 794, height: 115}
+      vote_average: 8.373
+      vote_count: 40668
+    - id: 76341
+      imdb_id: tt1392190
+      title: 'Mad Max: Fury Road'
+      runtime: 121m
+      dates:
+        - {country: US, kind: premiere, date: "2015-05-07", certification: R, note: 'Hollywood, California'}
+        - {country: US, kind: premiere, date: "2016-11-01", note: SpectreFest (Black & Chrome Edition)}
+        - {country: US, kind: limited, date: "2021-06-23", certification: R, note: 'IFC Center, New York City'}
+        - {country: US, kind: cinema, date: "2015-05-15", certification: R}
+        - {country: US, kind: physical, date: "2015-09-01", certification: R, note: Blu-ray / DVD}
+        - {country: GB, kind: cinema, date: "2015-05-15", certification: "15"}
+        - {country: FR, kind: premiere, date: "2015-05-14", note: Cannes Film Festival}
+        - {country: FR, kind: cinema, date: "2015-05-14", certification: TP, note: Visa CNC 142250}
+        - {country: FR, kind: digital, date: "2015-10-14"}
+        - {country: FR, kind: digital, date: "2018-11-09", certification: "16", note: Netflix}
+        - {country: FR, kind: digital, date: "2021-11-10", certification: "18", note: Prime Video}
+        - {country: FR, kind: physical, date: "2015-10-14", note: Blu-ray / DVD}
+        - {country: FR, kind: tv, date: "2026-05-21", certification: "12", note: Novo19}
+        - {country: DE, kind: cinema, date: "2015-05-14", certification: "16"}
+      original_title: 'Mad Max: Fury Road'
+      original_language: en
+      overview: An apocalyptic story set in the furthest reaches of our planet, in a stark desert landscape where humanity is broken, and most everyone is crazed fighting for the necessities of life. Within this world exist two rebels on the run who just might be able to restore order.
+      tagline: The future belongs to the mad.
+      genres: [Action, Adventure, Science Fiction]
+      status: Released
+      titles:
+        - {country: US, title: Mad Max 4 Fury Road}
+        - {country: DE, title: Mad Max 4}
+        - {country: US, title: Mad Max 4}
+      translations:
+        - language: fr-FR
+          title: 'Mad Max : Fury Road'
+          overview: Hanté par un lourd passé, Mad Max estime que le meilleur moyen de survivre est de rester seul. Cependant, il se retrouve embarqué par une bande qui parcourt le désert à bord d’un véhicule militaire piloté par l’Impératrice Furiosa. Ils fuient la Citadelle où sévit le terrible Immortan Joe qui s’est fait voler un objet irremplaçable. Enragé, ce Seigneur de guerre envoie ses hommes pour traquer les rebelles impitoyablement…
+          tagline: Seuls les fous survivent.
+        - language: de-DE
+          overview: Bei seinen Reisen durch die postapokalyptische Ödnis der Zukunft wird Max von den Schergen des Warlords Immortan Joe gefangen genommen und als lebende Blutkonserve für den schwerkranken Krieger Nux verwendet. Als Imperator Furiosa, eine wichtige Handlangerin Joes, den Herrscher hintergeht, indem sie seine fünf Frauen befreit und während einer Handelsmission mit ihnen an Bord ihres Kriegslasters flieht, ruft der Warlord sein Heer zur Verfolgung auf. Zu den Kriegern gehört auch Nux, der Max zur Blutversorgung an seinen Wagen schnallt. Doch während des ersten Gefechts zwischen Joes Leuten und Furiosa kann sich Max befreien und bildet von da eine Zweckgemeinschaft mit Furiosa und den Frauen, während sie weiter unerbittlich von den Truppen Joes gejagt werden …
+          tagline: Was für ein schöner Tag. Nur der Wahnsinn überlebt.
+        - language: es-ES
+          title: 'Mad Max: Furia en la carretera'
+          overview: 'Perseguido por su turbulento pasado, Mad Max cree que la mejor forma de sobrevivir es ir solo por el mundo. Sin embargo, se ve arrastrado a formar parte de un grupo que huye a través del desierto en un War Rig conducido por una Emperatriz de élite: Furiosa. Escapan de una Ciudadela tiranizada por Immortan Joe, a quien han arrebatado algo irreemplazable. Enfurecido, el Señor de la Guerra moviliza a todas sus bandas y persigue implacablemente a los rebeldes en una ''guerra de la carretera'' de altas revoluciones.'
+          tagline: El mundo se vuelve loco.
+      credits:
+        cast:
+          - {id: 2524, name: Tom Hardy, character: Max Rockatansky, profile: /d81K0RH8UX7tZj49tZaQhZ9ewH.jpg}
+          - {id: 6885, name: Charlize Theron, character: Imperator Furiosa, profile: /gd7ShD0yt4bsR2STeQ19KQ6hvXL.jpg}
+          - {id: 3292, name: Nicholas Hoult, character: Nux, profile: /pXm8GWTm9eIA8pUGOjvmYjlxamu.jpg}
+          - {id: 26060, name: Hugh Keays-Byrne, character: Immortan Joe, profile: /7XSPjKNwmyEPMnmoVSQ42ykMz6M.jpg}
+          - {id: 1056053, name: Josh Helman, character: Slit, profile: /1thwLjrgvFv7ifjyVtTKQh23OCh.jpg}
+          - {id: 24898, name: Nathan Jones, character: Rictus Erectus, profile: /hlu4qYy9JGPxGn0wT8Ea6mTWR8R.jpg}
+          - {id: 37153, name: Zoë Kravitz, character: Toast the Knowing, profile: /n0mhAgmY6eJQmA7kaugsTZEJgHo.jpg}
+          - {id: 236048, name: Rosie Huntington-Whiteley, character: The Splendid Angharad, profile: /8CutB9jkotpcGfTy7qpD5rQHLwt.jpg}
+          - {id: 98522, name: Riley Keough, character: Capable, profile: /du1FYr5dTQL6gCMX6ISnQBOxz2F.jpg}
+          - {id: 1036288, name: Abbey Lee, character: The Dag, profile: /y4ZIuFjtglTjSLxhGTkzsCPFMQZ.jpg}
+        crew:
+          - {id: 20629, name: George Miller, department: Directing, job: Director, profile: /35NQ8HjFXQlGYDz9UkhT08lKl5C.jpg}
+          - {id: 1027146, name: Nico Lathouris, department: Writing, job: Writer, profile: /x5ahdhcJiMgbuchZy6zo17ddRqk.jpg}
+          - {id: 20629, name: George Miller, department: Writing, job: Writer, profile: /35NQ8HjFXQlGYDz9UkhT08lKl5C.jpg}
+          - {id: 1468313, name: Brendan McCarthy, department: Writing, job: Writer}
+      trailer: MonFNCgK4WE
+      collection: {id: 8945, name: Mad Max Collection}
+      studio: {id: 174, name: Warner Bros. Pictures}
+      images:
+        - {shape: poster, language: en, votes: 10, path: /ulcAi4dKpAjHwYGS08vNyx9H6I9.jpg, width: 2000, height: 3000}
+        - {shape: backdrop, votes: 5.778, path: /gqrnQA6Xppdl8vIb2eJc58VC1tW.jpg, width: 3840, height: 2160}
+        - {shape: logo, language: en, votes: 3.334, path: /uiXCDDtRTsB18nIes9IEyZglP3m.png, width: 786, height: 235}
+      vote_average: 7.643
+      vote_count: 24914
+    - id: 324857
+      imdb_id: tt4633694
+      title: 'Spider-Man: Into the Spider-Verse'
+      runtime: 117m
+      dates:
+        - {country: US, kind: premiere, date: "2018-12-01", certification: PG, note: 'Los Angeles, California'}
+        - {country: US, kind: limited, date: "2026-02-06", certification: PG, note: Re-Release}
+        - {country: US, kind: cinema, date: "2018-12-14", certification: PG}
+        - {country: US, kind: digital, date: "2019-02-26", certification: PG}
+        - {country: US, kind: physical, date: "2019-03-19", certification: PG, note: Blu-ray / DVD}
+        - {country: GB, kind: premiere, date: "2018-12-07", certification: PG, note: Cineworld Unlimited}
+        - {country: GB, kind: cinema, date: "2018-12-14", certification: PG}
+        - {country: GB, kind: digital, date: "2019-04-22", certification: PG}
+        - {country: GB, kind: physical, date: "2019-04-22", certification: PG}
+        - {country: FR, kind: cinema, date: "2018-12-12", certification: TP}
+        - {country: FR, kind: physical, date: "2019-05-06"}
+        - {country: DE, kind: cinema, date: "2018-12-13", certification: "6"}
+        - {country: DE, kind: physical, date: "2019-04-18", certification: "6"}
+      original_title: 'Spider-Man: Into the Spider-Verse'
+      original_language: en
+      overview: Struggling to find his place in the world while juggling school and family, Brooklyn teenager Miles Morales is unexpectedly bitten by a radioactive spider and develops unfathomable powers just like the one and only Spider-Man. While wrestling with the implications of his new abilities, Miles discovers a super collider created by the madman Wilson "Kingpin" Fisk, causing others from across the Spider-Verse to be inadvertently transported to his dimension.
+      tagline: Enter a universe where more than one wears the mask.
+      genres: [Animation, Action, Adventure, Science Fiction]
+      status: Released
+      titles:
+        - {country: US, title: Animated Spider-Man, kind: working title}
+        - {country: FR, title: 'Spider Man : nouvelle génération'}
+      translations:
+        - language: fr-FR
+          title: 'Spider-Man : New Generation'
+          overview: 'Spider-Man : New Generation suit les aventures de Miles Morales, un adolescent afro-américain et portoricain qui vit à Brooklyn et s’efforce de s’intégrer dans son nouveau collège à Manhattan. Mais la vie de Miles se complique quand il se fait mordre par une araignée radioactive et se découvre des super-pouvoirs : il est désormais capable d’empoisonner ses adversaires, de se camoufler, de coller littéralement aux murs et aux plafonds ; son ouïe est démultipliée... Dans le même temps, le plus redoutable cerveau criminel de la ville, le Caïd, a mis au point un accélérateur de particules nucléaires capable d’ouvrir un portail sur d’autres univers. Son invention va provoquer l’arrivée de plusieurs autres versions de Spider-Man dans le monde de Miles, dont un Peter Parker plus âgé, Spider-Gwen, Spider-Man Noir, Spider-Cochon et Peni Parker, venue d’un dessin animé japonais.'
+          tagline: Découvrez un univers où ils sont plus d'un à porter le masque
+        - language: de-DE
+          title: 'Spider-Man: A New Universe'
+          overview: Miles Morales wurde von einer genetisch veränderten Spinne gebissen. Das macht ihn schnell zum neuen Spider-Man mit den bekannten Fähigkeiten. Aber Miles ist ein Teenager ohne Ahnung von der verantwortungsvollen Nutzung seiner eigenen Kräfte. Doch Hilfe naht, denn durch eine scheinbar zufällig auftretende Verkettung mehrerer Paralleluniversen trifft Miles auf Spider-Man aka Peter Parker und dieser unterweist ihn in den neuen Superkräften und überträgt ihm Verantwortung. Während beide einen Reifeprozess durchmachen, der eine als Schüler, der andere als Lehrer, treffen immer mehr Superhelden mit ähnlichen Kräften ein - ihre bösen Gegenspieler aber auch ...
+        - language: es-ES
+          title: 'Spider-Man: un nuevo universo'
+          overview: 'En un universo paralelo donde Peter Parker ha muerto, un joven de secundaria llamado Miles Morales es el nuevo Spider-Man. Sin embargo, cuando el líder mafioso Wilson Fisk construye el ''Super Colisionador'' trae a una versión alternativa de Peter Parker que tratará de enseñar a Miles como ser un mejor Spider-Man. Pero no será el único Spider Man en entrar a este universo:  cuatro versiones alternativas buscan regresar a su universo antes de que toda la realidad se colapse.'
+          tagline: Entra en un universo donde más de uno lleva la máscara.
+      credits:
+        cast:
+          - {id: 587506, name: Shameik Moore, character: Miles Morales (voice), profile: /ovUKfVOwJ7CadEHaG3NDsfA5xRq.jpg}
+          - {id: 543505, name: Jake Johnson, character: Peter B. Parker (voice), profile: /3UNfW2qZgRkW81neNVfQvaRC92K.jpg}
+          - {id: 130640, name: Hailee Steinfeld, character: Gwen Stacy (voice), profile: /qDInsG0cxWNxS1X4t59TBZ5S6x5.jpg}
+          - {id: 932967, name: Mahershala Ali, character: Uncle Aaron (voice), profile: /9ZmSejm5lnUVY5IJ1iNx2QEjnHb.jpg}
+          - {id: 226366, name: Brian Tyree Henry, character: Jefferson Davis (voice), profile: /2MsJh0bpyzwvOUnXOltHp3j85Pb.jpg}
+          - {id: 10437, name: Lily Tomlin, character: Aunt May (voice), profile: /eoFMSqRykiaXMGCiz7Kxehfqy1W.jpg}
+          - {id: 141610, name: Luna Lauren Vélez, character: Rio Morales (voice), profile: /98BvmTJCZHx0jPv0oNcv04Jkmfb.jpg}
+          - {id: 37153, name: Zoë Kravitz, character: Mary Jane (voice), profile: /n0mhAgmY6eJQmA7kaugsTZEJgHo.jpg}
+          - {id: 933558, name: John Mulaney, character: Spider-Ham (voice), profile: /i3dGv3WoIONVLSlOpW4NIaT8Fs2.jpg}
+          - {id: 1443708, name: Kimiko Glenn, character: Peni Parker (voice), profile: /6QnVIyHKbzx0ZsUr3BmIwnZxujL.jpg}
+        crew:
+          - {id: 107446, name: Phil Lord, department: Writing, job: Screenplay, profile: /2MagibFHZxky3FmMubyABUnf4lw.jpg}
+          - {id: 936670, name: Bob Persichetti, department: Directing, job: Director, profile: /jmpNVUvvhJB2X2eOSKpveFnetM8.jpg}
+          - {id: 4566862, name: Katie Smith, department: Writing, job: Story Artist}
+          - {id: 2555580, name: Kasey Fagerquist, department: Writing, job: Story Artist}
+          - {id: 59918, name: Rodney Rothman, department: Writing, job: Screenplay, profile: /75yKuJr1wL8qesEDYL2IHK67BEx.jpg}
+          - {id: 107446, name: Phil Lord, department: Writing, job: Story, profile: /2MagibFHZxky3FmMubyABUnf4lw.jpg}
+          - {id: 151007, name: Peter Ramsey, department: Directing, job: Director, profile: /eAL9QdCEYyxiMP9cl9lQddg8zEa.jpg}
+          - {id: 4097975, name: Ryan Gaffney, department: Writing, job: Story Artist}
+          - {id: 1205985, name: Stephan Franck, department: Writing, job: Story Artist}
+          - {id: 1624724, name: Paula Assadourian, department: Writing, job: Story Artist}
+          - {id: 59918, name: Rodney Rothman, department: Directing, job: Director, profile: /75yKuJr1wL8qesEDYL2IHK67BEx.jpg}
+          - {id: 2199366, name: Jihyun Park, department: Writing, job: Story Artist}
+          - {id: 1923585, name: Yoriaki Mochizuki, department: Writing, job: Story Artist}
+          - {id: 1511473, name: Mark Ackland, department: Writing, job: Story Artist}
+          - {id: 1450350, name: Heiko von Drengenberg, department: Writing, job: Story Artist}
+          - {id: 1577480, name: Denise Koyama, department: Writing, job: Story Artist}
+          - {id: 2199290, name: Eva Bruschi, department: Writing, job: Story Artist}
+          - {id: 2199361, name: Vi-Dieu Nguyen, department: Writing, job: Story Artist}
+          - {id: 12095, name: Cody Cameron, department: Writing, job: Story Artist, profile: /gmlav8ikKPojgvQOQ8vQSQt9hoj.jpg}
+          - {id: 139686, name: John Puglisi, department: Writing, job: Story Artist}
+          - {id: 1703174, name: Miguel Jiron, department: Writing, job: Story Artist, profile: /sBEHuSRFK6T9DqBYQX93qSAFAFU.jpg}
+          - {id: 1633106, name: Riccardo Durante, department: Writing, job: Story Artist}
+          - {id: 51955, name: Sharon Bridgeman, department: Writing, job: Story Artist}
+          - {id: 3348886, name: Jane Wu, department: Writing, job: Story Artist, profile: /uAgw7WsBkTCTniJiW4xYN92fBeW.jpg}
+          - {id: 1460450, name: Miles Thompson, department: Writing, job: Story Artist}
+          - {id: 2008020, name: Ryan Savas, department: Writing, job: Story Artist}
+          - {id: 1814037, name: Mike Kunkel, department: Writing, job: Story Artist}
+          - {id: 1254995, name: Alex Hirsch, department: Writing, job: Story Coordinator, profile: /pGoKJKbqI3AwcmQkmEKG9jBXdcw.jpg}
+          - {id: 2963224, name: Paul Watling, department: Writing, job: Head of Story}
+      trailer: tg52up16eq0
+      collection: {id: 573436, name: 'Spider-Man: Spider-Verse Collection'}
+      studio: {id: 5, name: Columbia Pictures}
+      images:
+        - {shape: poster, language: en, votes: 8.034, path: /jk0MWRYsBopeb10D2aAJewRYWyk.jpg, width: 1000, height: 1500}
+        - {shape: backdrop, votes: 6.5, path: /1ntePsIqeklfmrQJqZPncCydsqY.jpg, width: 1920, height: 1080}
+        - {shape: logo, language: en, votes: 3.334, path: /hOSJGmh7FET9PdjlIuVTUUbi51S.png, width: 1600, height: 550}
+      vote_average: 8.403
+      vote_count: 18160
+    - id: 329865
+      imdb_id: tt2543164
+      title: Arrival
+      runtime: 116m
+      dates:
+        - {country: US, kind: premiere, date: "2016-09-02", note: Telluride Film Festival}
+        - {country: US, kind: premiere, date: "2016-10-28", note: Philadelphia International Film Festival}
+        - {country: US, kind: premiere, date: "2016-09-22", note: Fantastic Fest}
+        - {country: US, kind: premiere, date: "2016-10-27", note: Chicago International Film Festival}
+        - {country: US, kind: cinema, date: "2016-11-11", certification: PG-13}
+        - {country: US, kind: physical, date: "2017-02-14", certification: PG-13}
+        - {country: GB, kind: premiere, date: "2016-10-10", note: BFI London Film Festival}
+        - {country: GB, kind: cinema, date: "2016-11-10", certification: 12A}
+        - {country: GB, kind: physical, date: "2017-03-20", certification: "12", note: DVD / Blu-ray}
+        - {country: FR, kind: cinema, date: "2016-12-07", certification: TP}
+        - {country: FR, kind: cinema, date: "2026-06-03", note: 'Mondes possibles : la science-fiction sur grand écran, Institut Lumière, Lyon'}
+        - {country: FR, kind: cinema, date: "2026-06-28", note: 'Mondes possibles : la science-fiction sur grand écran, Institut Lumière, Lyon'}
+        - {country: FR, kind: digital, date: "2022-08-01", note: Netflix}
+        - {country: FR, kind: digital, date: "2017-04-07"}
+        - {country: FR, kind: physical, date: "2017-04-12", note: DVD / Blu-ray / 4K Ultra HD}
+        - {country: DE, kind: cinema, date: "2016-11-24", certification: "12"}
+      original_title: Arrival
+      original_language: en
+      overview: Taking place after alien crafts land around the world, an expert linguist is recruited by the military to determine whether they come in peace or are a threat.
+      tagline: Why are they here?
+      genres: [Drama, Science Fiction, Mystery]
+      status: Released
+      titles:
+        - {country: US, title: Story of Your Life, kind: working title}
+        - {country: FR, title: Premier Contact}
+        - {country: DE, title: 'Arrival - Warum sind sie hier?'}
+      translations:
+        - language: fr-FR
+          title: Premier Contact
+          overview: Lorsque de mystérieux vaisseaux venus du fond de l’espace surgissent un peu partout sur Terre, une équipe d’experts est rassemblée sous la direction de la linguiste Louise Banks afin de tenter de comprendre leurs intentions.  Face à l’énigme que constituent leur présence et leurs messages mystérieux, les réactions dans le monde sont extrêmes et l’humanité se retrouve bientôt au bord d’une guerre absolue. Louise Banks et son équipe n’ont que très peu de temps pour trouver des réponses. Pour les obtenir, la jeune femme va prendre un risque qui pourrait non seulement lui coûter la vie, mais détruire le genre humain…
+          tagline: Pourquoi sont-ils ici ?
+        - language: de-DE
+          overview: Zwölf Alien-Raumschiffe landen auf der Erde in unterschiedlichen Regionen. Die Menschen versuchen mit den Außerirdischen zu kommunizieren, aber niemand versteht die walartigen Laute, die von den Aliens abgesondert werden. Im Auftrag der US-Regierung stellt Colonel Weber darum ein Team um die Linguistin Louise Banks und den Physiker Ian Donnelly zusammen, das eine Kommunikation mit den fremden Wesen herstellen soll, um deren Absichten in Erfahrung zu bringen. In Montana, wo eines der Schiffe über dem Boden schwebt, machen sich die beiden an die Arbeit – er, der rationale Naturwissenschaftler mit klarer Ansicht zu den Dingen, sie mit ihrem Sprachverständnis und ihrer ansteckenden Entdeckungsfreude. Doch bald beginnt ein Rennen gegen die Zeit, bei dem es um nicht weniger als den Fortbestand der Menschheit geht …
+          tagline: Warum sind sie hier?
+        - language: es-ES
+          title: La llegada
+          overview: Unas misteriosas naves espaciales aterrizan por todo el mundo. Un equipo, liderado por la lingüista Louise Banks, intenta descifrar el motivo de su visita. A medida que la humanidad se tambalea al borde de la guerra, Louise y su equipo luchan contra el tiempo, llegando a poner en peligro su vida y, muy posiblemente, la del resto de la humanidad.
+          tagline: ¿Por qué están aquí?
+      credits:
+        cast:
+          - {id: 9273, name: Amy Adams, character: Louise Banks, profile: /gn0K6c6d1L6qQrRc86iL8uyIqiF.jpg}
+          - {id: 17604, name: Jeremy Renner, character: Ian Donnelly, profile: /yB84D1neTYXfWBaV0QOE9RF2VCu.jpg}
+          - {id: 2178, name: Forest Whitaker, character: Colonel Weber, profile: /4w7l5JUwnwFNBy7J93ZwYN1nihm.jpg}
+          - {id: 72873, name: Michael Stuhlbarg, character: Agent Halpern, profile: /aYB3SQm3h6ZyAdlbGyiNfakjx56.jpg}
+          - {id: 225411, name: Mark O'Brien, character: Captain Marks, profile: /8ckgltvlife4BBJcBpHEQWXfQ9p.jpg}
+          - {id: 21629, name: Tzi Ma, character: General Shang, profile: /x4fz0LCIiBNGdil3nBYO22W7QJ0.jpg}
+          - {id: 1646444, name: Abigail Pniowsky, character: 8-Year-Old Hannah, profile: /eFjFSNghr04PT6eBHzqLCvCUiXm.jpg}
+          - {id: 1522166, name: Julia Scarlett Dan, character: 12-Year-Old Hannah, profile: /5keIOToJhdil2uaTOXq5JX4e3OR.jpg}
+          - {id: 1646448, name: Jadyn Malone, character: 6-Year-Old Hannah, profile: /pVcseEB0gNjmkGRbvmnV8XAsPae.jpg}
+          - {id: 135993, name: Frank Schorpion, character: Dr. Kettler, profile: /aYHpKplVgIeuN8VoJq5R1Im9QKi.jpg}
+        crew:
+          - {id: 137427, name: Denis Villeneuve, department: Directing, job: Director, profile: /xzQYqb4nR8xT7Zdw5itbEL9K3fd.jpg}
+          - {id: 1646469, name: Ted Chiang, department: Writing, job: Short Story, profile: /qq5lMzGHqFRDnJrerOeTbGxcMDe.jpg}
+          - {id: 115033, name: Eric Heisserer, department: Writing, job: Screenplay, profile: /pFG6KLu3yNiiz2sHVKjdSMaPso5.jpg}
+          - {id: 2305958, name: Jessica Coon, department: Writing, job: Script Consultant, profile: /1OpEKQfZReSy2OrXdn7wytpwBgp.jpg}
+      trailer: 7W1m5ER3I1Y
+      studio: {id: 7493, name: FilmNation Entertainment}
+      images:
+        - {shape: poster, language: en, votes: 5.98, path: /pEzNVQfdzYDzVK0XqxERIw2x2se.jpg, width: 2000, height: 3000}
+        - {shape: backdrop, votes: 8.362, path: /8MUZz7oPXQftFTslZpRP3CVMOoq.jpg, width: 3840, height: 2160}
+        - {shape: logo, language: en, votes: 3.334, path: /rcPtxYkZ2mXmKdD0NKLzjsHxL3V.png, width: 1248, height: 135}
+      vote_average: 7.6
+      vote_count: 20132
+    - id: 496243
+      imdb_id: tt6751668
+      title: Parasite
+      runtime: 133m
+      dates:
+        - {country: US, kind: premiere, date: "2019-08-30", note: Telluride Film Festival}
+        - {country: US, kind: limited, date: "2019-10-11", certification: R}
+        - {country: US, kind: limited, date: "2025-02-07", certification: R}
+        - {country: US, kind: cinema, date: "2019-11-01", certification: R}
+        - {country: US, kind: digital, date: "2020-01-14", certification: R}
+        - {country: US, kind: physical, date: "2020-06-02", certification: R, note: 4K Ultra HD}
+        - {country: US, kind: physical, date: "2020-10-27", certification: R, note: Blu-ray / DVD (Criterion Collection)}
+        - {country: US, kind: physical, date: "2020-01-28", certification: R, note: Blu-ray / DVD}
+        - {country: GB, kind: premiere, date: "2020-01-16", note: Leeds}
+        - {country: GB, kind: cinema, date: "2020-02-14", certification: "15"}
+        - {country: GB, kind: cinema, date: "2025-02-07", certification: "15", note: Theatrical re-release and IMAX release}
+        - {country: GB, kind: digital, date: "2020-07-24", certification: "15", note: Colour / Black-and-White Edition}
+        - {country: GB, kind: digital, date: "2020-06-01", certification: "15"}
+        - {country: GB, kind: physical, date: "2020-06-01", certification: "15", note: Blu-ray / DVD}
+        - {country: GB, kind: physical, date: "2020-11-23", certification: "15", note: 4k Ultra HD Blu-ray / Blu-ray (Colour + Black & White Editions)}
+        - {country: GB, kind: physical, date: "2021-04-19", certification: "15", note: Bong Joon Ho Collection (Blu-ray)}
+        - {country: FR, kind: premiere, date: "2019-05-21", note: Cannes Film Festival}
+        - {country: FR, kind: cinema, date: "2019-06-05", certification: TP}
+        - {country: FR, kind: cinema, date: "2020-02-19", note: Re-Release (Black & White Version)}
+        - {country: FR, kind: digital, date: "2019-11-28"}
+        - {country: FR, kind: digital, date: "2022-07-01", certification: TP, note: Prime Video}
+        - {country: FR, kind: digital, date: "2026-06-10", certification: "12", note: Arte•tv}
+        - {country: FR, kind: physical, date: "2019-12-04", note: Blu-ray / DVD}
+        - {country: FR, kind: physical, date: "2020-02-28", note: 4K Ultra HD}
+        - {country: FR, kind: tv, date: "2022-05-15", certification: "12", note: Arte}
+        - {country: DE, kind: premiere, date: "2019-06-30", note: Munich International Film Festival}
+        - {country: DE, kind: cinema, date: "2019-10-17", certification: "16"}
+        - {country: DE, kind: digital, date: "2020-02-20", certification: "16"}
+        - {country: DE, kind: digital, date: "2026-06-10", certification: "12", note: Arte•tv}
+        - {country: DE, kind: physical, date: "2020-03-05", certification: "16"}
+        - {country: DE, kind: tv, date: "2022-05-15", certification: "12", note: Arte}
+      original_title: 기생충
+      original_language: ko
+      overview: All unemployed, Ki-taek's family takes peculiar interest in the wealthy and glamorous Parks for their livelihood until they get entangled in an unexpected incident.
+      tagline: Act like you own the place.
+      genres: [Comedy, Thriller, Drama]
+      status: Released
+      translations:
+        - language: fr-FR
+          title: Parasite
+          overview: Toute la famille de Ki-taek est au chômage. Elle s’intéresse particulièrement au train de vie de la richissime famille Park. Mais un incident se produit et les deux familles se retrouvent mêlées, sans le savoir, à une bien étrange histoire…
+          tagline: Cherchez l'intrus.
+        - language: de-DE
+          title: Parasite
+          overview: 'Familie Kim ist ganz unten angekommen: Vater, Mutter, Sohn und Tochter hausen in einem grünlich-schummrigen Keller und sind sich für keinen Aushilfsjob zu schade. Erst als der Jüngste eine Anstellung als Nachhilfelehrer in der todschicken Villa der Familie Park antritt, steigen die Kims ein ins Karussell der Klassenkämpfe. Mit findigen Tricksereien, bemerkenswertem Talent und großem Mannschaftsgeist gelingt es ihnen, die bisherigen Bediensteten der Familie Park nach und nach loszuwerden. Bald schon sind die Kims unverzichtbar für ihre neuen Herrschaften. Doch dann löst ein unerwarteter Zwischenfall eine Kette von Ereignissen aus, die so unvorhersehbar wie unfassbar sind.'
+          tagline: Finde den Eindringling!
+        - language: es-ES
+          title: Parásitos
+          overview: Tanto Gi Taek (Song Kang-ho) como su familia están sin trabajo. Cuando su hijo mayor, Gi Woo (Choi Woo-sik), empieza a dar clases particulares en casa de Park (Lee Seon-gyun), las dos familias, que tienen mucho en común pese a pertenecer a dos mundos totalmente distintos, comienzan una interrelación de resultados imprevisibles.
+          tagline: Descubre al impostor.
+      credits:
+        cast:
+          - {id: 20738, name: Song Kang-ho, character: Kim Ki-taek, profile: /kBM9UTPYXUA2RNk210DXhztLFns.jpg}
+          - {id: 115290, name: Lee Sun-kyun, character: Park Dong-ik, profile: /nHFBbSFohzOUOvMxPVwe3Es2nJw.jpg}
+          - {id: 556435, name: Cho Yeo-jeong, character: Yeon-kyo, profile: /5MgWM8pkUiYkj9MEaEpO0Ir1FD9.jpg}
+          - {id: 1255881, name: Choi Woo-shik, character: Ki-woo, profile: /9mZ9DNopxpCLUjXd0rLd42TLamw.jpg}
+          - {id: 1442583, name: Park So-dam, character: Ki-jung, profile: /fGVOikpvivopeATDy6ZzLdKYXDu.jpg}
+          - {id: 1572354, name: Lee Jung-eun, character: Moon-gwang, profile: /4r3K47UpSmzZ5t9cyTRRqRl9rdz.jpg}
+          - {id: 2158882, name: Jang Hye-jin, character: Chung-sook, profile: /pZiQXSWwo9F4gncHfa1yw0CQjxk.jpg}
+          - {id: 1694435, name: Park Myung-hoon, character: Geun-se, profile: /5SucrxkigHss7UuJKrkfAZX5MXz.jpg}
+          - {id: 1418762, name: Jung Zi-so, character: Da-hye, profile: /jsUPFmY1HlML92ubVtSE8L8ovz6.jpg}
+          - {id: 2306987, name: Jung Hyeon-jun, character: Da-song, profile: /vZadA6ip6V2kh0VZW9RwnLcYFgW.jpg}
+        crew:
+          - {id: 1374544, name: Kim Dae-hwan, department: Writing, job: Adaptation, profile: /lcQqUpC19CXYlLPJ0XoJro5aa2X.jpg}
+          - {id: 21684, name: Bong Joon Ho, department: Directing, job: Director, profile: /stwnTvZAoD8gEJEDHpDQyLCyDy5.jpg}
+          - {id: 21684, name: Bong Joon Ho, department: Writing, job: Story, profile: /stwnTvZAoD8gEJEDHpDQyLCyDy5.jpg}
+          - {id: 2320121, name: Han Jin-won, department: Writing, job: Screenplay, profile: /j9qXEqOsZENCqni8WzGH6pXginJ.jpg}
+          - {id: 21684, name: Bong Joon Ho, department: Writing, job: Screenplay, profile: /stwnTvZAoD8gEJEDHpDQyLCyDy5.jpg}
+      trailer: bM9QabAojCg
+      studio: {id: 4399, name: Barunson E&A}
+      images:
+        - {shape: poster, language: en, votes: 7.076, path: /tNJB14t2lqZ9L4oyEKoN6DT2ou8.jpg, width: 2000, height: 3000}
+        - {shape: backdrop, votes: 5.666, path: /TU9NIjwzjoKPwQHoHshkFcQUCG.jpg, width: 2732, height: 1536}
+        - {shape: logo, language: en, votes: 3.334, path: /eEGZWCv0OYbMLCaNsDl1cgrvnWR.png, width: 4300, height: 593}
+      vote_average: 8.489
+      vote_count: 21648
+    - id: 545611
+      imdb_id: tt6710474
+      title: Everything Everywhere All at Once
+      runtime: 140m
+      dates:
+        - {country: US, kind: premiere, date: "2022-03-11", note: South by Southwest Film Festival}
+        - {country: US, kind: limited, date: "2022-03-25", certification: R}
+        - {country: US, kind: limited, date: "2024-08-28", certification: R, note: A24 x IMAX Presents}
+        - {country: US, kind: cinema, date: "2022-04-08", certification: R}
+        - {country: US, kind: cinema, date: "2022-07-29", certification: R, note: Extended Cut}
+        - {country: US, kind: digital, date: "2022-06-07", certification: R}
+        - {country: US, kind: digital, date: "2022-06-06", certification: R, note: A24 Screening Room}
+        - {country: US, kind: physical, date: "2022-07-05", certification: R}
+        - {country: GB, kind: cinema, date: "2022-05-13", certification: "15"}
+        - {country: FR, kind: premiere, date: "2022-06-28", note: Champs Elysées Film Festival}
+        - {country: FR, kind: cinema, date: "2022-08-31", certification: TP}
+        - {country: FR, kind: cinema, date: "2023-03-08", note: Re-Release}
+        - {country: FR, kind: digital, date: "2023-01-03", note: VOD}
+        - {country: FR, kind: physical, date: "2023-01-03", certification: TP, note: 'DVD, Blu-Ray & 4K UHD'}
+        - {country: DE, kind: cinema, date: "2022-04-28", certification: "16"}
+        - {country: DE, kind: physical, date: "2022-08-12", certification: "16"}
+      original_title: Everything Everywhere All at Once
+      original_language: en
+      overview: An aging Chinese immigrant is swept up in an insane adventure, where she alone can save what's important to her by connecting with the lives she could have led in other universes.
+      tagline: The universe is so much bigger than you realize.
+      genres: [Action, Adventure, Science Fiction]
+      status: Released
+      titles:
+        - {country: FR, title: 'Tout, partout, tout à la fois'}
+        - {country: US, title: EEAAO}
+        - {country: US, title: EEAO}
+      translations:
+        - language: fr-FR
+          overview: 'Evelyn Wang est à bout : elle ne comprend plus sa famille, son travail et croule sous les impôts… Soudain, elle se retrouve plongée dans le multivers, des mondes parallèles où elle explore toutes les vies qu’elle aurait pu mener. Face à des forces obscures, elle seule peut sauver le monde mais aussi préserver la chose la plus précieuse : sa famille.'
+          tagline: L'univers est tellement plus grand que vous ne le pensez.
+        - language: de-DE
+          overview: Eine alternde chinesische Einwanderin wird in ein verrücktes Abenteuer hineingezogen, in dem nur sie das retten kann, was ihr wichtig ist, indem sie sich mit den Leben verbindet, die sie in anderen Universen hätte führen können.
+          tagline: Das Universum ist so viel größer, als du denkst.
+        - language: es-ES
+          title: Todo a la vez en todas partes
+          overview: Cuando una ruptura interdimensional altera la realidad, Evelyn, una inmigrante china en Estados Unidos, se ve envuelta en una aventura salvaje en la que sólo ella puede salvar el mundo. Perdida en los mundos infinitos del multiverso, esta heroína inesperada debe canalizar sus nuevos poderes para luchar contra los extraños y desconcertantes peligros del multiverso mientras el destino del mundo pende de un hilo.
+          tagline: El universo es mucho más grande de lo que crees.
+      credits:
+        cast:
+          - {id: 1620, name: Michelle Yeoh, character: Evelyn Wang, profile: /i6fHvGt7Rb8oVyjjdQVV6vEHB94.jpg}
+          - {id: 1381186, name: Stephanie Hsu, character: Joy Wang / Jobu Tupaki, profile: /8gb3lfIHKQAGOQyeC4ynQPsCiHr.jpg}
+          - {id: 690, name: Ke Huy Quan, character: Waymond Wang, profile: /iestHyn7PLuVowj5Jaa1SGPboQ4.jpg}
+          - {id: 20904, name: James Hong, character: Gong Gong, profile: /v3lfw5aHOy0paOCx6WHiSnwzbH0.jpg}
+          - {id: 8944, name: Jamie Lee Curtis, character: Deirdre Beaubeirdre, profile: /eWKubKAAssRzmFwCZKh1mdYqGCH.jpg}
+          - {id: 1071151, name: Tallie Medel, character: Becky Sregor, profile: /uPpO4A56hRcJZRZYXrUxNdBZxUc.jpg}
+          - {id: 213001, name: Jenny Slate, character: Big Nose, profile: /mMxsNO6r966ut0sordYzj2iDOb6.jpg}
+          - {id: 232499, name: Harry Shum Jr., character: Chad, profile: /xFQsThmdyuOk9jt3zgZL08ixf2b.jpg}
+          - {id: 1367122, name: Biff Wiff, character: Rick, profile: /hfXXxpwugRUHX4sxEP7njAnYXTy.jpg}
+          - {id: 1375002, name: Sunita Mani, character: TV Musical - Queen, profile: /xQo4rkMEphSAt8F9D1OyWv0GBLx.jpg}
+        crew:
+          - {id: 1317730, name: Daniel Scheinert, department: Writing, job: Writer, profile: /rb59IHeLhmyBgTeBH5LGXXIt3Y8.jpg}
+          - {id: 1383612, name: Daniel Kwan, department: Writing, job: Writer, profile: /rVAZLUZhuKCmdzhCsSiOf8j64IA.jpg}
+          - {id: 1317730, name: Daniel Scheinert, department: Directing, job: Director, profile: /rb59IHeLhmyBgTeBH5LGXXIt3Y8.jpg}
+          - {id: 1383612, name: Daniel Kwan, department: Directing, job: Director, profile: /rVAZLUZhuKCmdzhCsSiOf8j64IA.jpg}
+      trailer: wxN1T1uxQ2g
+      studio: {id: 93105, name: IAC Films}
+      images:
+        - {shape: poster, language: en, votes: 6.834, path: /u68AjlvlutfEIcpmbYpKcdi09ut.jpg, width: 2000, height: 3000}
+        - {shape: backdrop, votes: 6.06, path: /fIwiFha3WPu5nHkBeMQ4GzEk0Hv.jpg, width: 2560, height: 1440}
+        - {shape: logo, language: en, votes: 2.542, path: /6rpxXCCaVtj5u4dWANfdRoVgDQV.png, width: 3139, height: 1256}
+      vote_average: 7.713
+      vote_count: 8624
+    - id: 693134
+      imdb_id: tt15239678
+      title: 'Dune: Part Two'
+      runtime: 167m
+      dates:
+        - {country: US, kind: limited, date: "2026-11-13", certification: PG-13, note: IMAX re-release}
+        - {country: US, kind: cinema, date: "2024-03-01", certification: PG-13}
+        - {country: US, kind: digital, date: "2024-04-16", certification: PG-13}
+        - {country: US, kind: digital, date: "2024-05-21", certification: PG-13, note: HBO Max}
+        - {country: US, kind: physical, date: "2024-05-14", certification: PG-13, note: 4K Ultra HD / Blu-ray / DVD}
+        - {country: US, kind: tv, date: "2024-06-01", certification: PG-13, note: HBO}
+        - {country: GB, kind: premiere, date: "2024-02-15", note: 'London, England'}
+        - {country: GB, kind: cinema, date: "2024-03-01", certification: 12A}
+        - {country: GB, kind: digital, date: "2024-04-15", certification: "12"}
+        - {country: GB, kind: physical, date: "2024-05-27", certification: "12", note: Blu-ray / DVD}
+        - {country: FR, kind: premiere, date: "2024-02-12", note: Le Grand Rex}
+        - {country: FR, kind: cinema, date: "2024-02-28", certification: "12"}
+        - {country: FR, kind: physical, date: "2024-07-10"}
+        - {country: DE, kind: cinema, date: "2024-02-29", certification: "12"}
+        - {country: DE, kind: digital, date: "2024-04-16", certification: "12"}
+        - {country: DE, kind: physical, date: "2024-05-29", certification: "12"}
+      original_title: 'Dune: Part Two'
+      original_language: en
+      overview: Follow the mythic journey of Paul Atreides as he unites with Chani and the Fremen while on a path of revenge against the conspirators who destroyed his family. Facing a choice between the love of his life and the fate of the known universe, Paul endeavors to prevent a terrible future only he can foresee.
+      tagline: Long live the fighters.
+      genres: [Science Fiction, Adventure]
+      status: Released
+      titles:
+        - {country: US, title: Dune 2}
+        - {country: US, title: 'Dune: Part 2'}
+        - {country: US, title: Dune Two}
+        - {country: US, title: Dune Part Two}
+        - {country: DE, title: Dune 2}
+      translations:
+        - language: fr-FR
+          title: 'Dune : Deuxième partie'
+          overview: Le voyage mythique de Paul Atreides qui s'allie à Chani et aux Fremen dans sa quête de vengeance envers les conspirateurs qui ont anéanti sa famille. Devant choisir entre l'amour de sa vie et le destin de l'univers, il fera tout pour éviter un terrible futur que lui seul peut prédire.
+          tagline: Longue vie à la Rébellion !
+        - language: de-DE
+          overview: Paul Atreides begibt sich mithilfe von Chani und den Fremen auf einen Rachefeldzug gegen die Verschwörer, die seine Familie vernichtet haben. Der junge Paul steht vor der Wahl zwischen der Liebe seines Lebens und dem Schicksal des gesamten Universums. Mit allen Mitteln aber muss er versuchen, eine schreckliche Zukunft zu verhindern – eine Zukunft, die niemand außer ihm vorhersehen kann.
+          tagline: Lang leben die Kämpfer
+        - language: es-ES
+          title: 'Dune: Parte dos'
+          overview: Sigue el viaje mítico de Paul Atreides mientras se une a Chani y los Fremen en una guerra de venganza contra los conspiradores que destruyeron a su familia. Al enfrentarse a una elección entre el amor de su vida y el destino del universo conocido, Paul se esfuerza por evitar un futuro terrible que solo él puede prever.
+          tagline: Larga vida a los guerreros.
+      credits:
+        cast:
+          - {id: 1190668, name: Timothée Chalamet, character: Paul Atreides, profile: /dFxpwRpmzpVfP1zjluH68DeQhyj.jpg}
+          - {id: 505710, name: Zendaya, character: Chani, profile: /1qup8tSt95HLbcy2c2xrx4iJNxv.jpg}
+          - {id: 933238, name: Rebecca Ferguson, character: Jessica, profile: /ty8ZPzaCBBlqIr5qzpOXI24iC8j.jpg}
+          - {id: 3810, name: Javier Bardem, character: Stilgar, profile: /zfRID0jx8DKBluPGU9xtk9sZWUt.jpg}
+          - {id: 16851, name: Josh Brolin, character: Gurney Halleck, profile: /7QpneI3HoZCCDVPyWx3p3t7yeo7.jpg}
+          - {id: 86654, name: Austin Butler, character: Feyd-Rautha, profile: /atdAs4pFGjUQ4m2W8kJYly7N6cC.jpg}
+          - {id: 1373737, name: Florence Pugh, character: Princess Irulan, profile: /1QfiLnofJFlOJOLCWaxyDpIN03v.jpg}
+          - {id: 543530, name: Dave Bautista, character: Beast Rabban, profile: /snk6JiXOOoRjPtHU5VMoy6qbd32.jpg}
+          - {id: 4690, name: Christopher Walken, character: Emperor, profile: /ApgDL7nudR9T2GpjCG4vESgymO2.jpg}
+          - {id: 121529, name: Léa Seydoux, character: Lady Margot Fenring, profile: /4q6xqqWLLleQrFjeqeYYV8B0fwE.jpg}
+        crew:
+          - {id: 137427, name: Denis Villeneuve, department: Writing, job: Screenplay, profile: /xzQYqb4nR8xT7Zdw5itbEL9K3fd.jpg}
+          - {id: 137427, name: Denis Villeneuve, department: Directing, job: Director, profile: /xzQYqb4nR8xT7Zdw5itbEL9K3fd.jpg}
+          - {id: 12506, name: Frank Herbert, department: Writing, job: Novel, profile: /1uE09gzcwXMjCfXZfXXwNDIHaXG.jpg}
+          - {id: 564940, name: Jon Spaihts, department: Writing, job: Screenplay, profile: /n5JF0cYCWe8AUqb4Sto042rnG4e.jpg}
+      trailer: U2Qp5pL3ovA
+      collection: {id: 726871, name: Dune Collection}
+      studio: {id: 923, name: Legendary Pictures}
+      images:
+        - {shape: poster, language: en, votes: 6.5, path: /heM4XKC0jA8fTSNe8F7oUkcJV7Z.jpg, width: 1024, height: 1536}
+        - {shape: backdrop, votes: 5.83, path: /eZ239CUp1d6OryZEBPnO2n87gMG.jpg, width: 3840, height: 2160}
+        - {shape: logo, language: en, votes: 4.722, path: /gOWf4IYBP2m1Q7dhbQJkwxH714x.png, width: 4309, height: 919}
+      vote_average: 8.143
+      vote_count: 8911
+    - id: 872585
+      imdb_id: tt15398776
+      title: Oppenheimer
+      runtime: 181m
+      dates:
+        - {country: US, kind: premiere, date: "2023-07-17", certification: R, note: 'New York City, New York'}
+        - {country: US, kind: limited, date: "2024-01-12", certification: R, note: 70mm IMAX Re-Release}
+        - {country: US, kind: cinema, date: "2023-07-21", certification: R}
+        - {country: US, kind: cinema, date: "2023-11-03", certification: R, note: Re-Release}
+        - {country: US, kind: cinema, date: "2025-02-28", certification: R, note: Re-Release}
+        - {country: US, kind: digital, date: "2023-11-21", certification: R}
+        - {country: US, kind: digital, date: "2024-02-16", certification: R, note: Peacock}
+        - {country: US, kind: physical, date: "2023-11-21", certification: R, note: 4K Ultra HD / Blu-ray / DVD}
+        - {country: GB, kind: premiere, date: "2023-07-13", certification: "15", note: 'London, England'}
+        - {country: GB, kind: limited, date: "2024-01-12", certification: "15", note: BFI IMAX}
+        - {country: GB, kind: cinema, date: "2023-07-21", certification: "15"}
+        - {country: GB, kind: digital, date: "2023-11-22", certification: "15"}
+        - {country: GB, kind: physical, date: "2023-11-22", certification: "15", note: Blu-ray / DVD}
+        - {country: FR, kind: premiere, date: "2023-07-11", note: 'Le Grand Rex, Paris'}
+        - {country: FR, kind: cinema, date: "2023-07-19", certification: TP}
+        - {country: FR, kind: digital, date: "2023-11-22", certification: TP}
+        - {country: FR, kind: physical, date: "2023-11-22", certification: TP, note: Blu-ray / DVD}
+        - {country: DE, kind: cinema, date: "2023-07-20", certification: "12"}
+        - {country: DE, kind: digital, date: "2023-11-22", certification: "12"}
+        - {country: DE, kind: physical, date: "2023-11-22", certification: "12"}
+      original_title: Oppenheimer
+      original_language: en
+      overview: The story of J. Robert Oppenheimer's role in the development of the atomic bomb during World War II.
+      tagline: The world forever changes.
+      genres: [Drama, History, War]
+      status: Released
+      titles:
+        - {country: US, title: Gadget, kind: working title}
+      translations:
+        - language: fr-FR
+          overview: En 1942, convaincus que l'Allemagne hitlérienne est en train de développer une arme nucléaire, les États-Unis initient, dans le plus grand secret, le  « Projet Manhattan » destiné à mettre au point la première bombe atomique de l’histoire. Pour piloter ce dispositif, le gouvernement engage J. Robert Oppenheimer, brillant physicien, qui sera bientôt surnommé « le père de la bombe atomique ». C'est dans le laboratoire ultra-secret de Los Alamos, au cœur du désert du Nouveau-Mexique, que le scientifique et son équipe mettent au point une arme révolutionnaire dont les conséquences, vertigineuses, continuent de peser sur le monde actuel…
+          tagline: Le monde changera à jamais.
+        - language: de-DE
+          overview: Als dem Physiker Julius Robert Oppenheimer während des Zweiten Weltkriegs die wissenschaftliche Leitung des Manhattan-Projekts übertragen wird, können er und seine Ehefrau Kitty sich nicht vorstellen, welche Auswirkungen Oppenheimers Arbeit nicht nur auf ihr Leben, sondern auf die ganze Welt haben wird. Im Los Alamos National Laboratory in New Mexico sollen er und sein Team unter der Aufsicht von Lt. Leslie Groves eine Nuklearwaffe entwickeln – was ihnen auch gelingt. Oppenheimer wird zum „Vater der Atombombe“ ausgerufen, doch dass seine tödliche Erfindung bald folgenschwer in Hiroshima und Nagasaki eingesetzt wird, lässt Oppenheimer Abstand von dem Projekt nehmen. Als der Krieg zu Ende geht, setzt sich Robert Oppenheimer als Berater der US-amerikanischen Atomenergiebehörde, die von Lewis Strauss mitbegründet wurde, für eine internationale Kontrolle von Kernenergie und gegen ein nukleares Wettrüsten ein – und gerät ins Visier des FBI.
+          tagline: Die Welt verändert sich für immer
+        - language: es-ES
+          overview: 'Película sobre el físico J. Robert Oppenheimer y su papel como desarrollador de la bomba atómica. Basada en el libro ''American Prometheus: The Triumph and Tragedy of J. Robert Oppenheimer'' de Kai Bird y Martin J. Sherwin.'
+          tagline: El mundo cambia para siempre.
+      credits:
+        cast:
+          - {id: 2037, name: Cillian Murphy, character: J. Robert Oppenheimer, profile: /2lKs67r7FI4bPu0AXxMUJZxmUXn.jpg}
+          - {id: 5081, name: Emily Blunt, character: Kitty Oppenheimer, profile: /5nCSG5TL1bP1geD8aaBfaLnLLCD.jpg}
+          - {id: 1892, name: Matt Damon, character: Leslie Groves, profile: /aCvBXTAR9B1qRjIRzMBYhhbm1fR.jpg}
+          - {id: 3223, name: Robert Downey Jr., character: Lewis Strauss, profile: /5qHNjhtjMD4YWH3UP0rm4tKwxCL.jpg}
+          - {id: 1373737, name: Florence Pugh, character: Jean Tatlock, profile: /1QfiLnofJFlOJOLCWaxyDpIN03v.jpg}
+          - {id: 2299, name: Josh Hartnett, character: Ernest Lawrence, profile: /5eMo8D7h1XrSu6ZN4UXhPcS6YNG.jpg}
+          - {id: 1893, name: Casey Affleck, character: Boris Pash, profile: /304ilSygaCRWykoBWAL67TOw8g9.jpg}
+          - {id: 17838, name: Rami Malek, character: David Hill, profile: /8ykTeTRSYd2MKF5uLBvD93X5KMJ.jpg}
+          - {id: 11181, name: Kenneth Branagh, character: Niels Bohr, profile: /AbCqqFxNi5w3nDUFdQt0DGMFh5H.jpg}
+          - {id: 227564, name: Benny Safdie, character: Edward Teller, profile: /u10A5DpUYRB1zMF7YoGYcyvhois.jpg}
+        crew:
+          - {id: 525, name: Christopher Nolan, department: Directing, job: Director, profile: /xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg}
+          - {id: 525, name: Christopher Nolan, department: Writing, job: Writer, profile: /xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg}
+          - {id: 2334219, name: Kai Bird, department: Writing, job: Book, profile: /mhuRxNJaYleFVqhaWjhPoFdY1pn.jpg}
+          - {id: 1778411, name: Martin J. Sherwin, department: Writing, job: Book, profile: /xKUoPp8sVA4QD5xq3ENTLt5I5o2.jpg}
+      trailer: qiuSBWVdgLI
+      studio: {id: 9996, name: Syncopy}
+      images:
+        - {shape: poster, language: en, votes: 7.048, path: /ptpr0kGAckfQkJeJIt8st5dglvd.jpg, width: 1000, height: 1500}
+        - {shape: backdrop, votes: 5.87, path: /neeNHeXjMF5fXoCJRsOmkNGC7q.jpg, width: 3840, height: 2160}
+        - {shape: logo, language: en, votes: 5.778, path: /b07VisHvZb0WzUpA8VB77wfMXwg.png, width: 2924, height: 194}
+      vote_average: 8.023
+      vote_count: 12847
+omdb:
+  titles:
+    - imdb_id: tt0468569
+      imdb_rating: 9.1
+      imdb_votes: 3236507
+      rotten_tomatoes: 94
+      metacritic: 85
+      awards: Won 2 Oscars. 164 wins & 165 nominations total
+    - imdb_id: tt0211915
+      imdb_rating: 8.2
+      imdb_votes: 848391
+      rotten_tomatoes: 90
+      metacritic: 70
+      awards: Nominated for 5 Oscars. 60 wins & 74 nominations total
+    - imdb_id: tt1375666
+      imdb_rating: 8.8
+      imdb_votes: 2877173
+      rotten_tomatoes: 86
+      metacritic: 74
+      awards: Won 4 Oscars. 160 wins & 220 nominations total
+    - imdb_id: tt1392190
+      imdb_rating: 8.1
+      imdb_votes: 1223352
+      rotten_tomatoes: 97
+      metacritic: 90
+      awards: Won 6 Oscars. 246 wins & 240 nominations total
+    - imdb_id: tt4633694
+      imdb_rating: 8.4
+      imdb_votes: 819638
+      rotten_tomatoes: 97
+      metacritic: 87
+      awards: Won 1 Oscar. 85 wins & 60 nominations total
+    - imdb_id: tt2543164
+      imdb_rating: 7.9
+      imdb_votes: 882127
+      rotten_tomatoes: 94
+      metacritic: 81
+      awards: Won 1 Oscar. 73 wins & 276 nominations total
+    - imdb_id: tt6751668
+      imdb_rating: 8.5
+      imdb_votes: 1200817
+      rotten_tomatoes: 99
+      metacritic: 97
+      awards: Won 4 Oscars. 309 wins & 261 nominations total
+    - imdb_id: tt6710474
+      imdb_rating: 7.7
+      imdb_votes: 663149
+      rotten_tomatoes: 93
+      metacritic: 81
+      awards: Won 7 Oscars. 408 wins & 382 nominations total
+    - imdb_id: tt15239678
+      imdb_rating: 8.4
+      imdb_votes: 797737
+      rotten_tomatoes: 92
+      metacritic: 79
+      awards: Won 2 Oscars. 126 wins & 375 nominations total
+    - imdb_id: tt15398776
+      imdb_rating: 8.2
+      imdb_votes: 1103487
+      rotten_tomatoes: 93
+      metacritic: 90
+      awards: Won 7 Oscars. 370 wins & 378 nominations total
+releases:
+  - name: The.Dark.Knight.2008.1080p.WEB-DL.H264-FKW
+    tmdb_id: 155
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 6.0GiB
+  - name: Amelie.2001.1080p.WEB-DL.H264-FKW
+    tmdb_id: 194
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 15
+    seeded: true
+    advertised_size: 7.1GiB
+  - name: Inception.2010.1080p.WEB-DL.H264-FKW
+    tmdb_id: 27205
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 18
+    seeded: true
+    advertised_size: 8.2GiB
+  - name: Mad.Max.Fury.Road.2015.1080p.WEB-DL.H264-FKW
+    tmdb_id: 76341
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 21
+    seeded: true
+    advertised_size: 9.3GiB
+  - name: Spider-Man.Into.the.Spider-Verse.2018.1080p.WEB-DL.H264-FKW
+    tmdb_id: 324857
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 24
+    seeded: true
+    advertised_size: 6.4GiB
+  - name: Arrival.2016.1080p.WEB-DL.H264-FKW
+    tmdb_id: 329865
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 27
+    seeded: true
+    advertised_size: 7.5GiB
+  - name: Parasite.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 496243
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 30
+    seeded: true
+    advertised_size: 8.6GiB
+  - name: Everything.Everywhere.All.at.Once.2022.1080p.WEB-DL.H264-FKW
+    tmdb_id: 545611
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 33
+    seeded: true
+    advertised_size: 9.7GiB
+  - name: Dune.Part.Two.2024.1080p.WEB-DL.H264-FKW
+    tmdb_id: 693134
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 36
+    seeded: true
+    advertised_size: 6.8GiB
+  - name: Oppenheimer.2023.1080p.WEB-DL.H264-FKW
+    tmdb_id: 872585
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 39
+    seeded: true
+    advertised_size: 7.9GiB
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

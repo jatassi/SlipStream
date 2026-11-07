@@ -131,6 +131,9 @@ type Op struct {
 	Errors []*Code
 	// MaxBody raises the 2 MiB body limit for an operation that needs more.
 	MaxBody int64
+	// Gzip compresses the response for a client that accepts gzip, for an
+	// operation that answers megabytes.
+	Gzip bool
 }
 
 var idShape = regexp.MustCompile(`^[a-z]+[A-Z][A-Za-z0-9]*$`)
@@ -175,6 +178,10 @@ func humaOperation[P any](o *Owner, level Level[P], op Op, input reflect.Type) (
 	if limit == 0 {
 		limit = defaultBodyLimit
 	}
+	middlewares := huma.Middlewares{admitMiddleware(o.router, level)}
+	if op.Gzip {
+		middlewares = append(middlewares, gzipMiddleware(o.router))
+	}
 	return huma.Operation{
 		OperationID:   op.ID,
 		Method:        op.Method,
@@ -188,7 +195,7 @@ func humaOperation[P any](o *Owner, level Level[P], op Op, input reflect.Type) (
 		// Huma answers 413 when it reads exactly MaxBodyBytes, so the limit
 		// itself is MaxBodyBytes-1.
 		MaxBodyBytes: limit + 1,
-		Middlewares:  huma.Middlewares{admitMiddleware(o.router, level)},
+		Middlewares:  middlewares,
 	}, declared
 }
 

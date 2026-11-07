@@ -36,7 +36,7 @@ func facets(types ...works.TypeID) map[works.TypeID]targets.Facet {
 
 type noFacet struct{}
 
-func (noFacet) Timings(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+func (noFacet) Timings(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
 	return nil, nil
 }
 

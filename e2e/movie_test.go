@@ -26,16 +26,28 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
-const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},` +
-	`"fields":[{"key":"english_title","label":"English title","tier":"work","kind":"text"},{"key":"original_title","label":"Original title","tier":"work","kind":"text"},{"key":"original_language","label":"Original language","tier":"work","kind":"text"},` +
-	`{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"release_date","label":"Release date","tier":"work","kind":"date"},{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"},` +
-	`{"key":"status","label":"Status","tier":"work","kind":"text"},{"key":"certification","label":"Certification","tier":"work","kind":"text"},{"key":"certification_country","label":"Certification country","tier":"work","kind":"text"},` +
-	`{"key":"genres","label":"Genres","tier":"work","kind":"texts"},{"key":"tagline","label":"Tagline","tier":"work","kind":"text"},{"key":"overview","label":"Overview","tier":"work","kind":"text"},` +
-	`{"key":"studio","label":"Studio","tier":"work","kind":"text"},{"key":"collection","label":"Collection","tier":"work","kind":"text"},{"key":"credits","label":"Cast and crew","tier":"work","kind":"people"},` +
-	`{"key":"alternative_titles","label":"Alternative titles","tier":"work","kind":"texts"},{"key":"imdb_id","label":"IMDb id","tier":"work","kind":"text"},{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text"},` +
-	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text"},{"key":"awards","label":"Awards","tier":"work","kind":"text"}],` +
-	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},` +
-	`{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}]}`
+const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},"fields":[` +
+	`{"key":"english_title","label":"English title","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"original_title","label":"Original title","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"original_language","label":"Original language","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"year","label":"Year","tier":"work","kind":"number","in":["facts"],"list":{"column":true,"sort":true,"filter":true},"with":null,"art":null},` +
+	`{"key":"release_date","label":"Release date","tier":"work","kind":"date","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"runtime","label":"Runtime","tier":"work","kind":"duration","in":["facts"],"list":{"column":true,"sort":true,"filter":false},"with":null,"art":null},` +
+	`{"key":"status","label":"Status","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"certification","label":"Certification","tier":"work","kind":"text","in":["facts","about"],"list":{"column":true,"sort":true,"filter":true},"with":"certification_country","art":null},` +
+	`{"key":"certification_country","label":"Certification country","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"genres","label":"Genres","tier":"work","kind":"texts","in":["facts","about"],"list":{"column":false,"sort":false,"filter":true},"with":null,"art":null},` +
+	`{"key":"tagline","label":"Tagline","tier":"work","kind":"text","in":["tagline"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"overview","label":"Overview","tier":"work","kind":"text","in":["overview"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"studio","label":"Studio","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":"studio_logo"},` +
+	`{"key":"collection","label":"Collection","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"credits","label":"Cast and crew","tier":"work","kind":"people","in":["credits"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"alternative_titles","label":"Alternative titles","tier":"work","kind":"texts","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"imdb_id","label":"IMDb id","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"awards","label":"Awards","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
+	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"]}`
 
 // artworkURL is an artwork URL, whose token each install signs with its
 // own key.
@@ -62,7 +74,7 @@ func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)
 	}
 	var ids []string
-	checkOutline(t, "the added movie", tr, &ids, "#1 movie The Quiet Orchard (The Quiet Orchard) 9000001 [english_title=The Quiet Orchard original_title=The Quiet Orchard original_language=en year=2021 release_date=2021-04-16 runtime=6240000ms status=Released imdb_id=tt9000001]")
+	checkOutline(t, "the added movie", tr, &ids, "#1 movie The Quiet Orchard (Quiet Orchard, The) 9000001 [english_title=The Quiet Orchard original_title=The Quiet Orchard original_language=en year=2021 release_date=2021-04-16 runtime=6240000ms status=Released imdb_id=tt9000001]")
 	if len(tr.Items) != 1 || tr.Items[0].Key != "movie" || tr.Items[0].Label != "The Quiet Orchard" || !tr.Items[0].Monitored || tr.Items[0].LevelID != nil {
 		t.Fatalf("items = %+v, want one monitored Item movie under the Work", tr.Items)
 	}
@@ -93,6 +105,7 @@ type movieView struct {
 	Fields         json.RawMessage `json:"fields"`
 	Ratings        json.RawMessage `json:"ratings"`
 	Artwork        []artRef        `json:"artwork"`
+	Links          json.RawMessage `json:"links"`
 }
 
 type artRef struct {
@@ -214,7 +227,15 @@ func TestAMovieIsAddedWithItsWholeRecordFromThePreviewsOneFetch(t *testing.T) {
 	if stored.fields() != added.fields() || stored.ratings() != added.ratings() {
 		t.Fatalf("getWork reads fields\n%s\nratings %s\nwant what the add answered", stored.fields(), stored.ratings())
 	}
+	if want := saltRoadLinks; string(stored.Links) != want {
+		t.Fatalf("getWork links to\n%s\nwant\n%s", stored.Links, want)
+	}
 }
+
+const saltRoadLinks = `[{"key":"imdb","label":"IMDb","url":"https://www.imdb.invalid/title/tt9000005","kind":"page"},` +
+	`{"key":"tmdb","label":"TMDB","url":"https://www.tmdb.invalid/movie/9000005","kind":"page"},` +
+	`{"key":"trakt","label":"Trakt","url":"https://trakt.invalid/search/tmdb/9000005?id_type=movie","kind":"page"},` +
+	`{"key":"trailer","label":"Trailer","url":"https://www.youtube.invalid/watch?v=sa1tR0adTr","kind":"trailer"}]`
 
 type served struct {
 	status      int
@@ -338,12 +359,17 @@ func TestAMovieRefreshesAloneAndWithEveryMovieAndKeepsItsRecordOnceGone(t *testi
 	run := moviesAlone(t)
 	a := api(t, run)
 	work := addSaltRoad(t, a)
-	refresh := "/api/v1/works/" + work.ID + "/refresh"
+	refresh := func(why, outcome string) {
+		t.Helper()
+		worldtest.Expect(t, why, a.Admin("home", http.MethodPost, "/api/v1/works/refresh", `{"workIds":["`+work.ID+`"]}`),
+			worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + work.ID + `",` + outcome + `}]}` + "\n"})
+	}
 
 	cue(t, run, "tmdb-change", `{"id":9000005}`)
 	revised := strings.Replace(saltRoadFields, "Two sisters walk the salt road.", "Two sisters walk the salt road. Revision 1.", 1) + awardsField
 	recounted := strings.Replace(work.ratings(), `"votes":410`, `"votes":411`, 1)
-	if got := decode(t, "refreshWork", a.Admin("home", http.MethodPost, refresh, ""), &movieView{}); got.fields() != revised || got.ratings() != recounted {
+	refresh("refreshWorks", `"outcome":"done"`)
+	if got := decode(t, "getWork after refreshWorks", a.Admin("home", http.MethodGet, "/api/v1/works/"+work.ID, ""), &movieView{}); got.fields() != revised || got.ratings() != recounted {
 		t.Fatalf("the refreshed movie reads fields\n%s\nratings %s\nwant\n%s\n%s", got.fields(), got.ratings(), revised, recounted)
 	}
 
@@ -359,7 +385,7 @@ func TestAMovieRefreshesAloneAndWithEveryMovieAndKeepsItsRecordOnceGone(t *testi
 	}
 
 	cue(t, run, "tmdb-delete", `{"id":9000005}`)
-	worldtest.Expect(t, "refreshWork once TMDB deleted it", a.Admin("home", http.MethodPost, refresh, ""), problem(409, "work_gone_upstream", "The metadata source no longer has this Work"))
+	refresh("refreshWorks once TMDB deleted it", `"outcome":"skipped","reason":"work_gone_upstream"`)
 	gone := decode(t, "getWork once gone", a.Admin("home", http.MethodGet, "/api/v1/works/"+work.ID, ""), &movieView{})
 	if gone.GoneUpstreamAt == nil || gone.fields() != revised || gone.ratings() != recounted {
 		t.Fatalf("the gone movie reads goneUpstreamAt %v with fields\n%s\nratings %s\nwant it marked and its record kept", gone.GoneUpstreamAt, gone.fields(), gone.ratings())

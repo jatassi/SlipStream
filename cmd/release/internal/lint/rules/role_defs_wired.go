@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -13,7 +14,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "role-defs-wired",
-		Doc:   "internal/node serves and holds every package-level role.Def, and no two Defs share a Name (spec #132, Lints and CI checks)",
+		Doc:   "internal/node serves and holds every package-level role.Def and role.WideDef, and no two Defs share a Name (spec #132, Lints and CI checks)",
 		Check: checkRoleDefsWired,
 	})
 }
@@ -23,9 +24,22 @@ const (
 	roleTree   = "internal/role"
 )
 
+// defWiring is, per role Def type and method, the internal/node function
+// that must call it, "" for any. Every Node holds a Node-wide channel, so
+// its Hold goes among the Roles both halves hold, and only the Controller
+// serves it.
+var defWiring = map[string]map[string]string{
+	"Def":     {"Serve": "", "Hold": ""},
+	"WideDef": {"Serve": "startController", "Hold": "heldRoles"},
+}
+
+var wiringVerbs = map[string]string{"Serve": "served", "Hold": "held"}
+
 type roleDef struct {
 	key, label string
-	// constant is the role Name constant the Def names, "" for any other
+	// typ is the Def's type, a key of defWiring.
+	typ string
+	// constant is the role constant the Def names, "" for any other
 	// expression.
 	constant string
 	at       lint.Finding
@@ -36,7 +50,9 @@ type roleDefsIndex struct {
 	rolePkg   string
 	constants map[string]string
 	defs      []roleDef
-	wired     map[string]map[string]bool
+	// wired is, per method, each Def's key and the internal/node functions
+	// that call that method on it, "" for a call outside any.
+	wired map[string]map[string][]string
 }
 
 func checkRoleDefsWired(repo *lint.Repo) ([]lint.Finding, error) {
@@ -52,7 +68,7 @@ func checkRoleDefsWired(repo *lint.Repo) ([]lint.Finding, error) {
 		repo:      repo,
 		rolePkg:   path.Join(module, roleTree),
 		constants: map[string]string{},
-		wired:     map[string]map[string]bool{"Serve": {}, "Hold": {}},
+		wired:     map[string]map[string][]string{"Serve": {}, "Hold": {}},
 	}
 	for _, f := range files {
 		idx.add(f, path.Join(module, path.Dir(f.Path)))
@@ -60,9 +76,13 @@ func checkRoleDefsWired(repo *lint.Repo) ([]lint.Finding, error) {
 	var findings []lint.Finding
 	declared := map[string]bool{}
 	for _, d := range idx.defs {
-		for method, verb := range map[string]string{"Serve": "served", "Hold": "held"} {
-			if !idx.wired[method][d.key] {
-				findings = append(findings, d.finding(d.label+" is not "+verb+" in "+roleWiring))
+		for _, method := range []string{"Serve", "Hold"} {
+			in, where := defWiring[d.typ][method], roleWiring
+			if in != "" {
+				where += "'s " + in
+			}
+			if !slices.ContainsFunc(idx.wired[method][d.key], func(fn string) bool { return in == "" || fn == in }) {
+				findings = append(findings, d.finding(d.label+" is not "+wiringVerbs[method]+" in "+where))
 			}
 		}
 		name, ok := idx.constants[d.constant]
@@ -108,20 +128,27 @@ func (idx *roleDefsIndex) add(f lint.GoFile, pkg string) {
 }
 
 func (idx *roleDefsIndex) addWiring(imports map[string]string, file *ast.File) {
-	ast.Inspect(file, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
+	for _, decl := range file.Decls {
+		fn := ""
+		if fd, ok := decl.(*ast.FuncDecl); ok {
+			fn = fd.Name.Name
+		}
+		ast.Inspect(decl, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || idx.wired[sel.Sel.Name] == nil {
+				return true
+			}
+			if pkg, name, ok := qualifiedName(imports, sel.X); ok {
+				key := pkg + "." + name
+				idx.wired[sel.Sel.Name][key] = append(idx.wired[sel.Sel.Name][key], fn)
+			}
 			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || idx.wired[sel.Sel.Name] == nil {
-			return true
-		}
-		if pkg, name, ok := qualifiedName(imports, sel.X); ok {
-			idx.wired[sel.Sel.Name][pkg+"."+name] = true
-		}
-		return true
-	})
+		})
+	}
 }
 
 func (idx *roleDefsIndex) addConstants(vs *ast.ValueSpec) {
@@ -135,7 +162,11 @@ func (idx *roleDefsIndex) addConstants(vs *ast.ValueSpec) {
 func (idx *roleDefsIndex) addDefs(f lint.GoFile, pkg, dir string, imports map[string]string, vs *ast.ValueSpec) {
 	for i, name := range vs.Names[:min(len(vs.Names), len(vs.Values))] {
 		lit, ok := vs.Values[i].(*ast.CompositeLit)
-		if !ok || !idx.isDef(imports, lit.Type) {
+		if !ok {
+			continue
+		}
+		typ, ok := idx.defType(imports, lit.Type)
+		if !ok {
 			continue
 		}
 		var constant string
@@ -151,13 +182,15 @@ func (idx *roleDefsIndex) addDefs(f lint.GoFile, pkg, dir string, imports map[st
 		idx.defs = append(idx.defs, roleDef{
 			key:      pkg + "." + name.Name,
 			label:    dir + "." + name.Name,
+			typ:      typ,
 			constant: constant,
 			at:       lint.Finding{Path: f.Path, Line: idx.repo.Fset.Position(name.Pos()).Line},
 		})
 	}
 }
 
-func (idx *roleDefsIndex) isDef(imports map[string]string, typ ast.Expr) bool {
+// defType is the role Def type typ instantiates, false for any other type.
+func (idx *roleDefsIndex) defType(imports map[string]string, typ ast.Expr) (string, bool) {
 	switch t := typ.(type) {
 	case *ast.IndexExpr:
 		typ = t.X
@@ -165,7 +198,7 @@ func (idx *roleDefsIndex) isDef(imports map[string]string, typ ast.Expr) bool {
 		typ = t.X
 	}
 	pkg, name, ok := qualifiedName(imports, typ)
-	return ok && pkg == idx.rolePkg && name == "Def"
+	return name, ok && pkg == idx.rolePkg && defWiring[name] != nil
 }
 
 func isIdent(expr ast.Expr, name string) bool {

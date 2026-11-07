@@ -50,3 +50,20 @@ func (Enum[V]) Schema(r huma.Registry) *huma.Schema {
 	}
 	return &huma.Schema{Ref: schemaPrefix + name}
 }
+
+// Counts is a count for each of V's values, a value with none left out.
+// The document names its schema after V.
+type Counts[V Values] map[string]int
+
+func (Counts[V]) Schema(r huma.Registry) *huma.Schema {
+	name := schemaName(reflect.TypeFor[V](), "") + "Counts"
+	if _, done := r.Map()[name]; !done {
+		var v V
+		s := &huma.Schema{Type: huma.TypeObject, Properties: map[string]*huma.Schema{}, AdditionalProperties: false}
+		for _, value := range v.Values() {
+			s.Properties[value] = &huma.Schema{Type: huma.TypeInteger, Minimum: new(1.0)}
+		}
+		r.Map()[name] = s
+	}
+	return &huma.Schema{Ref: schemaPrefix + name}
+}

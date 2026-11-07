@@ -47,23 +47,28 @@ func Assign(ctx context.Context, tx *storage.Tx[file], w works.Summary, profile 
 // GoalsIn reads work's Goals in r, works.ErrNoWork when no Work has id
 // work.
 func GoalsIn(ctx context.Context, r storage.Reader[file], work works.WorkID) (Goals, error) {
-	gs, err := GoalsOf(ctx, r, []works.WorkID{work})
+	gs, err := GoalsOf(ctx, r, works.Only([]works.WorkID{work}))
 	return gs[work], err
 }
 
 // GoalsOf reads the Goals of each of ws in r, reading every Target and
-// Profile once for all of them: works.ErrNoWork when one of ws has no
-// wants row.
-func GoalsOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.WorkID]Goals, error) {
+// Profile once for all of them: works.ErrNoWork when one of ws, listed,
+// has no wants row.
+func GoalsOf(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[works.WorkID]Goals, error) {
 	q := db.New(r)
-	rows, err := q.ListWantsOf(ctx, ws)
+	rows, err := works.Read(ws, func() ([]db.TargetsWant, error) { return q.ListEveryWants(ctx) }, func(ids []works.WorkID) ([]db.TargetsWant, error) {
+		rows, err := q.ListWantsOf(ctx, ids)
+		if err == nil && len(rows) < len(ids) {
+			return nil, works.ErrNoWork
+		}
+		return rows, err
+	})
 	if err != nil {
 		return nil, err
 	}
-	if len(rows) < len(ws) {
-		return nil, works.ErrNoWork
-	}
-	cuts, err := q.ListWantsCutsOf(ctx, ws)
+	cuts, err := works.Read(ws, func() ([]db.TargetsWantsCut, error) { return q.ListEveryWantsCut(ctx) }, func(ids []works.WorkID) ([]db.TargetsWantsCut, error) {
+		return q.ListWantsCutsOf(ctx, ids)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -87,15 +92,18 @@ func GoalsOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (ma
 	for _, t := range all {
 		targetOf[t.ID] = t
 	}
+	wanted := make(map[ProfileID][]Target, len(profiles))
+	for _, p := range profiles {
+		for _, e := range p.Entries {
+			wanted[p.ID] = append(wanted[p.ID], targetOf[e.Target])
+		}
+	}
 	out := make(map[works.WorkID]Goals, len(rows))
 	for _, row := range rows {
-		g := Goals{Profile: profileOf[row.ProfileID]}
+		g := Goals{Profile: profileOf[row.ProfileID], Targets: wanted[row.ProfileID]}
 		g.Editions, g.Own = g.Profile.Editions, row.Editions != nil
 		if g.Own {
 			g.Editions = editionsOf(*row.Editions, named[row.WorkID])
-		}
-		for _, e := range g.Profile.Entries {
-			g.Targets = append(g.Targets, targetOf[e.Target])
 		}
 		out[row.WorkID] = g
 	}
@@ -120,7 +128,7 @@ func WorksOf(ctx context.Context, r storage.Reader[file], id ProfileID) ([]works
 
 // TimingsIn answers each Item of ws, Works of Content Type typ, from its
 // facet in one call.
-func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ works.TypeID, ws []works.WorkID) (map[works.ItemID]Timing, error) {
+func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ works.TypeID, ws works.Among[works.WorkID]) (map[works.ItemID]Timing, error) {
 	facet, ok := t.cfg.Types[typ]
 	if !ok {
 		return nil, ErrNoType
@@ -133,7 +141,7 @@ func (t *Targets) Timings(ctx context.Context, _ identity.Admin, typ works.TypeI
 	var out map[works.ItemID]Timing
 	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		out, err = t.TimingsIn(ctx, r, typ, []works.WorkID{work})
+		out, err = t.TimingsIn(ctx, r, typ, works.Only([]works.WorkID{work}))
 		return err
 	})
 	return out, err

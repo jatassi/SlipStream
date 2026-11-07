@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -289,7 +291,17 @@ type UnavailableError struct {
 	Err  error
 }
 
-func (e *UnavailableError) Error() string { return "the Indexer is unavailable: " + e.Err.Error() }
+func (e *UnavailableError) Error() string {
+	return "the Indexer is unavailable: " + rpc.MessageOf(e.Err)
+}
+
+// Reason is the cause alone as a sentence a person reads, for a problem's
+// detail or a failure's Detail, whose title already says the Indexer is
+// unavailable.
+func (e *UnavailableError) Reason() string {
+	m := rpc.MessageOf(e.Err)
+	return strings.ToUpper(m[:1]) + m[1:] + "."
+}
 
 func (e *UnavailableError) Unwrap() error { return e.Err }
 

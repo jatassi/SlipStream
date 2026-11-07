@@ -40,6 +40,7 @@ const (
 	StepEnd       = "step.end"
 	SSEMessage    = "sse.message"
 	LeecherHello  = "leecher.hello"
+	WorksAdded    = "works.added"
 )
 
 // World is the Node of a record the harness itself wrote.

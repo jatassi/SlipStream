@@ -27,6 +27,13 @@ const (
 	Serving         Name = "serving"
 )
 
+// Wide names a sync channel every claimed Node holds from claim until
+// removal, outside the Role table. It is never in the Roster, the Diagram
+// or a Node's facts, and never drained, handed back or written off.
+type Wide string
+
+const Transfers Wide = "transfers"
+
 // NodeID is a Node's id, nodes_node.id. The nodes package declares its id
 // as this type, so role and rpc never import it.
 type NodeID struct{ storage.UUID }
