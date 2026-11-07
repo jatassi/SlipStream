@@ -9,8 +9,22 @@ import type { Row, State } from "./model";
 
 export type TorrentAction = ActInputBodyAction;
 
-/** A Torrent as an action names it: the Work it is for, else its release. */
-export type Subject = { readonly id: string; readonly name: string };
+/**
+ * A Torrent as an action names it: the Work it is for, else its release.
+ * keptIn is the external client a remove leaves it in, attached or off.
+ */
+export type Subject = {
+  readonly id: string;
+  readonly name: string;
+  readonly keptIn?: string | undefined;
+};
+
+/** The Subject of row, named name. */
+export const subjectOf = (row: Row, name: string): Subject => ({
+  id: row.id,
+  name,
+  keptIn: row.deleteFiles ? undefined : row.clientName,
+});
 
 export type Wanted = "started" | "paused";
 

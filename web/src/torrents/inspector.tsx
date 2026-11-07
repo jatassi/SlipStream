@@ -3,22 +3,26 @@ import { createPortal } from "react-dom";
 import { useShellSlots } from "../shell/page";
 import { Inspector, InspectorBody, InspectorSection } from "../ui/inspector";
 import { SignalChip } from "../ui/signal-chip";
+import { subjectOf } from "./actions";
 import { Actions } from "./inspector-actions";
 import { useInspected } from "./inspector-detail";
 import { Sections } from "./inspector-sections";
 import type { Row } from "./model";
 import type { Names } from "./names";
-import { inspectorSentence } from "./sentence";
+import { attachedSentence, inspectorSentence } from "./sentence";
 
 function Content({ row, names }: { row: Row; names: Names }) {
   const inspected = useInspected(row.id);
   const { live, clock } = inspected;
   const node = names.node(row.nodeId);
-  const subject = { id: row.id, name: names.work(row.workId) ?? row.name };
+  const subject = subjectOf(row, names.work(row.workId) ?? row.name);
   return (
     <>
       <InspectorSection>
         <p className="text-sentence text-ink-1">{inspectorSentence(row, live, { node, clock })}</p>
+        {attachedSentence(row) !== undefined && (
+          <p className="mt-3 text-ink-2">{attachedSentence(row)}</p>
+        )}
         {row.fault !== undefined && (
           <p className="mt-3 flex flex-wrap items-center gap-2">
             <SignalChip kind="fail">Bad Release</SignalChip>
