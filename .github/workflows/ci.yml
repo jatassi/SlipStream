@@ -339,10 +339,10 @@ jobs:
           key: playwright-chromium-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
       - name: Install Chromium and its system libraries
         if: runner.os == 'Linux'
-        working-directory: web
-        run: |
-          bun install --frozen-lockfile
-          bun x playwright install --with-deps chromium
+        uses: ./.github/actions/playwright
+        with:
+          browsers: chromium
+          cache: playwright-debs-chromium-${{ matrix.target }}
       - name: Run the component tests
         run: go run ./cmd/release test -tier component
 
@@ -384,10 +384,11 @@ jobs:
           key: playwright-chromium-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
       - name: Install Chromium and its system libraries
         if: runner.os == 'Linux'
-        working-directory: web
-        run: |
-          bun install --frozen-lockfile
-          bun x playwright install --with-deps chromium
+        uses: ./.github/actions/playwright
+        with:
+          browsers: chromium
+          cache: playwright-debs-chromium-${{ matrix.target }}
+          save: false
       - name: Run the Diagram check
         run: go run ./cmd/release test -tier diagram
       - name: Upload the Diagram close-ups
