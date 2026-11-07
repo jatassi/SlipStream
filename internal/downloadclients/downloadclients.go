@@ -74,7 +74,15 @@ const (
 	ByAdmin        RemoveReason = "admin"
 	ByMarkFailed   RemoveReason = "mark_failed"
 	NodeWrittenOff RemoveReason = "node_written_off"
+	// ByClient is an external client that stopped listing the torrent.
+	ByClient RemoveReason = "client"
+	// ClientDeleted is the Admin deleting the torrent's client with Stop
+	// tracking.
+	ClientDeleted RemoveReason = "client_deleted"
 )
+
+// RemoveReasons is every RemoveReason, the list the schema's CHECK holds.
+var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted}
 
 // Removal is set when the Torrent leaves its Node's intent. It is Removing
 // until Parted: the Node confirmed, or a write-off ended the wait.

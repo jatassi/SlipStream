@@ -138,7 +138,7 @@ func (q *Queries) GetMetainfoOfHash(ctx context.Context, infoHash []byte) ([]byt
 }
 
 const getNodeSettings = `-- name: GetNodeSettings :one
-SELECT node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht FROM downloadclients_node WHERE node_id = ?
+SELECT node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht, grabs_to FROM downloadclients_node WHERE node_id = ?
 `
 
 func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (DownloadclientsNode, error) {
@@ -154,6 +154,7 @@ func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (Down
 		&i.Utp,
 		&i.StalledAfterSeconds,
 		&i.Dht,
+		&i.GrabsTo,
 	)
 	return i, err
 }
@@ -208,18 +209,19 @@ func (q *Queries) GetThresholds(ctx context.Context) (GetThresholdsRow, error) {
 
 const insertTorrent = `-- name: InsertTorrent :exec
 INSERT INTO downloadclients_torrent (
-    id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
+    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
     uploaded, downloaded, active_seconds, seeding_seconds, totals_at
 ) VALUES (
-    ?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, ?10, 'started', ?11, ?12,
-    ?13, ?14, ?15, ?16, ?17
+    ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9, ?10, ?11, 'started', ?12, ?13,
+    ?14, ?15, ?16, ?17, ?18
 )
 `
 
 type InsertTorrentParams struct {
 	ID             TorrentID
 	NodeID         role.NodeID
+	ClientID       *ClientID
 	InfoHash       []byte
 	Metainfo       []byte
 	Name           string
@@ -241,6 +243,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 	_, err := q.db.ExecContext(ctx, insertTorrent,
 		arg.ID,
 		arg.NodeID,
+		arg.ClientID,
 		arg.InfoHash,
 		arg.Metainfo,
 		arg.Name,
