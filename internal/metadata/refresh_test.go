@@ -375,6 +375,21 @@ func TestTheChangesListCoversSinceTheLastGoodRun(t *testing.T) {
 	})
 }
 
+func TestAChangedKeyAnotherProviderNamesMarksItsWork(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		l := openRefreshed(t, 500)
+		l.add(t, "out", false)
+		l.add(t, "still", false)
+		l.fx.Alias("elsewhere-out", "out")
+		l.fx.Change("elsewhere-out", "elsewhere-unknown")
+
+		l.nightly(t, 1)
+		if nights := l.nightly(t, 1); !slices.Equal(nights[0], keys("out")) {
+			t.Fatalf("the second night fetched %v, want the Work the other provider's key maps to", nights[0])
+		}
+	})
+}
+
 func TestAChangesListFromPastTheSourcesWindowStartsAgainFromNow(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		l := openRefreshed(t, 500)
