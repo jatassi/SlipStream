@@ -1,6 +1,8 @@
 package scenario
 
 import (
+	"fmt"
+	"iter"
 	"slices"
 	"time"
 )
@@ -65,10 +67,16 @@ type TVDBGenerated struct {
 	Seed     string `jsonschema:"required"           yaml:"seed"`
 }
 
-// TVDBGeneratedFirstID is the first id generated series, seasons and
-// episodes take, each from its own block: series from here, seasons from
-// a million on, episodes from two million on.
-const TVDBGeneratedFirstID int64 = 60_000_001
+// TVDBGeneratedFirstID is the first id generated series and episodes
+// take, each from its own block: series from here, episodes from two
+// million on. No listed series or episode may use an id from here on.
+const (
+	TVDBGeneratedFirstID int64 = 60_000_001
+	tvdbEpisodesFirstID        = TVDBGeneratedFirstID + 2_000_000
+	// TVDBMaxGenerated bounds the series and the episodes generated across
+	// every block, so neither block reaches the next.
+	TVDBMaxGenerated = 1_000_000
+)
 
 var tvdbStatuses = []string{"continuing", "ended", "upcoming"}
 
@@ -83,10 +91,16 @@ func (c TVDB) check(add func(format string, args ...any)) {
 		}
 		episodes = s.check(add, episodes)
 	}
+	series, generated := 0, 0
 	for _, g := range c.Generated {
 		if g.Count < 1 || g.Seasons < 1 || g.Episodes < 1 || g.Seed == "" {
 			add("tvdb generated has count %d, %d seasons of %d episodes and seed %q; want each at least 1 and a seed", g.Count, g.Seasons, g.Episodes, g.Seed)
 		}
+		series += g.Count
+		generated += g.Count * g.Seasons * g.Episodes
+	}
+	if series > TVDBMaxGenerated || generated > TVDBMaxGenerated {
+		add("tvdb generates %d series of %d episodes in all; want at most %d of each", series, generated, TVDBMaxGenerated)
 	}
 }
 
@@ -109,15 +123,115 @@ func (s TVDBSeries) check(add func(format string, args ...any), seen []int64) []
 		if slices.ContainsFunc(s.Seasons[:j], func(o TVDBSeason) bool { return o.Number == season.Number }) {
 			add("tvdb series %d lists season %d twice", s.ID, season.Number)
 		}
-		for _, e := range season.Episodes {
-			if slices.Contains(seen, e.ID) {
-				add("tvdb episode %d is listed twice", e.ID)
-			}
-			seen = append(seen, e.ID)
-			if e.Aired != "" && !isDay(e.Aired) {
-				add("tvdb episode %d aired %q is not YYYY-MM-DD", e.ID, e.Aired)
-			}
+		seen = season.check(add, seen)
+	}
+	return seen
+}
+
+func (season TVDBSeason) check(add func(format string, args ...any), seen []int64) []int64 {
+	for _, e := range season.Episodes {
+		if e.ID >= TVDBGeneratedFirstID {
+			add("tvdb episode %d is in the generated block from %d", e.ID, TVDBGeneratedFirstID)
+		}
+		if slices.Contains(seen, e.ID) {
+			add("tvdb episode %d is listed twice", e.ID)
+		}
+		seen = append(seen, e.ID)
+		if e.Aired != "" && !isDay(e.Aired) {
+			add("tvdb episode %d aired %q is not YYYY-MM-DD", e.ID, e.Aired)
 		}
 	}
 	return seen
+}
+
+// All is every series fake-tvdb serves: the listed ones, then each
+// generated block's in id order.
+func (c TVDB) All() iter.Seq[TVDBSeries] {
+	return func(yield func(TVDBSeries) bool) {
+		for _, s := range c.Series {
+			if !yield(s) {
+				return
+			}
+		}
+		for b := range c.blocks() {
+			for i := range b.Count {
+				if !yield(b.series(i)) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// Find is the series whose TVDB id is id, listed or generated.
+func (c TVDB) Find(id int64) (TVDBSeries, bool) {
+	for _, s := range c.Series {
+		if s.ID == id {
+			return s, true
+		}
+	}
+	for b := range c.blocks() {
+		if i := id - b.firstSeries; i >= 0 && i < int64(b.Count) {
+			return b.series(int(i)), true
+		}
+	}
+	return TVDBSeries{}, false
+}
+
+// block is one generated block placed in the id blocks after the ones
+// before it.
+type block struct {
+	TVDBGenerated
+	firstSeries, firstEpisode int64
+}
+
+func (c TVDB) blocks() iter.Seq[block] {
+	return func(yield func(block) bool) {
+		series, episode := TVDBGeneratedFirstID, tvdbEpisodesFirstID
+		for _, g := range c.Generated {
+			if !yield(block{TVDBGenerated: g, firstSeries: series, firstEpisode: episode}) {
+				return
+			}
+			series += int64(g.Count)
+			episode += int64(g.Count * g.Seasons * g.Episodes)
+		}
+	}
+}
+
+var (
+	networks     = []string{"Lantern One", "Harbor TV", "Northlight", "Kestrel+", "Signal Nine"}
+	tvdbStarts   = time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
+	tvdbStartsBy = 20 * 365
+)
+
+// series is the block's series i: a title from the word lists, Seasons
+// seasons of Episodes episodes from season 1, one airing each day from a
+// day in 1970 to 1990, ended once every one has aired.
+func (b block) series(i int) TVDBSeries {
+	r := mix(b.Seed, i)
+	id := b.firstSeries + int64(i)
+	s := TVDBSeries{
+		ID:      id,
+		Name:    adjectives[r.n(len(adjectives))] + " " + nouns[r.n(len(nouns))] + " of " + places[r.n(len(places))],
+		Status:  "ended",
+		Network: networks[r.n(len(networks))],
+		IMDb:    fmt.Sprintf("tt%d", id),
+		Seasons: make([]TVDBSeason, b.Seasons),
+	}
+	day := tvdbStarts.AddDate(0, 0, r.n(tvdbStartsBy))
+	episode := b.firstEpisode + int64(i*b.Seasons*b.Episodes)
+	runtime := 22 + r.n(39)
+	for n := range b.Seasons {
+		season := TVDBSeason{Number: n + 1, Episodes: make([]TVDBEpisode, b.Episodes)}
+		for e := range b.Episodes {
+			season.Episodes[e] = TVDBEpisode{
+				ID: episode, Number: e + 1, Runtime: runtime, Aired: day.Format(time.DateOnly),
+				Name: "The " + adjectives[r.n(len(adjectives))] + " " + nouns[r.n(len(nouns))],
+			}
+			episode++
+			day = day.AddDate(0, 0, 1)
+		}
+		s.Seasons[n] = season
+	}
+	return s
 }
