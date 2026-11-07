@@ -40,7 +40,7 @@ func Define[S any](e Entry, impl Impl[S]) Port {
 	}
 	e.Key = words(settings, func(s setting) bool { return s.key })
 	e.SignInWords = words(settings, func(s setting) bool { return s.signin })
-	return Port{entry: e, run: &typed[S]{impl: impl, settings: settings}}
+	return Port{entry: e, run: &typed[S]{impl: impl, settings: settings, login: familyOf[S](impl.Login)}}
 }
 
 func check[S any](e Entry, impl Impl[S], settings []setting) error {
@@ -102,8 +102,8 @@ func checkModes[S any](c Capabilities, impl Impl[S]) error {
 			errs = append(errs, fmt.Errorf("the %s mode declares no params", m.name))
 		}
 	}
-	if impl.Movie == nil && impl.TV == nil && impl.Basic == nil {
-		errs = append(errs, errors.New("a port needs at least one generator"))
+	if impl.Basic == nil {
+		errs = append(errs, errors.New("a port needs a Basic generator, which Recent and Test run"))
 	}
 	if impl.Parse == nil {
 		errs = append(errs, errors.New("a port needs a parser"))

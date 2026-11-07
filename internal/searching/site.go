@@ -90,7 +90,6 @@ type Send struct {
 	Rotates bool
 }
 
-// redirect is the redirect policy of a request sent as o says.
 func (o Send) redirect(req *http.Request, via []*http.Request) error {
 	if o.NoFollow || o.Hosts != nil && !slices.Contains(o.Hosts, strings.ToLower(req.URL.Host)) {
 		return http.ErrUseLastResponse

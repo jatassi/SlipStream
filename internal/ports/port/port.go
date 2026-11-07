@@ -43,6 +43,7 @@
 //	searchCriteria.SanitizedTvSearchString q.SanitizedTvSearchString()
 //	searchCriteria.FullImdbId              q.FullImdbID()
 //	searchCriteria.IsRssSearch             q.IsRssSearch()
+//	searchCriteria.IsIdSearch              q.IsIDSearch()
 //	ParseUtil.X, DateTimeUtil.X            parseutil.X, datetimeutil.X
 //	AngleSharp QuerySelector(All)          dom.Parse(...).QuerySelector(All)
 //	IndexerException                       port.IndexerError

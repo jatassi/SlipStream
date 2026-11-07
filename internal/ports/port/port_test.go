@@ -51,7 +51,7 @@ func entry(id ID) Entry {
 
 func TestDefineDerivesTheFormAndTheWordsFromTheSettingsAndTheFamily(t *testing.T) {
 	p := Define(entry("lantern"), Impl[formSettings]{
-		Login: CodeLogin[formSettings]{DoLogin: doLogin[formSettings]}, Movie: search[formSettings], Parse: parse[formSettings],
+		Login: CodeLogin[formSettings]{DoLogin: doLogin[formSettings]}, Movie: search[formSettings], Basic: search[formSettings], Parse: parse[formSettings],
 	})
 	e := p.Entry()
 	var names []string
@@ -71,7 +71,7 @@ func TestDefineDerivesTheFormAndTheWordsFromTheSettingsAndTheFamily(t *testing.T
 		t.Errorf("pages is %+v", pages)
 	}
 
-	k := Define(entry("ferry"), Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]}).Entry()
+	k := Define(entry("ferry"), Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]}).Entry()
 	if k.Auth != StatelessKey || k.Key != "passkey" || k.SignInWords != "" || k.Auth.HoldsSession() {
 		t.Errorf("a passkey port derived auth %v, key %q, sign-in words %q", k.Auth, k.Key, k.SignInWords)
 	}
@@ -134,60 +134,67 @@ func TestDefinePanicsOnAMisdeclaredPort(t *testing.T) {
 	derived.Key = "passkey"
 	for name, define := range map[string]func(){
 		"a rate limit below 2 s": func() {
-			Define(slow, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]})
+			Define(slow, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 		},
 		"no address": func() {
-			Define(noURL, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]})
+			Define(noURL, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 		},
 		"an address with no scheme": func() {
-			Define(badURL, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]})
+			Define(badURL, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 		},
 		"a mode with no generator": func() {
-			Define(tvOnly, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]})
+			Define(tvOnly, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 		},
 		"a generator with no mode": func() {
-			Define(entry("x"), Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], TV: search[keySettings], Parse: parse[keySettings]})
+			Define(entry("x"), Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], TV: search[keySettings], Parse: parse[keySettings]})
 		},
-		"no parser": func() { Define(entry("x"), Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings]}) },
-		"no family": func() { Define(entry("x"), Impl[keySettings]{Movie: search[keySettings], Parse: parse[keySettings]}) },
+		"no Basic generator": func() {
+			Define(entry("x"), Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]})
+		},
+		"no parser": func() {
+			Define(entry("x"), Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings]})
+		},
+		"no family": func() {
+			Define(entry("x"), Impl[keySettings]{Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
+		},
 		"a derived field set": func() {
-			Define(derived, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]})
+			Define(derived, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 		},
 		"a secret marked as no key": func() {
-			Define(entry("x"), Impl[secret]{Login: NoLogin{}, Movie: search[secret], Parse: parse[secret]})
+			Define(entry("x"), Impl[secret]{Login: NoLogin{}, Movie: search[secret], Basic: search[secret], Parse: parse[secret]})
 		},
 		"a sign-in with no fields": func() {
-			Define(entry("x"), Impl[keySettings]{Login: FormLogin[keySettings]{DoLogin: doLogin[keySettings]}, Movie: search[keySettings], Parse: parse[keySettings]})
+			Define(entry("x"), Impl[keySettings]{Login: FormLogin[keySettings]{DoLogin: doLogin[keySettings]}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 		},
 		"a sign-in with no DoLogin": func() {
-			Define(entry("x"), Impl[formSettings]{Login: TokenLogin[formSettings]{}, Movie: search[formSettings], Parse: parse[formSettings]})
+			Define(entry("x"), Impl[formSettings]{Login: TokenLogin[formSettings]{}, Movie: search[formSettings], Basic: search[formSettings], Parse: parse[formSettings]})
 		},
 		"a family over other settings": func() {
-			Define(entry("x"), Impl[formSettings]{Login: FormLogin[keySettings]{DoLogin: doLogin[keySettings]}, Movie: search[formSettings], Parse: parse[formSettings]})
+			Define(entry("x"), Impl[formSettings]{Login: FormLogin[keySettings]{DoLogin: doLogin[keySettings]}, Movie: search[formSettings], Basic: search[formSettings], Parse: parse[formSettings]})
 		},
 		"an untagged field": func() {
-			Define(entry("x"), Impl[untagged]{Login: NoLogin{}, Movie: search[untagged], Parse: parse[untagged]})
+			Define(entry("x"), Impl[untagged]{Login: NoLogin{}, Movie: search[untagged], Basic: search[untagged], Parse: parse[untagged]})
 		},
 		"a field with no label": func() {
-			Define(entry("x"), Impl[unlabeled]{Login: NoLogin{}, Movie: search[unlabeled], Parse: parse[unlabeled]})
+			Define(entry("x"), Impl[unlabeled]{Login: NoLogin{}, Movie: search[unlabeled], Basic: search[unlabeled], Parse: parse[unlabeled]})
 		},
 		"min above max": func() {
-			Define(entry("x"), Impl[badBounds]{Login: NoLogin{}, Movie: search[badBounds], Parse: parse[badBounds]})
+			Define(entry("x"), Impl[badBounds]{Login: NoLogin{}, Movie: search[badBounds], Basic: search[badBounds], Parse: parse[badBounds]})
 		},
 		"bounds on text": func() {
-			Define(entry("x"), Impl[boundedText]{Login: NoLogin{}, Movie: search[boundedText], Parse: parse[boundedText]})
+			Define(entry("x"), Impl[boundedText]{Login: NoLogin{}, Movie: search[boundedText], Basic: search[boundedText], Parse: parse[boundedText]})
 		},
 		"a name twice": func() {
-			Define(entry("x"), Impl[twice]{Login: CookieLogin{}, Movie: search[twice], Parse: parse[twice]})
+			Define(entry("x"), Impl[twice]{Login: CookieLogin{}, Movie: search[twice], Basic: search[twice], Parse: parse[twice]})
 		},
 		"a type with no form": func() {
-			Define(entry("x"), Impl[noOptions]{Login: NoLogin{}, Movie: search[noOptions], Parse: parse[noOptions]})
+			Define(entry("x"), Impl[noOptions]{Login: NoLogin{}, Movie: search[noOptions], Basic: search[noOptions], Parse: parse[noOptions]})
 		},
 		"a default not offered": func() {
-			Define(entry("x"), Impl[badDefault]{Login: NoLogin{}, Movie: search[badDefault], Parse: parse[badDefault]})
+			Define(entry("x"), Impl[badDefault]{Login: NoLogin{}, Movie: search[badDefault], Basic: search[badDefault], Parse: parse[badDefault]})
 		},
 		"an unknown tag option": func() {
-			Define(entry("x"), Impl[unknownFlag]{Login: NoLogin{}, Movie: search[unknownFlag], Parse: parse[unknownFlag]})
+			Define(entry("x"), Impl[unknownFlag]{Login: NoLogin{}, Movie: search[unknownFlag], Basic: search[unknownFlag], Parse: parse[unknownFlag]})
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -207,7 +214,7 @@ func TestTheRegistryListsHidesAndRetires(t *testing.T) {
 	ferry := entry("ferry")
 	ferry.Name = "Ferry"
 	define := func(e Entry) Port {
-		return Define(e, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Parse: parse[keySettings]})
+		return Define(e, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 	}
 	r := NewRegistry([]Port{define(lantern), define(ferry)}, []Retired{{ID: "brook", Name: "Brook", Reason: "the site closed"}}, nil)
 	if es := r.Entries(); len(es) != 2 || es[0].Name != "Ferry" || es[1].Name != "Lantern" {
