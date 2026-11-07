@@ -119,6 +119,8 @@ func TestOnline(t *testing.T) {
 		{"fake-tmdb", []nativetouch.Change{modified("fakes/tmdb/tmdb.go")}, true},
 		{"the music client", []nativetouch.Change{modified("fakes/contenttypes/music/internal/musicbrainz/musicbrainz.go")}, true},
 		{"the TMDB client", []nativetouch.Change{added("internal/providers/tmdb/tv.go")}, true},
+		{"fake-tvdb", []nativetouch.Change{modified("fakes/tvdb/tvdb.go")}, true},
+		{"the TVDB client", []nativetouch.Change{modified("internal/providers/tvdb/record.go")}, true},
 		{"fake-omdb", []nativetouch.Change{modified("fakes/omdb/omdb.go")}, true},
 		{"the OMDb client", []nativetouch.Change{modified("internal/providers/omdb/omdb.go")}, true},
 		{"fake-image-cdn", []nativetouch.Change{modified("fakes/imagecdn/imagecdn.go")}, true},
