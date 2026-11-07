@@ -19,7 +19,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// defaults is the fixture type's add defaults.
 type defaults struct {
 	profile, root, monitor string
 	asides, folders        bool

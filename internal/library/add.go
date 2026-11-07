@@ -22,9 +22,8 @@ type Adding struct {
 	Preset *works.Preset
 	// IncludeAsides adds the Items of aside levels to what Preset monitors.
 	IncludeAsides *bool
-	// LevelFolders is the new Work's level_folders.
-	LevelFolders *bool
-	Remember     bool
+	LevelFolders  *bool
+	Remember      bool
 }
 
 // Added is the Work an add made or found. Created is false when it was

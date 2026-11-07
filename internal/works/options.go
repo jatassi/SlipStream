@@ -139,7 +139,6 @@ func withdrawnBy(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID
 	return n, nil
 }
 
-// liveItems is the set of Work id's live Items.
 func liveItems(ctx context.Context, q *db.Queries, id WorkID) (map[ItemID]bool, error) {
 	items, err := q.ListItems(ctx, id)
 	if err != nil {
