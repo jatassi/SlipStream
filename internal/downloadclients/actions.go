@@ -93,7 +93,7 @@ const (
 	// RefusedNotStalled is mark-failed on a Torrent that isn't stalled.
 	RefusedNotStalled RefusalCode = "not_stalled"
 	// RefusedOffline is announce or recheck on a Torrent whose Node is out
-	// of step.
+	// of step, or whose external client isn't answering its Node.
 	RefusedOffline RefusalCode = "offline"
 	// RefusedWindow is an announce some tracker would reject until
 	// AcceptsAt.
@@ -444,6 +444,8 @@ func refusalFromWire(r *dlv1.ActResult) *Refusal {
 		return &Refusal{Code: RefusedNotRunning}
 	case dlv1.Refusal_REFUSAL_FAILED:
 		return &Refusal{Code: RefusedFailed}
+	case dlv1.Refusal_REFUSAL_CLIENT_AWAY:
+		return &Refusal{Code: RefusedOffline}
 	case dlv1.Refusal_REFUSAL_NOT_HELD:
 		return &Refusal{Code: RefusedNotFound}
 	}
