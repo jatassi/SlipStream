@@ -299,14 +299,3 @@ func roundTrip(t *testing.T, addr netip.AddrPort, s string) string {
 	}
 	return string(b)
 }
-
-func until(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("waiting until %s", what)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
