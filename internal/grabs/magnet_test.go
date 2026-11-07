@@ -454,7 +454,7 @@ func attachTorrent(t *testing.T, p *pipeline, raw []byte) {
 	}
 	err = p.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, _, err := downloadclients.Attach(ctx, tx, downloadclients.Want{
-			Node: p.node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false },
+			Target: downloadclients.Target{Node: p.node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false },
 		}, storage.Now())
 		return err
 	})

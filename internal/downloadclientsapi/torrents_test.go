@@ -79,7 +79,7 @@ func (w *world) hold(t *testing.T, name string, report *dlv1.TorrentReport) down
 	}
 	var id downloadclients.ID
 	err = w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		id, _, err = downloadclients.Attach(ctx, tx, downloadclients.Want{Node: w.self, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false }}, storage.Now())
+		id, _, err = downloadclients.Attach(ctx, tx, downloadclients.Want{Target: downloadclients.Target{Node: w.self}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false }}, storage.Now())
 		if err != nil || report == nil {
 			return err
 		}

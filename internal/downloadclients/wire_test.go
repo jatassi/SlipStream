@@ -47,7 +47,7 @@ func TestAppliedReportsReachTheirReadersOnceCommitted(t *testing.T) {
 	lib := open(t)
 	a := addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	id, _ := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: a}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	r := &readers{}
 	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r})
 
@@ -126,7 +126,7 @@ func TestTheTorrentServiceAnswersOnlyTheTorrentsOwnNode(t *testing.T) {
 	lib := open(t)
 	a, b := addNode(t, lib, "home"), addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	id, _ := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: a}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	applyReport(t, lib, clients(), a, &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: []*dlv1.TorrentReport{
 		{Id: id.Bytes(), AtUnixMs: reportedAt.UnixMilli(), SaveFolder: "/data/Movies/Orchard", Totals: &dlv1.TotalsRow{Id: id.Bytes(), Uploaded: 100, Downloaded: 1024, ActiveSeconds: 60}},
 	}}}})
