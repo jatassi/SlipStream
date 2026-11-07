@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -13,8 +14,9 @@ import (
 )
 
 // siteEntry is what an Admin enters to add an Indexer for one of
-// fixture-site's sites: a feed's address and API key, or a catalog site's
-// settings and pasted cookie.
+// fixture-site's sites: a feed's address and API key, or a catalog or
+// family site's settings and pasted cookie, and NorBits' two-factor code
+// of now for a Test without its authenticator key.
 type siteEntry struct {
 	Origin    string            `json:"origin"`
 	Feed      string            `json:"feed,omitempty"`
@@ -22,6 +24,7 @@ type siteEntry struct {
 	Settings  map[string]string `json:"settings,omitempty"`
 	Cookie    string            `json:"cookie,omitempty"`
 	UserAgent string            `json:"userAgent,omitempty"`
+	Code      string            `json:"code,omitempty"`
 }
 
 func siteCommand(args []string) int {
@@ -70,6 +73,9 @@ func siteOf(m world.Manifest, label, node string) (siteEntry, error) {
 		e.Settings, e.Cookie = site.Credentials(s, label, node)
 		if e.Cookie != "" {
 			e.UserAgent = site.BrowserUserAgent
+		}
+		if label == site.NorBits {
+			e.Code = site.TwoFactorCode(s, time.Now())
 		}
 	}
 	return e, nil
