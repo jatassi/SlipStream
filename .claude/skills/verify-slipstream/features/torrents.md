@@ -22,6 +22,7 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - `torrents-magnet-no-metadata` with `A magnet link with no metadata fails after` at 2 min under Settings > Download Clients > `Magnet links`, Cedar Hollow's private magnet link fails 2 minutes after its grab: `Needs you` holds its card with `No peer sent the magnet link's metadata in time.`, `Search again to pick another release.` and the detail `No peer sent the metadata in 2 min, and 1 peer connected`, Torrents never lists it, and fake-dht never sees its info hash.
 - `torrents-dht-switch` home's Torrent client lists `DHT for public torrents` under `Peers`, on by default. Off, a Grab of the trackerless Quiet Orchard fails at once with `no_peer_source` and the recovery `Turn on DHT for public torrents in that Node's torrent client settings, or search again.` Back on, `Search again` imports it through fake-dht alone: `lookups` holds home's `get_peers` for its hash and `announces` none from home.
 - `torrents-external` on an `external-clients` run a Grab of The Quiet Orchard goes to home's Transmission: `GET /api/v1/torrents` lists its row with `clientName` `Transmission` and `clientKind` `transmission`, the Grab imports a hard link of Transmission's file, and `transmission-adds list` records the add under the Content Type's subfolder of `/downloads` with the label `slipstream`. The cue `transmission-pause` (a person pausing it in Transmission's web UI) makes the row read `paused` within a poll, and `POST /api/v1/torrents/actions` `resume` starts it in Transmission again, so it reads `seeding`. The web Torrents view doesn't name external clients yet.
+- `torrents-external-kinds` on an `external-kinds` run a Grab goes to the client `grabsTo` names, qBittorrent until `PATCH /api/v1/download-clients/{nodeId}/settings` changes it. With `grabsTo` set to rTorrent's id, a Grab of The Quiet Orchard lists its row with `clientName` `rTorrent` and `clientKind` `rtorrent` and imports a hard link of rTorrent's file. `POST /api/v1/torrents/actions` `remove` with `deleteFiles` removes the row and empties `fakes/rtorrent/home` under the run's scratch dir, Content Type subfolder included, while the library file stays: rTorrent's remove keeps its data, so home deletes it.
 - `torrents-remove` `Remove` asks `Remove The Quiet Orchard?`, says `Files in your library stay.` and lists the Work that stops seeding; with `Also delete the download copy` the download copy goes, the library file still matches the release, the tracker gets `stopped`, and the row leaves once home confirms (P-166).
 
 ## How to get to it (user POV)
@@ -344,6 +345,21 @@ Steps:
   TID=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -r '.rows[0].id')
   $FW exec $RUN --proof torrents/torrents-external -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"action\":\"resume\",\"ids\":[\"$TID\"]}" '{nodes.home.url}/api/v1/torrents/actions'
   $FW exec $RUN -- bash -c "for i in \$(seq 30); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -e '.rows[0].state == \"seeding\"' >/dev/null && exit 0; sleep 1; done; exit 1"
+  ```
+
+- **Grab through rTorrent and remove it with its files.** On an `external-kinds` run, send home's New Grabs to rTorrent, search The Quiet Orchard, wait for the import, then remove the Torrent with its files and list rTorrent's folder, which home emptied.
+
+  ```sh
+  CL=$(curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/download-clients')
+  RID=$(jq -r '.cards[0].externals[] | select(.kind == "rtorrent") | .id' <<<"$CL")
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"grabsTo\":\"$RID\"}" "{nodes.home.url}/api/v1/download-clients/$(jq -r '.cards[0].nodeId' <<<"$CL")/settings"
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- sh -c "id=\$(curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{\"contentType\":\"movie\",\"key\":\"9000001\",\"monitor\":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id); curl -sS -X POST -H 'X-Api-Key: {apiKey}' \"{nodes.home.url}/api/v1/works/\$id/search\""
+  $FW exec $RUN -- bash -c "for i in \$(seq 90); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs' | jq -e '.grabs[0].stage == \"imported\"' >/dev/null && exit 0; sleep 1; done; exit 1"
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents'
+  TID=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -r '.rows[0].id')
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"action\":\"remove\",\"ids\":[\"$TID\"],\"deleteFiles\":true}" '{nodes.home.url}/api/v1/torrents/actions'
+  $FW exec $RUN -- bash -c "for i in \$(seq 30); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -e '.rows | length == 0' >/dev/null && exit 0; sleep 1; done; exit 1"
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- sh -c "ls -R \"\$(dirname \"\$(jq -r .mediaDir $RUN/manifest.json)\")/fakes/rtorrent/home\""
   ```
 
 ## Gotchas
