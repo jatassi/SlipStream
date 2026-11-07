@@ -1,0 +1,94 @@
+diff --git a/autocomplete/root/AutocompleteRoot.d.mts b/autocomplete/root/AutocompleteRoot.d.mts
+index ae098c4a7e1bc40525a7027c6e362284d2d971cf..0beaa6434508789431536cfce938c9b0d23a176f 100644
+--- a/autocomplete/root/AutocompleteRoot.d.mts
++++ b/autocomplete/root/AutocompleteRoot.d.mts
+@@ -40,12 +40,18 @@ export type AutocompleteRootOpenChangeEventDetails = AutocompleteRootChangeEvent
+ };
+ export type AutocompleteRootHighlightEventReason = AriaCombobox.HighlightEventReason;
+ export type AutocompleteRootHighlightEventDetails = AriaCombobox.HighlightEventDetails;
+-export interface AutocompleteRootProps<ItemValue> extends Omit<AriaCombobox.Props<ItemValue, 'none'>, 'selectionMode' | 'selectedValue' | 'defaultSelectedValue' | 'onSelectedValueChange' | 'fillInputOnItemPress' | 'itemToStringValue' | 'isItemEqualToValue' | 'inputValue' | 'defaultInputValue' | 'onInputValueChange' | 'autoComplete' | 'formAutoComplete' | 'itemToStringLabel' | 'inline' | 'autoHighlight' | 'keepHighlight' | 'highlightItemOnHover' | 'actionsRef' | 'onOpenChange' | 'openOnInputClick' | 'form' | 'items' | 'filteredItems' | 'filter'> {
++export interface AutocompleteRootProps<ItemValue> extends Omit<AriaCombobox.Props<ItemValue, 'none'>, 'selectionMode' | 'selectedValue' | 'defaultSelectedValue' | 'onSelectedValueChange' | 'fillInputOnItemPress' | 'itemToStringValue' | 'inputValue' | 'defaultInputValue' | 'onInputValueChange' | 'autoComplete' | 'formAutoComplete' | 'itemToStringLabel' | 'inline' | 'autoHighlight' | 'keepHighlight' | 'highlightItemOnHover' | 'actionsRef' | 'onOpenChange' | 'openOnInputClick' | 'form' | 'items' | 'filteredItems' | 'filter'> {
+   /**
+    * Identifies the form that owns the internal input.
+    * Useful when the autocomplete is rendered outside the form.
+    */
+   form?: string | undefined;
++  /**
++   * Whether two item values are the same item, so the highlight stays on an item whose value
++   * was rebuilt or moved in the list.
++   * Defaults to `Object.is` comparison.
++   */
++  isItemEqualToValue?: ((itemValue: ItemValue, value: ItemValue) => boolean) | undefined;
+   /**
+    * The items to be displayed in the list.
+    * Can be either a flat array of items or an array of groups with items.
+diff --git a/autocomplete/root/AutocompleteRoot.d.ts b/autocomplete/root/AutocompleteRoot.d.ts
+index fab0780d7ea61b583bfdcbf48892ce4cc94ebd80..4a90a60db4c17f3358977f18cfd6c0d18335a713 100644
+--- a/autocomplete/root/AutocompleteRoot.d.ts
++++ b/autocomplete/root/AutocompleteRoot.d.ts
+@@ -40,12 +40,18 @@ export type AutocompleteRootOpenChangeEventDetails = AutocompleteRootChangeEvent
+ };
+ export type AutocompleteRootHighlightEventReason = AriaCombobox.HighlightEventReason;
+ export type AutocompleteRootHighlightEventDetails = AriaCombobox.HighlightEventDetails;
+-export interface AutocompleteRootProps<ItemValue> extends Omit<AriaCombobox.Props<ItemValue, 'none'>, 'selectionMode' | 'selectedValue' | 'defaultSelectedValue' | 'onSelectedValueChange' | 'fillInputOnItemPress' | 'itemToStringValue' | 'isItemEqualToValue' | 'inputValue' | 'defaultInputValue' | 'onInputValueChange' | 'autoComplete' | 'formAutoComplete' | 'itemToStringLabel' | 'inline' | 'autoHighlight' | 'keepHighlight' | 'highlightItemOnHover' | 'actionsRef' | 'onOpenChange' | 'openOnInputClick' | 'form' | 'items' | 'filteredItems' | 'filter'> {
++export interface AutocompleteRootProps<ItemValue> extends Omit<AriaCombobox.Props<ItemValue, 'none'>, 'selectionMode' | 'selectedValue' | 'defaultSelectedValue' | 'onSelectedValueChange' | 'fillInputOnItemPress' | 'itemToStringValue' | 'inputValue' | 'defaultInputValue' | 'onInputValueChange' | 'autoComplete' | 'formAutoComplete' | 'itemToStringLabel' | 'inline' | 'autoHighlight' | 'keepHighlight' | 'highlightItemOnHover' | 'actionsRef' | 'onOpenChange' | 'openOnInputClick' | 'form' | 'items' | 'filteredItems' | 'filter'> {
+   /**
+    * Identifies the form that owns the internal input.
+    * Useful when the autocomplete is rendered outside the form.
+    */
+   form?: string | undefined;
++  /**
++   * Whether two item values are the same item, so the highlight stays on an item whose value
++   * was rebuilt or moved in the list.
++   * Defaults to `Object.is` comparison.
++   */
++  isItemEqualToValue?: ((itemValue: ItemValue, value: ItemValue) => boolean) | undefined;
+   /**
+    * The items to be displayed in the list.
+    * Can be either a flat array of items or an array of groups with items.
+diff --git a/combobox/root/AriaCombobox.js b/combobox/root/AriaCombobox.js
+index 11e64956ad1ff534a34b1c0709c4b5f6d60cc9fb..a24070347e52146057dcb9343d05adf15fed8efd 100644
+--- a/combobox/root/AriaCombobox.js
++++ b/combobox/root/AriaCombobox.js
+@@ -914,6 +914,18 @@ function AriaCombobox(props) {
+       emitHighlight(undefined, -1, _reasons.REASONS.none);
+       return;
+     }
++    // A list that changes under the highlight, as when results arrive for the query already
++    // typed, keeps the highlight on its item. With `autoHighlight="always"`, an item that left
++    // the list gives the highlight to the first item.
++    const highlighted = lastHighlightRef.current;
++    if (!pendingHighlight && highlighted.index === storeActiveIndex && highlighted.value !== _constants.NO_ACTIVE_VALUE && !(0, _itemEquality.compareItemEquality)(candidateItems[storeActiveIndex], highlighted.value, store.state.isItemEqualToValue)) {
++      const keptIndex = (0, _itemEquality.findItemIndex)(candidateItems, highlighted.value, store.state.isItemEqualToValue);
++      const nextIndex = keptIndex === -1 && autoHighlightMode === 'always' ? 0 : keptIndex;
++      if (nextIndex !== -1 && nextIndex !== storeActiveIndex) {
++        store.set('activeIndex', nextIndex);
++        return;
++      }
++    }
+     if (storeActiveIndex >= candidateItems.length) {
+       emitHighlight(undefined, -1, _reasons.REASONS.none);
+       store.set('activeIndex', null);
+diff --git a/combobox/root/AriaCombobox.mjs b/combobox/root/AriaCombobox.mjs
+index 55338bbd442e2ef25c61bbed59c3b83cec653fba..12ded771c08b88b3e655c116e2111be6b6bc1162 100644
+--- a/combobox/root/AriaCombobox.mjs
++++ b/combobox/root/AriaCombobox.mjs
+@@ -907,6 +907,18 @@ export function AriaCombobox(props) {
+       emitHighlight(undefined, -1, REASONS.none);
+       return;
+     }
++    // A list that changes under the highlight, as when results arrive for the query already
++    // typed, keeps the highlight on its item. With `autoHighlight="always"`, an item that left
++    // the list gives the highlight to the first item.
++    const highlighted = lastHighlightRef.current;
++    if (!pendingHighlight && highlighted.index === storeActiveIndex && highlighted.value !== NO_ACTIVE_VALUE && !compareItemEquality(candidateItems[storeActiveIndex], highlighted.value, store.state.isItemEqualToValue)) {
++      const keptIndex = findItemIndex(candidateItems, highlighted.value, store.state.isItemEqualToValue);
++      const nextIndex = keptIndex === -1 && autoHighlightMode === 'always' ? 0 : keptIndex;
++      if (nextIndex !== -1 && nextIndex !== storeActiveIndex) {
++        store.set('activeIndex', nextIndex);
++        return;
++      }
++    }
+     if (storeActiveIndex >= candidateItems.length) {
+       emitHighlight(undefined, -1, REASONS.none);
+       store.set('activeIndex', null);

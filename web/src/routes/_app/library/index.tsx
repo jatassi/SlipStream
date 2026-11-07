@@ -1,7 +1,12 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
-import { RoutedLibrary, librarySearch, rememberedSearch } from "../../../library/routed";
+import {
+  RoutedLibrary,
+  librarySearch,
+  rememberedSearch,
+  typeSwitch,
+} from "../../../library/routed";
 import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
 import { Skeleton } from "../../../ui/skeleton";
@@ -31,7 +36,10 @@ function Library() {
   const { contentTypes } = useListContentTypesSuspense().data;
   const enabled = enabledTypes(contentTypes);
   return (
-    <Page action={enabled.length === 0 ? undefined : <AddMenu types={enabled} />}>
+    <Page
+      beside={typeSwitch(enabled)}
+      action={enabled.length === 0 ? undefined : <AddMenu types={enabled} />}
+    >
       <RoutedLibrary
         scope={scope}
         types={enabled}

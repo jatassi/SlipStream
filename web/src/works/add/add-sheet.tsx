@@ -73,5 +73,5 @@ function Previewing({ adding: { type, candidate } }: { adding: Adding }) {
   if (preview.data === undefined || settings.data === undefined || settings.isFetching) {
     return <Skeleton label={loading} />;
   }
-  return <AddForm type={type} work={preview.data.work} settings={settings.data.settings} />;
+  return <AddForm type={type} previewed={preview.data} settings={settings.data.settings} />;
 }

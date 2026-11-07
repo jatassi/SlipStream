@@ -19,7 +19,7 @@ import { toast } from "../ui/toast";
 import { KeyDialog } from "./metadata-key-dialog";
 import tmdbLogo from "./tmdb-logo.svg";
 
-const logos: Record<MetadataAttributionLogo, { src: string; name: string }> = {
+const logos: Record<NonNullable<MetadataAttributionLogo>, { src: string; name: string }> = {
   tmdb: { src: tmdbLogo, name: "TMDB" },
 };
 
@@ -33,10 +33,10 @@ const keyWords: Record<MetadataProviderKey, (provider: MetadataProvider) => stri
 };
 
 function Attribution({ attribution }: { attribution: MetadataAttribution }) {
-  const logo = logos[attribution.logo];
+  const logo = attribution.logo === null ? undefined : logos[attribution.logo];
   return (
     <p className="flex flex-wrap items-center gap-3 text-meta text-ink-3">
-      <img src={logo.src} alt={logo.name} className="h-3" />
+      {logo !== undefined && <img src={logo.src} alt={logo.name} className="h-3" />}
       {attribution.text}
     </p>
   );

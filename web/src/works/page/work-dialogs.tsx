@@ -2,9 +2,20 @@ import type { WorksWorkView } from "../../api/gen/model";
 import type { ImpactChange } from "../../targets/use-impact-save";
 import type { Subject } from "../actions/actions";
 import { DeleteDialog } from "../actions/delete-dialog";
+import { MonitoringDialog } from "../monitoring/monitoring-dialog";
 import { EditDialog } from "./edit-dialog";
 
-/** The Work's Edit or Delete dialog while it is open, each mounted fresh as it opens. */
+type WorkDialogsProps = {
+  open: "edit" | "delete" | "monitoring" | undefined;
+  subject: Subject;
+  work: WorksWorkView;
+  files: number;
+  save: (change: ImpactChange) => Promise<void>;
+  onClose: () => void;
+  onDeleting: () => void;
+};
+
+/** The Work's Edit, Delete or Monitoring dialog while it is open, each mounted fresh as it opens. */
 export function WorkDialogs({
   open,
   subject,
@@ -13,15 +24,7 @@ export function WorkDialogs({
   save,
   onClose,
   onDeleting,
-}: {
-  open: "edit" | "delete" | undefined;
-  subject: Subject;
-  work: WorksWorkView;
-  files: number;
-  save: (change: ImpactChange) => Promise<void>;
-  onClose: () => void;
-  onDeleting: () => void;
-}) {
+}: WorkDialogsProps) {
   const changes = (next: boolean) => {
     if (!next) {
       onClose();
@@ -31,10 +34,20 @@ export function WorkDialogs({
     return (
       <EditDialog
         subject={subject}
-        profileId={work.profile.id}
-        rootId={work.root?.id}
+        work={work}
         files={files}
         save={save}
+        open
+        onOpenChange={changes}
+      />
+    );
+  }
+  if (open === "monitoring") {
+    return (
+      <MonitoringDialog
+        type={subject.type}
+        subjects={[subject]}
+        includeAsides={work.monitorAsides}
         open
         onOpenChange={changes}
       />

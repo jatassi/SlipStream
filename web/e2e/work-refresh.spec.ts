@@ -4,6 +4,7 @@ import { z } from "zod";
 import { workAction } from "./cells.ts";
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone } from "./shell.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 test.use({ scenario: "movies" });
 test.describe.configure({ timeout: 120_000 });
@@ -18,7 +19,7 @@ test("Refresh metadata reads the source again, and a Work the source drops says 
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key: "9000005",
-    monitor: true,
+    preset: "all",
   });
   expect(added.status, "The Salt Road is added").toBe(200);
   const workId = Added.parse(added.body).work.id;
@@ -49,7 +50,7 @@ test("Refresh metadata reads the source again, and a Work the source drops says 
   }
   await expect(page.getByRole("main")).toContainText("Two sisters walk the salt road. Revision 1.");
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("gone-upstream.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("gone-upstream.png"));
 
   await page.getByRole("button", { name: "More actions for The Salt Road" }).click();
   await expect(

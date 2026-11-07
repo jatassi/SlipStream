@@ -1,7 +1,7 @@
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import type { ReactElement, ReactNode } from "react";
 
-import type { WorksWorkView } from "../../api/gen/model";
+import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { SearchAction } from "../../grabs/search";
 import { Button } from "../../ui/button";
 import { IconButton } from "../../ui/icon-button";
@@ -15,31 +15,48 @@ export type HeroActions = {
   /** Where the Work's Edition list comes from, beside the Editions button. */
   readonly editionsFrom: string;
   readonly openEditions: () => void;
-  readonly monitored: {
-    readonly on: boolean;
-    readonly busy: boolean;
-    readonly set: (on: boolean) => void;
-  };
+  /** A Work of one Item has a Monitored switch; one of many opens the Monitoring dialog. */
+  readonly monitoring:
+    | {
+        readonly kind: "switch";
+        readonly on: boolean;
+        readonly busy: boolean;
+        readonly set: (on: boolean) => void;
+      }
+    | { readonly kind: "dialog"; readonly words: string; readonly open: () => void };
   readonly menu: readonly MenuEntry[];
 };
 
+const monitoringEntry = (monitoring: HeroActions["monitoring"]): MenuEntry =>
+  monitoring.kind === "switch"
+    ? {
+        kind: "toggle",
+        label: "Monitored",
+        checked: monitoring.on,
+        onCheckedChange: monitoring.set,
+      }
+    : { label: "Set monitoring…", onSelect: monitoring.open };
+
 // On phone the actions past Search sit in one action sheet, with Editions as "Edit Editions".
-export function Actions({ work, actions }: { work: WorksWorkView; actions: HeroActions }) {
+export function Actions({
+  type,
+  work,
+  actions,
+}: {
+  type: WorksContentType;
+  work: WorksWorkView;
+  actions: HeroActions;
+}) {
   const more = <IconButton icon={MoreHorizontalIcon} label={`More actions for ${work.label}`} />;
   if (useShell() === "phone") {
     return (
       <div className="flex items-center gap-2">
-        <SearchAction workId={work.id} />
+        <SearchAction workId={work.id} type={type} />
         <Menu
           label={`Actions for ${work.label}`}
           trigger={more}
           items={[
-            {
-              kind: "toggle",
-              label: "Monitored",
-              checked: actions.monitored.on,
-              onCheckedChange: actions.monitored.set,
-            },
+            monitoringEntry(actions.monitoring),
             { label: "Edit Editions", onSelect: actions.openEditions },
             "separator",
             ...actions.menu,
@@ -51,18 +68,22 @@ export function Actions({ work, actions }: { work: WorksWorkView; actions: HeroA
   }
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <SearchAction workId={work.id} />
+      <SearchAction workId={work.id} type={type} />
       {actions.editions(
         <Button>
           Editions <span className="font-normal text-ink-3">{actions.editionsFrom}</span>
         </Button>,
       )}
-      <Switch
-        label="Monitored"
-        checked={actions.monitored.on}
-        disabled={actions.monitored.busy}
-        onCheckedChange={actions.monitored.set}
-      />
+      {actions.monitoring.kind === "switch" ? (
+        <Switch
+          label="Monitored"
+          checked={actions.monitoring.on}
+          disabled={actions.monitoring.busy}
+          onCheckedChange={actions.monitoring.set}
+        />
+      ) : (
+        <Button onClick={actions.monitoring.open}>{actions.monitoring.words}</Button>
+      )}
       <Menu label={`Actions for ${work.label}`} trigger={more} items={actions.menu} />
     </div>
   );

@@ -7,7 +7,7 @@ import { CellFacts } from "./cell-facts";
 import type { CellView, MatrixShown } from "./matrix-model";
 
 // The latest Grab for the cell: the one its state reads from.
-function grabOf(grabs: readonly GrabsGrab[], cell: FilesCell): GrabsGrab | undefined {
+export function grabOf(grabs: readonly GrabsGrab[], cell: FilesCell): GrabsGrab | undefined {
   return grabs
     .filter(
       (grab) =>
@@ -50,7 +50,7 @@ export function CellBlock({
           aria-label={`Search for ${view.target.name}, ${row}`}
           busy={search.isPending}
           onClick={() => {
-            search.mutate({ workId: shown.work.id });
+            search.start(shown.work.id, { levelIds: [], itemIds: [cell.itemId] });
           }}
         >
           Search

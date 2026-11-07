@@ -25,10 +25,12 @@ type Ask struct {
 	Language string
 	// Region is the release region, such as "US".
 	Region string
-	// Ratings asks the ratings providers too.
-	Ratings bool
+	// Ratings is which ratings the ratings providers are asked for.
+	Ratings Ratings
 
-	keys  map[ProviderID]string
+	keys map[ProviderID]string
+	// pins are the PINs that go beside keys, for a provider that takes one.
+	pins  map[ProviderID]string
 	fresh bool
 	// cacheFor is how old a cached answer may be; zero serves none.
 	cacheFor time.Duration
@@ -39,6 +41,19 @@ type Ask struct {
 	// records nothing.
 	tally *tally
 }
+
+// Ratings is which ratings a call asks the ratings providers for.
+type Ratings uint8
+
+const (
+	// RatingsNone asks for none, as a preview does.
+	RatingsNone Ratings = iota
+	// RatingsWork asks for the Work's own ratings, as an add does.
+	RatingsWork
+	// RatingsAll asks for the Work's and each Item's, as a refresh whose
+	// ratings are due does.
+	RatingsAll
+)
 
 type tally struct {
 	mu       sync.Mutex
@@ -69,15 +84,17 @@ func tallied(a Ask) (ask Ask, read func() []Outcome) {
 type AskOptions struct {
 	Language string
 	Region   string
-	Ratings  bool
+	Ratings  Ratings
 	// Fresh bypasses the holder's cache and writes the answer back.
 	Fresh bool
 	// Keys are the keys in effect; a provider with none is called keyless.
 	Keys map[ProviderID]string
+	// Pins are the PINs beside Keys.
+	Pins map[ProviderID]string
 }
 
 // NewAsk builds an Ask outside the Controller, for tests and conformance
 // suites that send a real key.
 func NewAsk(o AskOptions) Ask {
-	return Ask{Language: o.Language, Region: o.Region, Ratings: o.Ratings, keys: maps.Clone(o.Keys), fresh: o.Fresh}
+	return Ask{Language: o.Language, Region: o.Region, Ratings: o.Ratings, keys: maps.Clone(o.Keys), pins: maps.Clone(o.Pins), fresh: o.Fresh}
 }

@@ -442,7 +442,7 @@ func TestReadSeesOneSnapshot(t *testing.T) {
 		if before, err = shelf.Count(ctx, r); err != nil {
 			return err
 		}
-		addShelf(t, lib, "Series")
+		addShelf(t, lib, "Anthology")
 		after, err = shelf.Count(ctx, r)
 		return err
 	})

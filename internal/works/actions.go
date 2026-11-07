@@ -12,30 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works/internal/db"
 )
 
-// MonitorWorks monitors or unmonitors every Item of each of ws in one
-// Write, and publishes one works.changed naming the Works whose Items it
-// changed. known holds each of ws a Work has, changed each whose Items
-// moved.
-func (w *Works) MonitorWorks(ctx context.Context, _ identity.Admin, ws []WorkID, on bool) (known, changed map[WorkID]bool, err error) {
-	var present, moved []WorkID
-	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		var err error
-		if present, err = presentIn(ctx, q, ws); err != nil {
-			return err
-		}
-		if moved, err = q.ListWorksToMonitor(ctx, db.ListWorksToMonitorParams{Monitored: on, WorkIds: present}); err != nil || len(moved) == 0 {
-			return err
-		}
-		return q.MonitorWorks(ctx, db.MonitorWorksParams{Monitored: on, WorkIds: moved})
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	w.Touched(ctx, moved)
-	return set(present), set(moved), nil
-}
-
 // RefreshEach refreshes each of ws now, up to parallel at once, each as
 // Refresh does in its own Write, and publishes one works.changed naming
 // every Work that reads differently after. A Work already gone upstream
@@ -112,12 +88,4 @@ func presentIn(ctx context.Context, q *db.Queries, ws []WorkID) ([]WorkID, error
 		ids[i] = row.ID
 	}
 	return ids, err
-}
-
-func set(ids []WorkID) map[WorkID]bool {
-	out := make(map[WorkID]bool, len(ids))
-	for _, id := range ids {
-		out[id] = true
-	}
-	return out
 }

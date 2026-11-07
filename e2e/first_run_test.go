@@ -59,14 +59,14 @@ func TestFirstSetupRunsFromTheClaimUntilTheAdminFinishesIt(t *testing.T) {
 	}
 
 	worldtest.Expect(t, "getFirstRun after the claim", getFirstRun(),
-		firstRunView(true, "address=todo", "passkey=todo", "language=todo", "roots=todo", "downloads=todo", "targets=todo"))
+		firstRunView(true, "address=todo", "passkey=todo", "media=todo", "language=todo", "roots=todo", "downloads=todo", "targets=todo"))
 	worldtest.Expect(t, "Continue on language", setStep("language", "done"),
-		firstRunView(true, "address=todo", "passkey=todo", "language=done", "roots=todo", "downloads=todo", "targets=todo"))
+		firstRunView(true, "address=todo", "passkey=todo", "media=todo", "language=done", "roots=todo", "downloads=todo", "targets=todo"))
 	worldtest.Expect(t, "Skip on roots", setStep("roots", "skipped"),
-		firstRunView(true, "address=todo", "passkey=todo", "language=done", "roots=skipped", "downloads=todo", "targets=todo"))
+		firstRunView(true, "address=todo", "passkey=todo", "media=todo", "language=done", "roots=skipped", "downloads=todo", "targets=todo"))
 	worldtest.Expect(t, "Continue on an unknown step", setStep("trash", "done"), problem(404, "step_unknown", "No first setup step has that id"))
 	worldtest.Expect(t, "getFirstRun after the step writes", getFirstRun(),
-		firstRunView(true, "address=todo", "passkey=todo", "language=done", "roots=skipped", "downloads=todo", "targets=todo"))
+		firstRunView(true, "address=todo", "passkey=todo", "media=todo", "language=done", "roots=skipped", "downloads=todo", "targets=todo"))
 
 	var nodes struct {
 		Nodes []struct {
@@ -74,19 +74,26 @@ func TestFirstSetupRunsFromTheClaimUntilTheAdminFinishesIt(t *testing.T) {
 		} `json:"nodes"`
 	}
 	decode(t, "listNodes", as(http.MethodGet, "/api/v1/nodes", ""), &nodes)
-	root, err := json.Marshal(struct {
-		ContentType string `json:"contentType"`
-		NodeID      string `json:"nodeId"`
-		Path        string `json:"path"`
-	}{"movie", nodes.Nodes[0].ID, t.TempDir()})
-	if err != nil {
-		t.Fatal(err)
+	createRoot := func(contentType string) {
+		t.Helper()
+		root, err := json.Marshal(struct {
+			ContentType string `json:"contentType"`
+			NodeID      string `json:"nodeId"`
+			Path        string `json:"path"`
+		}{contentType, nodes.Nodes[0].ID, t.TempDir()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r := as(http.MethodPost, "/api/v1/roots", string(root)); r.Status != http.StatusCreated {
+			t.Fatalf("createRoot = %d %s, want 201", r.Status, r.Body)
+		}
 	}
-	if r := as(http.MethodPost, "/api/v1/roots", string(root)); r.Status != http.StatusCreated {
-		t.Fatalf("createRoot = %d %s, want 201", r.Status, r.Body)
-	}
+	createRoot("movie")
 	worldtest.Expect(t, "getFirstRun once the movie root exists", getFirstRun(),
-		firstRunView(true, "address=todo", "passkey=todo", "language=done", "roots=done", "downloads=todo", "targets=todo"))
+		firstRunView(true, "address=todo", "passkey=todo", "media=todo", "language=done", "roots=skipped", "downloads=todo", "targets=todo"))
+	createRoot("series")
+	worldtest.Expect(t, "getFirstRun once the series root exists too", getFirstRun(),
+		firstRunView(true, "address=todo", "passkey=todo", "media=todo", "language=done", "roots=done", "downloads=todo", "targets=todo"))
 
 	var key struct {
 		APIKey string `json:"apiKey"`
@@ -96,7 +103,7 @@ func TestFirstSetupRunsFromTheClaimUntilTheAdminFinishesIt(t *testing.T) {
 		return a.Keyed("home", key.APIKey, method, path, body)
 	}
 	worldtest.Expect(t, "Continue on downloads with the API key", keyed(http.MethodPut, "/api/v1/first-run/steps/downloads", `{"outcome":"done"}`),
-		firstRunView(true, "address=todo", "passkey=todo", "language=done", "roots=done", "downloads=done", "targets=todo"))
+		firstRunView(true, "address=todo", "passkey=todo", "media=todo", "language=done", "roots=done", "downloads=done", "targets=todo"))
 
 	home := a.Node("home")
 	if r := as(http.MethodPut, "/api/v1/identity/address", `{"address":"`+home.BrowserURL+`"}`); r.Status != http.StatusOK {
@@ -109,14 +116,14 @@ func TestFirstSetupRunsFromTheClaimUntilTheAdminFinishesIt(t *testing.T) {
 	worldtest.Expect(t, "finishFirstRun as a Member", a.Signed("home", member, http.MethodPost, "/api/v1/first-run/finish", ""), needsAdmin)
 
 	act(t, run, "home", world.RestartNode)
-	opened := firstRunView(true, "address=done", "passkey=todo", "language=done", "roots=done", "downloads=done", "targets=todo")
+	opened := firstRunView(true, "address=done", "passkey=todo", "media=todo", "language=done", "roots=done", "downloads=done", "targets=todo")
 	worldtest.Expect(t, "getFirstRun after a restart", getFirstRun(), opened)
 	worldtest.Expect(t, "getFirstRun with the API key", keyed(http.MethodGet, "/api/v1/first-run", ""), opened)
 
 	worldtest.Expect(t, "finishFirstRun", as(http.MethodPost, "/api/v1/first-run/finish", ""), worldtest.Reply{Status: 204})
 	worldtest.Expect(t, "finishFirstRun again with the API key", keyed(http.MethodPost, "/api/v1/first-run/finish", ""), worldtest.Reply{Status: 204})
 	worldtest.Expect(t, "getFirstRun once finished", getFirstRun(),
-		firstRunView(false, "address=done", "passkey=skipped", "language=done", "roots=done", "downloads=done", "targets=skipped"))
+		firstRunView(false, "address=done", "passkey=skipped", "media=skipped", "language=done", "roots=done", "downloads=done", "targets=skipped"))
 	worldtest.Expect(t, "Continue once finished", setStep("targets", "done"), problem(409, "first_run_finished", "First setup is already finished"))
 	worldtest.Expect(t, "getSession once finished", as(http.MethodGet, "/api/v1/session", ""),
 		worldtest.Reply{Status: 200, Body: `{"account":` + adaAccount + `,"pinRequired":false,"keyPrompt":"ask","firstRun":"finished"}` + "\n"})

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, openSettingsSection } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 test.use({ scenario: "targets" });
 test.describe.configure({ timeout: 120_000 });
@@ -46,7 +47,7 @@ async function importedSuperfan(world: World): Promise<string> {
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key: "9000001",
-    monitor: true,
+    preset: "all",
   });
   expect(added.status, "The Quiet Orchard is added").toBe(200);
   const workId = Added.parse(added.body).work.id;
@@ -101,7 +102,7 @@ test("an Admin adds a custom cut, lists it in a Profile, and renames it and its 
   await expect(cutRow(page, "Extended")).toContainText("Built in");
   await addSuperfan(page);
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("editions.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("editions.png"));
 
   await filmsWantSuperfan(page, world);
   const workId = await importedSuperfan(world);

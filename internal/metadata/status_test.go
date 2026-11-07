@@ -74,7 +74,7 @@ func (probe) Search(context.Context, metadata.Ask, string) ([]works.Candidate, e
 
 func (probe) Sources() []artwork.Source { return nil }
 
-func (p probe) Fetch(ctx context.Context, ask metadata.Ask, _ works.Key) (works.Fetched, error) {
+func (p probe) Fetch(ctx context.Context, ask metadata.Ask, _ works.Key, _ []byte) (works.Fetched, error) {
 	if err := p.line.Get(ctx, ask, metadata.Request{URL: p.base.JoinPath("fetch")}, &body{}); err != nil {
 		return works.Fetched{}, err
 	}
@@ -201,7 +201,7 @@ func TestNoKeyMeansKeylessCalls(t *testing.T) {
 				}
 			}
 			check("before any Admin key", tc.sends, tc.key)
-			if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", "mine"); err != nil {
+			if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", metadata.NewKey{Key: "mine"}); err != nil {
 				t.Fatal(err)
 			}
 			check("with the Admin's key", "mine", metadata.KeyYours)
@@ -221,7 +221,7 @@ func TestTheKeySetTimeIsKeptWithTheKey(t *testing.T) {
 		t.Fatalf("with no Admin key the set time is %v, want none", got)
 	}
 	before := time.Now().Truncate(time.Microsecond)
-	if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", "mine"); err != nil {
+	if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", metadata.NewKey{Key: "mine"}); err != nil {
 		t.Fatal(err)
 	}
 	set := f.status(t).KeySetAt
@@ -243,15 +243,15 @@ func TestTheKeySetTimeIsKeptWithTheKey(t *testing.T) {
 func TestSetKeyRefusesAKeyTheProviderRefuses(t *testing.T) {
 	f := open(t, roster{may: []role.NodeID{home}}, home)
 	f.hosts[home].set(false, "typo")
-	_, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", "typo")
+	_, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", metadata.NewKey{Key: "typo"})
 	if se, ok := errors.AsType[*works.SourceError](err); !ok || !errors.Is(err, metadata.ErrKeyRefused) || se.Source != "TMDB" || se.Words != "refused the key: 401 Unauthorized" {
 		t.Fatalf("SetKey(typo) = %v, want TMDB's refusal", err)
 	}
 	f.hosts[home].set(true)
-	if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", "mine"); !errors.Is(err, works.ErrUnavailable) {
+	if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", metadata.NewKey{Key: "mine"}); !errors.Is(err, works.ErrUnavailable) {
 		t.Fatalf("SetKey while TMDB is unreachable = %v, want ErrUnavailable", err)
 	}
-	if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "nope", "k"); !errors.Is(err, metadata.ErrNoProvider) {
+	if _, err := f.m.SetKey(t.Context(), identity.Admin{}, "nope", metadata.NewKey{Key: "k"}); !errors.Is(err, metadata.ErrNoProvider) {
 		t.Fatalf("SetKey(nope) = %v, want ErrNoProvider", err)
 	}
 	f.restart(t)
@@ -260,7 +260,7 @@ func TestSetKeyRefusesAKeyTheProviderRefuses(t *testing.T) {
 	}
 
 	f.hosts[home].set(false)
-	s, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", "mine")
+	s, err := f.m.SetKey(t.Context(), identity.Admin{}, "tmdb", metadata.NewKey{Key: "mine"})
 	if err != nil || s.Key != metadata.KeyYours || s.State != metadata.StateWorking || s.Summary != "TMDB is working." {
 		t.Fatalf("SetKey(mine) = %+v, %v; want your key, working", s, err)
 	}

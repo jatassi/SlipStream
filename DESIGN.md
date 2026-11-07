@@ -534,6 +534,10 @@ An iOS-style choice of view or filter.
 - **Phone:** Full width with equal options, scrolling sideways when they overflow.
 - **Semantics:** `role="radiogroup"`.
 
+### Segmented links
+
+The Segmented control's look over links, for a choice where each option is its own address, such as the Library's Content Type switch (All, then each enabled type in sidebar order). The row is a `nav` landmark named for the choice. Each option is a link, and the router marks the current one `aria-current="page"`, which takes the selected fill and lift. Counts are optional. A link is `ink-2`, turning `ink-1` on hover. On phone it spans the width with equal options and scrolls sideways, as the Segmented control does.
+
 ### Page tabs
 
 The row of links under a page's title that moves between the page's sections, such as a Node's Overview, Web and API, Logs and Log settings. Each section is a route, so the row is a `nav` landmark named for the page's subject, holding links with `aria-current="page"`, never ARIA tabs.
@@ -549,6 +553,8 @@ Settings has too many sections for one row of page tabs. Its sections sit in gro
 ### Switch
 
 A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. The track is `hsl(var(--h) 20% 90% / .22)` off and `hsl(var(--h) 62% 46%)` on. The track fades over 250ms and the knob slides over 280ms. The whole labelled capsule is the switch target, and a sheet row with a switch is one target.
+- **Mixed:** A switch over several things, such as a level's Monitor switch when some of its Items are monitored, can be mixed. Its knob sits centred on a track at `hsl(var(--h) 62% 46% / .55)`, and it reads `aria-checked="mixed"`. Pressing a mixed switch turns it on.
+- **Row switch:** A row that a page draws by the hundred, such as an Item row, uses the row switch. It looks the same in every state and is a native `button role="switch"`, because one Base UI control per row made long lists slow to scroll.
 
 ### Checkbox and radio
 
@@ -668,6 +674,13 @@ There are three layouts.
 - **Needs you.** A list above the matrix with compact failure cards first, then upgrades and Not found rows. Consecutive identical Items merge into ranges.
 
 Hovering or focusing a square opens a Popover with its detail, and clicking pins it. On phone, one Item becomes one card per Edition, and many Items keep their rows, with each row opening a sheet.
+
+- **State square:** 16px with a 4px radius, centred in a 42 × 30 plain button that washes on hover like a list row. The button's name is the cell's label and its state's word ("S01E02 Archive, Missing"). A quiet square dims to 55%.
+- **State bar:** 180 × 8 with a 2px radius and 2px gaps, one segment per state in display rank, each as wide as its count. Met is solid white, upgrade a white ring, missing the hatch, live a glow fill, failed solid `fail` and unreleased a hairline ring. A screen reader hears its counts ("1 Failed, 3 Missing, 6 Met").
+- **Cell popover:** A page holds one detail Popover for all its squares, anchored to the square that is hovered, focused or pinned. Hover or focus opens it after 120ms, and once it is open it moves to the next square at once. It hides 160ms after the pointer leaves, unless the pointer moves into it. A click pins it and moves focus into it. A second click on the same square, a press outside or Esc closes it, and Esc returns focus to the square. Rows never mount a Popover of their own.
+- **Many-Items row:** 36px. The `code` field, the label, the availability date, the squares grouped by Edition with Targets in Profile order, then the row switch, Search and "…" for the Item's Details.
+- **Quiet row:** An Item nobody monitors reads "Not monitored" in `ink-3`, and its squares dim.
+- **No longer listed row:** An Item its source withdrew that still has files sits at the end of its level, reading "No longer listed by" and the Work's source ("No longer listed by TVDB"). A withdrawn Item without files doesn't show. Items whose level was withdrawn too, as when the episode order changes, trail every level in one section named the same way, whose header has no switch or Search, a state bar of the cells it holds and a count of its Items ("1 episode").
 
 ### Inspector
 

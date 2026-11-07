@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 
 import type { TargetsProfile, WorksFieldValue } from "../../api/gen/model";
+import { anthologiesRoot, longShelfPresets, shelves } from "../../test/adding";
+import { anthologies } from "../../test/anthology";
 import { cinema } from "../../test/library";
 import { films, ultra } from "../../test/profiles";
 import { filmsRoot } from "../../test/roots";
@@ -12,8 +14,20 @@ const fields: WorksFieldValue[] = [
   { key: "runtime", kind: "duration", ms: 6_240_000 },
 ];
 const orchard = { label: "The Quiet Orchard", fields };
-const context = { type: cinema, profiles: [films, ultra], roots: [filmsRoot] };
-const defaults = startChoices({ profileId: films.id, rootId: filmsRoot.id, monitor: true });
+const context = {
+  type: cinema,
+  profiles: [films, ultra],
+  roots: [filmsRoot],
+  monitor: { kind: "switch" },
+  counts: null,
+} as const;
+const defaults = startChoices({
+  profileId: films.id,
+  rootId: filmsRoot.id,
+  preset: "all",
+  asides: undefined,
+  levelFolders: undefined,
+});
 
 test.each([
   [
@@ -25,7 +39,7 @@ test.each([
   [
     "another Profile, not monitored",
     orchard,
-    { ...defaults, profileId: ultra.id, monitor: false },
+    { ...defaults, profileId: ultra.id, preset: "none" as const },
     "Adds The Quiet Orchard (2021) to Films on /srv/media/films, not monitored, wanting Ultra's 2 Targets.",
   ],
   [
@@ -55,5 +69,43 @@ test("a Profile with no Targets says the Work wants nothing", () => {
     addSentence(orchard, { ...defaults, profileId: empty.id }, { ...context, profiles: [empty] }),
   ).toBe(
     "Adds The Quiet Orchard (2021) to Films on /srv/media/films, monitored, wanting nothing, because Empty has no Targets.",
+  );
+});
+
+const shelf = {
+  label: "The Long Shelf",
+  fields: [{ key: "publisher", kind: "text", text: "Harbor Press" }],
+} satisfies { label: string; fields: WorksFieldValue[] };
+const anthology = {
+  type: anthologies,
+  profiles: [shelves],
+  roots: [anthologiesRoot],
+  monitor: { kind: "choice", label: "Stories to monitor", options: [] },
+  counts: longShelfPresets,
+} as const;
+const shelfChoices = startChoices({
+  profileId: shelves.id,
+  rootId: anthologiesRoot.id,
+  preset: "all",
+  asides: false,
+  levelFolders: true,
+});
+
+test.each([
+  ["all", false, "monitoring all 1176 stories and new ones as they come out"],
+  ["all", true, "monitoring all 1200 stories and new ones as they come out"],
+  ["first", false, "monitoring 49 stories and no new ones"],
+  ["first", true, "monitoring 73 stories and no new ones"],
+  ["future", false, "monitoring only new stories as they come out"],
+  ["none", false, "monitoring no stories"],
+] as const)("the %s preset, extras included %s, says %s", (preset, asides, monitoring) => {
+  expect(addSentence(shelf, { ...shelfChoices, preset, asides }, anthology)).toBe(
+    `Adds The Long Shelf to Anthologies on /srv/media/anthologies, ${monitoring}, wanting Shelves' 1 Target.`,
+  );
+});
+
+test("a Work already in the library has no counts, so the sentence leaves monitoring out", () => {
+  expect(addSentence(shelf, shelfChoices, { ...anthology, counts: null })).toBe(
+    "Adds The Long Shelf to Anthologies on /srv/media/anthologies, wanting Shelves' 1 Target.",
   );
 });

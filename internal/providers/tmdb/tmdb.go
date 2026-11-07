@@ -160,8 +160,8 @@ func (c *Client) Movie(ctx context.Context, ask metadata.Ask, id int64) (Movie, 
 // ChangesWindow is how far back TMDB lists changes.
 const ChangesWindow = 14 * 24 * time.Hour
 
-// ChangesPage is one page of the movies TMDB changed in a window, 100 ids
-// a page.
+// ChangesPage is one page of the movies or series TMDB changed in a
+// window, 100 ids a page.
 type ChangesPage struct {
 	IDs        []int64
 	Page       int
@@ -172,6 +172,10 @@ type ChangesPage struct {
 // until, by day. A window longer than ChangesWindow is
 // metadata.ErrNoChanges and sends nothing.
 func (c *Client) MovieChanges(ctx context.Context, ask metadata.Ask, since, until time.Time, page int) (ChangesPage, error) {
+	return c.changes(ctx, ask, "movie", since, until, page)
+}
+
+func (c *Client) changes(ctx context.Context, ask metadata.Ask, kind string, since, until time.Time, page int) (ChangesPage, error) {
 	if until.Sub(since) > ChangesWindow {
 		return ChangesPage{}, fmt.Errorf("TMDB lists %s of changes, asked from %s: %w", ChangesWindow, since.UTC().Format(time.DateOnly), metadata.ErrNoChanges)
 	}
@@ -187,7 +191,7 @@ func (c *Client) MovieChanges(ctx context.Context, ask metadata.Ask, since, unti
 			ID int64 `json:"id"`
 		} `json:"results"`
 	}
-	if err := c.get(ctx, ask, metadata.Request{URL: c.url(q, "movie", "changes")}, &p); err != nil {
+	if err := c.get(ctx, ask, metadata.Request{URL: c.url(q, kind, "changes")}, &p); err != nil {
 		return ChangesPage{}, err
 	}
 	out := ChangesPage{Page: p.Page, TotalPages: p.TotalPages, IDs: make([]int64, len(p.Results))}

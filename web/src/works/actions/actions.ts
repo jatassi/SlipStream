@@ -3,6 +3,7 @@ import type {
   WorksContentType,
   WorksDeleted,
   WorksDeletingFiles,
+  WorksMonitoringList,
   WorksOutcomeList,
   WorksProfileChanged,
 } from "../../api/gen/model";
@@ -10,13 +11,16 @@ import {
   deleteWorks,
   refreshWorks,
   setWorksMonitored,
+  setWorksMonitoring,
   setWorksProfile,
   setWorksRoot,
 } from "../../api/gen/query/works/works";
+import { type MonitoringChoice, monitoringBody } from "../monitoring/choice";
 import { capital, filesOf } from "./delete-plan";
 
 type Shapes = {
   readonly monitor: { readonly on: boolean };
+  readonly monitoring: MonitoringChoice;
   /** `confirm` is the unwanted file count the Admin confirmed from the Impact. */
   readonly profile: {
     readonly profileId: string;
@@ -37,6 +41,7 @@ export type WorkAction<K extends ActionKind = ActionKind> = {
 
 type Answers = {
   readonly monitor: WorksOutcomeList;
+  readonly monitoring: WorksMonitoringList;
   readonly profile: WorksProfileChanged;
   readonly root: WorksOutcomeList;
   readonly refresh: WorksOutcomeList;
@@ -78,6 +83,12 @@ export const actions: { readonly [K in ActionKind]: Entry<K> } = {
         ? `${named.words} ${was(named)} already monitored.`
         : `${named.words} ${was(named)}n't monitored.`,
     attempt: ({ on }) => (on ? "monitor" : "stop monitoring"),
+  },
+  monitoring: {
+    post: (workIds, choice) => setWorksMonitoring(monitoringBody(workIds, choice, false)),
+    done: (named) => `Changed the monitoring of ${named.words}.`,
+    already: (named) => `${named.words} ${was(named)} already monitored that way.`,
+    attempt: () => "change the monitoring of",
   },
   profile: {
     post: (workIds, { profileId, unwanted, confirm }) =>

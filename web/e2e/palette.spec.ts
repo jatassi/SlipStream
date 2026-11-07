@@ -25,7 +25,7 @@ test("the palette opens a Work by its name", async ({ adminPage: page, world }) 
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key: candidate?.key,
-    monitor: true,
+    preset: "all",
   });
   const { id } = Added.parse(added.body).work;
 
