@@ -25,23 +25,32 @@ After the claim, the new Admin lands on first setup at `/setup/<step>`: a short 
 
 Preconditions:
 
-- A `first-run` run claimed through the page as in [Setup](./setup.md), so `{runId}-admin-desktop` is signed in as Grace Hopper on `/setup/address`. The release binary registers one Content Type, so the media step is hidden and the steps read `Address`, `Passkey`, `Language and region`, `Library roots`, `Downloads`, `What SlipStream grabs`.
+- A `first-run` run claimed through the page as in [Setup](./setup.md), so `{runId}-admin-desktop` is signed in as Grace Hopper on `/setup/address`. The release binary registers two Content Types, Movies and TV, so the steps read `Address`, `Passkey`, `Kinds of media`, `Language and region`, `Library roots`, `Downloads`, `What SlipStream grabs`.
 - For the passkey step, Chromium's virtual authenticator on the session's page, added with `run-code` as in [Passkeys](./passkeys.md).
 
 Steps:
 
-- **Read the frame.** The address step reads `Step 1 of 6` and `After this: Passkey, Language and region, Library roots, Downloads and What SlipStream grabs`, with the `Address` textbox holding `{nodes.home.browserUrl}`.
+- **Read the frame.** The address step reads `Step 1 of 7` and `After this: Passkey, Kinds of media, Language and region, Library roots, Downloads and What SlipStream grabs`, with the `Address` textbox holding `{nodes.home.browserUrl}`.
 
   ```sh
   $FW exec $RUN --proof first-run/first-setup-frame -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/first-run/first-setup-frame/address.aria.yml
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```
 
-- **Add a passkey.** `Add a passkey` registers with the virtual authenticator and moves to `Language and region`.
+- **Add a passkey.** `Add a passkey` registers with the virtual authenticator and moves to `Kinds of media`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add a passkey" })'
-  $FW exec $RUN --proof first-run/first-setup-passkey -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("heading", { name: "Language and region", level: 1 }).waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof first-run/first-setup-passkey -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("heading", { name: "Kinds of media", level: 1 }).waitFor({ timeout: 10000 }); }'
+  ```
+
+- **Keep one kind of media on.** The step reads `Step 3 of 7` with the switches `Movies` and `TV`, both on. Turning `Movies` off leaves `TV` on and disabled with `At least one kind of media stays on.` Turn `Movies` back on and continue.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("switch", { name: "Movies" })'
+  $FW exec $RUN --proof first-run/first-setup-media -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("main")' --filename={runDir}/proof/first-run/first-setup-media/last-on.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("switch", { name: "Movies" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```
 
 - **Save the language and region.** The comboboxes `Metadata language` and `Metadata region` hold what the browser's languages suggest. `Continue` saves both, and `GET /api/v1/metadata/settings` reads them back.
@@ -52,7 +61,7 @@ Steps:
   $FW exec $RUN --proof first-run/first-setup-language -- $PW cli -s={runId}-admin-desktop eval 'fetch("/api/v1/metadata/settings").then((r) => r.json()).then((b) => b.settings.map((s) => s.key + "=" + s.value).join(" "))'
   ```
 
-- **Resume it.** Reload on `Library roots`, then open `/settings/address`. Both land on `/setup/roots`, whose `Movies` row reads `No folder yet` with `Add a folder`.
+- **Resume it.** Reload on `Library roots`, then open `/settings/address`. Both land on `/setup/roots`, whose `Movies` and `TV` rows each read `No folder yet` with `Add a folder`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
@@ -69,7 +78,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```
 
-- **Read the Targets.** The `Movies` row's sentence starts `Grabs`. `Details` opens the Profile, qualities, cutoff and sizes, and `Edit` opens the Target editor in a dialog.
+- **Read the Targets.** The `Movies` and `TV` rows' sentences start `Grabs`. `Details` opens the Profile, qualities, cutoff and sizes, and `Edit` opens the Target editor in a dialog.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Details" })'
@@ -77,7 +86,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```
 
-- **Finish.** The last screen at `/setup/done` lists `Library roots` as `Skipped` with `Set it in Settings` and every other step as `Set`, then `Email isn't set up.` with its own `Set it in Settings`. `Go to Library` opens `/library`, a later `/setup/roots` lands on the Library too, and `GET /api/v1/first-run` reads `"open":false`.
+- **Finish.** The last screen at `/setup/done` lists `Library roots` as `Skipped` with `Set it in Settings` and every other step as `Set`, then `Email isn't set up.` with its own `Set it in Settings`, and offers `Add a Movie`, `Add a Series` and `Go to Library`. `Go to Library` opens `/library`, a later `/setup/roots` lands on the Library too, and `GET /api/v1/first-run` reads `"open":false`.
 
   ```sh
   $FW exec $RUN --proof first-run/first-setup-done -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/first-run/first-setup-done/summary.aria.yml
@@ -90,7 +99,7 @@ Steps:
 ## Gotchas
 
 - `first-run` is the only Scenario that leaves first setup open. Every Scenario that claims its Controller through the API finishes it, so recipes elsewhere land in the app.
-- The passkey step needs `home.localhost` in Chromium. Firefox and WebKit reach the Node by IP address, so the step is hidden there and the steps read `Step 1 of 5`.
+- The passkey step needs `home.localhost` in Chromium. Firefox and WebKit reach the Node by IP address, so the step is hidden there and the steps read `Step 1 of 6`.
 - The language step's suggestion follows the browser's languages, so what it fills in depends on the session's locale. It fills in only while the settings still hold the defaults.
-- The media step and the Settings switches show only on a binary that registers more than one Content Type. The release binary registers Movies alone, so prove `first-setup-media` with the component tests.
+- The media step and the Settings switches show only on a binary that registers more than one Content Type. The release binary registers Movies and TV, so both show.
 - `Continue` on a step that already reads done moves on without a write. `Back` to a skipped step and `Continue` stores it done.

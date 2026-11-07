@@ -543,6 +543,11 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "endpoints.content_types.movie.tmdb_site", Value: "https://www.themoviedb.org", Default: "https://www.themoviedb.org", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_TMDB_SITE"},
 			{Key: "endpoints.content_types.movie.trakt", Value: "https://trakt.tv", Default: "https://trakt.tv", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_TRAKT"},
 			{Key: "endpoints.content_types.movie.youtube", Value: "https://www.youtube.com", Default: "https://www.youtube.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_YOUTUBE"},
+			{Key: "endpoints.content_types.series.tvdb_site", Value: "https://thetvdb.com", Default: "https://thetvdb.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_TVDB_SITE"},
+			{Key: "endpoints.content_types.series.tmdb_site", Value: "https://www.themoviedb.org", Default: "https://www.themoviedb.org", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_TMDB_SITE"},
+			{Key: "endpoints.content_types.series.imdb", Value: "https://www.imdb.com", Default: "https://www.imdb.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_IMDB"},
+			{Key: "endpoints.content_types.series.trakt", Value: "https://trakt.tv", Default: "https://trakt.tv", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_TRAKT"},
+			{Key: "endpoints.content_types.series.youtube", Value: "https://www.youtube.com", Default: "https://www.youtube.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_YOUTUBE"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
 			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
@@ -635,8 +640,9 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 		Census: []string{
 			"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers",
 			"endpoints.content_types.movie.imdb", "endpoints.content_types.movie.tmdb_site", "endpoints.content_types.movie.trakt", "endpoints.content_types.movie.youtube",
+			"endpoints.content_types.series.tvdb_site", "endpoints.content_types.series.tmdb_site", "endpoints.content_types.series.imdb", "endpoints.content_types.series.trakt", "endpoints.content_types.series.youtube",
 		},
-		ContentTypes: []string{"movie"},
+		ContentTypes: []string{"movie", "series"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("config = %+v, want %+v", got, want)

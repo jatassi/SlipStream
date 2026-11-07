@@ -5,9 +5,10 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/contenttypes/music"
 	"github.com/jatassi/slipstream/internal/contenttypes/movie"
+	"github.com/jatassi/slipstream/internal/contenttypes/series"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
 func main() {
-	os.Exit(node.Main(os.Args, movie.Def, music.Def))
+	os.Exit(node.Main(os.Args, movie.Def, series.Def, music.Def))
 }

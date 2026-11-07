@@ -158,7 +158,7 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	expectReply(t, claimController(t, readyAgain, ready.SetupCode), 409, `{"status":409,"code":"already_claimed","title":"This Node is already set up"}`+"\n")
 }
 
-func TestTheReleaseBinaryListsTheMovieType(t *testing.T) {
+func TestTheReleaseBinaryListsBothTypes(t *testing.T) {
 	t.Parallel()
 	dir := dataDir(t)
 	ready := startNode(t, dir).ready()
@@ -190,7 +190,7 @@ func TestTheReleaseBinaryListsTheMovieType(t *testing.T) {
 		`{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},`+
 		`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},`+
 		`{"key":"awards","label":"Awards","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],`+
-		`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"],"availability":""}]}`+"\n")
+		`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"],"availability":""},`+seriesType+`]}`+"\n")
 }
 
 func binaryIsStamped(t *testing.T) bool {
@@ -287,3 +287,42 @@ func TestAMissingKeyFileRefusesTheStart(t *testing.T) {
 		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, failed.Err, node.ExitLibraryRefused, want, res.stderr)
 	}
 }
+
+const seriesType = `{"id":"series","name":"TV","icon":"tv","enabled":true,"work":{"one":"Series","many":"Series"},"levels":[{"one":"Season","many":"Seasons"}],"aside":{"one":"Special","many":"Specials"},"item":{"one":"Episode","many":"Episodes"},"fields":[` +
+	`{"key":"years","label":"Years","tier":"work","kind":"text","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"year","label":"First aired year","tier":"work","kind":"number","in":["details"],"list":{"column":true,"sort":true,"filter":true},"with":null,"art":null},` +
+	`{"key":"network","label":"Network","tier":"work","kind":"text","in":["facts","about"],"list":{"column":true,"sort":true,"filter":true},"with":null,"art":"network_logo"},` +
+	`{"key":"certification","label":"Certification","tier":"work","kind":"text","in":["facts","about"],"list":{"column":true,"sort":true,"filter":true},"with":"certification_country","art":null},` +
+	`{"key":"certification_country","label":"Certification country","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"genres","label":"Genres","tier":"work","kind":"texts","in":["facts","about"],"list":{"column":false,"sort":false,"filter":true},"with":null,"art":null},` +
+	`{"key":"status","label":"Production status","tier":"work","kind":"text","in":["facts","about"],"list":{"column":true,"sort":false,"filter":true},"with":null,"art":null},` +
+	`{"key":"seasons","label":"Seasons","tier":"work","kind":"number","in":["about"],"list":{"column":true,"sort":true,"filter":false},"with":null,"art":null},` +
+	`{"key":"episodes","label":"Episodes","tier":"work","kind":"number","in":["about"],"list":{"column":true,"sort":true,"filter":false},"with":null,"art":null},` +
+	`{"key":"overview","label":"Overview","tier":"work","kind":"text","in":["overview"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"creators","label":"Created by","tier":"work","kind":"people","in":["credits"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"credits","label":"Cast","tier":"work","kind":"people","in":["credits"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"original_title","label":"Original title","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"original_language","label":"Original language","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"country","label":"Country","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"first_aired","label":"First aired","tier":"work","kind":"date","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"last_aired","label":"Last aired","tier":"work","kind":"date","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"next_aired","label":"Next airing","tier":"work","kind":"date","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"awards","label":"Awards","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"english_title","label":"English title","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"episode_order","label":"Episode order","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"tvdb_id","label":"TVDB id","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"tmdb_id","label":"TMDB id","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"imdb_id","label":"IMDb id","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"season","label":"Season","tier":"level","depth":1,"kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"overview","label":"Overview","tier":"level","depth":1,"kind":"text","in":["overview"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"code","label":"Episode","tier":"item","kind":"text","in":["code"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"air_date","label":"Air date","tier":"item","kind":"date","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"runtime","label":"Runtime","tier":"item","kind":"duration","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"overview","label":"Overview","tier":"item","kind":"text","in":["overview"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"season","label":"Season","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"episode","label":"Episode number","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"absolute","label":"Absolute number","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"imdb_id","label":"IMDb id","tier":"item","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
+	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"network_logo","label":"Network logo","tier":"work","shape":"logo"},{"key":"season_poster","label":"Season poster","tier":"level","depth":1,"shape":"poster"},{"key":"still","label":"Still","tier":"item","shape":"backdrop"}],"source":"TVDB","items":"many","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"],"availability":"Next airing"}`

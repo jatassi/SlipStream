@@ -438,6 +438,18 @@ func SetStorageLevels(ctx context.Context, c *http.Client, baseURL, apiKey strin
 	}, &settings)
 }
 
+// SetMetadataKey saves key as the Admin's key for provider, which a holder
+// tests first.
+func SetMetadataKey(ctx context.Context, c *http.Client, baseURL, apiKey, provider, key string) error {
+	var status struct{}
+	return call(ctx, c, request{
+		what: "set the " + provider + " key", method: http.MethodPut, url: baseURL + "/api/v1/metadata/providers/" + provider + "/key",
+		header: apiKeyHeader(apiKey), body: struct {
+			Key string `json:"key"`
+		}{key}, want: http.StatusOK,
+	}, &status)
+}
+
 func apiKeyHeader(key string) http.Header { return http.Header{"X-Api-Key": {key}} }
 
 type request struct {
