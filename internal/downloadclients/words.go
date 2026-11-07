@@ -30,6 +30,9 @@ func Says(p clients.Problem, s Subject, node string) string {
 	case clients.ServerError:
 		return fmt.Sprintf("%s responded with status %d. Check %s's log for the reason.", name, p.Status, name)
 	case clients.WrongCredentials:
+		if s.Kind.Facts().SignIn.Username == clients.NotTaken {
+			return name + " rejected the password. Check it and test again."
+		}
 		return name + " rejected the username or password. Check them and test again."
 	case clients.WrongAPIKey:
 		return name + " rejected the API key. Replace it and test again."

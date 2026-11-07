@@ -72,6 +72,7 @@ func TestTheSpecsSentencesReadAsTheSpecWritesThem(t *testing.T) {
 		want string
 	}{
 		{tc.Problem{Cause: tc.WrongCredentials}, transmission, "Transmission rejected the username or password. Check them and test again."},
+		{tc.Problem{Cause: tc.WrongCredentials}, deluge, "Deluge rejected the password. Check it and test again."},
 		{tc.Problem{Cause: tc.WrongAPIKey}, qbittorrent, "qBittorrent rejected the API key. Replace it and test again."},
 		{tc.Problem{Cause: tc.NoResponse}, transmission, "Transmission isn't responding. Check that it's running and that Media server can reach 192.168.1.20:9091."},
 		{tc.Problem{Cause: tc.TimedOut}, transmission, "Transmission isn't responding. Check that it's running and that Media server can reach 192.168.1.20:9091."},
