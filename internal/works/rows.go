@@ -38,7 +38,7 @@ type Row struct {
 	Values []FieldValue
 }
 
-// Monitoring is how many of a Work's Items are monitored.
+// Monitoring is how many of a Work's live Items are monitored.
 type Monitoring uint8
 
 const (
@@ -51,17 +51,24 @@ var monitoringNames = map[Monitoring]string{MonitoredNone: "none", MonitoredSome
 
 func (m Monitoring) String() string { return monitoringNames[m] }
 
-func monitoringOf(items []Item) Monitoring {
-	on := 0
+// monitoringOf counts w's live Items, an aside one only while it is
+// monitored or w's MonitorAsides is on, so a Work monitoring all with
+// asides off reads all.
+func monitoringOf(w Summary, items []Item) Monitoring {
+	on, of := 0, 0
 	for _, it := range items {
-		if it.Monitored {
+		switch {
+		case it.Counts():
 			on++
+		case !it.Live(), it.Aside && !w.MonitorAsides:
+			continue
 		}
+		of++
 	}
 	switch on {
 	case 0:
 		return MonitoredNone
-	case len(items):
+	case of:
 		return MonitoredAll
 	}
 	return MonitoredSome
@@ -131,7 +138,7 @@ func (w *Works) rowsOf(ctx context.Context, r storage.Reader[file], works []db.W
 	at := make(map[WorkID]*Row, len(bares))
 	byType := map[TypeID][]WorkID{}
 	for i, b := range bares {
-		out[i] = Row{Bare: b, Monitored: monitoringOf(b.Items)}
+		out[i] = Row{Bare: b, Monitored: monitoringOf(b.Summary, b.Items)}
 		at[b.ID] = &out[i]
 		byType[b.ContentType] = append(byType[b.ContentType], b.ID)
 	}
