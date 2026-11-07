@@ -33,24 +33,25 @@ function watch() {
   );
 }
 
-// Scrolls the window in steps a wheel would take, one frame apart, until a
-// step no longer moves it.
+// Scrolls the window as a wheel does, 600 px a frame, on the compositor thread.
+// window.scrollBy in a frame callback sometimes never returns on a CI runner:
+// the renderer's main thread waits on a lock with every other thread idle.
 async function scrollToEnd(page: Page) {
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        const step = () => {
-          const before = window.scrollY;
-          window.scrollBy(0, 600);
-          if (window.scrollY === before) {
-            resolve();
-            return;
-          }
-          requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
-      }),
-  );
+  const { width, height, distance } = await page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    distance: document.documentElement.scrollHeight,
+  }));
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.synthesizeScrollGesture", {
+    x: width / 2,
+    y: height / 2,
+    yDistance: -distance,
+    speed: 36_000,
+    gestureSourceType: "mouse",
+    preventFling: true,
+  });
+  await cdp.detach();
 }
 
 // Chromium alone reports long tasks.
