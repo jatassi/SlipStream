@@ -116,7 +116,6 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	for _, o := range opts {
 		o(&w.opts)
 	}
-	t.Cleanup(w.stop)
 	endpoints := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
 	w.fakes = startServers(t)
 	w.fakes.catalog(t, s, local, &endpoints)
@@ -130,6 +129,9 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 		n.dir = dataDir(t, s, i, listen, endpoints)
 		w.nodes = append(w.nodes, n)
 	}
+	// Registered after the temp dirs so it runs before their removal,
+	// while the Nodes' logs are still there to show.
+	t.Cleanup(w.stop)
 	if w.walk != nil {
 		w.standVolumes()
 	}
@@ -455,8 +457,15 @@ func (n *Node) Log() []string {
 	return strings.Split(string(bytes.TrimSuffix(data, []byte("\n"))), "\n")
 }
 
+// logTail logs the end of the Node's log, or why there is none, without
+// stopping the test, so a failed test's cleanup reaches every Node.
 func (n *Node) logTail() {
-	lines := n.Log()
+	data, err := os.ReadFile(n.logFile())
+	if err != nil {
+		n.w.t.Logf("node %s has no log to show: %v", n.spec.Name, err)
+		return
+	}
+	lines := strings.Split(string(bytes.TrimSuffix(data, []byte("\n"))), "\n")
 	lines = lines[max(0, len(lines)-logLinesOnFailure):]
 	n.w.t.Logf("last %d lines of node %s's log:\n%s", len(lines), n.spec.Name, strings.Join(lines, "\n"))
 }
