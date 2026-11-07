@@ -54,7 +54,7 @@ type catalogEntry struct {
 	Language    string    `json:"language" doc:"A language tag such as en-US"`
 	Privacy     string    `json:"privacy" enum:"private,semi-private,public"`
 	Categories  []int     `json:"categories" nullable:"false" doc:"The Newznab category ids it maps to"`
-	Origin      string    `json:"origin" enum:"catalog,custom"`
+	Origin      string    `json:"origin" enum:"catalog,custom,native"`
 	Reason      *string   `json:"reason" doc:"Why SlipStream can't run it; null when it can"`
 	Replaced    bool      `json:"replacedByCustom" doc:"A custom definition has this catalog entry's id and runs in its place"`
 	Version     time.Time `json:"version" doc:"When SlipStream downloaded this version"`
@@ -99,9 +99,11 @@ type option struct {
 type definitionField struct {
 	Name    string   `json:"name" doc:"May hold hyphens or start with a digit"`
 	Label   string   `json:"label"`
-	Type    string   `json:"type" enum:"text,password,checkbox,select,info,info_cookie,info_flaresolverr,info_useragent,info_category_8000,cardigannCaptcha"`
+	Type    string   `json:"type" enum:"text,password,checkbox,select,number,multiselect,info,info_cookie,info_flaresolverr,info_useragent,info_category_8000,cardigannCaptcha"`
 	Default *string  `json:"default" doc:"Null when the field has none"`
-	Options []option `json:"options" nullable:"false" doc:"A select's choices, by value"`
+	Options []option `json:"options" nullable:"false" doc:"A select's or a multiselect's choices, by value"`
+	Min     *int     `json:"min" doc:"A number's least value; null for none"`
+	Max     *int     `json:"max" doc:"A number's greatest value; null for none"`
 	Help    *string  `json:"help" doc:"An info field's text, written by the definition's authors"`
 	Sealed  bool     `json:"sealed" doc:"Its saved value is never returned"`
 }
@@ -114,17 +116,18 @@ type definitionForm struct {
 	Captcha bool              `json:"captcha" doc:"Signing in asks for an image captcha"`
 	Solver  bool              `json:"solver" doc:"The site sits behind a browser challenge that a Challenge solver can clear"`
 	Cookie  bool              `json:"cookie" doc:"Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field"`
+	Code    bool              `json:"code" doc:"Signing in may ask for a two-factor code"`
 }
 
 func formOf(f indexers.Form) definitionForm {
 	out := definitionForm{
 		Entry: entryOf(f.Entry), Links: append([]string{}, f.Links...), Fields: []definitionField{},
-		Session: f.Session, Captcha: f.Captcha, Solver: f.Solver, Cookie: f.Cookie,
+		Session: f.Session, Captcha: f.Captcha, Solver: f.Solver, Cookie: f.Cookie, Code: f.Code,
 	}
 	for _, field := range f.Fields {
 		d := definitionField{
 			Name: field.Name, Label: field.Label, Type: string(field.Type), Default: text(field.Default), Options: []option{},
-			Help: text(field.Help), Sealed: field.Sealed,
+			Help: text(field.Help), Sealed: field.Sealed, Min: field.Min, Max: field.Max,
 		}
 		for _, o := range field.Options {
 			d.Options = append(d.Options, option{Value: o.Value, Label: o.Label})

@@ -168,6 +168,8 @@ type Form struct {
 	Cookie bool
 	// Solver is a definition that asks for a Challenge solver.
 	Solver bool
+	// Code is a port whose sign-in may ask for a two-factor code.
+	Code bool
 }
 
 type FormField struct {

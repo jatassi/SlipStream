@@ -127,6 +127,7 @@ type Origin string
 const (
 	FromCatalog Origin = "catalog"
 	FromCustom  Origin = "custom"
+	FromPort    Origin = "native"
 )
 
 // Definition is the definition version a catalog Indexer pins and its

@@ -13,9 +13,19 @@ export interface IndexersDefinitionField {
    */
   help: string | null;
   label: string;
+  /**
+   * A number's greatest value; null for none
+   * @nullable
+   */
+  max: number | null;
+  /**
+   * A number's least value; null for none
+   * @nullable
+   */
+  min: number | null;
   /** May hold hyphens or start with a digit */
   name: string;
-  /** A select's choices, by value */
+  /** A select's or a multiselect's choices, by value */
   options: IndexersOption[];
   /** Its saved value is never returned */
   sealed: boolean;

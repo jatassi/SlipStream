@@ -89,10 +89,10 @@ func TestTheFormOfACatalogDefinition(t *testing.T) {
 	_, reply := s.owner.Call(t, http.MethodGet, "/api/v1/indexer-catalog/larkspur", "")
 	for _, want := range []string{
 		`"links":["https://larkspur.fixture-site.fake.localhost/"]`,
-		`{"name":"username","label":"Username","type":"text","default":null,"options":[],"help":null,"sealed":false}`,
-		`{"name":"password","label":"Password","type":"password","default":null,"options":[],"help":null,"sealed":true}`,
-		`{"name":"sort","label":"Sort requested from site","type":"select","default":"added","options":[{"value":"added","label":"created"},{"value":"seeders","label":"seeders"},{"value":"size","label":"size"}],"help":null,"sealed":false}`,
-		`"session":true,"captcha":true,"solver":false,"cookie":false}`,
+		`{"name":"username","label":"Username","type":"text","default":null,"options":[],"min":null,"max":null,"help":null,"sealed":false}`,
+		`{"name":"password","label":"Password","type":"password","default":null,"options":[],"min":null,"max":null,"help":null,"sealed":true}`,
+		`{"name":"sort","label":"Sort requested from site","type":"select","default":"added","options":[{"value":"added","label":"created"},{"value":"seeders","label":"seeders"},{"value":"size","label":"size"}],"min":null,"max":null,"help":null,"sealed":false}`,
+		`"session":true,"captcha":true,"solver":false,"cookie":false,"code":false}`,
 	} {
 		if !strings.Contains(reply, want) {
 			t.Errorf("getCatalogDefinition(larkspur) = %s, want it to hold %s", reply, want)

@@ -1246,6 +1246,8 @@ export * from "./indexersOutcomeKind.ts";
 export * from "./indexersPastedCookie.ts";
 export * from "./indexersPin.ts";
 export * from "./indexersPinValues.ts";
+export * from "./indexersPortPin.ts";
+export * from "./indexersPortPinValues.ts";
 export * from "./indexersQuery.ts";
 export * from "./indexersQueryList.ts";
 export * from "./indexersQueryOutcome.ts";

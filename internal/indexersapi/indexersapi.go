@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -72,6 +73,8 @@ func answer(x *indexers.Indexers, err error) error {
 		return api.Invalid.On("cookie.cookie", "Paste the cookie as name=value pairs separated by semicolons.")
 	case errors.Is(err, indexers.ErrCookieNeeded):
 		return api.Invalid.On("cookie", "Paste the cookie and User-Agent of a browser signed in to the site.")
+	case errors.Is(err, indexers.ErrNoPorts):
+		return api.Invalid.On("kind", "SlipStream can't add a ported site's Indexer yet.")
 	case errors.Is(err, indexers.ErrNotALink):
 		return api.Invalid.On("baseAddress", "Choose one of the definition's addresses.")
 	case errors.As(err, &value):
@@ -112,7 +115,7 @@ type failure struct {
 
 type status struct {
 	State       string                `json:"state" enum:"ok,limited,failing,stopped,home_only" doc:"home_only: a stop met on a failover Node, which waits for home"`
-	Cause       *string               `json:"cause" enum:"credentials_rejected,captcha_needed,challenge_unsolved,cookie_expired,definition_unloadable,account_refused,request_rejected" doc:"Null unless stopped or home_only"`
+	Cause       *string               `json:"cause" enum:"credentials_rejected,captcha_needed,challenge_unsolved,cookie_expired,definition_unloadable,account_refused,request_rejected,code_needed,port_retired" doc:"Null unless stopped or home_only"`
 	Text        *string               `json:"text" doc:"The site's or feed's own words"`
 	Until       *time.Time            `json:"until" doc:"When a limited or failing Indexer is asked again"`
 	Since       *time.Time            `json:"since" doc:"When it began failing, stopped or began waiting for home"`
@@ -142,6 +145,14 @@ type pin struct {
 	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
 }
 
+// portPin is a native Indexer's port.
+type portPin struct {
+	ID          string            `json:"id"`
+	Synced      time.Time         `json:"synced" doc:"When the Prowlarr commit the port was synced to was made"`
+	BaseAddress string            `json:"baseAddress"`
+	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
+}
+
 type session struct {
 	NodeID   string    `json:"nodeId" format:"uuid"`
 	Pasted   bool      `json:"pasted" doc:"Seeded from a browser cookie an Admin pasted"`
@@ -151,7 +162,7 @@ type session struct {
 type indexer struct {
 	ID              string                `json:"id" format:"uuid"`
 	Name            string                `json:"name"`
-	Kind            string                `json:"kind" enum:"catalog,torznab,rss"`
+	Kind            string                `json:"kind" enum:"catalog,torznab,rss,native"`
 	HomeNodeID      string                `json:"homeNodeId" format:"uuid" doc:"The Node it searches from"`
 	On              bool                  `json:"on"`
 	AutomaticSearch bool                  `json:"automaticSearch"`
@@ -171,7 +182,8 @@ type indexer struct {
 	Waits           api.Nullable[outcome] `json:"waits" doc:"Why its searches wait now, null when they don't"`
 	Session         api.Nullable[session] `json:"session" doc:"Its newest session on any Node, null for none"`
 	FeedHost        *string               `json:"feedHost" doc:"The host of a feed's address, which is never returned"`
-	Definition      api.Nullable[pin]     `json:"definition" doc:"A catalog Indexer's definition; null for a feed"`
+	Definition      api.Nullable[pin]     `json:"definition" doc:"A catalog Indexer's definition; null for every other kind"`
+	Port            api.Nullable[portPin] `json:"port" doc:"A native Indexer's ported site; null for every other kind"`
 	SearchModes     []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
 	Revision        int64                 `json:"revision" minimum:"1"`
 	CreatedAt       time.Time             `json:"createdAt"`
@@ -238,6 +250,10 @@ func indexerOf(v indexers.View) indexer {
 		values := map[string]string{}
 		maps.Copy(values, s.Plain)
 		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, FetchedAt: s.Fetched, BaseAddress: s.BaseAddress, Values: values})
+	case indexers.Port:
+		values := map[string]string{}
+		maps.Copy(values, s.Plain)
+		out.Port = api.Some(portPin{ID: string(s.ID), BaseAddress: s.Address, Values: values})
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))
@@ -282,18 +298,20 @@ type pastedCookie struct {
 }
 
 type newIndexer struct {
-	Kind            string            `json:"kind" enum:"catalog,torznab,rss"`
+	Kind            string            `json:"kind" enum:"catalog,torznab,rss,native"`
 	Name            string            `json:"name" minLength:"1" maxLength:"100"`
 	Definition      string            `json:"definition,omitempty" maxLength:"200" doc:"A catalog Indexer's definition id; required for one"`
-	BaseAddress     string            `json:"baseAddress,omitempty" maxLength:"2048" doc:"One of the definition's addresses; absent for its first"`
-	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only"`
+	Port            string            `json:"port,omitempty" maxLength:"200" doc:"A native Indexer's port id; required for one"`
+	BaseAddress     string            `json:"baseAddress,omitempty" maxLength:"2048" doc:"One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog or native Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only"`
 	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this draft"`
+	Code            string            `json:"code,omitempty" maxLength:"16" doc:"The current two-factor code, for a site whose sign-in asks for one"`
 	Address         string            `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only"`
 	APIKey          string            `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
 	TrackerName     string            `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
 	Media           []string          `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
 	AllowNoSize     bool              `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
-	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only"`
 	HomeNodeID      string            `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
 	On              bool              `json:"on,omitempty" default:"true"`
 	AutomaticSearch bool              `json:"automaticSearch,omitempty" default:"true"`
@@ -310,7 +328,7 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 		return indexers.Draft{}, err
 	}
 	d := indexers.Draft{
-		Kind: indexers.Kind(n.Kind), Name: n.Name, Definition: n.Definition, BaseAddress: n.BaseAddress, Values: n.Values,
+		Kind: indexers.Kind(n.Kind), Name: n.Name, Definition: n.Definition, Port: port.ID(n.Port), BaseAddress: n.BaseAddress, Values: n.Values,
 		Address: n.Address, APIKey: n.APIKey, Tracker: n.TrackerName, Media: media(n.Media),
 		AllowNoSize: n.AllowNoSize, Cookie: cookieIn(n.Cookie), On: n.On, AutoSearch: n.AutomaticSearch, RSS: n.RSS,
 		AllowFailover: n.AllowFailover, Priority: n.Priority, Categories: indexers.CategoriesOf(n.Categories),
@@ -341,22 +359,25 @@ type misfit struct {
 // fitsKind refuses a field n's kind doesn't take, and one it needs that n
 // leaves out.
 func (n newIndexer) fitsKind() error {
-	catalog, rss := n.Kind == string(indexers.Catalog), n.Kind == string(indexers.RSS)
+	catalog, rss, native := n.Kind == string(indexers.Catalog), n.Kind == string(indexers.RSS), n.Kind == string(indexers.Native)
+	feed := !catalog && !native
 	var errs []api.FieldError
-	for _, m := range []misfit{
+	for _, m := range append([]misfit{
 		{"definition", catalog && n.Definition == "", "Choose a definition from the Indexer catalog."},
 		{"address", catalog && n.Address != "", "A catalog Indexer takes one of its definition's addresses as baseAddress."},
 		{"apiKey", catalog && n.APIKey != "", "A catalog Indexer takes its API key as one of its values."},
 		{"trackerName", catalog && n.TrackerName != "", "A catalog Indexer's Tracker is named after its definition."},
-		{"definition", !catalog && (n.Definition != "" || n.BaseAddress != "" || n.Values != nil), "Only a catalog Indexer takes a definition, its addresses and its values."},
-		{"address", !catalog && n.Address == "", "Enter the feed's address."},
+		{"definition", feed && (n.Definition != "" || n.BaseAddress != "" || n.Values != nil), "Only a catalog Indexer takes a definition, its addresses and its values."},
+		{"address", feed && n.Address == "", "Enter the feed's address."},
 		{"media", !rss && n.Media != nil, "Only an RSS feed takes Content Types in place of categories."},
 		{"allowNoSize", !rss && n.AllowNoSize, "Only an RSS feed may have items with no size."},
 		{"apiKey", rss && n.APIKey != "", "An RSS feed takes no API key. Put a passkey in its address."},
 		{"categories", rss && n.Categories != nil, "An RSS feed takes Content Types in place of categories."},
 		{"trackerName", rss && n.TrackerName == "", "Name the Tracker the RSS feed reaches."},
 		{"cookie", n.Kind == string(indexers.Torznab) && n.Cookie != nil, "A Torznab feed takes no cookie."},
-	} {
+		{"port", !native && n.Port != "", "Only a ported site takes a port."},
+		{"code", n.Code != "", codeRefused},
+	}, n.portMisfits(native)...) {
 		if m.wrong {
 			errs = append(errs, api.FieldError{Location: "body." + m.field, Message: m.message})
 		}
@@ -365,6 +386,20 @@ func (n newIndexer) fitsKind() error {
 		return api.Invalid.Fields(errs...)
 	}
 	return nil
+}
+
+// portMisfits are the fields a native Indexer doesn't take or needs.
+func (n newIndexer) portMisfits(native bool) []misfit {
+	if !native {
+		return nil
+	}
+	return []misfit{
+		{"port", n.Port == "", "Choose the site."},
+		{"definition", n.Definition != "", "A ported site takes a port in place of a definition."},
+		{"address", n.Address != "", "A ported site takes its address as baseAddress."},
+		{"apiKey", n.APIKey != "", "A ported site takes its API key as one of its values."},
+		{"trackerName", n.TrackerName != "", "A ported site's Tracker is named after the site."},
+	}
 }
 
 func media(ids []string) []works.TypeID {
@@ -405,9 +440,10 @@ type indexerEdit struct {
 	Media           *[]string         `json:"media,omitempty" doc:"An RSS feed's Content Types"`
 	AllowNoSize     *bool             `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
 	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A new browser cookie. Write-only"`
-	BaseAddress     *string           `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses"`
-	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value"`
+	BaseAddress     *string           `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses. A native Indexer's: one its port knows or a typed http or https one"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value"`
 	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this Indexer, for the Test the change runs"`
+	Code            string            `json:"code,omitempty" maxLength:"16" doc:"The current two-factor code, for the Test the change runs"`
 }
 
 // patched is p's value, def for null, nil when absent.
@@ -422,6 +458,9 @@ func patched[T any](p api.Patch[T], def T) *T {
 }
 
 func (e indexerEdit) edit() (indexers.Edit, error) {
+	if e.Code != "" {
+		return indexers.Edit{}, api.Invalid.On("code", codeRefused)
+	}
 	out := indexers.Edit{
 		Name: e.Name, Address: e.Address, APIKey: e.APIKey,
 		On: patched(e.On, true), AutoSearch: patched(e.AutomaticSearch, true), RSS: patched(e.RSS, true),
@@ -788,6 +827,9 @@ func (h handlers) testIndexer(ctx context.Context, by identity.Admin, in *testIn
 	}
 	var c *indexers.CaptchaAnswer
 	if in.Body != nil {
+		if in.Body.Code != "" {
+			return nil, api.Invalid.On("code", codeRefused)
+		}
 		c = answerIn(in.Body.Captcha)
 	}
 	xs := open(h.registry)

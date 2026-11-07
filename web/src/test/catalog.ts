@@ -79,6 +79,8 @@ function field(
     default: null,
     help: null,
     options: [],
+    min: null,
+    max: null,
     sealed: false,
     ...over,
   } satisfies IndexersDefinitionField;
@@ -99,6 +101,7 @@ export const larkspurForm: IndexersDefinitionForm = {
   captcha: true,
   solver: false,
   cookie: false,
+  code: false,
   fields: [
     username,
     password,
@@ -123,6 +126,7 @@ export const quarryForm: IndexersDefinitionForm = {
   captcha: false,
   solver: false,
   cookie: false,
+  code: false,
   fields: [
     field({ name: "apikey", type: "text", label: "API key", sealed: true }),
     field({
@@ -141,6 +145,7 @@ export const cinderForm: IndexersDefinitionForm = {
   captcha: false,
   solver: true,
   cookie: true,
+  code: false,
   fields: [
     field({ name: "info_cookie", type: "info_cookie" }),
     field({ name: "info_flaresolverr", type: "info_flaresolverr" }),
@@ -155,6 +160,7 @@ export const meadowForm: IndexersDefinitionForm = {
   captcha: true,
   solver: true,
   cookie: false,
+  code: false,
   fields: [
     username,
     password,
@@ -194,6 +200,7 @@ export const brokenForm: IndexersDefinitionForm = {
   captcha: false,
   solver: false,
   cookie: false,
+  code: false,
   fields: [],
 };
 
