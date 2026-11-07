@@ -63,7 +63,12 @@ function EditFields({
         </form.AppField>
         <Secrets form={form} indexer={indexer} />
         {settings !== undefined && (
-          <EditSettings form={form} settings={settings} sealed={pinOf(indexer)?.sealed ?? []} />
+          <EditSettings
+            form={form}
+            settings={settings}
+            sealed={pinOf(indexer)?.sealed ?? []}
+            pasted={indexer.session?.pasted === true}
+          />
         )}
         <form.AppField name="priority">
           {(field) => (

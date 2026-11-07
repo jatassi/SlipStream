@@ -13,6 +13,16 @@ import { holdsValue, settingAt, startValue } from "./fields/settings";
 
 const tested = new Set(["indexer_test_failed", "indexer_unavailable"]);
 
+function fieldAt(fields: readonly IndexersDefinitionField[], at: string): string {
+  if (at === "baseAddress") {
+    return "baseAddress.typed";
+  }
+  if (at === "cookie.userAgent") {
+    return "userAgent";
+  }
+  return at.startsWith("cookie") ? "cookie" : settingAt(fields, at);
+}
+
 /**
  * A failed Test's sentence, or why the Test couldn't run, shows whole above
  * Save; a refused setting or address shows beside its field.
@@ -24,10 +34,7 @@ export function refusal(error: unknown, fields: readonly IndexersDefinitionField
   if (isApiError(error) && error.code === "invalid") {
     return {
       fields: Object.fromEntries(
-        Object.entries(fieldErrors(error)).map(([at, message]) => [
-          at === "baseAddress" ? "baseAddress.typed" : settingAt(fields, at),
-          message,
-        ]),
+        Object.entries(fieldErrors(error)).map(([at, message]) => [fieldAt(fields, at), message]),
       ),
     };
   }
@@ -66,6 +73,8 @@ export const editSchema = z.object({
   apiKey: z.string(),
   baseAddress: z.object({ choice: z.string(), typed: z.string() }),
   values: z.array(z.string()),
+  cookie: z.string(),
+  userAgent: z.string(),
   code: z.string(),
   priority: prioritySchema,
   searches: limitSchema,
@@ -92,6 +101,8 @@ export const valuesOf = (indexer: IndexersIndexer, settings?: SettingsForm): Edi
   apiKey: "",
   baseAddress: savedAddress(pinOf(indexer)?.baseAddress ?? "", settings?.form.links ?? []),
   values: savedValues(indexer, settings),
+  cookie: "",
+  userAgent: "",
   code: "",
   priority: String(indexer.priority),
   searches: { count: String(indexer.searches.count), per: indexer.searches.per },
@@ -133,6 +144,9 @@ export function editOf(
   const address = addressOf(next.baseAddress);
   if (settings !== undefined && address !== pinOf(indexer)?.baseAddress) {
     edit.baseAddress = address;
+  }
+  if (next.cookie.trim() !== "") {
+    edit.cookie = { cookie: next.cookie.trim(), userAgent: next.userAgent.trim() };
   }
   if (next.name !== indexer.name) {
     edit.name = next.name;

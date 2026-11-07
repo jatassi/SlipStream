@@ -613,9 +613,7 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 // sealedSet is the names of idx's sealed settings that hold a value, read
 // without the values leaving the Controller.
 func (x *Indexers) sealedSet(idx Indexer) ([]string, error) {
-	switch idx.Source.(type) {
-	case Definition, Port:
-	default:
+	if _, feed := idx.Source.(Feed); feed {
 		return nil, nil
 	}
 	s, err := x.open(idx)

@@ -173,6 +173,44 @@ test("Edit keeps a typed address typed, and a refused Test for a code opens the 
   ]);
 });
 
+async function replaceCookie() {
+  const pasted: IndexersIndexer = {
+    ...iptorrents,
+    session: { nodeId: iptorrents.homeNodeId, pasted: true, earnedAt: "2026-11-06T09:00:00Z" },
+  };
+  const server = indexersServer({ indexers: [pasted, prowlarr] });
+  renderApp({ path: pageOf(iptorrentsId), handlers: server.handlers });
+  await userEvent.click(page.getByRole("button", { name: "Edit" }));
+  await expect
+    .element(dialog().getByRole("group", { name: "Cookie" }).getByText("Saved"))
+    .toBeVisible();
+  expect(dialog().getByRole("textbox", { name: "User-Agent" }).query()).toBeNull();
+  await userEvent.click(dialog().getByRole("button", { name: "Replace Cookie" }));
+  await userEvent.fill(dialog().getByLabelText("Cookie"), "uid=1; pass=2");
+  await expect
+    .element(
+      dialog().getByText(
+        "Use the User-Agent of the browser you copied the cookie from. IPTorrents accepts the cookie only with it.",
+      ),
+    )
+    .toBeVisible();
+  await userEvent.fill(dialog().getByRole("textbox", { name: "User-Agent" }), "Firefox/140");
+  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+  await expect.element(page.getByText("Saved IPTorrents")).toBeVisible();
+  expect(server.writes.map((write) => write.body)).toEqual([
+    { cookie: { cookie: "uid=1; pass=2", userAgent: "Firefox/140" } },
+  ]);
+}
+
+test("Edit replaces a ported site's pasted cookie with that browser's User-Agent", async () => {
+  await replaceCookie();
+});
+
+test("Edit replaces a pasted cookie at phone width too", async () => {
+  await asPhone();
+  await replaceCookie();
+});
+
 const pinned: IndexersIndexer = {
   ...larkspur,
   definition: {

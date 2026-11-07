@@ -328,6 +328,22 @@ func TestACatalogIndexerOnAnIDAPortNowReplacesKeepsRunning(t *testing.T) {
 	}
 }
 
+func TestACatalogIndexersEditTakesANewPastedCookieAndTestsWithItFirst(t *testing.T) {
+	w := newNativeWorld(t, livePorts)
+	w.refresh()
+	v := w.add(indexers.Draft{Kind: indexers.Catalog, Name: "Cinder", Definition: "cinder", Cookie: &indexers.PastedCookie{Cookie: "uid=1", UserAgent: "Firefox"}})
+	if _, err := w.x.Update(t.Context(), identity.Admin{}, v.ID, indexers.Edit{Cookie: &indexers.PastedCookie{Cookie: "uid=2", UserAgent: "Safari"}}, indexers.Typed{}); err != nil {
+		t.Fatal(err)
+	}
+	j := w.node.last()
+	if j.Session == nil || !j.Session.Pasted || j.Session.UserAgent != "Safari" || len(j.Session.Cookies) != 1 || j.Session.Cookies[0].Value != "2" {
+		t.Errorf("the edit's Test ran with session %+v, want the new cookie", j.Session)
+	}
+	if got := w.view(w.x, v.ID); got.Session == nil || !got.Session.Pasted {
+		t.Errorf("after the edit the session is %+v, want the pasted one", got.Session)
+	}
+}
+
 func TestANativeIndexerIsAddedWithItsPortsFieldsAddressAndLimit(t *testing.T) {
 	w := newNativeWorld(t, livePorts)
 	v := w.add(indexers.Draft{Kind: indexers.Native, Name: "Lantern", Port: "lantern", Values: map[string]string{"passkey": "pk1", "codecs": "1,5", "pages": "3"}})

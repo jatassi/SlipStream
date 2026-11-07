@@ -26,7 +26,7 @@ export function catalogLead(form: IndexersDefinitionForm, home: string): string 
  * The User-Agent field's help: a catalog definition can't say whether its
  * site needs one, and a ported site that doesn't take one gets no field.
  */
-function userAgentHelp({ entry, port }: IndexersDefinitionForm): string | undefined {
+export function userAgentHelp({ entry, port }: IndexersDefinitionForm): string | undefined {
   if (port === null) {
     return "The User-Agent of the same browser. Some Trackers accept the cookie only with it.";
   }
