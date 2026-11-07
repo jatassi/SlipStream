@@ -19,6 +19,9 @@ var (
 	// ErrCookieNeeded is an Indexer added without a browser cookie for a
 	// definition that signs in with one.
 	ErrCookieNeeded = errors.New("the definition signs in with a browser cookie")
+	// ErrNoPorts is a native Indexer added before the Controller adds
+	// ported sites.
+	ErrNoPorts = errors.New("adding a ported site's Indexer is not implemented")
 )
 
 // drafted is d as an unsaved Indexer at revision 1 with its secrets
@@ -34,13 +37,16 @@ func (x *Indexers) drafted(ctx context.Context, d Draft) (Indexer, *searching.Se
 		Searches: d.Searches, Grabs: d.Grabs, Pasted: d.Cookie != nil, Revision: 1, Created: storage.Now().Time(),
 	}
 	secrets := Secrets{Address: d.Address, APIKey: d.APIKey}
-	if idx.Kind == Catalog {
+	switch idx.Kind {
+	case Catalog:
 		def, fields, err := x.catalogDraft(ctx, d)
 		if err != nil {
 			return Indexer{}, nil, err
 		}
 		idx.Source, secrets = def, Secrets{Fields: fields}
-	} else {
+	case Native:
+		return Indexer{}, nil, ErrNoPorts
+	case Torznab, RSS:
 		idx.Source, idx.FeedHost = Feed{Tracker: cmp.Or(d.Tracker, d.Name), AllowNoSize: d.AllowNoSize}, hostOf(d.Address)
 	}
 	if err := checkMedia(idx, x.cfg.Types); err != nil {

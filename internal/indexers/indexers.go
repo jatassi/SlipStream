@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
@@ -57,6 +58,7 @@ const (
 	Catalog Kind = "catalog"
 	Torznab Kind = "torznab"
 	RSS     Kind = "rss"
+	Native  Kind = "native"
 )
 
 // DefaultPriority is an Indexer's priority until an Admin sets one.
@@ -117,7 +119,7 @@ func (w Window) Duration() time.Duration {
 	return time.Hour
 }
 
-// Source is a Definition or a Feed.
+// Source is a Definition, a Feed or a Port.
 type Source interface{ source() }
 
 type Origin string
@@ -155,8 +157,17 @@ type Feed struct {
 	Reading searching.RSSReading
 }
 
+// Port is the ported site a native Indexer runs, the address it reaches
+// the site at and its plain settings.
+type Port struct {
+	ID      port.ID
+	Address string
+	Plain   map[string]string
+}
+
 func (Definition) source() {}
 func (Feed) source()       {}
+func (Port) source()       {}
 
 // Secrets are an Indexer's sealed values, opened only to put on the wire.
 type Secrets struct {
@@ -321,6 +332,9 @@ type Config struct {
 	Roster Roster
 	// Searching reaches the Searching service on a Node.
 	Searching func(role.NodeID) searching.Remote
+	// Ports are the ported sites this build carries, the same registry
+	// the Nodes run.
+	Ports port.Catalog
 	// Types are how each Content Type is searched.
 	Types map[works.TypeID]Facet
 	// Works names each Content Type's Works in sentences.
@@ -447,27 +461,9 @@ func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pa
 		Grabs:    Limit{Count: int(row.GrabLimit), Per: Window(row.GrabWindow)},
 		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Pasted: pasted, Revision: row.Revision, Created: row.CreatedAt.Time(),
 	}
-	if row.DefinitionID != nil {
-		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), Fetched: fetched.Time(), BaseAddress: deref(row.BaseAddress)}
-		if err := decode(row.Plain, &d.Plain); err != nil {
-			return Indexer{}, fmt.Errorf("indexer %s: plain: %w", row.ID, err)
-		}
-		if summary != nil {
-			var s cardigann.Summary
-			if err := decode(*summary, &s); err != nil {
-				return Indexer{}, fmt.Errorf("indexer %s: definition summary: %w", row.ID, err)
-			}
-			d.Name, d.Privacy, d.Login, d.Captcha = s.Name, s.Privacy, s.Login, s.Captcha
-		}
-		idx.Source = d
-	} else {
-		f := Feed{Tracker: deref(row.TrackerName), AllowNoSize: row.AllowNoSize}
-		if row.RssReading != nil {
-			if err := decode(*row.RssReading, &f.Reading); err != nil {
-				return Indexer{}, fmt.Errorf("indexer %s: rss reading: %w", row.ID, err)
-			}
-		}
-		idx.Source = f
+	var err error
+	if idx.Source, err = sourceOf(row, summary, fetched); err != nil {
+		return Indexer{}, fmt.Errorf("indexer %s: %w", row.ID, err)
 	}
 	for _, f := range []struct {
 		raw *string
@@ -483,6 +479,37 @@ func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pa
 	return idx, nil
 }
 
+func sourceOf(row db.IndexersIndexer, summary *string, fetched storage.Time) (Source, error) {
+	switch {
+	case row.DefinitionID != nil:
+		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), Fetched: fetched.Time(), BaseAddress: deref(row.BaseAddress)}
+		if err := decode(row.Plain, &d.Plain); err != nil {
+			return nil, fmt.Errorf("plain: %w", err)
+		}
+		if summary != nil {
+			var s cardigann.Summary
+			if err := decode(*summary, &s); err != nil {
+				return nil, fmt.Errorf("definition summary: %w", err)
+			}
+			d.Name, d.Privacy, d.Login, d.Captcha = s.Name, s.Privacy, s.Login, s.Captcha
+		}
+		return d, nil
+	case row.PortID != nil:
+		p := Port{ID: port.ID(*row.PortID), Address: deref(row.BaseAddress)}
+		if err := decode(row.Plain, &p.Plain); err != nil {
+			return nil, fmt.Errorf("plain: %w", err)
+		}
+		return p, nil
+	}
+	f := Feed{Tracker: deref(row.TrackerName), AllowNoSize: row.AllowNoSize}
+	if row.RssReading != nil {
+		if err := decode(*row.RssReading, &f.Reading); err != nil {
+			return nil, fmt.Errorf("rss reading: %w", err)
+		}
+	}
+	return f, nil
+}
+
 // row is idx as indexers_indexer holds it.
 func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
 	p := db.InsertIndexerParams{
@@ -496,6 +523,14 @@ func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
 	switch s := idx.Source.(type) {
 	case Definition:
 		p.DefinitionID, p.DefinitionSha, p.BaseAddress = &s.ID, &s.SHA, &s.BaseAddress
+		plain, err := encode(s.Plain)
+		if err != nil {
+			return db.InsertIndexerParams{}, err
+		}
+		p.Plain = *plain
+	case Port:
+		id := string(s.ID)
+		p.PortID, p.BaseAddress = &id, &s.Address
 		plain, err := encode(s.Plain)
 		if err != nil {
 			return db.InsertIndexerParams{}, err

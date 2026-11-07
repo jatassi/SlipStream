@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -26,6 +27,8 @@ type Draft struct {
 	Home role.NodeID
 	// Definition is a catalog Indexer's definition id.
 	Definition string
+	// Port is a native Indexer's port.
+	Port port.ID
 	// BaseAddress is one of the definition's links, its first when empty.
 	BaseAddress string
 	// Values are a catalog Indexer's settings by name. A setting left out
@@ -457,8 +460,11 @@ func (x *Indexers) homeOf(home role.NodeID) (role.NodeID, error) {
 // siteHost is the host idx's requests go to: its feed's, or its base
 // address's.
 func siteHost(idx Indexer) string {
-	if d, ok := idx.Source.(Definition); ok {
-		return hostOf(d.BaseAddress)
+	switch s := idx.Source.(type) {
+	case Definition:
+		return hostOf(s.BaseAddress)
+	case Port:
+		return hostOf(s.Address)
 	}
 	return idx.FeedHost
 }

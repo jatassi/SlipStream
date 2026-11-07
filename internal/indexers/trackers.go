@@ -180,13 +180,16 @@ type reached struct {
 }
 
 // reachedBy is the Tracker r reaches through idx: its definition's for a
-// catalog Indexer, named and made private or public as its summary says, its source's for a feed item that names one (a Jackett
+// catalog Indexer, named and made private or public as its summary says,
+// its port's for a native one, its source's for a feed item that names one (a Jackett
 // source's id is its definition id; a Prowlarr source's is Prowlarr's
 // own), and else the one the Admin named for the feed.
 func reachedBy(idx Indexer, r Release) reached {
 	switch src := idx.Source.(type) {
 	case Definition:
 		return reached{key: "definition:" + src.ID, name: cmp.Or(src.Name, src.ID), privacy: sourcePrivacy(string(src.Privacy))}
+	case Port:
+		return reached{key: "definition:" + string(src.ID), name: string(src.ID), privacy: Unknown}
 	case Feed:
 		if s := r.Source; s != nil {
 			key := "prowlarr:" + idx.ID.String() + ":" + s.ID
