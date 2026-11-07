@@ -258,6 +258,35 @@ func (e *Engine) Remove(h bencode.InfoHash, data bool) error {
 	return e.deleteFiles(t)
 }
 
+// Move moves a torrent's files to folder, as a client's move on
+// completion does.
+func (e *Engine) Move(h bencode.InfoHash, folder string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.advance()
+	i := e.index(h)
+	if i < 0 {
+		return ErrNotFound
+	}
+	t := e.torrents[i]
+	from, _ := e.local(t.Folder)
+	to, ok := e.local(folder)
+	if !ok {
+		return fmt.Errorf("no such file or directory (%s)", folder)
+	}
+	for _, f := range t.Files {
+		name := filepath.Join(to, filepath.FromSlash(f.Path))
+		if err := os.MkdirAll(filepath.Dir(name), 0o750); err != nil {
+			return fmt.Errorf("make the folder: %w", err)
+		}
+		if err := os.Rename(filepath.Join(from, filepath.FromSlash(f.Path)), name); err != nil {
+			return fmt.Errorf("move the file: %w", err)
+		}
+	}
+	t.Folder = folder
+	return nil
+}
+
 // Stall stops a torrent's data from arriving, or lets it arrive again.
 func (e *Engine) Stall(h bencode.InfoHash, on bool) error {
 	return e.change(h, func(t *torrent) { t.stalled = on })
