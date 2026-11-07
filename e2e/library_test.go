@@ -72,7 +72,7 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 	reply = a.Admin("home", http.MethodGet, "/api/v1/targets", "")
 	decode(t, "listTargets", reply, &targets)
 	starter, lossless, small := targets.Targets[0], targets.Targets[1], targets.Targets[2]
-	movies, music := starter.Profiles[0].ID, starter.Profiles[1].ID
+	movies, music, tv := starter.Profiles[0].ID, starter.Profiles[1].ID, starter.Profiles[2].ID
 	standard := `[{"id":"` + lossless.Profiles[0].ID + `","name":"Standard"}]`
 	worldtest.Expect(t, "listTargets", reply, worldtest.Reply{Status: 200, Body: `{"targets":[` +
 		`{"id":"` + starter.ID + `","name":"1080p","tiers":[["bluray-1080p","remux-1080p"],["hdtv-1080p","webrip-1080p","webdl-1080p"],["bluray-720p"],["hdtv-720p","webrip-720p","webdl-720p"]],` +
@@ -80,7 +80,7 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 		`"sizes":[{"quality":"bluray-1080p","min":50.8,"max":null},{"quality":"remux-1080p","min":102,"max":null},{"quality":"hdtv-1080p","min":33.8,"max":null},` +
 		`{"quality":"webrip-1080p","min":12.5,"max":null},{"quality":"webdl-1080p","min":12.5,"max":null},{"quality":"bluray-720p","min":25.7,"max":null},` +
 		`{"quality":"hdtv-720p","min":17.1,"max":null},{"quality":"webrip-720p","min":12.5,"max":null},{"quality":"webdl-720p","min":12.5,"max":null}],` +
-		`"profiles":[{"id":"` + movies + `","name":"Movies"},{"id":"` + music + `","name":"Music"}],"contains":[],"createdAt":"` + starter.CreatedAt + `"},` +
+		`"profiles":[{"id":"` + movies + `","name":"Movies"},{"id":"` + music + `","name":"Music"},{"id":"` + tv + `","name":"TV"}],"contains":[],"createdAt":"` + starter.CreatedAt + `"},` +
 		`{"id":"` + lossless.ID + `","name":"Lossless","tiers":[["remux-1080p","bluray-1080p"],["webdl-1080p"]],"cutoff":"remux-1080p",` +
 		`"filters":[{"attribute":"language","mode":"only","values":["en","original"]}],` +
 		`"sizes":[{"quality":"remux-1080p","min":102,"max":null},{"quality":"bluray-1080p","min":20,"max":100},{"quality":"webdl-1080p","min":12.5,"max":null}],` +
@@ -100,7 +100,8 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[` +
 		`{"id":"` + movies + `","name":"Movies","contentType":"movie","default":true,` + holds(starter.ID) + `,` +
 		`{"id":"` + music + `","name":"Music","contentType":"music","default":true,` + holds(starter.ID) + `,` +
-		`{"id":"` + lossless.Profiles[0].ID + `","name":"Standard","contentType":"music","default":false,` + holds(small.ID, lossless.ID) + `]}` + "\n"})
+		`{"id":"` + lossless.Profiles[0].ID + `","name":"Standard","contentType":"music","default":false,` + holds(small.ID, lossless.ID) + `,` +
+		`{"id":"` + tv + `","name":"TV","contentType":"series","default":true,` + holds(starter.ID) + `]}` + "\n"})
 }
 
 func TestAFreshControllerWantsTheStarterForItsContentType(t *testing.T) {
@@ -131,12 +132,13 @@ func TestAFreshControllerWantsTheStarterForItsContentType(t *testing.T) {
 		} `json:"profiles"`
 	}
 	decode(t, "listProfiles", reply, &profiles)
-	if len(profiles.Profiles) != 1 || len(starter.Profiles) != 1 || starter.Profiles[0].ID != profiles.Profiles[0].ID {
-		t.Fatalf("listProfiles = %s with the starter in %+v, want one default holding it", reply.Body, starter.Profiles)
+	if len(profiles.Profiles) != 2 || len(starter.Profiles) != 2 || starter.Profiles[0].ID != profiles.Profiles[0].ID || starter.Profiles[1].ID != profiles.Profiles[1].ID {
+		t.Fatalf("listProfiles = %s with the starter in %+v, want a default for each Content Type holding it", reply.Body, starter.Profiles)
 	}
-	movies := profiles.Profiles[0]
-	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[{"id":"` + movies.ID + `","name":"Movies","contentType":"movie","default":true,` +
-		`"targets":[{"targetId":"` + starter.ID + `","sourcing":"download"}],"editions":{"kind":"any"},"works":0}]}` + "\n"})
+	movies, tv := profiles.Profiles[0], profiles.Profiles[1]
+	holds := `"targets":[{"targetId":"` + starter.ID + `","sourcing":"download"}],"editions":{"kind":"any"},"works":0}`
+	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[{"id":"` + movies.ID + `","name":"Movies","contentType":"movie","default":true,` + holds + `,` +
+		`{"id":"` + tv.ID + `","name":"TV","contentType":"series","default":true,` + holds + `]}` + "\n"})
 
 	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`), &added{})
 	var tr tree
