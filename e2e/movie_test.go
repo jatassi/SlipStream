@@ -475,6 +475,47 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	}
 }
 
+func TestTVDBListsBesideTMDBAndTakesAKeyWithAPin(t *testing.T) {
+	t.Parallel()
+	run := moviesAlone(t)
+	a := api(t, run)
+	var list struct {
+		Providers []struct {
+			providerView
+			TakesPin bool `json:"takesPin"`
+			PinSet   bool `json:"pinSet"`
+		} `json:"providers"`
+	}
+	decode(t, "listMetadataProviders", a.Admin("home", http.MethodGet, "/api/v1/metadata/providers", ""), &list)
+	var ids []string
+	for _, p := range list.Providers {
+		ids = append(ids, p.ID)
+	}
+	if !slices.Equal(ids, []string{"tmdb", "tvdb", "omdb"}) {
+		t.Fatalf("listMetadataProviders = %v, want tmdb, tvdb, omdb", ids)
+	}
+	if p := list.Providers[1]; p.Key != "none" || !p.TakesPin || p.PinSet || p.Summary != "This build has no TVDB key. Add your own." {
+		t.Fatalf("TVDB in a build with no key = %+v, want no key and a PIN on offer", p)
+	}
+
+	saved := a.Admin("home", http.MethodPut, "/api/v1/metadata/providers/tvdb/key", `{"key":"ada-tvdb-key","pin":"1234"}`)
+	if p := provider(t, a, "tvdb"); saved.Status != http.StatusOK || p.State != "working" || p.Key != "yours" {
+		t.Fatalf("setMetadataKey with a PIN = %d %s, then %+v; want working on yours", saved.Status, saved.Body, p)
+	}
+
+	cue(t, run, "tvdb-reject-pin", `{}`)
+	tested := a.Admin("home", http.MethodPost, "/api/v1/metadata/providers/tvdb/test", "")
+	if p := provider(t, a, "tvdb"); tested.Status != http.StatusOK || p.State != "key_refused" || p.Summary != "TVDB refused your PIN. Check it and save it again with your key, or remove your key." {
+		t.Fatalf("testMetadataProvider with the PIN rejected = %d %s, then %+v; want key_refused naming the PIN", tested.Status, tested.Body, p)
+	}
+
+	cue(t, run, "tvdb-expire-tokens", `{}`)
+	saved = a.Admin("home", http.MethodPut, "/api/v1/metadata/providers/tvdb/key", `{"key":"ada-tvdb-key"}`)
+	if p := provider(t, a, "tvdb"); saved.Status != http.StatusOK || p.State != "working" {
+		t.Fatalf("setMetadataKey without the PIN = %d %s, then %+v; want working", saved.Status, saved.Body, p)
+	}
+}
+
 func TestMetadataOnAWorkerCallsFromItsFrontAndLeavesNoKeyOnItsDisk(t *testing.T) {
 	t.Parallel()
 	run := worldtest.Launch(t, "movies")

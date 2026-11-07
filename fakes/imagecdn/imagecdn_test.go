@@ -3,7 +3,11 @@ package imagecdn_test
 import (
 	"errors"
 	"fmt"
+	stdimage "image"
 	"image/color"
+	// Register JPEG and PNG with image.DecodeConfig.
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"testing"
@@ -147,5 +151,31 @@ func TestTheFakeConforms(t *testing.T) {
 				{Path: "/wwemzKWzjKYJFfCeiB57q3r4Bcm.svg", Type: "image/svg+xml"},
 			},
 		})
+	})
+}
+
+func TestTVDBArtworkHasItsKindsShapeAndAThumbnail(t *testing.T) {
+	inBothTiers(t, func(t *testing.T, f faketest.Served) {
+		for path, want := range map[string][2]int{
+			"/v4/series/1001/posters/abc.jpg":       {680, 1000},
+			"/v4/series/1001/posters/abc_t.jpg":     {226, 333},
+			"/v4/series/1001/backgrounds/abc.jpg":   {1920, 1080},
+			"/v4/episodes/100111/screencap/abc.jpg": {1920, 1080},
+			"/v4/series/1001/clearlogo/abc.png":     {800, 310},
+		} {
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL(imagecdn.ArtworkRoot+path), http.NoBody)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res, err := f.Client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg, _, err := stdimage.DecodeConfig(res.Body)
+			_ = res.Body.Close()
+			if res.StatusCode != http.StatusOK || err != nil || cfg.Width != want[0] || cfg.Height != want[1] {
+				t.Errorf("GET %s%s = %d, %dx%d, %v; want %dx%d", imagecdn.ArtworkRoot, path, res.StatusCode, cfg.Width, cfg.Height, err, want[0], want[1])
+			}
+		}
 	})
 }
