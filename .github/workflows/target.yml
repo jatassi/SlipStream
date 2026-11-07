@@ -20,7 +20,7 @@ on:
         type: string
         required: true
       timings:
-        description: The cache key of the Go test timings to split by
+        description: The cache key of the test timings to split by
         type: string
       filter:
         description: Run only the tests that match, as go test -run and playwright --grep
@@ -305,6 +305,14 @@ jobs:
       - name: Alias loopback addresses for the Nodes
         if: matrix.goos == 'darwin'
         run: sudo dist/fakeworld setup-loopback
+      - name: Restore the test timings
+        if: inputs.timings != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: .timings
+          key: ${{ inputs.timings }}
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
       # The browsers' system libraries are not in the cache, so Linux
       # installs them on every run.
       - name: Install the Playwright browsers and their system libraries
@@ -321,7 +329,7 @@ jobs:
       - name: Run browser test shard
         id: test
         run: |
-          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT"
+          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json"
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
           TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
@@ -334,4 +342,12 @@ jobs:
           path: |
             ${{ runner.temp }}/fakeworld-runs
             !${{ runner.temp }}/fakeworld-runs/**/bin/**
+          if-no-files-found: ignore
+      - name: Upload this shard's test timings
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: timings-${{ matrix.target }}-browser-${{ matrix.shard }}
+          path: ${{ runner.temp }}/timings
+          retention-days: 1
           if-no-files-found: ignore
