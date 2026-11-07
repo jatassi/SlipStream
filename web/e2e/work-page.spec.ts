@@ -52,11 +52,11 @@ test("a failed download shows under Needs you, and Search again retries it", asy
   world,
 }, testInfo) => {
   await world.fw.fault.set({
-    id: "download-refused",
+    id: "download-damaged",
     target: "fixture-site",
     node: "home",
-    route: "download",
-    fault: "status=500",
+    route: "torznab.download",
+    fault: "malformed",
   });
   const workId = await add(world, "9000001");
   await searched(world, workId, "failed");
@@ -67,13 +67,13 @@ test("a failed download shows under Needs you, and Search again retries it", asy
   await expect(card).toHaveCount(1);
   await expect(card).toContainText("Failed at");
   await expect(card).toHaveAccessibleName("1080p failed at Downloading");
-  await expect(card).toContainText("The Indexer responded with status 500.");
+  await expect(card).toContainText("The .torrent file the Indexer sent is damaged.");
   await expect(card).not.toContainText("unavailable:");
   await expect(page.getByRole("list", { name: "Cells" })).toContainText("failed");
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("needs-you.png"), fullPage: true });
 
-  await world.fw.fault.clear("download-refused");
+  await world.fw.fault.clear("download-damaged");
   await card.getByRole("button", { name: "Search again" }).click();
   await expect(notifications(page)).toContainText("Search started");
   await expect(orchardCells(page)).toContainText("Upgrade available", { timeout: 60_000 });
