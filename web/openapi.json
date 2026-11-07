@@ -4769,6 +4769,17 @@
             },
             "type": "array"
           },
+          "port": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersPortFacts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What an included site's form says beyond a definition's; null for a definition"
+          },
           "session": {
             "description": "Its Indexers sign in and keep a session on their Node",
             "type": "boolean"
@@ -4786,7 +4797,8 @@
           "captcha",
           "solver",
           "cookie",
-          "code"
+          "code",
+          "port"
         ],
         "type": "object"
       },
@@ -4895,6 +4907,13 @@
           "name": {
             "type": "string"
           },
+          "notes": {
+            "description": "What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "on": {
             "type": "boolean"
           },
@@ -5001,6 +5020,7 @@
           "definition",
           "port",
           "searchModes",
+          "notes",
           "revision",
           "createdAt"
         ],
@@ -5553,6 +5573,49 @@
         ],
         "type": "object"
       },
+      "IndexersPortFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "grabs": {
+            "$ref": "#/components/schemas/IndexersLimit",
+            "description": "A new Indexer's grab limit unless the form sets one"
+          },
+          "recent": {
+            "description": "The site lists its new uploads, so RSS sync can use it",
+            "type": "boolean"
+          },
+          "searches": {
+            "$ref": "#/components/schemas/IndexersLimit",
+            "description": "A new Indexer's search limit unless the form sets one"
+          },
+          "spacingSeconds": {
+            "description": "The least time between two requests to the site",
+            "format": "double",
+            "type": "number"
+          },
+          "synced": {
+            "description": "When the Prowlarr commit SlipStream's support for the site was synced to was made",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userAgent": {
+            "description": "The pasted cookie works only with the User-Agent of the browser it came from",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "userAgent",
+          "searches",
+          "grabs",
+          "recent",
+          "spacingSeconds",
+          "synced"
+        ],
+        "type": "object"
+      },
       "IndexersPortPin": {
         "additionalProperties": false,
         "properties": {
@@ -5562,10 +5625,17 @@
           "id": {
             "type": "string"
           },
-          "synced": {
-            "description": "When the Prowlarr commit the port was synced to was made",
-            "format": "date-time",
+          "name": {
+            "description": "The site's name",
             "type": "string"
+          },
+          "synced": {
+            "description": "When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "values": {
             "additionalProperties": {
@@ -5577,6 +5647,7 @@
         },
         "required": [
           "id",
+          "name",
           "synced",
           "baseAddress",
           "values"
@@ -23231,7 +23302,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed",
+        "summary": "List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed",
         "tags": [
           "indexers"
         ],
@@ -23981,7 +24052,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get the fields of a definition's add form, from the custom definition with the id or else the catalog's",
+        "summary": "Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's",
         "tags": [
           "indexers"
         ],
@@ -25887,7 +25958,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings",
+        "summary": "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or settings",
         "tags": [
           "indexers"
         ],

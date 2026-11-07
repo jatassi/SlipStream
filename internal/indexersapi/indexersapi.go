@@ -73,8 +73,16 @@ func answer(x *indexers.Indexers, err error) error {
 		return api.Invalid.On("cookie.cookie", "Paste the cookie as name=value pairs separated by semicolons.")
 	case errors.Is(err, indexers.ErrCookieNeeded):
 		return api.Invalid.On("cookie", "Paste the cookie and User-Agent of a browser signed in to the site.")
-	case errors.Is(err, indexers.ErrNoPorts):
-		return api.Invalid.On("kind", "SlipStream can't add a ported site's Indexer yet.")
+	case errors.Is(err, indexers.ErrNoCookieSignIn):
+		return api.Invalid.On("cookie", "Only a site that signs in with a browser cookie takes one.")
+	case errors.Is(err, indexers.ErrUserAgentNeeded):
+		return api.Invalid.On("cookie.userAgent", "Paste the User-Agent of the browser the cookie came from.")
+	case errors.Is(err, indexers.ErrNoPort):
+		return api.Invalid.On("port", "Choose one of the sites SlipStream includes.")
+	case errors.Is(err, indexers.ErrNotAnAddress):
+		return api.Invalid.On("baseAddress", "Choose one of the site's addresses, or type one that starts with http:// or https://.")
+	case errors.Is(err, indexers.ErrNoCode):
+		return api.Invalid.On("code", "Only a site that signs in with a two-factor code takes one.")
 	case errors.Is(err, indexers.ErrNotALink):
 		return api.Invalid.On("baseAddress", "Choose one of the definition's addresses.")
 	case errors.As(err, &value):
@@ -147,7 +155,8 @@ type pin struct {
 
 type portPin struct {
 	ID          string            `json:"id"`
-	Synced      time.Time         `json:"synced" doc:"When the Prowlarr commit the port was synced to was made"`
+	Name        string            `json:"name" doc:"The site's name"`
+	Synced      *time.Time        `json:"synced" doc:"When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site"`
 	BaseAddress string            `json:"baseAddress"`
 	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
 }
@@ -184,6 +193,7 @@ type indexer struct {
 	Definition      api.Nullable[pin]     `json:"definition" doc:"A catalog Indexer's definition; null for every other kind"`
 	Port            api.Nullable[portPin] `json:"port" doc:"A native Indexer's ported site; null for every other kind"`
 	SearchModes     []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
+	Notes           []string              `json:"notes" nullable:"false" doc:"What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page"`
 	Revision        int64                 `json:"revision" minimum:"1"`
 	CreatedAt       time.Time             `json:"createdAt"`
 }
@@ -224,6 +234,7 @@ func indexerOf(v indexers.View) indexer {
 		TrackerIDs:  []string{},
 		FeedHost:    text(v.FeedHost),
 		SearchModes: []searchMode{},
+		Notes:       append([]string{}, v.Notes...),
 		Revision:    v.Revision,
 		CreatedAt:   v.Created,
 	}
@@ -252,7 +263,7 @@ func indexerOf(v indexers.View) indexer {
 	case indexers.Port:
 		values := map[string]string{}
 		maps.Copy(values, s.Plain)
-		out.Port = api.Some(portPin{ID: string(s.ID), BaseAddress: s.Address, Values: values})
+		out.Port = api.Some(portPin{ID: string(s.ID), Name: s.Site(), Synced: when(s.Entry.Upstream.Date), BaseAddress: s.Address, Values: values})
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))
@@ -375,7 +386,6 @@ func (n newIndexer) fitsKind() error {
 		{"trackerName", rss && n.TrackerName == "", "Name the Tracker the RSS feed reaches."},
 		{"cookie", n.Kind == string(indexers.Torznab) && n.Cookie != nil, "A Torznab feed takes no cookie."},
 		{"port", !native && n.Port != "", "Only a ported site takes a port."},
-		{"code", n.Code != "", codeRefused},
 	}, n.portMisfits(native)...) {
 		if m.wrong {
 			errs = append(errs, api.FieldError{Location: "body." + m.field, Message: m.message})
@@ -419,6 +429,13 @@ func cookieIn(c *pastedCookie) *indexers.PastedCookie {
 	return &indexers.PastedCookie{Cookie: c.Cookie, UserAgent: c.UserAgent}
 }
 
+func limitOf(l indexers.Limit) limit {
+	if l.Per == "" {
+		l.Per = indexers.Hour
+	}
+	return limit{Count: l.Count, Per: string(l.Per)}
+}
+
 func limitIn(l limit) indexers.Limit {
 	return indexers.Limit{Count: l.Count, Per: indexers.Window(l.Per)}
 }
@@ -457,9 +474,6 @@ func patched[T any](p api.Patch[T], def T) *T {
 }
 
 func (e indexerEdit) edit() (indexers.Edit, error) {
-	if e.Code != "" {
-		return indexers.Edit{}, api.Invalid.On("code", codeRefused)
-	}
 	out := indexers.Edit{
 		Name: e.Name, Address: e.Address, APIKey: e.APIKey,
 		On: patched(e.On, true), AutoSearch: patched(e.AutomaticSearch, true), RSS: patched(e.RSS, true),
@@ -583,7 +597,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "updateIndexer",
 		Method:  http.MethodPatch,
 		Path:    "/indexers/{id}",
-		Summary: "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings",
+		Summary: "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or settings",
 		Status:  http.StatusOK,
 		Errors:  append([]*api.Code{indexerNotFound, indexerNameTaken, nodeNotSearching, definitionUnloadable}, tested...),
 	}, h.updateIndexer)
@@ -646,7 +660,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getIndexerCatalog",
 		Method:  http.MethodGet,
 		Path:    "/indexer-catalog",
-		Summary: "List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed",
+		Summary: "List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed",
 		Status:  http.StatusOK,
 	}, h.getCatalog)
 
@@ -654,7 +668,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getCatalogDefinition",
 		Method:  http.MethodGet,
 		Path:    "/indexer-catalog/{id}",
-		Summary: "Get the fields of a definition's add form, from the custom definition with the id or else the catalog's",
+		Summary: "Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{definitionNotFound, catalogUnavailable},
 	}, h.getDefinition)
@@ -786,7 +800,7 @@ func (h handlers) createIndexer(ctx context.Context, by identity.Admin, in *crea
 		return nil, err
 	}
 	xs := open(h.registry)
-	v, err := xs.Create(ctx, by, d, answerIn(in.Body.Captcha))
+	v, err := xs.Create(ctx, by, d, typedIn(in.Body.Captcha, in.Body.Code))
 	if err != nil {
 		return nil, answer(xs, err)
 	}
@@ -803,7 +817,7 @@ func (h handlers) updateIndexer(ctx context.Context, by identity.Admin, in *upda
 		return nil, err
 	}
 	xs := open(h.registry)
-	v, err := xs.Update(ctx, by, id, e, answerIn(in.Body.Captcha))
+	v, err := xs.Update(ctx, by, id, e, typedIn(in.Body.Captcha, in.Body.Code))
 	if err != nil {
 		return nil, answer(xs, err)
 	}
@@ -824,15 +838,12 @@ func (h handlers) testIndexer(ctx context.Context, by identity.Admin, in *testIn
 	if err != nil {
 		return nil, err
 	}
-	var c *indexers.CaptchaAnswer
+	var t indexers.Typed
 	if in.Body != nil {
-		if in.Body.Code != "" {
-			return nil, api.Invalid.On("code", codeRefused)
-		}
-		c = answerIn(in.Body.Captcha)
+		t = typedIn(in.Body.Captcha, in.Body.Code)
 	}
 	xs := open(h.registry)
-	r, err := xs.Test(ctx, by, id, c)
+	r, err := xs.Test(ctx, by, id, t)
 	if err != nil {
 		return nil, answer(xs, err)
 	}
@@ -845,7 +856,7 @@ func (h handlers) testIndexerDraft(ctx context.Context, by identity.Admin, in *c
 		return nil, err
 	}
 	xs := open(h.registry)
-	r, err := xs.TestDraft(ctx, by, d, answerIn(in.Body.Captcha))
+	r, err := xs.TestDraft(ctx, by, d, typedIn(in.Body.Captcha, in.Body.Code))
 	if err != nil {
 		return nil, answer(xs, err)
 	}

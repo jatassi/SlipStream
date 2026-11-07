@@ -22,6 +22,62 @@ var stopSaid = map[Cause]string{
 	searching.DefinitionUnloadable: "%[1]s's definition doesn't load.",
 	searching.AccountRefused:       "%[1]s refused the API key with '%[2]s'.",
 	searching.RequestRejected:      "%[1]s refused a search with '%[2]s'.",
+	searching.CodeNeeded:           "%[1]s needs a two-factor code to sign in again.",
+	searching.PortRetired:          "SlipStream no longer supports %[1]s, because %[2]s.",
+}
+
+// portSaid is a port's own stopSaid for the variants that name its
+// credentials: %[4]s is the key account_refused names ("passkey"), %[5]s
+// the sign-in fields credentials_rejected names ("email or password").
+var portSaid = map[variant]string{
+	refusedKey:     "%[1]s refused the %[4]s.",
+	refusedKeyWith: "%[1]s refused the %[4]s with '%[2]s'.",
+	rejectedSignIn: "%[1]s rejected the %[5]s.",
+}
+
+// variant is which of a port's own words a stop takes, "" for its cause's.
+type variant string
+
+const (
+	refusedKey      variant = "refused key"
+	refusedKeyWith  variant = "refused key with"
+	rejectedSignIn  variant = "rejected sign-in"
+	cookieUserAgent variant = "cookie with User-Agent"
+)
+
+// credentials are the names a ported site's stops use, zero for any other
+// Indexer.
+type credentials struct {
+	key, signIn string
+	userAgent   bool
+}
+
+func credentialsOf(idx Indexer) credentials {
+	p, _ := idx.Source.(Port)
+	return credentials{key: p.Entry.Key, signIn: p.Entry.SignInWords, userAgent: p.Entry.PastesUserAgent}
+}
+
+func (c credentials) variant(cause Cause, text string) variant {
+	switch {
+	case cause == searching.AccountRefused && c.key != "" && text != "":
+		return refusedKeyWith
+	case cause == searching.AccountRefused && c.key != "":
+		return refusedKey
+	case cause == searching.CredentialsRejected && c.signIn != "" && text == "":
+		return rejectedSignIn
+	case cause == searching.CookieExpired && c.userAgent:
+		return cookieUserAgent
+	}
+	return ""
+}
+
+// pick is the format of a stop with cause and the site's own text in
+// table, or in ported when c's variant has one there.
+func (c credentials) pick(table map[Cause]string, ported map[variant]string, cause Cause, text string) string {
+	if f, ok := ported[c.variant(cause, text)]; ok {
+		return f
+	}
+	return table[cause]
 }
 
 const solverTriedSaid = "%[3]s's Challenge solver couldn't clear %[1]s's challenge."
@@ -36,6 +92,12 @@ var stopFormFixes = map[Cause]string{
 	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
 	searching.AccountRefused:       "Check the account, then test again.",
 	searching.RequestRejected:      "Test again after the feed is fixed.",
+	searching.CodeNeeded:           "Type the current code and test again.",
+	searching.PortRetired:          "Delete the Indexer.",
+}
+
+var portFormFixes = map[variant]string{
+	cookieUserAgent: "Paste a new one with that browser's User-Agent and test again.",
 }
 
 // refusalWords is why an RSS feed can't be used, for the form.
@@ -83,14 +145,15 @@ func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer,
 	var stopped *searching.Stopped
 	switch {
 	case errors.As(a.Outcome, &stopped):
-		said, fix := stopSaid[stopped.Cause], stopFormFixes[stopped.Cause]
+		c := credentialsOf(idx)
+		said, fix := c.pick(stopSaid, portSaid, stopped.Cause, stopped.Text), c.pick(stopFormFixes, portFormFixes, stopped.Cause, stopped.Text)
 		switch {
 		case stopped.SolverTried:
 			said, fix = solverTriedSaid, "Paste a browser cookie and test again."
 		case refusedSignIn(stopped.Cause, stopped.Text):
 			said, fix = refusedSignInSaid, refusedSignInFormFix
 		}
-		sentence = fmt.Sprintf(said+" "+fix, idx.Name, stopped.Text, x.cfg.Roster.Name(node))
+		sentence = fmt.Sprintf(said+" "+fix, idx.Name, stopped.Text, x.cfg.Roster.Name(node), c.key, c.signIn)
 	case errors.As(a.Outcome, &limited):
 		until := o.Until
 		if until.IsZero() {
@@ -146,6 +209,14 @@ var stoppedWords = map[Cause]string{
 	searching.DefinitionUnloadable: "Stopped because %[1]s's definition doesn't load.",
 	searching.AccountRefused:       "Stopped because %[1]s refused the API key with '%[2]s'.",
 	searching.RequestRejected:      "Stopped because %[1]s refused a search with '%[2]s'.",
+	searching.CodeNeeded:           "Stopped because %[1]s needs a two-factor code to sign in again.",
+	searching.PortRetired:          "SlipStream no longer supports %[1]s, because %[2]s.",
+}
+
+var portStopped = map[variant]string{
+	refusedKey:     "Stopped because %[1]s refused the %[4]s.",
+	refusedKeyWith: "Stopped because %[1]s refused the %[4]s with '%[2]s'.",
+	rejectedSignIn: "Stopped because %[1]s rejected the %[5]s.",
 }
 
 // stoppedLines is a stop as its line in a search, said beside the
@@ -159,9 +230,16 @@ var stoppedLines = map[Cause]string{
 	searching.DefinitionUnloadable: "Stopped because its definition doesn't load.",
 	searching.AccountRefused:       "Stopped because the API key was refused with '{text}'.",
 	searching.RequestRejected:      "Stopped because a search was refused with '{text}'.",
+	searching.CodeNeeded:           "Stopped because signing in again needs a two-factor code.",
+	searching.PortRetired:          "Stopped because SlipStream no longer supports it.",
 }
 
-const refusedSignInLine = "Stopped because the sign-in was refused with '{text}'."
+const (
+	refusedSignInLine = "Stopped because the sign-in was refused with '{text}'."
+	// refusedKeyLine is a port's account_refused, whose site gave no words
+	// and whose key a stored line doesn't name.
+	refusedKeyLine = "Stopped because its key was refused."
+)
 
 // stoppedFixes is how the Admin clears a stop from the Indexer's page:
 // {node} is the Node it was met on.
@@ -173,6 +251,13 @@ var stoppedFixes = map[Cause]string{
 	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
 	searching.AccountRefused:       "Check the account, then test the Indexer.",
 	searching.RequestRejected:      "Test the Indexer after the feed is fixed.",
+	searching.CodeNeeded:           "Test the Indexer and type the current code.",
+	searching.PortRetired:          "Delete the Indexer.",
+}
+
+var portStoppedFixes = map[variant]string{
+	rejectedSignIn:  "Update the {signin} with Edit. Saving tests them.",
+	cookieUserAgent: "Paste a new browser cookie and its User-Agent with Edit.",
 }
 
 const (
@@ -182,12 +267,12 @@ const (
 )
 
 // stoppedFormat is the stoppedWords format of a stop with cause and the
-// site's own text.
-func stoppedFormat(cause Cause, text string) string {
+// site's own text, met by an Indexer whose stops name c.
+func stoppedFormat(c credentials, cause Cause, text string) string {
 	if refusedSignIn(cause, text) {
 		return refusedSignInStopped
 	}
-	return stoppedWords[cause]
+	return c.pick(stoppedWords, portStopped, cause, text)
 }
 
 // words is v's status as a sentence, and what the Admin can do about it,
@@ -214,11 +299,12 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	switch w.Kind {
 	case IsStopped:
 		node := x.cfg.Roster.Name(w.Node)
-		stopped, fix := stoppedFormat(w.Cause, w.Text), stoppedFixes[w.Cause]
+		c := credentialsOf(v.Indexer)
+		stopped, fix := stoppedFormat(c, w.Cause, w.Text), c.pick(stoppedFixes, portStoppedFixes, w.Cause, w.Text)
 		if v.Status.SolverTried {
 			stopped, fix = solverTriedStopped, solverTriedFix
 		}
-		return fmt.Sprintf(stopped, name, w.Text, node), strings.ReplaceAll(fix, "{node}", node)
+		return fmt.Sprintf(stopped, name, w.Text, node, c.key, c.signIn), strings.NewReplacer("{node}", node, "{signin}", c.signIn).Replace(fix)
 	case IsLimited:
 		return fmt.Sprintf("%s is limiting requests until %s.", name, x.clock(w.Until)), ""
 	case IsFailing:
@@ -266,8 +352,11 @@ func (x *Indexers) Line(typ works.TypeID, o *Outcome) string {
 		return x.retries("Isn't responding.", o.Until)
 	case IsStopped:
 		line := stoppedLines[o.Cause]
-		if refusedSignIn(o.Cause, o.Text) {
+		switch {
+		case refusedSignIn(o.Cause, o.Text):
 			line = refusedSignInLine
+		case o.Cause == searching.AccountRefused && o.Text == "":
+			line = refusedKeyLine
 		}
 		return strings.NewReplacer("{text}", o.Text, "{node}", x.cfg.Roster.Name(o.Node)).Replace(line)
 	case NoCategories:
@@ -308,18 +397,25 @@ var stopItemFixes = map[Cause]string{
 	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
 	searching.AccountRefused:       "Check the account, then test the Indexer.",
 	searching.RequestRejected:      "Test the Indexer after the feed is fixed.",
+	searching.CodeNeeded:           "Open the Indexer and type the current code.",
+	searching.PortRetired:          "Delete the Indexer.",
 }
 
-// stopItemWords is the Health item of Indexer name stopped at st.
-func (x *Indexers) stopItemWords(name string, st Status) string {
-	said, fix := stopSaid[st.Cause], stopItemFixes[st.Cause]
+var portItemFixes = map[variant]string{
+	cookieUserAgent: "Paste a new one and that browser's User-Agent on the Indexer.",
+}
+
+// stopItemWords is the Health item of Indexer idx stopped at st.
+func (x *Indexers) stopItemWords(idx Indexer, st Status) string {
+	c := credentialsOf(idx)
+	said, fix := c.pick(stopSaid, portSaid, st.Cause, st.Text), c.pick(stopItemFixes, portItemFixes, st.Cause, st.Text)
 	switch {
 	case st.SolverTried:
 		said, fix = solverTriedSaid, "Paste a browser cookie on the Indexer."
 	case refusedSignIn(st.Cause, st.Text):
 		said, fix = refusedSignInSaid, refusedSignInItemFix
 	}
-	return fmt.Sprintf(said+" "+fix, name, st.Text, x.cfg.Roster.Name(st.Node))
+	return fmt.Sprintf(said+" "+fix, idx.Name, st.Text, x.cfg.Roster.Name(st.Node), c.key, c.signIn)
 }
 
 // failingItemWords is the Health item of Indexer name failing at st

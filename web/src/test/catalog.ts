@@ -102,6 +102,7 @@ export const larkspurForm: IndexersDefinitionForm = {
   solver: false,
   cookie: false,
   code: false,
+  port: null,
   fields: [
     username,
     password,
@@ -127,6 +128,7 @@ export const quarryForm: IndexersDefinitionForm = {
   solver: false,
   cookie: false,
   code: false,
+  port: null,
   fields: [
     field({ name: "apikey", type: "text", label: "API key", sealed: true }),
     field({
@@ -146,6 +148,7 @@ export const cinderForm: IndexersDefinitionForm = {
   solver: true,
   cookie: true,
   code: false,
+  port: null,
   fields: [
     field({ name: "info_cookie", type: "info_cookie" }),
     field({ name: "info_flaresolverr", type: "info_flaresolverr" }),
@@ -161,6 +164,7 @@ export const meadowForm: IndexersDefinitionForm = {
   solver: true,
   cookie: false,
   code: false,
+  port: null,
   fields: [
     username,
     password,
@@ -201,6 +205,7 @@ export const brokenForm: IndexersDefinitionForm = {
   solver: false,
   cookie: false,
   code: false,
+  port: null,
   fields: [],
 };
 

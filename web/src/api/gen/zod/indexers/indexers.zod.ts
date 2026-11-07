@@ -25,7 +25,7 @@ import {
 } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed
+ * @summary List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed
  */
 export const GetIndexerCatalogResponse = IndexersIndexerCatalog;
 
@@ -55,7 +55,7 @@ export const DeleteCustomDefinitionParams = zod.object({
 export const DeleteCustomDefinitionResponse = zod.void();
 
 /**
- * @summary Get the fields of a definition's add form, from the custom definition with the id or else the catalog's
+ * @summary Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's
  */
 export const getCatalogDefinitionPathIdMax = 200;
 
@@ -122,7 +122,7 @@ export const GetIndexerParams = zod.object({
 export const GetIndexerResponse = IndexersIndexer;
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or settings
  */
 export const UpdateIndexerParams = zod.object({
   id: zod.uuid(),

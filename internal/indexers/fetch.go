@@ -36,7 +36,7 @@ func (e *NotTakenError) Error() string {
 // grab reserved, none for a magnet link, and the Tracker r reaches, found
 // or made. The caller calls Taken once the Write commits.
 func (x *Indexers) Take(ctx context.Context, tx *storage.Tx[file], r Release) (Ticket, error) {
-	idx, err := Get(ctx, tx, r.Indexer)
+	idx, err := x.get(ctx, tx, r.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
 		return Ticket{}, &NotTakenError{Outcome: Outcome{Kind: Removed}}
 	}
@@ -119,7 +119,7 @@ func (x *Indexers) Fetch(ctx context.Context, t Ticket, link searching.Link) (Go
 	var answered bool
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		if idx, err = Get(ctx, r, t.Indexer); err != nil {
+		if idx, err = x.get(ctx, r, t.Indexer); err != nil {
 			return err
 		}
 		if st, err = status(ctx, r, idx.ID); err != nil {
@@ -221,7 +221,7 @@ func (x *Indexers) FetchWaits(ctx context.Context, r storage.Reader[file], ids [
 	out := map[ID]FetchWait{}
 	now := time.Now()
 	for _, id := range ids {
-		idx, err := Get(ctx, r, id)
+		idx, err := x.get(ctx, r, id)
 		if errors.Is(err, ErrNoIndexer) {
 			continue
 		}

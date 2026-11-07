@@ -138,6 +138,9 @@ type Entry struct {
 	// credentials_rejected names ("email or password"), from those
 	// tagged signin. Define sets both.
 	Key, SignInWords string
+	// PastesUserAgent is a CookieLogin that sends the pasted browser's
+	// User-Agent with its cookie: Define sets it.
+	PastesUserAgent bool
 }
 
 // Upstream is the port's provenance, from its upstream.json.

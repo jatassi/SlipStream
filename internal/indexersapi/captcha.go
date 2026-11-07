@@ -33,20 +33,18 @@ type captchaAnswer struct {
 	Answer  string `json:"answer" maxLength:"64" doc:"The code the captcha shows"`
 }
 
-func answerIn(c *captchaAnswer) *indexers.CaptchaAnswer {
-	if c == nil {
-		return nil
+func typedIn(c *captchaAnswer, code string) indexers.Typed {
+	t := indexers.Typed{Code: code}
+	if c != nil {
+		t.Captcha = &indexers.CaptchaAnswer{Attempt: c.Attempt, Text: c.Answer}
 	}
-	return &indexers.CaptchaAnswer{Attempt: c.Attempt, Text: c.Answer}
+	return t
 }
 
 type testBody struct {
 	Captcha *captchaAnswer `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this Indexer"`
 	Code    string         `json:"code,omitempty" maxLength:"16" doc:"The current two-factor code, for a site whose sign-in asks for one"`
 }
-
-// codeRefused answers a two-factor code while no site signs in with one.
-const codeRefused = "Only a site that signs in with a two-factor code takes one."
 
 type testIndexerInput struct {
 	ID   string `path:"id" format:"uuid"`

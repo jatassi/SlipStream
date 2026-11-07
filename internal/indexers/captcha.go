@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -22,8 +23,20 @@ var (
 	ErrNoCaptcha = errors.New("the Indexer's sign-in shows no captcha")
 )
 
+// ErrNoCode is a two-factor code typed for an Indexer whose sign-in
+// takes none.
+var ErrNoCode = errors.New("the Indexer's sign-in takes no two-factor code")
+
 // CaptchaAnswer is the Admin's Text for the captcha of Attempt.
 type CaptchaAnswer struct{ Attempt, Text string }
+
+// Typed is what the Admin typed for a Test's sign-in: the answer to a
+// captcha, or the current code of a site whose sign-in asks for one. No
+// attempt is kept for a code, since its sign-in has no pre-login state.
+type Typed struct {
+	Captcha *CaptchaAnswer
+	Code    string
+}
 
 // Captcha is a captcha for the Admin to answer, open as Attempt until
 // Expires.
@@ -112,7 +125,7 @@ func (x *Indexers) Captcha(ctx context.Context, _ identity.Admin, f CaptchaFor) 
 		}
 		return x.captcha(ctx, idx, node, session)
 	}
-	idx, err := Get(ctx, x.cfg.Library, f.Indexer)
+	idx, err := x.get(ctx, x.cfg.Library, f.Indexer)
 	if err != nil {
 		return Captcha{}, err
 	}
@@ -152,18 +165,24 @@ func (x *Indexers) captcha(ctx context.Context, idx Indexer, node role.NodeID, s
 	return Captcha{Attempt: x.attempts.keep(at), Image: a.Captcha.Image, ContentType: a.Captcha.ContentType, Expires: at.expires}, nil
 }
 
-// testCall is the Test of idx on node, signing in with c when the Admin
-// answered a captcha. It fails with ErrCaptchaExpired when c's attempt
-// isn't open for that sign-in.
-func (x *Indexers) testCall(idx Indexer, node role.NodeID, c *CaptchaAnswer) (searching.TestCall, error) {
-	if c == nil {
-		return searching.TestCall{}, nil
+// testCall is the Test of idx on node, signing in with what the Admin
+// typed. It fails with ErrCaptchaExpired when a captcha's attempt isn't
+// open for that sign-in, and ErrNoCode for a code idx's sign-in doesn't
+// take.
+func (x *Indexers) testCall(idx Indexer, node role.NodeID, t Typed) (searching.TestCall, error) {
+	call := searching.TestCall{Code: t.Code}
+	if p, ok := idx.Source.(Port); t.Code != "" && (!ok || p.Entry.Auth != port.FormWithCode) {
+		return searching.TestCall{}, ErrNoCode
 	}
-	a, ok := x.attempts.take(c.Attempt, signInOf(idx, node))
+	if t.Captcha == nil {
+		return call, nil
+	}
+	a, ok := x.attempts.take(t.Captcha.Attempt, signInOf(idx, node))
 	if !ok {
 		return searching.TestCall{}, ErrCaptchaExpired
 	}
-	return searching.TestCall{Captcha: &searching.CaptchaAnswer{PreLogin: a.preLogin, Text: c.Text}}, nil
+	call.Captcha = &searching.CaptchaAnswer{PreLogin: a.preLogin, Text: t.Captcha.Text}
+	return call, nil
 }
 
 // withCaptcha is err with a new captcha when it is a Test of idx on node

@@ -37,6 +37,9 @@ func Define[S any](e Entry, impl Impl[S]) Port {
 		key.Help = fmt.Sprintf(key.Help, e.Name)
 		e.Fields = append(e.Fields, key)
 	}
+	if c, ok := impl.Login.(CookieLogin); ok {
+		e.PastesUserAgent = c.UserAgent
+	}
 	e.Key = words(settings, func(s setting) bool { return s.key })
 	e.SignInWords = words(settings, func(s setting) bool { return s.signin })
 	charset, _ := charsetOf(e.Encoding)
@@ -83,8 +86,8 @@ func checkEntry(e Entry) error {
 	if e.Capabilities.Categories == nil {
 		errs = append(errs, errors.New("the capabilities need a category mapping"))
 	}
-	if e.Fields != nil || e.Auth != 0 || e.Key != "" || e.SignInWords != "" {
-		errs = append(errs, errors.New("the entry sets Fields, Auth, Key or SignInWords, which Define derives"))
+	if e.Fields != nil || e.Auth != 0 || e.Key != "" || e.SignInWords != "" || e.PastesUserAgent {
+		errs = append(errs, errors.New("the entry sets Fields, Auth, Key, SignInWords or PastesUserAgent, which Define derives"))
 	}
 	return errors.Join(errs...)
 }
