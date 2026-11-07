@@ -123,7 +123,7 @@ func TestCatalog(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	if want := []string{"catalog-sites", "cgnat-home", "external-clients", "first-run", "home", "indexers", "low-space", "magnets", "movies", "music", "scale", "seedbox-nas", "series-scale", "series", "serving", "showcase", "single-machine", "sizes", "targets", "torrents"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"catalog-sites", "cgnat-home", "external-clients", "external-kinds", "first-run", "home", "indexers", "low-space", "magnets", "movies", "music", "scale", "seedbox-nas", "series-scale", "series", "serving", "showcase", "single-machine", "sizes", "targets", "torrents"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("catalog = %v, want %v", got, want)
 	}
 }

@@ -381,3 +381,42 @@ func (r *clientRig) expectLinked() {
 		r.t.Fatal("the placed file isn't the client's download hard linked: the import copied it")
 	}
 }
+
+// TestEveryKindOnOneNode launches the external-kinds Scenario, whose Node
+// has a client of each kind, sees each respond at its version, and imports
+// a Grab through qBittorrent, where its New Grabs go.
+func TestEveryKindOnOneNode(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s, err := scenario.Load("external-kinds")
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := sim.Launch(t, s, sim.WithWalk())
+		time.Sleep(time.Minute)
+		list := decode[struct {
+			Cards []struct {
+				Externals []savedClient `json:"externals"`
+			} `json:"cards"`
+		}](t, "listDownloadClients", w.API().Admin("home", http.MethodGet, "/api/v1/download-clients", ""))
+		var got []string
+		for _, c := range list.Cards {
+			for _, e := range c.Externals {
+				got = append(got, e.Name+" "+e.Reach+" "+e.ProductVersion)
+			}
+		}
+		slices.Sort(got)
+		want := []string{"Deluge responding 2.1.1", "Transmission responding 4.1.1", "qBittorrent responding 5.2.3", "rTorrent responding 0.16.27"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("home's clients read %q, want %q", got, want)
+		}
+
+		search(t, w, addOrchard(t, w))
+		expectImportedFrom(t, await(t, w))
+		rows := decode[struct {
+			Rows []torrentRow `json:"rows"`
+		}](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents", "")).Rows
+		if len(rows) != 1 || rows[0].ClientKind != "qbittorrent" {
+			t.Fatalf("the Torrents are %+v, want one in qBittorrent", rows)
+		}
+	})
+}
