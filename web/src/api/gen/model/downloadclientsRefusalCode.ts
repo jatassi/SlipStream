@@ -4,6 +4,8 @@ export type DownloadclientsRefusalCode =
   | "importing"
   | "not_stalled"
   | "offline"
+  | "client_away"
+  | "client_off"
   | "window"
   | "not_running"
   | "failed";

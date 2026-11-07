@@ -18,6 +18,7 @@ const fetched: GrabsGrab = {
   nodeId: "4a6c8e0f-2b4d-4f6a-8c0e-2a4c6e8f0b1d",
   fetchNodeId: null,
   torrentId: "3e5a7c9b-1d3f-4a5c-8e7a-9c1b3d5f7a9c",
+  downloadClient: null,
   infoHash: "0102030405060708090a0b0c0d0e0f1011121314",
   stage: "fetching",
   history: [{ stage: "fetching", at: "2026-10-12T09:01:00Z" }],

@@ -63,10 +63,19 @@ export const TestDownloadClientDraftBody = DownloadclientsNewClient;
 export const TestDownloadClientDraftResponse = DownloadclientsTestReport;
 
 /**
- * @summary Delete an external Download Client that holds no torrents SlipStream tracks
+ * @summary Delete an external Download Client, and with stopTracking stop tracking the torrents it holds
  */
 export const DeleteDownloadClientParams = zod.object({
   id: zod.uuid(),
+});
+
+export const DeleteDownloadClientQueryParams = zod.object({
+  stopTracking: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
+    ),
 });
 
 export const DeleteDownloadClientResponse = zod.void();

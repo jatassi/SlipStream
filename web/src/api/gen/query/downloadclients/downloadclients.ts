@@ -35,6 +35,7 @@ import type {
   DeleteDownloadClient409,
   DeleteDownloadClient422,
   DeleteDownloadClient500,
+  DeleteDownloadClientParams,
   DownloadclientsActed,
   DownloadclientsClientEdit,
   DownloadclientsClientsList,
@@ -948,18 +949,31 @@ export const useTestDownloadClientDraft = <
 > => {
   return useMutation(getTestDownloadClientDraftMutationOptions(options), queryClient);
 };
-export const getDeleteDownloadClientUrl = (id: string) => {
-  return `/api/v1/external-download-clients/${id}`;
+export const getDeleteDownloadClientUrl = (id: string, params?: DeleteDownloadClientParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/external-download-clients/${id}?${stringifiedParams}`
+    : `/api/v1/external-download-clients/${id}`;
 };
 
 /**
- * @summary Delete an external Download Client that holds no torrents SlipStream tracks
+ * @summary Delete an external Download Client, and with stopTracking stop tracking the torrents it holds
  */
 export const deleteDownloadClient = async (
   id: string,
+  params?: DeleteDownloadClientParams,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<void> => {
-  return apiFetch<void>(getDeleteDownloadClientUrl(id), {
+  return apiFetch<void>(getDeleteDownloadClientUrl(id, params), {
     ...options,
     method: "DELETE",
   });
@@ -1002,9 +1016,9 @@ export const getDeleteDownloadClientMutationOptions = <
     Awaited<ReturnType<typeof deleteDownloadClient>>,
     DeleteDownloadClientMutationVariables
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, params } = props ?? {};
 
-    return deleteDownloadClient(id, requestOptions);
+    return deleteDownloadClient(id, params, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1022,10 +1036,13 @@ export type DeleteDownloadClientMutationError = ErrorType<
   | DeleteDownloadClient422
   | DeleteDownloadClient500
 >;
-export type DeleteDownloadClientMutationVariables = { id: string };
+export type DeleteDownloadClientMutationVariables = {
+  id: string;
+  params?: DeleteDownloadClientParams;
+};
 
 /**
- * @summary Delete an external Download Client that holds no torrents SlipStream tracks
+ * @summary Delete an external Download Client, and with stopTracking stop tracking the torrents it holds
  */
 export const useDeleteDownloadClient = <
   TError = ErrorType<

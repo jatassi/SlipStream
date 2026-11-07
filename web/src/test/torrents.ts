@@ -53,6 +53,7 @@ export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
   return {
     id: `7a000000-0000-4000-8000-${tail}`,
     nodeId: homeId,
+    deleteFiles: true,
     name: `Release.${serial}.1080p.WEB-DL`,
     contentType: "cinema",
     severity: "none",

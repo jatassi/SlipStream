@@ -32,7 +32,7 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - Phone shell: the `Activity` tab, then `Torrents` in the segmented control; the tabs list All first, the filters sit behind `Filter`, a row is a card, and the Inspector is a pushed page.
 - Jobs: `/activity`, a Job's `<Work> actions` menu, `Open its torrent`.
 - Magnet links: a Grab's Progress cell on Jobs or the Work page while it is fetching, its card under `Needs you` once it fails, the `DHT for public torrents` switch under `Peers` on a Node's `Torrent client` page, and `A magnet link with no metadata fails after` under `Magnet links` on Settings > Download Clients.
-- API: `GET /api/v1/torrents` (`?tab=&nodeId=&contentType=&q=&ids=`), `GET /api/v1/torrents/{id}`, `POST /api/v1/torrents/actions` with `{action, ids, deleteFiles?, dryRun?}`, and the events `torrents.changed` and `torrents.live`.
+- API: `GET /api/v1/torrents` (`?tab=&nodeId=&contentType=&q=&ids=`), `GET /api/v1/torrents/{id}`, `POST /api/v1/torrents/actions` with `{action, ids, deleteFiles?, dryRun?}` (a row's `deleteFiles` is false for a torrent SlipStream attached to, whose remove only stops tracking it), and the events `torrents.changed` and `torrents.live`.
 
 ## Driving it with fakeworld and playwright cli
 

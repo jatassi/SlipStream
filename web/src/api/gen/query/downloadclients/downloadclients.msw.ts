@@ -1354,6 +1354,7 @@ export const getListTorrentsResponseMock = (
       ? { clientName: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    deleteFiles: faker.datatype.boolean(),
     done: faker.number.int({ min: 0 }),
     ...(faker.datatype.boolean()
       ? { edition: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1504,16 +1505,24 @@ export const getActOnTorrentsResponseMock = (
               ...(faker.datatype.boolean()
                 ? { acceptsAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
                 : {}),
+              ...(faker.datatype.boolean()
+                ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
               code: faker.helpers.arrayElement([
                 "not_found",
                 "removed",
                 "importing",
                 "not_stalled",
                 "offline",
+                "client_away",
+                "client_off",
                 "window",
                 "not_running",
                 "failed",
               ] as const),
+              ...(faker.datatype.boolean()
+                ? { node: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
               ...(faker.datatype.boolean() ? { workId: faker.string.uuid() } : {}),
             },
           }
@@ -1547,6 +1556,7 @@ export const getGetTorrentResponseMock = (
     ? { clientName: faker.string.alpha({ length: { min: 10, max: 20 } }) }
     : {}),
   contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  deleteFiles: faker.datatype.boolean(),
   done: faker.number.int({ min: 0 }),
   downloaded: faker.number.int({ min: 0 }),
   ...(faker.datatype.boolean()

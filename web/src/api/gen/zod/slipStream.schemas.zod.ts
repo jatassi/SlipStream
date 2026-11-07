@@ -66,16 +66,26 @@ export const DownloadclientsRefusal = zod.object({
     .datetime({ offset: true })
     .exactOptional()
     .describe("window: when every announce URL accepts an announce"),
+  client: zod
+    .string()
+    .exactOptional()
+    .describe("client_away and client_off: the external client's name"),
   code: zod.enum([
     "not_found",
     "removed",
     "importing",
     "not_stalled",
     "offline",
+    "client_away",
+    "client_off",
     "window",
     "not_running",
     "failed",
   ]),
+  node: zod
+    .string()
+    .exactOptional()
+    .describe("client_away and client_off: the name of the external client's Node"),
   workId: zod.uuid().exactOptional().describe("importing: the Work whose import holds it"),
 });
 
@@ -1000,6 +1010,11 @@ export const DownloadclientsTorrentDetail = zod.object({
     .describe("Its external client's kind"),
   clientName: zod.string().exactOptional().describe("Its external client's name"),
   contentType: zod.string().describe("The Content Type it was first grabbed for"),
+  deleteFiles: zod
+    .boolean()
+    .describe(
+      "A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client",
+    ),
   done: zod
     .int()
     .min(downloadclientsTorrentDetailDoneMin)
@@ -1174,6 +1189,11 @@ export const DownloadclientsTorrentRow = zod.object({
     .describe("Its external client's kind"),
   clientName: zod.string().exactOptional().describe("Its external client's name"),
   contentType: zod.string().describe("The Content Type it was first grabbed for"),
+  deleteFiles: zod
+    .boolean()
+    .describe(
+      "A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client",
+    ),
   done: zod
     .int()
     .min(downloadclientsTorrentRowDoneMin)
@@ -1750,6 +1770,15 @@ export const GrabsFetchWait = zod.object({
 export type GrabsFetchWait = zod.input<typeof GrabsFetchWait>;
 export type GrabsFetchWaitOutput = zod.output<typeof GrabsFetchWait>;
 
+export const GrabsGrabClient = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
+  name: zod.string(),
+});
+
+export type GrabsGrabClient = zod.input<typeof GrabsGrabClient>;
+export type GrabsGrabClientOutput = zod.output<typeof GrabsGrabClient>;
+
 export const grabsMetadataSearchPeersMin = 0;
 
 export const GrabsMetadataSearch = zod.object({
@@ -1784,6 +1813,11 @@ export const grabsGrabReleaseSizeMin = 0;
 
 export const GrabsGrab = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
+  downloadClient: zod
+    .union([GrabsGrabClient, zod.null()])
+    .describe(
+      "Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched",
+    ),
   edition: zod
     .string()
     .describe("The Edition it was grabbed to fill: any under any cut, else a cut key"),
@@ -5140,6 +5174,17 @@ export const RootsVolumesChanged = zod.object({
 
 export type RootsVolumesChanged = zod.input<typeof RootsVolumesChanged>;
 export type RootsVolumesChangedOutput = zod.output<typeof RootsVolumesChanged>;
+
+export const SendToInputBody = zod.object({
+  builtInOn: zod
+    .uuid()
+    .exactOptional()
+    .describe("A downloading Node, for its built-in client; send this or clientId"),
+  clientId: zod.uuid().exactOptional().describe("An external client; send this or builtInOn"),
+});
+
+export type SendToInputBody = zod.input<typeof SendToInputBody>;
+export type SendToInputBodyOutput = zod.output<typeof SendToInputBody>;
 
 export const ServingWorker = zod.object({
   controller: zod.string().describe("Its Controller's name"),

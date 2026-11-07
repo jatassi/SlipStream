@@ -108,6 +108,10 @@ const refusalWords: {
     `${names.join(", ")} ${names.length === 1 ? "is" : "are"} moving again, so nothing was marked failed.`,
   offline: ({ names }) =>
     `The Node holding ${names.join(", ")} is offline. Try again once it reconnects.`,
+  client_away: ({ refusal }) =>
+    `${refusal.client ?? "The client"} on ${refusal.node ?? "its Node"} isn't responding. Try again once it responds.`,
+  client_off: ({ refusal }) =>
+    `SlipStream isn't checking ${refusal.client ?? "the client"} while it's turned off. Turn it on, then try again.`,
   window: ({ names, refusal }, { clock }) =>
     refusal.acceptsAt === undefined
       ? `An announce URL of ${names.join(", ")} would reject an announce now.`
@@ -118,8 +122,8 @@ const refusalWords: {
 };
 
 // Refusals that say the same thing for every Torrent they hold group into one sentence.
-const groupKey = ({ code, workId, acceptsAt }: DownloadclientsRefusal) =>
-  [code, workId ?? "", acceptsAt ?? ""].join("\n");
+const groupKey = ({ code, workId, acceptsAt, client }: DownloadclientsRefusal) =>
+  [code, workId ?? "", acceptsAt ?? "", client ?? ""].join("\n");
 
 /** What an action's answer says: the Torrents it acts on, and why it refused any. */
 export function outcomeWords(

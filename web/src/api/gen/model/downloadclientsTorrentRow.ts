@@ -21,6 +21,8 @@ export interface DownloadclientsTorrentRow {
   clientName?: string;
   /** The Content Type it was first grabbed for */
   contentType: string;
+  /** A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client */
+  deleteFiles: boolean;
   /**
    * Bytes done as its Node last reported them; torrents.live carries the live figure
    * @minimum 0
