@@ -1,0 +1,30 @@
+{
+  "releases": [
+    {
+      "title": "Juniper Falls - Episódio 1",
+      "size": 209715200,
+      "published": "1999-12-31T23:59:00Z",
+      "seeders": 5,
+      "leechers": 0,
+      "grabs": 8,
+      "link": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=3001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100048
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0.7,
+      "minSeed": "0s",
+      "details": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=3001",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": true
+}
