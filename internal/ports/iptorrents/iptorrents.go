@@ -53,10 +53,9 @@ var Port = port.Define(port.Entry{
 })
 
 // SlipStream: logged out is cookie_expired, which the framework words, so
-// the C#'s exception text isn't kept. The framework also reads downloads,
-// and a .torrent has no sign-out link, so only an HTML page is read.
+// the C#'s exception text isn't kept.
 func checkIfLoginNeeded(r *port.IndexerResponse) bool {
-	return strings.Contains(r.Headers.Get("Content-Type"), "html") && !strings.Contains(r.Content, "lout.php")
+	return !strings.Contains(r.Content, "lout.php")
 }
 
 func cleanupReleases(_ *ix, q port.SearchCriteria, rs []port.TorrentInfo) []port.TorrentInfo {
