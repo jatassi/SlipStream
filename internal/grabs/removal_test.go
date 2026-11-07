@@ -84,68 +84,81 @@ func TestADownloadingGrabFailsOnceItsTorrentIsParted(t *testing.T) {
 	}
 }
 
-// TestAnAdminRemovalRacingAGrabEitherFailsItOrIsRefused runs remove and
-// mark-failed as the Grab steps: between its read of the complete
-// Torrent and its commit to probing, the action lands and the commit
-// fails the Grab at downloading; once the Grab probes, the action is
-// refused as importing and leaves the Torrent and the Grab be.
-func TestAnAdminRemovalRacingAGrabEitherFailsItOrIsRefused(t *testing.T) {
-	kinds := map[downloadclients.ActionKind]struct {
-		code   grabs.Code
-		report string
-	}{
-		downloadclients.Remove:     {grabs.Removed, seedingReport},
-		downloadclients.MarkFailed: {grabs.DownloadFailed, stalledReport},
-	}
-	for kind, k := range kinds {
-		for _, at := range []grabs.Stage{grabs.Downloading, grabs.Probing} {
-			t.Run(string(kind)+" at "+string(at), func(t *testing.T) {
-				synctest.Test(t, func(t *testing.T) {
-					p := newPipeline(t)
-					id := downloadingGrab(t, p, k.report)
-					torrent := torrentOf(t, p)
-					clients := downloadclients.New(downloadclients.Config{
-						Library: p.lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{},
-						Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
-					})
-					var refusal *downloadclients.Refusal
-					p.beforeStep = func(ctx context.Context, s grabs.Stage) {
-						if s != at {
-							return
-						}
-						results, _, err := clients.Act(ctx, downloadclients.Action{Kind: kind, IDs: []downloadclients.ID{torrent}})
-						if err != nil {
-							t.Error(err)
-							return
-						}
-						refusal = results[0].Refusal
-						if at == grabs.Probing {
-							<-ctx.Done()
-						}
-					}
+var actions = map[downloadclients.ActionKind]struct {
+	code   grabs.Code
+	report string
+}{
+	downloadclients.Remove:     {grabs.Removed, seedingReport},
+	downloadclients.MarkFailed: {grabs.DownloadFailed, stalledReport},
+}
 
-					p.running()
-					time.Sleep(time.Second)
-
-					v := p.view(id)
-					switch at {
-					case grabs.Downloading:
-						if refusal != nil {
-							t.Fatalf("%s between the Grab's read and its commit was refused %+v, want done", kind, refusal)
-						}
-						if v.Stage != grabs.Failed || v.Failed.Stage != grabs.Downloading || v.Failed.Code != k.code {
-							t.Fatalf("the Grab is %s with %+v, want failed at downloading with %s", v.Stage, v.Failed, k.code)
-						}
-					case grabs.Probing:
-						if refusal == nil || refusal.Code != downloadclients.RefusedImporting {
-							t.Fatalf("%s of a probing Grab's Torrent answered %+v, want refused as importing", kind, refusal)
-						}
-						if v.Stage != grabs.Probing {
-							t.Fatalf("the Grab is %s with %+v, want still probing", v.Stage, v.Failed)
-						}
-					}
-				})
-			})
+// actAsTheGrabSteps runs kind on a downloading Grab's Torrent just before
+// the Grab's step at stage at, holding that step until the Grabs stop, and
+// returns the Grab and the action's refusal.
+func actAsTheGrabSteps(t *testing.T, kind downloadclients.ActionKind, report string, at grabs.Stage) (grabs.View, *downloadclients.Refusal) {
+	t.Helper()
+	p := newPipeline(t)
+	id := downloadingGrab(t, p, report)
+	torrent := torrentOf(t, p)
+	clients := downloadclients.New(downloadclients.Config{
+		Library: p.lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{},
+		Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
+	})
+	var refusal *downloadclients.Refusal
+	p.beforeStep = func(ctx context.Context, s grabs.Stage) {
+		if s != at {
+			return
 		}
+		results, _, err := clients.Act(ctx, downloadclients.Action{Kind: kind, IDs: []downloadclients.ID{torrent}})
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		refusal = results[0].Refusal
+		if at == grabs.Probing {
+			<-ctx.Done()
+		}
+	}
+	p.running()
+	time.Sleep(time.Second)
+	return p.view(id), refusal
+}
+
+// TestAnAdminRemovalBetweenAGrabsReadAndCommitFailsIt runs remove and
+// mark-failed between a Grab's read of its complete Torrent and its commit
+// to probing: the action lands and the commit fails the Grab at
+// downloading.
+func TestAnAdminRemovalBetweenAGrabsReadAndCommitFailsIt(t *testing.T) {
+	for kind, k := range actions {
+		t.Run(string(kind), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				v, refusal := actAsTheGrabSteps(t, kind, k.report, grabs.Downloading)
+				if refusal != nil {
+					t.Fatalf("%s between the Grab's read and its commit was refused %+v, want done", kind, refusal)
+				}
+				if v.Stage != grabs.Failed || v.Failed.Stage != grabs.Downloading || v.Failed.Code != k.code {
+					t.Fatalf("the Grab is %s with %+v, want failed at downloading with %s", v.Stage, v.Failed, k.code)
+				}
+			})
+		})
+	}
+}
+
+// TestAnAdminRemovalOfAProbingGrabsTorrentIsRefused runs remove and
+// mark-failed once the Grab probes: the action is refused as importing and
+// leaves the Torrent and the Grab be.
+func TestAnAdminRemovalOfAProbingGrabsTorrentIsRefused(t *testing.T) {
+	for kind, k := range actions {
+		t.Run(string(kind), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				v, refusal := actAsTheGrabSteps(t, kind, k.report, grabs.Probing)
+				if refusal == nil || refusal.Code != downloadclients.RefusedImporting {
+					t.Fatalf("%s of a probing Grab's Torrent answered %+v, want refused as importing", kind, refusal)
+				}
+				if v.Stage != grabs.Probing {
+					t.Fatalf("the Grab is %s with %+v, want still probing", v.Stage, v.Failed)
+				}
+			})
+		})
 	}
 }
