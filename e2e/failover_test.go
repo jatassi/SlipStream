@@ -52,7 +52,7 @@ func (w *walked) indexers(t *testing.T) map[string]indexerView {
 // line in its finished search as its outcome and sentence, by name.
 func (w *walked) searchAnother(t *testing.T, key string) map[string]string {
 	t.Helper()
-	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+key+`","monitor":true}`), &added{})
+	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+key+`","preset":"all"}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
 		t.Fatalf("addWork %s created %t: %v; want a created Work", key, first.Created, err)
