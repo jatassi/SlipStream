@@ -4,7 +4,7 @@ An Admin keeps every place SlipStream stores files in Settings > Library roots. 
 
 ## Sub-features
 
-- `roots-section` `/settings/library-roots` groups roots by Content Type under `Movies`, each row reading its folder, `Default` on the default, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
+- `roots-section` `/settings/library-roots` groups roots by Content Type: `TV` reads `Add a library root to hold Series.` with `Add a root for TV`, and under `Movies` each row reads its folder, `Default` on the default, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
 - `roots-add-browser` `Add a library root` on seedbox, once it holds Storage, opens `Choose a folder on seedbox`, read by seedbox. Its data folder reads `Can't use this folder because it's inside SlipStream's data folder.` with `Use seedbox` disabled; a typed path goes there, `New folder` makes `worker-movies` and opens it, the footer reads `This folder is on /, <size> free.`, and `Use worker-movies` fills the dialog's `Folder`. With `Make this the default for Movies` ticked, `Add` toasts `Added <path>. New Movies go there.` (P-027, P-021, P-022).
 - `roots-import-worker` The Quiet Orchard, added and searched with the seedbox root as the default, downloads on seedbox and imports there with no Transfer: its Grab's history runs fetching, downloading, probing, importing, imported, and the placed file under `worker-movies` matches the release with 2 links, a hard link to seedbox's download.
 - `roots-move-works` `PUT /api/v1/works/root` moves each Work without files into another root of its Content Type in one Write and answers one outcome per Work, in request order. The Quiet Orchard, whose file sits in `worker-movies`, answers `skipped` with `work_has_files` and stays, and an id no Work has answers `failed` with `work_not_found`.
@@ -31,7 +31,7 @@ Preconditions:
 
 Steps:
 
-- **The section.** Open `/settings/library-roots`. `Movies roots` lists `{mediaDir}/movies` on home with `Default` and `0 Movies, 0 bytes`.
+- **The section.** Open `/settings/library-roots`. `Movies roots` lists `{mediaDir}/movies` on home with `Default` and `0 Movies, 0 bytes`, and `TV` asks for its first root.
 
   ```sh
   $FW exec $RUN -- $PW cli $S tracing-start
@@ -48,10 +48,12 @@ Steps:
   $FW exec $RUN --proof library-roots/roots-add-browser -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"{nodes.seedbox.nodeId}\",\"roles\":[\"searching\",\"downloading\",\"storage\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
   ```
 
-- **Browse seedbox.** Choose `Add a library root`, pick `seedbox` in `Node` and choose `Browse`. Type seedbox's data dir into `Filter, or go to a path` and press Enter: the footer reads `Can't use this folder because it's inside SlipStream's data folder.` and `Use seedbox` is disabled.
+- **Browse seedbox.** Choose `Add a library root`, which opens on TV while TV has no root, pick `Movies` in `Content Type` and `seedbox` in `Node` and choose `Browse`. Type seedbox's data dir into `Filter, or go to a path` and press Enter: the footer reads `Can't use this folder because it's inside SlipStream's data folder.` and `Use seedbox` is disabled.
 
   ```sh
   $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Add a library root" })'
+  $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("combobox", { name: "Content Type" })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("option", { name: "Movies" })'
   $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("combobox", { name: "Node" })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("option", { name: "seedbox" })'
   $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("button", { name: "Browse" })'
@@ -92,7 +94,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
-  $FW exec $RUN -- $PW cli $S click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity" })'
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("table", { name: "Grabs" }).getByText("Imported").waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof library-roots/roots-import-worker -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-import-worker/activity.png
@@ -104,7 +106,7 @@ Steps:
 - **Move a Work with files.** Move The Quiet Orchard into `{mediaDir}/movies` over the API. Its file sits in `worker-movies`, so it answers `skipped` with `work_has_files`, and an id no Work has answers `failed` with `work_not_found`. Nothing moves, so the roots read as before.
 
   ```sh
-  ORCHARD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[0].id')
+  ORCHARD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -r '.rows[0].id')
   MOVIES=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots' | jq -r '.roots[] | select(.path | endswith("/movies")) | .id')
   $FW exec $RUN --proof library-roots/roots-move-works -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"workIds\":[\"$ORCHARD\",\"01a00000-0000-7000-8000-000000000000\"],\"rootId\":\"$MOVIES\"}" '{nodes.home.url}/api/v1/works/root'
   $FW exec $RUN --proof library-roots/roots-move-works -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
@@ -146,7 +148,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByText(/^Storage · Draining, 1 root \(.+\) stays$/).waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-write-off -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-write-off/draining.png
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"roles":["storage"]}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/write-offs'
-  WORK=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[0].id')
+  WORK=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -r '.rows[0].id')
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/cells"
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/search"

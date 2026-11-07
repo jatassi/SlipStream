@@ -152,3 +152,13 @@ export function defaultView(types: readonly WorksContentType[]): LibraryView {
 /** What a Library calls its Works: its one type's word for them, or "Works" on "All". */
 export const nounOf = (types: readonly WorksContentType[]) =>
   (types.length === 1 ? types[0]?.work.many : undefined) ?? "Works";
+
+/** The word every type in view gives its availability, such as "Next airing"; undefined when they differ or give none. */
+export function availabilityOf(types: readonly WorksContentType[]): string | undefined {
+  const [first, ...rest] = types;
+  return first !== undefined &&
+    first.availability !== "" &&
+    rest.every((type) => type.availability === first.availability)
+    ? first.availability
+    : undefined;
+}

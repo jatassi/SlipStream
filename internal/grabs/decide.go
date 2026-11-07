@@ -69,12 +69,21 @@ func (p Pick) offers() []Pick {
 	return out
 }
 
-// WrongWork is a release carrying an id that names another Work, and
-// CutNotWanted one whose cut no open cell wants.
+// WrongWork is a release carrying an id that names another Work,
+// WrongItem one whose title names another Item or none, CoversMore one
+// whose title covers more than the searched Item, and CutNotWanted one
+// whose cut no open cell wants. WrongItem's and CoversMore's Value is what
+// the title names, such as S01E02.
 const (
 	WrongWork    targets.ReasonCode = "wrong_work"
+	WrongItem    targets.ReasonCode = "wrong_item"
+	CoversMore   targets.ReasonCode = "covers_more"
 	CutNotWanted targets.ReasonCode = "cut_not_wanted"
 )
+
+// coverRefusals are the reason each Covering other than the searched
+// Item's is refused with.
+var coverRefusals = map[indexers.CoverKind]targets.ReasonCode{indexers.CoversOther: WrongItem, indexers.CoversMore: CoversMore}
 
 // Reason is one reason or note about a candidate: its own, or one of a
 // Target's Verdict, which Target names.
@@ -140,7 +149,8 @@ type titleSize struct {
 // search may fill, in Edition then Profile order. Each candidate is judged
 // against the Target of every open cell its cut can fill, any cell under
 // any cut, and the file filling the cell; one with an id that differs from
-// the same id in terms, whose cut no open cell wants, or grabbable for
+// the same id in terms, whose title terms' Covers doesn't answer as the
+// searched Item alone, whose cut no open cell wants, or grabbable for
 // none, is refused with every reason. The rest rank by the first open cell
 // they are grabbable for, then their tier there, then their Indexer's
 // priority, then seeders and size descending, then title, so ties replay.
@@ -150,6 +160,10 @@ func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) ([]
 	for _, c := range candidates {
 		if wrongWork(c.Release, terms) {
 			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: WrongWork}}}})
+			continue
+		}
+		if cov := terms.Covers(c.Release.Title); cov.Kind != indexers.CoversItem {
+			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: coverRefusals[cov.Kind], Value: cov.Names}}}})
 			continue
 		}
 		if !slices.ContainsFunc(open, func(cell files.Cell) bool { return cell.Edition.Takes(c.Facts.Cut) }) {

@@ -47,7 +47,7 @@ async function importedSuperfan(world: World): Promise<string> {
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key: "9000001",
-    monitor: true,
+    preset: "all",
   });
   expect(added.status, "The Quiet Orchard is added").toBe(200);
   const workId = Added.parse(added.body).work.id;

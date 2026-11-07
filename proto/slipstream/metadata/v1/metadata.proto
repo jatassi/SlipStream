@@ -20,20 +20,33 @@ service MetadataService {
   rpc Image(ImageRequest) returns (ImageResponse);
 }
 
+// Ratings is which ratings the ratings providers are asked for.
+enum Ratings {
+  RATINGS_UNSPECIFIED = 0;
+  RATINGS_NONE = 1;
+  // RATINGS_WORK asks for the Work's own ratings.
+  RATINGS_WORK = 2;
+  // RATINGS_ALL asks for the Work's and each Item's.
+  RATINGS_ALL = 3;
+}
+
 // Ask is a metadata.Ask with the cache policy the Controller sets.
 message Ask {
+  reserved 4;
   // keys maps a provider id to the key in effect; a provider with none is
   // called keyless.
   map<string, string> keys = 1;
   string language = 2;
   string region = 3;
-  bool ratings = 4;
   // fresh bypasses the holder's cache and writes the answer back.
   bool fresh = 5;
   int64 cache_for_seconds = 6;
   // generation is the Controller's cache generation. A holder that holds
   // another drops its whole cache first.
   uint64 generation = 7;
+  Ratings ratings = 8;
+  // pins maps a provider id to the PIN that goes beside its key.
+  map<string, string> pins = 9;
 }
 
 enum OutcomeKind {
@@ -44,6 +57,7 @@ enum OutcomeKind {
   OUTCOME_KIND_LIMITED = 4;
   OUTCOME_KIND_CAPPED = 5;
   OUTCOME_KIND_UNREACHABLE = 6;
+  OUTCOME_KIND_PIN_REFUSED = 7;
 }
 
 // Outcome is one provider call's result, the only input to provider status.
@@ -65,6 +79,12 @@ enum FailureKind {
   // FAILURE_KIND_NO_CHANGES is a source that keeps no changes list reaching
   // back that far.
   FAILURE_KIND_NO_CHANGES = 5;
+  // FAILURE_KIND_NOT_ON_SOURCE is a record another provider found that the
+  // type's source doesn't list.
+  FAILURE_KIND_NOT_ON_SOURCE = 6;
+  // FAILURE_KIND_ORDER_UNAVAILABLE is an order the source doesn't list the
+  // Work in.
+  FAILURE_KIND_ORDER_UNAVAILABLE = 7;
 }
 
 // Failure is a provider failure, answered as a normal response so the
@@ -101,6 +121,9 @@ message FetchRequest {
   Ask ask = 1;
   string content_type = 2;
   string key = 3;
+  // options is the Work's fetch options as its type's library half stored
+  // them, empty for the type's default.
+  bytes options = 4;
 }
 
 message FetchResponse {

@@ -53,9 +53,11 @@ export const orchards = (count: number): WorksLibraryRow[] =>
   }));
 
 /** The library's search over rows, matching a row whose label holds the query, and the catalog. */
-export function library(rows: WorksLibraryRow[] = [rowOf(orchard, 2021), rowOf(dune, 2024)]) {
+export function library(
+  rows: WorksLibraryRow[] = [rowOf(orchard, 2021), rowOf(dune, 2024)],
+  catalog = addServer(),
+) {
   const asked: string[] = [];
-  const catalog = addServer();
   const handlers = [
     getSearchWorksMockHandler(({ request }) => {
       const url = new URL(request.url);

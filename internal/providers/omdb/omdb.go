@@ -1,5 +1,6 @@
 // Package omdb is the OMDb client: the IMDb, Rotten Tomatoes and Metacritic
-// ratings and the awards line of a title, by its IMDb id. Every Content
+// ratings and the awards line of a title, by its IMDb id, and the IMDb
+// rating of each episode in a season of a series. Every Content
 // Type that reads ratings shares it, so its host is a core endpoint. Every
 // call leaves through the Node's metadata Line for OMDb, which holds the
 // key, the rate limit, the daily cap and the cache.
@@ -83,6 +84,7 @@ const (
 	errBadKey     = "Invalid API key!"
 	errNoKey      = "No API key provided."
 	errNotFound   = "Movie not found!"
+	errNoSeason   = "Series or season not found!"
 	errIncorrect  = "Incorrect IMDb ID."
 	responseFalse = "False"
 )
@@ -106,7 +108,7 @@ func classify(status int, _ http.Header, body []byte, now time.Time) (metadata.O
 		return metadata.Outcome{Kind: metadata.Capped, Until: until, Words: "is out of its daily allowance until " + until.Format(time.RFC3339)}, true
 	case b.Error == errBadKey || b.Error == errNoKey || status == http.StatusUnauthorized:
 		return metadata.Outcome{Kind: metadata.Refused, Words: "refused the key: " + b.Error}, true
-	case b.Error == errNotFound || b.Error == errIncorrect:
+	case b.Error == errNotFound || b.Error == errNoSeason || b.Error == errIncorrect:
 		return metadata.Outcome{Kind: metadata.NotFound, Words: "has no such record"}, true
 	}
 	return metadata.Outcome{Kind: metadata.Unreachable, Words: "responded: " + b.Error}, true
@@ -139,15 +141,66 @@ var sources = map[string]works.RatingSource{
 // notAvailable is OMDb's value for a field it has nothing for.
 const notAvailable = "N/A"
 
-// Title reads the title IMDb numbers imdbID.
+// Title reads the title IMDb numbers imdbID, a movie or a series.
 func (c *Client) Title(ctx context.Context, ask metadata.Ask, imdbID string) (Title, error) {
 	var t titleJSON
-	if err := c.get(ctx, ask, imdbID, true, &t); err != nil {
+	if err := c.get(ctx, ask, url.Values{"i": {imdbID}}, true, &t); err != nil {
 		return Title{}, err
 	}
 	out, err := t.parse()
 	if err != nil {
 		return Title{}, fmt.Errorf("GET %s: %w", imdbID, &works.SourceError{Source: label, Words: err.Error(), Err: works.ErrInvalid})
+	}
+	return out, nil
+}
+
+// EpisodeRating is one episode's IMDb rating, by its number in OMDb's
+// season. OMDb sends no votes for an episode.
+type EpisodeRating struct {
+	Episode int
+	IMDbID  string
+	Rating  works.Rating
+}
+
+type seasonJSON struct {
+	Episodes []struct {
+		Episode    string `json:"Episode"`
+		IMDbRating string `json:"imdbRating"`
+		IMDbID     string `json:"imdbID"`
+	} `json:"Episodes"`
+}
+
+// Season reads the IMDb rating of each episode OMDb rates in season of
+// the series IMDb numbers imdbID. A season OMDb doesn't have is
+// works.ErrNotFound, as an unknown series is.
+func (c *Client) Season(ctx context.Context, ask metadata.Ask, imdbID string, season int) ([]EpisodeRating, error) {
+	q := url.Values{"i": {imdbID}, "Season": {strconv.Itoa(season)}}
+	var s seasonJSON
+	if err := c.get(ctx, ask, q, true, &s); err != nil {
+		return nil, err
+	}
+	out, err := s.parse()
+	if err != nil {
+		return nil, fmt.Errorf("GET %s: %w", called(q), &works.SourceError{Source: label, Words: err.Error(), Err: works.ErrInvalid})
+	}
+	return out, nil
+}
+
+func (s seasonJSON) parse() ([]EpisodeRating, error) {
+	var out []EpisodeRating
+	for _, e := range s.Episodes {
+		if e.IMDbRating == notAvailable {
+			continue
+		}
+		n, err := strconv.Atoi(e.Episode)
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf("sent an episode number SlipStream can't read: %q", e.Episode)
+		}
+		value, err := scaled(e.IMDbRating+"/10", works.RatingSources["imdb"].Scale)
+		if err != nil {
+			return nil, fmt.Errorf("sent an episode rating SlipStream can't read: %w", err)
+		}
+		out = append(out, EpisodeRating{Episode: n, IMDbID: e.IMDbID, Rating: works.Rating{Source: "imdb", Value: value}})
 	}
 	return out, nil
 }
@@ -202,18 +255,26 @@ const testID = "tt0137523"
 // counts as an answer: OMDb checks the key first.
 func (c *Client) Test(ctx context.Context, ask metadata.Ask) error {
 	var t json.RawMessage
-	err := c.get(ctx, ask, testID, false, &t)
+	err := c.get(ctx, ask, url.Values{"i": {testID}}, false, &t)
 	if errors.Is(err, works.ErrNotFound) {
 		return nil
 	}
 	return err
 }
 
-func (c *Client) get(ctx context.Context, ask metadata.Ask, imdbID string, cache bool, v any) error {
+func (c *Client) get(ctx context.Context, ask metadata.Ask, q url.Values, cache bool, v any) error {
 	u := c.endpoints.API.JoinPath("/")
-	u.RawQuery = url.Values{"i": {imdbID}}.Encode()
+	u.RawQuery = q.Encode()
 	if err := c.line.Get(ctx, ask, metadata.Request{URL: u, Cache: cache}, v); err != nil {
-		return fmt.Errorf("GET %s: %w", imdbID, err)
+		return fmt.Errorf("GET %s: %w", called(q), err)
 	}
 	return nil
+}
+
+// called names a call by its IMDb id, and its season when it asks one.
+func called(q url.Values) string {
+	if season := q.Get("Season"); season != "" {
+		return q.Get("i") + " season " + season
+	}
+	return q.Get("i")
 }

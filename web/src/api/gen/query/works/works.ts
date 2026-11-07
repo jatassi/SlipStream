@@ -84,11 +84,29 @@ import type {
   SetContentTypeEnabled409,
   SetContentTypeEnabled422,
   SetContentTypeEnabled500,
+  SetWorkMonitored401,
+  SetWorkMonitored403,
+  SetWorkMonitored404,
+  SetWorkMonitored409,
+  SetWorkMonitored422,
+  SetWorkMonitored500,
+  SetWorkOptions401,
+  SetWorkOptions403,
+  SetWorkOptions404,
+  SetWorkOptions409,
+  SetWorkOptions422,
+  SetWorkOptions500,
+  SetWorkOptions502,
   SetWorksMonitored401,
   SetWorksMonitored403,
   SetWorksMonitored409,
   SetWorksMonitored422,
   SetWorksMonitored500,
+  SetWorksMonitoring401,
+  SetWorksMonitoring403,
+  SetWorksMonitoring409,
+  SetWorksMonitoring422,
+  SetWorksMonitoring500,
   SetWorksProfile401,
   SetWorksProfile403,
   SetWorksProfile409,
@@ -116,7 +134,11 @@ import type {
   WorksEnabled,
   WorksLibraryRows,
   WorksMonitoredChange,
+  WorksMonitoringChange,
+  WorksMonitoringList,
   WorksNewWork,
+  WorksOptionsChange,
+  WorksOptionsChanged,
   WorksOutcomeList,
   WorksPreviewed,
   WorksProfileChange,
@@ -126,6 +148,7 @@ import type {
   WorksSearchResult,
   WorksSettingsChange,
   WorksTypeSettings,
+  WorksWorkMonitored,
   WorksWorkView,
 } from "../../model";
 
@@ -1588,6 +1611,132 @@ export const useSetWorksMonitored = <
 > => {
   return useMutation(getSetWorksMonitoredMutationOptions(options), queryClient);
 };
+export const getSetWorksMonitoringUrl = () => {
+  return `/api/v1/works/monitoring`;
+};
+
+/**
+ * @summary Apply a monitoring preset to each Work, or preview what it would move, with an outcome per Work
+ */
+export const setWorksMonitoring = async (
+  worksMonitoringChange: WorksMonitoringChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksMonitoringList> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksMonitoringList>(getSetWorksMonitoringUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksMonitoringChange),
+  });
+};
+
+export const getSetWorksMonitoringMutationKey = () => ["setWorksMonitoring"] as const;
+
+export const getSetWorksMonitoringMutationOptions = <
+  TError = ErrorType<
+    | SetWorksMonitoring401
+    | SetWorksMonitoring403
+    | SetWorksMonitoring409
+    | SetWorksMonitoring422
+    | SetWorksMonitoring500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorksMonitoring>>,
+    TError,
+    SetWorksMonitoringMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorksMonitoring>>,
+  TError,
+  SetWorksMonitoringMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetWorksMonitoringMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorksMonitoring>>,
+    SetWorksMonitoringMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setWorksMonitoring(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorksMonitoringMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setWorksMonitoring>>
+>;
+export type SetWorksMonitoringMutationBody = WorksMonitoringChange;
+export type SetWorksMonitoringMutationError = ErrorType<
+  | SetWorksMonitoring401
+  | SetWorksMonitoring403
+  | SetWorksMonitoring409
+  | SetWorksMonitoring422
+  | SetWorksMonitoring500
+>;
+export type SetWorksMonitoringMutationVariables = { data: WorksMonitoringChange };
+
+/**
+ * @summary Apply a monitoring preset to each Work, or preview what it would move, with an outcome per Work
+ */
+export const useSetWorksMonitoring = <
+  TError = ErrorType<
+    | SetWorksMonitoring401
+    | SetWorksMonitoring403
+    | SetWorksMonitoring409
+    | SetWorksMonitoring422
+    | SetWorksMonitoring500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setWorksMonitoring>>,
+      TError,
+      SetWorksMonitoringMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setWorksMonitoring>>,
+  TError,
+  SetWorksMonitoringMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetWorksMonitoringMutationOptions(options), queryClient);
+};
 export const getSetWorksProfileUrl = (params?: SetWorksProfileParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -2146,7 +2295,7 @@ export const getGetWorkUrl = (workId: string) => {
 };
 
 /**
- * @summary Get a Work's tree with each node's fields, its links, Profile and root
+ * @summary Get a Work's tree with each node's fields, its links, Profile, root and options
  */
 export const getWork = async (
   workId: string,
@@ -2229,7 +2378,7 @@ export function useGetWorkSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get a Work's tree with each node's fields, its links, Profile and root
+ * @summary Get a Work's tree with each node's fields, its links, Profile, root and options
  */
 
 export function useGetWorkSuspense<
@@ -2252,3 +2401,265 @@ export function useGetWorkSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getSetWorkMonitoredUrl = (workId: string) => {
+  return `/api/v1/works/${workId}/monitored`;
+};
+
+/**
+ * @summary Monitor some of a Work's levels and Items, or stop
+ */
+export const setWorkMonitored = async (
+  workId: string,
+  worksWorkMonitored: WorksWorkMonitored,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<void>(getSetWorkMonitoredUrl(workId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksWorkMonitored),
+  });
+};
+
+export const getSetWorkMonitoredMutationKey = () => ["setWorkMonitored"] as const;
+
+export const getSetWorkMonitoredMutationOptions = <
+  TError = ErrorType<
+    | SetWorkMonitored401
+    | SetWorkMonitored403
+    | SetWorkMonitored404
+    | SetWorkMonitored409
+    | SetWorkMonitored422
+    | SetWorkMonitored500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorkMonitored>>,
+    TError,
+    SetWorkMonitoredMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorkMonitored>>,
+  TError,
+  SetWorkMonitoredMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetWorkMonitoredMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorkMonitored>>,
+    SetWorkMonitoredMutationVariables
+  > = (props) => {
+    const { workId, data } = props ?? {};
+
+    return setWorkMonitored(workId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorkMonitoredMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setWorkMonitored>>
+>;
+export type SetWorkMonitoredMutationBody = WorksWorkMonitored;
+export type SetWorkMonitoredMutationError = ErrorType<
+  | SetWorkMonitored401
+  | SetWorkMonitored403
+  | SetWorkMonitored404
+  | SetWorkMonitored409
+  | SetWorkMonitored422
+  | SetWorkMonitored500
+>;
+export type SetWorkMonitoredMutationVariables = { workId: string; data: WorksWorkMonitored };
+
+/**
+ * @summary Monitor some of a Work's levels and Items, or stop
+ */
+export const useSetWorkMonitored = <
+  TError = ErrorType<
+    | SetWorkMonitored401
+    | SetWorkMonitored403
+    | SetWorkMonitored404
+    | SetWorkMonitored409
+    | SetWorkMonitored422
+    | SetWorkMonitored500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setWorkMonitored>>,
+      TError,
+      SetWorkMonitoredMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setWorkMonitored>>,
+  TError,
+  SetWorkMonitoredMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetWorkMonitoredMutationOptions(options), queryClient);
+};
+export const getSetWorkOptionsUrl = (workId: string) => {
+  return `/api/v1/works/${workId}/options`;
+};
+
+/**
+ * @summary Change a Work's options, or preview how many Items the change would withdraw
+ */
+export const setWorkOptions = async (
+  workId: string,
+  worksOptionsChange: WorksOptionsChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorksOptionsChanged> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorksOptionsChanged>(getSetWorkOptionsUrl(workId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(worksOptionsChange),
+  });
+};
+
+export const getSetWorkOptionsMutationKey = () => ["setWorkOptions"] as const;
+
+export const getSetWorkOptionsMutationOptions = <
+  TError = ErrorType<
+    | SetWorkOptions401
+    | SetWorkOptions403
+    | SetWorkOptions404
+    | SetWorkOptions409
+    | SetWorkOptions422
+    | SetWorkOptions500
+    | SetWorkOptions502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorkOptions>>,
+    TError,
+    SetWorkOptionsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorkOptions>>,
+  TError,
+  SetWorkOptionsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetWorkOptionsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorkOptions>>,
+    SetWorkOptionsMutationVariables
+  > = (props) => {
+    const { workId, data } = props ?? {};
+
+    return setWorkOptions(workId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorkOptionsMutationResult = NonNullable<Awaited<ReturnType<typeof setWorkOptions>>>;
+export type SetWorkOptionsMutationBody = WorksOptionsChange;
+export type SetWorkOptionsMutationError = ErrorType<
+  | SetWorkOptions401
+  | SetWorkOptions403
+  | SetWorkOptions404
+  | SetWorkOptions409
+  | SetWorkOptions422
+  | SetWorkOptions500
+  | SetWorkOptions502
+>;
+export type SetWorkOptionsMutationVariables = { workId: string; data: WorksOptionsChange };
+
+/**
+ * @summary Change a Work's options, or preview how many Items the change would withdraw
+ */
+export const useSetWorkOptions = <
+  TError = ErrorType<
+    | SetWorkOptions401
+    | SetWorkOptions403
+    | SetWorkOptions404
+    | SetWorkOptions409
+    | SetWorkOptions422
+    | SetWorkOptions500
+    | SetWorkOptions502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setWorkOptions>>,
+      TError,
+      SetWorkOptionsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setWorkOptions>>,
+  TError,
+  SetWorkOptionsMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetWorkOptionsMutationOptions(options), queryClient);
+};

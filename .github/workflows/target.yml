@@ -31,6 +31,7 @@ on:
         default: "1"
     secrets:
       TMDB_API_KEY:
+      TVDB_API_KEY:
       OMDB_API_KEY:
 
 permissions:
@@ -89,17 +90,18 @@ jobs:
       # Only a tag build carries SlipStream's metadata keys, and only into
       # cmd/slipstream; its e2e jobs still reach nothing but fakes. Until the
       # repository has the secrets, a release is keyless and status says so;
-      # with one of the two, the build refuses.
+      # with some but not all three, the build refuses.
       - name: Build the release binaries, fakeworld and the release tool
         run: |
           args=()
-          if [ "$TAG" = true ] && [ -n "$SLIPSTREAM_TMDB_KEY$SLIPSTREAM_OMDB_KEY" ]; then args+=(-bundle-keys); fi
+          if [ "$TAG" = true ] && [ -n "$SLIPSTREAM_TMDB_KEY$SLIPSTREAM_TVDB_KEY$SLIPSTREAM_OMDB_KEY" ]; then args+=(-bundle-keys); fi
           go run ./cmd/release build "${args[@]}"
           eval "$(go run ./cmd/release deps env)"
           go build -o dist/ ./cmd/fakeworld ./cmd/release
         env:
           TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
           SLIPSTREAM_TMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TMDB_API_KEY || '' }}
+          SLIPSTREAM_TVDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TVDB_API_KEY || '' }}
           SLIPSTREAM_OMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.OMDB_API_KEY || '' }}
       # The build test checks that the binary embeds web/dist/index.html.
       - name: Upload dist/ for the test jobs

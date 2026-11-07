@@ -47,13 +47,13 @@ export function Hero({
               </span>
             )}
           </p>
-          <Summary summary={summary} />
+          <Summary summary={summary} holds={type.items} />
         </div>
       </div>
       <div className="mt-4 flex flex-col gap-4">
         {overview !== undefined && <Overview text={aboutText(overview.value)} />}
         {warning}
-        <Actions work={work} actions={actions} />
+        <Actions type={type} work={work} actions={actions} />
       </div>
     </header>
   );

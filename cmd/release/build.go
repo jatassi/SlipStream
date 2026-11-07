@@ -100,6 +100,7 @@ func runBuild(ctx context.Context, args []string) error {
 // the variable the release workflow puts its repository secret in.
 var bundledKeyVars = []struct{ provider, env string }{
 	{"tmdb", "SLIPSTREAM_TMDB_KEY"},
+	{"tvdb", "SLIPSTREAM_TVDB_KEY"},
 	{"omdb", "SLIPSTREAM_OMDB_KEY"},
 }
 

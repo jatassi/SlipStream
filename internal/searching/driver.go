@@ -112,8 +112,9 @@ type Query struct {
 	// IDs are the mode's id parameters the Work has.
 	IDs map[string]string
 	// Text is empty when an id is sent.
-	Text    string
-	Season  int
+	Text string
+	// Season is nil when the search names none, and 0 is Specials.
+	Season  *int
 	Episode string
 }
 

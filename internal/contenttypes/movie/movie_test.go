@@ -218,7 +218,7 @@ func library() contenttype.Library {
 }
 
 func ask(language, region string) metadata.Ask {
-	return metadata.NewAsk(metadata.AskOptions{Language: language, Region: region, Ratings: true})
+	return metadata.NewAsk(metadata.AskOptions{Language: language, Region: region, Ratings: metadata.RatingsWork})
 }
 
 var inEnglish = ask(metadata.DefaultLanguage, metadata.DefaultRegion)
@@ -321,15 +321,15 @@ func TestSearchReadsPagesUntil25(t *testing.T) {
 func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
 	inEachTier(t, func(t *testing.T, m metadata.Source) {
 		preview := metadata.NewAsk(metadata.AskOptions{Language: metadata.DefaultLanguage, Region: metadata.DefaultRegion})
-		got, err := m.Fetch(t.Context(), preview, "9000001")
+		got, err := m.Fetch(t.Context(), preview, "9000001", nil)
 		if err != nil || got.Label != "The Quiet Orchard" || got.SortLabel != "Quiet Orchard, The" || !reflect.DeepEqual(got.Children, []works.Entry{{Key: "movie", Label: "The Quiet Orchard"}}) || got.RatingsRead {
 			t.Fatalf("Fetch = %+v, %v; want The Quiet Orchard sorting as Quiet Orchard, The, with one Item movie and no ratings read", got, err)
 		}
 		french := metadata.NewAsk(metadata.AskOptions{Language: "fr-FR", Region: metadata.DefaultRegion})
-		if got, err := m.Fetch(t.Context(), french, "9000001"); err != nil || got.SortLabel != "" {
+		if got, err := m.Fetch(t.Context(), french, "9000001", nil); err != nil || got.SortLabel != "" {
 			t.Fatalf("Fetch in French = sort label %q, %v; want none, since only English articles move", got.SortLabel, err)
 		}
-		_, err = m.Fetch(t.Context(), preview, "9000003")
+		_, err = m.Fetch(t.Context(), preview, "9000003", nil)
 		if want := "GET /movie/9000003: TMDB: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
 			t.Fatalf("Fetch(9000003) = %v, want %s", err, want)
 		}
@@ -426,7 +426,7 @@ func (a *asked) Search(ctx context.Context, _ works.TypeID, query string) ([]wor
 }
 
 func (a *asked) Fetch(ctx context.Context, _ works.TypeID, key works.Key, _ works.Fetching) (works.Fetched, error) {
-	return a.src.Fetch(ctx, a.ask, key)
+	return a.src.Fetch(ctx, a.ask, key, nil)
 }
 
 func added(t *testing.T, key works.Key) (shelf, works.Tree) {
@@ -632,6 +632,7 @@ func TestTheEnglishTitleFeedsSearchTermsAndNaming(t *testing.T) {
 		tokens, err = sh.m.NamingTokens(ctx, r, tree.Items[0].ID)
 		return err
 	})
+	terms.Covers = nil
 	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000005", "imdbid": "tt9000005"}, Query: "The Salt Road 2022"}
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)
@@ -792,7 +793,7 @@ func TestATitleTreatmentPrefersLanguageThenEnglishThenAny(t *testing.T) {
 		{"9000006", "de-DE", func(im tmdb.Image) bool { return im.Language == "" }},
 	} {
 		a := metadata.NewAsk(metadata.AskOptions{Language: c.language, Region: metadata.DefaultRegion})
-		f, err := m.Fetch(t.Context(), a, c.key)
+		f, err := m.Fetch(t.Context(), a, c.key, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -844,6 +845,10 @@ func TestSearchTermsCarryTheIDsAndTitleYear(t *testing.T) {
 		terms, err = sh.m.SearchTerms(ctx, r, tree.Items[0].ID)
 		return err
 	})
+	if terms.Covers("Anything.At.All").Kind != indexers.CoversItem {
+		t.Fatal("a movie's terms cover only the movie, so every title covers it")
+	}
+	terms.Covers = nil
 	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)

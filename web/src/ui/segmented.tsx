@@ -5,10 +5,18 @@ import { useShell } from "./shell-context";
 
 export type SegmentedOption<V extends string> = { value: V; label: string; count?: number };
 
-const tracks = {
-  desktop: "inline-flex",
-  phone: "grid w-full auto-cols-[minmax(max-content,1fr)] grid-flow-col overflow-x-auto",
+export const segmentedTracks = {
+  desktop: "inline-flex gap-0.5 rounded-capsule bg-fill p-0.5 ring-1 ring-hairline ring-inset",
+  phone:
+    "grid w-full auto-cols-[minmax(max-content,1fr)] grid-flow-col gap-0.5 overflow-x-auto rounded-capsule bg-fill p-0.5 ring-1 ring-hairline ring-inset",
 } as const;
+
+export const segmentedOption =
+  "inline-flex h-7 cursor-default items-center justify-center gap-1.5 rounded-capsule px-3 text-body font-medium whitespace-nowrap text-ink-2 transition-[background-color,color] duration-(--duration-control) ease-standard select-none in-data-[density=touch]:h-11 in-data-[density=touch]:text-body-touch in-data-[density=touch]:font-medium motion-reduce:transition-none";
+
+export function SegmentCount({ count }: { count: number }) {
+  return <span className="text-ink-3 tabular-nums">{count}</span>;
+}
 
 export function Segmented<V extends string>({
   label,
@@ -31,18 +39,16 @@ export function Segmented<V extends string>({
       onValueChange={(next) => {
         onValueChange(next);
       }}
-      className={`${tracks[useShell()]} gap-0.5 rounded-capsule data-disabled:opacity-40 bg-fill p-0.5 ring-1 ring-hairline ring-inset`}
+      className={`${segmentedTracks[useShell()]} data-disabled:opacity-40`}
     >
       {options.map((option) => (
         <Radio.Root
           key={option.value}
           value={option.value}
-          className="inline-flex h-7 cursor-default items-center justify-center gap-1.5 rounded-capsule px-3 text-body font-medium whitespace-nowrap text-ink-2 transition-[background-color,color] duration-(--duration-control) ease-standard select-none in-data-[density=touch]:h-11 in-data-[density=touch]:text-body-touch in-data-[density=touch]:font-medium data-checked:bg-selected data-checked:text-ink-1 data-checked:shadow-[0_1px_3px_rgba(0,0,0,.28)] motion-reduce:transition-none"
+          className={`${segmentedOption} data-checked:bg-selected data-checked:text-ink-1 data-checked:shadow-[0_1px_3px_rgba(0,0,0,.28)]`}
         >
           {option.label}
-          {option.count === undefined ? null : (
-            <span className="text-ink-3 tabular-nums">{option.count}</span>
-          )}
+          {option.count === undefined ? null : <SegmentCount count={option.count} />}
         </Radio.Root>
       ))}
     </RadioGroup>

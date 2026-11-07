@@ -7,7 +7,7 @@ import type { WorksRowRating } from "./worksRowRating.ts";
 export interface WorksLibraryRow {
   addedAt: string;
   /**
-   * Its one Item's availability date, or for many Items the earliest not yet out, else the latest out; null while no Item has a date
+   * Its one Item's availability date, or for many Items the earliest not yet out, else the latest out, read over its monitored Items, or over every Item while none is monitored; null while none of those has a date
    * @nullable
    * @pattern ^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$
    */
@@ -17,7 +17,7 @@ export interface WorksLibraryRow {
    * @minimum 0
    */
   bytes: number;
-  /** Its cells by state */
+  /** Its monitored Items' cells by state */
   cells: FilesStateCounts;
   /** @pattern ^[a-z][a-z0-9]{1,15}$ */
   contentType: string;
@@ -37,9 +37,12 @@ export interface WorksLibraryRow {
    */
   goneUpstreamAt: string | null;
   id: string;
-  /** Its Items by status; an Item with no cell isn't counted */
+  /** Its monitored Items by status; an Item with no cell isn't counted */
   itemStatus: FilesStateCounts;
-  /** @minimum 0 */
+  /**
+   * Its monitored Items that its source still lists, the only Items the status and counts read
+   * @minimum 0
+   */
   items: number;
   /**
    * Its Kept files
@@ -48,7 +51,7 @@ export interface WorksLibraryRow {
   kept: number;
   key: string;
   label: string;
-  /** How many of its Items are monitored */
+  /** How many of the Items its source still lists are monitored */
   monitored: WorksLibraryRowMonitored;
   /**
    * The entries of its Needs you
@@ -70,7 +73,7 @@ export interface WorksLibraryRow {
    */
   rootId: string | null;
   sortLabel: string;
-  /** The first status its Items hold, in the glossary's order; null for a Work with no cell */
+  /** The first status its monitored Items hold, in the glossary's order; null while none holds a cell */
   status: FilesState | null;
   /** Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out */
   values: WorksLibraryRowValues;

@@ -172,6 +172,7 @@ jobs:
       repeat: ${{ inputs.repeat || '1' }}
     secrets:
       TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
       OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
 
   # Lint runs on every target so gofmt, line endings and the cgo type check
@@ -490,13 +491,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
-  # The conformance suites against the real TMDB, OMDb, TMDB's image host
-  # and MusicBrainz (spec #135, Online runs): nightly, by hand, on a release
+  # The conformance suites against the real TMDB, TVDB, OMDb, TMDB's image
+  # host and MusicBrainz (spec #135, Online runs): nightly, by hand, on a release
   # tag, and on pull requests whose scope touches a fake, client or suite
   # the job checks. It is not a required check. A fork's pull request gets
   # no secrets, so it never runs the job. A run without the TMDB key fails
-  # rather than skips; the OMDb suite skips until the OMDB_API_KEY secret
-  # exists.
+  # rather than skips; the OMDb and TVDB suites skip without their key.
   online:
     name: Online conformance suites
     needs: plan
@@ -518,6 +518,7 @@ jobs:
         run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
         env:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
+          TEST_ONLINE_TVDB_KEY: ${{ secrets.TVDB_API_KEY }}
           TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}
       - name: Upload the updated shape.json files
         if: inputs.update-shapes

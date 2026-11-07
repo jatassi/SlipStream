@@ -5,17 +5,20 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import type { WorksLibraryRow } from "../api/gen/model";
+import { useGetWorkCellsSuspense } from "../api/gen/query/files/files";
+import { getGetWorkCellsMockHandler } from "../api/gen/query/files/files.msw";
 import { getGetWorkQueryKey } from "../api/gen/query/works/works";
 import {
   getListContentTypesMockHandler,
   getListLibraryMockHandler,
 } from "../api/gen/query/works/works.msw";
 import { createQueryClient } from "../api/query-client";
+// oxlint-disable-next-line import/max-dependencies -- the effects run against a real QueryClient, MSW and React
 import { useLibrary } from "../library/projection";
 import { frames } from "../test/frames";
-// oxlint-disable-next-line import/max-dependencies -- the effects run against a real QueryClient, MSW and React
 import { cinema, libraryRow, libraryServer, orchard, orchardRow } from "../test/library";
 import { renderKit } from "../test/render-kit";
+import { missing } from "../test/work-cells";
 import { worker } from "../test/worker";
 import { effects } from "./effects";
 import { refresh } from "./refresh";
@@ -114,6 +117,41 @@ test("a grabs.changed for progress alone reads no row", async () => {
   expect(library.asked).toEqual([]);
   effects["grabs.changed"]({ ...grab, progress: false }, ctx);
   await expect.poll(() => library.asked).toEqual([[orchardRow.id]]);
+});
+
+function CellsOf({ workId }: { workId: string }) {
+  return <p>{useGetWorkCellsSuspense(workId).data.summary.items} Items</p>;
+}
+
+test("a progress tick leaves a Work's cells alone, and a Grab's move reads them again", async () => {
+  let reads = 0;
+  worker.use(
+    getGetWorkCellsMockHandler(() => {
+      reads += 1;
+      return missing;
+    }),
+  );
+  const queryClient = createQueryClient(() => {});
+  const ctx = {
+    queryClient,
+    refresh: (filters?: InvalidateQueryFilters) => {
+      void refresh(queryClient, filters);
+    },
+  };
+  renderKit(
+    <QueryClientProvider client={queryClient}>
+      <Suspense fallback={<p>Loading</p>}>
+        <CellsOf workId={orchardRow.id} />
+      </Suspense>
+    </QueryClientProvider>,
+  );
+  await expect.element(page.getByText("1 Items")).toBeVisible();
+  const grab = { grabId: "9e1b3d5f-7a9c-4e1b-8d3f-5a7c9e1b3d5f", workId: orchardRow.id };
+  effects["grabs.changed"]({ ...grab, progress: true }, ctx);
+  await frames(3);
+  expect(reads).toBe(1);
+  effects["grabs.changed"]({ ...grab, progress: false }, ctx);
+  await expect.poll(() => reads).toBe(2);
 });
 
 test("works.removed drops the row, forgets the Work's reads and tells its open page", async () => {

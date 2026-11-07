@@ -27,6 +27,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Ratings is which ratings the ratings providers are asked for.
+type Ratings int32
+
+const (
+	Ratings_RATINGS_UNSPECIFIED Ratings = 0
+	Ratings_RATINGS_NONE        Ratings = 1
+	// RATINGS_WORK asks for the Work's own ratings.
+	Ratings_RATINGS_WORK Ratings = 2
+	// RATINGS_ALL asks for the Work's and each Item's.
+	Ratings_RATINGS_ALL Ratings = 3
+)
+
+// Enum value maps for Ratings.
+var (
+	Ratings_name = map[int32]string{
+		0: "RATINGS_UNSPECIFIED",
+		1: "RATINGS_NONE",
+		2: "RATINGS_WORK",
+		3: "RATINGS_ALL",
+	}
+	Ratings_value = map[string]int32{
+		"RATINGS_UNSPECIFIED": 0,
+		"RATINGS_NONE":        1,
+		"RATINGS_WORK":        2,
+		"RATINGS_ALL":         3,
+	}
+)
+
+func (x Ratings) Enum() *Ratings {
+	p := new(Ratings)
+	*p = x
+	return p
+}
+
+func (x Ratings) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Ratings) Descriptor() protoreflect.EnumDescriptor {
+	return file_slipstream_metadata_v1_metadata_proto_enumTypes[0].Descriptor()
+}
+
+func (Ratings) Type() protoreflect.EnumType {
+	return &file_slipstream_metadata_v1_metadata_proto_enumTypes[0]
+}
+
+func (x Ratings) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Ratings.Descriptor instead.
+func (Ratings) EnumDescriptor() ([]byte, []int) {
+	return file_slipstream_metadata_v1_metadata_proto_rawDescGZIP(), []int{0}
+}
+
 type OutcomeKind int32
 
 const (
@@ -37,6 +92,7 @@ const (
 	OutcomeKind_OUTCOME_KIND_LIMITED     OutcomeKind = 4
 	OutcomeKind_OUTCOME_KIND_CAPPED      OutcomeKind = 5
 	OutcomeKind_OUTCOME_KIND_UNREACHABLE OutcomeKind = 6
+	OutcomeKind_OUTCOME_KIND_PIN_REFUSED OutcomeKind = 7
 )
 
 // Enum value maps for OutcomeKind.
@@ -49,6 +105,7 @@ var (
 		4: "OUTCOME_KIND_LIMITED",
 		5: "OUTCOME_KIND_CAPPED",
 		6: "OUTCOME_KIND_UNREACHABLE",
+		7: "OUTCOME_KIND_PIN_REFUSED",
 	}
 	OutcomeKind_value = map[string]int32{
 		"OUTCOME_KIND_UNSPECIFIED": 0,
@@ -58,6 +115,7 @@ var (
 		"OUTCOME_KIND_LIMITED":     4,
 		"OUTCOME_KIND_CAPPED":      5,
 		"OUTCOME_KIND_UNREACHABLE": 6,
+		"OUTCOME_KIND_PIN_REFUSED": 7,
 	}
 )
 
@@ -72,11 +130,11 @@ func (x OutcomeKind) String() string {
 }
 
 func (OutcomeKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_metadata_v1_metadata_proto_enumTypes[0].Descriptor()
+	return file_slipstream_metadata_v1_metadata_proto_enumTypes[1].Descriptor()
 }
 
 func (OutcomeKind) Type() protoreflect.EnumType {
-	return &file_slipstream_metadata_v1_metadata_proto_enumTypes[0]
+	return &file_slipstream_metadata_v1_metadata_proto_enumTypes[1]
 }
 
 func (x OutcomeKind) Number() protoreflect.EnumNumber {
@@ -85,7 +143,7 @@ func (x OutcomeKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OutcomeKind.Descriptor instead.
 func (OutcomeKind) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_metadata_v1_metadata_proto_rawDescGZIP(), []int{0}
+	return file_slipstream_metadata_v1_metadata_proto_rawDescGZIP(), []int{1}
 }
 
 // FailureKind is the works error a failure answers as.
@@ -100,6 +158,12 @@ const (
 	// FAILURE_KIND_NO_CHANGES is a source that keeps no changes list reaching
 	// back that far.
 	FailureKind_FAILURE_KIND_NO_CHANGES FailureKind = 5
+	// FAILURE_KIND_NOT_ON_SOURCE is a record another provider found that the
+	// type's source doesn't list.
+	FailureKind_FAILURE_KIND_NOT_ON_SOURCE FailureKind = 6
+	// FAILURE_KIND_ORDER_UNAVAILABLE is an order the source doesn't list the
+	// Work in.
+	FailureKind_FAILURE_KIND_ORDER_UNAVAILABLE FailureKind = 7
 )
 
 // Enum value maps for FailureKind.
@@ -111,14 +175,18 @@ var (
 		3: "FAILURE_KIND_UNAVAILABLE",
 		4: "FAILURE_KIND_INVALID",
 		5: "FAILURE_KIND_NO_CHANGES",
+		6: "FAILURE_KIND_NOT_ON_SOURCE",
+		7: "FAILURE_KIND_ORDER_UNAVAILABLE",
 	}
 	FailureKind_value = map[string]int32{
-		"FAILURE_KIND_UNSPECIFIED": 0,
-		"FAILURE_KIND_NOT_FOUND":   1,
-		"FAILURE_KIND_REFUSED":     2,
-		"FAILURE_KIND_UNAVAILABLE": 3,
-		"FAILURE_KIND_INVALID":     4,
-		"FAILURE_KIND_NO_CHANGES":  5,
+		"FAILURE_KIND_UNSPECIFIED":       0,
+		"FAILURE_KIND_NOT_FOUND":         1,
+		"FAILURE_KIND_REFUSED":           2,
+		"FAILURE_KIND_UNAVAILABLE":       3,
+		"FAILURE_KIND_INVALID":           4,
+		"FAILURE_KIND_NO_CHANGES":        5,
+		"FAILURE_KIND_NOT_ON_SOURCE":     6,
+		"FAILURE_KIND_ORDER_UNAVAILABLE": 7,
 	}
 )
 
@@ -133,11 +201,11 @@ func (x FailureKind) String() string {
 }
 
 func (FailureKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_metadata_v1_metadata_proto_enumTypes[1].Descriptor()
+	return file_slipstream_metadata_v1_metadata_proto_enumTypes[2].Descriptor()
 }
 
 func (FailureKind) Type() protoreflect.EnumType {
-	return &file_slipstream_metadata_v1_metadata_proto_enumTypes[1]
+	return &file_slipstream_metadata_v1_metadata_proto_enumTypes[2]
 }
 
 func (x FailureKind) Number() protoreflect.EnumNumber {
@@ -146,7 +214,7 @@ func (x FailureKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FailureKind.Descriptor instead.
 func (FailureKind) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_metadata_v1_metadata_proto_rawDescGZIP(), []int{1}
+	return file_slipstream_metadata_v1_metadata_proto_rawDescGZIP(), []int{2}
 }
 
 // Ask is a metadata.Ask with the cache policy the Controller sets.
@@ -157,13 +225,15 @@ type Ask struct {
 	Keys     map[string]string `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Language string            `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
 	Region   string            `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
-	Ratings  bool              `protobuf:"varint,4,opt,name=ratings,proto3" json:"ratings,omitempty"`
 	// fresh bypasses the holder's cache and writes the answer back.
 	Fresh           bool  `protobuf:"varint,5,opt,name=fresh,proto3" json:"fresh,omitempty"`
 	CacheForSeconds int64 `protobuf:"varint,6,opt,name=cache_for_seconds,json=cacheForSeconds,proto3" json:"cache_for_seconds,omitempty"`
 	// generation is the Controller's cache generation. A holder that holds
 	// another drops its whole cache first.
-	Generation    uint64 `protobuf:"varint,7,opt,name=generation,proto3" json:"generation,omitempty"`
+	Generation uint64  `protobuf:"varint,7,opt,name=generation,proto3" json:"generation,omitempty"`
+	Ratings    Ratings `protobuf:"varint,8,opt,name=ratings,proto3,enum=slipstream.metadata.v1.Ratings" json:"ratings,omitempty"`
+	// pins maps a provider id to the PIN that goes beside its key.
+	Pins          map[string]string `protobuf:"bytes,9,rep,name=pins,proto3" json:"pins,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -219,13 +289,6 @@ func (x *Ask) GetRegion() string {
 	return ""
 }
 
-func (x *Ask) GetRatings() bool {
-	if x != nil {
-		return x.Ratings
-	}
-	return false
-}
-
 func (x *Ask) GetFresh() bool {
 	if x != nil {
 		return x.Fresh
@@ -245,6 +308,20 @@ func (x *Ask) GetGeneration() uint64 {
 		return x.Generation
 	}
 	return 0
+}
+
+func (x *Ask) GetRatings() Ratings {
+	if x != nil {
+		return x.Ratings
+	}
+	return Ratings_RATINGS_UNSPECIFIED
+}
+
+func (x *Ask) GetPins() map[string]string {
+	if x != nil {
+		return x.Pins
+	}
+	return nil
 }
 
 // Outcome is one provider call's result, the only input to provider status.
@@ -578,10 +655,13 @@ func (x *SearchResponse) GetOutcomes() []*Outcome {
 }
 
 type FetchRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ask           *Ask                   `protobuf:"bytes,1,opt,name=ask,proto3" json:"ask,omitempty"`
-	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	Key           string                 `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Ask         *Ask                   `protobuf:"bytes,1,opt,name=ask,proto3" json:"ask,omitempty"`
+	ContentType string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Key         string                 `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	// options is the Work's fetch options as its type's library half stored
+	// them, empty for the type's default.
+	Options       []byte `protobuf:"bytes,4,opt,name=options,proto3" json:"options,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -635,6 +715,13 @@ func (x *FetchRequest) GetKey() string {
 		return x.Key
 	}
 	return ""
+}
+
+func (x *FetchRequest) GetOptions() []byte {
+	if x != nil {
+		return x.Options
+	}
+	return nil
 }
 
 type FetchResponse struct {
@@ -1041,20 +1128,24 @@ var File_slipstream_metadata_v1_metadata_proto protoreflect.FileDescriptor
 
 const file_slipstream_metadata_v1_metadata_proto_rawDesc = "" +
 	"\n" +
-	"%slipstream/metadata/v1/metadata.proto\x12\x16slipstream.metadata.v1\x1a slipstream/node/v1/options.proto\"\xa9\x02\n" +
+	"%slipstream/metadata/v1/metadata.proto\x12\x16slipstream.metadata.v1\x1a slipstream/node/v1/options.proto\"\xc4\x03\n" +
 	"\x03Ask\x129\n" +
 	"\x04keys\x18\x01 \x03(\v2%.slipstream.metadata.v1.Ask.KeysEntryR\x04keys\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x16\n" +
-	"\x06region\x18\x03 \x01(\tR\x06region\x12\x18\n" +
-	"\aratings\x18\x04 \x01(\bR\aratings\x12\x14\n" +
+	"\x06region\x18\x03 \x01(\tR\x06region\x12\x14\n" +
 	"\x05fresh\x18\x05 \x01(\bR\x05fresh\x12*\n" +
 	"\x11cache_for_seconds\x18\x06 \x01(\x03R\x0fcacheForSeconds\x12\x1e\n" +
 	"\n" +
 	"generation\x18\a \x01(\x04R\n" +
-	"generation\x1a7\n" +
+	"generation\x129\n" +
+	"\aratings\x18\b \x01(\x0e2\x1f.slipstream.metadata.v1.RatingsR\aratings\x129\n" +
+	"\x04pins\x18\t \x03(\v2%.slipstream.metadata.v1.Ask.PinsEntryR\x04pins\x1a7\n" +
 	"\tKeysEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc2\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a7\n" +
+	"\tPinsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x04\x10\x05\"\xc2\x01\n" +
 	"\aOutcome\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x127\n" +
 	"\x04kind\x18\x02 \x01(\x0e2#.slipstream.metadata.v1.OutcomeKindR\x04kind\x12(\n" +
@@ -1079,11 +1170,12 @@ const file_slipstream_metadata_v1_metadata_proto_rawDesc = "" +
 	"candidates\x18\x01 \x01(\fR\n" +
 	"candidates\x129\n" +
 	"\afailure\x18\x02 \x01(\v2\x1f.slipstream.metadata.v1.FailureR\afailure\x12;\n" +
-	"\boutcomes\x18\x03 \x03(\v2\x1f.slipstream.metadata.v1.OutcomeR\boutcomes\"r\n" +
+	"\boutcomes\x18\x03 \x03(\v2\x1f.slipstream.metadata.v1.OutcomeR\boutcomes\"\x8c\x01\n" +
 	"\fFetchRequest\x12-\n" +
 	"\x03ask\x18\x01 \x01(\v2\x1b.slipstream.metadata.v1.AskR\x03ask\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x10\n" +
-	"\x03key\x18\x03 \x01(\tR\x03key\"\xa1\x01\n" +
+	"\x03key\x18\x03 \x01(\tR\x03key\x12\x18\n" +
+	"\aoptions\x18\x04 \x01(\fR\aoptions\"\xa1\x01\n" +
 	"\rFetchResponse\x12\x18\n" +
 	"\afetched\x18\x01 \x01(\fR\afetched\x129\n" +
 	"\afailure\x18\x02 \x01(\v2\x1f.slipstream.metadata.v1.FailureR\afailure\x12;\n" +
@@ -1108,7 +1200,12 @@ const file_slipstream_metadata_v1_metadata_proto_rawDesc = "" +
 	"\rImageResponse\x12\x12\n" +
 	"\x04body\x18\x01 \x01(\fR\x04body\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x129\n" +
-	"\afailure\x18\x03 \x01(\v2\x1f.slipstream.metadata.v1.FailureR\afailure*\xc7\x01\n" +
+	"\afailure\x18\x03 \x01(\v2\x1f.slipstream.metadata.v1.FailureR\afailure*W\n" +
+	"\aRatings\x12\x17\n" +
+	"\x13RATINGS_UNSPECIFIED\x10\x00\x12\x10\n" +
+	"\fRATINGS_NONE\x10\x01\x12\x10\n" +
+	"\fRATINGS_WORK\x10\x02\x12\x0f\n" +
+	"\vRATINGS_ALL\x10\x03*\xe5\x01\n" +
 	"\vOutcomeKind\x12\x1c\n" +
 	"\x18OUTCOME_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fOUTCOME_KIND_OK\x10\x01\x12\x1a\n" +
@@ -1116,14 +1213,17 @@ const file_slipstream_metadata_v1_metadata_proto_rawDesc = "" +
 	"\x14OUTCOME_KIND_REFUSED\x10\x03\x12\x18\n" +
 	"\x14OUTCOME_KIND_LIMITED\x10\x04\x12\x17\n" +
 	"\x13OUTCOME_KIND_CAPPED\x10\x05\x12\x1c\n" +
-	"\x18OUTCOME_KIND_UNREACHABLE\x10\x06*\xb6\x01\n" +
+	"\x18OUTCOME_KIND_UNREACHABLE\x10\x06\x12\x1c\n" +
+	"\x18OUTCOME_KIND_PIN_REFUSED\x10\a*\xfa\x01\n" +
 	"\vFailureKind\x12\x1c\n" +
 	"\x18FAILURE_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16FAILURE_KIND_NOT_FOUND\x10\x01\x12\x18\n" +
 	"\x14FAILURE_KIND_REFUSED\x10\x02\x12\x1c\n" +
 	"\x18FAILURE_KIND_UNAVAILABLE\x10\x03\x12\x18\n" +
 	"\x14FAILURE_KIND_INVALID\x10\x04\x12\x1b\n" +
-	"\x17FAILURE_KIND_NO_CHANGES\x10\x052\xd5\x03\n" +
+	"\x17FAILURE_KIND_NO_CHANGES\x10\x05\x12\x1e\n" +
+	"\x1aFAILURE_KIND_NOT_ON_SOURCE\x10\x06\x12\"\n" +
+	"\x1eFAILURE_KIND_ORDER_UNAVAILABLE\x10\a2\xd5\x03\n" +
 	"\x0fMetadataService\x12W\n" +
 	"\x06Search\x12%.slipstream.metadata.v1.SearchRequest\x1a&.slipstream.metadata.v1.SearchResponse\x12T\n" +
 	"\x05Fetch\x12$.slipstream.metadata.v1.FetchRequest\x1a%.slipstream.metadata.v1.FetchResponse\x12Z\n" +
@@ -1145,60 +1245,64 @@ func file_slipstream_metadata_v1_metadata_proto_rawDescGZIP() []byte {
 	return file_slipstream_metadata_v1_metadata_proto_rawDescData
 }
 
-var file_slipstream_metadata_v1_metadata_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_slipstream_metadata_v1_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_slipstream_metadata_v1_metadata_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_slipstream_metadata_v1_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_slipstream_metadata_v1_metadata_proto_goTypes = []any{
-	(OutcomeKind)(0),        // 0: slipstream.metadata.v1.OutcomeKind
-	(FailureKind)(0),        // 1: slipstream.metadata.v1.FailureKind
-	(*Ask)(nil),             // 2: slipstream.metadata.v1.Ask
-	(*Outcome)(nil),         // 3: slipstream.metadata.v1.Outcome
-	(*Failure)(nil),         // 4: slipstream.metadata.v1.Failure
-	(*ArtRef)(nil),          // 5: slipstream.metadata.v1.ArtRef
-	(*SearchRequest)(nil),   // 6: slipstream.metadata.v1.SearchRequest
-	(*SearchResponse)(nil),  // 7: slipstream.metadata.v1.SearchResponse
-	(*FetchRequest)(nil),    // 8: slipstream.metadata.v1.FetchRequest
-	(*FetchResponse)(nil),   // 9: slipstream.metadata.v1.FetchResponse
-	(*ChangesRequest)(nil),  // 10: slipstream.metadata.v1.ChangesRequest
-	(*ChangesResponse)(nil), // 11: slipstream.metadata.v1.ChangesResponse
-	(*TestRequest)(nil),     // 12: slipstream.metadata.v1.TestRequest
-	(*TestResponse)(nil),    // 13: slipstream.metadata.v1.TestResponse
-	(*ImageRequest)(nil),    // 14: slipstream.metadata.v1.ImageRequest
-	(*ImageResponse)(nil),   // 15: slipstream.metadata.v1.ImageResponse
-	nil,                     // 16: slipstream.metadata.v1.Ask.KeysEntry
+	(Ratings)(0),            // 0: slipstream.metadata.v1.Ratings
+	(OutcomeKind)(0),        // 1: slipstream.metadata.v1.OutcomeKind
+	(FailureKind)(0),        // 2: slipstream.metadata.v1.FailureKind
+	(*Ask)(nil),             // 3: slipstream.metadata.v1.Ask
+	(*Outcome)(nil),         // 4: slipstream.metadata.v1.Outcome
+	(*Failure)(nil),         // 5: slipstream.metadata.v1.Failure
+	(*ArtRef)(nil),          // 6: slipstream.metadata.v1.ArtRef
+	(*SearchRequest)(nil),   // 7: slipstream.metadata.v1.SearchRequest
+	(*SearchResponse)(nil),  // 8: slipstream.metadata.v1.SearchResponse
+	(*FetchRequest)(nil),    // 9: slipstream.metadata.v1.FetchRequest
+	(*FetchResponse)(nil),   // 10: slipstream.metadata.v1.FetchResponse
+	(*ChangesRequest)(nil),  // 11: slipstream.metadata.v1.ChangesRequest
+	(*ChangesResponse)(nil), // 12: slipstream.metadata.v1.ChangesResponse
+	(*TestRequest)(nil),     // 13: slipstream.metadata.v1.TestRequest
+	(*TestResponse)(nil),    // 14: slipstream.metadata.v1.TestResponse
+	(*ImageRequest)(nil),    // 15: slipstream.metadata.v1.ImageRequest
+	(*ImageResponse)(nil),   // 16: slipstream.metadata.v1.ImageResponse
+	nil,                     // 17: slipstream.metadata.v1.Ask.KeysEntry
+	nil,                     // 18: slipstream.metadata.v1.Ask.PinsEntry
 }
 var file_slipstream_metadata_v1_metadata_proto_depIdxs = []int32{
-	16, // 0: slipstream.metadata.v1.Ask.keys:type_name -> slipstream.metadata.v1.Ask.KeysEntry
-	0,  // 1: slipstream.metadata.v1.Outcome.kind:type_name -> slipstream.metadata.v1.OutcomeKind
-	1,  // 2: slipstream.metadata.v1.Failure.kind:type_name -> slipstream.metadata.v1.FailureKind
-	2,  // 3: slipstream.metadata.v1.SearchRequest.ask:type_name -> slipstream.metadata.v1.Ask
-	4,  // 4: slipstream.metadata.v1.SearchResponse.failure:type_name -> slipstream.metadata.v1.Failure
-	3,  // 5: slipstream.metadata.v1.SearchResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
-	2,  // 6: slipstream.metadata.v1.FetchRequest.ask:type_name -> slipstream.metadata.v1.Ask
-	4,  // 7: slipstream.metadata.v1.FetchResponse.failure:type_name -> slipstream.metadata.v1.Failure
-	3,  // 8: slipstream.metadata.v1.FetchResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
-	2,  // 9: slipstream.metadata.v1.ChangesRequest.ask:type_name -> slipstream.metadata.v1.Ask
-	4,  // 10: slipstream.metadata.v1.ChangesResponse.failure:type_name -> slipstream.metadata.v1.Failure
-	3,  // 11: slipstream.metadata.v1.ChangesResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
-	2,  // 12: slipstream.metadata.v1.TestRequest.ask:type_name -> slipstream.metadata.v1.Ask
-	3,  // 13: slipstream.metadata.v1.TestResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
-	2,  // 14: slipstream.metadata.v1.ImageRequest.ask:type_name -> slipstream.metadata.v1.Ask
-	5,  // 15: slipstream.metadata.v1.ImageRequest.ref:type_name -> slipstream.metadata.v1.ArtRef
-	4,  // 16: slipstream.metadata.v1.ImageResponse.failure:type_name -> slipstream.metadata.v1.Failure
-	6,  // 17: slipstream.metadata.v1.MetadataService.Search:input_type -> slipstream.metadata.v1.SearchRequest
-	8,  // 18: slipstream.metadata.v1.MetadataService.Fetch:input_type -> slipstream.metadata.v1.FetchRequest
-	10, // 19: slipstream.metadata.v1.MetadataService.Changes:input_type -> slipstream.metadata.v1.ChangesRequest
-	12, // 20: slipstream.metadata.v1.MetadataService.Test:input_type -> slipstream.metadata.v1.TestRequest
-	14, // 21: slipstream.metadata.v1.MetadataService.Image:input_type -> slipstream.metadata.v1.ImageRequest
-	7,  // 22: slipstream.metadata.v1.MetadataService.Search:output_type -> slipstream.metadata.v1.SearchResponse
-	9,  // 23: slipstream.metadata.v1.MetadataService.Fetch:output_type -> slipstream.metadata.v1.FetchResponse
-	11, // 24: slipstream.metadata.v1.MetadataService.Changes:output_type -> slipstream.metadata.v1.ChangesResponse
-	13, // 25: slipstream.metadata.v1.MetadataService.Test:output_type -> slipstream.metadata.v1.TestResponse
-	15, // 26: slipstream.metadata.v1.MetadataService.Image:output_type -> slipstream.metadata.v1.ImageResponse
-	22, // [22:27] is the sub-list for method output_type
-	17, // [17:22] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	17, // 0: slipstream.metadata.v1.Ask.keys:type_name -> slipstream.metadata.v1.Ask.KeysEntry
+	0,  // 1: slipstream.metadata.v1.Ask.ratings:type_name -> slipstream.metadata.v1.Ratings
+	18, // 2: slipstream.metadata.v1.Ask.pins:type_name -> slipstream.metadata.v1.Ask.PinsEntry
+	1,  // 3: slipstream.metadata.v1.Outcome.kind:type_name -> slipstream.metadata.v1.OutcomeKind
+	2,  // 4: slipstream.metadata.v1.Failure.kind:type_name -> slipstream.metadata.v1.FailureKind
+	3,  // 5: slipstream.metadata.v1.SearchRequest.ask:type_name -> slipstream.metadata.v1.Ask
+	5,  // 6: slipstream.metadata.v1.SearchResponse.failure:type_name -> slipstream.metadata.v1.Failure
+	4,  // 7: slipstream.metadata.v1.SearchResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
+	3,  // 8: slipstream.metadata.v1.FetchRequest.ask:type_name -> slipstream.metadata.v1.Ask
+	5,  // 9: slipstream.metadata.v1.FetchResponse.failure:type_name -> slipstream.metadata.v1.Failure
+	4,  // 10: slipstream.metadata.v1.FetchResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
+	3,  // 11: slipstream.metadata.v1.ChangesRequest.ask:type_name -> slipstream.metadata.v1.Ask
+	5,  // 12: slipstream.metadata.v1.ChangesResponse.failure:type_name -> slipstream.metadata.v1.Failure
+	4,  // 13: slipstream.metadata.v1.ChangesResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
+	3,  // 14: slipstream.metadata.v1.TestRequest.ask:type_name -> slipstream.metadata.v1.Ask
+	4,  // 15: slipstream.metadata.v1.TestResponse.outcomes:type_name -> slipstream.metadata.v1.Outcome
+	3,  // 16: slipstream.metadata.v1.ImageRequest.ask:type_name -> slipstream.metadata.v1.Ask
+	6,  // 17: slipstream.metadata.v1.ImageRequest.ref:type_name -> slipstream.metadata.v1.ArtRef
+	5,  // 18: slipstream.metadata.v1.ImageResponse.failure:type_name -> slipstream.metadata.v1.Failure
+	7,  // 19: slipstream.metadata.v1.MetadataService.Search:input_type -> slipstream.metadata.v1.SearchRequest
+	9,  // 20: slipstream.metadata.v1.MetadataService.Fetch:input_type -> slipstream.metadata.v1.FetchRequest
+	11, // 21: slipstream.metadata.v1.MetadataService.Changes:input_type -> slipstream.metadata.v1.ChangesRequest
+	13, // 22: slipstream.metadata.v1.MetadataService.Test:input_type -> slipstream.metadata.v1.TestRequest
+	15, // 23: slipstream.metadata.v1.MetadataService.Image:input_type -> slipstream.metadata.v1.ImageRequest
+	8,  // 24: slipstream.metadata.v1.MetadataService.Search:output_type -> slipstream.metadata.v1.SearchResponse
+	10, // 25: slipstream.metadata.v1.MetadataService.Fetch:output_type -> slipstream.metadata.v1.FetchResponse
+	12, // 26: slipstream.metadata.v1.MetadataService.Changes:output_type -> slipstream.metadata.v1.ChangesResponse
+	14, // 27: slipstream.metadata.v1.MetadataService.Test:output_type -> slipstream.metadata.v1.TestResponse
+	16, // 28: slipstream.metadata.v1.MetadataService.Image:output_type -> slipstream.metadata.v1.ImageResponse
+	24, // [24:29] is the sub-list for method output_type
+	19, // [19:24] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_metadata_v1_metadata_proto_init() }
@@ -1211,8 +1315,8 @@ func file_slipstream_metadata_v1_metadata_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_metadata_v1_metadata_proto_rawDesc), len(file_slipstream_metadata_v1_metadata_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   15,
+			NumEnums:      3,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

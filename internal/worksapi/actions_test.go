@@ -261,7 +261,7 @@ func (s *shelves) add(t *testing.T, typ works.TypeID, key string, root *roots.Ro
 	if profile != nil {
 		body += `,"profileId":"` + profile.String() + `"`
 	}
-	code, reply := s.Call(t, http.MethodPost, "/api/v1/works", body+`,"monitor":false}`)
+	code, reply := s.Call(t, http.MethodPost, "/api/v1/works", body+`,"preset":"none"}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork %s = %d %s", key, code, reply)
 	}
@@ -490,6 +490,31 @@ func TestMonitorAnswersEachWorkOnceAndPublishesOneBatch(t *testing.T) {
 	}
 }
 
+func TestSetMonitoringPublishesOnceAndAPreviewNothing(t *testing.T) {
+	s := shelve(t)
+	w1 := s.add(t, contenttypetest.ID, "w1", nil, nil)
+	w2 := s.add(t, contenttypetest.ID, "w2", nil, nil)
+	change := ids(w1, w2) + `,"preset":"first","includeAsides":false`
+
+	got, _ := s.act(t, http.MethodPut, "/api/v1/works/monitoring", change+`,"preview":true}`)
+	expectOutcomes(t, "a preview", got, "w1 done\nw2 done")
+	expectEvents(t, s, "a preview", "")
+
+	got, _ = s.act(t, http.MethodPut, "/api/v1/works/monitoring", change+`,"preview":false}`)
+	expectOutcomes(t, "applying First", got, "w1 done\nw2 done")
+	expectEvents(t, s, "applying First", "works.changed w1 w2")
+
+	item := s.item(t, w2).String()
+	if code, reply := s.Call(t, http.MethodPut, "/api/v1/works/"+w2+"/monitored", `{"levelIds":[],"itemIds":["`+item+`"],"on":false}`); code != http.StatusNoContent {
+		t.Fatalf("setWorkMonitored = %d %s", code, reply)
+	}
+	expectEvents(t, s, "unmonitoring w2's Item", "works.changed w2")
+	if code, reply := s.Call(t, http.MethodPut, "/api/v1/works/"+w2+"/monitored", `{"levelIds":[],"itemIds":["`+item+`"],"on":false}`); code != http.StatusNoContent {
+		t.Fatalf("setWorkMonitored again = %d %s", code, reply)
+	}
+	expectEvents(t, s, "unmonitoring it again", "")
+}
+
 func TestSetProfileGivesEveryWorkOneImpactAndKeepsOwnLists(t *testing.T) {
 	s := shelve(t)
 	uhd, err := s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Name: "UHD", Tiers: [][]release.Quality{{release.Remux2160p}}, Cutoff: release.Remux2160p})
@@ -624,7 +649,7 @@ func TestDeleteWithFilesRemovesTheBytesThroughTheDiskQueue(t *testing.T) {
 	}
 	expectEvents(t, s, "the delete", "works.removed w1\nroots.changed movies")
 	s.settle(t)
-	if got, want := onDisk(t, s.movies), map[string]string{"Shelf w2/Shelf w2 - Scarf - Web.mkv": "w2 web"}; !maps.Equal(got, want) {
+	if got, want := onDisk(t, s.movies), map[string]string{"Shelf w2/Winter/Shelf w2 - Scarf - Web.mkv": "w2 web"}; !maps.Equal(got, want) {
 		t.Fatalf("movies holds %v once the disk queue ran, want w2's file alone", got)
 	}
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+w1, "", http.StatusNotFound, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`)

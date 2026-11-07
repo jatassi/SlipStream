@@ -9,26 +9,49 @@ import (
 )
 
 func askToWire(a Ask) *metadatav1.Ask {
-	keys := make(map[string]string, len(a.keys))
-	for p, k := range a.keys {
-		keys[string(p)] = k
-	}
 	return &metadatav1.Ask{
-		Keys: keys, Language: a.Language, Region: a.Region, Ratings: a.Ratings, Fresh: a.fresh,
+		Keys: byName(a.keys), Pins: byName(a.pins), Language: a.Language, Region: a.Region, Ratings: ratingsKinds[a.Ratings], Fresh: a.fresh,
 		CacheForSeconds: int64(a.cacheFor / time.Second), Generation: a.generation,
 	}
 }
 
 func askOf(w *metadatav1.Ask) Ask {
-	keys := make(map[ProviderID]string, len(w.GetKeys()))
-	for p, k := range w.GetKeys() {
-		keys[ProviderID(p)] = k
-	}
 	return Ask{
-		Language: w.GetLanguage(), Region: w.GetRegion(), Ratings: w.GetRatings(),
-		keys: keys, fresh: w.GetFresh(), cacheFor: time.Duration(w.GetCacheForSeconds()) * time.Second, generation: w.GetGeneration(),
+		Language: w.GetLanguage(), Region: w.GetRegion(), Ratings: ratingsOf[w.GetRatings()],
+		keys: byProvider(w.GetKeys()), pins: byProvider(w.GetPins()), fresh: w.GetFresh(),
+		cacheFor: time.Duration(w.GetCacheForSeconds()) * time.Second, generation: w.GetGeneration(),
 	}
 }
+
+func byName(m map[ProviderID]string) map[string]string {
+	out := make(map[string]string, len(m))
+	for p, v := range m {
+		out[string(p)] = v
+	}
+	return out
+}
+
+func byProvider(m map[string]string) map[ProviderID]string {
+	out := make(map[ProviderID]string, len(m))
+	for p, v := range m {
+		out[ProviderID(p)] = v
+	}
+	return out
+}
+
+var ratingsKinds = map[Ratings]metadatav1.Ratings{
+	RatingsNone: metadatav1.Ratings_RATINGS_NONE,
+	RatingsWork: metadatav1.Ratings_RATINGS_WORK,
+	RatingsAll:  metadatav1.Ratings_RATINGS_ALL,
+}
+
+var ratingsOf = func() map[metadatav1.Ratings]Ratings {
+	m := make(map[metadatav1.Ratings]Ratings, len(ratingsKinds))
+	for k, w := range ratingsKinds {
+		m[w] = k
+	}
+	return m
+}()
 
 var outcomeKinds = map[OutcomeKind]metadatav1.OutcomeKind{
 	OK:          metadatav1.OutcomeKind_OUTCOME_KIND_OK,
@@ -37,6 +60,7 @@ var outcomeKinds = map[OutcomeKind]metadatav1.OutcomeKind{
 	Limited:     metadatav1.OutcomeKind_OUTCOME_KIND_LIMITED,
 	Capped:      metadatav1.OutcomeKind_OUTCOME_KIND_CAPPED,
 	Unreachable: metadatav1.OutcomeKind_OUTCOME_KIND_UNREACHABLE,
+	PinRefused:  metadatav1.OutcomeKind_OUTCOME_KIND_PIN_REFUSED,
 }
 
 func outcomesToWire(os []Outcome) []*metadatav1.Outcome {
@@ -60,6 +84,8 @@ var failureKinds = []struct {
 	{works.ErrUnavailable, metadatav1.FailureKind_FAILURE_KIND_UNAVAILABLE},
 	{works.ErrInvalid, metadatav1.FailureKind_FAILURE_KIND_INVALID},
 	{ErrNoChanges, metadatav1.FailureKind_FAILURE_KIND_NO_CHANGES},
+	{works.ErrNotOnSource, metadatav1.FailureKind_FAILURE_KIND_NOT_ON_SOURCE},
+	{works.ErrOrderUnavailable, metadatav1.FailureKind_FAILURE_KIND_ORDER_UNAVAILABLE},
 }
 
 // failureToWire is err as a provider failure, false when err is none: the

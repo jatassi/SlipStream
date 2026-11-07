@@ -18,7 +18,7 @@ export type PopoverProps = {
   children: ReactNode;
 };
 
-const popup = `w-[340px] max-w-(--available-width) p-4 text-(length:--body-size) leading-(--body-line-height) ${floatingPanel}`;
+export const detailPopup = `w-[340px] max-w-(--available-width) p-4 text-(length:--body-size) leading-(--body-line-height) ${floatingPanel}`;
 
 export function Popover({ trigger, label, opensOn = "press", children, ...root }: PopoverProps) {
   const { density, probe } = usePortalDensity();
@@ -29,7 +29,7 @@ export function Popover({ trigger, label, opensOn = "press", children, ...root }
         <BasePopover.Trigger render={trigger} {...opening[opensOn]} />
         <BasePopover.Portal data-density={density}>
           <BasePopover.Positioner sideOffset={6} collisionPadding={12}>
-            <BasePopover.Popup aria-label={label} className={popup}>
+            <BasePopover.Popup aria-label={label} className={detailPopup}>
               {children}
             </BasePopover.Popup>
           </BasePopover.Positioner>

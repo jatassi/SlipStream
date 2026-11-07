@@ -8,6 +8,8 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"regexp"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -253,7 +255,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"not_searchable","title":"The Work's Content Type can't be searched"}`)
-	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic"}
+	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic", Covers: indexers.CoversOnly}
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_indexer","title":"No Indexer is set up"}`)
 
@@ -387,7 +389,7 @@ func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit ind
 		m.stopped = better.String()
 	}
 	f = searchable(t, m)
-	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic"}
+	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic", Covers: indexers.CoversOnly}
 	err := f.lib.Write(f.ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := nodestest.Insert(ctx, tx, f.home, "home"); err != nil {
 			return err
@@ -472,5 +474,67 @@ func TestASearchTakesTheSameReleaseFromAnotherIndexerWhenTheBetterOneIsAtItsGrab
 	}
 	if r := f.onlyRun(t); r.Outcome != "grabbed" || r.Candidates != 1 {
 		t.Fatalf("the run is %+v, want grabbed of 1 candidate", r)
+	}
+}
+
+// spring covers The Attic's Item with every title but one naming Spring,
+// which is another Item.
+func spring(title string) indexers.Covering {
+	if strings.Contains(title, ".Spring.") {
+		return indexers.Covering{Kind: indexers.CoversOther, Names: "Spring"}
+	}
+	return indexers.Covering{Kind: indexers.CoversItem}
+}
+
+func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
+	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.1080p.WEB", false, indexers.Edit{})
+	invalid := func(at, message string) string {
+		return `{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"` + message + `","errors":[{"location":"` + at + `","message":"` + message + `"}]}` + "\n"
+	}
+	for _, tc := range []struct{ name, body, want string }{
+		{"no id", `{"levelIds":[],"itemIds":[]}`, invalid("body.levelIds", "Send at least one level or Item id, or leave the body out to search the whole Work.")},
+		{"another Work's Item", `{"levelIds":[],"itemIds":["` + f.unmonitored.Items[0].ID.String() + `"]}`, invalid("body.itemIds[0]", "The Work has no Item with that id.")},
+		{"another Work's level", `{"levelIds":["` + f.unmonitored.Levels[0].ID.String() + `"],"itemIds":[]}`, invalid("body.levelIds[0]", "The Work has no level with that id.")},
+	} {
+		if code, got := f.s.Call(t, http.MethodPost, f.search, tc.body); code != http.StatusUnprocessableEntity || got != tc.want {
+			t.Fatalf("searchWork with %s = %d %s, want 422 %s", tc.name, code, got, tc.want)
+		}
+	}
+	for _, body := range []string{`{"levelIds":["` + f.tree.Levels[0].ID.String() + `"],"itemIds":[]}`, `{"levelIds":[],"itemIds":["` + f.tree.Items[0].ID.String() + `"]}`} {
+		code, got := f.s.Call(t, http.MethodPost, f.search, body)
+		if run := ownertest.FirstID(got); code != http.StatusAccepted || got != `{"searchIds":["`+run+`"]}`+"\n" {
+			t.Fatalf("searchWork with %s = %d %s, want 202 with one search of the Item", body, code, got)
+		}
+	}
+}
+
+func TestSightingNeedsCoverage(t *testing.T) {
+	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.Spring.Extended.1080p.WEB", false, indexers.Edit{})
+	f.terms.t.Covers = spring
+	f.searchAttic(t)
+	f.failed(t, 1)
+	var seen map[works.ItemID][]release.CutKey
+	err := f.lib.Read(f.ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		seen, err = targets.SeenIn(ctx, r, works.Only([]works.ItemID{f.tree.Items[0].ID}))
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := seen[f.tree.Items[0].ID]; !slices.Equal(got, []release.CutKey{release.Standard}) {
+		t.Fatalf("the Item's sighted cuts are %v, want only the standard cut of the release that covers it, not Spring's Extended", got)
+	}
+}
+
+func TestRerunRedecidesWithCoverage(t *testing.T) {
+	f, stopping, _ := mirrored(t, "The.Attic.1080p.WEB-STOP", "The.Attic.Spring.1080p.WEB", true, indexers.Edit{})
+	f.terms.t.Covers = spring
+	f.searchAttic(t)
+	if g, ok := f.failed(t, 1)[stopping.String()]; !ok || g.Failure.Code != "indexer_stopped" {
+		t.Fatalf("the failed Grab is %+v, want Better Site's dropped indexer_stopped", g)
+	}
+	if r := f.onlyRun(t); r.Outcome != "nothing_acceptable" || r.GrabID != "" {
+		t.Fatalf("the run after the rerun is %+v, want nothing acceptable: the kept release names Spring, another Item", r)
 	}
 }
