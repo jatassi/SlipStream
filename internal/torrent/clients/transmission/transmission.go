@@ -262,17 +262,13 @@ type torrent struct {
 	} `json:"files"`
 }
 
-var pollFields = []string{
+var pollFields = fields{
 	"hash_string", "name", "status", "left_until_done", "size_when_done", "download_dir", "labels", "error", "error_string",
 	"is_finished", "done_date", "uploaded_ever", "downloaded_ever", "seconds_seeding", "seconds_downloading",
 	"rate_download", "rate_upload", "peers_connected", "peers_sending_to_us", "queue_position",
 }
 
-func (c *client) get(ctx context.Context, hashes []bencode.InfoHash, fields []string) ([]torrent, error) {
-	named := make([]string, len(fields))
-	for i, f := range fields {
-		named[i] = c.field(f)
-	}
+func (c *client) get(ctx context.Context, hashes []bencode.InfoHash, named fields) ([]torrent, error) {
 	var res struct {
 		Torrents []torrent `json:"torrents"`
 	}
@@ -368,7 +364,7 @@ func status(t torrent) clients.Status {
 }
 
 func (c *client) Files(ctx context.Context, h bencode.InfoHash) ([]clients.File, error) {
-	ts, err := c.get(ctx, []bencode.InfoHash{h}, []string{"files"})
+	ts, err := c.get(ctx, []bencode.InfoHash{h}, fields{"files"})
 	if err != nil {
 		return nil, err
 	}

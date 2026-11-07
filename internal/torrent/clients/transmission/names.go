@@ -13,11 +13,12 @@ import (
 
 func legacy(method string) string { return strings.ReplaceAll(method, "_", "-") }
 
-// field is a torrent field's name in the session's protocol.
-func (c *client) field(snake string) string {
-	if c.json2 {
-		return snake
-	}
+// fields are a torrent's fields by their snake_case names. The legacy
+// protocol's request spells them in camelCase as it goes, since a
+// session's first request goes before the 409 picks its protocol.
+type fields []string
+
+func camel(snake string) string {
 	words := strings.Split(snake, "_")
 	for i := 1; i < len(words); i++ {
 		words[i] = strings.ToUpper(words[i][:1]) + words[i][1:]
@@ -28,6 +29,13 @@ func (c *client) field(snake string) string {
 func kebabKeys(args map[string]any) map[string]any {
 	out := make(map[string]any, len(args))
 	for k, v := range args {
+		if f, ok := v.(fields); ok {
+			named := make([]string, len(f))
+			for i, name := range f {
+				named[i] = camel(name)
+			}
+			v = named
+		}
 		out[legacy(k)] = v
 	}
 	return out

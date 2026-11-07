@@ -386,6 +386,17 @@ func TestTransmissionsOwnRemovesAndLateAddsShowInPolls(t *testing.T) {
 	})
 }
 
+func TestTransmissionPollsOnAFreshSession(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, faketransmission.Daemon{Version: version})
+		orchard := r.releases[0]
+		r.add(r.client(), orchard, "")
+		if s := r.status(r.client(), orchard); s.Name != orchard.name+".mkv" {
+			t.Errorf("a fresh session's first Poll reads the torrent as %q, want %q", s.Name, orchard.name+".mkv")
+		}
+	})
+}
+
 func TestTransmissionRefusesAWrongPasswordOnce(t *testing.T) {
 	inEachVersion(t, func(t *testing.T, version string) {
 		r := newRig(t, faketransmission.Daemon{Version: version, Username: "jackson", Password: "orchard", Lockout: 2})
