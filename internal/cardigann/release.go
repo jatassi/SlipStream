@@ -13,6 +13,9 @@ import (
 
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/newznab"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
 )
 
 // Release is one result of a search.
@@ -279,7 +282,7 @@ func setSize(_ *Search, r *parsed, v value, _ fieldUse) (value, error) {
 	if v.IsNull() {
 		return nullValue, errNullValue
 	}
-	n, err := parseSize(v.text)
+	n, err := parseutil.GetBytes(v.text)
 	if err != nil {
 		return nullValue, err
 	}
@@ -295,7 +298,7 @@ func setLeechers(_ *Search, r *parsed, v value, _ fieldUse) (value, error) {
 	if v.IsNull() {
 		return nullValue, errNullValue
 	}
-	n, err := coerceLong(v.text)
+	n, err := parseutil.CoerceLong(v.text)
 	if err != nil {
 		return nullValue, err
 	}
@@ -310,7 +313,7 @@ func setSeeders(_ *Search, r *parsed, v value, _ fieldUse) (value, error) {
 	if v.IsNull() {
 		return nullValue, errNullValue
 	}
-	n, err := coerceInt(v.text)
+	n, err := parseutil.CoerceInt(v.text)
 	if err != nil {
 		return nullValue, err
 	}
@@ -326,7 +329,7 @@ func setDate(x *Search, r *parsed, v value, _ fieldUse) (value, error) {
 	if v.IsNull() {
 		return nullValue, errNullValue
 	}
-	t, err := parseDate(v.text, x.env.Clock)
+	t, err := datetimeutil.FromUnknown(v.text, x.env.Clock)
 	if err != nil {
 		return nullValue, err
 	}
@@ -339,7 +342,7 @@ func setInt(set func(*parsed, int)) fieldValue {
 		if v.IsNull() {
 			return nullValue, errNullValue
 		}
-		n, err := coerceInt(v.text)
+		n, err := parseutil.CoerceInt(v.text)
 		if err != nil {
 			return nullValue, err
 		}
@@ -353,7 +356,7 @@ func setDouble(set func(*parsed, float64)) fieldValue {
 		if v.IsNull() {
 			return nullValue, errNullValue
 		}
-		f, err := coerceDouble(v.text)
+		f, err := parseutil.CoerceDouble(v.text)
 		if err != nil {
 			return nullValue, err
 		}
@@ -366,7 +369,7 @@ func setSeedTime(_ *Search, r *parsed, v value, _ fieldUse) (value, error) {
 	if v.IsNull() {
 		return nullValue, errNullValue
 	}
-	n, err := coerceLong(v.text)
+	n, err := parseutil.CoerceLong(v.text)
 	if err != nil {
 		return nullValue, err
 	}
@@ -378,7 +381,7 @@ func setSeedTime(_ *Search, r *parsed, v value, _ fieldUse) (value, error) {
 // An IMDb id is written in tt form.
 func setID(key string) fieldValue {
 	return func(_ *Search, r *parsed, v value, _ fieldUse) (value, error) {
-		n64, _, err := longFromString(v.text)
+		n64, _, err := parseutil.GetLongFromString(v.text)
 		if err != nil {
 			return nullValue, err
 		}

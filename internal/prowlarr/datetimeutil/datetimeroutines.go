@@ -1,4 +1,8 @@
-package cardigann
+// Ported from Prowlarr's src/NzbDrone.Core/Parser/DateTimeRoutines.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
+package datetimeutil
 
 import (
 	"fmt"
@@ -8,9 +12,8 @@ import (
 	"github.com/dlclark/regexp2"
 )
 
-// This file ports the US-date half of CliverSoft's DateTimeRoutines
-// (Core/Parser/DateTimeRoutines.cs), which FromFuzzyTime calls. Indexes
-// count runes, as regexp2 does.
+// This file ports the US-date half of CliverSoft's DateTimeRoutines,
+// which FromFuzzyTime calls. Indexes count runes, as regexp2 does.
 
 func mustRe(pattern string) *regexp2.Regexp {
 	return regexp2.MustCompile(pattern, regexp2.None)
@@ -48,6 +51,20 @@ var monthsByCase = map[string]int{
 	"Sep": 9, "SEP": 9, "Oct": 10, "OCT": 10, "Nov": 11, "NOV": 11, "Dec": 12, "DEC": 12,
 }
 
+// FromFuzzyTime is DateTimeUtil.FromFuzzyTime with the US date order: the
+// first date and time DateTimeRoutines finds in s, read in the clock's
+// zone. A time without a date is today's.
+func FromFuzzyTime(s string, clock Clock) (time.Time, error) {
+	t, ok, err := fuzzyDate(s, clock)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if !ok {
+		return time.Time{}, fmt.Errorf("%q isn't a date", s)
+	}
+	return t, nil
+}
+
 type foundDate struct {
 	date          time.Time
 	index, length int
@@ -72,7 +89,7 @@ func fuzzyDate(s string, clock Clock) (time.Time, bool, error) {
 	case ok:
 		return time.Date(d.date.Year(), d.date.Month(), d.date.Day(), h, m, sec, 0, clock.Location), true, nil
 	case timeOK:
-		now := clock.local()
+		now := clock.Local()
 		return time.Date(now.Year(), now.Month(), now.Day(), h, m, sec, 0, clock.Location), true, nil
 	}
 	return time.Time{}, false, nil
@@ -110,7 +127,7 @@ func findDate(s string, clock Clock) (foundDate, bool, error) {
 	}
 	year := group(m, "year")
 	if year == "" {
-		year = strconv.Itoa(clock.local().Year())
+		year = strconv.Itoa(clock.Local().Year())
 	}
 	return dateFromGroups(m, year, strconv.Itoa(month), group(m, "day"))
 }

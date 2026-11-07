@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 )
 
 // Unrunnable says why SlipStream can't run a definition, as a Go error
@@ -33,7 +35,7 @@ func unsupported(format string, args ...any) *Unrunnable {
 // Definition is a Cardigann definition, read and compiled.
 type Definition struct {
 	def        *cardigannDefinition
-	charset    charset
+	charset    encoding.Charset
 	categories categories
 	modes      map[string][]string
 	uses       Features
@@ -117,7 +119,7 @@ func prepare(def *cardigannDefinition) (*Definition, *Unrunnable) {
 	if len(def.Search.Paths) == 0 {
 		return nil, unrunnable(errors.New("no search paths"), "it has no search path")
 	}
-	cs, err := lookupCharset(def.Encoding)
+	cs, err := encoding.GetEncoding(def.Encoding)
 	if err != nil {
 		return nil, unrunnable(err, "it uses the encoding %q, which SlipStream doesn't support", def.Encoding)
 	}
