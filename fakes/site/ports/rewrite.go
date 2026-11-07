@@ -60,9 +60,9 @@ func (r *Rewriter) Rewrite(body []byte) ([]byte, error) {
 			continue
 		}
 		to := r.stems[from]
-		for _, sep := range []string{" ", ".", "_"} {
+		for _, form := range stemForms {
 			for _, esc := range escapes {
-				old, nu := esc(strings.ReplaceAll(from, " ", sep)), esc(strings.ReplaceAll(to, " ", sep))
+				old, nu := esc(form(from)), esc(form(to))
 				s = wordBounded(old).ReplaceAllString(s, "${1}"+strings.ReplaceAll(nu, "$", "$$")+"${2}")
 			}
 		}
@@ -118,6 +118,18 @@ func (r *Rewriter) retitle(fictional []string, title string) string {
 func standalone(stem string) bool {
 	return strings.Contains(stem, " ") || len(stem) >= 5
 }
+
+// stemForms are the ways a body may write a stem: its words joined by a
+// space, a dot or an underscore, or as a lowercase-hyphen slug such as
+// "the-quiet-orchard" in a link.
+var stemForms = []func(string) string{
+	func(s string) string { return s },
+	func(s string) string { return strings.ReplaceAll(s, " ", ".") },
+	func(s string) string { return strings.ReplaceAll(s, " ", "_") },
+	func(s string) string { return strings.Trim(slugGaps.ReplaceAllString(strings.ToLower(s), "-"), "-") },
+}
+
+var slugGaps = regexp.MustCompile(`[^a-z0-9]+`)
 
 // escapes are the ways a body may hold a title: plain, HTML-escaped,
 // and with an apostrophe as a padded numeric reference.

@@ -50,7 +50,7 @@ cases:
           method: POST
           path: /takelogin.php
           headers: {Referer: "https://torrentbytes.fixture-site.fake.localhost/takelogin.php"}
-          form: {username: fixture-user, password: "{{password}}", returnto: /}
+          form: {username: fixture-user, password: "{{password}}", returnto: /, login: "Log in!"}
         response:
           headers: {Content-Type: text/html; charset=iso-8859-1}
           body: loginfailed.html
@@ -76,7 +76,7 @@ cases:
       - request:
           method: POST
           path: /takelogin.php
-          form: {username: fixture-user, password: "{{password}}", returnto: /}
+          form: {username: fixture-user, password: "{{password}}", returnto: /, login: "Log in!"}
         response:
           status: 302
           headers:

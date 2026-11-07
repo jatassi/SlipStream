@@ -53,8 +53,8 @@ func Fictional(title string) (bool, error) {
 var (
 	separators = regexp.MustCompile(`[.\s_]+`)
 	// marker is the first word after a release name's title: a year, a
-	// season or episode, or a resolution.
-	marker = regexp.MustCompile(`(?i)^\(?((19|20)\d\d)\)?$|^s\d{1,3}(e\d{1,4})*$|^\d{3,4}[pi]$`)
+	// season or episode, an episode alone, or a resolution.
+	marker = regexp.MustCompile(`(?i)^\(?((19|20)\d\d)\)?$|^s\d{1,3}(e\d{1,4})*$|^e\d{1,4}$|^\d{3,4}[pi]$`)
 	tagged = regexp.MustCompile(`^\[[^\]]*\]`)
 )
 
