@@ -1,0 +1,27 @@
+name: prune-cache
+description: Delete every cache entry on this ref under a key prefix except the newest, so each save replaces the last one
+inputs:
+  prefix:
+    description: The key prefix that names one cache family, such as go-linux-amd64-
+    required: true
+runs:
+  using: composite
+  steps:
+    # Keeping the newest entry, not this run's, lets two runs prune at once
+    # and still leave one.
+    - name: Delete the family's older cache entries
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        PREFIX: ${{ inputs.prefix }}
+      run: |
+        gh cache list --ref "$GITHUB_REF" --key "$PREFIX" --sort created_at --order desc --limit 100 \
+          --json id,key,sizeInBytes --jq '.[1:][] | "\(.id) \(.key) \(.sizeInBytes)"' |
+          while read -r id key size; do
+            if gh cache delete "$id" > /dev/null; then
+              echo "Deleted the older cache entry $key ($((size / 1000000)) MB)."
+            else
+              echo "::warning::Couldn't delete the older cache entry $key. The next save to main deletes it."
+            fi
+          done
