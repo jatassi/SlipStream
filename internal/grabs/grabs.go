@@ -67,7 +67,6 @@ const (
 	TorrentInvalid     Code = "torrent_invalid"
 	InfohashMismatch   Code = "infohash_mismatch"
 	TorrentV2Only      Code = "torrent_v2_only"
-	NoDownloadClient   Code = "no_download_client"
 	DownloadFailed     Code = "download_failed"
 	Removed            Code = "removed"
 	NoVideoFile        Code = "no_video_file"

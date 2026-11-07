@@ -14,7 +14,9 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
@@ -42,6 +44,8 @@ type Config struct {
 	Facts func(role.NodeID) (*dlv1.Facts, bool)
 	// Remote is a Node's client as the Controller calls it.
 	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
+	// Sealer seals and opens external clients' secrets.
+	Sealer *secret.Sealer
 	Roster Roster
 	Uses   Uses
 	Live   LiveConfig
@@ -58,6 +62,8 @@ type Hub interface {
 type Roster interface {
 	// InStep reports whether node's Sync session is attached.
 	InStep(node role.NodeID) bool
+	// Holds reports whether node is assigned r, in step or not.
+	Holds(r role.Name, node role.NodeID) bool
 	// WrittenOff reports whether the Admin wrote off what node holds for
 	// r.
 	WrittenOff(r role.Name, node role.NodeID) bool
@@ -86,8 +92,8 @@ type pending struct {
 	// touch is a change to the Node's intent: a discard parted, a Torrent
 	// its client removed, or a wanted state its client changed.
 	touch bool
-	// polled is a client's poll state changed.
-	polled bool
+	// polled is the clients whose poll state changed.
+	polled []ClientID
 }
 
 func New(cfg Config) *Clients {
@@ -159,7 +165,7 @@ func (c *Clients) Apply(ctx context.Context, tx *storage.Tx[file], node role.Nod
 	}
 	p.ids = append(p.ids, got.ids...)
 	p.touch = p.touch || got.touch
-	p.polled = p.polled || got.polled
+	p.polled = append(p.polled, got.polled...)
 	return nil
 }
 
@@ -183,8 +189,8 @@ func (c *Clients) Applied(node role.NodeID, scope string) {
 	if p.touch {
 		touched = []role.NodeID{node}
 	}
-	if p.polled {
-		c.cardsChanged(node)
+	if len(p.polled) > 0 {
+		c.clientsChanged(p.polled, node)
 	}
 	c.committed(touched, p.ids)
 }
@@ -261,44 +267,68 @@ func applyExternal(ctx context.Context, q *db.Queries, node role.NodeID, id ID, 
 }
 
 // applyPoll stores p on its client when the client is node's and p ran
-// under settings at least as new as the stored poll's, true when it did.
-func applyPoll(ctx context.Context, q *db.Queries, node role.NodeID, p *dlv1.ClientPoll) (bool, error) {
+// under settings at least as new as the stored poll's, naming the client
+// when it did.
+func applyPoll(ctx context.Context, q *db.Queries, node role.NodeID, p *dlv1.ClientPoll) ([]ClientID, error) {
 	u, err := storage.UUIDFromBytes(p.GetClientId())
 	if err != nil {
-		return false, fmt.Errorf("client id: %w", err)
+		return nil, fmt.Errorf("client id: %w", err)
 	}
 	id := ClientID{UUID: u}
 	state, ok := pollStateFromWire[p.GetState()]
 	if !ok {
-		return false, fmt.Errorf("client %s: a poll in state %s", id, p.GetState())
+		return nil, fmt.Errorf("client %s: a poll in state %s", id, p.GetState())
 	}
 	var problem *string
 	if pr := p.GetProblem(); pr != nil {
-		cause, ok := causeFromWire[pr.GetCause()]
-		if !ok {
-			return false, fmt.Errorf("client %s: a problem with cause %s", id, pr.GetCause())
-		}
-		b, err := json.Marshal(storedProblem{
-			Cause: cause, Status: int(pr.GetStatus()), Version: pr.GetVersion(), Folder: pr.GetFolder(),
-			Paired: pr.GetPaired(), Host: pr.GetHost(), Missing: int(pr.GetMissing()),
-		})
+		got, err := problemFromWire(pr)
 		if err != nil {
-			return false, fmt.Errorf("encode the problem: %w", err)
+			return nil, fmt.Errorf("client %s: %w", id, err)
 		}
-		problem = new(string(b))
-	}
-	var version *string
-	if v := p.GetVersion(); v != "" {
-		version = &v
+		if problem, err = storedOf(got); err != nil {
+			return nil, err
+		}
 	}
 	n, err := q.SetPoll(ctx, db.SetPollParams{
 		PollState: new(string(state)), PollSince: storage.FromTime(time.UnixMilli(p.GetSinceUnixMs())), PollProblem: problem,
-		PollSettingsVersion: new(p.GetSettingsVersion()), PollCheck: p.GetCheck(), ClientVersion: version, ID: id, NodeID: node,
+		PollSettingsVersion: new(p.GetSettingsVersion()), PollCheck: p.GetCheck(), ClientVersion: text(p.GetVersion()), ID: id, NodeID: node,
 	})
-	return n > 0, err
+	if err != nil || n == 0 {
+		return nil, err
+	}
+	return []ClientID{id}, nil
 }
 
-// applyReport records r, false when id is not node's Torrent.
+func problemFromWire(pr *dlv1.Problem) (clients.Problem, error) {
+	cause, ok := causeFromWire[pr.GetCause()]
+	if !ok {
+		return clients.Problem{}, fmt.Errorf("a problem with cause %s", pr.GetCause())
+	}
+	p := clients.Problem{
+		Cause: cause, Status: int(pr.GetStatus()), Folder: pr.GetFolder(), Paired: pr.GetPaired(), Host: pr.GetHost(), Missing: int(pr.GetMissing()),
+	}
+	if v := pr.GetVersion(); v != "" {
+		var err error
+		if p.Version, err = clients.ParseVersion(v); err != nil {
+			return clients.Problem{}, err
+		}
+	}
+	return p, nil
+}
+
+// storedOf is p as a poll's problem is stored.
+func storedOf(p clients.Problem) (*string, error) {
+	s := storedProblem{Cause: p.Cause, Status: p.Status, Folder: p.Folder, Paired: p.Paired, Host: p.Host, Missing: p.Missing}
+	if p.Cause == clients.VersionTooOld {
+		s.Version = p.Version.String()
+	}
+	b, err := json.Marshal(s)
+	if err != nil {
+		return nil, fmt.Errorf("encode the problem: %w", err)
+	}
+	return new(string(b)), nil
+}
+
 func applyReport(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r *dlv1.TorrentReport) (bool, error) {
 	stored, err := json.Marshal(reportFrom(r))
 	if err != nil {

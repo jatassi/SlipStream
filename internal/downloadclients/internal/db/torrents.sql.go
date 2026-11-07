@@ -237,7 +237,7 @@ SELECT count(*) AS torrents,
        CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
        CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
 FROM downloadclients_torrent
-WHERE node_id = ?1 AND removed_at IS NULL
+WHERE node_id = ?1 AND client_id IS NULL AND removed_at IS NULL
 `
 
 type GetNodeTotalsRow struct {
@@ -985,10 +985,11 @@ func (q *Queries) SetFault(ctx context.Context, arg SetFaultParams) error {
 
 const setNodeSettings = `-- name: SetNodeSettings :exec
 INSERT INTO downloadclients_node (
-    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht
+    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht, grabs_to
 ) VALUES (
     ?1, ?2, ?3, ?4,
-    ?5, ?6, ?7, ?8, ?9
+    ?5, ?6, ?7, ?8, ?9,
+    ?10
 )
 ON CONFLICT (node_id) DO UPDATE SET
     download_limit = excluded.download_limit,
@@ -998,7 +999,8 @@ ON CONFLICT (node_id) DO UPDATE SET
     connections = excluded.connections,
     utp = excluded.utp,
     stalled_after_seconds = excluded.stalled_after_seconds,
-    dht = excluded.dht
+    dht = excluded.dht,
+    grabs_to = excluded.grabs_to
 `
 
 type SetNodeSettingsParams struct {
@@ -1011,6 +1013,7 @@ type SetNodeSettingsParams struct {
 	Utp                 *bool
 	StalledAfterSeconds *int64
 	Dht                 *bool
+	GrabsTo             *ClientID
 }
 
 func (q *Queries) SetNodeSettings(ctx context.Context, arg SetNodeSettingsParams) error {
@@ -1024,6 +1027,7 @@ func (q *Queries) SetNodeSettings(ctx context.Context, arg SetNodeSettingsParams
 		arg.Utp,
 		arg.StalledAfterSeconds,
 		arg.Dht,
+		arg.GrabsTo,
 	)
 	return err
 }

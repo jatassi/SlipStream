@@ -1,6 +1,7 @@
-// Package downloadclientsapi is the built-in torrent clients' operations:
-// the Torrents they hold and the Admin's actions on them, each downloading
-// Node's client card and settings, and the thresholds for a bad release.
+// Package downloadclientsapi is the Download Clients' operations: the
+// Torrents they hold and the Admin's actions on them, each downloading
+// Node's card and settings, the external clients, and the thresholds for
+// a bad release.
 package downloadclientsapi
 
 import (
@@ -48,17 +49,19 @@ type settings struct {
 	UTP             setting.SwitchField   `json:"utp"`
 	DHT             setting.SwitchField   `json:"dht"`
 	StalledAfter    setting.DurationField `json:"stalledAfter"`
+	GrabsTo         *string               `json:"grabsTo" format:"uuid" doc:"The external client the Node's new Grabs go to; null for its built-in client"`
 }
 
 type settingsPatch struct {
-	DownloadLimit   api.Patch[int64] `json:"downloadLimit,omitempty" doc:"Bytes a second, 0 for no limit; null resets it to its default"`
-	UploadLimit     api.Patch[int64] `json:"uploadLimit,omitempty" doc:"Bytes a second, 0 for no limit; null resets it to its default"`
-	ActiveDownloads api.Patch[int64] `json:"activeDownloads,omitempty" doc:"0 for no limit; null resets it to its default"`
-	ActiveChecks    api.Patch[int64] `json:"activeChecks,omitempty" doc:"null resets it to its default"`
-	Connections     api.Patch[int64] `json:"connections,omitempty" doc:"null resets it to its default"`
-	UTP             api.Patch[bool]  `json:"utp,omitempty" doc:"null resets it to its default"`
-	DHT             api.Patch[bool]  `json:"dht,omitempty" doc:"Whether the client runs the DHT, which public torrents use to find peers; null resets it to its default"`
-	StalledAfter    api.Patch[int64] `json:"stalledAfter,omitempty" doc:"Seconds; null resets it to its default"`
+	DownloadLimit   api.Patch[int64]  `json:"downloadLimit,omitempty" doc:"Bytes a second, 0 for no limit; null resets it to its default"`
+	UploadLimit     api.Patch[int64]  `json:"uploadLimit,omitempty" doc:"Bytes a second, 0 for no limit; null resets it to its default"`
+	ActiveDownloads api.Patch[int64]  `json:"activeDownloads,omitempty" doc:"0 for no limit; null resets it to its default"`
+	ActiveChecks    api.Patch[int64]  `json:"activeChecks,omitempty" doc:"null resets it to its default"`
+	Connections     api.Patch[int64]  `json:"connections,omitempty" doc:"null resets it to its default"`
+	UTP             api.Patch[bool]   `json:"utp,omitempty" doc:"null resets it to its default"`
+	DHT             api.Patch[bool]   `json:"dht,omitempty" doc:"Whether the client runs the DHT, which public torrents use to find peers; null resets it to its default"`
+	StalledAfter    api.Patch[int64]  `json:"stalledAfter,omitempty" doc:"Seconds; null resets it to its default"`
+	GrabsTo         api.Patch[string] `json:"grabsTo,omitempty" format:"uuid" doc:"One of the Node's on external clients, which Grabs for Works whose library root is on the Node go to; null for its built-in client"`
 }
 
 type nodeInput struct {
@@ -73,7 +76,12 @@ type settingsInput struct {
 type settingsOutput struct{ Body settings }
 
 func settingsOf(o downloadclients.NodeOverrides) *settingsOutput {
+	var grabsTo *string
+	if o.GrabsTo != nil {
+		grabsTo = new(o.GrabsTo.String())
+	}
 	return &settingsOutput{Body: settings{
+		GrabsTo:         grabsTo,
 		DownloadLimit:   downloadclients.DownloadLimit.Field(o.DownloadLimit),
 		UploadLimit:     downloadclients.UploadLimit.Field(o.UploadLimit),
 		ActiveDownloads: downloadclients.ActiveDownloads.Field(o.ActiveDownloads),
@@ -113,6 +121,13 @@ func change(b settingsPatch) (downloadclients.NodeChange, error) {
 	}
 	if b.DHT.Sent() {
 		c.DHT = new(downloadclients.DHT.Parse(b.DHT.Value()))
+	}
+	if b.GrabsTo.Sent() {
+		var to *downloadclients.ClientID
+		if v := b.GrabsTo.Value(); v != nil {
+			to = new(clientID(*v))
+		}
+		c.GrabsTo = &to
 	}
 	return c, nil
 }
@@ -158,6 +173,12 @@ func (h handlers) setSettings(ctx context.Context, _ identity.Admin, in *setting
 		return nil, err
 	}
 	o, err := clients.SetNodeSettings(ctx, id, c)
+	if refused, ok := errors.AsType[*downloadclients.GrabsToError](err); ok {
+		return nil, clientFieldRefused.On("grabsTo", downloadclients.GrabsToRefused(refused, roster.Name(id)))
+	}
+	if errors.Is(err, downloadclients.ErrNoClient) {
+		return nil, clientNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -165,18 +186,22 @@ func (h handlers) setSettings(ctx context.Context, _ identity.Admin, in *setting
 }
 
 type clientsList struct {
-	Cards      []clientCard `json:"cards" nullable:"false" doc:"Each Node assigned Downloading or draining it, in Node order"`
-	Thresholds thresholds   `json:"thresholds"`
+	Cards      []clientCard     `json:"cards" nullable:"false" doc:"Each Node assigned Downloading or draining it, in Node order"`
+	Orphans    []externalClient `json:"orphans" nullable:"false" doc:"External clients on Nodes that no longer serve Downloading, which can only be deleted"`
+	Kinds      []kind           `json:"kinds" nullable:"false" doc:"The kinds of external client, in the order the form offers them"`
+	Thresholds thresholds       `json:"thresholds"`
 }
 
 type clientCard struct {
 	NodeID    string           `json:"nodeId" format:"uuid"`
 	NodeName  string           `json:"nodeName"`
+	GrabsTo   *string          `json:"grabsTo" format:"uuid" doc:"The external client the Node's new Grabs go to; null for its built-in client"`
+	Externals []externalClient `json:"externals" nullable:"false" doc:"The Node's external clients, by name"`
 	InStep    bool             `json:"inStep" doc:"The Node is in step; while it isn't the card has no client"`
 	Client    *clientFacts     `json:"client,omitempty" doc:"The built-in client as it reports itself, absent until it does and while the Node is out of step"`
 	Limits    limits           `json:"limits"`
-	Totals    totals           `json:"totals" doc:"Added up over the Node's live Torrents"`
-	Torrents  int              `json:"torrents" minimum:"0" doc:"The Node's live Torrents"`
+	Totals    totals           `json:"totals" doc:"Added up over the built-in client's live Torrents"`
+	Torrents  int              `json:"torrents" minimum:"0" doc:"The built-in client's live Torrents"`
 	Downloads *downloadsVolume `json:"downloads,omitempty" doc:"The downloads folder's volume as last sampled, absent until the first sample"`
 	DiskGuard *diskGuard       `json:"diskGuard,omitempty" doc:"Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level"`
 }
@@ -252,7 +277,7 @@ func thresholdsOf(o downloadclients.ThresholdOverrides) thresholds {
 func cardOf(c downloadclients.Card, name string) clientCard {
 	s := c.Settings
 	out := clientCard{
-		NodeID: c.Node.String(), NodeName: name, InStep: c.InStep, Torrents: c.Torrents,
+		NodeID: c.Node.String(), NodeName: name, Externals: []externalClient{}, InStep: c.InStep, Torrents: c.Torrents,
 		Limits: limits{
 			DownloadLimit: s.DownloadLimit, UploadLimit: s.UploadLimit, ActiveDownloads: s.ActiveDownloads, ActiveChecks: s.ActiveChecks,
 			Connections: s.Connections, UTP: s.UTP, DHT: s.DHT, StalledAfter: int64(s.StalledAfter / time.Second),
@@ -261,6 +286,12 @@ func cardOf(c downloadclients.Card, name string) clientCard {
 			Uploaded: c.Totals.Uploaded, Downloaded: c.Totals.Downloaded,
 			Seeding: int64(c.Totals.Seeding / time.Second), Active: int64(c.Totals.Active / time.Second),
 		},
+	}
+	if c.GrabsTo != nil {
+		out.GrabsTo = new(c.GrabsTo.String())
+	}
+	for _, e := range c.Externals {
+		out.Externals = append(out.Externals, clientOf(e, name))
 	}
 	if g := c.Guard; g != nil {
 		sentence, hint := g.Words(name)
@@ -292,9 +323,16 @@ func (h handlers) listClients(ctx context.Context, _ identity.Admin, _ *struct{}
 	if err != nil {
 		return nil, err
 	}
-	out := clientsList{Cards: make([]clientCard, len(cards)), Thresholds: thresholdsOf(o)}
+	orphans, err := clients.Orphans(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := clientsList{Cards: make([]clientCard, len(cards)), Orphans: []externalClient{}, Kinds: kindsOf(), Thresholds: thresholdsOf(o)}
 	for i, c := range cards {
 		out.Cards[i] = cardOf(c, names[c.Node].Name)
+	}
+	for _, e := range orphans {
+		out.Orphans = append(out.Orphans, clientOf(e, names[e.Node].Name))
 	}
 	return &clientsListOutput{Body: out}, nil
 }
@@ -335,7 +373,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "listTorrents",
 		Method:  http.MethodGet,
 		Path:    "/torrents",
-		Summary: "List the Torrents every Node's built-in client holds, with their state and counts",
+		Summary: "List the Torrents every Node's Download Clients hold, with their state and counts",
 		Status:  http.StatusOK,
 	}, h.listTorrents)
 
@@ -361,7 +399,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "listDownloadClients",
 		Method:  http.MethodGet,
 		Path:    "/download-clients",
-		Summary: "List each downloading Node's built-in client, and the thresholds for a bad release",
+		Summary: "List each downloading Node's built-in and external clients, the kinds of external client, and the thresholds for a bad release",
 		Status:  http.StatusOK,
 	}, h.listClients)
 
@@ -378,7 +416,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "getDownloadClientSettings",
 		Method:  http.MethodGet,
 		Path:    "/download-clients/{nodeId}/settings",
-		Summary: "Get a Node's built-in torrent client settings",
+		Summary: "Get a Node's built-in torrent client settings and where its new Grabs go",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotFound},
 	}, h.getSettings)
@@ -387,8 +425,10 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "setDownloadClientSettings",
 		Method:  http.MethodPatch,
 		Path:    "/download-clients/{nodeId}/settings",
-		Summary: "Change a Node's built-in torrent client settings, which the Node applies at once",
+		Summary: "Change a Node's built-in torrent client settings and where its new Grabs go, which the Node applies at once",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotFound, settingapi.ErrOutOfRange},
+		Errors:  []*api.Code{nodeNotFound, settingapi.ErrOutOfRange, clientNotFound, clientFieldRefused},
 	}, h.setSettings)
+
+	externalRoutes(o, h)
 }

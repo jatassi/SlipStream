@@ -172,7 +172,7 @@ func idOrNil(id storage.UUID) *string {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
+	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
 	Message string `json:"message"`
 }
 

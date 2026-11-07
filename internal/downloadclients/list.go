@@ -82,9 +82,22 @@ type Filter struct {
 	Tab  Tab
 	Node role.NodeID
 	Type works.TypeID
+	// Client lets through one client's Torrents when set.
+	Client *ClientFilter
 	// Search matches the Torrent's name, its Grabs' release titles and
 	// their Works' labels, ignoring case.
 	Search string
+}
+
+// ClientFilter is one external client's Torrents, or every built-in
+// client's for a nil ID.
+type ClientFilter struct{ ID *ClientID }
+
+func (f ClientFilter) lets(row Row) bool {
+	if f.ID == nil || row.Client == nil {
+		return f.ID == nil && row.Client == nil
+	}
+	return row.Client.ID == *f.ID
 }
 
 // Listing is the rows a Filter lets through, and counts of every Torrent
@@ -134,7 +147,8 @@ func (f Filter) lets(row Row, labels map[works.WorkID]string) bool {
 	case f.IDs != nil && !slices.Contains(f.IDs, row.ID),
 		f.Tab != 0 && row.Tabs&f.Tab == 0,
 		!f.Node.IsZero() && row.Node != f.Node,
-		f.Type != "" && row.ContentType != f.Type:
+		f.Type != "" && row.ContentType != f.Type,
+		f.Client != nil && !f.Client.lets(row):
 		return false
 	}
 	if f.Search == "" {

@@ -29,6 +29,10 @@ type node struct {
 	inspected map[downloadclients.ID]*dlv1.InspectResponse
 	acceptsAt time.Time
 	freed     int64
+	// tests are the Tests the Node ran, and answer is how it answers the
+	// next, a pass of Transmission 4.1.1 while nil.
+	tests  []test
+	answer *dlv1.TestClientResponse
 }
 
 func (n *node) Inspect(_ context.Context, req *dlv1.InspectRequest) (*dlv1.InspectResponse, error) {
@@ -63,6 +67,13 @@ var reportedAt = time.Date(2026, 10, 19, 21, 0, 0, 0, time.UTC)
 // report, when there is one.
 func (w *world) hold(t *testing.T, name string, report *dlv1.TorrentReport) downloadclients.ID {
 	t.Helper()
+	return w.holdIn(t, name, downloadclients.Target{Node: w.self}, report)
+}
+
+// holdIn attaches a Torrent named name in client to and applies report,
+// when there is one.
+func (w *world) holdIn(t *testing.T, name string, to downloadclients.Target, report *dlv1.TorrentReport) downloadclients.ID {
+	t.Helper()
 	raw, err := bencode.Encode(map[string]any{
 		"announce-list": []any{[]any{"https://beacon.test/announce/0123456789abcdef0123456789abcdef"}, []any{"udp://backup.test:6969/announce"}},
 		"info": map[string]any{
@@ -79,13 +90,13 @@ func (w *world) hold(t *testing.T, name string, report *dlv1.TorrentReport) down
 	}
 	var id downloadclients.ID
 	err = w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		id, _, err = downloadclients.Attach(ctx, tx, downloadclients.Want{Target: downloadclients.Target{Node: w.self}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false }}, storage.Now())
+		id, _, err = downloadclients.Attach(ctx, tx, downloadclients.Want{Target: to, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false }}, storage.Now())
 		if err != nil || report == nil {
 			return err
 		}
 		report.Id = id.Bytes()
 		c := downloadclients.New(downloadclients.Config{Touch: func(...role.NodeID) {}, Changed: torrentsChanged{}})
-		return c.Apply(ctx, tx, w.self, &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: []*dlv1.TorrentReport{report}}}})
+		return c.Apply(ctx, tx, to.Node, &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: []*dlv1.TorrentReport{report}}}})
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -233,11 +244,17 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60},` +
 		`"metadataWait":{"key":"downloading.metadataWait","label":"A magnet link with no metadata fails after","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60}}`
+	acts := `"actions":["pause","resume","recheck","announce"]`
+	kinds := `"kinds":[` +
+		`{"kind":"qbittorrent","name":"qBittorrent","path":"","username":"optional","password":"optional","apiKey":true,"daemon":false,"label":"any","floor":"4.6",` + acts + `,"deletesData":true},` +
+		`{"kind":"transmission","name":"Transmission","path":"/transmission/rpc","username":"optional","password":"optional","apiKey":false,"daemon":false,"label":"no_comma","floor":"4.0",` + acts + `,"deletesData":true},` +
+		`{"kind":"deluge","name":"Deluge","path":"/json","username":"none","password":"required","apiKey":false,"daemon":true,"label":"lower_word","floor":"2.1",` + acts + `,"deletesData":true},` +
+		`{"kind":"rtorrent","name":"rTorrent","path":"/RPC2","username":"optional","password":"optional","apiKey":false,"daemon":false,"label":"any","floor":"0.9.8",` + acts + `,"deletesData":false}]`
 	w.o.Expect(t, http.MethodGet, "/api/v1/download-clients", "", http.StatusOK,
-		`{"cards":[{"nodeId":"id1","nodeName":"home","inStep":true,"client":{"libtorrent":"2.0.11.0","peerIdPrefix":"-LT20B0-","userAgent":"libtorrent/2.0.11.0",`+
+		`{"cards":[{"nodeId":"id1","nodeName":"home","grabsTo":null,"externals":[],"inStep":true,"client":{"libtorrent":"2.0.11.0","peerIdPrefix":"-LT20B0-","userAgent":"libtorrent/2.0.11.0",`+
 			`"listen":"0.0.0.0:6881","bound":"192.0.2.4:6881","reach":"reachable","reachedAt":"T"},`+
 			`"limits":{"downloadLimit":0,"uploadLimit":0,"activeDownloads":3,"activeChecks":1,"connections":8000,"utp":true,"dht":true,"stalledAfterSeconds":600},`+
-			`"totals":{"uploaded":0,"downloaded":0,"seedingSeconds":0,"activeSeconds":0},"torrents":1}],`+thresholds+`}`)
+			`"totals":{"uploaded":0,"downloaded":0,"seedingSeconds":0,"activeSeconds":0},"torrents":1}],"orphans":[],`+kinds+`,`+thresholds+`}`)
 
 	_, reply := w.o.Call(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"unregisteredGap":3600,"metadataWait":300}`)
 	if want := `"value":3600`; !strings.Contains(reply, want) || !strings.Contains(reply, `"value":300,`) {

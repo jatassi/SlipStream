@@ -107,16 +107,12 @@ func TestImportRefusesATakenNameOrAddress(t *testing.T) {
 	lib, sealer := open(t), secrettest.Sealer(t)
 	node := addNode(t, lib, "Media server")
 	first := mustImport(t, lib, sealer, transmission(t, node, "Transmission", "http://192.168.1.20:9091"))
-	for _, c := range []struct {
-		name, address string
-		err           error
-	}{
-		{"Transmission", "http://192.168.1.21:9091", dc.ErrNameTaken},
-		{"Transmission 2", "HTTP://192.168.1.20:9091/transmission/rpc/", dc.ErrAddressTaken},
-	} {
-		if _, err := importClient(t, lib, sealer, transmission(t, node, c.name, c.address)); !errors.Is(err, c.err) {
-			t.Errorf("importing %s at %s = %v, want %v", c.name, c.address, err, c.err)
-		}
+	if _, err := importClient(t, lib, sealer, transmission(t, node, "Transmission", "http://192.168.1.21:9091")); !errors.Is(err, dc.ErrNameTaken) {
+		t.Errorf("importing a second Transmission = %v, want ErrNameTaken", err)
+	}
+	_, err := importClient(t, lib, sealer, transmission(t, node, "Transmission 2", "HTTP://192.168.1.20:9091/transmission/rpc/"))
+	if taken, ok := errors.AsType[*dc.AddressTakenError](err); !ok || taken.Name != "Transmission" || taken.Node != node {
+		t.Errorf("importing a client at Transmission's address = %v, want it taken by Transmission on Media server", err)
 	}
 
 	exec(t, lib, "UPDATE downloadclients_client SET deleted_at = ?, secrets_sealed = NULL WHERE id = ?", storage.Now(), first)

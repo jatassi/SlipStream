@@ -1,17 +1,57 @@
--- name: ClientTaken :one
-SELECT
-    CAST(EXISTS (SELECT 1 FROM downloadclients_client c WHERE c.name = sqlc.arg(name) AND c.deleted_at IS NULL) AS INTEGER) AS name_taken,
-    CAST(EXISTS (SELECT 1 FROM downloadclients_client c WHERE c.address_key = sqlc.arg(address_key) AND c.deleted_at IS NULL) AS INTEGER) AS address_taken;
+-- name: NameTaken :one
+SELECT CAST(EXISTS (
+    SELECT 1 FROM downloadclients_client
+    WHERE name = sqlc.arg(name) AND id IS NOT sqlc.arg(except) AND deleted_at IS NULL
+) AS INTEGER);
+
+-- name: AddressHolder :one
+-- The client other than except that uses the address.
+SELECT name, node_id FROM downloadclients_client
+WHERE address_key = sqlc.arg(address_key) AND id IS NOT sqlc.arg(except) AND deleted_at IS NULL;
 
 -- name: InsertClient :exec
 INSERT INTO downloadclients_client (
-    id, node_id, kind, name, address, address_key, username, secrets_sealed, label, import_delay_seconds,
-    is_on, settings_version, created_at, updated_at
+    id, node_id, kind, name, address, address_key, username, secrets_sealed, label, folder, client_folders,
+    daemon_host, daemon_port, check_every_seconds, import_delay_seconds, is_on, settings_version, created_at, updated_at
 ) VALUES (
     sqlc.arg(id), sqlc.arg(node_id), sqlc.arg(kind), sqlc.arg(name), sqlc.arg(address), sqlc.arg(address_key),
-    sqlc.narg(username), sqlc.arg(secrets_sealed), sqlc.arg(label), sqlc.arg(import_delay_seconds),
-    1, 1, sqlc.arg(created_at), sqlc.arg(created_at)
+    sqlc.narg(username), sqlc.arg(secrets_sealed), sqlc.arg(label), sqlc.narg(folder), sqlc.arg(client_folders),
+    sqlc.narg(daemon_host), sqlc.narg(daemon_port), sqlc.narg(check_every_seconds), sqlc.narg(import_delay_seconds),
+    sqlc.arg(is_on), 1, sqlc.arg(created_at), sqlc.arg(created_at)
 );
+
+-- name: UpdateClient :execrows
+UPDATE downloadclients_client SET
+    node_id = sqlc.arg(node_id), kind = sqlc.arg(kind), name = sqlc.arg(name), address = sqlc.arg(address),
+    address_key = sqlc.arg(address_key), username = sqlc.narg(username), secrets_sealed = sqlc.arg(secrets_sealed),
+    label = sqlc.arg(label), folder = sqlc.narg(folder), client_folders = sqlc.arg(client_folders),
+    daemon_host = sqlc.narg(daemon_host), daemon_port = sqlc.narg(daemon_port),
+    check_every_seconds = sqlc.narg(check_every_seconds), import_delay_seconds = sqlc.narg(import_delay_seconds),
+    is_on = sqlc.arg(is_on), settings_version = sqlc.arg(settings_version), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id) AND deleted_at IS NULL;
+
+-- name: DeleteClient :execrows
+UPDATE downloadclients_client SET deleted_at = sqlc.arg(deleted_at), updated_at = sqlc.arg(deleted_at), secrets_sealed = NULL
+WHERE id = sqlc.arg(id) AND deleted_at IS NULL;
+
+-- name: GetClientSealed :one
+SELECT secrets_sealed FROM downloadclients_client WHERE id = sqlc.arg(id) AND deleted_at IS NULL;
+
+-- name: ListClients :many
+SELECT * FROM downloadclients_client WHERE deleted_at IS NULL ORDER BY name, id;
+
+-- name: CountTracked :one
+-- The Torrents a client holds until their Node parts from them.
+SELECT count(*) FROM downloadclients_torrent WHERE client_id = sqlc.arg(client_id) AND parted_at IS NULL;
+
+-- name: CountLiveByClient :many
+SELECT client_id, count(*) AS torrents FROM downloadclients_torrent
+WHERE client_id IS NOT NULL AND removed_at IS NULL
+GROUP BY client_id ORDER BY client_id;
+
+-- name: GrabsGoTo :one
+-- The Node whose new Grabs go to the client.
+SELECT node_id FROM downloadclients_node WHERE grabs_to = sqlc.arg(client_id);
 
 -- name: GetClient :one
 SELECT * FROM downloadclients_client WHERE id = sqlc.arg(id) AND deleted_at IS NULL;

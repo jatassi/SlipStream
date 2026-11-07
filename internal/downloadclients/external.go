@@ -34,11 +34,19 @@ type External struct {
 	Daemon                  *clients.Daemon
 	CheckEvery, ImportDelay time.Duration
 	On                      bool
+	// Saved is which secrets the row holds, for "Saved" and Replace.
+	Saved SavedSecrets
 	// Version is the settings version, bumped on every edit.
 	Version int64
 	// Poll is nil until the Node's first poll.
 	Poll *Poll
+
+	// checkEvery and importDelay are the stored overrides, nil at the
+	// default.
+	checkEvery, importDelay *int64
 }
+
+type SavedSecrets struct{ Password, APIKey bool }
 
 // Poll is the client's last poll as its Node reported it.
 type Poll struct {
@@ -80,10 +88,18 @@ func ReachOf(e External, inStep bool) ClientReach {
 }
 
 var (
-	ErrNoClient     = errors.New("no Download Client has this id")
-	ErrNameTaken    = errors.New("another Download Client has that name")
-	ErrAddressTaken = errors.New("another Download Client uses that address")
+	ErrNoClient  = errors.New("no Download Client has this id")
+	ErrNameTaken = errors.New("another Download Client has that name")
 )
+
+// AddressTakenError is an address another client already uses: Name on
+// Node.
+type AddressTakenError struct {
+	Name string
+	Node role.NodeID
+}
+
+func (e *AddressTakenError) Error() string { return e.Name + " already uses that address" }
 
 var secretsColumn = secret.NewColumn("downloadclients_client.secrets_sealed")
 
@@ -96,10 +112,12 @@ func ExternalOf(ctx context.Context, r storage.Reader[file], id ClientID) (Exter
 	if err != nil {
 		return External{}, err
 	}
-	return externalOf(row)
+	return externalOf(row, nil)
 }
 
-func externalOf(row db.DownloadclientsClient) (External, error) {
+// externalOf is row as a client. sealer opens its secrets to say which it
+// holds, and is nil for a reader that never shows them.
+func externalOf(row db.DownloadclientsClient, sealer *secret.Sealer) (External, error) {
 	address, err := clients.ParseAddress(row.Address, row.Kind)
 	if err != nil {
 		return External{}, fmt.Errorf("client %s: the stored address: %w", row.ID, err)
@@ -119,7 +137,14 @@ func externalOf(row db.DownloadclientsClient) (External, error) {
 	e := External{
 		ID: row.ID, Node: row.NodeID, Kind: row.Kind, Name: row.Name, Address: address, Label: label, Folders: folders,
 		CheckEvery: CheckEvery.Value(row.CheckEverySeconds), ImportDelay: ImportDelay.Value(row.ImportDelaySeconds),
-		On: row.IsOn, Version: row.SettingsVersion,
+		On: row.IsOn, Version: row.SettingsVersion, checkEvery: row.CheckEverySeconds, importDelay: row.ImportDelaySeconds,
+	}
+	if sealer != nil {
+		s, err := unseal(sealer, row.ID, row.SecretsSealed)
+		if err != nil {
+			return External{}, err
+		}
+		e.Saved = SavedSecrets{Password: s.Password != "", APIKey: s.APIKey != ""}
 	}
 	if row.Username != nil {
 		e.Username = *row.Username
@@ -187,32 +212,74 @@ type Imported struct {
 
 // Import saves c in tx with no Test: on, at settings version 1 and with
 // no poll, so its first poll shows whether it works. It fails with
-// ErrNameTaken or ErrAddressTaken.
+// ErrNameTaken or *AddressTakenError.
 func Import(ctx context.Context, tx *storage.Tx[file], sealer *secret.Sealer, c Imported, now storage.Time) (ClientID, error) {
-	q := db.New(tx)
-	taken, err := q.ClientTaken(ctx, db.ClientTakenParams{Name: c.Name, AddressKey: c.Address.Key()})
-	switch {
-	case err != nil:
-		return ClientID{}, err
-	case taken.NameTaken != 0:
-		return ClientID{}, ErrNameTaken
-	case taken.AddressTaken != 0:
-		return ClientID{}, ErrAddressTaken
+	e := External{
+		ID: ClientID{UUID: storage.NewUUID()}, Node: c.Node, Kind: c.Kind, Name: c.Name, Address: c.Address,
+		Username: c.Username, Label: c.Label, On: true, importDelay: new(int64(c.ImportDelay / time.Second)),
 	}
-	id := ClientID{UUID: storage.NewUUID()}
-	sealed, err := seal(sealer, id, c.Secrets)
+	if err := free(ctx, tx, e); err != nil {
+		return ClientID{}, err
+	}
+	p, err := rowOf(sealer, e, c.Secrets)
 	if err != nil {
 		return ClientID{}, err
 	}
-	var username *string
-	if c.Username != "" {
-		username = &c.Username
-	}
-	delay := int64(c.ImportDelay / time.Second)
-	return id, q.InsertClient(ctx, db.InsertClientParams{
-		ID: id, NodeID: c.Node, Kind: c.Kind, Name: c.Name, Address: c.Address.String(), AddressKey: c.Address.Key(),
-		Username: username, SecretsSealed: sealed, Label: c.Label.String(), ImportDelaySeconds: &delay, CreatedAt: now,
+	return e.ID, db.New(tx).InsertClient(ctx, db.InsertClientParams{
+		ID: e.ID, NodeID: p.NodeID, Kind: p.Kind, Name: p.Name, Address: p.Address, AddressKey: p.AddressKey,
+		Username: p.Username, SecretsSealed: p.SecretsSealed, Label: p.Label, Folder: p.Folder, ClientFolders: p.ClientFolders,
+		DaemonHost: p.DaemonHost, DaemonPort: p.DaemonPort, CheckEverySeconds: p.CheckEverySeconds,
+		ImportDelaySeconds: p.ImportDelaySeconds, IsOn: p.IsOn, CreatedAt: now,
 	})
+}
+
+// free is nil unless another client than e has e's name or address.
+func free(ctx context.Context, r storage.Reader[file], e External) error {
+	q := db.New(r)
+	taken, err := q.NameTaken(ctx, db.NameTakenParams{Name: e.Name, Except: e.ID})
+	switch {
+	case err != nil:
+		return err
+	case taken != 0:
+		return ErrNameTaken
+	}
+	holder, err := q.AddressHolder(ctx, db.AddressHolderParams{AddressKey: e.Address.Key(), Except: e.ID})
+	switch {
+	case errors.Is(err, storage.ErrNoRows):
+		return nil
+	case err != nil:
+		return err
+	}
+	return &AddressTakenError{Name: holder.Name, Node: holder.NodeID}
+}
+
+// rowOf is e as UpdateClient stores it, with s sealed.
+func rowOf(sealer *secret.Sealer, e External, s clients.Secrets) (db.UpdateClientParams, error) {
+	sealed, err := seal(sealer, e.ID, s)
+	if err != nil {
+		return db.UpdateClientParams{}, err
+	}
+	folders, err := json.Marshal(e.Folders.Pairs())
+	if err != nil {
+		return db.UpdateClientParams{}, fmt.Errorf("encode the Client folders: %w", err)
+	}
+	p := db.UpdateClientParams{
+		ID: e.ID, NodeID: e.Node, Kind: e.Kind, Name: e.Name, Address: e.Address.String(), AddressKey: e.Address.Key(),
+		Username: text(e.Username), SecretsSealed: sealed, Label: e.Label.String(), Folder: text(e.Folder),
+		ClientFolders: string(folders), CheckEverySeconds: e.checkEvery, ImportDelaySeconds: e.importDelay,
+		IsOn: e.On, SettingsVersion: e.Version,
+	}
+	if d := e.Daemon; d != nil {
+		p.DaemonHost, p.DaemonPort = &d.Host, new(int64(d.Port))
+	}
+	return p, nil
+}
+
+func text(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // sealedSecrets is how a client's secrets are encoded under the seal.

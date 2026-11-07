@@ -39,4 +39,9 @@ var (
 		dlv1.Cause_CAUSE_NOT_KEPT:          clients.NotKept,
 		dlv1.Cause_CAUSE_MOST_MISSING:      clients.MostMissing,
 	}
+	warningFromWire = map[dlv1.Warning]clients.Warning{
+		dlv1.Warning_WARNING_REMOVES_AT_LIMIT:   clients.RemovesAtLimit,
+		dlv1.Warning_WARNING_MOVES_AFTER_FINISH: clients.MovesAfterFinish,
+		dlv1.Warning_WARNING_NO_MOVING_STATE:    clients.NoMovingState,
+	}
 )

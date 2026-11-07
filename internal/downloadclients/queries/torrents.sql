@@ -12,10 +12,11 @@ SELECT * FROM downloadclients_node WHERE node_id = ?;
 
 -- name: SetNodeSettings :exec
 INSERT INTO downloadclients_node (
-    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht
+    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht, grabs_to
 ) VALUES (
     sqlc.arg(node_id), sqlc.narg(download_limit), sqlc.narg(upload_limit), sqlc.narg(active_downloads),
-    sqlc.narg(active_checks), sqlc.narg(connections), sqlc.narg(utp), sqlc.narg(stalled_after_seconds), sqlc.narg(dht)
+    sqlc.narg(active_checks), sqlc.narg(connections), sqlc.narg(utp), sqlc.narg(stalled_after_seconds), sqlc.narg(dht),
+    sqlc.narg(grabs_to)
 )
 ON CONFLICT (node_id) DO UPDATE SET
     download_limit = excluded.download_limit,
@@ -25,7 +26,8 @@ ON CONFLICT (node_id) DO UPDATE SET
     connections = excluded.connections,
     utp = excluded.utp,
     stalled_after_seconds = excluded.stalled_after_seconds,
-    dht = excluded.dht;
+    dht = excluded.dht,
+    grabs_to = excluded.grabs_to;
 
 -- name: GetThresholds :one
 SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds FROM downloadclients_settings WHERE id = 1;
@@ -174,7 +176,7 @@ SELECT count(*) AS torrents,
        CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
        CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
 FROM downloadclients_torrent
-WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL;
+WHERE node_id = sqlc.arg(node_id) AND client_id IS NULL AND removed_at IS NULL;
 
 -- name: SetTrackerIfNone :exec
 UPDATE downloadclients_torrent SET tracker_id = sqlc.arg(tracker_id) WHERE id = sqlc.arg(id) AND tracker_id IS NULL;

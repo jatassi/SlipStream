@@ -90,25 +90,30 @@ func clientsOnWire(ctx context.Context, r storage.Reader[file], node role.NodeID
 	}
 	out := make([]*dlv1.Client, len(rows))
 	for i, row := range rows {
-		e, err := externalOf(row)
+		e, err := externalOf(row, nil)
 		if err != nil {
 			return nil, err
 		}
-		c := &dlv1.Client{
-			Id: e.ID.Bytes(), Kind: kindOnWire[e.Kind], Name: e.Name, Address: e.Address.String(), Username: e.Username,
-			Label: e.Label.String(), Folder: e.Folder,
-			CheckEverySeconds: int64(e.CheckEvery / time.Second), ImportDelaySeconds: int64(e.ImportDelay / time.Second),
-			On: e.On, SettingsVersion: e.Version,
-		}
-		for _, f := range e.Folders.Pairs() {
-			c.ClientFolders = append(c.ClientFolders, &dlv1.ClientFolder{Client: f.Client, Node: f.Node})
-		}
-		if d := e.Daemon; d != nil {
-			c.Daemon = &dlv1.Daemon{Host: d.Host, Port: int32(d.Port)} //nolint:gosec // the schema CHECKs the port
-		}
-		out[i] = c
+		out[i] = clientOnWire(e)
 	}
 	return out, nil
+}
+
+// clientOnWire is e with every setting but its secrets.
+func clientOnWire(e External) *dlv1.Client {
+	c := &dlv1.Client{
+		Id: e.ID.Bytes(), Kind: kindOnWire[e.Kind], Name: e.Name, Address: e.Address.String(), Username: e.Username,
+		Label: e.Label.String(), Folder: e.Folder,
+		CheckEverySeconds: int64(e.CheckEvery / time.Second), ImportDelaySeconds: int64(e.ImportDelay / time.Second),
+		On: e.On, SettingsVersion: e.Version,
+	}
+	for _, f := range e.Folders.Pairs() {
+		c.ClientFolders = append(c.ClientFolders, &dlv1.ClientFolder{Client: f.Client, Node: f.Node})
+	}
+	if d := e.Daemon; d != nil {
+		c.Daemon = &dlv1.Daemon{Host: d.Host, Port: int32(d.Port)} //nolint:gosec // the schema CHECKs the port
+	}
+	return c
 }
 
 var wantedOnWire = map[Wanted]dlv1.Wanted{Started: dlv1.Wanted_WANTED_STARTED, Paused: dlv1.Wanted_WANTED_PAUSED}

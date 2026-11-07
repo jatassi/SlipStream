@@ -26,13 +26,17 @@ var (
 type TorrentRow struct {
 	ID          string       `json:"id" format:"uuid"`
 	NodeID      string       `json:"nodeId" format:"uuid"`
+	ClientID    *string      `json:"clientId,omitempty" format:"uuid" doc:"Its external client; absent for its Node's built-in client"`
+	ClientName  string       `json:"clientName,omitempty" doc:"Its external client's name"`
+	ClientKind  string       `json:"clientKind,omitempty" enum:"qbittorrent,transmission,deluge,rtorrent" doc:"Its external client's kind"`
+	Attached    bool         `json:"attached,omitempty" doc:"It was in its external client before SlipStream attached to it, so removing it only stops tracking it"`
 	Name        string       `json:"name" doc:"The release's name in its metainfo, shown for a Torrent whose Work was deleted"`
 	ContentType string       `json:"contentType" doc:"The Content Type it was first grabbed for"`
 	WorkID      *string      `json:"workId,omitempty" format:"uuid" doc:"Its newest Grab's Work, absent once no Grab is left"`
 	Edition     string       `json:"edition,omitempty" doc:"Its newest Grab's Edition"`
 	Quality     string       `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality its newest Grab's release title names"`
 	State       string       `json:"state" enum:"removing,failed,tracker-error,paused,checking,queued,stalled,downloading,seeding"`
-	Hold        string       `json:"hold,omitempty" enum:"wanted,window,disk_full,slot,check_slot,disk_guard,draining,controller" doc:"Why its Node holds it back, as its Node last reported"`
+	Hold        string       `json:"hold,omitempty" enum:"wanted,window,disk_full,slot,check_slot,disk_guard,draining,controller,client_error" doc:"Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error"`
 	Until       *time.Time   `json:"until,omitempty" doc:"When a window hold starts it, or a check resumes it"`
 	InLine      int          `json:"queuePosition,omitempty" minimum:"0" doc:"Its place, from 1, among its Node's downloads waiting for a slot"`
 	Severity    string       `json:"severity" enum:"none,warning,failure"`
@@ -44,7 +48,7 @@ type TorrentRow struct {
 	Ratio       float64      `json:"ratio" minimum:"0" doc:"Uploaded over the larger of downloaded and size"`
 	Seeding     int64        `json:"seedingSeconds" minimum:"0" doc:"All-time seconds seeded"`
 	Tracker     *trackerCell `json:"tracker,omitempty" doc:"Absent when its metainfo names no announce URL"`
-	Error       string       `json:"error,omitempty" doc:"The engine's error message for the failure"`
+	Error       string       `json:"error,omitempty" doc:"The engine's error message for the failure, or an external client's own words for its error"`
 	Fault       *fault       `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
 	LastKnown   *time.Time   `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the Node is out of step"`
 	AddedAt     time.Time    `json:"addedAt"`
@@ -94,6 +98,9 @@ func rowOf(r downloadclients.Row) TorrentRow {
 			out.Tabs = append(out.Tabs, tabWords[t])
 		}
 	}
+	if c := r.Client; c != nil {
+		out.ClientID, out.ClientName, out.ClientKind, out.Attached = new(c.ID.String()), c.Name, string(c.Kind), r.Attached
+	}
 	if len(r.Uses) > 0 {
 		newest := r.Uses[0]
 		out.WorkID, out.Edition = new(newest.Work.String()), newest.Edition
@@ -110,6 +117,9 @@ func rowOf(r downloadclients.Row) TorrentRow {
 	return out
 }
 
+// builtIn is the client filter for every Node's built-in client.
+const builtIn = "built-in"
+
 // when is t, nil for the zero time.
 func when(t time.Time) *time.Time {
 	if t.IsZero() {
@@ -123,6 +133,7 @@ type listInput struct {
 	Tab         string   `query:"tab" enum:"downloading,seeding,problems,all"`
 	NodeID      string   `query:"nodeId" format:"uuid"`
 	ContentType string   `query:"contentType"`
+	Client      string   `query:"client" pattern:"^(built-in|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$" doc:"Only one client's Torrents: an external client's id, or built-in for every Node's built-in client"`
 	Q           string   `query:"q" maxLength:"200" doc:"Matches the release name, the Grabs' release titles and their Works' labels, ignoring case"`
 }
 
@@ -167,6 +178,17 @@ func filterOf(in *listInput) (downloadclients.Filter, error) {
 			return f, err
 		}
 		f.Node = role.NodeID{UUID: u}
+	}
+	switch in.Client {
+	case "":
+	case builtIn:
+		f.Client = &downloadclients.ClientFilter{}
+	default:
+		u, err := storage.ParseUUID(in.Client)
+		if err != nil {
+			return f, err
+		}
+		f.Client = &downloadclients.ClientFilter{ID: &downloadclients.ClientID{UUID: u}}
 	}
 	if in.IDs != nil {
 		f.IDs = []downloadclients.ID{}
