@@ -1,14 +1,19 @@
 import { useState } from "react";
 
 import { DialogActions } from "../../account/dialog-actions";
-import type { SettingField, WorksContentType, WorksTree } from "../../api/gen/model";
+import type {
+  SettingField,
+  WorksContentType,
+  WorksPreviewed,
+  WorksTree,
+} from "../../api/gen/model";
 import { useListRootsSuspense, useListVolumesSuspense } from "../../api/gen/query/roots/roots";
 import { useListProfilesSuspense } from "../../api/gen/query/targets/targets";
 import { Button } from "../../ui/button";
 import { DialogClose } from "../../ui/dialog";
 import { useAdding } from "./adding";
 import { ChoiceFields, note } from "./choice-fields";
-import { type AddChoices, addDefaultsOf, movedDefaults, startChoices } from "./choices";
+import { type AddChoices, addSetupOf, movedDefaults, startChoices } from "./choices";
 // oxlint-disable-next-line import/max-dependencies -- the form reads the Profiles and the roots with their free space, and says what Add will do
 import { Preview } from "./preview";
 import { addSentence } from "./sentence";
@@ -34,7 +39,9 @@ function AddButton({
             key: work.key,
             profileId: choices.profileId,
             ...(choices.rootId !== undefined && { rootId: choices.rootId }),
-            preset: choices.monitor ? "all" : "none",
+            preset: choices.preset,
+            ...(choices.asides !== undefined && { includeAsides: choices.asides }),
+            ...(choices.levelFolders !== undefined && { levelFolders: choices.levelFolders }),
             remember: choices.remember,
           },
         });
@@ -47,11 +54,11 @@ function AddButton({
 
 export function AddForm({
   type,
-  work,
+  previewed: { work, presets },
   settings,
 }: {
   type: WorksContentType;
-  work: WorksTree;
+  previewed: WorksPreviewed;
   settings: readonly SettingField[];
 }) {
   const profiles = useListProfilesSuspense().data.profiles.filter(
@@ -59,19 +66,21 @@ export function AddForm({
   );
   const roots = useListRootsSuspense().data.roots.filter((root) => root.contentType === type.id);
   const volumes = useListVolumesSuspense().data.nodes;
-  const defaults = addDefaultsOf({ type, profiles, roots, settings });
+  const { defaults, monitor } = addSetupOf({ type, profiles, roots, settings });
   const [choices, setChoices] = useState(() => startChoices(defaults));
   return (
     <div className="flex flex-col gap-4">
       <Preview type={type} work={work} />
       <p className="text-body text-ink-1">
-        {addSentence(work, choices, { type, profiles, roots })}
+        {addSentence(work, choices, { type, profiles, roots, monitor, counts: presets })}
       </p>
       <ChoiceFields
         type={type}
         profiles={profiles}
         roots={roots}
         volumes={volumes}
+        monitor={monitor}
+        counts={presets}
         choices={choices}
         moves={movedDefaults(choices, defaults).length > 0}
         choose={(next) => {
