@@ -30,7 +30,7 @@ const (
 
 // sizes is the TMDB size each image is downloaded at: big enough for the
 // sizes the app asks for, small enough to check in.
-var sizes = map[string]string{"poster": "w500", "backdrop": "w1280", "logo": "w500", "profile": "w185"}
+var sizes = map[string]string{"poster": "w500", "backdrop": "w1280", "logo": "w500", "profile": "w185", "network": "original"}
 
 // movie is TMDB's movie id and OMDb's ratings for it, with its images
 // saved in the store.

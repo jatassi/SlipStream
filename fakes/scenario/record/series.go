@@ -150,7 +150,7 @@ func (c config) show(ctx context.Context, token string, id int64) (scenario.TVDB
 		files = append(files, c.tmdbFile(p.Profile, "profile"))
 	}
 	if n := show.Network; n != nil {
-		files = append(files, c.tmdbFile(n.Logo, "logo"))
+		files = append(files, c.tmdbFile(n.Logo, "network"))
 	}
 	if err := c.download(ctx, files); err != nil {
 		return scenario.TVDBSeries{}, scenario.TMDBSeries{}, scenario.OMDbTitle{}, err
