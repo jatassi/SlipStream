@@ -13,7 +13,10 @@ import (
 // CoverArtID is the music test type's cover-art host as an artwork source.
 const CoverArtID artwork.SourceID = "music-coverart"
 
-var coverKind = artwork.Kind{Key: "cover", Label: "Cover", Shape: artwork.ShapeCover, Prefetch: artwork.SizeMedium}
+var (
+	coverKind      = artwork.Kind{Key: "cover", Label: "Cover", Shape: artwork.ShapeCover, Prefetch: artwork.SizeMedium}
+	albumCoverKind = artwork.Kind{Key: "cover", Label: "Cover", Tier: artwork.TierLevel(1), Shape: artwork.ShapeCover}
+)
 
 // thumbnails is the front image the host serves for each size class.
 var thumbnails = map[artwork.Size]string{

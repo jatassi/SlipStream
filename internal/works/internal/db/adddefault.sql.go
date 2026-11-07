@@ -9,38 +9,42 @@ import (
 	"context"
 )
 
-const clearAddMonitor = `-- name: ClearAddMonitor :exec
-DELETE FROM works_add_default WHERE content_type = ?1
+const getAddDefault = `-- name: GetAddDefault :one
+SELECT content_type, monitor, asides, level_folders FROM works_add_default WHERE content_type = ?1
 `
 
-func (q *Queries) ClearAddMonitor(ctx context.Context, contentType TypeID) error {
-	_, err := q.db.ExecContext(ctx, clearAddMonitor, contentType)
-	return err
+func (q *Queries) GetAddDefault(ctx context.Context, contentType TypeID) (WorksAddDefault, error) {
+	row := q.db.QueryRowContext(ctx, getAddDefault, contentType)
+	var i WorksAddDefault
+	err := row.Scan(
+		&i.ContentType,
+		&i.Monitor,
+		&i.Asides,
+		&i.LevelFolders,
+	)
+	return i, err
 }
 
-const getAddMonitor = `-- name: GetAddMonitor :one
-SELECT monitor FROM works_add_default WHERE content_type = ?1
+const putAddDefault = `-- name: PutAddDefault :exec
+INSERT INTO works_add_default (content_type, monitor, asides, level_folders)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT (content_type) DO UPDATE SET monitor = excluded.monitor, asides = excluded.asides,
+    level_folders = excluded.level_folders
 `
 
-func (q *Queries) GetAddMonitor(ctx context.Context, contentType TypeID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, getAddMonitor, contentType)
-	var monitor bool
-	err := row.Scan(&monitor)
-	return monitor, err
+type PutAddDefaultParams struct {
+	ContentType  TypeID
+	Monitor      *string
+	Asides       *bool
+	LevelFolders *bool
 }
 
-const setAddMonitor = `-- name: SetAddMonitor :exec
-INSERT INTO works_add_default (content_type, monitor)
-VALUES (?1, ?2)
-ON CONFLICT (content_type) DO UPDATE SET monitor = excluded.monitor
-`
-
-type SetAddMonitorParams struct {
-	ContentType TypeID
-	Monitor     bool
-}
-
-func (q *Queries) SetAddMonitor(ctx context.Context, arg SetAddMonitorParams) error {
-	_, err := q.db.ExecContext(ctx, setAddMonitor, arg.ContentType, arg.Monitor)
+func (q *Queries) PutAddDefault(ctx context.Context, arg PutAddDefaultParams) error {
+	_, err := q.db.ExecContext(ctx, putAddDefault,
+		arg.ContentType,
+		arg.Monitor,
+		arg.Asides,
+		arg.LevelFolders,
+	)
 	return err
 }

@@ -17,12 +17,14 @@ type addInput struct {
 }
 
 type newWork struct {
-	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	Key         string `json:"key" minLength:"1" maxLength:"200" doc:"The Work's key at its metadata source"`
-	Monitor     *bool  `json:"monitor,omitempty" doc:"Monitor a new Work's Items; left out, the type's add default. Adding a Work already in the library changes nothing"`
-	ProfileID   string `json:"profileId,omitempty" format:"uuid" doc:"The Profile of the Content Type a new Work wants from; left out, the type's default"`
-	RootID      string `json:"rootId,omitempty" format:"uuid" doc:"The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root"`
-	Remember    bool   `json:"remember,omitempty" doc:"Make each choice given here its type's default for the next add. Adding a Work already in the library changes no default"`
+	ContentType   string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Key           string `json:"key" minLength:"1" maxLength:"200" doc:"The Work's key at its metadata source"`
+	Preset        string `json:"preset,omitempty" enum:"all,future,missing,existing,first,latest,none" doc:"The monitoring preset a new Work's Items follow; left out, the type's add default. Adding a Work already in the library changes nothing"`
+	IncludeAsides *bool  `json:"includeAsides,omitempty" doc:"Add every Item of the aside levels, such as Specials, to what the preset monitors, now and as new ones arrive; left out, the type's add default"`
+	LevelFolders  *bool  `json:"levelFolders,omitempty" doc:"Put a new Work's files in a folder per level; left out, the type's add default. Unread for a Content Type with no levels"`
+	ProfileID     string `json:"profileId,omitempty" format:"uuid" doc:"The Profile of the Content Type a new Work wants from; left out, the type's default"`
+	RootID        string `json:"rootId,omitempty" format:"uuid" doc:"The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root"`
+	Remember      bool   `json:"remember,omitempty" doc:"Make each choice given here its type's default for the next add. Adding a Work already in the library changes no default"`
 }
 
 type added struct {
@@ -53,8 +55,13 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 		}
 		root = &roots.ID{UUID: u}
 	}
+	var preset *works.Preset
+	if in.Body.Preset != "" {
+		preset = new(works.Preset(in.Body.Preset))
+	}
 	a, err := composer(h.shelf).Add(ctx, by, library.Adding{
-		Type: works.TypeID(in.Body.ContentType), Key: key, Profile: profile, Root: root, Monitor: in.Body.Monitor, Remember: in.Body.Remember,
+		Type: works.TypeID(in.Body.ContentType), Key: key, Profile: profile, Root: root, Preset: preset,
+		IncludeAsides: in.Body.IncludeAsides, LevelFolders: in.Body.LevelFolders, Remember: in.Body.Remember,
 	})
 	if err != nil {
 		return nil, answer(err)

@@ -251,12 +251,13 @@ func record() contenttypetest.Record {
 func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 	s := serve(t)
 	s.fx.Put("w1", record())
-	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":true}`)
+	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","preset":"all"}`)
 	want := `{"created":true,"work":{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,` +
 		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],"artwork":[],` +
-		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
-		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],` +
-		`"availability":{"date":"2000-01-01","basis":""}}],"links":[],"profile":{"id":"id4","name":"fixture"},"root":null}}` + "\n"
+		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"aside":false,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}],"artwork":[]}],` +
+		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"aside":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],` +
+		`"availability":{"date":"2000-01-01","basis":""}}],"links":[],"profile":{"id":"id4","name":"fixture"},"root":null,"monitorNew":true,"monitorAsides":false,"levelFolders":true,` +
+		`"options":[{"key":"order","label":"Order","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"shelf","running":"shelf","default":"shelf","options":[{"value":"shelf","label":"Shelf order"}]}]}}` + "\n"
 	if code != http.StatusOK || masked(body) != want {
 		t.Fatalf("addWork = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -266,7 +267,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		t.Fatalf("addWork again = %d %s", code, masked(again))
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
-	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
+	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `","unlisted":false}]}` + "\n"; code != http.StatusOK || search != want {
 		t.Fatalf("searchCatalog = %d %s, want %s", code, search, want)
 	}
 }
@@ -276,22 +277,25 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 	s.fx.Put("w1", record())
 	tree := `{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,` +
 		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],"artwork":[],` +
-		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
-		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],"availability":{"date":"2000-01-01","basis":""}}]}`
+		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"aside":false,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}],"artwork":[]}],` +
+		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"aside":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],"availability":{"date":"2000-01-01","basis":""}}]}`
 	code, body := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
-	if want := `{"inLibrary":false,"work":` + tree + "}\n"; code != http.StatusOK || masked(body) != want {
+	presets := `{"asides":0,"choices":[{"preset":"all","monitors":1,"monitorsNew":true},{"preset":"future","monitors":0,"monitorsNew":true},` +
+		`{"preset":"missing","monitors":1,"monitorsNew":true},{"preset":"existing","monitors":0,"monitorsNew":false},{"preset":"first","monitors":1,"monitorsNew":false},` +
+		`{"preset":"latest","monitors":1,"monitorsNew":true},{"preset":"none","monitors":0,"monitorsNew":false}]}`
+	if want := `{"inLibrary":false,"work":` + tree + `,"presets":` + presets + `}` + "\n"; code != http.StatusOK || masked(body) != want {
 		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
 	expect(t, s, http.MethodGet, "/api/v1/library", "", 200, `{"rows":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog/w2", "", 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 
-	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":false}`)
+	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","preset":"none"}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork = %d %s", code, body)
 	}
 	id := uuids.FindString(body)
 	code, body = s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
-	if code != http.StatusOK || !strings.HasPrefix(body, `{"inLibrary":true,"work":{"id":"`+id+`"`) || masked(body) != `{"inLibrary":true,"work":`+tree+"}\n" {
+	if code != http.StatusOK || !strings.HasPrefix(body, `{"inLibrary":true,"work":{"id":"`+id+`"`) || masked(body) != `{"inLibrary":true,"work":`+tree+`,"presets":null}`+"\n" {
 		t.Fatalf("previewCatalogRecord once added = %d %s, want the Work %s", code, body, id)
 	}
 }
@@ -304,9 +308,10 @@ const fixtureDescriptors = `"fields":[` +
 	`{"key":"runtime","label":"Runtime","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"tags","label":"Tags","tier":"work","kind":"texts","in":["about"],"list":{"column":true,"sort":false,"filter":true},"with":null,"art":null},` +
 	`{"key":"makers","label":"Makers","tier":"work","kind":"people","in":["credits"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
-	`{"key":"page","label":"Page","tier":"work","kind":"link","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
-	`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}],` +
-	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"]`
+	`{"key":"page","label":"Page","tier":"work","kind":"link","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"code","label":"Code","tier":"item","kind":"text","in":["code"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
+	`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"label","label":"Label","tier":"level","depth":1,"shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}],` +
+	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"],"availability":"","releases":""`
 
 func TestListContentTypesAnswersASession(t *testing.T) {
 	s := serve(t)
@@ -314,7 +319,7 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	req.Header.Set("Cookie", identity.CookieName+"="+s.session)
 	w := httptest.NewRecorder()
 	s.handler.ServeHTTP(w, req)
-	fixture := `{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
+	fixture := `{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"aside":{"one":"Spare box","many":"Spare boxes"},"item":{"one":"Thing","many":"Things"},` +
 		fixtureDescriptors + `}`
 	want := `{"contentTypes":[` + fixture + "," + strings.Replace(fixture, `"id":"fixture"`, `"id":"other"`, 1) + "]}\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
@@ -329,6 +334,8 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrUnavailable))
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later."}`)
+	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrNotOnSource))
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 422, `{"status":422,"code":"not_on_source","title":"The metadata source doesn't list this record"}`)
 	s.fx.Fail("w1", nil)
 	bad := record()
 	bad.Tree.Children[0].Children = append(bad.Tree.Children[0].Children, works.Entry{Key: "c1", Label: "Again"})
@@ -336,9 +343,11 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_invalid","title":"The metadata source sent a record SlipStream can't use"}`)
 	expect(t, s, http.MethodGet, "/api/v1/library?contentType=ghost", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String(), "", 404, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
+	expect(t, s, http.MethodPut, "/api/v1/works/"+storage.NewUUID().String()+"/monitored", `{"levelIds":[],"itemIds":[],"on":true}`, 422,
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"Send at least one level or Item id.","errors":[{"location":"body.levelIds","message":"Send at least one level or Item id."}]}`)
 
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 200,
-		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},`+
+		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"aside":{"one":"Spare box","many":"Spare boxes"},"item":{"one":"Thing","many":"Things"},`+
 			fixtureDescriptors+`}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "", 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
@@ -426,7 +435,7 @@ func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 		return `{"settings":[` + monitor + fmt.Sprintf(`,{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,`+
 			`"kind":"count","value":%d,"running":%d,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`, isDefault, depth, depth)
 	}
-	on, off := addMonitorField(true, true), addMonitorField(false, false)
+	on, off := addFields("all", true), addFields("none", false)
 	path := "/api/v1/content-types/fixture/settings"
 	expect(t, s, http.MethodGet, path, "", 200, settings(on, 3, true))
 	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.depth":5}}`, 200, settings(on, 5, false))
@@ -434,18 +443,29 @@ func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 and 9 boxes."}`)
 	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.width":2}}`, 422,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
-	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.width":2}}`, 422,
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":"none","fixture.width":2}}`, 422,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":"some"}}`, 422,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"some is not one of the 7 choices for Things to monitor."}`)
 	expect(t, s, http.MethodGet, path, "", 200, settings(on, 5, false))
-	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.depth":null}}`, 200, settings(off, 3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":"none","fixture.depth":null}}`, 200, settings(off, 3, true))
 	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":null}}`, 200, settings(on, 3, true))
+	both := strings.Replace(strings.Replace(on, `"Include spare boxes","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":false,"running":false`,
+		`"Include spare boxes","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"switch","value":true,"running":true`, 1),
+		`"Box folders","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true`,
+		`"Box folders","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"switch","value":false,"running":false`, 1)
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.asides":true,"fixture.add.levelFolders":false}}`, 200, settings(both, 3, true))
 	expect(t, s, http.MethodGet, "/api/v1/content-types/ghost/settings", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodPatch, "/api/v1/content-types/ghost/settings", `{"values":{}}`, 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 }
 
-// addMonitorField is fixture.add.monitor on the wire.
-func addMonitorField(value, isDefault bool) string {
-	return fmt.Sprintf(`{"key":"fixture.add.monitor","label":"New shelves are monitored","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"switch","value":%t,"running":%t,"default":true}`, isDefault, value, value)
+// addFields is the fixture type's core add settings on the wire, monitor
+// its add.monitor and Include and level folders at their defaults.
+func addFields(monitor string, isDefault bool) string {
+	return fmt.Sprintf(`{"key":"fixture.add.monitor","label":"Things to monitor","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"choice","value":%q,"running":%q,"default":"all",`+
+		`"options":[{"value":"all","label":"All"},{"value":"future","label":"Future"},{"value":"missing","label":"Missing"},{"value":"existing","label":"Existing"},{"value":"first","label":"First box"},{"value":"latest","label":"Latest box"},{"value":"none","label":"None"}]},`+
+		`{"key":"fixture.add.asides","label":"Include spare boxes","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":false,"running":false,"default":false},`+
+		`{"key":"fixture.add.levelFolders","label":"Box folders","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true}`, isDefault, monitor, monitor)
 }
 
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {

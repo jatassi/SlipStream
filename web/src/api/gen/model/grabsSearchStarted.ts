@@ -1,4 +1,4 @@
 export interface GrabsSearchStarted {
-  /** One run per Item with a wanted cell */
+  /** One run per Item in the scope with a wanted cell */
   searchIds: string[];
 }

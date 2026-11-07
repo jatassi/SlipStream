@@ -37,7 +37,7 @@ Steps:
   $FW exec $RUN --proof movies/movies-preview-then-add -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000005'
   grep '"front.open","node":"home"' $RUN/events.jsonl | grep -c '"omdb"'
   $FW fault set $RUN second-fetch tmdb status=500 --route movie
-  $FW exec $RUN --proof movies/movies-whole-record -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","monitor":true}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN --proof movies/movies-whole-record -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","preset":"all"}' '{nodes.home.url}/api/v1/works'
   grep -c '"rule":"second-fetch","target"' $RUN/events.jsonl
   $FW fault clear $RUN second-fetch
   ```

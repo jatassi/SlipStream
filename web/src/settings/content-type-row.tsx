@@ -12,15 +12,20 @@ import { DefaultProfile, DefaultRoot } from "./content-type-defaults";
 import { RefreshAll } from "./content-type-refresh";
 import { ContentTypeSwitch } from "./content-type-switch";
 
-const addMonitorFirst = (type: WorksContentType, settings: readonly Field[]) => {
-  const first = `${type.id}.add.monitor`;
-  return settings.toSorted((a, b) => Number(b.key === first) - Number(a.key === first));
+const addKeys = ["add.monitor", "add.asides", "add.levelFolders"] as const;
+
+const addDefaultsFirst = (type: WorksContentType, settings: readonly Field[]) => {
+  const rank = (key: string) => {
+    const at = addKeys.findIndex((addKey) => key === `${type.id}.${addKey}`);
+    return at === -1 ? addKeys.length : at;
+  };
+  return settings.toSorted((a, b) => rank(a.key) - rank(b.key));
 };
 
 function TypeSettings({ type }: { type: WorksContentType }) {
   const { settings } = useGetContentTypeSettingsSuspense(type.id).data;
   const router = useRouter();
-  return addMonitorFirst(type, settings).map((setting) => (
+  return addDefaultsFirst(type, settings).map((setting) => (
     <SettingField
       key={setting.key}
       field={setting}
@@ -43,13 +48,13 @@ export function ContentTypeRow({ type }: { type: WorksContentType }) {
       {type.enabled && (
         <Suspense fallback={<Skeleton label={`Loading ${type.name} settings`} />}>
           <SettingGroup>
-            <TypeSettings type={type} />
             <div>
               <DefaultProfile type={type} />
             </div>
             <div>
               <DefaultRoot type={type} />
             </div>
+            <TypeSettings type={type} />
           </SettingGroup>
           <RefreshAll type={type} />
         </Suspense>

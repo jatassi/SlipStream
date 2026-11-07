@@ -5,8 +5,6 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -18,6 +16,7 @@ type candidate struct {
 	Fields    []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's fields"`
 	PosterURL *string                 `json:"posterUrl" doc:"The artwork route for the result's poster, without a size; null when the source has none"`
 	WorkID    *string                 `json:"workId" format:"uuid" doc:"The Work, once it is in the library"`
+	Unlisted  bool                    `json:"unlisted" doc:"Another source found it and the Content Type's source doesn't list it, so it can't be added"`
 }
 
 type catalogInput struct {
@@ -37,8 +36,9 @@ type recordInput struct {
 }
 
 type previewed struct {
-	InLibrary bool `json:"inLibrary" doc:"Whether the Work is in the library; while it isn't, the ids in work name nothing"`
-	Work      Tree `json:"work"`
+	InLibrary bool                       `json:"inLibrary" doc:"Whether the Work is in the library; while it isn't, the ids in work name nothing"`
+	Work      Tree                       `json:"work"`
+	Presets   api.Nullable[presetCounts] `json:"presets" doc:"What each monitoring preset would monitor of the Work; null while it is in the library"`
 }
 
 type previewedOutput struct{ Body previewed }
@@ -53,7 +53,7 @@ func (h handlers) searchCatalog(ctx context.Context, by identity.Admin, in *cata
 	for _, c := range found {
 		out.Candidates = append(out.Candidates, candidate{
 			Key: string(c.Key), Label: c.Label, Original: c.Original, Overview: c.Overview, Fields: fieldsOf(m, c.Fields),
-			PosterURL: urlOrNull(m, c.Poster), WorkID: idOrNull(c.WorkID.UUID),
+			PosterURL: urlOrNull(m, c.Poster), WorkID: idOrNull(c.WorkID.UUID), Unlisted: c.Unlisted,
 		})
 	}
 	return &candidateListOutput{Body: out}, nil
@@ -64,14 +64,13 @@ func (h handlers) previewCatalogRecord(ctx context.Context, by identity.Admin, i
 	if err != nil {
 		return nil, api.Invalid
 	}
-	var timings map[works.ItemID]targets.Timing
-	t, stored, err := open(h.shelf).Preview(ctx, by, works.TypeID(in.ContentType), key, func(ctx context.Context, r storage.Reader[storage.Library], t works.Tree) error {
-		var err error
-		timings, err = goals(h.shelf).TimingsIn(ctx, r, t.ContentType, works.Only([]works.WorkID{t.ID}))
-		return err
-	})
+	p, err := composer(h.shelf).Preview(ctx, by, works.TypeID(in.ContentType), key)
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &previewedOutput{Body: previewed{InLibrary: stored, Work: treeOf(minter(h.shelf), t, timings)}}, nil
+	out := previewed{InLibrary: p.Stored, Work: treeOf(minter(h.shelf), p.Tree, p.Timings)}
+	if !p.Stored {
+		out.Presets = api.Some(presetCountsOf(p.Counts))
+	}
+	return &previewedOutput{Body: out}, nil
 }

@@ -9,6 +9,33 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func TestValidateChecksTheEpisodeReleases(t *testing.T) {
+	video := Video{Width: 1920, Height: 1080, Seconds: 6}
+	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, TVDB: &TVDB{Series: []TVDBSeries{{
+		ID: 1001, Name: "The Lantern Keepers", Status: "continuing",
+		Seasons: []TVDBSeason{{Number: 0, Episodes: []TVDBEpisode{{ID: 100101, Number: 1, Name: "Before"}}}, {Number: 1, Episodes: []TVDBEpisode{{ID: 100111, Number: 1, Name: "First"}}}},
+	}}}, Releases: []Release{
+		{Name: "Lantern.S01E01", TVDB: &ReleaseEpisode{Series: 1001, Season: 1, Episode: 1}, Video: video},
+		{Name: "Lantern.S00E01", TVDB: &ReleaseEpisode{Series: 1001, Season: 0, Episode: 1}, Video: video},
+		{Name: "Lantern.S01", TVDB: &ReleaseEpisode{Series: 1001, Season: 1}, Video: video},
+		{Name: "Lantern.S01E02", TVDB: &ReleaseEpisode{Series: 1001, Season: 1, Episode: 2}, Video: video},
+		{Name: "Lantern.S02", TVDB: &ReleaseEpisode{Series: 1001, Season: 2}, Video: video},
+		{Name: "Harbor.S01E01", TVDB: &ReleaseEpisode{Series: 1002, Season: 1, Episode: 1}, Video: video},
+	}}
+	want := []string{
+		"scenario x: release Lantern.S01E02 names episode 2 of season 1 of tvdb series 1001, which it does not list",
+		"scenario x: release Lantern.S02 names season 2 of tvdb series 1001, which it does not list",
+		"scenario x: release Harbor.S01E01 names tvdb series 1002, which tvdb does not list",
+	}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("Validate passed")
+	}
+	if got := strings.Split(err.Error(), "\n"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Validate =\n%s\nwant\n%s", err, strings.Join(want, "\n"))
+	}
+}
+
 func TestValidateChecksTheReleases(t *testing.T) {
 	good := Release{Name: "A.2021.1080p", TMDBID: 1, Video: Video{Width: 1920, Height: 1080, Seconds: 6}}
 	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, TMDB: &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}}, Tracker: Tracker{Interval: -time.Second}, Releases: []Release{

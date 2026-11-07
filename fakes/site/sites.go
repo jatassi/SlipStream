@@ -50,6 +50,9 @@ var (
 	// SignedIn records each sign-in a site accepted: its site and the
 	// sign-in's method.
 	SignedIn = fake.CaptureSpec{Name: "sign-ins", Kind: "fixture-site.signin"}
+	// Searched records each search a Torznab site served: its site and
+	// the parameters it searched by.
+	Searched = fake.CaptureSpec{Name: "searches", Kind: "fixture-site.search"}
 )
 
 // SiteArgs name a catalog site for a cue.
