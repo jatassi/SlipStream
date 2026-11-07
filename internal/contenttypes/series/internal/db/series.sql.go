@@ -12,6 +12,30 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const getEpisode = `-- name: GetEpisode :one
+SELECT item_id, work_id, tvdb_episode_id, season_number, episode_number, absolute_number, aired_season, aired_number, air_date, runtime_seconds, overview, imdb_id FROM series_episode WHERE item_id = ?1
+`
+
+func (q *Queries) GetEpisode(ctx context.Context, itemID works.ItemID) (SeriesEpisode, error) {
+	row := q.db.QueryRowContext(ctx, getEpisode, itemID)
+	var i SeriesEpisode
+	err := row.Scan(
+		&i.ItemID,
+		&i.WorkID,
+		&i.TvdbEpisodeID,
+		&i.SeasonNumber,
+		&i.EpisodeNumber,
+		&i.AbsoluteNumber,
+		&i.AiredSeason,
+		&i.AiredNumber,
+		&i.AirDate,
+		&i.RuntimeSeconds,
+		&i.Overview,
+		&i.ImdbID,
+	)
+	return i, err
+}
+
 const getSeries = `-- name: GetSeries :one
 SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, original_title, original_language, country, network, creators, credits, status, first_aired, last_aired, next_aired, average_runtime_seconds, certification, certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards FROM series_series WHERE work_id = ?1
 `
@@ -151,6 +175,137 @@ func (q *Queries) ListEpisodesOf(ctx context.Context, workIds []works.WorkID) ([
 	return items, nil
 }
 
+const listEveryListed = `-- name: ListEveryListed :many
+SELECT work_id, network, certification, status, first_aired, genres FROM series_series ORDER BY work_id
+`
+
+type ListEveryListedRow struct {
+	WorkID        works.WorkID
+	Network       *string
+	Certification *string
+	Status        string
+	FirstAired    *string
+	Genres        []byte
+}
+
+func (q *Queries) ListEveryListed(ctx context.Context) ([]ListEveryListedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryListed)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryListedRow
+	for rows.Next() {
+		var i ListEveryListedRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.Network,
+			&i.Certification,
+			&i.Status,
+			&i.FirstAired,
+			&i.Genres,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryTiming = `-- name: ListEveryTiming :many
+SELECT e.item_id, e.air_date, coalesce(e.runtime_seconds, s.average_runtime_seconds) AS runtime_seconds
+FROM series_episode e JOIN series_series s ON s.work_id = e.work_id ORDER BY e.item_id
+`
+
+type ListEveryTimingRow struct {
+	ItemID         works.ItemID
+	AirDate        *string
+	RuntimeSeconds *int64
+}
+
+func (q *Queries) ListEveryTiming(ctx context.Context) ([]ListEveryTimingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryTiming)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryTimingRow
+	for rows.Next() {
+		var i ListEveryTimingRow
+		if err := rows.Scan(&i.ItemID, &i.AirDate, &i.RuntimeSeconds); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listListedOf = `-- name: ListListedOf :many
+SELECT work_id, network, certification, status, first_aired, genres FROM series_series
+WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListListedOfRow struct {
+	WorkID        works.WorkID
+	Network       *string
+	Certification *string
+	Status        string
+	FirstAired    *string
+	Genres        []byte
+}
+
+func (q *Queries) ListListedOf(ctx context.Context, workIds []works.WorkID) ([]ListListedOfRow, error) {
+	query := listListedOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListListedOfRow
+	for rows.Next() {
+		var i ListListedOfRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.Network,
+			&i.Certification,
+			&i.Status,
+			&i.FirstAired,
+			&i.Genres,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasons = `-- name: ListSeasons :many
 SELECT level_id, work_id, tvdb_season_id, number, episode_order, name, overview FROM series_season WHERE work_id = ?1 ORDER BY number
 `
@@ -237,6 +392,93 @@ func (q *Queries) ListSeriesOf(ctx context.Context, workIds []works.WorkID) ([]S
 			&i.TrailerKey,
 			&i.Awards,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStatusesOf = `-- name: ListStatusesOf :many
+SELECT work_id, status FROM series_series WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListStatusesOfRow struct {
+	WorkID works.WorkID
+	Status string
+}
+
+func (q *Queries) ListStatusesOf(ctx context.Context, workIds []works.WorkID) ([]ListStatusesOfRow, error) {
+	query := listStatusesOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStatusesOfRow
+	for rows.Next() {
+		var i ListStatusesOfRow
+		if err := rows.Scan(&i.WorkID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTimingsOf = `-- name: ListTimingsOf :many
+SELECT e.item_id, e.air_date, coalesce(e.runtime_seconds, s.average_runtime_seconds) AS runtime_seconds
+FROM series_episode e JOIN series_series s ON s.work_id = e.work_id
+WHERE e.work_id IN (/*SLICE:work_ids*/?) ORDER BY e.item_id
+`
+
+type ListTimingsOfRow struct {
+	ItemID         works.ItemID
+	AirDate        *string
+	RuntimeSeconds *int64
+}
+
+func (q *Queries) ListTimingsOf(ctx context.Context, workIds []works.WorkID) ([]ListTimingsOfRow, error) {
+	query := listTimingsOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTimingsOfRow
+	for rows.Next() {
+		var i ListTimingsOfRow
+		if err := rows.Scan(&i.ItemID, &i.AirDate, &i.RuntimeSeconds); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

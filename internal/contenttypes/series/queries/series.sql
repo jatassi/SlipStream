@@ -66,3 +66,25 @@ SELECT * FROM series_settings WHERE id = 1;
 
 -- name: SetAirDelay :exec
 UPDATE series_settings SET air_delay_seconds = sqlc.arg(air_delay_seconds) WHERE id = 1;
+
+-- name: ListEveryListed :many
+SELECT work_id, network, certification, status, first_aired, genres FROM series_series ORDER BY work_id;
+
+-- name: ListListedOf :many
+SELECT work_id, network, certification, status, first_aired, genres FROM series_series
+WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListStatusesOf :many
+SELECT work_id, status FROM series_series WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: GetEpisode :one
+SELECT * FROM series_episode WHERE item_id = sqlc.arg(item_id);
+
+-- name: ListEveryTiming :many
+SELECT e.item_id, e.air_date, coalesce(e.runtime_seconds, s.average_runtime_seconds) AS runtime_seconds
+FROM series_episode e JOIN series_series s ON s.work_id = e.work_id ORDER BY e.item_id;
+
+-- name: ListTimingsOf :many
+SELECT e.item_id, e.air_date, coalesce(e.runtime_seconds, s.average_runtime_seconds) AS runtime_seconds
+FROM series_episode e JOIN series_series s ON s.work_id = e.work_id
+WHERE e.work_id IN (sqlc.slice(work_ids)) ORDER BY e.item_id;
