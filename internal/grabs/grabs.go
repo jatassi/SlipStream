@@ -140,6 +140,8 @@ type Roster interface {
 	// WrittenOff reports whether the Admin wrote off what node holds for
 	// r, so its owner gives that work up.
 	WrittenOff(r role.Name, node role.NodeID) bool
+	// Holds reports whether node is assigned r, in step or not.
+	Holds(r role.Name, node role.NodeID) bool
 }
 
 // Downloads is the Downloading Role's Controller half.
@@ -153,6 +155,8 @@ type Downloads interface {
 	// Resolve is one long poll of node's search for link's metadata,
 	// which ends at endsAt unless a peer sent it.
 	Resolve(ctx context.Context, node role.NodeID, link magnet.Link, endsAt time.Time) (downloadclients.Resolution, error)
+	// Retargeted tells the readers once a send-to's Write commits.
+	Retargeted(downloadclients.Retargeted)
 }
 
 // Roots is the library roots as a Grab reaches them: bytes go into a
