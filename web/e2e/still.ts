@@ -2,7 +2,9 @@ import type { Locator, Page } from "@playwright/test";
 
 // Base UI can hold a popup in data-starting-style for several frames before
 // its transition starts, so wait for two frames in a row with nothing
-// entering, leaving or animating.
+// entering, leaving or animating. A live progress bar eases for a second to
+// each value its download reports every second, so like an endless animation
+// it never counts.
 export async function untilStill(page: Page): Promise<void> {
   await page.evaluate(
     () =>
@@ -16,7 +18,11 @@ export async function untilStill(page: Page): Promise<void> {
               .some(
                 (animation) =>
                   animation.playState === "running" &&
-                  animation.effect?.getComputedTiming().endTime !== Infinity,
+                  animation.effect?.getComputedTiming().endTime !== Infinity &&
+                  !(
+                    animation.effect instanceof KeyframeEffect &&
+                    animation.effect.target?.closest('[role="progressbar"]')
+                  ),
               );
           still = moving ? 0 : still + 1;
           if (still === 2) {
