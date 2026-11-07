@@ -234,102 +234,93 @@ func parseResponse(c *ix, r *port.IndexerResponse) ([]port.TorrentInfo, error) {
 			continue
 		}
 
-		release, err := parseRow(c, row, qTitleLink, headerColumns, sizeIndex, filesIndex)
+		title := cleanTitle(qTitleLink.TextContent())
+		details := c.URL(qTitleLink.GetAttribute("href"))
+
+		qLink := row.QuerySelector(`a[href^="/download.php/"]`)
+		link := c.URL(qLink.GetAttribute("href"))
+
+		descrSplit := strings.Split(row.QuerySelector("div.sub").TextContent(), "|")
+		dateSplit := strings.Split(descrSplit[len(descrSplit)-1], " by ")
+		publishDate, err := datetimeutil.FromTimeAgo(dateSplit[0], c.Clock)
 		if err != nil {
 			return nil, err
+		}
+		// SlipStream: a Release has no description, so the tags before
+		// the first "|" aren't kept.
+
+		catIcon := row.QuerySelector(`td:nth-of-type(1) a[href^="?"]`)
+		if catIcon == nil {
+			// SlipStream: reworded per WRITING.md. The C# asks the Admin
+			// to change the same setting.
+			return nil, port.IndexerError(`the IPTorrents setting "Torrents - Category column" isn't Icons, and SlipStream reads categories only from the icons`)
+		}
+
+		cat := c.Categories.FromTracker(strings.TrimPrefix(catIcon.GetAttribute("href"), "?"))
+
+		children := row.Children()
+		size, err := parseutil.GetBytes(children[sizeIndex].TextContent())
+		if err != nil {
+			return nil, err
+		}
+
+		var files int
+
+		if filesIndex != -1 {
+			if files, err = parseutil.CoerceInt(strings.ReplaceAll(children[filesIndex].TextContent(), "Go to files", "")); err != nil {
+				return nil, err
+			}
+		}
+
+		colIndex := 6
+		if len(children) == 10 {
+			colIndex = 7
+		}
+
+		grabsIndex := findColumnIndexOrDefault(headerColumns, "Sort by snatches", colIndex)
+		seedersIndex := findColumnIndexOrDefault(headerColumns, "Sort by seeders", colIndex+1)
+		leechersIndex := findColumnIndexOrDefault(headerColumns, "Sort by leechers", colIndex+2)
+
+		grabs, err := parseutil.CoerceInt(children[grabsIndex].TextContent())
+		if err != nil {
+			return nil, err
+		}
+		seeders, err := parseutil.CoerceInt(children[seedersIndex].TextContent())
+		if err != nil {
+			return nil, err
+		}
+		leechers, err := parseutil.CoerceInt(children[leechersIndex].TextContent())
+		if err != nil {
+			return nil, err
+		}
+
+		downloadVolumeFactor := 1.0
+		if row.QuerySelector("span.free") != nil {
+			downloadVolumeFactor = 0
+		}
+
+		release := port.TorrentInfo{
+			GUID:                 details.String(),
+			DownloadURL:          link.String(),
+			InfoURL:              details.String(),
+			Title:                title,
+			Categories:           cat,
+			Size:                 size,
+			Files:                files,
+			Grabs:                grabs,
+			Seeders:              seeders,
+			Peers:                seeders + leechers,
+			PublishDate:          publishDate,
+			DownloadVolumeFactor: downloadVolumeFactor,
+			UploadVolumeFactor:   1,
+			MinimumRatio:         1,
+			MinimumSeedTime:      1209600,
 		}
 
 		torrentInfos = append(torrentInfos, release)
 	}
 
 	return torrentInfos, nil
-}
-
-// SlipStream: the loop body is its own function, so the parser stays
-// under the gocognit limit.
-func parseRow(c *ix, row, qTitleLink *dom.Node, headerColumns []string, sizeIndex, filesIndex int) (port.TorrentInfo, error) {
-	title := cleanTitle(qTitleLink.TextContent())
-	details := c.URL(qTitleLink.GetAttribute("href"))
-
-	qLink := row.QuerySelector(`a[href^="/download.php/"]`)
-	link := c.URL(qLink.GetAttribute("href"))
-
-	descrSplit := strings.Split(row.QuerySelector("div.sub").TextContent(), "|")
-	dateSplit := strings.Split(descrSplit[len(descrSplit)-1], " by ")
-	publishDate, err := datetimeutil.FromTimeAgo(dateSplit[0], c.Clock)
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	// SlipStream: a Release has no description, so the tags before
-	// the first "|" aren't kept.
-
-	catIcon := row.QuerySelector(`td:nth-of-type(1) a[href^="?"]`)
-	if catIcon == nil {
-		// SlipStream: reworded per WRITING.md. The C# asks the Admin
-		// to change the same setting.
-		return port.TorrentInfo{}, port.IndexerError(`the IPTorrents setting "Torrents - Category column" isn't Icons, and SlipStream reads categories only from the icons`)
-	}
-
-	cat := c.Categories.FromTracker(strings.TrimPrefix(catIcon.GetAttribute("href"), "?"))
-
-	children := row.Children()
-	size, err := parseutil.GetBytes(children[sizeIndex].TextContent())
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-
-	var files int
-
-	if filesIndex != -1 {
-		if files, err = parseutil.CoerceInt(strings.ReplaceAll(children[filesIndex].TextContent(), "Go to files", "")); err != nil {
-			return port.TorrentInfo{}, err
-		}
-	}
-
-	colIndex := 6
-	if len(children) == 10 {
-		colIndex = 7
-	}
-
-	grabsIndex := findColumnIndexOrDefault(headerColumns, "Sort by snatches", colIndex)
-	seedersIndex := findColumnIndexOrDefault(headerColumns, "Sort by seeders", colIndex+1)
-	leechersIndex := findColumnIndexOrDefault(headerColumns, "Sort by leechers", colIndex+2)
-
-	grabs, err := parseutil.CoerceInt(children[grabsIndex].TextContent())
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	seeders, err := parseutil.CoerceInt(children[seedersIndex].TextContent())
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	leechers, err := parseutil.CoerceInt(children[leechersIndex].TextContent())
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-
-	downloadVolumeFactor := 1.0
-	if row.QuerySelector("span.free") != nil {
-		downloadVolumeFactor = 0
-	}
-
-	return port.TorrentInfo{
-		GUID:                 details.String(),
-		DownloadURL:          link.String(),
-		InfoURL:              details.String(),
-		Title:                title,
-		Categories:           cat,
-		Size:                 size,
-		Files:                files,
-		Grabs:                grabs,
-		Seeders:              seeders,
-		Peers:                seeders + leechers,
-		PublishDate:          publishDate,
-		DownloadVolumeFactor: downloadVolumeFactor,
-		UploadVolumeFactor:   1,
-		MinimumRatio:         1,
-		MinimumSeedTime:      1209600,
-	}, nil
 }
 
 func findColumnIndexOrDefault(columns []string, name string, defaultIndex int) int {

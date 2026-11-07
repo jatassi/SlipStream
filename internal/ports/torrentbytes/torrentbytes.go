@@ -146,9 +146,15 @@ func parseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.Torren
 	doc := dom.Parse(indexerResponse.Content)
 	rows := doc.QuerySelectorAll("table > tbody:has(tr > td.colhead) > tr:not(:has(td.colhead))")
 	for _, row := range rows {
-		release, err := parseRow(ix, row)
-		if err != nil {
-			return nil, err
+		var release port.TorrentInfo
+		link := row.QuerySelector("td:nth-of-type(2) a:nth-of-type(2)")
+		release.GUID = ix.BaseURL.String() + link.GetAttribute("href")
+		release.InfoURL = release.GUID
+		release.Title = link.GetAttribute("title")
+
+		// There isn't a title attribute if the release name isn't truncated.
+		if strings.TrimSpace(release.Title) == "" {
+			release.Title = strings.TrimSpace(link.FirstChild().TextContent())
 		}
 
 		// If we search an get no results, we still get a table just with no info.
@@ -156,73 +162,53 @@ func parseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.Torren
 			break
 		}
 
+		if qCat := row.QuerySelector("td:nth-of-type(1) a"); qCat != nil {
+			cat := qCat.GetAttribute("href")[15:]
+			release.Categories = ix.Categories.FromTracker(cat)
+		}
+
+		qLink := row.QuerySelector("td:nth-of-type(2) a")
+		release.DownloadURL = ix.BaseURL.String() + qLink.GetAttribute("href")
+
+		added := strings.TrimSpace(row.QuerySelector("td:nth-of-type(5)").TextContent())
+		publishDate, err := datetimeutil.ParseExact(added, "yyyy-MM-ddHH:mm:ss", datetimeutil.None, ix.Clock)
+		if err != nil {
+			return nil, err
+		}
+		release.PublishDate = publishDate
+
+		sizeStr := strings.TrimSpace(row.QuerySelector("td:nth-of-type(7)").TextContent())
+		if release.Size, err = parseutil.GetBytes(sizeStr); err != nil {
+			return nil, err
+		}
+		if release.Seeders, err = parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(9)").TextContent())); err != nil {
+			return nil, err
+		}
+		leechers, err := parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(10)").TextContent()))
+		if err != nil {
+			return nil, err
+		}
+		release.Peers = leechers + release.Seeders
+
+		files := row.QuerySelector("td:nth-child(3)").TextContent()
+		if release.Files, err = parseutil.CoerceInt(files); err != nil {
+			return nil, err
+		}
+
+		if grabs := row.QuerySelector("td:nth-child(8)").TextContent(); grabs != "----" {
+			if release.Grabs, err = parseutil.CoerceInt(grabs); err != nil {
+				return nil, err
+			}
+		}
+
+		release.DownloadVolumeFactor = 1
+		if row.QuerySelector(`font[color="green"]:contains("F"):contains("L")`) != nil {
+			release.DownloadVolumeFactor = 0
+		}
+		release.UploadVolumeFactor = 1
+
 		torrentInfos = append(torrentInfos, release)
 	}
 
 	return torrentInfos, nil
-}
-
-// parseRow is the body of ParseResponse's loop, up to an untitled row.
-func parseRow(ix *ix, row *dom.Node) (port.TorrentInfo, error) {
-	var release port.TorrentInfo
-	link := row.QuerySelector("td:nth-of-type(2) a:nth-of-type(2)")
-	release.GUID = ix.BaseURL.String() + link.GetAttribute("href")
-	release.InfoURL = release.GUID
-	release.Title = link.GetAttribute("title")
-
-	// There isn't a title attribute if the release name isn't truncated.
-	if strings.TrimSpace(release.Title) == "" {
-		release.Title = strings.TrimSpace(link.FirstChild().TextContent())
-	}
-
-	if strings.TrimSpace(release.Title) == "" {
-		return release, nil
-	}
-
-	if qCat := row.QuerySelector("td:nth-of-type(1) a"); qCat != nil {
-		cat := qCat.GetAttribute("href")[15:]
-		release.Categories = ix.Categories.FromTracker(cat)
-	}
-
-	qLink := row.QuerySelector("td:nth-of-type(2) a")
-	release.DownloadURL = ix.BaseURL.String() + qLink.GetAttribute("href")
-
-	added := strings.TrimSpace(row.QuerySelector("td:nth-of-type(5)").TextContent())
-	publishDate, err := datetimeutil.ParseExact(added, "yyyy-MM-ddHH:mm:ss", datetimeutil.None, ix.Clock)
-	if err != nil {
-		return release, err
-	}
-	release.PublishDate = publishDate
-
-	sizeStr := strings.TrimSpace(row.QuerySelector("td:nth-of-type(7)").TextContent())
-	if release.Size, err = parseutil.GetBytes(sizeStr); err != nil {
-		return release, err
-	}
-	if release.Seeders, err = parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(9)").TextContent())); err != nil {
-		return release, err
-	}
-	leechers, err := parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(10)").TextContent()))
-	if err != nil {
-		return release, err
-	}
-	release.Peers = leechers + release.Seeders
-
-	files := row.QuerySelector("td:nth-child(3)").TextContent()
-	if release.Files, err = parseutil.CoerceInt(files); err != nil {
-		return release, err
-	}
-
-	if grabs := row.QuerySelector("td:nth-child(8)").TextContent(); grabs != "----" {
-		if release.Grabs, err = parseutil.CoerceInt(grabs); err != nil {
-			return release, err
-		}
-	}
-
-	release.DownloadVolumeFactor = 1
-	if row.QuerySelector(`font[color="green"]:contains("F"):contains("L")`) != nil {
-		release.DownloadVolumeFactor = 0
-	}
-	release.UploadVolumeFactor = 1
-
-	return release, nil
 }

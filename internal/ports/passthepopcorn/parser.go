@@ -53,96 +53,85 @@ func parseResponse(ix *indexer, indexerResponse *port.IndexerResponse) ([]port.T
 
 	for _, result := range jsonResponse.Movies {
 		for _, torrent := range result.Torrents {
-			info, ok, err := torrentInfo(ix, result, torrent)
-			if err != nil {
-				return nil, err
+			var downloadVolumeFactor float64
+			switch strings.ToUpper(torrent.FreeleechType) {
+			case "FREELEECH", "NEUTRAL LEECH":
+				downloadVolumeFactor = 0
+			case "HALF LEECH":
+				downloadVolumeFactor = 0.5
+			default:
+				downloadVolumeFactor = 1
 			}
-			if ok {
-				torrentInfos = append(torrentInfos, info)
+
+			if ix.Settings.FreeleechOnly && downloadVolumeFactor != 0.0 {
+				continue
 			}
+
+			id := torrent.ID
+			title := torrent.ReleaseName
+
+			var flags []port.SiteFlag
+
+			if torrent.GoldenPopcorn {
+				flags = append(flags, port.Golden)
+			}
+
+			if torrent.Checked {
+				flags = append(flags, port.Approved)
+			}
+
+			// SlipStream: IndexerBase adds Scene from TorrentInfo.Scene, which the
+			// Go TorrentInfo doesn't have.
+			if torrent.Scene {
+				flags = append(flags, port.Scene)
+			}
+
+			var uploadVolumeFactor float64
+			switch strings.ToUpper(torrent.FreeleechType) {
+			case "NEUTRAL LEECH":
+				uploadVolumeFactor = 0
+			default:
+				uploadVolumeFactor = 1
+			}
+
+			var f fields
+			size := f.long("Size", torrent.Size)
+			grabs := f.int("Snatched", torrent.Snatched)
+			seeders := f.int("Seeders", torrent.Seeders)
+			leechers := f.int("Leechers", torrent.Leechers)
+			publishDate := f.date(ix, torrent.UploadTime)
+			var imdbID int
+			if strings.TrimSpace(result.ImdbID) != "" {
+				imdbID = f.int("ImdbId", result.ImdbID)
+			}
+			if f.err != nil {
+				return nil, port.IndexerError("read torrent %d of the Indexer's search response: %v", id, f.err)
+			}
+
+			// SlipStream: int.Parse is fields. TorrentInfo has no Year, Genres or
+			// PosterUrl, because a Release carries none of them.
+			torrentInfos = append(torrentInfos, port.TorrentInfo{
+				GUID:                 fmt.Sprintf("PassThePopcorn-%d", id),
+				Title:                title,
+				InfoURL:              getInfoURL(ix, result.GroupID, id),
+				DownloadURL:          getDownloadURL(ix, id),
+				Categories:           ix.Categories.FromTracker(result.CategoryID),
+				Size:                 size,
+				Grabs:                grabs,
+				Seeders:              seeders,
+				Peers:                leechers + seeders,
+				PublishDate:          publishDate,
+				ImdbID:               imdbID,
+				IndexerFlags:         flags,
+				DownloadVolumeFactor: downloadVolumeFactor,
+				UploadVolumeFactor:   uploadVolumeFactor,
+				MinimumRatio:         1,
+				MinimumSeedTime:      345600,
+			})
 		}
 	}
 
 	return torrentInfos, nil
-}
-
-// SlipStream: one torrent's TorrentInfo is its own function, and int.Parse
-// is fields. TorrentInfo has no Year, Genres or PosterUrl, because a
-// Release carries none of them.
-func torrentInfo(ix *indexer, result passThePopcornMovie, torrent passThePopcornTorrent) (port.TorrentInfo, bool, error) {
-	var downloadVolumeFactor float64
-	switch strings.ToUpper(torrent.FreeleechType) {
-	case "FREELEECH", "NEUTRAL LEECH":
-		downloadVolumeFactor = 0
-	case "HALF LEECH":
-		downloadVolumeFactor = 0.5
-	default:
-		downloadVolumeFactor = 1
-	}
-
-	if ix.Settings.FreeleechOnly && downloadVolumeFactor != 0.0 {
-		return port.TorrentInfo{}, false, nil
-	}
-
-	id := torrent.ID
-	title := torrent.ReleaseName
-
-	var flags []port.SiteFlag
-
-	if torrent.GoldenPopcorn {
-		flags = append(flags, port.Golden)
-	}
-
-	if torrent.Checked {
-		flags = append(flags, port.Approved)
-	}
-
-	// SlipStream: IndexerBase adds Scene from TorrentInfo.Scene, which the
-	// Go TorrentInfo doesn't have.
-	if torrent.Scene {
-		flags = append(flags, port.Scene)
-	}
-
-	var uploadVolumeFactor float64
-	switch strings.ToUpper(torrent.FreeleechType) {
-	case "NEUTRAL LEECH":
-		uploadVolumeFactor = 0
-	default:
-		uploadVolumeFactor = 1
-	}
-
-	var f fields
-	size := f.long("Size", torrent.Size)
-	grabs := f.int("Snatched", torrent.Snatched)
-	seeders := f.int("Seeders", torrent.Seeders)
-	leechers := f.int("Leechers", torrent.Leechers)
-	publishDate := f.date(ix, torrent.UploadTime)
-	var imdbID int
-	if strings.TrimSpace(result.ImdbID) != "" {
-		imdbID = f.int("ImdbId", result.ImdbID)
-	}
-	if f.err != nil {
-		return port.TorrentInfo{}, false, port.IndexerError("read torrent %d of the Indexer's search response: %v", id, f.err)
-	}
-
-	return port.TorrentInfo{
-		GUID:                 fmt.Sprintf("PassThePopcorn-%d", id),
-		Title:                title,
-		InfoURL:              getInfoURL(ix, result.GroupID, id),
-		DownloadURL:          getDownloadURL(ix, id),
-		Categories:           ix.Categories.FromTracker(result.CategoryID),
-		Size:                 size,
-		Grabs:                grabs,
-		Seeders:              seeders,
-		Peers:                leechers + seeders,
-		PublishDate:          publishDate,
-		ImdbID:               imdbID,
-		IndexerFlags:         flags,
-		DownloadVolumeFactor: downloadVolumeFactor,
-		UploadVolumeFactor:   uploadVolumeFactor,
-		MinimumRatio:         1,
-		MinimumSeedTime:      345600,
-	}, true, nil
 }
 
 func getDownloadURL(ix *indexer, torrentID int) string {

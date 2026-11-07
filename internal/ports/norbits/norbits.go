@@ -185,88 +185,78 @@ func ParseResponse(ix *port.Indexer[NorBitsSettings], indexerResponse *port.Inde
 	}
 
 	for _, row := range rows {
-		release, err := parseRow(ix, row)
+		link := ix.BaseURL.String() + strings.TrimLeft(row.QuerySelector(`td:nth-of-type(2) > a[href*="download.php?id="]`).GetAttribute("href"), "/")
+		qDetails := row.QuerySelector(`td:nth-of-type(2) > a[href*="details.php?id="]`)
+
+		title := strings.TrimSpace(qDetails.GetAttribute("title"))
+		details := ix.BaseURL.String() + strings.TrimLeft(qDetails.GetAttribute("href"), "/")
+
+		category := categoryOf(row)
+
+		seeders, err := parseutil.CoerceInt(row.QuerySelector("td:nth-of-type(9)").TextContent())
 		if err != nil {
 			return nil, err
 		}
+		leechers, err := parseutil.CoerceInt(row.QuerySelector("td:nth-of-type(10)").TextContent())
+		if err != nil {
+			return nil, err
+		}
+		size, err := parseutil.GetBytes(row.QuerySelector("td:nth-of-type(7)").TextContent())
+		if err != nil {
+			return nil, err
+		}
+		files, err := parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(3) > a").TextContent()))
+		if err != nil {
+			return nil, err
+		}
+		grabs, err := parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(8)").FirstChild().TextContent()))
+		if err != nil {
+			return nil, err
+		}
+		clock := datetimeutil.Clock{Now: ix.Clock.Now, Location: oslo}
+		publishDate, err := datetimeutil.ParseExact(strings.TrimSpace(row.QuerySelector("td:nth-of-type(5)").TextContent()), "yyyy-MM-ddHH:mm:ss", datetimeutil.None, clock)
+		if err != nil {
+			return nil, err
+		}
+
+		release := port.TorrentInfo{
+			GUID:                 details,
+			InfoURL:              details,
+			DownloadURL:          link,
+			Title:                title,
+			Categories:           ix.Categories.FromTracker(category),
+			Size:                 size,
+			Files:                files,
+			Grabs:                grabs,
+			Seeders:              seeders,
+			Peers:                seeders + leechers,
+			PublishDate:          publishDate,
+			DownloadVolumeFactor: 1,
+			UploadVolumeFactor:   1,
+			MinimumRatio:         1,
+			MinimumSeedTime:      172800, // 48 hours
+		}
+
+		// SlipStream: the genres in span.genres fill Description and Genres
+		// upstream, which a Release doesn't carry.
+
+		if imdbID, ok := parseutil.GetImdbID(lastSegment(row.QuerySelector(`a[href*="imdb.com/title/tt"]`).GetAttribute("href"))); ok {
+			release.ImdbID = imdbID
+		}
+
+		switch {
+		case row.QuerySelector(`img[title="100% freeleech"]`) != nil:
+			release.DownloadVolumeFactor = 0
+		case row.QuerySelector(`img[title="Halfleech"]`) != nil:
+			release.DownloadVolumeFactor = 0.5
+		case row.QuerySelector(`img[title="90% Freeleech"]`) != nil:
+			release.DownloadVolumeFactor = 0.1
+		}
+
 		releaseInfos = append(releaseInfos, release)
 	}
 
 	return releaseInfos, nil
-}
-
-// SlipStream: parseRow and categoryOf are the C# loop's body, split out
-// because gocognit caps a function's complexity at 20.
-func parseRow(ix *port.Indexer[NorBitsSettings], row *dom.Node) (port.TorrentInfo, error) {
-	link := ix.BaseURL.String() + strings.TrimLeft(row.QuerySelector(`td:nth-of-type(2) > a[href*="download.php?id="]`).GetAttribute("href"), "/")
-	qDetails := row.QuerySelector(`td:nth-of-type(2) > a[href*="details.php?id="]`)
-
-	title := strings.TrimSpace(qDetails.GetAttribute("title"))
-	details := ix.BaseURL.String() + strings.TrimLeft(qDetails.GetAttribute("href"), "/")
-
-	category := categoryOf(row)
-
-	seeders, err := parseutil.CoerceInt(row.QuerySelector("td:nth-of-type(9)").TextContent())
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	leechers, err := parseutil.CoerceInt(row.QuerySelector("td:nth-of-type(10)").TextContent())
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	size, err := parseutil.GetBytes(row.QuerySelector("td:nth-of-type(7)").TextContent())
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	files, err := parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(3) > a").TextContent()))
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	grabs, err := parseutil.CoerceInt(strings.TrimSpace(row.QuerySelector("td:nth-of-type(8)").FirstChild().TextContent()))
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-	clock := datetimeutil.Clock{Now: ix.Clock.Now, Location: oslo}
-	publishDate, err := datetimeutil.ParseExact(strings.TrimSpace(row.QuerySelector("td:nth-of-type(5)").TextContent()), "yyyy-MM-ddHH:mm:ss", datetimeutil.None, clock)
-	if err != nil {
-		return port.TorrentInfo{}, err
-	}
-
-	release := port.TorrentInfo{
-		GUID:                 details,
-		InfoURL:              details,
-		DownloadURL:          link,
-		Title:                title,
-		Categories:           ix.Categories.FromTracker(category),
-		Size:                 size,
-		Files:                files,
-		Grabs:                grabs,
-		Seeders:              seeders,
-		Peers:                seeders + leechers,
-		PublishDate:          publishDate,
-		DownloadVolumeFactor: 1,
-		UploadVolumeFactor:   1,
-		MinimumRatio:         1,
-		MinimumSeedTime:      172800, // 48 hours
-	}
-
-	// SlipStream: the genres in span.genres fill Description and Genres
-	// upstream, which a Release doesn't carry.
-
-	if imdbID, ok := parseutil.GetImdbID(lastSegment(row.QuerySelector(`a[href*="imdb.com/title/tt"]`).GetAttribute("href"))); ok {
-		release.ImdbID = imdbID
-	}
-
-	switch {
-	case row.QuerySelector(`img[title="100% freeleech"]`) != nil:
-		release.DownloadVolumeFactor = 0
-	case row.QuerySelector(`img[title="Halfleech"]`) != nil:
-		release.DownloadVolumeFactor = 0.5
-	case row.QuerySelector(`img[title="90% Freeleech"]`) != nil:
-		release.DownloadVolumeFactor = 0.1
-	}
-
-	return release, nil
 }
 
 // categoryOf is the main_cat[]= pair of the category link's query.
