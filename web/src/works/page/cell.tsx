@@ -7,7 +7,7 @@ import { CellFacts } from "./cell-facts";
 import type { CellView, MatrixShown } from "./matrix-model";
 
 // The latest Grab for the cell: the one its state reads from.
-function grabOf(grabs: readonly GrabsGrab[], cell: FilesCell): GrabsGrab | undefined {
+export function grabOf(grabs: readonly GrabsGrab[], cell: FilesCell): GrabsGrab | undefined {
   return grabs
     .filter(
       (grab) =>
