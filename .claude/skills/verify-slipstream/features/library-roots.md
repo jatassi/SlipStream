@@ -4,7 +4,7 @@ An Admin keeps every place SlipStream stores files in Settings > Library roots. 
 
 ## Sub-features
 
-- `roots-section` `/settings/library-roots` groups roots by Content Type: `Series` reads `Add a library root to hold Series.` with `Add a root for Series`, and under `Movies` each row reads its folder, `Default` on the default, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
+- `roots-section` `/settings/library-roots` groups roots by Content Type: `TV` reads `Add a library root to hold Series.` with `Add a root for TV`, and under `Movies` each row reads its folder, `Default` on the default, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
 - `roots-add-browser` `Add a library root` on seedbox, once it holds Storage, opens `Choose a folder on seedbox`, read by seedbox. Its data folder reads `Can't use this folder because it's inside SlipStream's data folder.` with `Use seedbox` disabled; a typed path goes there, `New folder` makes `worker-movies` and opens it, the footer reads `This folder is on /, <size> free.`, and `Use worker-movies` fills the dialog's `Folder`. With `Make this the default for Movies` ticked, `Add` toasts `Added <path>. New Movies go there.` (P-027, P-021, P-022).
 - `roots-import-worker` The Quiet Orchard, added and searched with the seedbox root as the default, downloads on seedbox and imports there with no Transfer: its Grab's history runs fetching, downloading, probing, importing, imported, and the placed file under `worker-movies` matches the release with 2 links, a hard link to seedbox's download.
 - `roots-move-works` `PUT /api/v1/works/root` moves each Work without files into another root of its Content Type in one Write and answers one outcome per Work, in request order. The Quiet Orchard, whose file sits in `worker-movies`, answers `skipped` with `work_has_files` and stays, and an id no Work has answers `failed` with `work_not_found`.
@@ -31,7 +31,7 @@ Preconditions:
 
 Steps:
 
-- **The section.** Open `/settings/library-roots`. `Movies roots` lists `{mediaDir}/movies` on home with `Default` and `0 Movies, 0 bytes`, and `Series` asks for its first root.
+- **The section.** Open `/settings/library-roots`. `Movies roots` lists `{mediaDir}/movies` on home with `Default` and `0 Movies, 0 bytes`, and `TV` asks for its first root.
 
   ```sh
   $FW exec $RUN -- $PW cli $S tracing-start

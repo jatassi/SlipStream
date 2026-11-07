@@ -1,6 +1,6 @@
 # Metadata providers
 
-Each metadata provider, TMDB, TVDB and OMDb, says how it stands in one plain sentence, whose key it is called with (SlipStream's, the Admin's, or none in this build) and, under Details, its last success, its last error and which Nodes reached it. An Admin can set their own key, and for TVDB a subscriber PIN beside it, which a holder tests before they are sealed and kept, remove it to go back to SlipStream's, and test a provider on demand. Settings > Metadata leads with a Providers block that does all of this, links to each provider's key page and shows TMDB's required attribution with TMDB's logo.
+Each metadata provider, TMDB, TVDB and OMDb, says how it stands in one plain sentence, whose key it is called with (SlipStream's, the Admin's, or none in this build) and, under Details, its last success, its last error and which Nodes reached it. An Admin can set their own key, and for TVDB a subscriber PIN beside it, which a holder tests before they are sealed and kept, remove it to go back to SlipStream's, and test a provider on demand. Settings > Metadata leads with a Providers block that does all of this, links to each provider's key page and shows TMDB's required attribution with TMDB's logo. [tvdb.md](tvdb.md) drives TVDB's card, its PIN and its token in the browser on `series`.
 
 ## Sub-features
 

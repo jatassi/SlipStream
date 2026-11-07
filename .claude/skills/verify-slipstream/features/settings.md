@@ -8,6 +8,7 @@ Settings holds the Controller-wide settings an Admin tunes. Address is the origi
 - `settings-email` Settings > Email reads `Every email SlipStream sends goes through <host>.` over the fields `Server`, `Port`, `Security`, `Username`, `Password`, `From address` and `From name`, keeps the password write-only and saves with `Saved the email settings`.
 - `settings-email-test` `Send a test email` reads `Sent a test email to ada@example.test.` and the `mail` capture holds it; under `smtp-reject` it reads `The test email failed: 550 5.1.1 Mailbox unavailable`.
 - `settings-sign-in` Settings > Sign-in groups its settings under `Wrong PINs`, `Failed attempts from one address`, `Sessions and re-confirm` and `Link lifetimes`, saves one and refuses a value outside its bounds on the field, as `Between 3 and 9 wrong PINs.` while the PIN turns off after 10 (P-238).
+- `settings-tv` on `series`, Settings > Content Types' TV row holds TV's add defaults (Profile, root, `Episodes to monitor`, `Include specials`, `Season folders`), then `Delay after an air date`, 0 days by default and at most 30, then Refresh all; the add sheet's Remember writes the same values.
 
 ## How to get to it (user POV)
 

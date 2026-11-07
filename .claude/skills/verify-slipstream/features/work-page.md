@@ -13,6 +13,7 @@ One Work on one scroll. The hero sets the Work's backdrop behind its poster, its
 - `work-edit` `Edit…` opens `Edit <title>` with `Profile` and `Library root`; a new Profile saves through the Impact `Give <title> the Profile <name>` and toasts `Changed the Profile of <title>.` (P-047).
 - `work-refresh` `Refresh metadata` toasts `Refreshed the metadata of <title>.` and the page shows the new record; once TMDB drops the Work it toasts `TMDB no longer lists <title>, so it wasn't refreshed.`, the hero reads `Gone from TMDB`, `Refresh metadata is unavailable` and `TMDB no longer lists this movie. SlipStream keeps it as it is.` with `Delete`, the record stays, and `Refresh metadata` in the menu is disabled (P-047).
 - `work-delete` `Delete…`, or the gone-upstream warning's `Delete`, opens `Delete <title>?`; deleting toasts once, `Deleted <title> and its files.`, or `Deleted <title>.` for a Work with no files, and the page goes back to its Library. A Work deleted elsewhere while its page is open toasts `<title> was deleted.` and leaves the same way (P-047).
+- `work-page-many-items` a Work of a Content Type with many Items shows its levels and Items between Needs you and Files in place of the Edition by Target matrix, and its hero's Monitored switch becomes a Monitoring button; [series-work-page.md](series-work-page.md) and [series-monitoring.md](series-monitoring.md) drive them on `series`.
 
 ## How to get to it (user POV)
 

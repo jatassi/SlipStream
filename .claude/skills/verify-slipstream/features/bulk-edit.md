@@ -11,6 +11,7 @@ An Admin picks Works in the Library, by each poster's or row's checkbox, by a cl
 - `bulk-root` `Set library root…` moves the picks without files, and a Work with files stays, as the dialog and the toast say: `The Quiet Orchard has files, so it stays in its library root. Moving a Work that has files isn't supported yet.`
 - `bulk-refresh` `Refresh metadata` refreshes every pick and toasts per Work (P-038).
 - `bulk-delete` `Delete…` deletes with the files by default, `Deleted …, with their files.` (`with its file` for one), the files leaving the disk; `Leave files on disk` answers `Deleted …. Their files stay on disk.`; Works with no files say `… have no files.`, offer no file choice and answer `Deleted ….`, and the Library empties without a reload (P-039, P-242).
+- `bulk-set-monitoring` with series picked, `Set monitoring…` opens the Monitoring dialog over every pick, previews how many episodes start and stop being monitored across them, and applies the preset to each; it shows only while the picks are of one Content Type with many Items (P-051).
 
 ## How to get to it (user POV)
 
