@@ -33,7 +33,7 @@ export type Row =
 export function levelRows(levels: readonly LevelView[], isOpen: (level: LevelView) => boolean) {
   const rows: Row[] = [];
   for (const level of levels) {
-    const { id } = level.level;
+    const { id } = level;
     const open = isOpen(level);
     rows.push({ kind: "header", key: `${id} header`, level, open });
     if (!open) {

@@ -11,7 +11,7 @@ import { CellDetail, type PoppedCell, cellLabel } from "./cell-detail";
 import { ItemDetails } from "./item-details";
 // oxlint-disable-next-line import/max-dependencies -- the section composes its rows, cell popover, Item Details and phone sheet
 import { ItemSheet } from "./item-sheet";
-import { type LevelView, levelContext, levelsOf, viewOf } from "./model";
+import { type ItemView, type LevelView, levelContext, levelsOf } from "./model";
 import { levelRows } from "./rows";
 import { useMonitorParts } from "./use-monitored";
 import { type Drawn, VirtualLevels } from "./virtual-levels";
@@ -34,7 +34,7 @@ function useLevels(type: WorksContentType, work: WorksWorkView, reads: WorkReads
   const [firstShown] = useState(() => new Map<string, boolean>());
   const rows = useMemo(
     () =>
-      levelRows(levels, ({ level: { id }, opens }) => {
+      levelRows(levels, ({ id, opens }) => {
         const shown = opened.get(id) ?? firstShown.get(id);
         if (shown !== undefined) {
           return shown;
@@ -46,13 +46,33 @@ function useLevels(type: WorksContentType, work: WorksWorkView, reads: WorkReads
   );
   const toggle = (level: LevelView) => {
     setOpened((prev) => {
-      const { id } = level.level;
+      const { id } = level;
       const next = new Map(prev).set(id, !(prev.get(id) ?? firstShown.get(id) ?? level.opens));
       openedByWork.set(work.id, next);
       return next;
     });
   };
   return { context, levels, rows, toggle };
+}
+
+/** An Item's view and its level's, by the Item's id. */
+function viewOf(
+  levels: readonly LevelView[],
+  itemId: string,
+): { view: ItemView; level: LevelView } | undefined {
+  for (const level of levels) {
+    const views = [
+      ...level.entries.flatMap((entry) =>
+        entry.kind === "item" ? [entry.item] : entry.fold.items,
+      ),
+      ...level.gone,
+    ];
+    const view = views.find(({ item }) => item.id === itemId);
+    if (view !== undefined) {
+      return { view, level };
+    }
+  }
+  return undefined;
 }
 
 type Picked = { readonly id: string; readonly as: "details" | "sheet" };
@@ -78,10 +98,10 @@ function useActions(type: WorksContentType, workId: string, toggle: (level: Leve
   const headerActions: Drawn["headerActions"] = {
     toggle,
     monitor: (level, on) => {
-      monitor({ levelIds: [level.level.id], itemIds: [], on });
+      monitor({ levelIds: [level.id], itemIds: [], on });
     },
     search: (level) => {
-      search.start(workId, { levelIds: [level.level.id], itemIds: [] });
+      search.start(workId, { levelIds: [level.id], itemIds: [] });
     },
   };
   // The sheet's Details closes the sheet after it opens Details, so each closes only itself.

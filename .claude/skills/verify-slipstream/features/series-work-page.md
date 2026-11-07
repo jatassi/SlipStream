@@ -1,6 +1,6 @@
 # Series Work page
 
-A series' Work page shows the series' facts in the hero, then one collapsible section per season in order with Specials last. Each season's header has its name, a state bar, a tally and a Monitor switch, and a season with anything wanted and not met opens. Each episode is a row with its code, title, air date, its cells its own Monitor switch and a Search, and each season's header has a Search too. The hero's Search searches every wanted episode, a season's its wanted episodes and an episode's that episode, one Torznab `tvsearch` by TVDB id, season and episode each. Unmonitored episodes read `Not monitored`, a run of announced episodes folds into one line, and an episode TVDB drops leaves its season. On a phone each row opens a sheet with the episode's cells and actions. When TVDB's order stops listing an episode that holds a file, its season trails the list reading `No longer listed by TVDB` and keeps the episode.
+A series' Work page shows the series' facts in the hero, then one collapsible section per season in order with Specials last. Each season's header has its name, a state bar, a tally and a Monitor switch, and a season with anything wanted and not met opens. Each episode is a row with its code, title, air date, its cells its own Monitor switch and a Search, and each season's header has a Search too. The hero's Search searches every wanted episode, a season's its wanted episodes and an episode's that episode, one Torznab `tvsearch` by TVDB id, season and episode each. Unmonitored episodes read `Not monitored`, a run of announced episodes folds into one line, and an episode TVDB drops leaves its season. On a phone each row opens a sheet with the episode's cells and actions. When TVDB's order stops listing an episode that holds a file along with its season, the episode trails the list in one section named `No longer listed by TVDB`, whose header counts the episodes it holds.
 
 ## Sub-features
 
@@ -12,7 +12,7 @@ A series' Work page shows the series' facts in the hero, then one collapsible se
 - `series-work-search` with First season, the hero's `Search` toasts `Searching 3 episodes`, `Searches` reads `Grabbed a Release` twice, for S01E01 and S01E03, and `searches` records three `tvsearch` searches with `tvdbid` 1001, `season` 1 and `ep` 1, 2 and 3 (P-050).
 - `series-level-search` with only S02E01 of Season 2 monitored, `Search Season 2` toasts `Searching 1 episode` and searches `season` 2 `ep` 1 alone (P-050).
 - `series-episode-search` with S00E02 monitored, `Search S00E02` toasts `Searching 1 episode`, sends `season` 0 and `ep` 2, and A Winter Light imports (P-050).
-- `series-withdrawn-file` after the order changes to DVD, which doesn't list A Winter Light, a second `Specials` heading trails the list reading `No longer listed by TVDB` and holds S00E02 with its file (P-050).
+- `series-withdrawn-file` after the order changes to DVD, which doesn't list A Winter Light, the last heading is `No longer listed by TVDB` with `1 episode` and a `1 Met` bar, after one `Specials`, and holds S00E02 with its file (P-050).
 - `series-phone` on the phone shell a row is one button, and `S01E01` opens the sheet `S01E01 First Flame` with its `Cells`, a `Monitor` switch, `Search` and `Details`.
 
 ## How to get to it (user POV)
@@ -90,7 +90,7 @@ Steps:
   $FW exec $RUN --proof series-work-page/series-episode-search -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/cells"
   $FW exec $RUN --proof series-work-page/series-withdrawn-file -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"type":{"order":"dvd"},"preview":false}' "{nodes.home.url}/api/v1/works/$WORK/options"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const b = page.getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Specials", exact: true }).last(); for (let i = 0; i < 30 && await b.count() === 0; i++) await page.mouse.wheel(0, 400); await b.scrollIntoViewIfNeeded(); if (await b.getAttribute("aria-expanded") !== "true") await b.click(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const b = page.getByRole("region", { name: "Seasons" }).getByRole("button", { name: "No longer listed by TVDB", exact: true }); for (let i = 0; i < 30 && await b.count() === 0; i++) await page.mouse.wheel(0, 400); await b.scrollIntoViewIfNeeded(); if (await b.getAttribute("aria-expanded") !== "true") await b.click(); }'
   $FW exec $RUN --proof series-work-page/series-withdrawn-file -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-withdrawn-file/page.aria.yml
   $FW exec $RUN --proof series-work-page/series-withdrawn-file -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/series-work-page/series-withdrawn-file/page.png
   ```

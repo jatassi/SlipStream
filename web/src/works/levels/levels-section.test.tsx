@@ -98,7 +98,7 @@ test("a level's header shows its bar and tally, and Items nobody monitors read N
   await expect.element(levels()).toMatchTextContent(/X02Story X02Not monitored/u);
 });
 
-test("a withdrawn Item with a file stays at the end of its level, and its withdrawn level trails the rest", async () => {
+test("a withdrawn Item with a file stays at the end of its level, and Items withdrawn with their level trail under a header that counts them", async () => {
   const [gone] = longShelf.items;
   const volumeTwo = longShelf.levels[1];
   const work: WorksWorkView = {
@@ -126,12 +126,12 @@ test("a withdrawn Item with a file stays at the end of its level, and its withdr
     );
   expect(levels().getByRole("switch", { name: "Monitor V01S01" }).elements()).toHaveLength(0);
   const trailing = levels().getByRole("heading", {
-    name: "Volume 2 No cells No longer listed by Fixture source",
+    name: "No longer listed by Fixture source 49 Met 49 stories",
   });
   await scrollTo(trailing);
   await expect
     .element(levels())
-    .toMatchTextContent(/Not monitoredVolume 2No longer listed by Fixture source$/u);
+    .toMatchTextContent(/Not monitoredNo longer listed by Fixture source49 stories$/u);
 });
 
 test("a level's and an Item's Monitor switch send their ids and read back what the server took", async () => {

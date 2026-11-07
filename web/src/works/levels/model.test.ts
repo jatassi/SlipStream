@@ -35,7 +35,7 @@ const stateOf = (item: WorksItem): FilesState => {
 };
 
 const named = (levels: readonly LevelView[], label: string) => {
-  const level = levels.find((view) => view.level.label === label);
+  const level = levels.find((view) => view.name === label);
   if (level === undefined) {
     throw new Error(`no level ${label}`);
   }
@@ -59,7 +59,7 @@ test("levels run in tree order with the aside level last, and nobody monitoring 
     longShelf,
     shelfCells(longShelf, () => "missing"),
   );
-  expect(levels.map((view) => view.level.label)).toEqual([
+  expect(levels.map((view) => view.name)).toEqual([
     ...Array.from({ length: 24 }, (_, i) => `Volume ${i + 1}`),
     "Extras",
   ]);
@@ -144,26 +144,37 @@ test("a cut nobody in a level has been seen in is a narrow column there, and one
   expect(named(levels, "Volume 2").columns[0]?.seen).toBe(false);
 });
 
-test("a withdrawn Item with a file sits after its level's live Items, and a withdrawn level with one trails the rest", () => {
+const withdrawnLevel = (index: number) => index === 1 || index === 2;
+
+test("a withdrawn Item with a file sits after its level's live Items, and Items withdrawn with their levels trail in one section that counts them", () => {
   const [gone, plain] = longShelf.items.filter((item) => volumeOf(item) === 0);
   const work: WorksWorkView = {
     ...longShelf,
     levels: longShelf.levels.map((level, index) =>
-      index === 1 ? { ...level, withdrawnAt: "2026-10-01T00:00:00Z" } : level,
+      withdrawnLevel(index) ? { ...level, withdrawnAt: "2026-10-01T00:00:00Z" } : level,
     ),
     items: longShelf.items.map((item) =>
-      item === gone || item === plain || volumeOf(item) === 1
+      item === gone || item === plain || withdrawnLevel(volumeOf(item))
         ? { ...item, withdrawnAt: "2026-10-01T00:00:00Z" }
         : item,
     ),
   };
-  const cells = shelfCells(work, (item) => (item.id === plain?.id ? "missing" : "met"));
+  const cells = shelfCells(work, (item) => {
+    if (item.id === plain?.id || volumeOf(item) === 2) {
+      return item.position === 1 ? "met" : "missing";
+    }
+    return "met";
+  });
   const levels = levelsOf(context(), work, cells);
   const first = named(levels, "Volume 1");
   expect(first.gone.map((view) => view.item.id)).toEqual([gone?.id]);
   expect(first.entries).toHaveLength(storiesPerVolume - 2);
-  expect(levels.at(-1)?.level.label).toBe("Volume 2");
-  expect(levels.at(-1)?.tally).toBeNull();
+  expect(levels.filter(({ withdrawn }) => withdrawn)).toHaveLength(1);
+  const trailing = levels.at(-1);
+  expect(trailing?.name).toBe("No longer listed by Fixture source");
+  expect(trailing?.gone).toHaveLength(storiesPerVolume + 1);
+  expect(trailing?.counts).toEqual({ met: storiesPerVolume + 1 });
+  expect(levels.map(({ name }) => name)).not.toContain("Volume 2");
 });
 
 test("a level shows its level-tier poster", () => {
@@ -224,7 +235,7 @@ test("a music-like type's levels and folds read by its own nouns and codes", () 
     item.position >= 3 && item.position <= 7 ? "unreleased" : "met",
   );
   const [level] = levelsOf(context(records), album, cells);
-  expect(level?.level.label).toBe("Disc 1");
+  expect(level?.name).toBe("Disc 1");
   expect(
     level?.entries.map((entry) => (entry.kind === "item" ? entry.item.code : entry.fold.words)),
   ).toEqual(["1", "2", "Tracks 3 to 7 come out March 1", "8", "9", "10"]);

@@ -48,7 +48,7 @@ function RowView({ row, first, drawn }: { row: Row; first: boolean; drawn: Drawn
           first={first}
           phone={phone}
           targets={context.targets}
-          source={source}
+          item={context.type.item}
           actions={headerActions}
         />
       );

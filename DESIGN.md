@@ -680,7 +680,7 @@ Hovering or focusing a square opens a Popover with its detail, and clicking pins
 - **Cell popover:** A page holds one detail Popover for all its squares, anchored to the square that is hovered, focused or pinned. Hover or focus opens it after 120ms, and once it is open it moves to the next square at once. It hides 160ms after the pointer leaves, unless the pointer moves into it. A click pins it and moves focus into it. A second click on the same square, a press outside or Esc closes it, and Esc returns focus to the square. Rows never mount a Popover of their own.
 - **Many-Items row:** 36px. The `code` field, the label, the availability date, the squares grouped by Edition with Targets in Profile order, then the row switch, Search and "…" for the Item's Details.
 - **Quiet row:** An Item nobody monitors reads "Not monitored" in `ink-3`, and its squares dim.
-- **No longer listed row:** An Item its source withdrew that still has files sits at the end of its level, reading "No longer listed by" and the Work's source ("No longer listed by TVDB"). A withdrawn Item without files doesn't show.
+- **No longer listed row:** An Item its source withdrew that still has files sits at the end of its level, reading "No longer listed by" and the Work's source ("No longer listed by TVDB"). A withdrawn Item without files doesn't show. Items whose level was withdrawn too, as when the episode order changes, trail every level in one section named the same way, whose header has no switch or Search, a state bar of the cells it holds and a count of its Items ("1 episode").
 
 ### Inspector
 

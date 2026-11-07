@@ -56,10 +56,14 @@ export type ItemView = {
 export type Tally = { readonly met: number; readonly of: number };
 
 export type LevelView = {
-  readonly level: WorksLevel;
+  /** The level's id, or the trailing section's. */
+  readonly id: string;
+  readonly name: string;
+  /** The trailing section of the Items whose levels their source no longer lists. */
+  readonly withdrawn: boolean;
   readonly poster: string | undefined;
   readonly columns: readonly Column[];
-  /** Cells of the Items that count, by state. */
+  /** Cells of the Items that count by state, or the withdrawn section's cells. */
   readonly counts: FilesStateCounts;
   /** Items that count and are met, of those that count; null while none counts. */
   readonly tally: Tally | null;
@@ -188,9 +192,14 @@ const tallyOf = (counting: readonly WorksItem[], read: Read): Tally | null =>
         of: counting.length,
       };
 
-function levelView(
+type Section = Pick<LevelView, "id" | "name" | "withdrawn" | "poster">;
+
+const withdrawnId = "withdrawn";
+
+function sectionView(
   context: LevelContext,
-  level: WorksLevel,
+  anchor: WorksLevel,
+  section: Section,
   items: readonly WorksItem[],
   read: Read,
 ): LevelView | undefined {
@@ -207,7 +216,7 @@ function levelView(
     context,
     ...shown.flatMap((item) => [item, read.statuses.get(item.id), ...cellsOf(item)]),
   ];
-  const known = levelViews.get(level);
+  const known = levelViews.get(anchor);
   if (known !== undefined && sameInputs(known.inputs, inputs)) {
     return known.view;
   }
@@ -221,55 +230,22 @@ function levelView(
   const counting = live.filter(({ monitored }) => monitored);
   const counted = counting.flatMap((item) => cellsOf(item));
   const view: LevelView = {
-    level,
-    poster: posterOf(context.type, level),
+    ...section,
     columns,
-    counts: countsOf(counted),
+    counts: countsOf(section.withdrawn ? gone.flatMap((item) => cellsOf(item)) : counted),
     tally: tallyOf(counting, read),
     monitor: monitorOf(live),
     opens: counted.some(({ state }) => !settled(state)),
     entries: foldsOf(context.type, views(live)),
     gone: views(gone),
   };
-  levelViews.set(level, { inputs, view });
+  levelViews.set(anchor, { inputs, view });
   return view;
 }
 
-/** An Item's view and its level's, by the Item's id. */
-export function viewOf(
-  levels: readonly LevelView[],
-  itemId: string,
-): { view: ItemView; level: LevelView } | undefined {
-  for (const level of levels) {
-    const views = [
-      ...level.entries.flatMap((entry) =>
-        entry.kind === "item" ? [entry.item] : entry.fold.items,
-      ),
-      ...level.gone,
-    ];
-    const view = views.find(({ item }) => item.id === itemId);
-    if (view !== undefined) {
-      return { view, level };
-    }
-  }
-  return undefined;
-}
-
-const sectionRank = (level: WorksLevel) => (level.withdrawnAt === null ? (level.aside ? 1 : 0) : 2);
-
-/**
- * The Work's levels as sections in tree order, asides after the main run and
- * withdrawn levels that still hold files last. An unchanged level keeps its
- * view from the previous call.
- */
-export function levelsOf(
-  context: LevelContext,
-  work: Pick<WorksWorkView, "levels" | "items">,
-  cells: FilesCellList,
-): LevelView[] {
-  const read = readOf(cells);
+function byLevelOf(items: readonly WorksItem[]): Map<string, WorksItem[]> {
   const byLevel = new Map<string, WorksItem[]>();
-  for (const item of work.items) {
+  for (const item of items) {
     if (item.levelId === null) {
       continue;
     }
@@ -280,8 +256,43 @@ export function levelsOf(
       held.push(item);
     }
   }
-  return work.levels
-    .filter(({ id }) => byLevel.has(id))
-    .toSorted((a, b) => sectionRank(a) - sectionRank(b))
-    .flatMap((level) => levelView(context, level, byLevel.get(level.id) ?? [], read) ?? []);
+  return byLevel;
+}
+
+/**
+ * The Work's levels as sections in tree order, asides after the main run,
+ * then one section of the Items withdrawn with their levels that still hold
+ * files. An unchanged section keeps its view from the previous call.
+ */
+export function levelsOf(
+  context: LevelContext,
+  work: Pick<WorksWorkView, "levels" | "items">,
+  cells: FilesCellList,
+): LevelView[] {
+  const read = readOf(cells);
+  const byLevel = byLevelOf(work.items);
+  const holding = work.levels.filter(({ id }) => byLevel.has(id));
+  const itemsOf = (levels: readonly WorksLevel[]) =>
+    levels.flatMap(({ id }) => byLevel.get(id) ?? []);
+  const live = holding
+    .filter(({ withdrawnAt }) => withdrawnAt === null)
+    .toSorted((a, b) => Number(a.aside) - Number(b.aside))
+    .flatMap((level) => {
+      const poster = posterOf(context.type, level);
+      const section = { id: level.id, name: level.label, withdrawn: false, poster };
+      return sectionView(context, level, section, itemsOf([level]), read) ?? [];
+    });
+  const withdrawn = holding.filter(({ withdrawnAt }) => withdrawnAt !== null);
+  const [anchor] = withdrawn;
+  if (anchor === undefined) {
+    return live;
+  }
+  const section = {
+    id: withdrawnId,
+    name: `No longer listed by ${context.type.source}`,
+    withdrawn: true,
+    poster: undefined,
+  };
+  const trailing = sectionView(context, anchor, section, itemsOf(withdrawn), read);
+  return trailing === undefined ? live : [...live, trailing];
 }

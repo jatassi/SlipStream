@@ -92,9 +92,9 @@ test("an episode's Search grabs its release, and the episode keeps its file once
     /^Season 1/u,
     /^Season 2/u,
     /^Specials.*Not monitored$/u,
-    /^Specials.*No longer listed by TVDB$/u,
+    /^No longer listed by TVDB.*1 episode$/u,
   ]);
-  const gone = seasons(page).getByRole("button", { name: "Specials", exact: true }).last();
+  const gone = seasons(page).getByRole("button", { name: "No longer listed by TVDB", exact: true });
   await gone.click();
   await expect(gone).toHaveAttribute("aria-expanded", "true");
   await expect(episodeRow(page, "S00E02")).toContainText("No longer listed by TVDB");
