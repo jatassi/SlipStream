@@ -29,7 +29,7 @@ func TestFailedWorldLogsEveryNode(t *testing.T) {
 		})
 		return
 	}
-	cmd := exec.Command(os.Args[0], "-test.run=^TestFailedWorldLogsEveryNode$", "-test.v")
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestFailedWorldLogsEveryNode$", "-test.v")
 	cmd.Env = append(os.Environ(), "SIM_FAILED_WORLD_CHILD=1")
 	out, err := cmd.CombinedOutput()
 	if err == nil {
