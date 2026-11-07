@@ -31,8 +31,7 @@ export function WorkDialogs({
     return (
       <EditDialog
         subject={subject}
-        profileId={work.profile.id}
-        rootId={work.root?.id}
+        work={work}
         files={files}
         save={save}
         open
