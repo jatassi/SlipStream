@@ -1,4 +1,4 @@
 /**
- * How many of its Items are monitored
+ * How many of the Items its source still lists are monitored
  */
 export type WorksLibraryRowMonitored = "all" | "some" | "none";
