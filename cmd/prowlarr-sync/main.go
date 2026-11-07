@@ -6,7 +6,7 @@
 //	prowlarr-sync report --prowlarr DIR [--ref develop] [--json]
 //	prowlarr-sync check  [--prowlarr DIR]
 //	prowlarr-sync bump   --prowlarr DIR --unit port:hdbits --to SHA
-//	prowlarr-sync new    --prowlarr DIR [--ref develop] --site HDBits [--id hdbits] [--family gazelle]
+//	prowlarr-sync new    --prowlarr DIR [--ref develop] --site HDBits --auth none [--id hdbits] [--family gazelle]
 //
 // report writes what changed upstream since each unit's recorded commit
 // as Markdown, or as JSON for the weekly routine. check is the manifest
@@ -52,6 +52,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	site := fs.String("site", "", "new: the site's C# class, such as HDBits")
 	id := fs.String("id", "", "new: the port id; the class lowercased with spaces, dots and hyphens dropped by default")
 	family := fs.String("family", "", "new: the family the port builds on, such as gazelle")
+	login := fs.String("auth", "", "new: the port's Login family, which sets its fixture's cases: "+loginNames)
 	if err := fs.Parse(args[1:]); err != nil {
 		return fmt.Errorf("%s: %w", args[0], err)
 	}
@@ -70,7 +71,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	case "bump":
 		return bump(ctx, out, *repo, tree, *unit, *to)
 	case "new":
-		return newPort(ctx, out, *repo, tree, *ref, *site, *id, *family)
+		return newPort(ctx, out, *repo, tree, *ref, *site, *id, *family, *login)
 	}
 	return errors.New(usage)
 }

@@ -65,6 +65,9 @@ func fits(t *testing.T, e port.Entry, f Fixture) {
 			t.Errorf("the fixture has no %s case, which every port of its family needs", name)
 		}
 	}
+	if _, ok := f.TVCase(); !ok && len(e.Capabilities.TvSearchParams) > 0 {
+		t.Error("the fixture has no TV search with a season and an episode, which every port with TV search needs")
+	}
 	for name := range f.Settings {
 		if !slices.ContainsFunc(e.Fields, func(fl port.Field) bool { return fl.Name == name }) {
 			t.Errorf("the fixture sets %s, which isn't one of the port's settings", name)

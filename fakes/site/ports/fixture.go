@@ -63,9 +63,10 @@ import (
 )
 
 // FS holds every port's fixture. testport's is always there, so the
-// patterns match with no port registered.
+// patterns match with no port registered. They name files, so an empty
+// bodies/ or want/ embeds nothing and breaks nothing.
 //
-//go:embed */fixture.yaml */bodies */want
+//go:embed */fixture.yaml */bodies/* */want/*
 var FS embed.FS
 
 // Source is where a fixture's exchanges came from.
@@ -167,9 +168,10 @@ func Host(id port.ID) string { return string(id) + ".fixture-site.fake.localhost
 // Address is the base address a fixture's Indexer has.
 func Address(id port.ID) string { return "https://" + Host(id) + "/" }
 
-// Required are the cases every fixture of a port in family a has.
+// Required are the cases every fixture of a port in family a has. A port
+// with TV search also has a TV search with a season and an episode.
 func Required(a port.Auth) []string {
-	out := []string{"search", "empty", "auth", "limit"}
+	out := []string{"search", "empty", "recent", "auth", "limit"}
 	if a.HoldsSession() {
 		out = append(out, "loggedout")
 	}
@@ -177,6 +179,41 @@ func Required(a port.Auth) []string {
 		out = append(out, "code")
 	}
 	return out
+}
+
+// TVCase is a fixture's TV search with a season and an episode.
+func (f Fixture) TVCase() (Case, bool) {
+	i := slices.IndexFunc(f.Cases, func(c Case) bool {
+		s := c.Call.Search
+		return s != nil && s.Mode == "tvsearch" && s.Season > 0 && s.Episode != ""
+	})
+	if i < 0 {
+		return Case{}, false
+	}
+	return f.Cases[i], true
+}
+
+// Skeleton is the fixture prowlarr-sync new writes for a port of family
+// a: every case Required names and a TV search, each with a call and no
+// exchanges yet.
+func Skeleton(id port.ID, a port.Auth) Fixture {
+	calls := map[string]Call{
+		"search": {Search: &Search{Mode: "search", Text: "The Quiet Orchard"}},
+		"empty":  {Search: &Search{Mode: "search", Text: "Juniper Falls"}},
+		"tv":     {Search: &Search{Mode: "tvsearch", Text: "Harbor Lights", Season: 2, Episode: "3"}},
+	}
+	f := Fixture{Port: id, Source: Synthetic, Settings: map[string]string{}}
+	for _, name := range append(Required(a), "tv") {
+		c := Case{Name: name, Call: Call{Recent: &struct{}{}}, Exchanges: []Exchange{}}
+		if call, ok := calls[name]; ok {
+			c.Call = call
+		}
+		if a.HoldsSession() && (name == "auth" || name == "code") {
+			c.Session = &Session{}
+		}
+		f.Cases = append(f.Cases, c)
+	}
+	return f
 }
 
 // Load reads port id's fixture from fsys, strictly: every case has one
