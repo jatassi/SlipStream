@@ -26,6 +26,8 @@ type lane struct {
 	// onlyWhen, when set, keeps the lane off an event that does not run
 	// every target unless the change touches what the lane checks.
 	onlyWhen func(touched) bool
+	// savesCaches says the lane's jobs save caches on a push to main.
+	savesCaches bool
 }
 
 // touched says what the change touches that a lane or the packages
@@ -41,8 +43,8 @@ type touched struct {
 // The browser tier's shard counts follow its runtime on each runner, which
 // is CPU-bound, so it scales out across jobs rather than Playwright workers.
 var lanes = []lane{
-	{kind: "build", shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
-	{kind: "lint", tier: "lint", shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
+	{kind: "build", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
+	{kind: "lint", tier: "lint", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 2}},
 	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
@@ -62,16 +64,20 @@ type event struct {
 	// everyTarget runs every target whatever the change touches.
 	everyTarget bool
 	packages    bool
+	// cachesOnly runs only the lanes whose jobs save the caches pull
+	// requests restore, without their tests.
+	cachesOnly bool
 	// widest caps the scope a change can widen the run to.
 	widest changescope.Scope
 }
 
 // A stacked pull request merges into another pull request's branch, which
-// runs every target itself before it reaches main.
+// runs every target itself before it reaches main. A push to main ran its
+// tests on its pull request, so it only refreshes the caches.
 var events = map[string]event{
 	"pr":       {widest: changescope.Native},
 	"stacked":  {widest: changescope.PR},
-	"push":     {everyTarget: true, widest: changescope.Native},
+	"push":     {everyTarget: true, cachesOnly: true, widest: changescope.Native},
 	"dispatch": {everyTarget: true, widest: changescope.Native},
 	"schedule": {everyTarget: true, packages: true, widest: changescope.Native},
 	"tag":      {everyTarget: true, packages: true, widest: changescope.Native},
@@ -238,7 +244,7 @@ func plan(in native.Inputs, e event, scope changescope.Scope, t touched, keep []
 	p := Plan{Lanes: map[string]Matrix{}, Package: packaging}
 	for _, l := range lanes {
 		m := Matrix{Include: []MatrixEntry{}}
-		if l.selected(tier, packaging) && (e.everyTarget || l.onlyWhen == nil || l.onlyWhen(t)) {
+		if l.selected(tier, packaging) && (e.everyTarget || l.onlyWhen == nil || l.onlyWhen(t)) && (!e.cachesOnly || l.savesCaches) {
 			for _, target := range targets {
 				m.Include = append(m.Include, l.entries(target)...)
 			}
