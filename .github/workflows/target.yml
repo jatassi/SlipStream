@@ -33,6 +33,9 @@ on:
       TMDB_API_KEY:
       OMDB_API_KEY:
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
@@ -41,6 +44,9 @@ jobs:
   build:
     name: Build release binaries (${{ matrix.target }})
     timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.build) }}
@@ -167,6 +173,11 @@ jobs:
             ${{ runner.temp }}/go-build
             ${{ runner.temp }}/go-mod
           key: ${{ steps.go.outputs.cache-key }}
+      - name: Delete this target's older Go caches
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/prune-cache
+        with:
+          prefix: go-${{ matrix.target }}-
 
   e2e:
     name: End-to-end Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})

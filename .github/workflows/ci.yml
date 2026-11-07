@@ -50,6 +50,9 @@ jobs:
     name: Plan CI lanes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
     outputs:
       planned: ${{ steps.plan.outputs.planned }}
       target: ${{ steps.plan.outputs.target }}
@@ -139,6 +142,11 @@ jobs:
             ${{ runner.temp }}/go-build
             ${{ runner.temp }}/go-mod
           key: ${{ steps.go.outputs.cache-key }}
+      - name: Delete the plan job's older Go caches
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: ./.github/actions/prune-cache
+        with:
+          prefix: go-plan-
 
   # GitHub starts a job only when every matrix leg of each job it needs has
   # ended, so each target's build and the lanes on its dist/ share one call and
@@ -147,6 +155,9 @@ jobs:
     name: ${{ matrix.target }}
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['target']
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.target) }}
@@ -170,6 +181,9 @@ jobs:
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['lint']
     timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.lint) }}
@@ -206,6 +220,11 @@ jobs:
         with:
           path: ${{ runner.temp }}/golangci-lint
           key: ${{ steps.lint-cache.outputs.cache-primary-key }}
+      - name: Delete the older golangci-lint caches
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/prune-cache
+        with:
+          prefix: lint-${{ matrix.target }}-
 
   lint-repo:
     name: Lint repo-wide checks
@@ -414,7 +433,14 @@ jobs:
     if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.go.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
     steps:
+      - name: Check out the repository's actions
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
       - name: Download every shard's test timings
         uses: actions/download-artifact@v8
         with:
@@ -427,6 +453,10 @@ jobs:
           path: .timings
           key: go-timings-${{ github.sha }}
           enableCrossOsArchive: true
+      - name: Delete the older test timings
+        uses: ./.github/actions/prune-cache
+        with:
+          prefix: go-timings-
 
   # One link stream measured between two network namespaces, per spec S07's
   # yamux measurement: nightly, and on pull requests that touch the link.
