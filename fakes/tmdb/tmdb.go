@@ -530,12 +530,20 @@ func releaseDates(m scenario.TMDBMovie) *releaseDatesJSON {
 func credits(m scenario.TMDBMovie) *creditsJSON {
 	out := &creditsJSON{Cast: []castJSON{}, Crew: []crewJSON{}}
 	for i, c := range m.Credits.Cast {
-		out.Cast = append(out.Cast, castJSON{ID: c.ID, Name: c.Name, Character: c.Character, Order: i, ProfilePath: file("person", strconv.FormatInt(c.ID, 10), ".jpg")})
+		out.Cast = append(out.Cast, castJSON{ID: c.ID, Name: c.Name, Character: c.Character, Order: i, ProfilePath: profile(c.ID, c.Profile)})
 	}
 	for _, c := range m.Credits.Crew {
-		out.Crew = append(out.Crew, crewJSON{ID: c.ID, Name: c.Name, Department: c.Department, Job: c.Job, ProfilePath: file("person", strconv.FormatInt(c.ID, 10), ".jpg")})
+		out.Crew = append(out.Crew, crewJSON{ID: c.ID, Name: c.Name, Department: c.Department, Job: c.Job, ProfilePath: profile(c.ID, c.Profile)})
 	}
 	return out
+}
+
+// profile is a person's recorded photo, else one made up for their id.
+func profile(id int64, recorded string) *string {
+	if recorded != "" {
+		return &recorded
+	}
+	return file("person", strconv.FormatInt(id, 10), ".jpg")
 }
 
 func videos(m scenario.TMDBMovie, langs []string) *videosJSON {
@@ -568,6 +576,9 @@ func imageSet(m scenario.TMDBMovie, langs []string) *imagesJSON {
 			continue
 		}
 		d := dimensions[im.Shape]
+		if im.Width > 0 {
+			d = [2]int{im.Width, im.Height}
+		}
 		img := imageJSON{FilePath: *imagePath(m, i), VoteAverage: im.Votes, VoteCount: 1, Width: d[0], Height: d[1], AspectRatio: float64(d[0]) / float64(d[1])}
 		if im.Language != "" {
 			img.Language = &im.Language
@@ -593,9 +604,15 @@ func pathOf(m scenario.TMDBMovie, shape, lang string) *string {
 	return nil
 }
 
+// imagePath is the image's recorded path, else one made up for its place
+// in the movie's list.
 func imagePath(m scenario.TMDBMovie, i int) *string {
+	im := images(m)[i]
+	if im.Path != "" {
+		return &im.Path
+	}
 	ext := ".jpg"
-	if images(m)[i].Shape == "logo" {
+	if im.Shape == "logo" {
 		ext = ".png"
 	}
 	return file("image", fmt.Sprintf("%d/%d", m.ID, i), ext)

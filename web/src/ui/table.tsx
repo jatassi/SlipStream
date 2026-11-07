@@ -18,7 +18,10 @@ export type Selection<Row> = {
   onSelect: (row: Row) => void;
 };
 
-const lineHeight = { 1: "h-(--row-height)", 2: "h-(--row-height-two)" } as const;
+const lineHeight = {
+  1: "h-(--row-height) min-h-(--row-height)",
+  2: "h-(--row-height-two) min-h-(--row-height-two)",
+} as const;
 
 const rowLook =
   "relative transition-colors duration-350 ease-standard *:shadow-[inset_0_1px_0_var(--color-hairline)] hover:bg-(--row-wash) has-focus-visible:bg-(--row-wash) has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-solid data-[tone=warn]:bg-warn-card/60 data-[tone=warn]:*:shadow-[inset_0_1px_0_var(--color-warn-line)]";
@@ -88,7 +91,7 @@ function Head({
             key={col}
             data-col={col}
             scope="col"
-            className={`h-8 px-4 text-label text-ink-3 ${alignLook[align ?? "start"]}`}
+            className={`h-8 min-h-8 px-4 text-label text-ink-3 ${alignLook[align ?? "start"]}`}
           >
             {header}
           </th>
@@ -170,7 +173,7 @@ export function Table<Row>({
 }) {
   const id = useId();
   return (
-    <div className="@container">
+    <div data-table-frame="" className="@container">
       <style>{reflow(id, columns, stackBelow)}</style>
       <div data-table={id} className="rounded-card bg-glass ring-1 ring-hairline ring-inset">
         <table aria-label={label} className="w-full border-separate border-spacing-0">

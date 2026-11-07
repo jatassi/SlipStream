@@ -1,15 +1,11 @@
 import type { Page } from "@playwright/test";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
-import { isPhone, navigate } from "./shell.ts";
+import { isPhone, openSettingsSection } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
 
 async function openTargets(page: Page) {
-  await navigate(page, "Settings");
-  const sections = isPhone(page)
-    ? page.getByRole("list", { name: "Settings" })
-    : page.getByRole("navigation", { name: "Settings" });
-  await sections.getByRole("link", { name: "Targets" }).click();
+  await openSettingsSection(page, "Targets");
   await expect(page).toHaveURL(/\/settings\/targets$/u);
 }
 

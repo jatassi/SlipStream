@@ -1,12 +1,12 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 import { getGetSystemHealthSuspenseQueryOptions } from "../../../api/gen/query/health/health";
 import { ensureQuery } from "../../../api/query-client";
-import { SectionDot, SectionWarning } from "../../../settings/section-alert";
-import { settingsSections, sectionOf } from "../../../settings/sections";
+import { SectionWarning } from "../../../settings/section-alert";
+import { sectionOf } from "../../../settings/sections";
+import { SettingsNav } from "../../../settings/settings-nav";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { PageTabs, pageTab } from "../../../ui/page-tabs";
 import { useShell } from "../../../ui/shell-context";
 import { Skeleton } from "../../../ui/skeleton";
 
@@ -25,12 +25,14 @@ export const Route = createFileRoute("/_app/settings/$section")({
 });
 
 // On phone each section is a pushed page under the Settings list, so only
-// the desktop shell draws the tabs.
+// the desktop shell draws the nav.
 function SettingsPage() {
   const { section: id } = Route.useParams();
   const section = sectionOf(id);
   const body = (
-    <div className={`flex flex-col gap-6 ${section.wide === true ? "" : "max-w-[560px]"}`}>
+    <div
+      className={`flex min-w-0 flex-1 flex-col gap-6 ${section.wide === true ? "" : "max-w-[560px]"}`}
+    >
       <SectionWarning section={section} />
       <section.component key={id} />
     </div>
@@ -40,20 +42,10 @@ function SettingsPage() {
   }
   return (
     <Page title="Settings">
-      <PageTabs label="Settings">
-        {settingsSections.map((row) => (
-          <Link
-            key={row.id}
-            to="/settings/$section"
-            params={{ section: row.id }}
-            className={`${pageTab} gap-1.5`}
-          >
-            {row.label}
-            <SectionDot section={row} />
-          </Link>
-        ))}
-      </PageTabs>
-      {body}
+      <div className="flex items-start gap-8">
+        <SettingsNav />
+        {body}
+      </div>
     </Page>
   );
 }

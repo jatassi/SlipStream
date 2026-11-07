@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jatassi/slipstream/fakes/internal/artwork"
 )
 
 // TMDB is the catalog fake-tmdb serves: the movies it lists, then the
@@ -80,18 +82,23 @@ type TMDBCredits struct {
 	Crew []TMDBCrew `yaml:"crew,omitempty"`
 }
 
-// TMDBCast is one role, billed in list order. Names are fictional.
+// TMDBCast is one role, billed in list order. Profile is the TMDB file
+// path of a recorded photo in the artwork store; without one fake-tmdb
+// makes up a path.
 type TMDBCast struct {
-	ID        int64  `jsonschema:"required,minimum=1" yaml:"id"`
-	Name      string `jsonschema:"required"           yaml:"name"`
+	ID        int64  `jsonschema:"required,minimum=1"                         yaml:"id"`
+	Name      string `jsonschema:"required"                                   yaml:"name"`
 	Character string `yaml:"character,omitempty"`
+	Profile   string `jsonschema:"pattern=^/[A-Za-z0-9]+\\.(jpg|png|svg)$" yaml:"profile,omitempty"`
 }
 
+// TMDBCrew is one job. Profile is as on TMDBCast.
 type TMDBCrew struct {
-	ID         int64  `jsonschema:"required,minimum=1" yaml:"id"`
-	Name       string `jsonschema:"required"           yaml:"name"`
-	Department string `jsonschema:"required"           yaml:"department"`
-	Job        string `jsonschema:"required"           yaml:"job"`
+	ID         int64  `jsonschema:"required,minimum=1"                         yaml:"id"`
+	Name       string `jsonschema:"required"                                   yaml:"name"`
+	Department string `jsonschema:"required"                                   yaml:"department"`
+	Job        string `jsonschema:"required"                                   yaml:"job"`
+	Profile    string `jsonschema:"pattern=^/[A-Za-z0-9]+\\.(jpg|png|svg)$" yaml:"profile,omitempty"`
 }
 
 // TMDBNamed is a collection or a studio.
@@ -100,12 +107,17 @@ type TMDBNamed struct {
 	Name string `jsonschema:"required"           yaml:"name"`
 }
 
-// TMDBImage is one image; fake-tmdb makes up its file path. Language is
-// empty for an image with no text.
+// TMDBImage is one image. Language is empty for an image with no text.
+// Path is the TMDB file path of a recorded image in the artwork store,
+// and Width and Height the size TMDB lists for its original. Without a
+// path fake-tmdb makes one up, with a fixed size for the shape.
 type TMDBImage struct {
 	Shape    string  `jsonschema:"required,enum=poster,enum=backdrop,enum=logo" yaml:"shape"`
 	Language string  `jsonschema:"pattern=^[a-z]{2}$"                          yaml:"language,omitempty"`
 	Votes    float64 `jsonschema:"minimum=0,maximum=10"                        yaml:"votes,omitempty"`
+	Path     string  `jsonschema:"pattern=^/[A-Za-z0-9]+\\.(jpg|png|svg)$"   yaml:"path,omitempty"`
+	Width    int     `jsonschema:"minimum=0"                                   yaml:"width,omitempty"`
+	Height   int     `jsonschema:"minimum=0"                                   yaml:"height,omitempty"`
 }
 
 var (
@@ -113,7 +125,12 @@ var (
 	dayDate  = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	country  = regexp.MustCompile(`^[A-Z]{2}$`)
 	language = regexp.MustCompile(`^[a-z]{2}-[A-Z]{2}$`)
+	// ArtworkFile is a TMDB file path the artwork store can hold.
+	ArtworkFile = regexp.MustCompile(`^/[A-Za-z0-9]+\.(jpg|png|svg)$`)
 )
+
+// artworkStore is where a recorded image's path must name a file.
+var artworkStore = artwork.Embedded
 
 func (c TMDB) check(add func(format string, args ...any)) {
 	c.checkGenerated(add)
@@ -181,9 +198,39 @@ func (m TMDBMovie) checkRecord(add func(format string, args ...any)) {
 			add("tmdb movie %d translation %s is listed twice", m.ID, t.Language)
 		}
 	}
+	m.checkArtwork(add)
+}
+
+func (m TMDBMovie) checkArtwork(add func(format string, args ...any)) {
 	for _, im := range m.Images {
 		if !slices.Contains([]string{"poster", "backdrop", "logo"}, im.Shape) {
 			add("tmdb movie %d image shape %q is not poster, backdrop or logo", m.ID, im.Shape)
+		}
+		if im.Path == "" && (im.Width != 0 || im.Height != 0) {
+			add("tmdb movie %d %s image has a size and no path", m.ID, im.Shape)
+		}
+		if im.Path != "" && (im.Width < 1) != (im.Height < 1) {
+			add("tmdb movie %d image %s has width %d and height %d; set both or neither", m.ID, im.Path, im.Width, im.Height)
+		}
+		checkFile(add, m.ID, "image", im.Path)
+	}
+	for _, c := range m.Credits.Cast {
+		checkFile(add, m.ID, "profile", c.Profile)
+	}
+	for _, c := range m.Credits.Crew {
+		checkFile(add, m.ID, "profile", c.Profile)
+	}
+}
+
+// checkFile checks a recorded file's path, when the record names one.
+func checkFile(add func(format string, args ...any), id int64, what, p string) {
+	switch {
+	case p == "":
+	case !ArtworkFile.MatchString(p):
+		add("tmdb movie %d %s %q is not a TMDB file path such as /abc123.jpg", id, what, p)
+	default:
+		if _, ok := artworkStore.Lookup(p); !ok {
+			add("tmdb movie %d %s %s is not in fakes/internal/artwork/files", id, what, p)
 		}
 	}
 }
