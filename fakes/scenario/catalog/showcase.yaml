@@ -2,11 +2,12 @@
 # Re-record every movie and series below from the repository root with:
 #   TMDB_API_KEY=… OMDB_API_KEY=… TVDB_API_KEY=… go run ./fakes/scenario/record -scenario fakes/scenario/catalog/showcase.yaml -movies 155,194,27205,76341,324857,329865,496243,545611,693134,872585 -series 81189,305288,371980,392256,392573,371028,360893,314614,383275,403294
 description: >-
-  home's two Nodes with ten real movies recorded from TMDB and OMDb, with
-  their real posters, backdrops, title treatments and cast photos, so the
+  home's two Nodes with ten real movies and ten real series recorded from
+  TMDB, TVDB and OMDb, with their real posters, backdrops, title
+  treatments, cast photos, season posters and episode stills, so the
   Library and Work pages look as they do against the live providers. Each
-  movie has one seeded 1080p release to grab. Re-record with the command at
-  the top of this file.
+  movie has one seeded 1080p release to grab, and each series its first two
+  episodes. Re-record with the command at the top of this file.
 seed: showcase
 admin:
   email: ada@example.test
@@ -1549,9 +1550,129 @@ releases:
     seeders: 39
     seeded: true
     advertised_size: 7.9GiB
+  - name: Breaking.Bad.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 81189, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 9
+    seeded: true
+    advertised_size: 3.1GiB
+  - name: Breaking.Bad.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 81189, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 10
+    seeded: true
+    advertised_size: 3.2GiB
+  - name: Stranger.Things.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 305288, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 10
+    seeded: true
+    advertised_size: 3.4GiB
+  - name: Stranger.Things.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 305288, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 11
+    seeded: true
+    advertised_size: 3.5GiB
+  - name: Severance.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 371980, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 11
+    seeded: true
+    advertised_size: 3.7GiB
+  - name: Severance.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 371980, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 3.8GiB
+  - name: The.Last.of.Us.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 392256, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 4.0GiB
+  - name: The.Last.of.Us.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 392256, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 13
+    seeded: true
+    advertised_size: 4.1GiB
+  - name: Shogun.2024.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 392573, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 13
+    seeded: true
+    advertised_size: 3.1GiB
+  - name: Shogun.2024.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 392573, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 14
+    seeded: true
+    advertised_size: 3.2GiB
+  - name: Arcane.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 371028, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 14
+    seeded: true
+    advertised_size: 3.4GiB
+  - name: Arcane.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 371028, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 15
+    seeded: true
+    advertised_size: 3.5GiB
+  - name: Chernobyl.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 360893, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 15
+    seeded: true
+    advertised_size: 3.7GiB
+  - name: Chernobyl.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 360893, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 16
+    seeded: true
+    advertised_size: 3.8GiB
+  - name: Fleabag.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 314614, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 16
+    seeded: true
+    advertised_size: 4.0GiB
+  - name: Fleabag.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 314614, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 17
+    seeded: true
+    advertised_size: 4.1GiB
+  - name: Squid.Game.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 383275, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 17
+    seeded: true
+    advertised_size: 3.1GiB
+  - name: Squid.Game.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 383275, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 18
+    seeded: true
+    advertised_size: 3.2GiB
+  - name: The.Bear.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 403294, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 18
+    seeded: true
+    advertised_size: 3.4GiB
+  - name: The.Bear.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 403294, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 19
+    seeded: true
+    advertised_size: 3.5GiB
 library:
   storage_levels: {warn_below: 0B, error_below: 0B}
-  roots: [{content_type: movie, folder: movies}]
+  roots: [{content_type: series, folder: tv}, {content_type: movie, folder: movies}]
   indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
 tvdb:
   series:
