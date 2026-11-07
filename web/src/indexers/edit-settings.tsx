@@ -1,6 +1,8 @@
+import type { IndexersIndexer } from "../api/gen/model";
 import { userAgentHelp } from "./add/catalog-fields";
 import type { SettingsForm } from "./definition-form";
 import type { EditForm } from "./edit-form";
+import { pinOf } from "./edit-values";
 import { AddressField } from "./fields/address-field";
 import { SettingFields } from "./fields/definition-field";
 
@@ -62,13 +64,11 @@ function CookieFields({
 export function EditSettings({
   form,
   settings,
-  sealed,
-  pasted,
+  indexer,
 }: {
   form: EditForm;
   settings: SettingsForm;
-  sealed: readonly string[];
-  pasted: boolean;
+  indexer: IndexersIndexer;
 }) {
   const { links, fields, entry, cookie } = settings.form;
   const ported = settings.kind === "native";
@@ -83,12 +83,17 @@ export function EditSettings({
           typeable={ported}
         />
       )}
-      <SettingFields form={form} fields={{ values: "values" }} settings={fields} saved={sealed} />
+      <SettingFields
+        form={form}
+        fields={{ values: "values" }}
+        settings={fields}
+        saved={pinOf(indexer)?.sealed ?? []}
+      />
       {cookie && (
         <CookieFields
           form={form}
           name={entry.name}
-          pasted={pasted}
+          pasted={indexer.session?.pasted === true}
           userAgent={userAgentHelp(settings.form)}
         />
       )}
