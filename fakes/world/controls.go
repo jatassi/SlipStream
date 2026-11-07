@@ -124,20 +124,24 @@ func (r *Run) SetFault(ctx context.Context, rule fault.Rule) (events.Record, err
 	if rule.ID == "" || rule.ID == allRules {
 		return events.Record{}, fmt.Errorf("a rule needs an id, and %q clears every rule", allRules)
 	}
-	return r.events.Apply(func() (events.Record, []events.Record, error) {
+	rec, err := r.events.Apply(func() (events.Record, []events.Record, error) {
 		fired, err := r.faults.Set(rule)
 		if err != nil {
 			return events.Record{}, nil, err
 		}
 		return events.Record{Kind: events.FaultSet, Node: events.World, Data: stepData(ctx, rule)}, firedRecords(fired), nil
 	})
+	r.fronts.Sync()
+	return rec, err
 }
 
 func (r *Run) ClearFault(ctx context.Context, id string) (events.Record, error) {
-	return r.events.Apply(func() (events.Record, []events.Record, error) {
+	rec, err := r.events.Apply(func() (events.Record, []events.Record, error) {
 		removed := r.faults.Clear(id)
 		return events.Record{Kind: events.FaultCleared, Node: events.World, Data: stepData(ctx, cleared{ID: id, Removed: removed})}, nil, nil
 	})
+	r.fronts.Sync()
+	return rec, err
 }
 
 type cued struct {

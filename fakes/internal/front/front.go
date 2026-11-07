@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -122,33 +123,60 @@ func (f *Front) acceptLocked(l net.Listener) {
 	})
 }
 
-// follow closes and binds the listener as refuse rules come and go.
+// follow closes and binds the listener as refuse rules come and go,
+// for the rules a record arms. Set.Sync applies those a control sets.
 func (f *Front) follow() {
 	for {
-		refused, changed := f.set.plan.Refused(f.front)
 		f.mu.Lock()
-		switch {
-		case f.closed:
-			f.mu.Unlock()
-			return
-		case refused && f.l != nil:
-			_ = f.l.Close()
-			f.l = nil
-		case !refused && f.l == nil:
-			l, err := new(net.ListenConfig).Listen(context.Background(), "tcp", f.addr.String())
-			if err != nil {
-				f.set.log.Error("front could not bind its port again", "target", string(f.front.Target), "origin", f.front.Origin, "addr", f.addr.String(), "err", err.Error())
-			} else {
-				f.l = l
-				f.acceptLocked(l)
-			}
-		}
+		changed, open := f.syncLocked()
 		f.mu.Unlock()
+		if !open {
+			return
+		}
 		select {
 		case <-changed:
 		case <-f.ctx.Done():
 			return
 		}
+	}
+}
+
+// syncLocked closes or binds the listener to match the Plan's refuse
+// rules now, and returns the channel closed at the Plan's next change.
+// open is false once the front closed. It reads the Plan under f.mu, so
+// whichever of follow and Sync holds f.mu last applies the latest rules.
+func (f *Front) syncLocked() (changed <-chan struct{}, open bool) {
+	refused, changed := f.set.plan.Refused(f.front)
+	switch {
+	case f.closed:
+		return nil, false
+	case refused && f.l != nil:
+		_ = f.l.Close()
+		f.l = nil
+	case !refused && f.l == nil:
+		l, err := new(net.ListenConfig).Listen(context.Background(), "tcp", f.addr.String())
+		if err != nil {
+			f.set.log.Error("front could not bind its port again", "target", string(f.front.Target), "origin", f.front.Origin, "addr", f.addr.String(), "err", err.Error())
+		} else {
+			f.l = l
+			f.acceptLocked(l)
+		}
+	}
+	return changed, true
+}
+
+// Sync applies the Plan's refuse rules to every served front before it
+// returns, so a dial after a rule is set or cleared meets it.
+func (s *Set) Sync() {
+	s.mu.Lock()
+	fronts := slices.Clone(s.fronts)
+	s.mu.Unlock()
+	for _, f := range fronts {
+		f.mu.Lock()
+		if f.handle != nil {
+			f.syncLocked()
+		}
+		f.mu.Unlock()
 	}
 }
 
