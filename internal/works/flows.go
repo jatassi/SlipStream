@@ -206,8 +206,9 @@ func (w *Works) Search(ctx context.Context, _ identity.Admin, t TypeID, query st
 
 const maxCandidates = 25
 
-// Adding is how Add creates a Work: its Items monitored when Monitor is
-// set, LevelFolders its level_folders, and Also, when set, run in the same
+// Adding is how Add creates a Work. Monitor is its monitor_new, so its
+// Items arrive monitored as the insert rule says, asides left out.
+// LevelFolders is its level_folders. Also, when set, runs in the same
 // Write once the Work exists, so another owner's rows for it commit or
 // roll back with it.
 type Adding struct {
@@ -255,7 +256,7 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 			return err
 		}
 		created = true
-		return insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel, LevelFolders: a.LevelFolders}, p, a)
+		return insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel, MonitorNew: a.Monitor, LevelFolders: a.LevelFolders}, p, a)
 	})
 	if err != nil {
 		return Tree{}, false, err
@@ -350,17 +351,12 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 	q := db.New(tx)
 	w.AddedAt = storage.Now()
 	w.RefreshedAt = w.AddedAt
-	work := db.InsertWorkParams{ID: w.ID, ContentType: w.ContentType, Key: w.Key, Label: w.Label, SortLabel: w.SortLabel, AddedAt: w.AddedAt, RefreshedAt: w.RefreshedAt, LevelFolders: w.LevelFolders}
+	work := db.InsertWorkParams{ID: w.ID, ContentType: w.ContentType, Key: w.Key, Label: w.Label, SortLabel: w.SortLabel, AddedAt: w.AddedAt, RefreshedAt: w.RefreshedAt, MonitorNew: w.MonitorNew, LevelFolders: w.LevelFolders}
 	if err := q.InsertWork(ctx, work); err != nil {
 		return err
 	}
 	if _, err := converge(ctx, tx, reg.catalog, w.ID, p, w.AddedAt); err != nil {
 		return err
-	}
-	if a.Monitor {
-		if err := q.MonitorItems(ctx, w.ID); err != nil {
-			return err
-		}
 	}
 	if a.Also == nil {
 		return nil

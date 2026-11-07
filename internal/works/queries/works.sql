@@ -17,9 +17,9 @@ SELECT DISTINCT content_type FROM works_work ORDER BY content_type;
 SELECT EXISTS (SELECT 1 FROM works_work WHERE content_type = sqlc.arg(content_type));
 
 -- name: InsertWork :exec
-INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, level_folders)
+INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, monitor_new, level_folders)
 VALUES (sqlc.arg(id), sqlc.arg(content_type), sqlc.arg(key), sqlc.arg(label), sqlc.arg(sort_label), sqlc.arg(added_at), sqlc.arg(refreshed_at),
-    sqlc.arg(level_folders));
+    sqlc.arg(monitor_new), sqlc.arg(level_folders));
 
 -- name: UpdateWork :exec
 UPDATE works_work SET label = sqlc.arg(label), sort_label = sqlc.arg(sort_label), refreshed_at = sqlc.arg(refreshed_at),
@@ -70,9 +70,6 @@ ON CONFLICT (content_type) DO NOTHING;
 
 -- name: EnableType :execrows
 DELETE FROM works_disabled_type WHERE content_type = sqlc.arg(content_type);
-
--- name: MonitorItems :exec
-UPDATE works_item SET monitored = 1 WHERE work_id = sqlc.arg(work_id);
 
 -- name: MarkGoneUpstream :exec
 UPDATE works_work SET gone_upstream_at = sqlc.arg(gone_upstream_at) WHERE id = sqlc.arg(id);

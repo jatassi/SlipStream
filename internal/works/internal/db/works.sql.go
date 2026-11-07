@@ -275,9 +275,9 @@ func (q *Queries) InsertRating(ctx context.Context, arg InsertRatingParams) erro
 }
 
 const insertWork = `-- name: InsertWork :exec
-INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, level_folders)
+INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, monitor_new, level_folders)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
-    ?8)
+    ?8, ?9)
 `
 
 type InsertWorkParams struct {
@@ -288,6 +288,7 @@ type InsertWorkParams struct {
 	SortLabel    string
 	AddedAt      storage.Time
 	RefreshedAt  storage.Time
+	MonitorNew   bool
 	LevelFolders bool
 }
 
@@ -300,6 +301,7 @@ func (q *Queries) InsertWork(ctx context.Context, arg InsertWorkParams) error {
 		arg.SortLabel,
 		arg.AddedAt,
 		arg.RefreshedAt,
+		arg.MonitorNew,
 		arg.LevelFolders,
 	)
 	return err
@@ -624,15 +626,6 @@ type MarkGoneUpstreamParams struct {
 
 func (q *Queries) MarkGoneUpstream(ctx context.Context, arg MarkGoneUpstreamParams) error {
 	_, err := q.db.ExecContext(ctx, markGoneUpstream, arg.GoneUpstreamAt, arg.ID)
-	return err
-}
-
-const monitorItems = `-- name: MonitorItems :exec
-UPDATE works_item SET monitored = 1 WHERE work_id = ?1
-`
-
-func (q *Queries) MonitorItems(ctx context.Context, workID WorkID) error {
-	_, err := q.db.ExecContext(ctx, monitorItems, workID)
 	return err
 }
 

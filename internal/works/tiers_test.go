@@ -3,6 +3,7 @@ package works_test
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -100,6 +101,54 @@ func TestArtworkOfAnotherTierIsRefused(t *testing.T) {
 			h.fx.Put("w1", r)
 			if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{}); !errors.Is(err, works.ErrInvalid) {
 				t.Fatalf("add = %v, want ErrInvalid", err)
+			}
+		})
+	}
+}
+
+func monitored(tree works.Tree) string {
+	var on []string
+	for _, it := range tree.Items {
+		if it.Monitored {
+			on = append(on, string(it.Key))
+		}
+	}
+	slices.Sort(on)
+	return strings.Join(on, " ")
+}
+
+func TestRefreshInsertsUnderMonitorNew(t *testing.T) {
+	for _, c := range []struct {
+		name             string
+		monitor          bool
+		added, refreshed string
+	}{
+		{"a Work that monitors new Items", true, "c1 c2 c3 c4", "c1 c2 c3 c4 c5"},
+		{"a Work that doesn't", false, "", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			h := newHarness(t)
+			r := shelf()
+			r.Tree.Children[1].Children = append(r.Tree.Children[1].Children, works.Entry{Key: "c4", Label: "Sandals"})
+			r.Tree.Children = append(r.Tree.Children, works.Entry{Key: "b9", Label: "Spares", Aside: true, Children: []works.Entry{{Key: "c9", Label: "Button"}}})
+			h.fx.Put("w1", r)
+			added, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{Monitor: c.monitor})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := monitored(added); got != c.added {
+				t.Fatalf("monitored after the add = %q, want %q", got, c.added)
+			}
+
+			r.Tree.Children[1].Children = append(r.Tree.Children[1].Children, works.Entry{Key: "c5", Label: "Towel"})
+			r.Tree.Children[2].Children = append(r.Tree.Children[2].Children, works.Entry{Key: "c10", Label: "Thread"})
+			h.fx.Put("w1", r)
+			refreshed, err := h.works.Refresh(t.Context(), admin, added.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := monitored(refreshed); got != c.refreshed {
+				t.Fatalf("monitored after a refresh added c5 and the aside c10 = %q, want %q", got, c.refreshed)
 			}
 		})
 	}
