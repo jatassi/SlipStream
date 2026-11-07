@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 const (
@@ -59,6 +60,7 @@ type dispatched struct {
 }
 
 func generate(p *protogen.Plugin) error {
+	p.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 	sb, err := servedByType(p)
 	if err != nil {
 		return err

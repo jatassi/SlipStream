@@ -81,7 +81,7 @@ func TestCatalogSearches(t *testing.T) {
 	queries := map[string]Query{
 		"search":       {Mode: "search", Text: "The Matrix"},
 		"movie-search": {Mode: "movie-search", Text: "The Matrix", Year: 1999, IDs: map[string]string{"imdbid": "tt0133093", "tmdbid": "603"}, Categories: []newznab.ID{2000}},
-		"tv-search":    {Mode: "tv-search", Text: "Severance", Season: 2, Episode: "3", IDs: map[string]string{"imdbid": "tt11280740", "tvdbid": "371980"}, Categories: []newznab.ID{5000}},
+		"tv-search":    {Mode: "tv-search", Text: "Severance", Season: new(2), Episode: "3", IDs: map[string]string{"imdbid": "tt11280740", "tvdbid": "371980"}, Categories: []newznab.ID{5000}},
 	}
 	definitions, searches, requests, noArray := 0, 0, 0, 0
 	for _, f := range catalogFiles(t) {

@@ -116,7 +116,8 @@ message Query {
   map<string, string> ids = 2;
   // text is empty when an id is sent.
   string text = 3;
-  int32 season = 4;
+  // season is unset when the search names none; 0 is Specials.
+  optional int32 season = 4;
   string episode = 5;
 }
 
