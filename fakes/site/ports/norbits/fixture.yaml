@@ -1,0 +1,153 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "uid={{uid}}; pass={{pass}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}", Accept: text/html}
+          query: {imdbsearch: tt0000001, incldead: "1", fullsearch: "0", scenerelease: "0"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Juniper Falls, season: 1, episode: "2"}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {search: Juniper Falls S01E02, incldead: "1", fullsearch: "0", scenerelease: "0"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /browse.php, query: {search: Juniper Falls}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php, query: {search: "", incldead: "1"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8, Set-Cookie: "PHPSESSID={{phpsessid}}; path=/"}
+          body: index.html
+      - request: {path: /login.php, headers: {Cookie: "PHPSESSID={{phpsessid}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+      - request:
+          method: POST
+          path: /takelogin.php
+          headers: {Cookie: "PHPSESSID={{phpsessid}}"}
+          form: {username: fixture-user, password: "{{password}}", code: "", logout: "no", returnto: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: refused.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "uid={{uid}}; pass={{expiredPass}}"}
+    exchanges:
+      - request: {path: /browse.php, headers: {Cookie: "uid={{uid}}; pass={{expiredPass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: index.html}
+      - request: {path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: index.html}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+      - request:
+          method: POST
+          path: /takelogin.php
+          form: {username: fixture-user, password: "{{password}}", code: ""}
+        response:
+          status: 302
+          headers:
+            Location: /
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+      - request: {path: /browse.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: signin
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: index.html}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+      - request:
+          method: POST
+          path: /takelogin.php
+          headers: {Referer: "https://norbits.fixture-site.fake.localhost/login.php"}
+          form: {username: fixture-user, password: "{{password}}", code: "", logout: "no", returnto: /}
+        response:
+          status: 302
+          headers:
+            Location: /
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+      - request: {path: /browse.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: code
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: index.html}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+      - request:
+          method: POST
+          path: /takelogin.php
+          form: {username: fixture-user, password: "{{password}}", code: ""}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: needscode.html}
+  - name: typedcode
+    call: {test: {code: "424242"}}
+    session: {}
+    exchanges:
+      - request: {path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: index.html}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+      - request:
+          method: POST
+          path: /takelogin.php
+          form: {username: fixture-user, password: "{{password}}", code: "424242"}
+        response:
+          status: 302
+          headers:
+            Location: /
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+      - request: {path: /browse.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}, query: {search: ""}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: wrongcode
+    call: {test: {code: "000000"}}
+    exchanges:
+      - request: {path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: index.html}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+      - request:
+          method: POST
+          path: /takelogin.php
+          form: {username: fixture-user, password: "{{password}}", code: "000000"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: wrongcode.html}
+  - name: grab
+    call: {fetch: "/download.php?id=101&passkey={{passkey}}"}
+    exchanges:
+      - request: {path: /download.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}, query: {id: "101", passkey: "{{passkey}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
