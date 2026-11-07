@@ -1,0 +1,80 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "toloka_sid={{sid}}; toloka_data={{data}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /tracker.php
+          headers: {Cookie: "toloka_sid={{sid}}; toloka_data={{data}}", Accept: text/html}
+          query: {o: "1", s: "2", nm: The Quiet Orchard}
+          noQuery: [sds, "f[]"]
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /tracker.php
+          query: {nm: "Harbor Lights Сезон 2"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /tracker.php, query: {nm: Juniper Falls}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /tracker.php, query: {o: "1", s: "2", nm: ""}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /login.php
+          headers:
+            Content-Type: application/x-www-form-urlencoded
+            Referer: "https://toloka.fixture-site.fake.localhost/login.php"
+          form: {username: fixture-user, password: "{{password}}", autologin: "on", ssl: "on", redirect: ""}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: loginfailed.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /tracker.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "toloka_sid={{expiredSid}}"}
+    exchanges:
+      - request: {path: /tracker.php, headers: {Cookie: "toloka_sid={{expiredSid}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: loginfailed.html}
+      - request:
+          method: POST
+          path: /login.php
+          form: {username: fixture-user, password: "{{password}}"}
+        response:
+          status: 302
+          headers:
+            Location: /index.php
+            Set-Cookie: |-
+              toloka_sid={{sid}}; path=/
+              toloka_data={{data}}; path=/
+      - request: {path: /index.php, headers: {Cookie: "toloka_sid={{sid}}; toloka_data={{data}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: index.html}
+      - request: {path: /tracker.php, headers: {Cookie: "toloka_sid={{sid}}; toloka_data={{data}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: grab
+    call: {fetch: "/download.php?id=5001"}
+    exchanges:
+      - request: {path: /download.php, headers: {Cookie: "toloka_sid={{sid}}; toloka_data={{data}}"}, query: {id: "5001"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
