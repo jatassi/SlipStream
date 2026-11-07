@@ -196,7 +196,7 @@ func (x *Indexers) recordIn(ctx context.Context, tx *storage.Tx[file], q QueryID
 	if err := complete(ctx, tx, q, a, now); err != nil {
 		return Status{}, err
 	}
-	idx, err := Get(ctx, tx, id)
+	idx, err := x.get(ctx, tx, id)
 	if errors.Is(err, ErrNoIndexer) {
 		return Status{}, nil
 	}

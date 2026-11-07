@@ -24,7 +24,10 @@ var (
 func catalogAnswer(err error) error {
 	var unrunnable *cardigann.Unrunnable
 	var unreachable *indexers.CatalogUnreachableError
+	var ported *indexers.PortIDTakenError
 	switch {
+	case errors.As(err, &ported):
+		return definitionIDTaken.Because("SlipStream includes " + ported.Name + ", which has this id.")
 	case errors.As(err, &unreachable):
 		return catalogAddressUnreachable.Because("Check the address and that it serves schema 12.")
 	case errors.As(err, &unrunnable):
@@ -109,20 +112,36 @@ type definitionField struct {
 }
 
 type definitionForm struct {
-	Entry   catalogEntry      `json:"entry"`
-	Links   []string          `json:"links" nullable:"false" doc:"The site's addresses, the first being the default"`
-	Fields  []definitionField `json:"fields" nullable:"false" doc:"In the definition's order, the captcha last"`
-	Session bool              `json:"session" doc:"Its Indexers sign in and keep a session on their Node"`
-	Captcha bool              `json:"captcha" doc:"Signing in asks for an image captcha"`
-	Solver  bool              `json:"solver" doc:"The site sits behind a browser challenge that a Challenge solver can clear"`
-	Cookie  bool              `json:"cookie" doc:"Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field"`
-	Code    bool              `json:"code" doc:"Signing in may ask for a two-factor code"`
+	Entry   catalogEntry            `json:"entry"`
+	Links   []string                `json:"links" nullable:"false" doc:"The site's addresses, the first being the default"`
+	Fields  []definitionField       `json:"fields" nullable:"false" doc:"In the definition's order, the captcha last"`
+	Session bool                    `json:"session" doc:"Its Indexers sign in and keep a session on their Node"`
+	Captcha bool                    `json:"captcha" doc:"Signing in asks for an image captcha"`
+	Solver  bool                    `json:"solver" doc:"The site sits behind a browser challenge that a Challenge solver can clear"`
+	Cookie  bool                    `json:"cookie" doc:"Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field"`
+	Code    bool                    `json:"code" doc:"Signing in may ask for a two-factor code"`
+	Port    api.Nullable[portFacts] `json:"port" doc:"What an included site's form says beyond a definition's; null for a definition"`
+}
+
+type portFacts struct {
+	UserAgent      bool       `json:"userAgent" doc:"The pasted cookie works only with the User-Agent of the browser it came from"`
+	Searches       limit      `json:"searches" doc:"A new Indexer's search limit unless the form sets one"`
+	Grabs          limit      `json:"grabs" doc:"A new Indexer's grab limit unless the form sets one"`
+	Recent         bool       `json:"recent" doc:"The site lists its new uploads, so RSS sync can use it"`
+	SpacingSeconds float64    `json:"spacingSeconds" doc:"The least time between two requests to the site"`
+	Synced         *time.Time `json:"synced" doc:"When the Prowlarr commit SlipStream's support for the site was synced to was made"`
 }
 
 func formOf(f indexers.Form) definitionForm {
 	out := definitionForm{
 		Entry: entryOf(f.Entry), Links: append([]string{}, f.Links...), Fields: []definitionField{},
 		Session: f.Session, Captcha: f.Captcha, Solver: f.Solver, Cookie: f.Cookie, Code: f.Code,
+	}
+	if p := f.Port; p != nil {
+		out.Port = api.Some(portFacts{
+			UserAgent: p.UserAgent, Searches: limitOf(p.Searches), Grabs: limitOf(p.Grabs), Recent: p.Recent,
+			SpacingSeconds: p.Spacing.Seconds(), Synced: when(p.Synced),
+		})
 	}
 	for _, field := range f.Fields {
 		d := definitionField{

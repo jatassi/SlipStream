@@ -9,12 +9,11 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/indexerfields"
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 )
 
 // Floor is the least spacing a port may declare, the Node's own.
 const Floor = 2 * time.Second
-
-var encodings = []string{"", "iso-8859-1", "windows-1251"}
 
 // Define is the one way to make a Port. It reflects S into Fields,
 // derives Auth, Key and SignInWords, and panics when the parts disagree,
@@ -38,9 +37,21 @@ func Define[S any](e Entry, impl Impl[S]) Port {
 		key.Help = fmt.Sprintf(key.Help, e.Name)
 		e.Fields = append(e.Fields, key)
 	}
+	if c, ok := impl.Login.(CookieLogin); ok {
+		e.PastesUserAgent = c.UserAgent
+	}
 	e.Key = words(settings, func(s setting) bool { return s.key })
 	e.SignInWords = words(settings, func(s setting) bool { return s.signin })
-	return Port{entry: e, run: &typed[S]{impl: impl, settings: settings}}
+	charset, _ := charsetOf(e.Encoding)
+	return Port{entry: e, run: &typed[S]{impl: impl, settings: settings, login: familyOf[S](impl.Login), charset: charset}}
+}
+
+// charsetOf is Encoding.GetEncoding(name), UTF-8 for "".
+func charsetOf(name string) (encoding.Charset, error) {
+	if name == "" {
+		return encoding.UTF8, nil
+	}
+	return encoding.GetEncoding(name)
 }
 
 func check[S any](e Entry, impl Impl[S], settings []setting) error {
@@ -69,14 +80,14 @@ func checkEntry(e Entry) error {
 	if e.PageSize < 0 || e.QueryLimit.Count < 0 || e.GrabLimit.Count < 0 {
 		errs = append(errs, errors.New("a page size or limit is negative"))
 	}
-	if !slices.Contains(encodings, e.Encoding) {
-		errs = append(errs, fmt.Errorf("encoding %q is none of %q", e.Encoding, encodings))
+	if _, err := charsetOf(e.Encoding); err != nil {
+		errs = append(errs, err)
 	}
 	if e.Capabilities.Categories == nil {
 		errs = append(errs, errors.New("the capabilities need a category mapping"))
 	}
-	if e.Fields != nil || e.Auth != 0 || e.Key != "" || e.SignInWords != "" {
-		errs = append(errs, errors.New("the entry sets Fields, Auth, Key or SignInWords, which Define derives"))
+	if e.Fields != nil || e.Auth != 0 || e.Key != "" || e.SignInWords != "" || e.PastesUserAgent {
+		errs = append(errs, errors.New("the entry sets Fields, Auth, Key, SignInWords or PastesUserAgent, which Define derives"))
 	}
 	return errors.Join(errs...)
 }
@@ -102,8 +113,8 @@ func checkModes[S any](c Capabilities, impl Impl[S]) error {
 			errs = append(errs, fmt.Errorf("the %s mode declares no params", m.name))
 		}
 	}
-	if impl.Movie == nil && impl.TV == nil && impl.Basic == nil {
-		errs = append(errs, errors.New("a port needs at least one generator"))
+	if impl.Basic == nil {
+		errs = append(errs, errors.New("a port needs a Basic generator, which Recent and Test run"))
 	}
 	if impl.Parse == nil {
 		errs = append(errs, errors.New("a port needs a parser"))

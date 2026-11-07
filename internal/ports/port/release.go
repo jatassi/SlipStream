@@ -1,9 +1,17 @@
+// Ported from Prowlarr's src/NzbDrone.Common/Http/TooManyRequestsException.cs, src/NzbDrone.Core/Exceptions/ReleaseUnavailableException.cs, src/NzbDrone.Core/Indexers/Exceptions/IndexerAuthException.cs, src/NzbDrone.Core/Indexers/Exceptions/IndexerException.cs, src/NzbDrone.Core/Indexers/Exceptions/RequestLimitReachedException.cs, src/NzbDrone.Core/Indexers/IndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerFlag.cs, src/NzbDrone.Core/Parser/Model/ReleaseInfo.cs, src/NzbDrone.Core/Parser/Model/TorrentInfo.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
 package port
 
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jatassi/slipstream/internal/newznab"
 )
@@ -119,7 +127,33 @@ var (
 	ErrTwoFactorCodeNeeded = errors.New("the site needs a two-factor code")
 )
 
-// FilterReleasesByQuery is IndexerBase.FilterReleasesByQuery.
-func FilterReleasesByQuery(_ []TorrentInfo, _ SearchCriteria) []TorrentInfo {
-	panic("port: FilterReleasesByQuery is not implemented")
+var (
+	termSplit   = regexp.MustCompile(`[^\p{L}\p{Mn}\p{Nd}\p{Pc}]+`)
+	commonWords = []string{"and", "the", "an", "of"}
+)
+
+// FilterReleasesByQuery is IndexerBase.FilterReleasesByQuery: for a text
+// search, the releases whose titles hold one of its words, or two of them
+// when it has several. Words of one letter and "and", "the", "an" and
+// "of" don't count.
+func FilterReleasesByQuery(rs []TorrentInfo, q SearchCriteria) []TorrentInfo {
+	if q.IsRssSearch() || q.IsIDSearch() {
+		return rs
+	}
+	var terms []string
+	for _, t := range termSplit.Split(q.SearchTerm, -1) {
+		if utf8.RuneCountInString(t) > 1 && !slices.ContainsFunc(commonWords, func(w string) bool { return strings.EqualFold(w, t) }) {
+			terms = append(terms, strings.ToLower(t))
+		}
+	}
+	need := min(len(terms), 2)
+	return slices.DeleteFunc(slices.Clone(rs), func(r TorrentInfo) bool {
+		title, matches := strings.ToLower(r.Title), 0
+		for _, t := range terms {
+			if strings.Contains(title, t) {
+				matches++
+			}
+		}
+		return matches == 0 || matches < need
+	})
 }

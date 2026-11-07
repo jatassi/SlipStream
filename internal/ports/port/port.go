@@ -1,3 +1,7 @@
+// Ported from Prowlarr's src/NzbDrone.Core/Indexers/CategoryMapping.cs, src/NzbDrone.Core/Indexers/HttpIndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerBaseSettings.cs, src/NzbDrone.Core/Indexers/IndexerCapabilities.cs, src/NzbDrone.Core/Indexers/IndexerCapabilitiesCategories.cs, src/NzbDrone.Core/Indexers/IndexerPrivacy.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
 // Package port is the kit every ported site is written against, and the
 // framework that runs it: SlipStream's HttpIndexerBase. A port is Go
 // shaped like its Prowlarr C# file, so an upstream diff ports line by
@@ -43,7 +47,9 @@
 //	searchCriteria.SanitizedTvSearchString q.SanitizedTvSearchString()
 //	searchCriteria.FullImdbId              q.FullImdbID()
 //	searchCriteria.IsRssSearch             q.IsRssSearch()
+//	searchCriteria.IsIdSearch              q.IsIDSearch()
 //	ParseUtil.X, DateTimeUtil.X            parseutil.X, datetimeutil.X
+//	DateTime.Now, the host's zone         ix.Clock, as the clock argument of datetimeutil.X
 //	AngleSharp QuerySelector(All)          dom.Parse(...).QuerySelector(All)
 //	IndexerException                       port.IndexerError
 //	IndexerAuthException                   port.IndexerAuthError
@@ -99,8 +105,9 @@ type Entry struct {
 	// derived from the address: MTeamTp's "api." + domain. Credentials
 	// and port headers reach only the address's host and these.
 	Hosts func(base *url.URL) []string
-	// Encoding is "", "iso-8859-1" or "windows-1251": responses are
-	// decoded and form bodies encoded with it.
+	// Encoding is a name Encoding.GetEncoding takes, such as
+	// "windows-1251", or "" for UTF-8. Responses are decoded and form
+	// bodies encoded with it.
 	Encoding string
 	// UserAgent is a fixed User-Agent the site requires, sent unless a
 	// pasted session carries its own.
@@ -131,6 +138,9 @@ type Entry struct {
 	// credentials_rejected names ("email or password"), from those
 	// tagged signin. Define sets both.
 	Key, SignInWords string
+	// PastesUserAgent is a CookieLogin that sends the pasted browser's
+	// User-Agent with its cookie: Define sets it.
+	PastesUserAgent bool
 }
 
 // Upstream is the port's provenance, from its upstream.json.

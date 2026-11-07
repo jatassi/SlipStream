@@ -90,15 +90,17 @@ type Report struct {
 }
 
 // Create runs the Test on the Node the Indexer will search from, signing
-// in with c when the Admin answered a captcha, then saves in one Write the
-// Indexer at revision 1, its status, the session the Test earned, the
-// Test's query row and, for a catalog Indexer or a feed whose Test's items
+// in with what the Admin typed, then saves in one Write the Indexer at
+// revision 1, its status, the session the Test earned, the Test's query
+// row and, for a catalog or native Indexer or a feed whose Test's items
 // named no source, the Tracker it reaches. It fails with *TestFailedError,
-// ErrCaptchaExpired, ErrNameTaken, ErrNoSearchingNode, ErrNotSearching,
+// ErrCaptchaExpired, ErrNoCode, ErrNameTaken, ErrNoSearchingNode, ErrNotSearching,
 // *WaitError, *UnavailableError or ErrLate, and for a catalog Indexer with
 // ErrNoDefinition, ErrCatalogUnavailable, *cardigann.Unrunnable,
-// ErrNotALink, *ValueError or ErrCookieNeeded.
-func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft, c *CaptchaAnswer) (View, error) {
+// ErrNotALink, *ValueError or ErrCookieNeeded, and for a native one with
+// ErrNoPort, ErrNotAnAddress, *ValueError, ErrCookieNeeded,
+// ErrNoCookieSignIn or ErrUserAgentNeeded.
+func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft, t Typed) (View, error) {
 	if err := x.nameFree(ctx, x.cfg.Library, d.Name, ID{}); err != nil {
 		return View{}, err
 	}
@@ -106,7 +108,7 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft, c *Ca
 	if err != nil {
 		return View{}, err
 	}
-	q, node, a, err := x.test(ctx, idx, session, c)
+	q, node, a, err := x.test(ctx, idx, session, t)
 	if err != nil {
 		return View{}, err
 	}
@@ -141,14 +143,14 @@ func (x *Indexers) Create(ctx context.Context, by identity.Admin, d Draft, c *Ca
 	return x.Get(ctx, by, idx.ID)
 }
 
-// TestDraft tests d without saving anything, signing in with c when the
-// Admin answered a captcha.
-func (x *Indexers) TestDraft(ctx context.Context, _ identity.Admin, d Draft, c *CaptchaAnswer) (Report, error) {
+// TestDraft tests d without saving anything, signing in with what the
+// Admin typed.
+func (x *Indexers) TestDraft(ctx context.Context, _ identity.Admin, d Draft, t Typed) (Report, error) {
 	idx, session, err := x.drafted(ctx, d)
 	if err != nil {
 		return Report{}, err
 	}
-	_, _, a, err := x.test(ctx, idx, session, c)
+	_, _, a, err := x.test(ctx, idx, session, t)
 	if err != nil {
 		return Report{}, err
 	}
@@ -156,12 +158,12 @@ func (x *Indexers) TestDraft(ctx context.Context, _ identity.Admin, d Draft, c *
 }
 
 // Update saves e in one Write that bumps the revision, running the Test
-// first, with c when the Admin answered a captcha, when e changes a field
+// first, with what the Admin typed, when e changes a field
 // the Test reads. Moving the Indexer or changing its username discards
 // the captchas shown for its old sign-in. It fails as Create does, and
 // with ErrNoIndexer.
-func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit, c *CaptchaAnswer) (View, error) {
-	idx, err := Get(ctx, x.cfg.Library, id)
+func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit, t Typed) (View, error) {
+	idx, err := x.get(ctx, x.cfg.Library, id)
 	if err != nil {
 		return View{}, err
 	}
@@ -182,7 +184,7 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit,
 	var node role.NodeID
 	var a searching.Answer
 	if e.tested() {
-		if q, node, a, err = x.test(ctx, idx, session, c); err != nil {
+		if q, node, a, err = x.test(ctx, idx, session, t); err != nil {
 			return View{}, err
 		}
 		idx = read(idx, a)
@@ -233,11 +235,9 @@ func (x *Indexers) edited(ctx context.Context, idx Indexer, e Edit) (Indexer, er
 		}
 		idx.Home = *e.Home
 	}
-	if d, ok := idx.Source.(Definition); ok && (e.BaseAddress != nil || e.Values != nil) {
-		var err error
-		if idx, err = x.resettled(ctx, idx, d, e); err != nil {
-			return Indexer{}, err
-		}
+	idx, err := x.editedSource(ctx, idx, e)
+	if err != nil {
+		return Indexer{}, err
 	}
 	if e.Address != nil || e.APIKey != nil {
 		s, err := x.open(idx)
@@ -273,6 +273,22 @@ func (x *Indexers) edited(ctx context.Context, idx Indexer, e Edit) (Indexer, er
 	return idx, checkMedia(idx, x.cfg.Types)
 }
 
+// editedSource is idx with e's base address, settings and cookie applied
+// to its catalog definition or port.
+func (x *Indexers) editedSource(ctx context.Context, idx Indexer, e Edit) (Indexer, error) {
+	switch s := idx.Source.(type) {
+	case Definition:
+		if e.BaseAddress != nil || e.Values != nil {
+			return x.resettled(ctx, idx, s, e)
+		}
+	case Port:
+		if e.BaseAddress != nil || e.Values != nil || e.Cookie != nil {
+			return x.reported(idx, s, e)
+		}
+	}
+	return idx, nil
+}
+
 // resettled is catalog Indexer idx with e's base address and settings on
 // top of its saved ones.
 func (x *Indexers) resettled(ctx context.Context, idx Indexer, d Definition, e Edit) (Indexer, error) {
@@ -298,19 +314,40 @@ func (x *Indexers) resettled(ctx context.Context, idx Indexer, d Definition, e E
 	return idx, err
 }
 
+// reported is native Indexer idx with e's address, settings and cookie
+// on top of its saved ones.
+func (x *Indexers) reported(idx Indexer, p Port, e Edit) (Indexer, error) {
+	if p.Entry.ID == "" {
+		return Indexer{}, ErrNoPort
+	}
+	if e.BaseAddress != nil {
+		p.Address = *e.BaseAddress
+	}
+	secrets, err := x.open(idx)
+	if err != nil {
+		return Indexer{}, err
+	}
+	if p, secrets.Fields, err = resettledPort(p, e.Values, secrets.Fields, e.Cookie); err != nil {
+		return Indexer{}, err
+	}
+	idx.Source = p
+	idx.Secrets, err = x.seal(idx.ID, secrets)
+	return idx, err
+}
+
 func set[T any](to, v *T) {
 	if v != nil {
 		*to = *v
 	}
 }
 
-// Test runs idx's Test where it searches from now, signing in with c when
-// the Admin answered a captcha, and records it. A pass clears its backoff
+// Test runs idx's Test where it searches from now, signing in with what
+// the Admin typed, and records it. A pass clears its backoff
 // and any stop, even for an RSS feed whose Test found it can't be used. It
 // fails with *TestFailedError, *FeedRefusedError, ErrCaptchaExpired,
-// ErrNoIndexer, *WaitError, *UnavailableError or ErrLate.
-func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID, c *CaptchaAnswer) (Report, error) {
-	idx, r, err := x.testSaved(ctx, id, c)
+// ErrNoCode, ErrNoIndexer, *WaitError, *UnavailableError or ErrLate.
+func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID, t Typed) (Report, error) {
+	idx, r, err := x.testSaved(ctx, id, t)
 	var failed *TestFailedError
 	if errors.As(err, &failed) {
 		return r, x.withCaptcha(ctx, idx, failed.Outcome.Node, nil, err)
@@ -320,8 +357,8 @@ func (x *Indexers) Test(ctx context.Context, _ identity.Admin, id ID, c *Captcha
 
 // testSaved is Test for an Admin or the health check, which never fetches
 // a new captcha for a failed sign-in: only an Admin can answer it.
-func (x *Indexers) testSaved(ctx context.Context, id ID, c *CaptchaAnswer) (Indexer, Report, error) {
-	idx, err := Get(ctx, x.cfg.Library, id)
+func (x *Indexers) testSaved(ctx context.Context, id ID, t Typed) (Indexer, Report, error) {
+	idx, err := x.get(ctx, x.cfg.Library, id)
 	if err != nil {
 		return Indexer{}, Report{}, err
 	}
@@ -329,7 +366,7 @@ func (x *Indexers) testSaved(ctx context.Context, id ID, c *CaptchaAnswer) (Inde
 	if err != nil {
 		return idx, Report{}, err
 	}
-	call, err := x.testCall(idx, node, c)
+	call, err := x.testCall(idx, node, t)
 	if err != nil {
 		return idx, Report{}, err
 	}
@@ -359,15 +396,15 @@ func (x *Indexers) testSaved(ctx context.Context, id ID, c *CaptchaAnswer) (Inde
 
 // test runs idx's Test, unsaved or at its next revision, on the Node it
 // will search from, with session in place of its stored one unless nil and
-// signing in with c when the Admin answered a captcha. It returns the
+// signing in with what the Admin typed. It returns the
 // job's query id and the answer once it passed. Nothing is recorded: the
 // caller saves the answer with the edit.
-func (x *Indexers) test(ctx context.Context, idx Indexer, session *searching.Session, c *CaptchaAnswer) (QueryID, role.NodeID, searching.Answer, error) {
+func (x *Indexers) test(ctx context.Context, idx Indexer, session *searching.Session, t Typed) (QueryID, role.NodeID, searching.Answer, error) {
 	node, wait := route(x.cfg.Roster, idx, Status{State: OK})
 	if wait != nil {
 		return QueryID{}, role.NodeID{}, searching.Answer{}, &WaitError{Outcome: *wait}
 	}
-	call, err := x.testCall(idx, node, c)
+	call, err := x.testCall(idx, node, t)
 	if err != nil {
 		return QueryID{}, role.NodeID{}, searching.Answer{}, err
 	}
@@ -499,7 +536,7 @@ type View struct {
 func (x *Indexers) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 	var out []View
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		all, err := All(ctx, r)
+		all, err := x.all(ctx, r)
 		if err != nil {
 			return err
 		}
@@ -513,7 +550,7 @@ func (x *Indexers) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 func (x *Indexers) Get(ctx context.Context, _ identity.Admin, id ID) (View, error) {
 	var out []View
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		idx, err := Get(ctx, r, id)
+		idx, err := x.get(ctx, r, id)
 		if err != nil {
 			return err
 		}

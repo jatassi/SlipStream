@@ -64,10 +64,11 @@ ON CONFLICT (indexer_id) DO UPDATE SET
     last_failure_at = excluded.last_failure_at, success_at = excluded.success_at, revision = excluded.revision;
 
 -- name: OfferSession :execrows
-INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at)
-VALUES (sqlc.arg(indexer_id), sqlc.arg(node_id), sqlc.arg(cookies_sealed), sqlc.arg(user_agent), sqlc.arg(pasted), sqlc.arg(earned_at))
+INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, token_sealed, user_agent, pasted, earned_at)
+VALUES (sqlc.arg(indexer_id), sqlc.arg(node_id), sqlc.arg(cookies_sealed), sqlc.arg(token_sealed), sqlc.arg(user_agent), sqlc.arg(pasted), sqlc.arg(earned_at))
 ON CONFLICT (indexer_id, node_id) DO UPDATE SET
-    cookies_sealed = excluded.cookies_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted, earned_at = excluded.earned_at
+    cookies_sealed = excluded.cookies_sealed, token_sealed = excluded.token_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted,
+    earned_at = excluded.earned_at
 WHERE excluded.earned_at > indexers_session.earned_at;
 
 -- name: GetSession :one
@@ -178,6 +179,13 @@ UPDATE indexers_indexer SET
     updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id) AND definition_sha = sqlc.arg(from_sha);
 
+-- name: MoveToDefinition :execrows
+UPDATE indexers_indexer SET
+    kind = 'catalog', port_id = NULL, definition_id = sqlc.arg(definition_id), definition_sha = sqlc.arg(definition_sha),
+    base_address = sqlc.arg(base_address), plain = sqlc.arg(plain), secrets_sealed = sqlc.arg(secrets_sealed), notes = sqlc.arg(notes),
+    revision = revision + 1, updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id) AND kind = 'native';
+
 -- name: GetCustom :one
 SELECT * FROM indexers_definition WHERE origin = 'custom' AND id = sqlc.arg(id)
 ORDER BY fetched_at DESC, sha
@@ -222,8 +230,8 @@ SELECT tracker_id FROM indexers_tracker_key WHERE key = sqlc.arg(key);
 -- name: ListTrackerKeys :many
 SELECT key, tracker_id FROM indexers_tracker_key ORDER BY key;
 
--- name: InsertTrackerKey :exec
-INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (sqlc.arg(key), sqlc.arg(tracker_id));
+-- name: AddTrackerKey :exec
+INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (sqlc.arg(key), sqlc.arg(tracker_id)) ON CONFLICT (key) DO NOTHING;
 
 -- name: MoveTrackerKeys :exec
 UPDATE indexers_tracker_key SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);

@@ -1,0 +1,68 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "sid={{sid}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /api/search
+          headers: {Cookie: "sid={{sid}}"}
+          query: {q: The Quiet Orchard, imdb: tt0000001}
+        response:
+          headers: {Content-Type: application/json}
+          body: search.json
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /api/search, query: {q: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/search, query: {q: ""}}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /api/search}
+        response: {status: 401, headers: {Content-Type: application/json}, body: signedout.json}
+      - request:
+          method: POST
+          path: /login
+          form: {username: fixture-user, password: "{{password}}"}
+        response: {status: 403, headers: {Content-Type: application/json}, body: refused.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/search}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "sid={{expiredSid}}"}
+    exchanges:
+      - request: {path: /api/search, headers: {Cookie: "sid={{expiredSid}}"}}
+        response: {status: 401, headers: {Content-Type: application/json}, body: signedout.json}
+      - request:
+          method: POST
+          path: /login
+          form: {username: fixture-user, password: "{{password}}"}
+        response:
+          headers: {Content-Type: application/json, Set-Cookie: "sid={{sid}}; Path=/; HttpOnly"}
+          body: signedin.json
+      - request: {path: /api/search, headers: {Cookie: "sid={{sid}}"}}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: grab
+    call: {fetch: /download/1}
+    exchanges:
+      - request: {path: /download/1}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /api/search, query: {q: ""}}
+        response: {headers: {Content-Type: application/json}, body: recent.json}

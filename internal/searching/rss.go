@@ -45,6 +45,7 @@ func (d rssDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
 		out[i] = Release{
 			Title: e.Title, Size: e.Size, Published: e.Published, Seeders: e.Seeders,
 			Link: LinkOf(e.Link), Magnet: LinkOf(e.Magnet), InfoHash: e.InfoHash, Details: e.Details,
+			Factors: Factors{Download: 1, Upload: 1},
 		}
 	}
 	return out, nil

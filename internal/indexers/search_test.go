@@ -123,7 +123,7 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 
 func (p *planned) edit(name string, e indexers.Edit) {
 	p.t.Helper()
-	if _, err := p.x.Update(p.t.Context(), identity.Admin{}, p.ids[name], e, nil); err != nil {
+	if _, err := p.x.Update(p.t.Context(), identity.Admin{}, p.ids[name], e, indexers.Typed{}); err != nil {
 		p.t.Fatal(err)
 	}
 }
@@ -397,7 +397,7 @@ func TestPlanNeverAsksAnRSSFeed(t *testing.T) {
 			_, err := p.x.Create(t.Context(), identity.Admin{}, indexers.Draft{
 				Kind: indexers.RSS, Name: "Brook", Address: "https://brook.test/rss", Tracker: "Brook", Media: tc.media,
 				On: tc.on, AutoSearch: tc.auto, RSS: tc.rss,
-			}, nil)
+			}, indexers.Typed{})
 			if err != nil {
 				t.Fatal(err)
 			}

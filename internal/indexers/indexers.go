@@ -13,6 +13,7 @@
 package indexers
 
 import (
+	"cmp"
 	"context"
 	"embed"
 	"encoding/json"
@@ -159,11 +160,24 @@ type Feed struct {
 }
 
 // Port is the ported site a native Indexer runs, the address it reaches
-// the site at and its plain settings.
+// the site at and its plain settings. Entry and Retired are read from the
+// registry with the row, as a Definition reads its pinned summary: Entry is
+// zero for a port the binary no longer carries, and Retired is set for one
+// SlipStream retired because its site died.
 type Port struct {
 	ID      port.ID
 	Address string
 	Plain   map[string]string
+	Entry   port.Entry
+	Retired *port.Retired
+}
+
+// Site is the ported site's name.
+func (p Port) Site() string {
+	if p.Retired != nil {
+		return p.Retired.Name
+	}
+	return cmp.Or(p.Entry.Name, string(p.ID))
 }
 
 func (Definition) source() {}
@@ -334,7 +348,7 @@ type Config struct {
 	// Searching reaches the Searching service on a Node.
 	Searching func(role.NodeID) searching.Remote
 	// Ports are the ported sites this build carries, the same registry
-	// the Nodes run.
+	// the Nodes run. Nil carries none.
 	Ports port.Catalog
 	// Types are how each Content Type is searched.
 	Types map[works.TypeID]Facet
@@ -369,6 +383,9 @@ type Indexers struct {
 }
 
 func New(cfg Config) *Indexers {
+	if cfg.Ports == nil {
+		cfg.Ports = port.NewRegistry(nil, nil, nil)
+	}
 	return &Indexers{cfg: cfg, next: make(chan struct{}), attempts: attempts{byID: map[string]attempt{}}}
 }
 
@@ -386,9 +403,13 @@ func (x *Indexers) moved() {
 	x.next = make(chan struct{})
 }
 
-// Run keeps late jobs polled until ctx ends, then waits for the ones still
+// Run moves the Indexers of ported sites the catalog took over, then
+// keeps late jobs polled until ctx ends and waits for the ones still
 // polling, which end with ctx.
 func (x *Indexers) Run(ctx context.Context) error {
+	if err := x.moveMoved(ctx); err != nil {
+		return err
+	}
 	x.late.run(ctx)
 	return nil
 }
@@ -424,7 +445,8 @@ func (b *background) goOn(f func(ctx context.Context)) bool {
 	return true
 }
 
-// All reads every Indexer in r, by name.
+// All reads every Indexer in r, by name. A native Indexer's Port has no
+// registry entry: the Indexers' own reads fill it.
 func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	rows, err := db.New(r).ListIndexers(ctx)
 	if err != nil {
@@ -439,7 +461,8 @@ func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	return out, nil
 }
 
-// Get reads Indexer id in r: ErrNoIndexer when there is none.
+// Get reads Indexer id in r, as All does: ErrNoIndexer when there is
+// none.
 func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 	row, err := db.New(r).GetIndexer(ctx, id)
 	if errors.Is(err, storage.ErrNoRows) {
@@ -449,6 +472,33 @@ func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 		return Indexer{}, err
 	}
 	return indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.DefinitionFetchedAt, row.Pasted)
+}
+
+func (x *Indexers) all(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
+	all, err := All(ctx, r)
+	for i := range all {
+		all[i] = x.ported(all[i])
+	}
+	return all, err
+}
+
+func (x *Indexers) get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
+	idx, err := Get(ctx, r, id)
+	return x.ported(idx), err
+}
+
+// ported is idx with its port's registry entry, or its retired record.
+func (x *Indexers) ported(idx Indexer) Indexer {
+	p, ok := idx.Source.(Port)
+	if !ok {
+		return idx
+	}
+	p.Entry, _ = x.cfg.Ports.Lookup(p.ID)
+	if r, ok := x.cfg.Ports.Retired(p.ID); ok {
+		p.Retired = &r
+	}
+	idx.Source = p
+	return idx
 }
 
 // indexerOf is row as an Indexer, with its pinned definition's summary,

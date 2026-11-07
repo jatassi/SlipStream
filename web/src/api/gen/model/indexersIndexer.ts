@@ -42,6 +42,8 @@ export interface IndexersIndexer {
    */
   media: string[] | null;
   name: string;
+  /** What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page */
+  notes: string[];
   on: boolean;
   /** A native Indexer's ported site; null for every other kind */
   port: IndexersPortPin | null;

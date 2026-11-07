@@ -68,6 +68,8 @@ type served struct {
 	key     string
 	changed *published
 	asked   []role.NodeID
+	// native answers the jobs of native Indexers.
+	native *nativeNode
 }
 
 var fixtureScenario = scenario.Scenario{Name: "x", Seed: "indexersapi"}
@@ -86,7 +88,7 @@ func serve(t *testing.T, r indexerstest.Roster, down role.NodeID) *served {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := &served{lib: lib, sealer: secrettest.Sealer(t), key: site.APIKey(fixtureScenario), changed: &published{}}
+	srv := &served{lib: lib, sealer: secrettest.Sealer(t), key: site.APIKey(fixtureScenario), changed: &published{}, native: &nativeNode{}}
 	srv.site = faketest.Loopback(t, site.Fake, fixtureScenario)
 	timings := searching.DefaultTimings()
 	timings.Floor = 0
@@ -100,15 +102,17 @@ func serve(t *testing.T, r indexerstest.Roster, down role.NodeID) *served {
 			if n == down {
 				return disconnected{}
 			}
-			return home
+			return split{native: srv.native, other: home}
 		},
-		Changed:  srv.changed,
-		Status:   discard[indexers.StatusChanged]{},
-		Trackers: discard[indexers.TrackerChanged]{},
-		Settings: discard[indexers.SettingsChanged]{},
-		Timings:  indexers.DefaultTimings(),
-		Zone:     time.UTC,
-		Log:      slog.New(slog.DiscardHandler),
+		Ports:       ports,
+		CatalogNext: func(context.Context) (time.Time, error) { return time.Time{}, nil },
+		Changed:     srv.changed,
+		Status:      discard[indexers.StatusChanged]{},
+		Trackers:    discard[indexers.TrackerChanged]{},
+		Settings:    discard[indexers.SettingsChanged]{},
+		Timings:     indexers.DefaultTimings(),
+		Zone:        time.UTC,
+		Log:         slog.New(slog.DiscardHandler),
 	})
 	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { indexersapi.Routes(r, registry{x}) })
 	return srv
@@ -157,7 +161,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
 		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
-		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,"port":null,` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
+		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,"port":null,` + modes + `,"notes":[],"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
 }
 
 const on = `"on":true,"automaticSearch":true,"rss":true,"allowFailover":false`
@@ -228,20 +232,6 @@ func TestEachCreateErrorAnswersItsProblem(t *testing.T) {
 			t.Fatalf("after a failed create the list is %s with %d events, want none", list, len(x.changed.ids))
 		}
 	}
-}
-
-func TestANativeIndexerAndATwoFactorCodeWaitForThePorts(t *testing.T) {
-	s := serve(t, indexerstest.Alone(self), role.NodeID{})
-	const invalid = `{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept",`
-	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", `{"kind":"native","name":"Ported","port":"norbits","baseAddress":"https://norbits.test/"}`,
-		http.StatusUnprocessableEntity, invalid+`"detail":"SlipStream can't add a ported site's Indexer yet.","errors":[{"location":"body.kind","message":"SlipStream can't add a ported site's Indexer yet."}]}`)
-	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", `{"kind":"native","name":"Ported","address":"https://norbits.test/"}`,
-		http.StatusUnprocessableEntity, invalid+`"errors":[{"location":"body.port","message":"Choose the site."},{"location":"body.address","message":"A ported site takes its address as baseAddress."}]}`)
-	id := s.create(t)
-	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/"+id+"/test", `{"code":"123456"}`, http.StatusUnprocessableEntity,
-		invalid+`"detail":"Only a site that signs in with a two-factor code takes one.","errors":[{"location":"body.code","message":"Only a site that signs in with a two-factor code takes one."}]}`)
-	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexers/"+id, `{"code":"123456"}`, http.StatusUnprocessableEntity,
-		invalid+`"detail":"Only a site that signs in with a two-factor code takes one.","errors":[{"location":"body.code","message":"Only a site that signs in with a two-factor code takes one."}]}`)
 }
 
 func TestAPatchChangesOnlyWhatItSends(t *testing.T) {

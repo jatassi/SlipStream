@@ -22,9 +22,11 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/site/ports"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/ports/all"
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
@@ -46,7 +48,7 @@ var Fake = fake.Spec{
 		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
 	},
 	Online:   fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
-	Cues:     []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse},
+	Cues:     []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse, ports.PortCase},
 	Captures: []fake.CaptureSpec{CaptchaShown, SignedIn},
 	Entered:  indexers,
 }
@@ -135,7 +137,11 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			return nil, cue
 		}
 	}
-	return fake.HTTP(env, site.routes()), nil
+	routes := site.routes()
+	if _, err := ports.Serve(env, all.Registry(), ports.Embedded, routes); err != nil {
+		return nil, err
+	}
+	return fake.HTTP(env, routes), nil
 }
 
 // Release is one item the site lists, and its .torrent.

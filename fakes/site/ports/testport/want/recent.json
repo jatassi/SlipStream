@@ -1,0 +1,31 @@
+{
+  "releases": [
+    {
+      "title": "Salt.Meadow.2020.1080p.WEB-DL.H264-FKW",
+      "size": 5000000000,
+      "published": "2026-06-02T09:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 2,
+      "link": "https://testport.fixture-site.fake.localhost/download/3",
+      "magnet": "",
+      "infoHash": "39349f6b3254f093d94809a9d0ef38ba70f18265",
+      "categories": [
+        2000
+      ],
+      "ids": {
+        "imdbid": "tt0000004"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://testport.fixture-site.fake.localhost/torrent/3",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

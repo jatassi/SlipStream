@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -74,46 +76,45 @@ type Response struct {
 }
 
 // Send is how Do sends one request. The zero Send reads a page and
-// follows redirects.
+// follows redirects to any host.
 type Send struct {
 	Purpose Purpose
 	// NoFollow returns a redirect as the response.
 	NoFollow bool
-	// Hosts are the Indexer's own hosts. A redirect to any other host
-	// drops the Scoped headers, and ends a request that has a body.
-	Hosts  []string
-	Scoped []string
+	// Hosts are the Indexer's own hosts, as a URL's Host names them. When
+	// set, a redirect to any other host is returned as the response, so a
+	// request's headers and body never reach another host.
+	Hosts []string
 	// Rotates reports the cookies a response sets as a newly earned
-	// session.
+	// session, which the Answer carries.
 	Rotates bool
 }
 
-func (o Send) follow() bool {
-	if o.Hosts != nil || o.Scoped != nil || o.Rotates {
-		panic("searching: Send.Hosts, Send.Scoped and Send.Rotates are not implemented")
+func (o Send) redirect(req *http.Request, via []*http.Request) error {
+	if o.NoFollow || o.Hosts != nil && !slices.Contains(o.Hosts, strings.ToLower(req.URL.Host)) {
+		return http.ErrUseLastResponse
 	}
-	return !o.NoFollow
+	return redirects(req, via)
 }
 
 // Do sends req as o says through this Node's transport with the Indexer's
 // session on this Node: its cookies, each only to its own host, and its
 // User-Agent. A cookie a response sets joins the session. It waits for
-// the host's turn, caps the body, follows at most 10 redirects to any
-// host, stopping at one to a magnet link, and turns a browser challenge
-// into *Stopped, a 429 into *Limited and a 5xx, a timeout or a connection
-// failure into *Failing. It returns any other response for the driver to
-// read. Credentials go only where the driver puts them, and neither its
-// errors nor its log lines carry the URL.
+// the host's turn, caps the body, follows at most 10 redirects, stopping
+// at one to a magnet link, and turns a browser challenge into *Stopped, a
+// 429 into *Limited and a 5xx, a timeout or a connection failure into
+// *Failing. It returns any other response for the driver to read.
+// Credentials go only where the driver puts them, and neither its errors
+// nor its log lines carry the URL.
 func (s *Site) Do(ctx context.Context, req *http.Request, o Send) (*Response, error) {
-	follow := o.follow()
 	held := s.slot.held()
 	j := newJar(nil)
 	if held != nil {
 		j = newJar(held.Cookies)
 	}
-	res, err := s.send(ctx, req, o.Purpose, j, follow)
+	res, err := s.send(ctx, req, o, j)
 	if cookies, changed := j.held(); changed && held != nil {
-		s.slot.keep(held, cookies)
+		s.slot.keep(held, cookies, o.Rotates)
 	}
 	return res, err
 }
@@ -125,11 +126,11 @@ func (s *Site) Space(d time.Duration) { s.delay = max(s.delay, d) }
 // Held is the Indexer's session on this Node, nil for none.
 func (s *Site) Held() *Session { return s.slot.held() }
 
-// send is Do with the cookies of j, following redirects only when follow
-// is set. A browser challenge goes to the Node's Challenge solver, and the
-// request goes again once, with the clearance.
-func (s *Site) send(ctx context.Context, req *http.Request, p Purpose, j *jar, follow bool) (*Response, error) {
-	res, err := s.sendOnce(ctx, req, p, j, follow)
+// send is Do with the cookies of j. A browser challenge goes to the
+// Node's Challenge solver, and the request goes again once, with the
+// clearance.
+func (s *Site) send(ctx context.Context, req *http.Request, o Send, j *jar) (*Response, error) {
+	res, err := s.sendOnce(ctx, req, o, j)
 	if !errors.Is(err, errChallenged) {
 		return res, err
 	}
@@ -142,7 +143,7 @@ func (s *Site) send(ctx context.Context, req *http.Request, p Purpose, j *jar, f
 			return nil, &Failing{Err: fmt.Errorf("build the request again: %w", err)}
 		}
 	}
-	res, err = s.sendOnce(ctx, again, p, j, follow)
+	res, err = s.sendOnce(ctx, again, o, j)
 	if errors.Is(err, errChallenged) {
 		return nil, &Stopped{Cause: ChallengeUnsolved, SolverTried: true}
 	}
@@ -152,7 +153,7 @@ func (s *Site) send(ctx context.Context, req *http.Request, p Purpose, j *jar, f
 // sendOnce sends req once with the cookies of j and the User-Agent of
 // the session, or the clearance this Node holds for its host, with that
 // clearance's cookies. A browser challenge is errChallenged.
-func (s *Site) sendOnce(ctx context.Context, req *http.Request, p Purpose, j *jar, follow bool) (*Response, error) {
+func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) (*Response, error) {
 	if err := s.svc.spacer.wait(ctx, req.URL.Host, s.delay); err != nil {
 		return nil, err
 	}
@@ -169,9 +170,8 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, p Purpose, j *ja
 	}
 	client := *s.svc.client
 	client.Jar = j
-	if !follow {
-		client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	}
+	client.CheckRedirect = o.redirect
+	p := o.Purpose
 	sent := time.Now()
 	res, err := client.Do(req.WithContext(ctx)) //nolint:gosec // G704: an Indexer's requests go to the address its Admin chose
 	if err != nil {

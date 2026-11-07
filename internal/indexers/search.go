@@ -52,7 +52,7 @@ type Line struct {
 // why. Each asked line reserves its query, so concurrent searches never
 // pass a limit.
 func (x *Indexers) Plan(ctx context.Context, tx *storage.Tx[file], typ works.TypeID) ([]Line, error) {
-	all, err := All(ctx, tx)
+	all, err := x.all(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (x *Indexers) Search(ctx context.Context, s Search) ([]Answer, error) {
 
 func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, error) {
 	out := Answer{Indexer: l.Indexer}
-	idx, err := Get(ctx, x.cfg.Library, l.Indexer)
+	idx, err := x.get(ctx, x.cfg.Library, l.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
 		out.Outcome = Outcome{Kind: Removed}
 		return out, nil

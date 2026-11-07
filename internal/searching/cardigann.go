@@ -175,7 +175,7 @@ func (d catalogDriver) run(ctx context.Context, s *Site, start func() cardigann.
 		}
 		out, _, err := d.drive(ctx, s, start(), j, true)
 		if cookies, changed := j.held(); changed && seen != nil {
-			s.slot.keep(seen, cookies)
+			s.slot.keep(seen, cookies, false)
 		}
 		switch {
 		case err != nil:
@@ -196,13 +196,13 @@ func (d catalogDriver) run(ctx context.Context, s *Site, start func() cardigann.
 // the cookies it ends with as the Indexer's session on this Node. A
 // sign-in the site refuses stops the Indexer with its cause.
 func (d catalogDriver) signIn(ctx context.Context, s *Site, seen *Session, must bool, answer *CaptchaAnswer) error {
-	return s.signIn(ctx, seen, must, func(ctx context.Context) (*Session, error) {
+	return s.SignIn(ctx, seen, must, func(ctx context.Context, in *SigningIn) (*Session, error) {
 		var c *cardigann.Captcha
 		if answer != nil {
 			c = &cardigann.Captcha{PreLogin: answer.PreLogin, Answer: answer.Text}
 		}
 		x := s.def.Login(d.settings(s), c, clock())
-		_, j, err := d.drive(ctx, s, x, s.signInJar(), false)
+		_, j, err := d.drive(ctx, s, x, in.jar, false)
 		if err != nil {
 			return nil, err
 		}
@@ -283,7 +283,7 @@ func (s *Site) exchange(ctx context.Context, r cardigann.Request, j *jar) (cardi
 		p = Download
 	}
 	before := len(j.taken())
-	res, err := s.send(ctx, req, p, j, r.FollowRedirects)
+	res, err := s.send(ctx, req, Send{Purpose: p, NoFollow: !r.FollowRedirects}, j)
 	if err != nil {
 		return cardigann.Response{}, err
 	}

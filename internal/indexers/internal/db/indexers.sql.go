@@ -47,6 +47,20 @@ func (q *Queries) AddTrackerHost(ctx context.Context, arg AddTrackerHostParams) 
 	return err
 }
 
+const addTrackerKey = `-- name: AddTrackerKey :exec
+INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (?1, ?2) ON CONFLICT (key) DO NOTHING
+`
+
+type AddTrackerKeyParams struct {
+	Key       string
+	TrackerID TrackerID
+}
+
+func (q *Queries) AddTrackerKey(ctx context.Context, arg AddTrackerKeyParams) error {
+	_, err := q.db.ExecContext(ctx, addTrackerKey, arg.Key, arg.TrackerID)
+	return err
+}
+
 const clearCatalog = `-- name: ClearCatalog :exec
 DELETE FROM indexers_catalog
 `
@@ -572,20 +586,6 @@ func (q *Queries) InsertTracker(ctx context.Context, arg InsertTrackerParams) er
 		arg.Privacy,
 		arg.CreatedAt,
 	)
-	return err
-}
-
-const insertTrackerKey = `-- name: InsertTrackerKey :exec
-INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (?1, ?2)
-`
-
-type InsertTrackerKeyParams struct {
-	Key       string
-	TrackerID TrackerID
-}
-
-func (q *Queries) InsertTrackerKey(ctx context.Context, arg InsertTrackerKeyParams) error {
-	_, err := q.db.ExecContext(ctx, insertTrackerKey, arg.Key, arg.TrackerID)
 	return err
 }
 
@@ -1166,6 +1166,42 @@ func (q *Queries) MoveReach(ctx context.Context, arg MoveReachParams) error {
 	return err
 }
 
+const moveToDefinition = `-- name: MoveToDefinition :execrows
+UPDATE indexers_indexer SET
+    kind = 'catalog', port_id = NULL, definition_id = ?1, definition_sha = ?2,
+    base_address = ?3, plain = ?4, secrets_sealed = ?5, notes = ?6,
+    revision = revision + 1, updated_at = ?7
+WHERE id = ?8 AND kind = 'native'
+`
+
+type MoveToDefinitionParams struct {
+	DefinitionID  *string
+	DefinitionSha *string
+	BaseAddress   *string
+	Plain         string
+	SecretsSealed secret.Sealed
+	Notes         string
+	UpdatedAt     storage.Time
+	ID            IndexerID
+}
+
+func (q *Queries) MoveToDefinition(ctx context.Context, arg MoveToDefinitionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, moveToDefinition,
+		arg.DefinitionID,
+		arg.DefinitionSha,
+		arg.BaseAddress,
+		arg.Plain,
+		arg.SecretsSealed,
+		arg.Notes,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const moveTrackerHosts = `-- name: MoveTrackerHosts :exec
 INSERT INTO indexers_tracker_host (tracker_id, host)
 SELECT ?1, h.host FROM indexers_tracker_host AS h WHERE h.tracker_id = ?2
@@ -1213,10 +1249,11 @@ func (q *Queries) NameTaken(ctx context.Context, arg NameTakenParams) (bool, err
 }
 
 const offerSession = `-- name: OfferSession :execrows
-INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, token_sealed, user_agent, pasted, earned_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 ON CONFLICT (indexer_id, node_id) DO UPDATE SET
-    cookies_sealed = excluded.cookies_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted, earned_at = excluded.earned_at
+    cookies_sealed = excluded.cookies_sealed, token_sealed = excluded.token_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted,
+    earned_at = excluded.earned_at
 WHERE excluded.earned_at > indexers_session.earned_at
 `
 
@@ -1224,6 +1261,7 @@ type OfferSessionParams struct {
 	IndexerID     IndexerID
 	NodeID        role.NodeID
 	CookiesSealed secret.Sealed
+	TokenSealed   secret.Sealed
 	UserAgent     string
 	Pasted        bool
 	EarnedAt      storage.Time
@@ -1234,6 +1272,7 @@ func (q *Queries) OfferSession(ctx context.Context, arg OfferSessionParams) (int
 		arg.IndexerID,
 		arg.NodeID,
 		arg.CookiesSealed,
+		arg.TokenSealed,
 		arg.UserAgent,
 		arg.Pasted,
 		arg.EarnedAt,

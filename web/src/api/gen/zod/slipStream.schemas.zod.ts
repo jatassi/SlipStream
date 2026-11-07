@@ -2466,6 +2466,34 @@ export const IndexersDefinitionField = zod.object({
 export type IndexersDefinitionField = zod.input<typeof IndexersDefinitionField>;
 export type IndexersDefinitionFieldOutput = zod.output<typeof IndexersDefinitionField>;
 
+export const indexersLimitCountMin = 0;
+export const indexersLimitCountMax = 100000;
+
+export const IndexersLimit = zod.object({
+  count: zod.int().min(indexersLimitCountMin).max(indexersLimitCountMax).describe("0 is no limit"),
+  per: zod.enum(["hour", "day"]).describe("The sliding window it counts in"),
+});
+
+export type IndexersLimit = zod.input<typeof IndexersLimit>;
+export type IndexersLimitOutput = zod.output<typeof IndexersLimit>;
+
+export const IndexersPortFacts = zod.object({
+  grabs: IndexersLimit.describe("A new Indexer's grab limit unless the form sets one"),
+  recent: zod.boolean().describe("The site lists its new uploads, so RSS sync can use it"),
+  searches: IndexersLimit.describe("A new Indexer's search limit unless the form sets one"),
+  spacingSeconds: zod.number().describe("The least time between two requests to the site"),
+  synced: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Prowlarr commit SlipStream's support for the site was synced to was made"),
+  userAgent: zod
+    .boolean()
+    .describe("The pasted cookie works only with the User-Agent of the browser it came from"),
+});
+
+export type IndexersPortFacts = zod.input<typeof IndexersPortFacts>;
+export type IndexersPortFactsOutput = zod.output<typeof IndexersPortFacts>;
+
 export const IndexersDefinitionForm = zod.object({
   captcha: zod.boolean().describe("Signing in asks for an image captcha"),
   code: zod.boolean().describe("Signing in may ask for a two-factor code"),
@@ -2479,6 +2507,9 @@ export const IndexersDefinitionForm = zod.object({
     .array(IndexersDefinitionField)
     .describe("In the definition's order, the captcha last"),
   links: zod.array(zod.string()).describe("The site's addresses, the first being the default"),
+  port: zod
+    .union([IndexersPortFacts, zod.null()])
+    .describe("What an included site's form says beyond a definition's; null for a definition"),
   session: zod.boolean().describe("Its Indexers sign in and keep a session on their Node"),
   solver: zod
     .boolean()
@@ -2531,9 +2562,13 @@ export type IndexersLimitUseOutput = zod.output<typeof IndexersLimitUse>;
 export const IndexersPortPin = zod.object({
   baseAddress: zod.string(),
   id: zod.string(),
+  name: zod.string().describe("The site's name"),
   synced: zod.iso
     .datetime({ offset: true })
-    .describe("When the Prowlarr commit the port was synced to was made"),
+    .nullable()
+    .describe(
+      "When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site",
+    ),
   values: zod
     .record(zod.string(), zod.string())
     .describe("The settings saved in plain, by name. Sealed settings are never returned"),
@@ -2676,6 +2711,11 @@ export const IndexersIndexer = zod.object({
     .nullable()
     .describe("The Content Types an RSS feed carries; null for every other kind"),
   name: zod.string(),
+  notes: zod
+    .array(zod.string())
+    .describe(
+      "What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page",
+    ),
   on: zod.boolean(),
   port: zod
     .union([IndexersPortPin, zod.null()])
@@ -2747,17 +2787,6 @@ export const IndexersPastedCookie = zod.object({
 
 export type IndexersPastedCookie = zod.input<typeof IndexersPastedCookie>;
 export type IndexersPastedCookieOutput = zod.output<typeof IndexersPastedCookie>;
-
-export const indexersLimitCountMin = 0;
-export const indexersLimitCountMax = 100000;
-
-export const IndexersLimit = zod.object({
-  count: zod.int().min(indexersLimitCountMin).max(indexersLimitCountMax).describe("0 is no limit"),
-  per: zod.enum(["hour", "day"]).describe("The sliding window it counts in"),
-});
-
-export type IndexersLimit = zod.input<typeof IndexersLimit>;
-export type IndexersLimitOutput = zod.output<typeof IndexersLimit>;
 
 export const indexersIndexerEditAddressMax = 2048;
 

@@ -193,7 +193,7 @@ func matchError(blocks []errorBlock, doc *html.Node, env env) (msg string, found
 }
 
 func (x *Search) parseHTMLRow(row *html.Node, reqURL *url.URL) (*parsed, error) {
-	r := &parsed{}
+	r := &parsed{Release: Release{DownloadFactor: 1, UploadFactor: 1}}
 	for _, f := range x.d.def.Search.Fields {
 		_ = x.field(r, f, reqURL, func(b *selectorBlock, required bool) (value, error) {
 			return b.Select(row, x.env, required)
@@ -281,7 +281,7 @@ func (x *Search) parseJSONResponse(resp *responseBlock, body string, reqURL *url
 		return err
 	}
 	for _, o := range objs {
-		r := &parsed{}
+		r := &parsed{Release: Release{DownloadFactor: 1, UploadFactor: 1}}
 		for _, f := range x.d.def.Search.Fields {
 			obj := o.obj
 			if strings.HasPrefix(f.Value.Selector.Source(), "..") {

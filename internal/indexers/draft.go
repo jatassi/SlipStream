@@ -17,11 +17,8 @@ var (
 	// ErrNotALink is a base address the definition doesn't list.
 	ErrNotALink = errors.New("the definition doesn't list that address")
 	// ErrCookieNeeded is an Indexer added without a browser cookie for a
-	// definition that signs in with one.
-	ErrCookieNeeded = errors.New("the definition signs in with a browser cookie")
-	// ErrNoPorts is a native Indexer added before the Controller adds
-	// ported sites.
-	ErrNoPorts = errors.New("adding a ported site's Indexer is not implemented")
+	// definition or a port that signs in with one.
+	ErrCookieNeeded = errors.New("the site signs in with a browser cookie")
 )
 
 // drafted is d as an unsaved Indexer at revision 1 with its secrets
@@ -45,7 +42,12 @@ func (x *Indexers) drafted(ctx context.Context, d Draft) (Indexer, *searching.Se
 		}
 		idx.Source, secrets = def, Secrets{Fields: fields}
 	case Native:
-		return Indexer{}, nil, ErrNoPorts
+		p, fields, err := x.portDraft(d)
+		if err != nil {
+			return Indexer{}, nil, err
+		}
+		idx.Source, secrets = p, Secrets{Fields: fields}
+		idx.Searches, idx.Grabs = orDefault(idx.Searches, p.Entry.QueryLimit), orDefault(idx.Grabs, p.Entry.GrabLimit)
 	case Torznab, RSS:
 		idx.Source, idx.FeedHost = Feed{Tracker: cmp.Or(d.Tracker, d.Name), AllowNoSize: d.AllowNoSize}, hostOf(d.Address)
 	}
