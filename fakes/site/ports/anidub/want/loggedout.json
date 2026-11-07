@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "Огни гавани / Harbor Lights [01 из 12]",
+      "size": 367001600,
+      "published": "1999-12-31T20:15:00Z",
+      "seeders": 0,
+      "leechers": 2,
+      "grabs": 15,
+      "link": "https://anidub.fixture-site.fake.localhost/engine/download.php?id=701",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100010
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidub.fixture-site.fake.localhost/anime_tv/anime_ongoing/3001-harbor-lights-2.html",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Тихий сад / The Quiet Orchard [SDTV]",
+      "size": 734003200,
+      "published": "2026-01-05T07:00:00Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 77,
+      "link": "https://anidub.fixture-site.fake.localhost/engine/download.php?id=601",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100003
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidub.fixture-site.fake.localhost/anime_movie/2001-the-quiet-orchard.html",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": true
+}
