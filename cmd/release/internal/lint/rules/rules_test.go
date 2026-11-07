@@ -344,6 +344,26 @@ func TestMailConfined(t *testing.T) {
 	})
 }
 
+func TestPortsConfined(t *testing.T) {
+	const (
+		kit   = " imported by a port, which imports only internal/ports/port and the families under internal/ports/internal"
+		sends = " used by a port; send through the port.Indexer the framework passes"
+	)
+	assertFindings(t, check(t, "ports-confined", fixtureRepo(t, "ports-confined")), []string{
+		"internal/indexers/indexers.go:4: [ports-confined] internal/ports/all imported by internal/indexers, which reads ports only through port.Catalog",
+		"internal/ports/hdbits/hdbits.go:7: [ports-confined] internal/cardigann imported by a port; a port reaches the Node through internal/ports/port",
+		"internal/ports/hdbits/hdbits.go:9: [ports-confined] internal/ports/norbits" + kit,
+		"internal/ports/hdbits/hdbits.go:11: [ports-confined] internal/searching imported by a port; a port reaches the Node through internal/ports/port",
+		"internal/ports/hdbits/hdbits.go:17: [ports-confined] net/http.Client" + sends,
+		"internal/ports/hdbits/hdbits.go:18: [ports-confined] net.Dialer" + sends,
+		"internal/ports/hdbits/hdbits.go:21: [ports-confined] net/http.Get" + sends,
+		"internal/ports/internal/gazelle/gazelle.go:5: [ports-confined] net/http.NewRequest" + sends,
+		"internal/ports/norbits/norbits.go:3: [ports-confined] internal/ports/all" + kit,
+		"internal/ports/port/port.go:4: [ports-confined] internal/ports/all imported by internal/ports/port, which no port may depend on",
+		"internal/searching/native.go:3: [ports-confined] internal/ports/port imported by the Node's searching; it runs ports through Config.Native",
+	})
+}
+
 func TestSides(t *testing.T) {
 	const (
 		store = "; a job carries what the Node needs"
