@@ -89,14 +89,11 @@ type ValueError struct {
 
 func (e *ValueError) Error() string { return "setting " + e.Field + " doesn't fit its field" }
 
-// Fits refuses an empty v for a required field, v for a select or
-// multiselect that doesn't offer it, a checkbox that isn't true or false,
-// and a number that isn't a whole number between f's bounds. A
-// multiselect's value is its option values separated by commas.
+// Fits refuses v for a select or multiselect that doesn't offer it, a
+// checkbox that isn't true or false, and a number that isn't a whole
+// number between f's bounds. A multiselect's value is its option values
+// separated by commas.
 func Fits(f Field, v string) error {
-	if f.Required && v == "" {
-		return empty(f)
-	}
 	switch f.Type {
 	case Select:
 		if !offers(f, v) {
@@ -123,10 +120,6 @@ func Fits(f Field, v string) error {
 	case Text, Password, Info, InfoCookie, InfoFlareSolverr, InfoUserAgent, InfoCategory8000, Captcha:
 	}
 	return nil
-}
-
-func empty(f Field) *ValueError {
-	return &ValueError{Field: f.Name, Sentence: f.Label + " is required."}
 }
 
 func numberSentence(f Field) string {
@@ -178,10 +171,19 @@ func Split(fields []Field, values, plainBefore, sealedBefore map[string]string) 
 			plain[name] = v
 		}
 	}
-	for _, f := range fields {
-		if f.Required && plain[f.Name] == "" && sealed[f.Name] == "" {
-			return nil, nil, empty(f)
-		}
+	if err := filled(fields, plain, sealed); err != nil {
+		return nil, nil, err
 	}
 	return plain, sealed, nil
+}
+
+// filled refuses a required field that neither plain nor sealed holds a
+// value for.
+func filled(fields []Field, plain, sealed map[string]string) error {
+	for _, f := range fields {
+		if f.Required && plain[f.Name] == "" && sealed[f.Name] == "" {
+			return &ValueError{Field: f.Name, Sentence: f.Label + " is required."}
+		}
+	}
+	return nil
 }

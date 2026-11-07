@@ -233,7 +233,7 @@ func tagPairs(tag reflect.StructTag) (map[string]string, error) {
 			return nil, malformed
 		}
 		v, err := strconv.Unquote(after[:end+1])
-		if _, dup := out[key]; err != nil || dup {
+		if err != nil {
 			return nil, malformed
 		}
 		out[key] = v

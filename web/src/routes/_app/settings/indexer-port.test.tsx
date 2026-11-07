@@ -142,9 +142,9 @@ test("Edit refuses a ported site's username cleared, and keeps a saved password 
   await userEvent.fill(dialog().getByRole("textbox", { name: "Username" }), "sam");
   await userEvent.click(dialog().getByRole("button", { name: "Save" }));
   expect(dialog().getByText("Password is required.").query()).toBeNull();
-  await expect.poll(() => server.writes.map((write) => write.body)).toEqual([
-    expect.objectContaining({ values: { username: "sam" } }),
-  ]);
+  await expect
+    .poll(() => server.writes.map((write) => write.body))
+    .toEqual([expect.objectContaining({ values: { username: "sam" } })]);
 });
 
 test("Edit switches a ported site's mirror and replaces a sealed setting, tested before it saves", async () => {

@@ -122,10 +122,8 @@ test("a multiselect with every choice cleared is sent empty, so the site's defau
 test("a ported site's credentials are required, and Save names each one left empty", async () => {
   const server = addIndexerServer();
   renderApp({ path: formOf("hdbits"), handlers: server.handlers });
-  const [username, passkey] = [
-    page.getByRole("textbox", { name: "Username" }),
-    page.getByLabelText("Passkey", { exact: true }),
-  ];
+  const username = page.getByRole("textbox", { name: "Username" });
+  const passkey = page.getByLabelText("Passkey", { exact: true });
   await expect.element(username).toHaveAttribute("aria-required", "true");
   await expect.element(passkey).toHaveAttribute("aria-required", "true");
   await userEvent.click(save());

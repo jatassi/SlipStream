@@ -108,6 +108,17 @@ func TestDefineRequiresTheCredentialsAndTakesTheSitesHelpForThem(t *testing.T) {
 	}
 }
 
+func TestATagThatIsntKeyValuePairsIsRefused(t *testing.T) {
+	for _, tag := range []reflect.StructTag{`help:"Find it`, `help"Find it"`, `help:Find`, `:"Find it"`, `help:"a" label`} {
+		if _, err := tagPairs(tag); err == nil {
+			t.Errorf("tagPairs(%s) passed", tag)
+		}
+	}
+	if got, err := tagPairs(`help:"Find it under \"Security\"."  help.apiKey:"Key"`); err != nil || got["help"] != `Find it under "Security".` || got["help.apiKey"] != "Key" {
+		t.Errorf("tagPairs = %v, %v", got, err)
+	}
+}
+
 func TestDecodeFillsTheSettingsFromTheValuesAndTheDefaults(t *testing.T) {
 	ss, err := settingsOf(reflect.TypeFor[formSettings]())
 	if err != nil {
@@ -161,9 +172,6 @@ type (
 	}
 	otherTag struct {
 		PasskeyField `label:"Key"`
-	}
-	helpTwice struct {
-		PasskeyField `help:"Find it under Security." help:"Find it on your profile."`
 	}
 )
 
@@ -255,9 +263,6 @@ func TestDefinePanicsOnAMisdeclaredPort(t *testing.T) {
 		},
 		"a label on an embedded struct": func() {
 			Define(entry("x"), Impl[otherTag]{Login: NoLogin{}, Movie: search[otherTag], Basic: search[otherTag], Parse: parse[otherTag]})
-		},
-		"help twice": func() {
-			Define(entry("x"), Impl[helpTwice]{Login: NoLogin{}, Movie: search[helpTwice], Basic: search[helpTwice], Parse: parse[helpTwice]})
 		},
 		"an unknown tag option": func() {
 			Define(entry("x"), Impl[unknownFlag]{Login: NoLogin{}, Movie: search[unknownFlag], Basic: search[unknownFlag], Parse: parse[unknownFlag]})

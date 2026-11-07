@@ -57,14 +57,8 @@ function Saved({
  * input. The field's value stays "" unless a new secret is typed, so a save
  * sends only a replaced one.
  */
-export function SecretField({
-  label,
-  saved,
-  shown,
-  type = "password",
-  required = false,
-  description,
-}: Props) {
+export function SecretField(props: Props) {
+  const { label, saved, shown, type = "password", description } = props;
   const field = useFieldContext<string>();
   const [replacing, setReplacing] = useState(!saved);
   const input = useRef<HTMLInputElement>(null);
@@ -87,7 +81,7 @@ export function SecretField({
         <Input
           ref={input}
           type={type}
-          aria-required={required}
+          aria-required={props.required}
           autoComplete="new-password"
           spellCheck={false}
           value={field.state.value}

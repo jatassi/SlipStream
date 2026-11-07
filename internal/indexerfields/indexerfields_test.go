@@ -30,8 +30,6 @@ func TestAValueFitsOnlyWhatItsFieldTakes(t *testing.T) {
 		{free, "true", ""},
 		{free, "yes", "Freeleech only is true or false."},
 		{Field{Name: "apiKey", Type: Text}, "anything", ""},
-		{Field{Name: "apiKey", Type: Text}, "", ""},
-		{Field{Name: "apiKey", Label: "API key", Type: Text, Required: true}, "", "API key is required."},
 	} {
 		err := Fits(tc.f, tc.v)
 		var ve *ValueError
