@@ -47,7 +47,9 @@ type Release struct {
 }
 
 // ReleaseEpisode is the series a release is of, by TVDB id, and the
-// episode its name names.
+// Aired season and episode fixture-site lists it under, which its name
+// needn't name. Episode 0 is a pack of the whole season, listed under
+// each of its episodes.
 type ReleaseEpisode struct {
 	Series  int64 `jsonschema:"required,minimum=1" yaml:"series"`
 	Season  int   `jsonschema:"minimum=0"          yaml:"season"`
@@ -271,9 +273,23 @@ func (r Release) checkSubject(add func(format string, args ...any), movies *TMDB
 	case r.TVDB != nil && (series == nil || !slices.ContainsFunc(series.Series, func(s TVDBSeries) bool { return s.ID == r.TVDB.Series })):
 		add("release %s names tvdb series %d, which tvdb does not list", r.Name, r.TVDB.Series)
 	case r.TVDB != nil:
+		r.TVDB.check(add, r.Name, series)
 	case r.TMDBID < 1:
 		add("release %s has tmdb_id %d; it is at least 1", r.Name, r.TMDBID)
 	case movies == nil || !slices.ContainsFunc(movies.Movies, func(m TMDBMovie) bool { return m.ID == r.TMDBID }):
 		add("release %s names tmdb movie %d, which tmdb does not list", r.Name, r.TMDBID)
+	}
+}
+
+// check holds e to a season, and an episode of it unless e is a season
+// pack, that its series lists.
+func (e ReleaseEpisode) check(add func(format string, args ...any), name string, series *TVDB) {
+	i := slices.IndexFunc(series.Series, func(s TVDBSeries) bool { return s.ID == e.Series })
+	j := slices.IndexFunc(series.Series[i].Seasons, func(s TVDBSeason) bool { return s.Number == e.Season })
+	switch {
+	case j < 0:
+		add("release %s names season %d of tvdb series %d, which it does not list", name, e.Season, e.Series)
+	case e.Episode != 0 && !slices.ContainsFunc(series.Series[i].Seasons[j].Episodes, func(ep TVDBEpisode) bool { return ep.Number == e.Episode }):
+		add("release %s names episode %d of season %d of tvdb series %d, which it does not list", name, e.Episode, e.Season, e.Series)
 	}
 }
