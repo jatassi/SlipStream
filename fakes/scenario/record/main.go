@@ -3,7 +3,7 @@
 // saves their images in the artwork store, so the Fake world serves them
 // offline. Run it from the repository root:
 //
-//	TMDB_API_KEY=… OMDB_API_KEY=… go run ./fakes/tmdb/record -scenario fakes/scenario/catalog/real.yaml 603 550
+//	TMDB_API_KEY=… OMDB_API_KEY=… go run ./fakes/scenario/record -scenario fakes/scenario/catalog/real.yaml 603 550
 package main
 
 import (

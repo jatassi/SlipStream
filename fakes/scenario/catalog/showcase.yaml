@@ -4,7 +4,7 @@ description: >-
   their real posters, backdrops, title treatments and cast photos, so the
   Library and Work pages look as they do against the live providers. Each
   movie has one seeded 1080p release to grab. Re-record with
-  `go run ./fakes/tmdb/record -scenario fakes/scenario/catalog/showcase.yaml`
+  `go run ./fakes/scenario/record -scenario fakes/scenario/catalog/showcase.yaml`
   and the ids below.
 seed: showcase
 admin:

@@ -1,6 +1,6 @@
 // Package artwork is the real TMDB and TVDB image files the Fake world
 // serves, each named by the path its host serves it at and recorded once
-// by fakes/tmdb/record.
+// by fakes/scenario/record.
 package artwork
 
 import (
