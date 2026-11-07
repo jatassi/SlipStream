@@ -35,8 +35,10 @@ func seedboxNAS(t *testing.T) scenario.Scenario {
 	return s
 }
 
-// parked holds seedbox's sender at the at-th chunk it sends until release
-// closes, so a test can act while the Transfer is mid-copy.
+// parked holds each chunk seedbox sends from the at-th on until release
+// closes, so a test can act while the Transfer is mid-copy. It holds the
+// later ones too: the other lanes ask for other chunks, and one of those
+// would land while the at-th waits.
 type parked struct {
 	reached, release chan struct{}
 	at               int32
@@ -51,8 +53,11 @@ func parkedAt(at int32) *parked {
 }
 
 func (p *parked) sent(transfers.ID, int, int, []byte) {
-	if p.sends.Add(1) == p.at {
+	n := p.sends.Add(1)
+	if n == p.at {
 		close(p.reached)
+	}
+	if n >= p.at {
 		<-p.release
 	}
 }
