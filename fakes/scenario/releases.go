@@ -213,17 +213,7 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		if slices.ContainsFunc(releases[:i], func(o Release) bool { return o.Name == r.Name }) {
 			add("release %s is listed twice", r.Name)
 		}
-		switch {
-		case r.TMDBID != 0 && r.TVDB != nil:
-			add("release %s names a tmdb movie and a tvdb episode; it names one", r.Name)
-		case r.TVDB != nil && (series == nil || !slices.ContainsFunc(series.Series, func(s TVDBSeries) bool { return s.ID == r.TVDB.Series })):
-			add("release %s names tvdb series %d, which tvdb does not list", r.Name, r.TVDB.Series)
-		case r.TVDB != nil:
-		case r.TMDBID < 1:
-			add("release %s has tmdb_id %d; it is at least 1", r.Name, r.TMDBID)
-		case movies == nil || !slices.ContainsFunc(movies.Movies, func(m TMDBMovie) bool { return m.ID == r.TMDBID }):
-			add("release %s names tmdb movie %d, which tmdb does not list", r.Name, r.TMDBID)
-		}
+		r.checkSubject(add, movies, series)
 		v := r.Video
 		if v.Width < 2 || v.Width > 7680 || v.Height < 2 || v.Height > 4320 || v.Width%2 != 0 || v.Height%2 != 0 {
 			add("release %s video is %dx%d; width and height are even, up to 7680x4320", r.Name, v.Width, v.Height)
@@ -270,5 +260,20 @@ func (t Tracker) check(add func(format string, args ...any)) {
 	}
 	if slices.Contains(t.AllowPeerIDs, "") {
 		add("tracker allow_peer_ids lists an empty prefix, which allows every peer ID")
+	}
+}
+
+// checkSubject holds r to one movie or one episode its fake lists.
+func (r Release) checkSubject(add func(format string, args ...any), movies *TMDB, series *TVDB) {
+	switch {
+	case r.TMDBID != 0 && r.TVDB != nil:
+		add("release %s names a tmdb movie and a tvdb episode; it names one", r.Name)
+	case r.TVDB != nil && (series == nil || !slices.ContainsFunc(series.Series, func(s TVDBSeries) bool { return s.ID == r.TVDB.Series })):
+		add("release %s names tvdb series %d, which tvdb does not list", r.Name, r.TVDB.Series)
+	case r.TVDB != nil:
+	case r.TMDBID < 1:
+		add("release %s has tmdb_id %d; it is at least 1", r.Name, r.TMDBID)
+	case movies == nil || !slices.ContainsFunc(movies.Movies, func(m TMDBMovie) bool { return m.ID == r.TMDBID }):
+		add("release %s names tmdb movie %d, which tmdb does not list", r.Name, r.TMDBID)
 	}
 }

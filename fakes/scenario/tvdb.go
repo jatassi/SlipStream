@@ -78,39 +78,46 @@ func (c TVDB) check(add func(format string, args ...any)) {
 	}
 	var episodes []int64
 	for i, s := range c.Series {
-		if s.ID < 1 || s.ID >= TVDBGeneratedFirstID {
-			add("tvdb series %q has id %d; ids run from 1 to %d", s.Name, s.ID, TVDBGeneratedFirstID-1)
-		}
 		if slices.ContainsFunc(c.Series[:i], func(o TVDBSeries) bool { return o.ID == s.ID }) {
 			add("tvdb series %d is listed twice", s.ID)
 		}
-		if s.Name == "" {
-			add("tvdb series %d has no name", s.ID)
-		}
-		if !slices.Contains(tvdbStatuses, s.Status) {
-			add("tvdb series %d status %q is not one of %v", s.ID, s.Status, tvdbStatuses)
-		}
-		if s.IMDb != "" && !imdbID.MatchString(s.IMDb) {
-			add("tvdb series %d imdb %q is not tt and seven or more digits", s.ID, s.IMDb)
-		}
-		for j, season := range s.Seasons {
-			if slices.ContainsFunc(s.Seasons[:j], func(o TVDBSeason) bool { return o.Number == season.Number }) {
-				add("tvdb series %d lists season %d twice", s.ID, season.Number)
-			}
-			for _, e := range season.Episodes {
-				if slices.Contains(episodes, e.ID) {
-					add("tvdb episode %d is listed twice", e.ID)
-				}
-				episodes = append(episodes, e.ID)
-				if e.Aired != "" && !isDay(e.Aired) {
-					add("tvdb episode %d aired %q is not YYYY-MM-DD", e.ID, e.Aired)
-				}
-			}
-		}
+		episodes = s.check(add, episodes)
 	}
 	for _, g := range c.Generated {
 		if g.Count < 1 || g.Seasons < 1 || g.Episodes < 1 || g.Seed == "" {
 			add("tvdb generated has count %d, %d seasons of %d episodes and seed %q; want each at least 1 and a seed", g.Count, g.Seasons, g.Episodes, g.Seed)
 		}
 	}
+}
+
+// check holds s to TVDB's shape, answering seen with s's episode ids
+// added so an id another series lists is caught.
+func (s TVDBSeries) check(add func(format string, args ...any), seen []int64) []int64 {
+	if s.ID < 1 || s.ID >= TVDBGeneratedFirstID {
+		add("tvdb series %q has id %d; ids run from 1 to %d", s.Name, s.ID, TVDBGeneratedFirstID-1)
+	}
+	if s.Name == "" {
+		add("tvdb series %d has no name", s.ID)
+	}
+	if !slices.Contains(tvdbStatuses, s.Status) {
+		add("tvdb series %d status %q is not one of %v", s.ID, s.Status, tvdbStatuses)
+	}
+	if s.IMDb != "" && !imdbID.MatchString(s.IMDb) {
+		add("tvdb series %d imdb %q is not tt and seven or more digits", s.ID, s.IMDb)
+	}
+	for j, season := range s.Seasons {
+		if slices.ContainsFunc(s.Seasons[:j], func(o TVDBSeason) bool { return o.Number == season.Number }) {
+			add("tvdb series %d lists season %d twice", s.ID, season.Number)
+		}
+		for _, e := range season.Episodes {
+			if slices.Contains(seen, e.ID) {
+				add("tvdb episode %d is listed twice", e.ID)
+			}
+			seen = append(seen, e.ID)
+			if e.Aired != "" && !isDay(e.Aired) {
+				add("tvdb episode %d aired %q is not YYYY-MM-DD", e.ID, e.Aired)
+			}
+		}
+	}
+	return seen
 }

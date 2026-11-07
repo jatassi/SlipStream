@@ -47,25 +47,29 @@ func (o OMDb) check(add func(format string, args ...any)) {
 		add("omdb daily_limit %d is below zero", o.DailyLimit)
 	}
 	for i, t := range o.Titles {
-		if !imdbID.MatchString(t.IMDbID) {
-			add("omdb title imdb_id %q is not tt and seven or more digits", t.IMDbID)
-		}
 		if slices.ContainsFunc(o.Titles[:i], func(p OMDbTitle) bool { return p.IMDbID == t.IMDbID }) {
 			add("omdb title %s is listed twice", t.IMDbID)
 		}
-		if t.IMDbRating != nil && (*t.IMDbRating < 0 || *t.IMDbRating > 10) {
-			add("omdb title %s imdb_rating %v is outside 0 to 10", t.IMDbID, *t.IMDbRating)
-		}
-		if t.IMDbVotes != nil && *t.IMDbVotes < 0 {
-			add("omdb title %s imdb_votes %d is below zero", t.IMDbID, *t.IMDbVotes)
-		}
-		if len(t.Seasons) > 0 && t.Type != "series" {
-			add("omdb title %s lists seasons and isn't a series", t.IMDbID)
-		}
-		for name, score := range map[string]*int{"rotten_tomatoes": t.RottenTomatoes, "metacritic": t.Metacritic} {
-			if score != nil && (*score < 0 || *score > 100) {
-				add("omdb title %s %s %d is outside 0 to 100", t.IMDbID, name, *score)
-			}
+		t.check(add)
+	}
+}
+
+func (t OMDbTitle) check(add func(format string, args ...any)) {
+	if !imdbID.MatchString(t.IMDbID) {
+		add("omdb title imdb_id %q is not tt and seven or more digits", t.IMDbID)
+	}
+	if t.IMDbRating != nil && (*t.IMDbRating < 0 || *t.IMDbRating > 10) {
+		add("omdb title %s imdb_rating %v is outside 0 to 10", t.IMDbID, *t.IMDbRating)
+	}
+	if t.IMDbVotes != nil && *t.IMDbVotes < 0 {
+		add("omdb title %s imdb_votes %d is below zero", t.IMDbID, *t.IMDbVotes)
+	}
+	if len(t.Seasons) > 0 && t.Type != "series" {
+		add("omdb title %s lists seasons and isn't a series", t.IMDbID)
+	}
+	for name, score := range map[string]*int{"rotten_tomatoes": t.RottenTomatoes, "metacritic": t.Metacritic} {
+		if score != nil && (*score < 0 || *score > 100) {
+			add("omdb title %s %s %d is outside 0 to 100", t.IMDbID, name, *score)
 		}
 	}
 }
