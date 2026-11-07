@@ -80,7 +80,7 @@ type ProviderDeps struct {
 
 // Testers are the providers' tests, in the order status lists them.
 func (d ProviderDeps) Testers() []metadata.Tester {
-	return []metadata.Tester{d.TMDB, d.OMDb}
+	return []metadata.Tester{d.TMDB, d.TVDB, d.OMDb}
 }
 
 type LibraryDeps struct {
