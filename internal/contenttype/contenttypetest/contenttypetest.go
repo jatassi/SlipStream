@@ -124,6 +124,7 @@ type Fixture struct {
 	changed   []works.Key
 	changeErr error
 	growing   map[works.WorkID]bool
+	aliases   map[works.Key]works.Key
 	boxes     map[works.LevelID]box
 	stacked   map[works.WorkID]bool
 }
@@ -166,6 +167,7 @@ func New() *Fixture {
 		titles:  map[works.WorkID][]string{},
 		timings: map[works.ItemID]targets.Timing{},
 		growing: map[works.WorkID]bool{},
+		aliases: map[works.Key]works.Key{},
 		boxes:   map[works.LevelID]box{},
 		stacked: map[works.WorkID]bool{},
 	}
@@ -605,9 +607,25 @@ func encodeOrder(o Order) ([]byte, error) {
 	return b, nil
 }
 
-// KeysOf maps none: a Shelf is known by its own key alone.
-func (*Fixture) KeysOf(context.Context, storage.Reader[storage.Library], []works.Key) ([]works.Key, error) {
-	return nil, nil
+// Alias has KeysOf map other to the Shelf keyed key, as a series' TMDB
+// id maps to its TVDB key.
+func (f *Fixture) Alias(other, key works.Key) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.aliases[other] = key
+}
+
+// KeysOf maps each key Alias named to its Shelf's key, and others to none.
+func (f *Fixture) KeysOf(_ context.Context, _ storage.Reader[storage.Library], keys []works.Key) ([]works.Key, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []works.Key
+	for _, k := range keys {
+		if key, ok := f.aliases[k]; ok {
+			out = append(out, key)
+		}
+	}
+	return out, nil
 }
 
 // Links answers none: a Shelf links nowhere.

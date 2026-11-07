@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -170,19 +171,16 @@ func (r refresh) mark(ctx context.Context, t works.TypeID, started storage.Time,
 	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		if len(changed) > 0 {
-			all, err := works.Summaries(ctx, tx)
+			ws, err := r.changedWorks(ctx, tx, t, changed)
 			if err != nil {
 				return err
 			}
-			for _, w := range all {
-				if w.ContentType != t || !changed[w.Key] {
-					continue
-				}
-				if err := q.MarkDue(ctx, db.MarkDueParams{WorkID: w.ID, Reason: db.Changed, Since: started}); err != nil {
+			for _, w := range ws {
+				if err := q.MarkDue(ctx, db.MarkDueParams{WorkID: w, Reason: db.Changed, Since: started}); err != nil {
 					return err
 				}
-				marked++
 			}
+			marked = len(ws)
 		}
 		return q.SetChangesThrough(ctx, db.SetChangesThroughParams{ContentType: string(t), ChangesThrough: started})
 	})
@@ -193,6 +191,43 @@ func (r refresh) mark(ctx context.Context, t works.TypeID, started storage.Time,
 	if keys != nil {
 		r.cfg.Log.Info("read the changes list", "contentType", string(t), "changed", len(keys), "due", marked)
 	}
+}
+
+// changedWorks are t's Works a key in changed names: its own key, or one
+// its library half maps another provider's key to, such as a series' TMDB
+// id.
+func (r refresh) changedWorks(ctx context.Context, tx *storage.Tx[storage.Library], t works.TypeID, changed map[works.Key]bool) ([]works.WorkID, error) {
+	all, err := works.Summaries(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	byKey := map[works.Key]works.WorkID{}
+	for _, w := range all {
+		if w.ContentType == t {
+			byKey[w.Key] = w.ID
+		}
+	}
+	due := map[works.WorkID]bool{}
+	var others []works.Key
+	for k := range changed {
+		if id, ok := byKey[k]; ok {
+			due[id] = true
+		} else {
+			others = append(others, k)
+		}
+	}
+	if len(others) > 0 {
+		aliased, err := r.cfg.Types[t].KeysOf(ctx, tx, others)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range aliased {
+			if id, ok := byKey[k]; ok {
+				due[id] = true
+			}
+		}
+	}
+	return slices.Collect(maps.Keys(due)), nil
 }
 
 func purge(ctx context.Context, tx *storage.Tx[storage.Library]) error {

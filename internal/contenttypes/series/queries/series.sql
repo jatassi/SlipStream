@@ -88,3 +88,11 @@ FROM series_episode e JOIN series_series s ON s.work_id = e.work_id ORDER BY e.i
 SELECT e.item_id, e.air_date, coalesce(e.runtime_seconds, s.average_runtime_seconds) AS runtime_seconds
 FROM series_episode e JOIN series_series s ON s.work_id = e.work_id
 WHERE e.work_id IN (sqlc.slice(work_ids)) ORDER BY e.item_id;
+
+-- name: ListSeasonRatingsRead :many
+SELECT aired_season, read_at FROM series_season_rating WHERE work_id = sqlc.arg(work_id) ORDER BY aired_season;
+
+-- name: MarkSeasonRatingsRead :exec
+INSERT INTO series_season_rating (work_id, aired_season, read_at)
+VALUES (sqlc.arg(work_id), sqlc.arg(aired_season), sqlc.arg(read_at))
+ON CONFLICT (work_id, aired_season) DO UPDATE SET read_at = excluded.read_at;

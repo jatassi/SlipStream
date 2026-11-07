@@ -9,6 +9,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -306,6 +307,38 @@ func (q *Queries) ListListedOf(ctx context.Context, workIds []works.WorkID) ([]L
 	return items, nil
 }
 
+const listSeasonRatingsRead = `-- name: ListSeasonRatingsRead :many
+SELECT aired_season, read_at FROM series_season_rating WHERE work_id = ?1 ORDER BY aired_season
+`
+
+type ListSeasonRatingsReadRow struct {
+	AiredSeason int64
+	ReadAt      storage.Time
+}
+
+func (q *Queries) ListSeasonRatingsRead(ctx context.Context, workID works.WorkID) ([]ListSeasonRatingsReadRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeasonRatingsRead, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSeasonRatingsReadRow
+	for rows.Next() {
+		var i ListSeasonRatingsReadRow
+		if err := rows.Scan(&i.AiredSeason, &i.ReadAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasons = `-- name: ListSeasons :many
 SELECT level_id, work_id, tvdb_season_id, number, episode_order, name, overview FROM series_season WHERE work_id = ?1 ORDER BY number
 `
@@ -490,6 +523,23 @@ func (q *Queries) ListTimingsOf(ctx context.Context, workIds []works.WorkID) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const markSeasonRatingsRead = `-- name: MarkSeasonRatingsRead :exec
+INSERT INTO series_season_rating (work_id, aired_season, read_at)
+VALUES (?1, ?2, ?3)
+ON CONFLICT (work_id, aired_season) DO UPDATE SET read_at = excluded.read_at
+`
+
+type MarkSeasonRatingsReadParams struct {
+	WorkID      works.WorkID
+	AiredSeason int64
+	ReadAt      storage.Time
+}
+
+func (q *Queries) MarkSeasonRatingsRead(ctx context.Context, arg MarkSeasonRatingsReadParams) error {
+	_, err := q.db.ExecContext(ctx, markSeasonRatingsRead, arg.WorkID, arg.AiredSeason, arg.ReadAt)
+	return err
 }
 
 const setAirDelay = `-- name: SetAirDelay :exec
