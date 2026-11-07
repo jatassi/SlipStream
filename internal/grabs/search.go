@@ -149,16 +149,9 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 		if err != nil {
 			return err
 		}
-		wanted := make(map[works.ItemID]bool, len(open))
-		for _, c := range open {
-			wanted[c.Item.ID] = true
-		}
 		started := storage.Now()
-		for _, it := range items {
-			if !wanted[it.ID] {
-				continue
-			}
-			id, err := gr.plan(ctx, tx, tree, it.ID, started)
+		for _, it := range wantedOf(items, open) {
+			id, err := gr.plan(ctx, tx, tree, it, started)
 			if err != nil {
 				return err
 			}
@@ -177,6 +170,21 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 	}
 	gr.wake()
 	return ids, nil
+}
+
+// wantedOf is each of items that has a cell in open, in items' order.
+func wantedOf(items []works.Item, open []files.Cell) []works.ItemID {
+	wanted := make(map[works.ItemID]bool, len(open))
+	for _, c := range open {
+		wanted[c.Item.ID] = true
+	}
+	var out []works.ItemID
+	for _, it := range items {
+		if wanted[it.ID] {
+			out = append(out, it.ID)
+		}
+	}
+	return out
 }
 
 // plan records a search run of item with the lines Plan read and

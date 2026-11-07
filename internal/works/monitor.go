@@ -462,7 +462,7 @@ func (e *NotInWorkError) Unwrap() error { return ErrNotInWork }
 // ItemsWithin is the Items part names of t: the live Items under each
 // named level, at any depth, and each named Item, in tree order. It fails
 // with a *NotInWorkError for an id t doesn't have.
-func (t Tree) ItemsWithin(part Within) ([]Item, error) {
+func (t *Tree) ItemsWithin(part Within) ([]Item, error) {
 	parent := make(map[LevelID]LevelID, len(t.Levels))
 	for _, l := range t.Levels {
 		parent[l.ID] = l.ParentID
