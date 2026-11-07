@@ -49,21 +49,24 @@ async function searchEpisode(page: Page, code: string): Promise<void> {
     .click();
 }
 
-test("the series' Search counts every wanted episode, and a season's only those still wanted", async ({
+test("the series' Search counts every wanted episode, and a season's only its monitored ones", async ({
   adminPage: page,
   world,
 }) => {
   const workId = await addSeries(world, lanternKeepers, { preset: "first" });
   await page.goto(`/works/${workId}`);
+  await setEpisodeMonitored(page, "S01E02", false);
   await workSearch(page).click();
-  await expect(notifications(page)).toContainText("Searching 3 episodes");
+  await expect(notifications(page)).toContainText("Searching 2 episodes");
   await expect(grabbed(page)).toHaveCount(2);
-
-  await seasons(page).getByRole("button", { name: "Search Season 1" }).click();
-  await expect(notifications(page)).toContainText("Searching 1 episode");
   await expect
     .poll(async () => (await filed(world, workId)).toSorted(), { timeout: 90_000 })
     .toEqual(["First Flame", "Salt and Oil"]);
+
+  await openLevel(page, "Season 2");
+  await setEpisodeMonitored(page, "S02E01", true);
+  await seasons(page).getByRole("button", { name: "Search Season 2" }).click();
+  await expect(notifications(page)).toContainText("Searching 1 episode");
 });
 
 test("an episode's Search grabs its release, and the episode keeps its file once TVDB's order no longer lists it", async ({

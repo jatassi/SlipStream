@@ -10,7 +10,7 @@ A series' Work page shows the series' facts in the hero, then one collapsible se
 - `series-popover` hovering `S01E01 1080p, Missing` opens the detail `S01E01 1080p` reading `Missing`, clicking pins it while the pointer leaves, and `Escape` closes it.
 - `series-fold` after fake-tvdb announces a fourth season and a refresh, Season 4 reads one line `Episodes 1 to 3 air <day> to <day>` in place of three rows, and dropping `Fog Signal` leaves Season 2 with `S02E01` and `S02E03` and no row for it (P-050).
 - `series-work-search` with First season, the hero's `Search` toasts `Searching 3 episodes`, `Searches` reads `Grabbed a Release` twice, for S01E01 and S01E03, and `searches` records three `tvsearch` searches with `tvdbid` 1001, `season` 1 and `ep` 1, 2 and 3 (P-050).
-- `series-level-search` once those two are grabbed, `Search Season 1` toasts `Searching 1 episode` and searches only S01E02 (P-050).
+- `series-level-search` with only S02E01 of Season 2 monitored, `Search Season 2` toasts `Searching 1 episode` and searches `season` 2 `ep` 1 alone (P-050).
 - `series-episode-search` with S00E02 monitored, `Search S00E02` toasts `Searching 1 episode`, sends `season` 0 and `ep` 2, and A Winter Light imports (P-050).
 - `series-withdrawn-file` after the order changes to DVD, which doesn't list A Winter Light, a second `Specials` heading trails the list reading `No longer listed by TVDB` and holds S00E02 with its file (P-050).
 - `series-phone` on the phone shell a row is one button, and `S01E01` opens the sheet `S01E01 First Flame` with its `Cells`, a `Monitor` switch, `Search` and `Details`.
@@ -63,7 +63,7 @@ Steps:
   $FW exec $RUN --proof series-work-page/series-fold -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-fold/season-2.aria.yml
   ```
 
-- **Search.** On a fresh `preset` `first` Work, search the series, wait for the two grabs, then search Season 1 and read the searches the site answered.
+- **Search.** On the `preset` `first` Work, search the series, wait for the two grabs, read the searches the site answered, then monitor S02E01 alone and search Season 2.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
@@ -72,23 +72,25 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release").nth(1).waitFor(); }'
   $FW exec $RUN --proof series-work-page/series-work-search -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-work-search/searches.aria.yml
   $FW searches list $RUN --where t=tvsearch
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Search Season 1" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Season 2", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("switch", { name: "Monitor S02E01" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Search Season 2" })'
   $FW exec $RUN --proof series-work-page/series-level-search -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-level-search/toast.aria.yml
   ```
 
-- **An episode's Search and a withdrawn file.** On a fresh `preset` `none` Work, open Specials, monitor and search S00E02, wait for its file, then change the order to DVD.
+- **An episode's Search and a withdrawn file.** On the same Work, open Specials, monitor and search S00E02, wait for its file, then change the order to DVD.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Specials", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("switch", { name: "Monitor S00E02" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const b = page.getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Specials", exact: true }); for (let i = 0; i < 30 && await b.count() === 0; i++) await page.mouse.wheel(0, 400); await b.scrollIntoViewIfNeeded(); if (await b.getAttribute("aria-expanded") !== "true") await b.click(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const s = page.getByRole("region", { name: "Seasons" }).getByRole("switch", { name: "Monitor S00E02" }); await s.scrollIntoViewIfNeeded(); await s.click(); }'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Search S00E02" })'
   $FW exec $RUN --proof series-work-page/series-episode-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/series-work-page/series-episode-search/toast.png
   $FW searches list $RUN --where t=tvsearch --where season=0
   $FW exec $RUN --proof series-work-page/series-episode-search -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/cells"
   $FW exec $RUN --proof series-work-page/series-withdrawn-file -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"type":{"order":"dvd"},"preview":false}' "{nodes.home.url}/api/v1/works/$WORK/options"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Specials", exact: true }).last()'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const b = page.getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Specials", exact: true }).last(); for (let i = 0; i < 30 && await b.count() === 0; i++) await page.mouse.wheel(0, 400); await b.scrollIntoViewIfNeeded(); if (await b.getAttribute("aria-expanded") !== "true") await b.click(); }'
   $FW exec $RUN --proof series-work-page/series-withdrawn-file -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-withdrawn-file/page.aria.yml
   $FW exec $RUN --proof series-work-page/series-withdrawn-file -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/series-work-page/series-withdrawn-file/page.png
   ```
@@ -108,6 +110,6 @@ Steps:
 - Fold dates follow the browser's locale: `en-US` reads `November 8 to November 22`, `en-GB` `8 November to 22 November`.
 - An episode TVDB drops shows only while it holds a file; with no file it leaves the page and the counts.
 - `tvdb-add-season` dates the new episodes from tomorrow on the fake's clock, so a run near midnight UTC can read a day off the browser's.
-- A Search counts only wanted episodes that no unfinished Grab holds, so a season's Search right after the series' counts what the series' run left ungrabbed. Wait for the grabs before you read the count.
+- A Search counts the wanted episodes no unfinished Grab holds. The catalog's 1080p WEB-DL files read `Upgrade available`, so an episode is wanted again once its Grab imports, and a count taken after a Search depends on how far its Grabs got.
 - The Prowlarr host's caps turn `tv-search` off, so an Indexer there searches free text such as `The Lantern Keepers S01E03`, and The Lantern Keepers' S01E03 release listed under Harbor Nights comes back refused as `wrong_work`.
 - The world's Indexer probe sends one `t=search` with an empty `q`. Skip it when you count searches.
