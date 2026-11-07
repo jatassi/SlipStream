@@ -309,10 +309,10 @@ jobs:
       # installs them on every run.
       - name: Install the Playwright browsers and their system libraries
         if: runner.os == 'Linux'
-        working-directory: web
-        run: |
-          bun install --frozen-lockfile
-          bun run e2e:install --with-deps
+        uses: ./.github/actions/playwright
+        with:
+          cache: playwright-debs-${{ matrix.target }}
+          save: ${{ matrix.shard == 1 }}
       - name: Point TEMP at the fast drive
         if: runner.os == 'Windows'
         run: |
