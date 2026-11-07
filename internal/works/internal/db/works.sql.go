@@ -643,31 +643,6 @@ func (q *Queries) SetLevelFolders(ctx context.Context, arg SetLevelFoldersParams
 	return err
 }
 
-const setMonitored = `-- name: SetMonitored :exec
-UPDATE works_item SET monitored = ?1 WHERE id IN (/*SLICE:item_ids*/?)
-`
-
-type SetMonitoredParams struct {
-	Monitored bool
-	ItemIds   []ItemID
-}
-
-func (q *Queries) SetMonitored(ctx context.Context, arg SetMonitoredParams) error {
-	query := setMonitored
-	var queryParams []interface{}
-	queryParams = append(queryParams, arg.Monitored)
-	if len(arg.ItemIds) > 0 {
-		for _, v := range arg.ItemIds {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:item_ids*/?", strings.Repeat(",?", len(arg.ItemIds))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
-	}
-	_, err := q.db.ExecContext(ctx, query, queryParams...)
-	return err
-}
-
 const setRatingsRead = `-- name: SetRatingsRead :exec
 UPDATE works_work SET ratings_read_at = ?1 WHERE id = ?2
 `
@@ -679,21 +654,6 @@ type SetRatingsReadParams struct {
 
 func (q *Queries) SetRatingsRead(ctx context.Context, arg SetRatingsReadParams) error {
 	_, err := q.db.ExecContext(ctx, setRatingsRead, arg.RatingsReadAt, arg.ID)
-	return err
-}
-
-const setWorkRule = `-- name: SetWorkRule :exec
-UPDATE works_work SET monitor_new = ?1, monitor_asides = ?2 WHERE id = ?3
-`
-
-type SetWorkRuleParams struct {
-	MonitorNew    bool
-	MonitorAsides bool
-	ID            WorkID
-}
-
-func (q *Queries) SetWorkRule(ctx context.Context, arg SetWorkRuleParams) error {
-	_, err := q.db.ExecContext(ctx, setWorkRule, arg.MonitorNew, arg.MonitorAsides, arg.ID)
 	return err
 }
 
@@ -828,49 +788,4 @@ func (q *Queries) UpdateWork(ctx context.Context, arg UpdateWorkParams) error {
 		arg.ID,
 	)
 	return err
-}
-
-const worksToMonitor = `-- name: WorksToMonitor :many
-SELECT DISTINCT work_id FROM works_item
-WHERE monitored <> ?1 AND id IN (/*SLICE:item_ids*/?)
-ORDER BY work_id
-`
-
-type WorksToMonitorParams struct {
-	Monitored bool
-	ItemIds   []ItemID
-}
-
-func (q *Queries) WorksToMonitor(ctx context.Context, arg WorksToMonitorParams) ([]WorkID, error) {
-	query := worksToMonitor
-	var queryParams []interface{}
-	queryParams = append(queryParams, arg.Monitored)
-	if len(arg.ItemIds) > 0 {
-		for _, v := range arg.ItemIds {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:item_ids*/?", strings.Repeat(",?", len(arg.ItemIds))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []WorkID
-	for rows.Next() {
-		var work_id WorkID
-		if err := rows.Scan(&work_id); err != nil {
-			return nil, err
-		}
-		items = append(items, work_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

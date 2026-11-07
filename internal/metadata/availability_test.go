@@ -259,7 +259,7 @@ func TestMonitoringReArmsTheTimer(t *testing.T) {
 		l.run(t, storagetest.Local(t, metadata.LocalSchema()))
 
 		until(2, 12, 0)
-		if err := l.works.SetMonitored(t.Context(), identity.Admin{}, ids(item(t, shelf, "c1")), true); err != nil {
+		if _, err := l.works.SetMonitored(t.Context(), identity.Admin{}, shelf.ID, works.Within{Items: ids(item(t, shelf, "c1"))}, true); err != nil {
 			t.Fatal(err)
 		}
 		synctest.Wait()
@@ -295,7 +295,7 @@ func TestTheHookGetsOnlyMonitoredItems(t *testing.T) {
 		l := openLibrary(t)
 		watched := l.shelf(t, "s1", true, map[works.Key]works.Date{"c1": jan(2), "c2": jan(2)})
 		l.shelf(t, "s2", false, map[works.Key]works.Date{"c1": jan(2)})
-		if err := l.works.SetMonitored(t.Context(), identity.Admin{}, ids(item(t, watched, "c2")), false); err != nil {
+		if _, err := l.works.SetMonitored(t.Context(), identity.Admin{}, watched.ID, works.Within{Items: ids(item(t, watched, "c2"))}, false); err != nil {
 			t.Fatal(err)
 		}
 		l.run(t, storagetest.Local(t, metadata.LocalSchema()))

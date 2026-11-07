@@ -18,8 +18,10 @@ type Adding struct {
 	Key     works.Key
 	Profile *targets.ProfileID
 	Root    *roots.ID
-	// Monitor is the new Work's monitoring choice.
-	Monitor *works.Choice
+	// Preset is the monitoring preset the new Work's Items follow.
+	Preset *works.Preset
+	// IncludeAsides adds the Items of aside levels to what Preset monitors.
+	IncludeAsides *bool
 	// LevelFolders is the new Work's level_folders.
 	LevelFolders *bool
 	Remember     bool
@@ -38,24 +40,32 @@ type remembered struct {
 	roots   []roots.ID
 }
 
-// Add puts the Work a names in the library, wanting from its Profile and
-// homed in its root, or answers the Work already there. Only an add that
-// creates the Work remembers, so finding one moves no default.
+// Add puts the Work a names in the library, wanting from its Profile,
+// homed in its root and monitored as its preset says, or answers the Work
+// already there. Only an add that creates the Work remembers, so finding
+// one moves no default.
 func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, error) {
-	monitor, err := l.monitor(ctx, a)
+	var defaults works.AddDefaults
+	err := l.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		defaults, err = works.AddDefaultsIn(ctx, r, a.Type)
+		return err
+	})
 	if err != nil {
 		return Added{}, err
 	}
-	if a.Remember && a.LevelFolders != nil {
-		return Added{}, errNotImplemented
+	choice, folders := defaults.Monitor, defaults.LevelFolders
+	if a.Preset != nil {
+		choice.Preset = *a.Preset
 	}
-	folders := true
+	if a.IncludeAsides != nil {
+		choice.Asides = a.IncludeAsides
+	}
 	if a.LevelFolders != nil {
 		folders = *a.LevelFolders
 	}
 	var moved remembered
 	tree, created, err := l.cfg.Works.Add(ctx, by, a.Type, a.Key, works.Adding{
-		Monitor:      monitor,
 		LevelFolders: folders,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
 			if err := targets.Assign(ctx, tx, w, a.Profile); err != nil {
@@ -64,11 +74,14 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 			if err := roots.Assign(ctx, tx, w, a.Root); err != nil {
 				return err
 			}
+			if _, err := l.applyIn(ctx, tx, works.Only([]works.WorkID{w.ID}), choice); err != nil {
+				return err
+			}
 			if !a.Remember {
 				return nil
 			}
 			var err error
-			moved, err = remember(ctx, tx, a, monitor)
+			moved, err = remember(ctx, tx, a)
 			return err
 		},
 	})
@@ -82,32 +95,9 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 	return Added{Tree: tree, Created: created}, nil
 }
 
-// monitor is whether a new Work's Items are all monitored: a's All or
-// None, else the type's add default.
-func (l *Library) monitor(ctx context.Context, a Adding) (bool, error) {
-	if c := a.Monitor; c != nil {
-		switch {
-		case c.Asides != nil && *c.Asides, c.New != nil:
-			return false, errNotImplemented
-		case c.Preset == works.PresetAll:
-			return true, nil
-		case c.Preset == works.PresetNone:
-			return false, nil
-		}
-		return false, errNotImplemented
-	}
-	var on bool
-	err := l.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		var err error
-		on, err = works.AddMonitorIn(ctx, r, a.Type)
-		return err
-	})
-	return on, err
-}
-
 // remember makes each choice a gives its type's default in tx, through
 // the paths Make default takes.
-func remember(ctx context.Context, tx *storage.Tx[storage.Library], a Adding, monitor bool) (remembered, error) {
+func remember(ctx context.Context, tx *storage.Tx[storage.Library], a Adding) (remembered, error) {
 	var moved remembered
 	var err error
 	if a.Profile != nil {
@@ -120,10 +110,5 @@ func remember(ctx context.Context, tx *storage.Tx[storage.Library], a Adding, mo
 			return remembered{}, err
 		}
 	}
-	if a.Monitor != nil {
-		if _, err = works.SetAddMonitorIn(ctx, tx, a.Type, monitor); err != nil {
-			return remembered{}, err
-		}
-	}
-	return moved, nil
+	return moved, works.RememberIn(ctx, tx, a.Type, works.Remembering{Preset: a.Preset, Asides: a.IncludeAsides, LevelFolders: a.LevelFolders})
 }

@@ -55,13 +55,13 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 		}
 		root = &roots.ID{UUID: u}
 	}
-	var monitor *works.Choice
-	if in.Body.Preset != "" || in.Body.IncludeAsides != nil {
-		monitor = &works.Choice{Preset: works.Preset(in.Body.Preset), Asides: in.Body.IncludeAsides}
+	var preset *works.Preset
+	if in.Body.Preset != "" {
+		preset = new(works.Preset(in.Body.Preset))
 	}
 	a, err := composer(h.shelf).Add(ctx, by, library.Adding{
-		Type: works.TypeID(in.Body.ContentType), Key: key, Profile: profile, Root: root, Monitor: monitor,
-		LevelFolders: in.Body.LevelFolders, Remember: in.Body.Remember,
+		Type: works.TypeID(in.Body.ContentType), Key: key, Profile: profile, Root: root, Preset: preset,
+		IncludeAsides: in.Body.IncludeAsides, LevelFolders: in.Body.LevelFolders, Remember: in.Body.Remember,
 	})
 	if err != nil {
 		return nil, answer(err)

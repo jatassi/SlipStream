@@ -3,9 +3,12 @@ package worksapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -51,7 +54,7 @@ type monitoringDoneOutcome struct {
 type monitoringSkippedOutcome struct {
 	WorkID  string                     `json:"workId" format:"uuid"`
 	Outcome string                     `json:"outcome" enum:"skipped"`
-	Reason  string                     `json:"reason" enum:"already,work_not_found" doc:"Why the change left the Work as it was"`
+	Reason  string                     `json:"reason" enum:"already" doc:"Why the change left the Work as it was"`
 	Counts  api.Nullable[presetCounts] `json:"counts" doc:"What each preset would monitor of the Work; null unless a preview"`
 }
 
@@ -98,10 +101,39 @@ func (h handlers) setWorksMonitoring(ctx context.Context, by identity.Admin, in 
 	}
 	asides := in.Body.IncludeAsides
 	c := works.Choice{Preset: works.Preset(in.Body.Preset), Asides: &asides, New: in.Body.MonitorNew}
-	if _, err := composer(h.shelf).SetMonitoring(ctx, by, ws, c, in.Body.Preview); err != nil {
+	os, err := composer(h.shelf).SetMonitoring(ctx, by, ws, c, in.Body.Preview)
+	if err != nil {
 		return nil, answer(err)
 	}
-	return &monitoringListOutput{Body: monitoringList{Outcomes: []api.OneOf[monitoringOutcome]{}}}, nil
+	out := monitoringList{Outcomes: make([]api.OneOf[monitoringOutcome], len(os))}
+	for i, o := range os {
+		counts := api.Nullable[presetCounts]{}
+		if in.Body.Preview {
+			counts = api.Some(presetCountsOf(o.Counts))
+		}
+		id := o.Work.String()
+		switch o.Result {
+		case library.Done:
+			out.Outcomes[i] = api.NewOneOf[monitoringOutcome](monitoringDoneOutcome{WorkID: id, Outcome: "done", Start: o.Delta.Start, Stop: o.Delta.Stop, Counts: counts})
+		case library.Skipped:
+			out.Outcomes[i] = api.NewOneOf[monitoringOutcome](monitoringSkippedOutcome{WorkID: id, Outcome: "skipped", Reason: reasonOf(o.Why), Counts: counts})
+		case library.Failed:
+			p, err := problemOf(o.Why)
+			if err != nil {
+				return nil, err
+			}
+			out.Outcomes[i] = api.NewOneOf[monitoringOutcome](failedOutcome{WorkID: id, Outcome: "failed", Problem: p})
+		}
+	}
+	return &monitoringListOutput{Body: out}, nil
+}
+
+func presetCountsOf(c works.PresetCounts) presetCounts {
+	out := presetCounts{Asides: c.Asides, Choices: make([]presetCount, len(c.Choices))}
+	for i, p := range c.Choices {
+		out.Choices[i] = presetCount{Preset: string(p.Preset), Monitors: p.Monitors, MonitorsNew: p.MonitorsNew}
+	}
+	return out
 }
 
 func (h handlers) setWorkMonitored(ctx context.Context, by identity.Admin, in *workMonitoredInput) (*struct{}, error) {
@@ -127,7 +159,15 @@ func (h handlers) setWorkMonitored(ctx context.Context, by identity.Admin, in *w
 		}
 		part.Items = append(part.Items, works.ItemID{UUID: u})
 	}
-	if err := composer(h.shelf).SetMonitored(ctx, by, id, part, in.Body.On); err != nil {
+	err = composer(h.shelf).SetMonitored(ctx, by, id, part, in.Body.On)
+	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
+		field, noun := "itemIds", "Item"
+		if e.Level {
+			field, noun = "levelIds", "level"
+		}
+		return nil, api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
+	}
+	if err != nil {
 		return nil, answer(err)
 	}
 	return nil, nil

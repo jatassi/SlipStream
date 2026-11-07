@@ -74,22 +74,11 @@ DELETE FROM works_disabled_type WHERE content_type = sqlc.arg(content_type);
 -- name: MarkGoneUpstream :exec
 UPDATE works_work SET gone_upstream_at = sqlc.arg(gone_upstream_at) WHERE id = sqlc.arg(id);
 
--- name: SetWorkRule :exec
-UPDATE works_work SET monitor_new = sqlc.arg(monitor_new), monitor_asides = sqlc.arg(monitor_asides) WHERE id = sqlc.arg(id);
-
 -- name: SetLevelFolders :exec
 UPDATE works_work SET level_folders = sqlc.arg(level_folders) WHERE id = sqlc.arg(id);
 
 -- name: SetRatingsRead :exec
 UPDATE works_work SET ratings_read_at = sqlc.arg(ratings_read_at) WHERE id = sqlc.arg(id);
-
--- name: WorksToMonitor :many
-SELECT DISTINCT work_id FROM works_item
-WHERE monitored <> sqlc.arg(monitored) AND id IN (sqlc.slice(item_ids))
-ORDER BY work_id;
-
--- name: SetMonitored :exec
-UPDATE works_item SET monitored = sqlc.arg(monitored) WHERE id IN (sqlc.slice(item_ids));
 
 -- name: ListRatings :many
 SELECT * FROM works_rating WHERE work_id = sqlc.arg(work_id) ORDER BY item_id, source;

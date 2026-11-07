@@ -5861,7 +5861,11 @@ export type WorksLibraryRowsOutput = zod.output<typeof WorksLibraryRows>;
 export const worksMonitoredChangeWorkIdsMax = 20000;
 
 export const WorksMonitoredChange = zod.object({
-  on: zod.boolean().describe("Monitor every Item of each Work, or none"),
+  on: zod
+    .boolean()
+    .describe(
+      "Apply the All preset to each Work, keeping its own aside choice, or None with asides off",
+    ),
   workIds: zod
     .array(zod.uuid())
     .min(1)
@@ -5929,9 +5933,7 @@ export const WorksMonitoringSkippedOutcome = zod.object({
     .union([WorksPresetCounts, zod.null()])
     .describe("What each preset would monitor of the Work; null unless a preview"),
   outcome: zod.enum(["skipped"]),
-  reason: zod
-    .enum(["already", "work_not_found"])
-    .describe("Why the change left the Work as it was"),
+  reason: zod.enum(["already"]).describe("Why the change left the Work as it was"),
   workId: zod.uuid(),
 });
 

@@ -1,5 +1,5 @@
 export interface WorksMonitoredChange {
-  /** Monitor every Item of each Work, or none */
+  /** Apply the All preset to each Work, keeping its own aside choice, or None with asides off */
   on: boolean;
   /**
    * A repeated id counts once

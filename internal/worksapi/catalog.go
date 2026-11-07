@@ -5,8 +5,6 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -66,14 +64,13 @@ func (h handlers) previewCatalogRecord(ctx context.Context, by identity.Admin, i
 	if err != nil {
 		return nil, api.Invalid
 	}
-	var timings map[works.ItemID]targets.Timing
-	t, stored, err := open(h.shelf).Preview(ctx, by, works.TypeID(in.ContentType), key, func(ctx context.Context, r storage.Reader[storage.Library], t works.Tree) error {
-		var err error
-		timings, err = goals(h.shelf).TimingsIn(ctx, r, t.ContentType, works.Only([]works.WorkID{t.ID}))
-		return err
-	})
+	p, err := composer(h.shelf).Preview(ctx, by, works.TypeID(in.ContentType), key)
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &previewedOutput{Body: previewed{InLibrary: stored, Work: treeOf(minter(h.shelf), t, timings)}}, nil
+	out := previewed{InLibrary: p.Stored, Work: treeOf(minter(h.shelf), p.Tree, p.Timings)}
+	if !p.Stored {
+		out.Presets = api.Some(presetCountsOf(p.Counts))
+	}
+	return &previewedOutput{Body: out}, nil
 }
