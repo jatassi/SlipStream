@@ -58,6 +58,6 @@ CREATE INDEX series_episode_work ON series_episode (work_id);
 CREATE TABLE series_settings (
     id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
     -- NULL is the default.
-    air_delay_days INTEGER CHECK (air_delay_days BETWEEN 0 AND 30)
+    air_delay_seconds INTEGER CHECK (air_delay_seconds >= 0)
 ) STRICT;
 INSERT INTO series_settings (id) VALUES (1);

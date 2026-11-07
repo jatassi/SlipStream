@@ -51,13 +51,13 @@ func (q *Queries) GetSeries(ctx context.Context, workID works.WorkID) (SeriesSer
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT id, air_delay_days FROM series_settings WHERE id = 1
+SELECT id, air_delay_seconds FROM series_settings WHERE id = 1
 `
 
 func (q *Queries) GetSettings(ctx context.Context) (SeriesSetting, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i SeriesSetting
-	err := row.Scan(&i.ID, &i.AirDelayDays)
+	err := row.Scan(&i.ID, &i.AirDelaySeconds)
 	return i, err
 }
 
@@ -251,11 +251,11 @@ func (q *Queries) ListSeriesOf(ctx context.Context, workIds []works.WorkID) ([]S
 }
 
 const setAirDelay = `-- name: SetAirDelay :exec
-UPDATE series_settings SET air_delay_days = ?1 WHERE id = 1
+UPDATE series_settings SET air_delay_seconds = ?1 WHERE id = 1
 `
 
-func (q *Queries) SetAirDelay(ctx context.Context, airDelayDays *int64) error {
-	_, err := q.db.ExecContext(ctx, setAirDelay, airDelayDays)
+func (q *Queries) SetAirDelay(ctx context.Context, airDelaySeconds *int64) error {
+	_, err := q.db.ExecContext(ctx, setAirDelay, airDelaySeconds)
 	return err
 }
 

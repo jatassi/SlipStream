@@ -63,6 +63,6 @@ type SeriesSeries struct {
 }
 
 type SeriesSetting struct {
-	ID           Singleton
-	AirDelayDays *int64
+	ID              Singleton
+	AirDelaySeconds *int64
 }

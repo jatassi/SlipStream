@@ -65,4 +65,4 @@ SELECT * FROM series_episode WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY wo
 SELECT * FROM series_settings WHERE id = 1;
 
 -- name: SetAirDelay :exec
-UPDATE series_settings SET air_delay_days = sqlc.arg(air_delay_days) WHERE id = 1;
+UPDATE series_settings SET air_delay_seconds = sqlc.arg(air_delay_seconds) WHERE id = 1;
