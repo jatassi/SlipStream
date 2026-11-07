@@ -1,0 +1,87 @@
+source: synthetic
+settings:
+  searchSortBy: "1"
+session:
+  cookie: "uid={{uid}}; pass={{pass}}"
+  userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+  pasted: true
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /t
+          headers:
+            Cookie: "uid={{uid}}; pass={{pass}}"
+            User-Agent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+          query: {o: seeders, q: "+(tt0000001),+(The Quiet Orchard)", qf: all}
+        response: {headers: {Content-Type: text/html}, body: search.html}
+  - name: tvsearch
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /t, query: {o: seeders, q: "+(Harbor Lights S02E03)"}}
+        response: {headers: {Content-Type: text/html}, body: tv.html}
+  - name: season
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2}}
+    exchanges:
+      - request: {path: /t, query: {o: seeders, q: "+(Harbor Lights S02*)"}}
+        response: {headers: {Content-Type: text/html}, body: season.html}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /t, query: {o: seeders, q: "+(Juniper Falls)"}}
+        response: {headers: {Content-Type: text/html}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /t}
+        response: {headers: {Content-Type: text/html}, body: search.html}
+  - name: auth
+    call: {test: {}}
+    session:
+      cookie: "uid={{uid}}; pass={{wrongPass}}"
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+      pasted: true
+    exchanges:
+      - request: {path: /t, headers: {Cookie: "uid={{uid}}; pass={{wrongPass}}"}}
+        response: {headers: {Content-Type: text/html}, body: login.html}
+  - name: loggedout
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    session:
+      cookie: "uid={{uid}}; pass={{expiredPass}}"
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+      pasted: true
+    exchanges:
+      - request: {path: /t, headers: {Cookie: "uid={{uid}}; pass={{expiredPass}}"}}
+        response: {headers: {Content-Type: text/html}, body: login.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /t}
+        response: {status: 429, headers: {Retry-After: "120"}}
+  - name: textcategories
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /t}
+        response: {headers: {Content-Type: text/html}, body: textcategories.html}
+  - name: grab
+    call: {fetch: /download.php/1001/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.torrent}
+    exchanges:
+      - request:
+          path: /download.php/1001/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.torrent
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /t}
+        response: {headers: {Content-Type: text/html}, body: search.html}
+  - name: grabloggedout
+    call: {fetch: /download.php/1001/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.torrent}
+    session:
+      cookie: "uid={{uid}}; pass={{expiredPass}}"
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+      pasted: true
+    exchanges:
+      - request: {path: /download.php/1001/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.torrent}
+        response: {headers: {Content-Type: text/html}, body: login.html}
