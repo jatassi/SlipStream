@@ -410,11 +410,11 @@ func TestSearchParsesJSONRows(t *testing.T) {
 			Title: "Alpha 720p", Link: "https://json.example/t/1",
 			InfoHash: []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67},
 			Size:     1000, Published: time.Date(2026, 10, 20, 13, 45, 0, 0, time.UTC), Seeders: 4, Leechers: 6,
-			Categories: []newznab.ID{2000}, DownloadFactor: 0,
+			Categories: []newznab.ID{2000}, DownloadFactor: 0, UploadFactor: 1,
 		},
 		{
 			Title: "Alpha 1080p", Link: "https://cdn.example/t/2", Size: 2000, Published: time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC),
-			Seeders: 1, Categories: []newznab.ID{2000}, DownloadFactor: 1, IDs: map[string]string{"tmdbid": "603"},
+			Seeders: 1, Categories: []newznab.ID{2000}, DownloadFactor: 1, UploadFactor: 1, IDs: map[string]string{"tmdbid": "603"},
 		},
 	}
 	if !reflect.DeepEqual(rs, want) {
@@ -505,7 +505,7 @@ search:
 	body := `<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Feed Item</title><link>https://rss.example/get/1</link>
 <pubDate>Tue, 20 Oct 2026 13:45:00 +00:00</pubDate><enclosure url="x" length="4096"/></item></channel></rss>`
 	rs := mustSearch(t, d, Query{Mode: "search"}, site{"GET https://rss.example/rss": page(body)})
-	want := []Release{{Title: "Feed Item", Link: "https://rss.example/get/1", Size: 4096, Published: time.Date(2026, 10, 20, 13, 45, 0, 0, time.UTC), Categories: []newznab.ID{2000}}}
+	want := []Release{{Title: "Feed Item", Link: "https://rss.example/get/1", Size: 4096, Published: time.Date(2026, 10, 20, 13, 45, 0, 0, time.UTC), Categories: []newznab.ID{2000}, DownloadFactor: 1, UploadFactor: 1}}
 	if !reflect.DeepEqual(rs, want) {
 		t.Errorf("Releases =\n%+v\nwant\n%+v", rs, want)
 	}

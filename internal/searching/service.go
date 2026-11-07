@@ -92,7 +92,32 @@ func (s *Service) do(job Job, site *Site, r *run) Answer {
 			a.Captcha = &captcha
 		}
 	}
+	for i := range a.Releases {
+		a.Releases[i].Flags = withFactorFlags(a.Releases[i])
+	}
 	a.Outcome = outcomeOf(ctx, err, s.cfg.Timings.JobCap)
 	a.Session = site.slot.newer(job.Session)
 	return a
+}
+
+// withFactorFlags are r's flags and the ones its factors mean, as Radarr's
+// Torznab parser reads them: download 0 is freeleech, 0.25 freeleech75,
+// 0.5 halfleech and 0.75 freeleech25, and upload 2 is doubleupload. Every
+// kind's Releases come through here, so no driver sets these flags.
+func withFactorFlags(r Release) []Flag {
+	flags := r.Flags
+	switch r.Factors.Download {
+	case 0:
+		flags = append(flags, Freeleech)
+	case 0.25:
+		flags = append(flags, Freeleech75)
+	case 0.5:
+		flags = append(flags, Halfleech)
+	case 0.75:
+		flags = append(flags, Freeleech25)
+	}
+	if r.Factors.Upload == 2 {
+		flags = append(flags, DoubleUpload)
+	}
+	return flags
 }
