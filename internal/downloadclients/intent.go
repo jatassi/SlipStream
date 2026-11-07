@@ -16,9 +16,11 @@ import (
 )
 
 // Intent is node's Downloading intent: its live Torrents and its
-// discards, the Removing ones, each in added order, its settings with
-// defaults, the thresholds, the disk guard's hold and how often to sample
-// the downloads volume. The same library gives the same bytes.
+// discards, the Removing ones, each in added order and naming its client,
+// its settings with defaults, the thresholds, the disk guard's hold, how
+// often to sample the downloads volume, and its external clients, on or
+// off, with every setting but their secrets. The same library gives the
+// same bytes.
 func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv1.Intent, error) {
 	rows, err := db.New(r).ListIntent(ctx, node)
 	if err != nil {
@@ -61,13 +63,52 @@ func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 		},
 	}
 	for _, row := range rows {
+		var client []byte
+		if row.ClientID != nil {
+			client = row.ClientID.Bytes()
+		}
 		if row.RemovedAt.IsZero() {
-			intent.Torrents = append(intent.Torrents, &dlv1.Torrent{Id: row.ID.Bytes(), InfoHash: row.InfoHash, Wanted: wantedOnWire[Wanted(row.Wanted)], Order: row.AddedOrder})
+			intent.Torrents = append(intent.Torrents, &dlv1.Torrent{
+				Id: row.ID.Bytes(), InfoHash: row.InfoHash, Wanted: wantedOnWire[Wanted(row.Wanted)], Order: row.AddedOrder, ClientId: client,
+			})
 			continue
 		}
-		intent.Discards = append(intent.Discards, &dlv1.Discard{Id: row.ID.Bytes(), InfoHash: row.InfoHash, DeleteFiles: row.DeleteFiles == 1})
+		intent.Discards = append(intent.Discards, &dlv1.Discard{Id: row.ID.Bytes(), InfoHash: row.InfoHash, DeleteFiles: row.DeleteFiles == 1, ClientId: client})
+	}
+	if intent.Clients, err = clientsOnWire(ctx, r, node); err != nil {
+		return nil, err
 	}
 	return intent, nil
+}
+
+// clientsOnWire is node's external clients in id order, as the intent
+// carries them: never a secret.
+func clientsOnWire(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]*dlv1.Client, error) {
+	rows, err := db.New(r).ListNodeClients(ctx, node)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*dlv1.Client, len(rows))
+	for i, row := range rows {
+		e, err := externalOf(row)
+		if err != nil {
+			return nil, err
+		}
+		c := &dlv1.Client{
+			Id: e.ID.Bytes(), Kind: kindOnWire[e.Kind], Name: e.Name, Address: e.Address.String(), Username: e.Username,
+			Label: e.Label.String(), Folder: e.Folder,
+			CheckEverySeconds: int64(e.CheckEvery / time.Second), ImportDelaySeconds: int64(e.ImportDelay / time.Second),
+			On: e.On, SettingsVersion: e.Version,
+		}
+		for _, f := range e.Folders.Pairs() {
+			c.ClientFolders = append(c.ClientFolders, &dlv1.ClientFolder{Client: f.Client, Node: f.Node})
+		}
+		if d := e.Daemon; d != nil {
+			c.Daemon = &dlv1.Daemon{Host: d.Host, Port: int32(d.Port)} //nolint:gosec // the schema CHECKs the port
+		}
+		out[i] = c
+	}
+	return out, nil
 }
 
 var wantedOnWire = map[Wanted]dlv1.Wanted{Started: dlv1.Wanted_WANTED_STARTED, Paused: dlv1.Wanted_WANTED_PAUSED}

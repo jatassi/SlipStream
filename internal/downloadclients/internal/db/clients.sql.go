@@ -75,6 +75,24 @@ func (q *Queries) GetClient(ctx context.Context, id ClientID) (DownloadclientsCl
 	return i, err
 }
 
+const getClientSecrets = `-- name: GetClientSecrets :one
+SELECT node_id, secrets_sealed, settings_version FROM downloadclients_client
+WHERE id = ?1 AND deleted_at IS NULL
+`
+
+type GetClientSecretsRow struct {
+	NodeID          role.NodeID
+	SecretsSealed   secret.Sealed
+	SettingsVersion int64
+}
+
+func (q *Queries) GetClientSecrets(ctx context.Context, id ClientID) (GetClientSecretsRow, error) {
+	row := q.db.QueryRowContext(ctx, getClientSecrets, id)
+	var i GetClientSecretsRow
+	err := row.Scan(&i.NodeID, &i.SecretsSealed, &i.SettingsVersion)
+	return i, err
+}
+
 const getGrabsTo = `-- name: GetGrabsTo :one
 SELECT c.id FROM downloadclients_node n JOIN downloadclients_client c ON c.id = n.grabs_to
 WHERE n.node_id = ?1 AND c.is_on = 1 AND c.deleted_at IS NULL
@@ -128,4 +146,97 @@ func (q *Queries) InsertClient(ctx context.Context, arg InsertClientParams) erro
 		arg.CreatedAt,
 	)
 	return err
+}
+
+const listNodeClients = `-- name: ListNodeClients :many
+SELECT id, node_id, kind, name, address, address_key, username, secrets_sealed, label, folder, client_folders, daemon_host, daemon_port, check_every_seconds, import_delay_seconds, is_on, settings_version, poll_state, poll_since, poll_problem, poll_settings_version, poll_check, client_version, created_at, updated_at, deleted_at FROM downloadclients_client WHERE node_id = ?1 AND deleted_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListNodeClients(ctx context.Context, nodeID role.NodeID) ([]DownloadclientsClient, error) {
+	rows, err := q.db.QueryContext(ctx, listNodeClients, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DownloadclientsClient
+	for rows.Next() {
+		var i DownloadclientsClient
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.Kind,
+			&i.Name,
+			&i.Address,
+			&i.AddressKey,
+			&i.Username,
+			&i.SecretsSealed,
+			&i.Label,
+			&i.Folder,
+			&i.ClientFolders,
+			&i.DaemonHost,
+			&i.DaemonPort,
+			&i.CheckEverySeconds,
+			&i.ImportDelaySeconds,
+			&i.IsOn,
+			&i.SettingsVersion,
+			&i.PollState,
+			&i.PollSince,
+			&i.PollProblem,
+			&i.PollSettingsVersion,
+			&i.PollCheck,
+			&i.ClientVersion,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setPoll = `-- name: SetPoll :execrows
+UPDATE downloadclients_client SET
+    poll_state = ?1, poll_since = ?2, poll_problem = ?3,
+    poll_settings_version = ?4, poll_check = coalesce(?5, poll_check),
+    client_version = ?6
+WHERE id = ?7 AND node_id = ?8 AND deleted_at IS NULL
+  AND (poll_settings_version IS NULL OR poll_settings_version <= ?4)
+`
+
+type SetPollParams struct {
+	PollState           *string
+	PollSince           storage.Time
+	PollProblem         *string
+	PollSettingsVersion *int64
+	PollCheck           []byte
+	ClientVersion       *string
+	ID                  ClientID
+	NodeID              role.NodeID
+}
+
+// A poll under settings older than the stored poll's changes nothing. A
+// poll that answers no Check now keeps the last one's token.
+func (q *Queries) SetPoll(ctx context.Context, arg SetPollParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setPoll,
+		arg.PollState,
+		arg.PollSince,
+		arg.PollProblem,
+		arg.PollSettingsVersion,
+		arg.PollCheck,
+		arg.ClientVersion,
+		arg.ID,
+		arg.NodeID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
