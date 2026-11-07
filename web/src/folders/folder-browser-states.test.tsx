@@ -119,7 +119,7 @@ test("on a phone it is a full sheet with a back link named after the parent, and
     .element(page.getByRole("button", { name: "/srv/media, folders above" }))
     .toBeVisible();
   await expect.element(field()).not.toHaveFocus();
-  expect(option("Anime").element().getBoundingClientRect().height).toBe(54);
+  expect(getComputedStyle(option("Anime").element()).height).toBe("54px");
   await userEvent.click(page.getByRole("button", { name: "srv" }));
   await expect.element(page.getByRole("heading", { name: "srv" })).toBeVisible();
   await expect.element(useButton("Use srv")).toBeInViewport();
