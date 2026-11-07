@@ -528,9 +528,12 @@ jobs:
 
   # The required check: every lane the plan runs passes, and every lane it
   # leaves out is skipped.
+  # A skipped required check counts as passed, so the gate skips when every
+  # lane ended as planned and takes a runner only to fail and say which
+  # lane didn't. Waiting for a runner held each passing run back minutes.
   gate:
     name: All required checks passed
-    if: always()
+    if: ${{ always() && (needs.plan.result != 'success' || needs.target.result != (fromJSON(needs.plan.outputs.planned)['target'] && 'success' || 'skipped') || needs.lint.result != (fromJSON(needs.plan.outputs.planned)['lint'] && 'success' || 'skipped') || needs.lint-repo.result != (fromJSON(needs.plan.outputs.planned)['lint-repo'] && 'success' || 'skipped') || needs.go.result != (fromJSON(needs.plan.outputs.planned)['go'] && 'success' || 'skipped') || needs.component.result != (fromJSON(needs.plan.outputs.planned)['component'] && 'success' || 'skipped') || needs.diagram.result != (fromJSON(needs.plan.outputs.planned)['diagram'] && 'success' || 'skipped')) }}
     needs: [plan, target, lint, lint-repo, go, component, diagram]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
