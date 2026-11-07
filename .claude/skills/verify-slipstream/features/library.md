@@ -10,7 +10,7 @@ The Library shows every Work of a Content Type, or of every one on `/library`, a
 - `library-search` `Search Movies` keeps the Works `GET /api/v1/works/search?limit=0` matches by any title; a search that keeps nothing reads `No Movies match "<words>".`
 - `library-table` `Library options` > `Table` lists one row per Work with the Status, Profile, Size on disk, Added and field columns, each a toggle in the same menu; below 620px of its width each row stacks its values under their labels (P-033).
 - `library-remembered` a changed view goes into the address (`view=table&sort=added`), and opening `/library/movie` with no view in the address redirects to the last one used for that Library in that browser, keeping `q=`.
-- `library-status` a poster or row shows its status in words and an icon, `Failed <n>` in red when a wanted cell failed, `Not monitored` and a quieter poster when nothing is monitored, and for a Work of many Items a tally such as `12 of 40 met` (P-030, P-040).
+- `library-status` a poster or row shows its status in words and an icon, `Failed <n>` in red when a wanted cell failed, `Not monitored` alone and a quieter poster when nothing is monitored, since the status counts only monitored Items its source still lists, and for a Work of many Items a tally such as `12 of 40 met` (P-030, P-040).
 - `library-keyboard` one Work takes Tab; the arrow keys move between posters, up and down keeping the column across section headings, Home and End go to the first and last, Enter opens the Work and Space picks it.
 - `library-live` a Work added, changed or deleted through the API appears, changes or leaves without a reload (P-242).
 
