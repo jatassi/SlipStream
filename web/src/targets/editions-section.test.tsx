@@ -20,9 +20,9 @@ const row = (name: string) => table().getByRole("row", { name: new RegExp(`^${na
 
 test("Editions lists every cut with what titles name it by and where it comes from", async () => {
   renderApp({ path: "/settings/editions", handlers: handlers() });
-  const tabs = page.getByRole("navigation", { name: "Settings" });
+  const nav = page.getByRole("navigation", { name: "Settings" });
   await expect
-    .element(tabs.getByRole("link", { name: "Editions" }))
+    .element(nav.getByRole("link", { name: "Editions" }))
     .toHaveAttribute("aria-current", "page");
   await expect
     .element(row("Standard"))

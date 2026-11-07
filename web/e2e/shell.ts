@@ -35,6 +35,15 @@ export async function navigate(page: Page, to: Destination): Promise<void> {
   );
 }
 
+// A section's link carries its Health dot in words, as in "Library roots 1 warning".
+export async function openSettingsSection(page: Page, section: string): Promise<void> {
+  await navigate(page, "Settings");
+  const sections = isPhone(page)
+    ? page.getByRole("main")
+    : page.getByRole("navigation", { name: "Settings" });
+  await sections.getByRole("link", { name: named(section) }).click();
+}
+
 export async function openNode(page: Page, name: string): Promise<void> {
   await navigate(page, "Nodes");
   await page

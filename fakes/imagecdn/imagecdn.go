@@ -1,13 +1,24 @@
-// Package imagecdn is fake-image-cdn: TMDB's image host, answering any
-// image file name at any size TMDB offers with a generated image.
+// Package imagecdn is fake-image-cdn: TMDB's image host. It answers a
+// file in the artwork store with its recorded bytes, scaled down to the
+// size asked, and any other image file name at any size TMDB offers with
+// a generated image.
 package imagecdn
 
 import (
+	"bytes"
+	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"net/http"
 	"slices"
 	"strconv"
+	"sync"
+
+	"golang.org/x/image/draw"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/internal/artwork"
 	"github.com/jatassi/slipstream/fakes/internal/images"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/node"
@@ -31,13 +42,29 @@ const Root = "/t/p"
 var Sizes = []string{"w45", "w92", "w154", "w185", "w300", "w342", "w500", "w780", "w1280", "h632", "original"}
 
 func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
-	return fake.HTTP(env, fake.Routes{
-		"image":     {Pattern: "GET " + Root + "/{size}/{file}", Handler: serveImage},
-		"not-found": {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
-	}), nil
+	return serve(artwork.Embedded, env), nil
 }
 
-func serveImage(w http.ResponseWriter, r *http.Request) {
+func serve(store artwork.Store, env fake.Env) fake.Server {
+	srv := &server{store: store, scaled: map[sized][]byte{}}
+	return fake.HTTP(env, fake.Routes{
+		"image":     {Pattern: "GET " + Root + "/{size}/{file}", Handler: srv.image},
+		"not-found": {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
+	})
+}
+
+type server struct {
+	store artwork.Store
+
+	mu     sync.Mutex
+	scaled map[sized][]byte
+}
+
+type sized struct {
+	path, size string
+}
+
+func (s *server) image(w http.ResponseWriter, r *http.Request) {
 	size, file := r.PathValue("size"), r.PathValue("file")
 	width, height, ok := dimensions(size)
 	if !ok {
@@ -49,7 +76,68 @@ func serveImage(w http.ResponseWriter, r *http.Request) {
 		notFound(w)
 		return
 	}
-	images.Serve(w, f, "/"+file, size, width, height)
+	stored, ok := s.store.Lookup("/" + file)
+	if !ok {
+		images.Serve(w, f, "/"+file, size, width, height)
+		return
+	}
+	body, err := s.resized(sized{"/" + file, size}, f, stored)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", f.ContentType())
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	_, _ = w.Write(body) //nolint:gosec // image bytes from the store, sent with their image Content-Type
+}
+
+// resized is the stored image at the size asked, scaled once and kept.
+func (s *server) resized(at sized, f images.Format, stored []byte) ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if body, ok := s.scaled[at]; ok {
+		return body, nil
+	}
+	body, err := scale(f, stored, at.size)
+	if err != nil {
+		return nil, fmt.Errorf("scale %s to %s: %w", at.path, at.size, err)
+	}
+	s.scaled[at] = body
+	return body, nil
+}
+
+// scale is stored at size: wN is N wide and hN is N high, keeping the
+// aspect ratio. An SVG, the original, or an image no larger than size is
+// the stored bytes.
+func scale(f images.Format, stored []byte, size string) ([]byte, error) {
+	if f == images.SVG || size == "original" {
+		return stored, nil
+	}
+	src, _, err := image.Decode(bytes.NewReader(stored))
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	n, _ := strconv.Atoi(size[1:])
+	b := src.Bounds()
+	width, height := n, b.Dy()*n/b.Dx()
+	if size[0] == 'h' {
+		width, height = b.Dx()*n/b.Dy(), n
+	}
+	if width >= b.Dx() || height >= b.Dy() {
+		return stored, nil
+	}
+	dst := image.NewNRGBA(image.Rect(0, 0, max(width, 1), max(height, 1)))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), src, b, draw.Src, nil)
+	var out bytes.Buffer
+	if f == images.PNG {
+		err = png.Encode(&out, dst)
+	} else {
+		err = jpeg.Encode(&out, dst, &jpeg.Options{Quality: 85})
+	}
+	if err != nil {
+		return nil, fmt.Errorf("encode: %w", err)
+	}
+	return out.Bytes(), nil
 }
 
 // dimensions are a size's pixels at a poster's 2:3: wN is N wide, hN is N

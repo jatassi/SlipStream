@@ -4,7 +4,7 @@ The Controller runs each Scheduled task on its cadence and records every run wit
 
 ## Sub-features
 
-- `tasks-page` the Tasks page reads `Every task ran as scheduled.`, then the `Controller` group's table with Housekeeping, its cadence `Daily in the Maintenance window`, its last run, its next run `Tonight at 04:00` and its Nodes `home, seedbox` in a `Nodes` column (P-228).
+- `tasks-page` the Tasks page reads `Every task ran as scheduled.`, then the `Controller` group's table with Housekeeping, its cadence `Daily in the Maintenance window`, its last run, its next run `Tonight at 04:00` and its Nodes `home, seedbox` in a `Nodes` column; every group's table keeps the same column edges, at any width, without clipping a cell (P-228).
 - `tasks-run-now` `Run now` starts a run at once, the row shows `Running since <time>` with live progress and `Cancel` in its place, a second Run now over the API answers 409 `task_running`, and the row ends `Succeeded` with `6 steps` (P-228).
 - `tasks-capsule` the desktop top bar shows `1 task running: Housekeeping` between the connection line and the page action, and its popover `Running tasks` lists the run with `home, seedbox · <n> of 6 steps`, a meter and `Cancel`; a scheduled run shows only after the header delay (P-007, P-008).
 - `tasks-phone-running` on phone the same list, `Running tasks`, heads Activity while the run is open, and Activity's count and Home's colour never count it (P-007, P-008).
