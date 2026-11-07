@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
+	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -57,6 +58,7 @@ type Config struct {
 
 type EndpointsBlock struct {
 	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
+	TVDB         tvdb.Endpoints       `yaml:"tvdb"`
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
@@ -147,6 +149,7 @@ type TimingsBlock struct {
 	Storing     storing.Timings     `yaml:"storing"`
 	Metadata    metadata.Timings    `yaml:"metadata"`
 	TMDB        tmdb.Timings        `yaml:"tmdb"`
+	TVDB        tvdb.Timings        `yaml:"tvdb"`
 	OMDb        omdb.Timings        `yaml:"omdb"`
 	Health      health.Timings      `yaml:"health"`
 }
@@ -176,6 +179,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 		Log:     logs.DefaultSettings(),
 		Endpoints: EndpointsBlock{
 			TMDB:         tmdb.DefaultEndpoints(),
+			TVDB:         tvdb.DefaultEndpoints(),
 			OMDb:         omdb.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
@@ -215,6 +219,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Storing:     storing.DefaultTimings(),
 			Metadata:    metadata.DefaultTimings(),
 			TMDB:        tmdb.DefaultTimings(),
+			TVDB:        tvdb.DefaultTimings(),
 			OMDb:        omdb.DefaultTimings(),
 			Health:      health.DefaultTimings(),
 		},
