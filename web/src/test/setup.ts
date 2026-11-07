@@ -2,6 +2,7 @@ import "../styles.css";
 
 import { faker } from "@faker-js/faker";
 import { afterAll, beforeAll, beforeEach, onTestFinished } from "vitest";
+import { commands } from "vitest/browser";
 
 import { writePref } from "../shell/prefs";
 import { unmountApps } from "./render-app";
@@ -12,6 +13,7 @@ declare module "vitest/browser" {
   interface BrowserCommands {
     emulateReducedMotion: (reduce: boolean) => Promise<void>;
     drag: (from: string, to: string) => Promise<void>;
+    parkPointer: () => Promise<void>;
     swipe: (
       from: { selector: string; at: readonly [number, number] },
       by: readonly [number, number],
@@ -38,7 +40,8 @@ beforeAll(async () => {
 
 // onTestFinished hooks run last-registered first: a test's own hooks release
 // held requests, then its apps settle and unmount, then its handlers go.
-beforeEach(() => {
+beforeEach(async () => {
+  await commands.parkPointer();
   onTestFinished(restoreViewport);
   faker.seed(6);
   writePref("startupPlayed", true);

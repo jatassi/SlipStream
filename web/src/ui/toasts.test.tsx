@@ -79,6 +79,9 @@ test("a toast with an action can be dismissed", async () => {
   await mountToasts();
   const onClick = vi.fn<() => void>();
   toast("Removed 3 torrents", { action: { label: "Undo", onClick } });
+  // Base UI hides the close button from the accessibility tree until the
+  // pointer or focus reaches the toasts.
+  await userEvent.hover(notifications().getByText("Removed 3 torrents"));
   await userEvent.click(notifications().getByRole("button", { name: "Dismiss" }));
   await expect.element(notifications().getByText("Removed 3 torrents")).not.toBeInTheDocument();
   expect(onClick).not.toHaveBeenCalled();
