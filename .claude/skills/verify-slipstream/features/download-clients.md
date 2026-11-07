@@ -14,7 +14,7 @@ Settings > Download Clients lists a card for the built-in client of each Node th
 
 - Desktop shell: the sidebar's `Settings`, then `Download Clients` in the section nav, `/settings/download-clients`. Phone shell: `More`, then `Settings`, then `Download Clients`, a pushed page.
 - A card's `Torrent client settings on <Node>` link, or Nodes, a Node, then its `Torrent client` page tab (only on a Node that stands in Downloading); the Nodes Inspector's Downloading chip links `Torrent client` and `Torrents`.
-- API: `GET /api/v1/download-clients` (cards and thresholds), `PATCH /api/v1/download-clients/thresholds`, `GET` and `PATCH /api/v1/download-clients/{nodeId}/settings`, and the event `download-clients.changed`.
+- API: `GET /api/v1/download-clients` (cards with each Node's external clients and `grabsTo`, the clients on Nodes that no longer download as `orphans`, the `kinds`, and the thresholds), `PATCH /api/v1/download-clients/thresholds`, `GET` and `PATCH /api/v1/download-clients/{nodeId}/settings` (with `grabsTo`, an external client's id or null for the built-in client), `POST /api/v1/external-download-clients` (saved only once its Test passes on its Node), `PATCH` and `DELETE /api/v1/external-download-clients/{id}`, `POST /api/v1/external-download-clients/test` for a draft and `POST /api/v1/external-download-clients/{id}/test` for a saved client with unsaved changes, and the event `download-clients.changed`, which names `nodeIds` and `clientIds`.
 
 ## Driving it with fakeworld and playwright cli
 
