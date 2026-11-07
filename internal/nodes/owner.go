@@ -26,6 +26,11 @@ type Owner struct {
 	// Role, false while none is configured. It reads the library and
 	// nothing else. Exactly the owners of Reach Roles have one.
 	Reach func(ctx context.Context, r storage.Reader[storage.Library]) (nodesystem.Target, bool, error)
+	// Keeps names the config the owner keeps on node for Role, such as its
+	// external Download Clients, which blocks taking the Role off node
+	// until the Admin deletes or moves it. A write-off still goes through
+	// and keeps it. Nil for an owner that keeps none.
+	Keeps func(ctx context.Context, r storage.Reader[storage.Library], node ID) ([]string, error)
 }
 
 // HoldsNothing is the Held of a Role whose work no feature keeps yet.

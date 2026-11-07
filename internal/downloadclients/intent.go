@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -171,8 +172,20 @@ func reportOf(stored *string) (*Report, error) {
 // DownloadingOwner counts the Torrents a Node holds until it parts from
 // them: a Removing one too, so a drain lasts until the Node confirms each
 // removal. Live Torrents seed until seeding goals exist, so a Node never
-// finishes them on its own.
-var DownloadingOwner = nodes.Owner{Role: role.Downloading, Held: held}
+// finishes them on its own. Its external clients keep Downloading on the
+// Node until the Admin deletes or moves them.
+var DownloadingOwner = nodes.Owner{Role: role.Downloading, Held: held, Keeps: clientsOn}
+
+// clientsOn names node's external clients by name.
+func clientsOn(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]string, error) {
+	rows, err := db.New(r).ListNodeClients(ctx, node)
+	names := make([]string, len(rows))
+	for i, row := range rows {
+		names[i] = row.Name
+	}
+	slices.Sort(names)
+	return names, err
+}
 
 func held(ctx context.Context, r storage.Reader[file], node role.NodeID) (nodes.Held, error) {
 	row, err := db.New(r).CountHeld(ctx, node)
