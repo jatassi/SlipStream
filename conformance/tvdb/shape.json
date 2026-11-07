@@ -784,6 +784,7 @@
     "$.data[].extraInfo": "string",
     "$.data[].mergeToEntityType": "string",
     "$.data[].mergeToId": "number",
+    "$.data[].mergeToType": "string",
     "$.data[].method": "string",
     "$.data[].methodInt": "number",
     "$.data[].recordId": "number",

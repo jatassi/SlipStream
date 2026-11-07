@@ -467,9 +467,9 @@
     "$.page": "number",
     "$.results": "array",
     "$.results[]": "object",
-    "$.results[].adult": "boolean",
+    "$.results[].adult": "boolean|null",
     "$.results[].id": "number",
-    "$.results[].softcore": "boolean",
+    "$.results[].softcore": "boolean|null",
     "$.total_pages": "number",
     "$.total_results": "number"
   },
