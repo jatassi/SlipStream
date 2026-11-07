@@ -129,17 +129,18 @@ func (p *published) count() int {
 }
 
 type pipeline struct {
-	t       *testing.T
-	lib     library
-	g       *grabs.Grabs
-	swarm   *swarm
-	roster  *roster
-	changed *published
-	node    role.NodeID
-	work    works.WorkID
-	root    roots.ID
-	indexer indexers.ID
-	copies  *transfers.Transfers
+	t          *testing.T
+	lib        library
+	g          *grabs.Grabs
+	swarm      *swarm
+	roster     *roster
+	changed    *published
+	node       role.NodeID
+	work       works.WorkID
+	root       roots.ID
+	indexer    indexers.ID
+	copies     *transfers.Transfers
+	beforeStep func(context.Context, grabs.Stage)
 }
 
 func newPipeline(t *testing.T, answers ...answer) *pipeline {
@@ -187,6 +188,11 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		Transfers: p.copies,
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, Log: slog.New(slog.DiscardHandler),
+		BeforeStep: func(ctx context.Context, s grabs.Stage) {
+			if p.beforeStep != nil {
+				p.beforeStep(ctx, s)
+			}
+		},
 	})
 	return p
 }
