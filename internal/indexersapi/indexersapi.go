@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/role"
@@ -47,7 +48,7 @@ func answer(x *indexers.Indexers, err error) error {
 	var unavailable *indexers.UnavailableError
 	var refused *indexers.FeedRefusedError
 	var unrunnable *cardigann.Unrunnable
-	var value *indexers.ValueError
+	var value *indexerfields.ValueError
 	switch {
 	case errors.As(err, &failed) && failed.Captcha != nil:
 		return indexerTestFailed.Explained(failed.Sentence, captchaOf(*failed.Captcha))

@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/site/definitions"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -150,7 +151,7 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 			{"a definition the custom ones lack before the catalog is downloaded", func(d *indexers.Draft) { d.Definition = "nowhere" }, create, func(err error) bool { return errors.Is(err, indexers.ErrCatalogUnavailable) }},
 			{"an address it doesn't list", func(d *indexers.Draft) { d.BaseAddress = "https://elsewhere.test/" }, create, func(err error) bool { return errors.Is(err, indexers.ErrNotALink) }},
 			{"a setting it doesn't have", func(d *indexers.Draft) { d.Values = map[string]string{"passkey": "x"} }, create, func(err error) bool {
-				var v *indexers.ValueError
+				var v *indexerfields.ValueError
 				return errors.As(err, &v) && v.Field == "passkey"
 			}},
 			{"a captcha it doesn't show", func(*indexers.Draft) {}, func(d indexers.Draft) error {

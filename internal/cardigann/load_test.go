@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/newznab"
 )
 
@@ -192,13 +193,13 @@ func TestSummary(t *testing.T) {
 		LegacyLinks:  []string{"https://old.example/"},
 		Encoding:     "UTF-8",
 		RequestDelay: 2500 * time.Millisecond,
-		Fields: []Field{
-			{Name: "username", Label: "Username", Type: TextField},
-			{Name: "password", Label: "Password", Type: PasswordField},
-			{Name: "sort", Label: "Sort", Type: SelectField, Default: "2", Options: []Option{{"1", "newest"}, {"2", "seeders"}, {"True", "yes"}}},
-			{Name: "info", Label: "About", Type: InfoField, Help: "Read this."},
-			{Name: "freeleech", Label: "Freeleech only", Type: CheckboxField, Default: "false"},
-			{Name: "cardigannCaptcha", Label: "CAPTCHA", Type: CaptchaField},
+		Fields: []indexerfields.Field{
+			{Name: "username", Label: "Username", Type: indexerfields.Text},
+			{Name: "password", Label: "Password", Type: indexerfields.Password},
+			{Name: "sort", Label: "Sort", Type: indexerfields.Select, Default: "2", Options: []indexerfields.Option{{Value: "1", Label: "newest"}, {Value: "2", Label: "seeders"}, {Value: "True", Label: "yes"}}},
+			{Name: "info", Label: "About", Type: indexerfields.Info, Help: "Read this."},
+			{Name: "freeleech", Label: "Freeleech only", Type: indexerfields.Checkbox, Default: "false"},
+			{Name: "cardigannCaptcha", Label: "CAPTCHA", Type: indexerfields.Captcha},
 		},
 		Login:   SessionLogin,
 		Captcha: true,

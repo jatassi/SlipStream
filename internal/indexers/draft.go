@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/cardigann"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -19,15 +20,6 @@ var (
 	// definition that signs in with one.
 	ErrCookieNeeded = errors.New("the definition signs in with a browser cookie")
 )
-
-// ValueError is a setting value the definition doesn't take.
-type ValueError struct {
-	Field string
-	// Sentence says what the definition takes, for the form.
-	Sentence string
-}
-
-func (e *ValueError) Error() string { return "setting " + e.Field + " doesn't fit the definition" }
 
 // drafted is d as an unsaved Indexer at revision 1 with its secrets
 // sealed, and the session pasted for it, nil for none.
@@ -130,62 +122,13 @@ func pinnedSummary(ctx context.Context, r storage.Reader[file], d Definition) (c
 // settable reports whether an Indexer of a definition with summary s
 // stores a value for f. A definition that signs in with a pasted cookie
 // takes it with the browser's User-Agent in place of its cookie setting.
-func settable(s cardigann.Summary, f cardigann.Field) bool {
-	return stored(f) && (f.Name != "cookie" || !s.Uses.Has(cardigann.LoginCookie))
+func settable(s cardigann.Summary, f indexerfields.Field) bool {
+	return indexerfields.Stored(f) && (f.Name != "cookie" || !s.Uses.Has(cardigann.LoginCookie))
 }
 
-// settingsOf splits values over s's settings into the plain ones and the
-// sealed ones, on top of the plain and sealed values saved before. A
-// setting values leaves out keeps its saved value, as does a sealed one
-// sent empty. A setting with no value takes its default when the Node
-// runs it.
+// settingsOf splits values over s's settable fields, as indexerfields.Split
+// does.
 func settingsOf(s cardigann.Summary, values, plainBefore, sealedBefore map[string]string) (plain, sealed map[string]string, err error) {
-	plain, sealed = map[string]string{}, map[string]string{}
-	byName := map[string]cardigann.Field{}
-	for _, f := range s.Fields {
-		if !settable(s, f) {
-			continue
-		}
-		byName[f.Name] = f
-		if v, ok := plainBefore[f.Name]; ok && !Sealed(f) {
-			plain[f.Name] = v
-		}
-		if v, ok := sealedBefore[f.Name]; ok && Sealed(f) {
-			sealed[f.Name] = v
-		}
-	}
-	for name, v := range values {
-		f, ok := byName[name]
-		if !ok {
-			return nil, nil, &ValueError{Field: name, Sentence: "The definition has no setting named " + name + "."}
-		}
-		if err := fits(f, v); err != nil {
-			return nil, nil, err
-		}
-		switch {
-		case !Sealed(f):
-			plain[name] = v
-		case v != "":
-			sealed[name] = v
-		}
-	}
-	return plain, sealed, nil
-}
-
-// fits refuses v for a select that doesn't offer it and a checkbox that
-// isn't true or false.
-func fits(f cardigann.Field, v string) error {
-	switch f.Type {
-	case cardigann.SelectField:
-		if !slices.ContainsFunc(f.Options, func(o cardigann.Option) bool { return o.Value == v }) {
-			return &ValueError{Field: f.Name, Sentence: "Choose one of the options for " + f.Label + "."}
-		}
-	case cardigann.CheckboxField:
-		if v != "true" && v != "false" {
-			return &ValueError{Field: f.Name, Sentence: f.Label + " is true or false."}
-		}
-	case cardigann.TextField, cardigann.PasswordField, cardigann.InfoField, cardigann.InfoCookieField, cardigann.InfoFlareSolverrField,
-		cardigann.InfoUserAgentField, cardigann.InfoCategory8000Field, cardigann.CaptchaField:
-	}
-	return nil
+	fields := slices.DeleteFunc(slices.Clone(s.Fields), func(f indexerfields.Field) bool { return !settable(s, f) })
+	return indexerfields.Split(fields, values, plainBefore, sealedBefore)
 }

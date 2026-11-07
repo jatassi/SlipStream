@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -170,7 +171,7 @@ type Form struct {
 }
 
 type FormField struct {
-	cardigann.Field
+	indexerfields.Field
 	// Sealed is a value SlipStream never shows again once saved.
 	Sealed bool
 }
@@ -192,11 +193,11 @@ func (x *Indexers) Form(ctx context.Context, _ identity.Admin, id string) (Form,
 		}
 		f.Links, f.Session, f.Captcha, f.Cookie = s.Links, s.Login == cardigann.SessionLogin, s.Captcha, s.Uses.Has(cardigann.LoginCookie)
 		for _, field := range s.Fields {
-			f.Solver = f.Solver || field.Type == cardigann.InfoFlareSolverrField
-			if stored(field) && !settable(s, field) {
+			f.Solver = f.Solver || field.Type == indexerfields.InfoFlareSolverr
+			if indexerfields.Stored(field) && !settable(s, field) {
 				continue
 			}
-			f.Fields = append(f.Fields, FormField{Field: field, Sealed: Sealed(field)})
+			f.Fields = append(f.Fields, FormField{Field: field, Sealed: indexerfields.Sealed(field)})
 		}
 		return nil
 	})
