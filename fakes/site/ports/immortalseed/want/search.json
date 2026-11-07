@@ -1,0 +1,60 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW",
+      "size": 8804682956,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://immortalseed.fixture-site.fake.localhost/download.php?id=1001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100016
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "24h0m0s",
+      "details": "https://immortalseed.fixture-site.fake.localhost/details.php?id=1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.480p.WEB-DL.x264-FKW",
+      "size": 1074266112,
+      "published": "2026-05-30T08:30:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://immortalseed.fixture-site.fake.localhost/download.php?id=1002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2030,
+        100014
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 2
+      },
+      "minRatio": 1,
+      "minSeed": "24h0m0s",
+      "details": "https://immortalseed.fixture-site.fake.localhost/details.php?id=1002",
+      "source": null,
+      "flags": [
+        "halfleech",
+        "doubleupload"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}
