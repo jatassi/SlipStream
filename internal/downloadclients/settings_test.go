@@ -48,7 +48,7 @@ func write(t *testing.T, lib library, fn func(context.Context, *storage.Tx[stora
 func TestEveryClientSettingIsDeclaredSoundly(t *testing.T) {
 	for _, d := range []interface{ Check() error }{
 		dc.DownloadLimit, dc.UploadLimit, dc.ActiveDownloads, dc.ActiveChecks, dc.Connections,
-		dc.StalledAfter, dc.FaultStall, dc.UnregisteredGap, dc.MetadataWait,
+		dc.StalledAfter, dc.FaultStall, dc.UnregisteredGap, dc.MetadataWait, dc.CheckEvery, dc.ImportDelay,
 	} {
 		if err := d.Check(); err != nil {
 			t.Error(err)
