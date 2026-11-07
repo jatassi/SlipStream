@@ -653,6 +653,10 @@
             "description": "An API key is saved. Secrets are never returned",
             "type": "boolean"
           },
+          "away": {
+            "description": "It isn't responding, refused the sign-in or needs attention while its Node is in step, so its card is red",
+            "type": "boolean"
+          },
           "checkEvery": {
             "$ref": "#/components/schemas/SettingDurationField"
           },
@@ -788,6 +792,7 @@
           "on",
           "settingsVersion",
           "reach",
+          "away",
           "since",
           "productVersion",
           "problem",
@@ -1654,8 +1659,17 @@
             "type": "string"
           },
           "lastKnown": {
-            "description": "When its Node last reported it, set while the Node is out of step",
+            "description": "When its Node last reported it, set while the row is stale for lastKnownCause",
             "format": "date-time",
+            "type": "string"
+          },
+          "lastKnownCause": {
+            "description": "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+            "enum": [
+              "node",
+              "client",
+              "off"
+            ],
             "type": "string"
           },
           "live": {
@@ -1967,8 +1981,17 @@
             "type": "string"
           },
           "lastKnown": {
-            "description": "When its Node last reported it, set while the Node is out of step",
+            "description": "When its Node last reported it, set while the row is stale for lastKnownCause",
             "format": "date-time",
+            "type": "string"
+          },
+          "lastKnownCause": {
+            "description": "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+            "enum": [
+              "node",
+              "client",
+              "off"
+            ],
             "type": "string"
           },
           "name": {
@@ -3011,9 +3034,10 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "description": "Why the Grab waits: node_away while its Node is out of step",
+            "description": "Why the Grab waits: node_away while its Node is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
             "enum": [
-              "node_away"
+              "node_away",
+              "client_away"
             ],
             "type": "string"
           },
@@ -7297,7 +7321,8 @@
               "node_is_controller",
               "node_holds_work",
               "nothing_held",
-              "keeps_role"
+              "keeps_role",
+              "keeps_config"
             ],
             "type": "string"
           },

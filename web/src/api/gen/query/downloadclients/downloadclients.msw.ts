@@ -63,6 +63,7 @@ export const getListDownloadClientsResponseMock = (
         actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
         address: faker.string.alpha({ length: { min: 10, max: 20 } }),
         apiKeySaved: faker.datatype.boolean(),
+        away: faker.datatype.boolean(),
         checkEvery: {
           applies: faker.helpers.arrayElement(["live", "restart"] as const),
           default: faker.number.int(),
@@ -229,6 +230,7 @@ export const getListDownloadClientsResponseMock = (
       actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
       address: faker.string.alpha({ length: { min: 10, max: 20 } }),
       apiKeySaved: faker.datatype.boolean(),
+      away: faker.datatype.boolean(),
       checkEvery: {
         applies: faker.helpers.arrayElement(["live", "restart"] as const),
         default: faker.number.int(),
@@ -1042,6 +1044,7 @@ export const getCreateDownloadClientResponseMock = (
   actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
   address: faker.string.alpha({ length: { min: 10, max: 20 } }),
   apiKeySaved: faker.datatype.boolean(),
+  away: faker.datatype.boolean(),
   checkEvery: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.number.int(),
@@ -1175,6 +1178,7 @@ export const getUpdateDownloadClientResponseMock = (
   actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
   address: faker.string.alpha({ length: { min: 10, max: 20 } }),
   apiKeySaved: faker.datatype.boolean(),
+  away: faker.datatype.boolean(),
   checkEvery: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.number.int(),
@@ -1389,6 +1393,9 @@ export const getListTorrentsResponseMock = (
     ...(faker.datatype.boolean()
       ? { lastKnown: faker.date.past().toISOString().slice(0, 19) + "Z" }
       : {}),
+    ...(faker.datatype.boolean()
+      ? { lastKnownCause: faker.helpers.arrayElement(["node", "client", "off"] as const) }
+      : {}),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     nodeId: faker.string.uuid(),
     ...(faker.datatype.boolean()
@@ -1590,6 +1597,9 @@ export const getGetTorrentResponseMock = (
   infoHash: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean()
     ? { lastKnown: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? { lastKnownCause: faker.helpers.arrayElement(["node", "client", "off"] as const) }
     : {}),
   live: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),

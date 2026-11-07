@@ -1,6 +1,7 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
 import type { DownloadclientsTorrentRowClientKind } from "./downloadclientsTorrentRowClientKind.ts";
 import type { DownloadclientsTorrentRowHold } from "./downloadclientsTorrentRowHold.ts";
+import type { DownloadclientsTorrentRowLastKnownCause } from "./downloadclientsTorrentRowLastKnownCause.ts";
 import type { DownloadclientsTorrentRowPending } from "./downloadclientsTorrentRowPending.ts";
 import type { DownloadclientsTorrentRowQuality } from "./downloadclientsTorrentRowQuality.ts";
 import type { DownloadclientsTorrentRowSeverity } from "./downloadclientsTorrentRowSeverity.ts";
@@ -34,8 +35,10 @@ export interface DownloadclientsTorrentRow {
   /** Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error */
   hold?: DownloadclientsTorrentRowHold;
   id: string;
-  /** When its Node last reported it, set while the Node is out of step */
+  /** When its Node last reported it, set while the row is stale for lastKnownCause */
   lastKnown?: string;
+  /** Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off */
+  lastKnownCause?: DownloadclientsTorrentRowLastKnownCause;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
   name: string;
   nodeId: string;

@@ -2,6 +2,7 @@ import type { DownloadclientsFault } from "./downloadclientsFault.ts";
 import type { DownloadclientsFileDetail } from "./downloadclientsFileDetail.ts";
 import type { DownloadclientsTorrentDetailClientKind } from "./downloadclientsTorrentDetailClientKind.ts";
 import type { DownloadclientsTorrentDetailHold } from "./downloadclientsTorrentDetailHold.ts";
+import type { DownloadclientsTorrentDetailLastKnownCause } from "./downloadclientsTorrentDetailLastKnownCause.ts";
 import type { DownloadclientsTorrentDetailPending } from "./downloadclientsTorrentDetailPending.ts";
 import type { DownloadclientsTorrentDetailQuality } from "./downloadclientsTorrentDetailQuality.ts";
 import type { DownloadclientsTorrentDetailSeverity } from "./downloadclientsTorrentDetailSeverity.ts";
@@ -55,8 +56,10 @@ export interface DownloadclientsTorrentDetail {
   id: string;
   /** The v1 info hash in hex */
   infoHash: string;
-  /** When its Node last reported it, set while the Node is out of step */
+  /** When its Node last reported it, set while the row is stale for lastKnownCause */
   lastKnown?: string;
+  /** Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off */
+  lastKnownCause?: DownloadclientsTorrentDetailLastKnownCause;
   /** Its Node responded, so announce URLs and files are live. Otherwise they are from its last report */
   live: boolean;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */

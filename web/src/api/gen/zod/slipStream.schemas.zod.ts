@@ -289,6 +289,11 @@ export const DownloadclientsExternalClient = zod.object({
     .describe("The actions its kind supports"),
   address: zod.string().describe("The whole address, with the kind's usual path filled in"),
   apiKeySaved: zod.boolean().describe("An API key is saved. Secrets are never returned"),
+  away: zod
+    .boolean()
+    .describe(
+      "It isn't responding, refused the sign-in or needs attention while its Node is in step, so its card is red",
+    ),
   checkEvery: SettingDurationField,
   clientFolders: zod.array(DownloadclientsClientFolder),
   daemon: zod
@@ -1036,7 +1041,13 @@ export const DownloadclientsTorrentDetail = zod.object({
   lastKnown: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("When its Node last reported it, set while the Node is out of step"),
+    .describe("When its Node last reported it, set while the row is stale for lastKnownCause"),
+  lastKnownCause: zod
+    .enum(["node", "client", "off"])
+    .exactOptional()
+    .describe(
+      "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+    ),
   live: zod
     .boolean()
     .describe(
@@ -1197,7 +1208,13 @@ export const DownloadclientsTorrentRow = zod.object({
   lastKnown: zod.iso
     .datetime({ offset: true })
     .exactOptional()
-    .describe("When its Node last reported it, set while the Node is out of step"),
+    .describe("When its Node last reported it, set while the row is stale for lastKnownCause"),
+  lastKnownCause: zod
+    .enum(["node", "client", "off"])
+    .exactOptional()
+    .describe(
+      "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+    ),
   name: zod
     .string()
     .describe("The release's name in its metainfo, shown for a Torrent whose Work was deleted"),
@@ -1482,8 +1499,10 @@ export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
 export const FilesWaitingNeed = zod.object({
   code: zod
-    .enum(["node_away"])
-    .describe("Why the Grab waits: node_away while its Node is out of step"),
+    .enum(["node_away", "client_away"])
+    .describe(
+      "Why the Grab waits: node_away while its Node is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
+    ),
   grabId: zod.uuid(),
   kind: zod.enum(["waiting"]),
 });
@@ -3999,6 +4018,7 @@ export const NodesCheck = zod.object({
     "node_holds_work",
     "nothing_held",
     "keeps_role",
+    "keeps_config",
   ]),
   role: zod
     .enum([
