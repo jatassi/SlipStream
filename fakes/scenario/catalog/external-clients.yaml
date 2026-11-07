@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller that downloads through an external
+  Transmission 4.1, which signs in with a password and calls its download
+  folder /downloads. The world pairs /downloads with the folder as the Node
+  sees it and sends the Node's New Grabs to Transmission. No seeder serves
+  the release, so only Transmission can download it.
+seed: external-clients
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    download_clients:
+      - kind: transmission
+        version: "4.1"
+        username: ada
+        password: quiet-orchard
+        folder: /downloads
+        pair: true
+        grabs_to: true
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    advertised_size: 8.2GiB
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
