@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -139,6 +140,16 @@ func (l *library) onDisk(t *testing.T) map[string]string {
 		t.Fatal(err)
 	}
 	return out
+}
+
+// gone reports whether every one of rels has left l's root. Windows refuses
+// to open a file or a folder that is being removed, so a Stat error other
+// than not-exist counts as not gone yet.
+func (l *library) gone(rels ...string) bool {
+	return !slices.ContainsFunc(rels, func(rel string) bool {
+		_, err := os.Stat(filepath.Join(l.root.Path, filepath.FromSlash(rel)))
+		return !errors.Is(err, fs.ErrNotExist)
+	})
 }
 
 // paths is each file's path in the library by what it holds on disk.
@@ -416,16 +427,17 @@ func TestTheQueueSweepsHeldEntriesNoFileGrabOrTransferNames(t *testing.T) {
 	staged := transfers.StagedRel(copying, 0).String()
 	l.put(t, files.HoldingOf(grab, ".mkv"), "a Grab's download")
 	l.put(t, staged, "a Transfer's file")
-	l.put(t, files.HoldingOf(storage.NewUUID(), ".mkv.part"), "a failed Grab's copy")
+	failed, stray := files.HoldingOf(storage.NewUUID(), ".mkv.part"), storing.HoldingDir+"/stray.txt"
+	l.put(t, failed, "a failed Grab's copy")
 	l.put(t, transfers.StagedRel(canceled, 0).String(), "a canceled Transfer's file")
 	l.put(t, transfers.StagedRel(canceled, 1).String(), "a canceled Transfer's second file")
-	l.put(t, storing.HoldingDir+"/stray.txt", "not SlipStream's")
+	l.put(t, stray, "not SlipStream's")
 	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Transfer's file"}
-	gone := filepath.Join(l.root.Path, filepath.FromSlash(storing.StagingDir), canceled.String())
-	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed entries", func() bool {
-		_, err := os.Stat(gone)
-		return maps.Equal(l.onDisk(t), want) && errors.Is(err, fs.ErrNotExist)
-	})
+	unclaimed := []string{failed, stray, transfers.StagedRel(canceled, 0).String(), transfers.StagedRel(canceled, 1).String(), storing.StagingDir + "/" + canceled.String()}
+	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed entries", func() bool { return l.queued(t) == 0 && l.gone(unclaimed...) })
+	if got := l.onDisk(t); !maps.Equal(got, want) {
+		t.Fatalf("after the sweep the root holds %v, want %v", got, want)
+	}
 }
 
 func TestASweepWaitsForTheRootsNode(t *testing.T) {
@@ -433,7 +445,7 @@ func TestASweepWaitsForTheRootsNode(t *testing.T) {
 	orphan := files.HoldingOf(storage.NewUUID(), ".mkv")
 	l.put(t, orphan, "a failed Grab's download")
 	disk := &unanswering{Disk: l.held, refusals: 3}
-	l.runUntil(t, l.on(files.NoGrabs{}, disk), "the orphan is swept", func() bool { return len(l.onDisk(t)) == 0 })
+	l.runUntil(t, l.on(files.NoGrabs{}, disk), "the orphan is swept", func() bool { return l.gone(orphan) })
 	if disk.refused() != 3 {
 		t.Fatalf("the Node refused %d lists, want 3 before the sweep", disk.refused())
 	}
@@ -444,7 +456,7 @@ func TestASweepRetriesAFileItCouldNotRemove(t *testing.T) {
 	orphan := files.HoldingOf(storage.NewUUID(), ".mkv")
 	l.put(t, orphan, "a failed Grab's download")
 	disk := &unremoving{Disk: l.held, refusals: 2}
-	l.runUntil(t, l.on(files.NoGrabs{}, disk), "the orphan is swept", func() bool { return len(l.onDisk(t)) == 0 })
+	l.runUntil(t, l.on(files.NoGrabs{}, disk), "the orphan is swept", func() bool { return l.gone(orphan) })
 }
 
 // unremoving refuses its first removals as a file another program holds
