@@ -48,7 +48,7 @@ type NodeConfig struct {
 	// there, readable and apart from every root this Node holds, and
 	// writable too when write is set.
 	Folder func(ctx context.Context, path string, write bool) (storing.CheckResult, error)
-	// Rand seeds each actor's backoff stream.
+	// Rand is the stream every actor draws its backoff from.
 	Rand *rand.Rand
 	Log  *slog.Logger
 }
@@ -78,6 +78,7 @@ type routes struct {
 }
 
 func NewNode(builtin *Client, cfg NodeConfig) *Node {
+	cfg.Rand = rand.New(&lockedSource{r: cfg.Rand}) //nolint:gosec // the Node's seeded stream, shared by the actors
 	n := &Node{builtin: builtin, cfg: cfg, actors: map[storage.UUID]*external.Actor{}, watching: newNodeWatching()}
 	n.routes.Store(&routes{})
 	return n
@@ -229,8 +230,7 @@ func (n *Node) sync(ctx context.Context, shares map[storage.UUID]external.Share,
 	}
 }
 
-// actorConfig is one client's actor's configuration. The caller holds mu,
-// which the Node's Rand draws under.
+// actorConfig is one client's actor's configuration.
 func (n *Node) actorConfig(id storage.UUID, kind clients.Kind, open func(clients.Session) clients.Client, local *storage.DB[storage.Local], ctl Control, h Holder) external.Config {
 	t := n.cfg.Timings
 	return external.Config{
@@ -241,7 +241,7 @@ func (n *Node) actorConfig(id storage.UUID, kind clients.Kind, open func(clients
 			Trackers: t.ClientTrackers, Call: t.ClientCall, LiveFloor: t.ClientLiveFloor, LiveSample: t.LiveSample, TotalsReport: t.TotalsReport,
 		},
 		Local: local, Holder: h, Control: ctl,
-		Rand: rand.New(rand.NewPCG(n.cfg.Rand.Uint64(), n.cfg.Rand.Uint64())), //nolint:gosec // a seeded backoff stream, as every stream is
+		Rand: n.cfg.Rand,
 		Log:  n.cfg.Log.With("client", id.String(), "kind", string(kind)),
 	}
 }
@@ -626,4 +626,16 @@ func (n *Node) CheckClients(ctx context.Context, req *dlv1.CheckClientsRequest) 
 		return nil, rpc.Errorf(rpc.CodeUnavailable, "check the Download Clients: %v", err)
 	}
 	return &dlv1.CheckClientsResponse{}, nil
+}
+
+// lockedSource lets every actor's goroutine draw from one stream.
+type lockedSource struct {
+	mu sync.Mutex
+	r  *rand.Rand
+}
+
+func (l *lockedSource) Uint64() uint64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.r.Uint64()
 }
