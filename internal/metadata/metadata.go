@@ -135,7 +135,15 @@ func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 		if err != nil {
 			return nil, fmt.Errorf("open the %s key: %w", row.Provider, err)
 		}
-		m.yours[ProviderID(row.Provider)] = yourKey{key: string(key), setAt: row.SetAt.Time()}
+		yours := yourKey{key: string(key), setAt: row.SetAt.Time()}
+		if row.PinSealed != nil {
+			pin, err := cfg.Sealer.Open(*row.PinSealed, pinColumn.Row(row.Provider))
+			if err != nil {
+				return nil, fmt.Errorf("open the %s PIN: %w", row.Provider, err)
+			}
+			yours.pin = string(pin)
+		}
+		m.yours[ProviderID(row.Provider)] = yours
 	}
 	return m, nil
 }
@@ -208,13 +216,13 @@ func (m *Metadata) ratingsDue(readAt storage.Time) bool {
 // fresh bypasses the holders' caches, ratings is what the ratings
 // providers are asked for.
 func (m *Metadata) ask(fresh bool, ratings Ratings) *metadatav1.Ask {
-	keys := m.inEffect()
+	keys, pins := m.inEffect()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s := m.settings
 	return askToWire(Ask{
 		Language: LanguageChoice.Value(s.Language), Region: RegionChoice.Value(s.Region), Ratings: ratings,
-		keys: keys, fresh: fresh, cacheFor: CacheFor.Value(s.CacheForSeconds), generation: m.generation,
+		keys: keys, pins: pins, fresh: fresh, cacheFor: CacheFor.Value(s.CacheForSeconds), generation: m.generation,
 	})
 }
 

@@ -6,6 +6,7 @@ Each metadata provider, TMDB and OMDb, says how it stands in one plain sentence,
 
 - `providers-status` `GET /api/v1/metadata/providers` lists TMDB then OMDb, each with its summary, key in use, state and Details, `unused` until a call or test, `keySetAt` null, its `keyPage` (`https://www.tmdb.invalid/settings/api` and `https://www.omdb.invalid/apikey.aspx` in the Fake world), and TMDB's `attribution` `This product uses the TMDB API but is not endorsed or certified by TMDB.` with logo `tmdb`, OMDb's null (P-061).
 - `key-refused` a key the provider refuses answers 422 `metadata_key_refused` with the provider's words, and nothing is kept (P-063).
+- `no-pin` a PIN sent with a key for a provider that takes none, TMDB or OMDb, answers 422 `invalid` at `body.pin` with "TMDB keys don't use a PIN. Leave the PIN out.", and nothing is kept. Both read `"takesPin":false,"pinSet":false` (P-063).
 - `key-saved` a key the provider takes is kept and in use at once: the provider reads `yours` and `working` with `keySetAt` the time it was saved, and `metadata.changed` fires (P-063).
 - `provider-test` `Test` makes one cheap call with the key in use and answers the state it found, such as OMDb out of today's allowance until UTC midnight (P-061).
 - `key-cleared` removing the key goes back to SlipStream's, or none in a build without one, with `keySetAt` null, and starts the status afresh (P-063).
@@ -38,6 +39,13 @@ Steps:
   ```sh
   $FW cue $RUN tmdb-revoke-key '{"key":"typo"}'
   $FW exec $RUN --proof metadata-providers/key-refused -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"key":"typo"}' '{nodes.home.url}/api/v1/metadata/providers/tmdb/key'
+  ```
+
+- **A PIN where none is taken.** 422 `invalid` with one field error at `body.pin`; TMDB still reads `"key":"none"`.
+
+  ```sh
+  $FW exec $RUN --proof metadata-providers/no-pin -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"key":"mine","pin":"1234"}' '{nodes.home.url}/api/v1/metadata/providers/tmdb/key'
+  $FW exec $RUN --proof metadata-providers/no-pin -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/providers'
   ```
 
 - **A good key.** 200 with `"key":"yours"`, `keySetAt` now, `"state":"working"` and home in Details' nodes; the stream carries one `metadata.changed` for `tmdb`.
