@@ -101,9 +101,9 @@ jobs:
           DIAGRAM: ${{ steps.scope.outputs.diagram }}
           TARGETS: ${{ inputs.targets }}
           TIER: ${{ inputs.tier || 'all' }}
-      # Every go and e2e shard splits its tier by the same timings, so each
+      # Every go, e2e and browser shard splits its tier by the same timings, so each
       # restores the one entry this finds rather than the newest it sees.
-      - name: Find the Go test timings to split by
+      - name: Find the test timings to split by
         id: timings
         uses: actions/cache/restore@v6
         with:
@@ -398,7 +398,7 @@ jobs:
           path: .verify/diagram
           if-no-files-found: ignore
 
-  # Main's go and e2e shards each upload the timings of the packages they
+  # Main's go, e2e and browser shards each upload the timings of what they
   # ran, and the next run's shards split their tiers by them.
   timings:
     name: Save Go test timings
