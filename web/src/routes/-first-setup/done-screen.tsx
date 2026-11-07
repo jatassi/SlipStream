@@ -6,17 +6,26 @@ import {
   getGetMailSettingsSuspenseQueryOptions,
   useGetMailSettingsSuspense,
 } from "../../api/gen/query/mail/mail";
+import {
+  getListContentTypesSuspenseQueryOptions,
+  useListContentTypesSuspense,
+} from "../../api/gen/query/works/works";
 import { freshQuery } from "../../api/query-client";
 import { refusalOf } from "../../targets/attempt";
 import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { Chip } from "../../ui/chip";
+// oxlint-disable-next-line import/max-dependencies -- the done screen reads the email settings and offers an Add per Content Type
+import { addLabel, enabledTypes } from "../../works/fields";
 import { screens } from "./screens";
 
-/** Reads what the place shows: its step's settings, or the done screen's email settings. */
+/** Reads what the place shows: its step's settings, or the done screen's email settings and Content Types. */
 export async function loadPlace(queryClient: QueryClient, at: FirstrunStepID | "done") {
   await (at === "done"
-    ? freshQuery(queryClient, getGetMailSettingsSuspenseQueryOptions())
+    ? Promise.all([
+        freshQuery(queryClient, getGetMailSettingsSuspenseQueryOptions()),
+        freshQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+      ])
     : screens[at].load(queryClient));
 }
 
@@ -88,6 +97,33 @@ function Summary({
   );
 }
 
+function LeaveButton({
+  look,
+  href,
+  leaving,
+  leave,
+  children,
+}: {
+  look?: "primary";
+  href: string;
+  leaving: string | undefined;
+  leave: (href: string) => void;
+  children: string;
+}) {
+  return (
+    <Button
+      {...(look !== undefined && { look })}
+      busy={leaving === href}
+      disabled={leaving !== undefined}
+      onClick={() => {
+        leave(href);
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
+
 /** Each shown step as set or skipped. Leaving by any of its ways finishes first setup. */
 export function DoneScreen({
   shown,
@@ -98,6 +134,7 @@ export function DoneScreen({
   back: (() => void) | undefined;
   finish: (href: string) => Promise<void>;
 }) {
+  const types = enabledTypes(useListContentTypesSuspense().data.contentTypes);
   const [leaving, setLeaving] = useState<string>();
   const [failure, setFailure] = useState<string>();
   const leave = (href: string) => {
@@ -121,15 +158,19 @@ export function DoneScreen({
           </Button>
         )}
         <span className="flex-1" />
-        <Button
-          look="primary"
-          busy={leaving !== undefined}
-          onClick={() => {
-            leave("/library");
-          }}
-        >
+        {types.map((type) => (
+          <LeaveButton
+            key={type.id}
+            href={`/add?contentType=${type.id}`}
+            leaving={leaving}
+            leave={leave}
+          >
+            {addLabel(type)}
+          </LeaveButton>
+        ))}
+        <LeaveButton look="primary" href="/library" leaving={leaving} leave={leave}>
           Go to Library
-        </Button>
+        </LeaveButton>
       </div>
     </>
   );
