@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { z } from "zod";
 
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
-import { isPhone, navigate } from "./shell.ts";
+import { isPhone, openSettingsSection } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
 
 test.use({ scenario: "targets" });
@@ -16,11 +16,7 @@ const Added = z.object({ work: z.object({ id: z.string() }) });
 const Cells = z.object({ cells: z.array(z.object({ edition: z.string(), state: z.string() })) });
 
 async function openEditions(page: Page) {
-  await navigate(page, "Settings");
-  const sections = isPhone(page)
-    ? page.getByRole("list", { name: "Settings" })
-    : page.getByRole("navigation", { name: "Settings" });
-  await sections.getByRole("link", { name: "Editions" }).click();
+  await openSettingsSection(page, "Editions");
   await expect(page).toHaveURL(/\/settings\/editions$/u);
 }
 

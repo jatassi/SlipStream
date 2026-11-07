@@ -3,12 +3,14 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { createApp } from "../app";
-import { settingsSections } from "../settings/sections";
+import { settingsGroups } from "../settings/sections";
 import { pendingForever } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 
 const zeroUuid = "00000000-0000-0000-0000-000000000000";
-const paramSamples: Readonly<Record<string, string>> = { section: settingsSections[0].id };
+const paramSamples: Readonly<Record<string, string>> = {
+  section: settingsGroups[0].sections[0].id,
+};
 const { router, dispose } = createApp(createMemoryHistory());
 dispose();
 type Walked = {

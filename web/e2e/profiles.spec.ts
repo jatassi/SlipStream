@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { expectColumns, orchardCells } from "./cells.ts";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
-import { isPhone, navigate } from "./shell.ts";
+import { isPhone, openSettingsSection } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
 
 const Made = z.object({ id: z.string() });
@@ -20,11 +20,7 @@ async function make2160p(world: World): Promise<string> {
 }
 
 async function openProfiles(page: Page) {
-  await navigate(page, "Settings");
-  const sections = isPhone(page)
-    ? page.getByRole("list", { name: "Settings" })
-    : page.getByRole("navigation", { name: "Settings" });
-  await sections.getByRole("link", { name: "Profiles" }).click();
+  await openSettingsSection(page, "Profiles");
   await expect(page).toHaveURL(/\/settings\/profiles$/u);
 }
 

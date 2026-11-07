@@ -13,3 +13,9 @@ export type SettingsSection = {
   /** The Health categories whose problems show on the section's row and at its top. */
   readonly health?: readonly HealthCategoryID[];
 };
+
+export type SettingsGroup = {
+  readonly id: string;
+  readonly label: string;
+  readonly sections: readonly [SettingsSection, ...SettingsSection[]];
+};

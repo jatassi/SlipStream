@@ -4,9 +4,10 @@ import { page, userEvent } from "vitest/browser";
 import type { MailSettings } from "../../../api/gen/model";
 import { getGetAddressMockHandler } from "../../../api/gen/query/identity/identity.msw";
 import { getGetMailSettingsMockHandler } from "../../../api/gen/query/mail/mail.msw";
+import { getListContentTypesMockHandler } from "../../../api/gen/query/works/works.msw";
 import { renderApp } from "../../../test/render-app";
 import { asPhone } from "../../../test/viewport";
-import { settingsSectionLabels } from "../../../test/settings";
+import { settingsGroupLabels } from "../../../test/settings";
 
 const mail: MailSettings = {
   host: "smtp.example.test",
@@ -20,7 +21,34 @@ const mail: MailSettings = {
 
 const server = () => page.getByRole("textbox", { name: "Server", exact: true });
 
-test("a tab opens its section", async () => {
+test("/settings opens on Content Types, with Settings' sections listed under their groups", async () => {
+  const { router } = renderApp({
+    path: "/settings",
+    handlers: [getListContentTypesMockHandler({ contentTypes: [] })],
+  });
+  await expect.poll(() => router.state.location.pathname).toBe("/settings/content-types");
+  const nav = page.getByRole("navigation", { name: "Settings" });
+  await expect
+    .element(nav.getByRole("link", { name: "Content Types" }))
+    .toHaveAttribute("aria-current", "page");
+  const groups = Object.entries(settingsGroupLabels);
+  expect(nav.getByRole("list").all()).toHaveLength(groups.length);
+  await Promise.all(
+    groups.map(async ([group, sections], index) => {
+      const list = nav.getByRole("list").nth(index);
+      await expect.element(list).toHaveAccessibleName(group);
+      await expect.element(nav.getByText(group, { exact: true })).toBeVisible();
+      expect(
+        list
+          .getByRole("link")
+          .all()
+          .map((link) => link.element().textContent),
+      ).toEqual(sections);
+    }),
+  );
+});
+
+test("a link in the Settings nav opens its section", async () => {
   const { router } = renderApp({
     path: "/settings/address",
     handlers: [
@@ -35,7 +63,7 @@ test("a tab opens its section", async () => {
   await expect.element(server()).toHaveValue("smtp.example.test");
 });
 
-test("on phone, Settings lists its sections, and each pushes with a back link to Settings", async () => {
+test("on phone, Settings lists its sections by group, and each pushes with a back link to Settings", async () => {
   await asPhone();
   const { router } = renderApp({
     path: "/settings",
@@ -43,15 +71,24 @@ test("on phone, Settings lists its sections, and each pushes with a back link to
   });
   await expect.element(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
   await expect.element(page.getByRole("navigation", { name: "Settings" })).not.toBeInTheDocument();
-  const sections = page.getByRole("list", { name: "Settings" });
   expect(
-    sections
-      .getByRole("link")
+    page
+      .getByRole("heading", { level: 2 })
       .all()
-      .map((link) => link.element().textContent),
-  ).toEqual(settingsSectionLabels);
+      .map((heading) => heading.element().textContent),
+  ).toEqual(Object.keys(settingsGroupLabels));
+  for (const [group, sections] of Object.entries(settingsGroupLabels)) {
+    expect(
+      page
+        .getByRole("list", { name: group })
+        .getByRole("link")
+        .all()
+        .map((link) => link.element().textContent),
+    ).toEqual(sections);
+  }
 
-  await userEvent.click(sections.getByRole("link", { name: "Email" }));
+  const system = page.getByRole("list", { name: "System" });
+  await userEvent.click(system.getByRole("link", { name: "Email" }));
   await expect.poll(() => router.state.location.pathname).toBe("/settings/email");
   const bar = page.getByRole("banner");
   await expect.element(bar.getByRole("heading", { name: "Email" })).toBeVisible();
@@ -60,5 +97,5 @@ test("on phone, Settings lists its sections, and each pushes with a back link to
   await expect.element(back).toHaveAttribute("href", "/settings");
   await userEvent.click(back);
   await expect.poll(() => router.state.location.pathname).toBe("/settings");
-  await expect.element(page.getByRole("list", { name: "Settings" })).toBeVisible();
+  await expect.element(system).toBeVisible();
 });
