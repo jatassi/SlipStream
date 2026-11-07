@@ -12312,7 +12312,7 @@
         "additionalProperties": false,
         "properties": {
           "on": {
-            "description": "Monitor every Item of each Work, or none",
+            "description": "Apply the All preset to each Work, keeping its own aside choice, or None with asides off",
             "type": "boolean"
           },
           "workIds": {
@@ -12482,8 +12482,7 @@
           "reason": {
             "description": "Why the change left the Work as it was",
             "enum": [
-              "already",
-              "work_not_found"
+              "already"
             ],
             "type": "string"
           },

@@ -3,8 +3,10 @@ package worksapi_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
@@ -17,10 +19,10 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// defaults is the fixture type's three add defaults.
+// defaults is the fixture type's add defaults.
 type defaults struct {
-	profile, root string
-	monitor       bool
+	profile, root, monitor string
+	asides, folders        bool
 }
 
 func (s *server) defaults(t *testing.T) defaults {
@@ -58,8 +60,13 @@ func (s *server) defaults(t *testing.T) defaults {
 		t.Fatalf("getContentTypeSettings = %d %s, %v", code, body, err)
 	}
 	for _, f := range settings.Settings {
-		if f.Key == "fixture.add.monitor" {
-			d.monitor = string(f.Value) == "true"
+		switch f.Key {
+		case "fixture.add.monitor":
+			d.monitor = strings.Trim(string(f.Value), `"`)
+		case "fixture.add.asides":
+			d.asides = string(f.Value) == "true"
+		case "fixture.add.levelFolders":
+			d.folders = string(f.Value) == "true"
 		}
 	}
 	return d
@@ -160,12 +167,12 @@ func (w world) moved(t *testing.T, step string, profile bool, rootIDs ...roots.I
 func TestRememberMovesExactlyTheChangedDefaults(t *testing.T) {
 	w := newWorld(t)
 	s := w.s
-	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: true}); got != want {
+	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: "all", folders: true}); got != want {
 		t.Fatalf("defaults at start = %+v, want %+v", got, want)
 	}
 
 	a := s.add(t, remembering("w1", w.small.ID.String(), w.alt, "none"))
-	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.alt.Path, monitor: false}); !a.Created || got != want {
+	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.alt.Path, monitor: "none", folders: true}); !a.Created || got != want {
 		t.Fatalf("after a remembered add with every choice changed: created %t, defaults %+v, want %+v", a.Created, got, want)
 	}
 	w.moved(t, "changing every default", true, w.alt.ID, w.first.ID)
@@ -174,13 +181,13 @@ func TestRememberMovesExactlyTheChangedDefaults(t *testing.T) {
 	w.moved(t, "choosing every default as it is", false)
 
 	a = s.add(t, remembering("w3", w.small.ID.String(), w.first, ""))
-	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.first.Path, monitor: false}); got != want || a.Work.Items[0].Monitored {
+	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.first.Path, monitor: "none", folders: true}); got != want || a.Work.Items[0].Monitored {
 		t.Fatalf("after a remembered add changing only the root: defaults %+v, want %+v; monitored %t, want the default off", got, want, a.Work.Items[0].Monitored)
 	}
 	w.moved(t, "changing only the root", false, w.first.ID, w.alt.ID)
 
 	a = s.add(t, remembering("w1", w.fixture.ID.String(), w.alt, "all"))
-	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.first.Path, monitor: false}); a.Created || got != want || a.Work.Profile.Name != "Small" {
+	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.first.Path, monitor: "none", folders: true}); a.Created || got != want || a.Work.Profile.Name != "Small" {
 		t.Fatalf("a remembered add of a Work already there: created %t, wants from %s, defaults %+v; want created false, Small, %+v", a.Created, a.Work.Profile.Name, got, want)
 	}
 	w.moved(t, "adding a Work already there", false)
@@ -190,26 +197,54 @@ func TestAnAddThatDoesntRememberMovesNoDefault(t *testing.T) {
 	w := newWorld(t)
 	s := w.s
 	a := s.add(t, `{"contentType":"fixture","key":"w1","profileId":"`+w.small.ID.String()+`","rootId":"`+w.alt.ID.String()+`","preset":"none"}`)
-	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: true}); !a.Created || a.Work.Profile.Name != "Small" || a.Work.Items[0].Monitored || got != want {
+	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: "all", folders: true}); !a.Created || a.Work.Profile.Name != "Small" || a.Work.Items[0].Monitored || got != want {
 		t.Fatalf("an add without remember: created %t, wants from %s, monitored %t, defaults %+v; want a Small unmonitored Work and %+v", a.Created, a.Work.Profile.Name, a.Work.Items[0].Monitored, got, want)
 	}
 	w.moved(t, "an add without remember", false)
 }
 
-func TestAMonitorLeftOutTakesTheTypesAddMonitor(t *testing.T) {
+func TestAPresetLeftOutTakesTheTypesAddMonitor(t *testing.T) {
 	w := newWorld(t)
 	s := w.s
 	if a := s.add(t, `{"contentType":"fixture","key":"w1"}`); !a.Work.Items[0].Monitored {
-		t.Fatal("an add with no monitor while fixture.add.monitor is on left its Item unmonitored")
+		t.Fatal("an add with no preset while fixture.add.monitor is All left its Item unmonitored")
 	}
-	expect(t, s, http.MethodPatch, "/api/v1/content-types/fixture/settings", `{"values":{"fixture.add.monitor":false}}`, 200,
-		`{"settings":[`+addMonitorField(false, false)+`,{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":3,"running":3,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`)
+	if code, body := s.call(t, http.MethodPatch, "/api/v1/content-types/fixture/settings", `{"values":{"fixture.add.monitor":"none"}}`); code != http.StatusOK {
+		t.Fatalf("setting fixture.add.monitor to none = %d %s", code, body)
+	}
 	if a := s.add(t, `{"contentType":"fixture","key":"w2"}`); a.Work.Items[0].Monitored {
-		t.Fatal("an add with no monitor while fixture.add.monitor is off monitored its Item")
+		t.Fatal("an add with no preset while fixture.add.monitor is None monitored its Item")
 	}
 	if a := s.add(t, `{"contentType":"fixture","key":"w3","preset":"all"}`); !a.Work.Items[0].Monitored {
-		t.Fatal("an add with monitor true while fixture.add.monitor is off left its Item unmonitored")
+		t.Fatal("an add with preset all while fixture.add.monitor is None left its Item unmonitored")
 	}
+}
+
+func TestEveryPresetFitsTheAddDefault(t *testing.T) {
+	w := newWorld(t)
+	s := w.s
+	for i, preset := range []string{"future", "missing", "existing", "first", "latest", "none", "all"} {
+		key := fmt.Sprintf("p%d", i)
+		s.fx.Put(works.Key(key), record())
+		s.add(t, remembering(key, "", roots.Root{}, preset))
+		if got := s.defaults(t).monitor; got != preset {
+			t.Fatalf("after remembering preset %s, fixture.add.monitor is %s", preset, got)
+		}
+	}
+}
+
+func TestRememberWritesIncludeAndLevelFoldersBack(t *testing.T) {
+	w := newWorld(t)
+	s := w.s
+	s.add(t, `{"contentType":"fixture","key":"w1","preset":"first","includeAsides":true,"levelFolders":false,"remember":true}`)
+	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: "first", asides: true}); got != want {
+		t.Fatalf("after remembering first, Include and no level folders, defaults = %+v, want %+v", got, want)
+	}
+	s.add(t, `{"contentType":"fixture","key":"w2","levelFolders":true,"remember":true}`)
+	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: "first", asides: true, folders: true}); got != want {
+		t.Fatalf("after remembering level folders alone, defaults = %+v, want %+v", got, want)
+	}
+	w.moved(t, "remembering the monitoring choices", false)
 }
 
 func TestARacingAddAnswersTheWorkTheOtherMade(t *testing.T) {
