@@ -46,6 +46,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		{Name: "A.2021.2160p", TMDBID: 1, Video: Video{Width: 3840, Height: 2160, Seconds: 6}, Link: "ftp", Trackerless: true},
 		{Name: "A.2021.480p", TMDBID: 1, Video: Video{Width: 640, Height: 480, Seconds: 6}, Link: MagnetLink, Trackerless: true},
 		{Name: "A.2021.576p", TMDBID: 1, Video: Video{Width: 720, Height: 576, Seconds: 6}, Link: RedirectLink, Trackerless: true, Public: true},
+		{Name: "A.2021.360p", TMDBID: 1, Video: Video{Width: 640, Height: 360, Seconds: 6}, Sites: []string{"heron", "osprey"}},
 	}}
 	want := []string{
 		"scenario x: release A.2021.1080p is listed twice",
@@ -60,6 +61,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		"scenario x: release A.2021.2160p is trackerless, which is for link magnet or redirect",
 		"scenario x: release A.2021.2160p is trackerless and private; a trackerless release is public",
 		"scenario x: release A.2021.480p is trackerless and private; a trackerless release is public",
+		`scenario x: release A.2021.360p names site "osprey", which fixture-site doesn't serve`,
 		"scenario x: tracker interval -1s is negative",
 	}
 	err := s.Validate()
@@ -76,8 +78,12 @@ func TestValidateChecksTheTracker(t *testing.T) {
 		{Interval: time.Minute, MinInterval: -time.Second}:    "tracker min_interval -1s is negative",
 		{Interval: time.Minute, MinInterval: 2 * time.Minute}: "tracker min_interval 2m0s is above its interval 1m0s",
 		{Mode: "ocelot"}: `tracker mode "ocelot" is not plain, unit3d or gazelle`,
-		{Mode: UNIT3D, AllowPeerIDs: []string{"-qB"}}:      `tracker allow_peer_ids is for gazelle mode, not "unit3d"`,
-		{Mode: Gazelle, AllowPeerIDs: []string{"-LT", ""}}: "tracker allow_peer_ids lists an empty prefix, which allows every peer ID",
+		{Mode: UNIT3D, AllowPeerIDs: []string{"-qB"}}:                                `tracker allow_peer_ids is for gazelle mode, not "unit3d"`,
+		{Mode: Gazelle, AllowPeerIDs: []string{"-LT", ""}}:                           "tracker allow_peer_ids lists an empty prefix, which allows every peer ID",
+		{Grace: -time.Minute}:                                                        "tracker grace -1m0s is negative",
+		{Sites: map[string]SiteRule{"brook": {MinSeedTime: time.Hour}}}:              `tracker sites names "brook", which states no rule`,
+		{Sites: map[string]SiteRule{"heron": {MinRatio: 1, MinSeedTime: time.Hour}}}: "tracker sites heron states a ratio and a seed time; site heron states a seed time only",
+		{Sites: map[string]SiteRule{"tamarack": {MinSeedTime: 3 * time.Minute}}}:     "tracker sites tamarack states a seed time only; site tamarack states a ratio and a seed time",
 	} {
 		s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Tracker: *tracker}
 		if err := s.Validate(); err == nil || err.Error() != "scenario x: "+want {
@@ -87,6 +93,33 @@ func TestValidateChecksTheTracker(t *testing.T) {
 	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Tracker: Tracker{Interval: time.Hour, MinInterval: 30 * time.Minute, Mode: Gazelle, AllowPeerIDs: []string{"-LT", "-qB"}, FailWithoutInterval: true}}
 	if err := s.Validate(); err != nil {
 		t.Errorf("Validate(%+v) = %v", s.Tracker, err)
+	}
+	s.Tracker = Tracker{Mode: UNIT3D, Prewarn: 2 * time.Minute, Grace: 2 * time.Minute, InactiveAfter: time.Minute, Sites: map[string]SiteRule{
+		"heron": {MinSeedTime: 3 * time.Minute}, "tamarack": {MinRatio: 1, MinSeedTime: 3 * time.Minute},
+	}}
+	if err := s.Validate(); err != nil {
+		t.Errorf("Validate(%+v) = %v", s.Tracker, err)
+	}
+}
+
+func TestEachPrivateSiteStatesItsRule(t *testing.T) {
+	tenDays := 10 * 24 * time.Hour
+	short := Tracker{Sites: map[string]SiteRule{"heron": {MinSeedTime: 3 * time.Minute}}}
+	for _, c := range []struct {
+		tracker Tracker
+		site    string
+		want    SiteRule
+		stated  bool
+	}{
+		{Tracker{}, "heron", SiteRule{MinSeedTime: tenDays}, true},
+		{Tracker{}, "tamarack", SiteRule{MinRatio: 1, MinSeedTime: tenDays}, true},
+		{short, "heron", SiteRule{MinSeedTime: 3 * time.Minute}, true},
+		{short, "tamarack", SiteRule{MinRatio: 1, MinSeedTime: tenDays}, true},
+		{Tracker{}, "brook", SiteRule{}, false},
+	} {
+		if got, stated := c.tracker.Rule(c.site); got != c.want || stated != c.stated {
+			t.Errorf("Rule(%s) with %+v = %+v, %t; want %+v, %t", c.site, c.tracker.Sites, got, stated, c.want, c.stated)
+		}
 	}
 }
 
