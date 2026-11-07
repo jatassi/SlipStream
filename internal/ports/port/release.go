@@ -114,7 +114,8 @@ func IndexerError(format string, args ...any) error {
 // credentials_rejected for a sign-in, cookie_expired for PastedCookie.
 func IndexerAuthError(msg string) error { return &AuthError{Message: msg} }
 
-// RequestLimitReached is limited with no retry time.
+// RequestLimitReached is limited for the parsed response's Retry-After,
+// as a 429 the Node reads itself is, else for the Controller's default.
 func RequestLimitReached(msg string) error { return &LimitError{Message: msg} }
 
 // TooManyRequests is limited for after, zero when the site gave none.

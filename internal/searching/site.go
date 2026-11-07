@@ -208,7 +208,7 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) 
 		return nil, errChallenged
 	case slices.Contains(o.Suppress, res.StatusCode):
 	case res.StatusCode == http.StatusTooManyRequests:
-		return nil, &Limited{RetryAfter: retryAfter(res.Header.Get("Retry-After"), time.Now())}
+		return nil, &Limited{RetryAfter: RetryAfter(res.Header.Get("Retry-After"), time.Now())}
 	case res.StatusCode >= http.StatusInternalServerError:
 		return nil, &Failing{Err: fmt.Errorf("the Indexer responded with status %d", res.StatusCode)}
 	}
@@ -238,9 +238,9 @@ func isRedirect(status int) bool {
 	return status >= http.StatusMultipleChoices && status < http.StatusBadRequest
 }
 
-// retryAfter reads a Retry-After header of seconds or an HTTP date, zero
+// RetryAfter reads a Retry-After header of seconds or an HTTP date, zero
 // when there is none.
-func retryAfter(v string, now time.Time) time.Duration {
+func RetryAfter(v string, now time.Time) time.Duration {
 	if secs, err := strconv.Atoi(v); err == nil {
 		return max(time.Duration(secs)*time.Second, 0)
 	}

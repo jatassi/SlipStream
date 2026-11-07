@@ -779,6 +779,9 @@ func TestEachPortErrorLandsInItsFamilysOutcome(t *testing.T) {
 				setUID(w, "u1")
 				return
 			}
+			if answer == "limit" {
+				w.Header().Set("Retry-After", "90")
+			}
 			respond(w, listing{Error: answer})
 		}}}
 		n := node(w, keyPort(lantern("lantern")), formPort(lantern("ferry")), cookiePort("marsh", false))
@@ -788,7 +791,7 @@ func TestEachPortErrorLandsInItsFamilysOutcome(t *testing.T) {
 			{"lantern", "auth", "*searching.Stopped the Indexer refused the account: Your key is wrong"},
 			{"ferry", "auth", "*searching.Stopped the site rejected the credentials: Your key is wrong"},
 			{"marsh", "auth", "*searching.Stopped the site's cookie expired"},
-			{"lantern", "limit", "*searching.Limited the Indexer limited requests"},
+			{"lantern", "limit", "*searching.Limited the Indexer limited requests for 1m30s"},
 			{"lantern", "Down for maintenance", "*searching.Failing Down for maintenance"},
 			{"brook", "", "*searching.Stopped SlipStream no longer supports the site: the site closed"},
 		} {

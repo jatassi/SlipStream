@@ -384,7 +384,11 @@ func (j *job[S]) page(r *Request) ([]TorrentInfo, error) {
 	if res.HasHTTPRedirect && !r.noFollow {
 		return nil, &searching.Failing{Err: errors.New("the site redirected the search off the Indexer's hosts")}
 	}
-	return j.t.impl.Parse(j.ix, res)
+	infos, err := j.t.impl.Parse(j.ix, res)
+	if le, ok := errors.AsType[*LimitError](err); ok && le.After == 0 {
+		le.After = searching.RetryAfter(res.Headers.Get("Retry-After"), time.Now())
+	}
+	return infos, err
 }
 
 // download is Impl.Download, or by default a GET with the Indexer's
