@@ -15,6 +15,7 @@ cases:
             Cookie: "uid={{uid}}; pass={{pass}}"
             User-Agent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
           query: {o: seeders, q: "+(tt0000001),+(The Quiet Orchard)", qf: all}
+          noQuery: [free]
         response: {headers: {Content-Type: text/html}, body: search.html}
   - name: tvsearch
     call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}

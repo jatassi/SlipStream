@@ -124,3 +124,32 @@ func TestParseRefusesACaseWithTwoCalls(t *testing.T) {
 		t.Errorf("Parse = %v", err)
 	}
 }
+
+func TestAnExchangeMatchesOnlyAQueryWithoutTheParametersItRulesOut(t *testing.T) {
+	f := Fixture{Port: testport.ID}
+	m := Match{Path: "/api/search", Query: map[string]string{"q": "orchard"}, NoQuery: []string{"freeleech"}}
+	for target, want := range map[string]string{
+		"/api/search?q=orchard":             "",
+		"/api/search?q=orchard&freeleech=1": "its query has freeleech",
+		"/api/search?q=orchard&freeleech=":  "its query has freeleech",
+	} {
+		req, err := http.NewRequest(http.MethodGet, Address(testport.ID)+strings.TrimPrefix(target, "/"), http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := NewReplay(f).matches(m, req, nil); got != want {
+			t.Errorf("%s matches with %q, want %q", target, got, want)
+		}
+	}
+}
+
+func TestParseTakesACaseThatSendsNothingOnlyWhenItSaysSo(t *testing.T) {
+	const head = "source: synthetic\ncases:\n  - name: tv\n    call: {search: {mode: tv, text: Juniper Falls}}\n"
+	f, err := Parse("lantern", []byte(head+"    exchanges: []\n"))
+	if err != nil || len(f.Cases) != 1 || len(f.Cases[0].Exchanges) != 0 {
+		t.Errorf("Parse of exchanges: [] = %+v, %v; want the case with no exchange", f.Cases, err)
+	}
+	if _, err := Parse("lantern", []byte(head)); err == nil || !strings.Contains(err.Error(), "exchanges: []") {
+		t.Errorf("Parse of a case with no exchanges list = %v, want it refused", err)
+	}
+}

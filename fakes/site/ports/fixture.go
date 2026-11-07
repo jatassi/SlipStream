@@ -25,6 +25,7 @@
 //	          method: POST
 //	          path: /api/torrents
 //	          json: {passkey: "{{passkey}}", imdb: {id: 1}}   # a subset match
+//	          noQuery: [freeleech]                              # parameters it must not carry
 //	        response:
 //	          status: 200
 //	          headers: {Content-Type: application/json}
@@ -32,7 +33,8 @@
 //
 // A call is one of search, recent, fetch (a link, relative to the
 // address) and test (with a typed code). A case may set its own session,
-// and session: {} starts it with none.
+// and session: {} starts it with none. A call that sends no request, such
+// as a TV search on a port with none, has exchanges: [].
 //
 // A request matches an exchange on method, host (the port's fixture host
 // when the exchange names none), path, and the headers and the query,
@@ -104,7 +106,9 @@ type Case struct {
 	Name string `yaml:"name"`
 	Call Call   `yaml:"call"`
 	// Session replaces the fixture's for this case.
-	Session   *Session   `yaml:"session,omitempty"`
+	Session *Session `yaml:"session,omitempty"`
+	// Exchanges is every request the case sends in order, exchanges: []
+	// for a call that sends none.
 	Exchanges []Exchange `yaml:"exchanges"`
 }
 
@@ -136,13 +140,15 @@ type Exchange struct {
 }
 
 // Match is what a request must carry. Every field it names must be
-// there with that value. Others may be too.
+// there with that value. Others may be too, except the query parameters
+// NoQuery names.
 type Match struct {
 	Method  string            `yaml:"method,omitempty"`
 	Host    string            `yaml:"host,omitempty"`
 	Path    string            `yaml:"path"`
 	Headers map[string]string `yaml:"headers,omitempty"`
 	Query   map[string]string `yaml:"query,omitempty"`
+	NoQuery []string          `yaml:"noQuery,omitempty"`
 	Form    map[string]string `yaml:"form,omitempty"`
 	JSON    map[string]any    `yaml:"json,omitempty"`
 }
@@ -225,8 +231,8 @@ func Parse(id port.ID, raw []byte) (Fixture, error) {
 		if n := c.Call.count(); n != 1 {
 			errs = append(errs, fmt.Errorf("fixture %s, case %s: a call is one of search, recent, fetch and test, and this one sets %d", id, c.Name, n))
 		}
-		if len(c.Exchanges) == 0 {
-			errs = append(errs, fmt.Errorf("fixture %s, case %s: a case needs at least one exchange", id, c.Name))
+		if c.Exchanges == nil {
+			errs = append(errs, fmt.Errorf("fixture %s, case %s: the case lists no exchanges, and one that sends no request says exchanges: []", id, c.Name))
 		}
 	}
 	return f, errors.Join(errs...)

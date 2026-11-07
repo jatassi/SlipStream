@@ -177,8 +177,14 @@ func (r *Replay) matches(m Match, req *http.Request, body []byte) string {
 			return fmt.Sprintf("header %s is %q, not %q", k, got, v)
 		}
 	}
-	if why := fields("query", req.URL.Query(), m.Query); why != "" {
+	query := req.URL.Query()
+	if why := fields("query", query, m.Query); why != "" {
 		return why
+	}
+	for _, k := range m.NoQuery {
+		if query.Has(k) {
+			return "its query has " + k
+		}
 	}
 	if m.Form != nil {
 		form, err := url.ParseQuery(string(body))
