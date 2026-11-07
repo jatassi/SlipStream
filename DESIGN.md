@@ -544,6 +544,12 @@ The row of links under a page's title that moves between the page's sections, su
 - **Desktop:** Links are 36px tall in Body at 500, 24px apart, on a hairline that runs the row's width, with 24px below the row. A link is `ink-3`, turning `ink-1` on hover. The current link is `ink-1` with a 2px `glow` underline.
 - **Phone:** No row. The page lists its sections as Touch rows with a chevron, and each section is a pushed page whose back link names the nav destination ("Nodes").
 
+### Settings column
+
+Settings has too many sections for one row of page tabs. Its sections sit in groups ([docs/settings-groups.md](docs/settings-groups.md)).
+- **Desktop:** A column about 200px wide on the left of the page, sticky under the top bar, as a `nav` landmark named "Settings". Each group's label is Meta in `ink-3` above its links. A link is styled like a sidebar nav item, 32px tall, `ink-2` until hovered (`fill`), and `selected` with `ink-1` at 500 when current. A Health dot sits at a link's right.
+- **Phone:** The Settings page lists one group of Touch rows per group, each under its label. Each section is a pushed page whose back link reads "Settings".
+
 ### Switch
 
 A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. The track is `hsl(var(--h) 20% 90% / .22)` off and `hsl(var(--h) 62% 46%)` on. The track fades over 250ms and the knob slides over 280ms. The whole labelled capsule is the switch target, and a sheet row with a switch is one target.
@@ -559,6 +565,10 @@ A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio i
 - **Text field:** A label in Body at 600 and `ink-2` (Body touch in Touch), then a `well` input with a hairline ring, radius 8 and 12px sides, at the input height. Touch inputs set Input touch. Focus is the standard focus ring.
 - **Description and error:** Meta in `ink-3` under the input (Body touch in Touch). An error replaces the description in `fail-ink` with its 14px alert icon.
 - **Read-only value:** The same input set in Data, selecting all on focus, for a value someone copies. It can carry a default Copy button beside the input, which toasts "<Label> copied". The button shows only in a secure context, because the browser's clipboard needs one, and a Node on a LAN often answers plain http.
+- **Secret field:** A saved secret that the server never sends back, such as an API key, a password or a feed's address. It reads "Saved" in `ink-2` in a `well` shaped like the input, followed by what may be shown of it in Data, such as the feed's host, with a Replace button beside it. Replace swaps in an empty input with Cancel, which returns to Saved. A save sends the secret only when a new one was typed. A secret not saved yet is a plain input.
+- **Text area:** The text field's label, `well` and ring over several lines, with 8px top and bottom padding and a vertical resize handle. Set in Data for pasted text such as a cookie or a definition file.
+- **File field:** A label in Body at 600 and `ink-2` as a fieldset legend, then a default "Choose a file" button with a 16px upload icon, and the chosen file's name in Data in `ink-2` beside it. The file input itself is visually hidden and carries the label. Choosing a file hands it to the form, which reads it, such as filling a text area with a definition's YAML.
+- **Captcha:** A `glass` card with a hairline ring holding one sentence (whose sign-in needs the code, which Node fetched it, and when it expires at its clock time), the image on `solid` at up to 96px tall, then the Code field with a ghost "New captcha" button beside it. Once the attempt expires, the card holds the server's sentence as an alert and a default "New captcha" button instead.
 - **PIN:** Four 40px slots (48px in Touch), 8px apart, masked and numeric.
 - **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item. An option can lead with a mark, such as a Node's status dot, and the trigger repeats the chosen option's mark. A mark that means something carries its word for a screen reader.
 - **Setting field:** One setting an Admin can change: its label, its control, a Save that shows only while the draft differs, then hints in Meta (the default, the range, and "Applies after restart." for a setting the Node reads at start), and Reset to default when the value isn't the default. A refusal shows under the control in `fail-ink`. The control follows the setting's kind: a duration or count is an amount with its unit, a count whose 0 means none reads "No limit", a port is a number from 1 to 65535, a rate is an amount with a KB/s or MB/s Segmented control whose 0 reads its words such as "No limit", an address is an Address and a Port field side by side, a folder is the Folder field on the setting's Node (its path in Data, Browse, and that Node's verdict for the folder's purpose), a choice is a Segmented control (a Select past three options), a switch is the Switch, and a window is two times with the zone. A setting fixed by an environment variable disables its control and shows a 14px lock with "Set by" and the variable in Data, and offers no Reset. In a list, a setting can sit as a row reading "<Label>: <value>" that opens the full field in a Popover, or a sheet on phone.
@@ -706,6 +716,10 @@ A numbered list with a 30px disc per step on a 1px connector.
 - **Pending step:** `ink-2`.
 
 Following a step's real link ticks it, and a pasted key is checked at once. The answer replaces the steps, either the provider's own reply in a failure card or a result card with a glowing check. Portal onboarding and provider key setup both use this pattern.
+
+### Catalog picker
+
+Picking one of many definitions, such as the Indexer catalog. A search capsule on top keeps focus, and its arrow keys, Home, End and the page keys move through a virtual listbox below; Enter or a click picks the active row. Between them sit a Privacy Segmented control whose options carry counts of what the search keeps, and a Language Select. Each row reads like a list row: the name, a Meta line with what it carries and its language, a Chip and a chevron. A row that can't be picked stays in the list, its name in `ink-3` and its Meta line saying why, and picking it opens a page that says why with the cause under Details. The feeds and custom definitions that sit outside the catalog follow as a list of link rows under it.
 
 ### Ranked list
 

@@ -65,7 +65,7 @@ func TestEachPathAndSizeHasItsOwnDominantColour(t *testing.T) {
 	var all []image
 	for _, f := range []struct{ path, contentType string }{
 		{"/kqjL17yufvn9OVLyXYpvtyrFfak.jpg", "image/jpeg"},
-		{"/8ZTVqvKDQ8emSGUEMjsS4yHAwrp.jpg", "image/jpeg"},
+		{"/b7GenerAtedPosterTwoOfTwo.jpg", "image/jpeg"},
 		{"/fiVW06jE7z9YnO4trhaMEdclSiC.png", "image/png"},
 		{"/wwemzKWzjKYJFfCeiB57q3r4Bcm.svg", "image/svg+xml"},
 		{"/qJ2tW6WMUDux911r6m7haRef0WH.webp", "image/webp"},

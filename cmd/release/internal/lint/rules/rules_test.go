@@ -344,6 +344,22 @@ func TestMailConfined(t *testing.T) {
 	})
 }
 
+func TestSides(t *testing.T) {
+	const (
+		store = "; a job carries what the Node needs"
+		wire  = " [sides] the generated search service imported outside the Node runtime; call it through searching.Remote"
+	)
+	assertFindings(t, check(t, "sides", fixtureRepo(t, "sides")), []string{
+		"internal/grabs/search.go:4:" + wire,
+		"internal/indexers/job.go:3:" + wire,
+		"internal/searching/internal/torznab/torznab.go:3: [sides] internal/storage imported by the Node's searching" + store,
+		"internal/searching/jobs_test.go:5: [sides] internal/storage/storagetest imported by the Node's searching" + store,
+		"internal/searching/store.go:4: [sides] internal/indexers imported by the Node's searching" + store,
+		"internal/searching/store.go:5: [sides] internal/searching/internal/db imported by the Node's searching" + store,
+		"internal/searching/store.go:6: [sides] internal/storage imported by the Node's searching" + store,
+	})
+}
+
 func TestTargetsApplyConfined(t *testing.T) {
 	const outside = " targets.Apply outside internal/files; save a Change with files.Change, which refills the Works it touches"
 	assertFindings(t, check(t, "targets-apply-confined", fixtureRepo(t, "targets-apply-confined")), []string{

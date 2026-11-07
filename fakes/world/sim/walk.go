@@ -1,11 +1,9 @@
 package sim
 
 import (
-	"context"
 	"crypto/sha256"
 	"log/slog"
 	"math/rand/v2"
-	"net/netip"
 	"path/filepath"
 	"testing"
 	"time"
@@ -63,6 +61,7 @@ func Payload(release string) []byte {
 }
 
 type walk struct {
+	faults   *fault.Plan
 	mediaDir string
 	site     fake.Address
 	announce string
@@ -72,20 +71,16 @@ type walk struct {
 	served []bencode.Metainfo
 	hashes map[string]bencode.InfoHash
 	probes map[string]media.Probe
-	cancel context.CancelFunc
-	done   []chan error
 }
 
 // startWalk serves the walk's fakes on local and points endpoints at them.
-func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func(*site.Release), endpoints *node.EndpointsBlock) *walk {
+func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *servers, listed func(*site.Release), endpoints *node.EndpointsBlock) *walk {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
 	w := &walk{
 		mediaDir: filepath.Join(shortTempDir(t), "media"),
 		payloads: map[bencode.InfoHash][]byte{},
 		hashes:   map[string]bencode.InfoHash{},
 		probes:   map[string]media.Probe{},
-		cancel:   cancel,
 	}
 	imdb := imdbIDs(s)
 	announce := "https://127.0.0.1/announce/" + releases.Passkey(s)
@@ -124,15 +119,18 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		}
 		listing = append(listing, item)
 	}
-	log, faults := slog.New(slog.NewTextHandler(t.Output(), nil)), fault.NewPlan(nil, nil)
+	log := slog.New(slog.NewTextHandler(t.Output(), nil))
+	faults := fault.NewPlan([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, nil)
+	w.faults = faults
 	for _, spec := range []fake.Spec{tmdb.Fake, omdb.Fake, tvdb.Fake} {
 		server, err := spec.New(s, fake.NewEnv(s, spec, log, faults, nil))
 		if err != nil {
 			t.Fatal(err)
 		}
-		spec.Endpoints(endpoints, w.serve(ctx, t, local, server))
+		spec.Endpoints(endpoints, fakes.serve(t, local, server))
 	}
-	w.site = w.serve(ctx, t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing, func(string) (string, error) { return announce, nil })))
+	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(string) (string, error) { return announce, nil })))
+	site.Fake.Endpoints(endpoints, w.site)
 	return w
 }
 
@@ -148,17 +146,9 @@ func imdbIDs(s scenario.Scenario) map[int64]string {
 	return ids
 }
 
-func (w *walk) serve(ctx context.Context, t *testing.T, local *fault.Host, server fake.Server) fake.Address {
-	t.Helper()
-	l, err := local.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan error, 1)
-	go func() { done <- server.Serve(ctx, l) }()
-	w.done = append(w.done, done)
-	return fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String())}
-}
+// Faults is the Plan the walk's fakes read. A rule's Target names the fake,
+// such as fixture-site.
+func (w *World) Faults() *fault.Plan { return w.walk.faults }
 
 // Announce is the tracker URL the walk's torrents and magnet links name,
 // which each Node's swarm runs.
@@ -172,7 +162,7 @@ func (w *World) InfoHash(release string) bencode.InfoHash { return w.walk.hashes
 func (w *walk) seed(world *World, ready []node.Ready) {
 	t := world.t
 	t.Helper()
-	err := setup.Library(t.Context(), world.client, world.scenario, ready, world.claims, w.mediaDir, map[string]fake.Address{site.Fake.Name: w.site})
+	err := setup.Library(t.Context(), world.client, world.scenario, ready, world.claims, w.mediaDir, map[string]fake.Address{site.Fake.Name: w.site}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,13 +185,4 @@ func (w *walk) env(n *Node, e *node.Env) {
 		return swarm.Open(cfg)
 	}
 	e.Media = mediatest.Prober{Of: w.probes}
-}
-
-func (w *walk) stop(t *testing.T) {
-	w.cancel()
-	for _, done := range w.done {
-		if err := <-done; err != nil {
-			t.Errorf("a walk fake: %v", err)
-		}
-	}
 }

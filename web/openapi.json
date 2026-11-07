@@ -293,7 +293,7 @@
             "type": "string"
           },
           "peerIdPrefix": {
-            "description": "The peer ID prefix it announces, which a tracker's allow list names",
+            "description": "The peer ID prefix it announces, which a Tracker's allow list names",
             "type": "string"
           },
           "reach": {
@@ -706,7 +706,7 @@
         "additionalProperties": false,
         "properties": {
           "acceptsAt": {
-            "description": "window: when every tracker accepts an announce",
+            "description": "window: when every announce URL accepts an announce",
             "format": "date-time",
             "type": "string"
           },
@@ -959,7 +959,7 @@
             "type": "string"
           },
           "announceAt": {
-            "description": "The earliest every tracker accepts an announce, set while live",
+            "description": "The earliest every announce URL accepts an announce, set while live",
             "format": "date-time",
             "type": "string"
           },
@@ -1033,7 +1033,7 @@
             "type": "string"
           },
           "live": {
-            "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
+            "description": "Its Node responded, so announce URLs and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
           "name": {
@@ -1150,7 +1150,15 @@
           },
           "tracker": {
             "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no tracker"
+            "description": "Absent when its metainfo names no announce URL"
+          },
+          "trackerId": {
+            "description": "The Tracker its Grab's Release reached, null when no Grab named one",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "trackers": {
             "description": "In its metainfo's order",
@@ -1182,6 +1190,7 @@
           "infoHash",
           "pieceSize",
           "private",
+          "trackerId",
           "trackers",
           "files",
           "grabs",
@@ -1413,7 +1422,7 @@
           },
           "tracker": {
             "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no tracker"
+            "description": "Absent when its metainfo names no announce URL"
           },
           "until": {
             "description": "When a window hold starts it, or a check resumes it",
@@ -1487,15 +1496,15 @@
         "additionalProperties": false,
         "properties": {
           "host": {
-            "description": "Empty when its tracker list is unknown",
+            "description": "Empty when its announce URLs are unknown",
             "type": "string"
           },
           "message": {
-            "description": "The tracker's failure reason or warning, verbatim",
+            "description": "The announce URL's failure reason or warning, verbatim",
             "type": "string"
           },
           "retryAt": {
-            "description": "When it tries a failing tracker again",
+            "description": "When it tries a failing announce URL again",
             "format": "date-time",
             "type": "string"
           },
@@ -1530,7 +1539,7 @@
             "type": "string"
           },
           "message": {
-            "description": "The tracker's failure reason or warning, verbatim",
+            "description": "The announce URL's failure reason or warning, verbatim",
             "type": "string"
           },
           "minIntervalSeconds": {
@@ -1545,7 +1554,7 @@
             "type": "string"
           },
           "retryAt": {
-            "description": "When it tries a failing tracker again, from the last report",
+            "description": "When it tries a failing announce URL again, from the last report",
             "format": "date-time",
             "type": "string"
           },
@@ -2506,6 +2515,9 @@
           "code": {
             "enum": [
               "indexer_unavailable",
+              "indexer_removed",
+              "indexer_stopped",
+              "home_offline",
               "torrent_unreachable",
               "magnet_invalid",
               "no_metadata",
@@ -2547,6 +2559,28 @@
         ],
         "type": "object"
       },
+      "GrabsFetchWait": {
+        "additionalProperties": false,
+        "properties": {
+          "sentence": {
+            "description": "Why the fetch waits, such as Waiting to fetch the .torrent from TorrentLeech. SlipStream retries at 14:20.",
+            "type": "string"
+          },
+          "until": {
+            "description": "When SlipStream retries; null while it waits for the Indexer's home Node",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sentence",
+          "until"
+        ],
+        "type": "object"
+      },
       "GrabsGrab": {
         "additionalProperties": false,
         "properties": {
@@ -2570,6 +2604,10 @@
               "null"
             ]
           },
+          "fetchWait": {
+            "$ref": "#/components/schemas/GrabsFetchWait",
+            "description": "Why fetching the .torrent waits on its Indexer, absent unless it does"
+          },
           "history": {
             "description": "Each stage it entered, when it last entered it, oldest first",
             "items": {
@@ -2582,8 +2620,12 @@
             "type": "string"
           },
           "indexerId": {
+            "description": "The Indexer it was grabbed from, null once the Indexer is deleted",
             "format": "uuid",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "infoHash": {
             "description": "The v1 info hash in hex, null until the .torrent is fetched",
@@ -2668,6 +2710,14 @@
               "null"
             ]
           },
+          "trackerId": {
+            "description": "The Tracker its Release reached, null for a Grab older than Trackers",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "workId": {
             "format": "uuid",
             "type": "string"
@@ -2682,6 +2732,7 @@
           "releaseTitle",
           "releaseSize",
           "indexerId",
+          "trackerId",
           "nodeId",
           "fetchNodeId",
           "torrentId",
@@ -2705,6 +2756,31 @@
         },
         "required": [
           "grabs"
+        ],
+        "type": "object"
+      },
+      "GrabsIndexerGrabList": {
+        "additionalProperties": false,
+        "properties": {
+          "grabs": {
+            "description": "Newest first",
+            "items": {
+              "$ref": "#/components/schemas/GrabsGrab"
+            },
+            "type": "array"
+          },
+          "nextOffset": {
+            "description": "The offset of the next page; null on the last",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "grabs",
+          "nextOffset"
         ],
         "type": "object"
       },
@@ -2817,7 +2893,7 @@
         "additionalProperties": false,
         "properties": {
           "candidates": {
-            "description": "The releases in the Indexer's response",
+            "description": "The Releases the Indexers found, each Release listed twice counted once",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -2831,7 +2907,7 @@
             ]
           },
           "grabId": {
-            "description": "The Grab the run made, null when none",
+            "description": "The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none",
             "format": "uuid",
             "type": [
               "string",
@@ -2842,16 +2918,19 @@
             "format": "uuid",
             "type": "string"
           },
-          "indexerId": {
-            "format": "uuid",
-            "type": "string"
+          "indexers": {
+            "description": "Each Indexer the run asked or skipped, by priority",
+            "items": {
+              "$ref": "#/components/schemas/GrabsSearchIndexer"
+            },
+            "type": "array"
           },
           "itemId": {
             "format": "uuid",
             "type": "string"
           },
           "notes": {
-            "description": "The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for",
+            "description": "The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for",
             "items": {
               "$ref": "#/components/schemas/GrabsReason"
             },
@@ -2861,9 +2940,7 @@
             "description": "Null while the run searches",
             "enum": [
               "grabbed",
-              "nothing_acceptable",
-              "indexer_unavailable",
-              "indexer_refused"
+              "nothing_acceptable"
             ],
             "type": [
               "string",
@@ -2871,7 +2948,7 @@
             ]
           },
           "refused": {
-            "description": "The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused",
+            "description": "The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused",
             "items": {
               "$ref": "#/components/schemas/GrabsRefusal"
             },
@@ -2885,8 +2962,8 @@
         "required": [
           "id",
           "itemId",
-          "indexerId",
           "startedAt",
+          "indexers",
           "finishedAt",
           "outcome",
           "candidates",
@@ -2911,6 +2988,60 @@
         "required": [
           "searchId",
           "workId"
+        ],
+        "type": "object"
+      },
+      "GrabsSearchIndexer": {
+        "additionalProperties": false,
+        "properties": {
+          "indexerId": {
+            "description": "Null once the Indexer is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The Indexer's name when the run started",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "Null while its search runs",
+            "enum": [
+              "found",
+              "no_releases",
+              "limited",
+              "failing",
+              "stopped",
+              "waiting",
+              "late",
+              "limit_reached",
+              "no_categories",
+              "removed"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releases": {
+            "description": "The Releases it found",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sentence": {
+            "description": "The outcome in words, such as Limit reached until 14:05",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexerId",
+          "name",
+          "outcome",
+          "releases",
+          "sentence"
         ],
         "type": "object"
       },
@@ -3029,6 +3160,7 @@
           "storage",
           "nodes",
           "download-clients",
+          "indexers",
           "scheduled-tasks"
         ],
         "type": "string"
@@ -4321,6 +4453,180 @@
         ],
         "type": "object"
       },
+      "IndexersCaptchaAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "description": "The code the captcha shows",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "attempt": {
+            "description": "The attempt the captcha was loaded with",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "answer"
+        ],
+        "type": "object"
+      },
+      "IndexersCaptchaImage": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "description": "Send it back with the code the image shows",
+            "type": "string"
+          },
+          "expiresAt": {
+            "description": "When the attempt closes. Load a new captcha after it.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "image": {
+            "description": "The captcha as a data URL",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "image",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "IndexersCatalogAddress": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The base address, to which SlipStream adds the schema version; null resets it to the default",
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "type": "object"
+      },
+      "IndexersCatalogChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "refreshedAt": {
+            "description": "Null until a refresh has read the catalog",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "refreshedAt"
+        ],
+        "type": "object"
+      },
+      "IndexersCatalogEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "categories": {
+            "description": "The Newznab category ids it maps to",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "description": {
+            "description": "The definition's own words",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "language": {
+            "description": "A language tag such as en-US",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "catalog",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "privacy": {
+            "enum": [
+              "private",
+              "semi-private",
+              "public"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why SlipStream can't run it; null when it can",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "replacedByCustom": {
+            "description": "A custom definition has this catalog entry's id and runs in its place",
+            "type": "boolean"
+          },
+          "version": {
+            "description": "When SlipStream downloaded this version",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "language",
+          "privacy",
+          "categories",
+          "origin",
+          "reason",
+          "replacedByCustom",
+          "version"
+        ],
+        "type": "object"
+      },
+      "IndexersChallengeSolver": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The address of the service that clears browser challenges for the Node; null when it has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeout": {
+            "description": "Seconds the solver may take to clear a page",
+            "format": "int64",
+            "maximum": 180,
+            "minimum": 10,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "address",
+          "timeout"
+        ],
+        "type": "object"
+      },
       "IndexersChanged": {
         "additionalProperties": false,
         "properties": {
@@ -4334,19 +4640,207 @@
         ],
         "type": "object"
       },
+      "IndexersCustomDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "yaml": {
+            "description": "The definition's YAML file",
+            "maxLength": 1048576,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "yaml"
+        ],
+        "type": "object"
+      },
+      "IndexersDefinitionField": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "description": "Null when the field has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "help": {
+            "description": "An info field's text, written by the definition's authors",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "name": {
+            "description": "May hold hyphens or start with a digit",
+            "type": "string"
+          },
+          "options": {
+            "description": "A select's choices, by value",
+            "items": {
+              "$ref": "#/components/schemas/IndexersOption"
+            },
+            "type": "array"
+          },
+          "sealed": {
+            "description": "Its saved value is never returned",
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "text",
+              "password",
+              "checkbox",
+              "select",
+              "info",
+              "info_cookie",
+              "info_flaresolverr",
+              "info_useragent",
+              "info_category_8000",
+              "cardigannCaptcha"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "type",
+          "default",
+          "options",
+          "help",
+          "sealed"
+        ],
+        "type": "object"
+      },
+      "IndexersDefinitionForm": {
+        "additionalProperties": false,
+        "properties": {
+          "captcha": {
+            "description": "Signing in asks for an image captcha",
+            "type": "boolean"
+          },
+          "cookie": {
+            "description": "Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field",
+            "type": "boolean"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/IndexersCatalogEntry"
+          },
+          "fields": {
+            "description": "In the definition's order, the captcha last",
+            "items": {
+              "$ref": "#/components/schemas/IndexersDefinitionField"
+            },
+            "type": "array"
+          },
+          "links": {
+            "description": "The site's addresses, the first being the default",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "description": "Its Indexers sign in and keep a session on their Node",
+            "type": "boolean"
+          },
+          "solver": {
+            "description": "The site sits behind a browser challenge that a Challenge solver can clear",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entry",
+          "links",
+          "fields",
+          "session",
+          "captcha",
+          "solver",
+          "cookie"
+        ],
+        "type": "object"
+      },
+      "IndexersFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "text"
+        ],
+        "type": "object"
+      },
       "IndexersIndexer": {
         "additionalProperties": false,
         "properties": {
-          "apiKeySet": {
-            "description": "False when the key was dropped and an Admin must enter it again",
+          "allowFailover": {
+            "description": "Read only for an Indexer that signs in",
             "type": "boolean"
+          },
+          "allowNoSize": {
+            "description": "An RSS feed whose items may have no size",
+            "type": "boolean"
+          },
+          "automaticSearch": {
+            "type": "boolean"
+          },
+          "categories": {
+            "description": "Newznab category ids; null for every category it advertises",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "createdAt": {
             "format": "date-time",
             "type": "string"
           },
+          "definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersPin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A catalog Indexer's definition; null for a feed"
+          },
+          "feedHost": {
+            "description": "The host of a feed's address, which is never returned",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fix": {
+            "description": "What the Admin can do about its status, in words; null when nothing",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "grabs": {
+            "$ref": "#/components/schemas/IndexersLimitUse"
+          },
           "homeNodeId": {
-            "description": "The Node that reaches the Indexer",
+            "description": "The Node it searches from",
             "format": "uuid",
             "type": "string"
           },
@@ -4354,14 +4848,44 @@
             "format": "uuid",
             "type": "string"
           },
+          "kind": {
+            "enum": [
+              "catalog",
+              "torznab",
+              "rss"
+            ],
+            "type": "string"
+          },
+          "media": {
+            "description": "The Content Types an RSS feed carries; null for every other kind",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
           },
-          "protocol": {
-            "enum": [
-              "torznab"
-            ],
-            "type": "string"
+          "on": {
+            "type": "boolean"
+          },
+          "priority": {
+            "description": "Lower wins a tie",
+            "format": "int64",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "revision": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rss": {
+            "type": "boolean"
           },
           "searchModes": {
             "description": "By mode",
@@ -4370,32 +4894,258 @@
             },
             "type": "array"
           },
-          "url": {
+          "searches": {
+            "$ref": "#/components/schemas/IndexersLimitUse"
+          },
+          "sentence": {
+            "description": "Its status in words",
             "type": "string"
           },
-          "waiting": {
+          "session": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/IndexersWaiting"
+                "$ref": "#/components/schemas/IndexersSession"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Why its calls wait for its home Node, null while they go through"
+            "description": "Its newest session on any Node, null for none"
+          },
+          "signsIn": {
+            "description": "It holds a login session, so it waits for its home rather than failing over unless allowFailover",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IndexersStatus"
+          },
+          "trackerIds": {
+            "description": "The Trackers it reaches",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "waits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why its searches wait now, null when they don't"
           }
         },
         "required": [
           "id",
           "name",
-          "protocol",
-          "url",
+          "kind",
           "homeNodeId",
-          "apiKeySet",
+          "on",
+          "automaticSearch",
+          "rss",
+          "allowFailover",
+          "priority",
+          "categories",
+          "media",
+          "allowNoSize",
+          "searches",
+          "grabs",
+          "status",
+          "sentence",
+          "fix",
+          "signsIn",
+          "trackerIds",
+          "waits",
+          "session",
+          "feedHost",
+          "definition",
           "searchModes",
-          "waiting",
+          "revision",
           "createdAt"
         ],
+        "type": "object"
+      },
+      "IndexersIndexerCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The catalog's base address, to which SlipStream adds the schema version",
+            "type": "string"
+          },
+          "addressIsDefault": {
+            "type": "boolean"
+          },
+          "entries": {
+            "description": "The catalog's definitions by name, then the custom definitions by id",
+            "items": {
+              "$ref": "#/components/schemas/IndexersCatalogEntry"
+            },
+            "type": "array"
+          },
+          "nextRefreshAt": {
+            "description": "When the Indexer catalog refresh runs next; null while it runs or waits",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notice": {
+            "description": "Why the catalog lists no site yet; null once it does",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refreshedAt": {
+            "description": "Null until a refresh has downloaded the catalog",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "refreshedAt",
+          "nextRefreshAt",
+          "address",
+          "addressIsDefault",
+          "notice",
+          "entries"
+        ],
+        "type": "object"
+      },
+      "IndexersIndexerEdit": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "Write-only",
+            "maxLength": 2048,
+            "pattern": "^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$",
+            "type": "string"
+          },
+          "allowFailover": {
+            "description": "Null resets it to off",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "allowNoSize": {
+            "description": "An RSS feed's",
+            "type": "boolean"
+          },
+          "apiKey": {
+            "description": "Write-only",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "automaticSearch": {
+            "description": "Null resets it to on",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "baseAddress": {
+            "description": "A catalog Indexer's: one of its definition's addresses",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "captcha": {
+            "$ref": "#/components/schemas/IndexersCaptchaAnswer",
+            "description": "The answer to a captcha loaded for this Indexer, for the Test the change runs"
+          },
+          "categories": {
+            "description": "Null for every category it advertises",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "cookie": {
+            "$ref": "#/components/schemas/IndexersPastedCookie",
+            "description": "A new browser cookie. Write-only"
+          },
+          "grabs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersLimit"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null turns the limit off"
+          },
+          "homeNodeId": {
+            "description": "A Node that holds Searching",
+            "format": "uuid",
+            "type": "string"
+          },
+          "media": {
+            "description": "An RSS feed's Content Types",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "on": {
+            "description": "Null resets it to on",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "priority": {
+            "description": "Null resets it to 25",
+            "format": "int64",
+            "maximum": 50,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "rss": {
+            "description": "Null resets it to on",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "searches": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersLimit"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null turns the limit off"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
+            "type": "object"
+          }
+        },
         "type": "object"
       },
       "IndexersIndexerList": {
@@ -4414,42 +5164,461 @@
         ],
         "type": "object"
       },
-      "IndexersNewAPIKey": {
+      "IndexersLimit": {
         "additionalProperties": false,
         "properties": {
-          "apiKey": {
-            "maxLength": 256,
+          "count": {
+            "description": "0 is no limit",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "per": {
+            "description": "The sliding window it counts in",
+            "enum": [
+              "hour",
+              "day"
+            ],
             "type": "string"
           }
         },
         "required": [
-          "apiKey"
+          "count",
+          "per"
+        ],
+        "type": "object"
+      },
+      "IndexersLimitUse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "0 is no limit",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "freeAt": {
+            "description": "When the oldest counted call leaves the window; null while under the limit",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "per": {
+            "enum": [
+              "hour",
+              "day"
+            ],
+            "type": "string"
+          },
+          "used": {
+            "description": "The calls counted in the window now",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "per",
+          "used",
+          "freeAt"
         ],
         "type": "object"
       },
       "IndexersNewIndexer": {
         "additionalProperties": false,
         "properties": {
+          "address": {
+            "description": "A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only",
+            "maxLength": 2048,
+            "pattern": "^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$",
+            "type": "string"
+          },
+          "allowFailover": {
+            "type": "boolean"
+          },
+          "allowNoSize": {
+            "description": "Use an RSS feed whose items have no size",
+            "type": "boolean"
+          },
           "apiKey": {
+            "description": "A Torznab feed's. Write-only",
             "maxLength": 256,
             "type": "string"
+          },
+          "automaticSearch": {
+            "default": true,
+            "type": "boolean"
+          },
+          "baseAddress": {
+            "description": "One of the definition's addresses; absent for its first",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "captcha": {
+            "$ref": "#/components/schemas/IndexersCaptchaAnswer",
+            "description": "The answer to a captcha loaded for this draft"
+          },
+          "categories": {
+            "description": "Newznab category ids; absent for every category it advertises",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "cookie": {
+            "$ref": "#/components/schemas/IndexersPastedCookie",
+            "description": "A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"
+          },
+          "definition": {
+            "description": "A catalog Indexer's definition id; required for one",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "grabs": {
+            "$ref": "#/components/schemas/IndexersLimit"
+          },
+          "homeNodeId": {
+            "description": "A Node that holds Searching; absent for the default home",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "catalog",
+              "torznab",
+              "rss"
+            ],
+            "type": "string"
+          },
+          "media": {
+            "description": "The Content Types an RSS feed carries, in place of categories; required for an RSS feed",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "name": {
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
           },
-          "url": {
-            "description": "The Torznab feed's base; SlipStream adds /api",
-            "maxLength": 2048,
-            "pattern": "^https?://[^/?#]+(/[^?#]*)?$",
+          "on": {
+            "default": true,
+            "type": "boolean"
+          },
+          "priority": {
+            "default": 25,
+            "format": "int64",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rss": {
+            "default": true,
+            "type": "boolean"
+          },
+          "searches": {
+            "$ref": "#/components/schemas/IndexersLimit"
+          },
+          "trackerName": {
+            "description": "The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
+      "IndexersOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
             "type": "string"
           }
         },
         "required": [
-          "name",
-          "url",
-          "apiKey"
+          "value",
+          "label"
+        ],
+        "type": "object"
+      },
+      "IndexersOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "description": "Set for stopped",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "found",
+              "no_releases",
+              "limited",
+              "failing",
+              "stopped",
+              "waiting",
+              "late",
+              "limit_reached",
+              "no_categories",
+              "removed"
+            ],
+            "type": "string"
+          },
+          "lapsed": {
+            "description": "Waiting past the offline grace",
+            "type": "boolean"
+          },
+          "nodeId": {
+            "description": "Set for waiting: the Node waited for; for stopped: the Node the stop was met on",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releases": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "since": {
+            "description": "Set for waiting: since when the home Node is away; null when it holds no Role to search with",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "description": "Set for stopped: the site's own words",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "until": {
+            "description": "Set for limited, failing and limit_reached",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "releases",
+          "until",
+          "since",
+          "nodeId",
+          "lapsed",
+          "cause",
+          "text"
+        ],
+        "type": "object"
+      },
+      "IndexersPastedCookie": {
+        "additionalProperties": false,
+        "properties": {
+          "cookie": {
+            "description": "The Cookie header's value from a signed-in browser: name=value pairs separated by semicolons",
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "userAgent": {
+            "description": "The User-Agent of that browser, sent with the cookie",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "required": [
+          "cookie"
+        ],
+        "type": "object"
+      },
+      "IndexersPin": {
+        "additionalProperties": false,
+        "properties": {
+          "baseAddress": {
+            "type": "string"
+          },
+          "fetchedAt": {
+            "description": "When SlipStream downloaded the pinned version",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The settings saved in plain, by name. Sealed settings are never returned",
+            "type": "object"
+          },
+          "version": {
+            "description": "The pinned version's git blob sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "fetchedAt",
+          "baseAddress",
+          "values"
+        ],
+        "type": "object"
+      },
+      "IndexersQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "completedAt": {
+            "description": "Null while it runs",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "Null while it runs; lost when its Node never answered",
+            "enum": [
+              "ok",
+              "limited",
+              "failing",
+              "stopped",
+              "lost"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releases": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reservedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "startedAt": {
+            "description": "When its Node sent its first request; null before, or when it sent none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "use": {
+            "enum": [
+              "search",
+              "recent",
+              "fetch",
+              "test"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "use",
+          "reservedAt",
+          "startedAt",
+          "completedAt",
+          "outcome",
+          "releases"
+        ],
+        "type": "object"
+      },
+      "IndexersQueryList": {
+        "additionalProperties": false,
+        "properties": {
+          "nextOffset": {
+            "description": "The offset of the next page; null on the last",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "queries": {
+            "description": "Newest first",
+            "items": {
+              "$ref": "#/components/schemas/IndexersQuery"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "queries",
+          "nextOffset"
+        ],
+        "type": "object"
+      },
+      "IndexersReport": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "The newest items it listed",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "searchModes": {
+            "description": "By mode",
+            "items": {
+              "$ref": "#/components/schemas/IndexersSearchMode"
+            },
+            "type": "array"
+          },
+          "sources": {
+            "description": "The different sources a Torznab feed's items named: more than one is an aggregate feed",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "searchModes",
+          "items",
+          "sources"
         ],
         "type": "object"
       },
@@ -4474,27 +5643,286 @@
         ],
         "type": "object"
       },
-      "IndexersWaiting": {
+      "IndexersSession": {
         "additionalProperties": false,
         "properties": {
-          "since": {
-            "description": "The home Node's last Sync frame, or the Controller's start when it sent none since",
+          "earnedAt": {
             "format": "date-time",
             "type": "string"
           },
-          "standing": {
-            "description": "How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable",
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "pasted": {
+            "description": "Seeded from a browser cookie an Admin pasted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nodeId",
+          "pasted",
+          "earnedAt"
+        ],
+        "type": "object"
+      },
+      "IndexersSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "description": "How long every request to an Indexer may fail before Health warns",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "type": "object"
+      },
+      "IndexersSettingsChange": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "additionalProperties": {},
+            "description": "Each setting's new value by key, all or none; null resets one to its default",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "type": "object"
+      },
+      "IndexersSettingsChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "IndexersSolverChange": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "An http or https address of a service that speaks FlareSolverr's API; empty removes the solver",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "timeout": {
+            "description": "Seconds from 10 to 180; null or left out is 60",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "type": "object"
+      },
+      "IndexersStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "description": "Null unless stopped or home_only",
             "enum": [
-              "reconnecting",
-              "offline",
-              "mismatched"
+              "credentials_rejected",
+              "captcha_needed",
+              "challenge_unsolved",
+              "cookie_expired",
+              "definition_unloadable",
+              "account_refused",
+              "request_rejected"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastFailure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nodeId": {
+            "description": "The Node the stop was met on",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rung": {
+            "description": "The backoff ladder's position, stepping down one on each success",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "since": {
+            "description": "When it began failing, stopped or began waiting for home",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "solverTried": {
+            "description": "A challenge_unsolved that the Node's Challenge solver couldn't clear",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "home_only: a stop met on a failover Node, which waits for home",
+            "enum": [
+              "ok",
+              "limited",
+              "failing",
+              "stopped",
+              "home_only"
+            ],
+            "type": "string"
+          },
+          "successAt": {
+            "description": "The last answer the site responded to",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "description": "The site's or feed's own words",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "until": {
+            "description": "When a limited or failing Indexer is asked again",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "cause",
+          "text",
+          "until",
+          "since",
+          "nodeId",
+          "solverTried",
+          "rung",
+          "lastFailure",
+          "successAt"
+        ],
+        "type": "object"
+      },
+      "IndexersStatusChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "indexerId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexerId"
+        ],
+        "type": "object"
+      },
+      "IndexersTestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "captcha": {
+            "$ref": "#/components/schemas/IndexersCaptchaAnswer",
+            "description": "The answer to a captcha loaded for this Indexer"
+          }
+        },
+        "type": "object"
+      },
+      "IndexersTracker": {
+        "additionalProperties": false,
+        "properties": {
+          "hosts": {
+            "description": "The announce hosts of its private torrents",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "indexerIds": {
+            "description": "The Indexers that reach it, by name",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keys": {
+            "description": "How a Release finds it: definition:\u003cid\u003e, prowlarr:\u003cfeed Indexer\u003e:\u003csource id\u003e or named:\u003cIndexer\u003e",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "privacy": {
+            "enum": [
+              "private",
+              "semi-private",
+              "public",
+              "unknown"
             ],
             "type": "string"
           }
         },
         "required": [
-          "standing",
-          "since"
+          "id",
+          "name",
+          "privacy",
+          "hosts",
+          "keys",
+          "indexerIds"
+        ],
+        "type": "object"
+      },
+      "IndexersTrackerChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "trackerId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trackerId"
+        ],
+        "type": "object"
+      },
+      "IndexersTrackerList": {
+        "additionalProperties": false,
+        "properties": {
+          "trackers": {
+            "description": "By name",
+            "items": {
+              "$ref": "#/components/schemas/IndexersTracker"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "trackers"
         ],
         "type": "object"
       },
@@ -4668,6 +6096,20 @@
         "required": [
           "parent",
           "name"
+        ],
+        "type": "object"
+      },
+      "MergeTrackerInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "into": {
+            "description": "The Tracker it merges into, which is kept",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "into"
         ],
         "type": "object"
       },
@@ -7003,6 +8445,20 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "RenameTrackerInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
         "type": "object"
       },
       "ResetLinkInputBody": {
@@ -19769,6 +21225,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/IndexersCatalogChanged"
+                          },
+                          "event": {
+                            "const": "indexers.catalog-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event indexers.catalog-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/IndexersChanged"
                           },
                           "event": {
@@ -19790,6 +21272,58 @@
                           "event"
                         ],
                         "title": "Event indexers.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/IndexersSettingsChanged"
+                          },
+                          "event": {
+                            "const": "indexers.settings-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event indexers.settings-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/IndexersStatusChanged"
+                          },
+                          "event": {
+                            "const": "indexers.status-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event indexers.status-changed",
                         "type": "object"
                       },
                       {
@@ -20128,6 +21662,32 @@
                           "event"
                         ],
                         "title": "Event torrents.live",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/IndexersTrackerChanged"
+                          },
+                          "event": {
+                            "const": "trackers.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event trackers.changed",
                         "type": "object"
                       },
                       {
@@ -21886,6 +23446,1193 @@
         "x-slipstream-access": "reconfirmed"
       }
     },
+    "/indexer-catalog": {
+      "get": {
+        "operationId": "getIndexerCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersIndexerCatalog"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexer-catalog/address": {
+      "put": {
+        "operationId": "setCatalogAddress",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersCatalogAddress"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersIndexerCatalog"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_address_unreachable",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change the Indexer catalog's address once SlipStream reads a schema 12 index there. The next refresh reads it in full.",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexer-catalog/custom": {
+      "post": {
+        "operationId": "addCustomDefinition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersCustomDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersCatalogEntry"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_id_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_unloadable",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Add a custom definition, or replace the custom definition with its id and move that definition's Indexers to it",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexer-catalog/custom/{id}": {
+      "delete": {
+        "operationId": "deleteCustomDefinition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_in_use",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete a custom definition that no Indexer runs",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexer-catalog/{id}": {
+      "get": {
+        "operationId": "getCatalogDefinition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersDefinitionForm"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the fields of a definition's add form, from the custom definition with the id or else the catalog's",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexer-settings": {
+      "get": {
+        "operationId": "getIndexerSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the Indexer settings",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateIndexerSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersSettingsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change Indexer settings by key, all or none",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/indexers": {
       "get": {
         "operationId": "listIndexers",
@@ -22094,6 +24841,31 @@
             },
             "description": "Forbidden"
           },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
           "409": {
             "content": {
               "application/problem+json": {
@@ -22108,6 +24880,7 @@
                           "enum": [
                             "indexer_name_taken",
                             "no_searching_node",
+                            "node_not_searching",
                             "worker_node"
                           ],
                           "type": "string"
@@ -22121,7 +24894,7 @@
             },
             "description": "Conflict"
           },
-          "422": {
+          "410": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22133,7 +24906,36 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "indexer_refused",
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "definition_unloadable",
+                            "indexer_test_failed",
                             "invalid"
                           ],
                           "type": "string"
@@ -22196,6 +24998,31 @@
               }
             },
             "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "security": [
@@ -22208,16 +25035,569 @@
             "apiKey": []
           }
         ],
-        "summary": "Add a Torznab Indexer, once its home Node has read its caps",
+        "summary": "Add an Indexer once its Test passed on the Node it searches from",
         "tags": [
           "indexers"
         ],
         "x-slipstream-access": "admin"
       }
     },
-    "/indexers/{id}/api-key": {
-      "put": {
-        "operationId": "setIndexerAPIKey",
+    "/indexers/captcha": {
+      "post": {
+        "operationId": "getIndexerCaptchaDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersNewIndexer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersCaptchaImage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_searching_node",
+                            "node_not_searching",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "captcha_not_shown",
+                            "definition_unloadable",
+                            "indexer_test_failed",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/test": {
+      "post": {
+        "operationId": "testIndexerDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersNewIndexer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "definition_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_searching_node",
+                            "node_not_searching",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "definition_unloadable",
+                            "indexer_test_failed",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "catalog_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Test an Indexer without saving it",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/{id}": {
+      "delete": {
+        "operationId": "deleteIndexer",
         "parameters": [
           {
             "in": "path",
@@ -22229,16 +25609,192 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IndexersNewAPIKey"
-              }
-            }
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
-          "required": true
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
         },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete an Indexer with its status, sessions and queries. Its Grabs keep their history.",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "get": {
+        "operationId": "getIndexer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -22364,7 +25920,241 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "indexer_refused",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get an Indexer",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateIndexer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersIndexerEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersIndexer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_name_taken",
+                            "node_not_searching",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "definition_unloadable",
+                            "indexer_test_failed",
                             "invalid"
                           ],
                           "type": "string"
@@ -22439,7 +26229,904 @@
             "apiKey": []
           }
         ],
-        "summary": "Enter an Indexer's API key again, once its home Node has read its caps with it",
+        "summary": "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/{id}/captcha": {
+      "post": {
+        "operationId": "getIndexerCaptcha",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersCaptchaImage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "captcha_not_shown",
+                            "indexer_test_failed",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Load the captcha of an Indexer's sign-in, from the Node it searches from",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/{id}/grabs": {
+      "get": {
+        "operationId": "listIndexerGrabs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many of the newest to skip",
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "description": "How many of the newest to skip",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsIndexerGrabList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Grabs taken from an Indexer, 50 at a time",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/{id}/queries": {
+      "get": {
+        "operationId": "listIndexerQueries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many of the newest to skip",
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "description": "How many of the newest to skip",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersQueryList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List an Indexer's searches, fetches and Tests, 50 at a time",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/indexers/{id}/test": {
+      "post": {
+        "operationId": "testIndexer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersTestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "captcha_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "captcha": {
+                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                        },
+                        "code": {
+                          "enum": [
+                            "indexer_test_failed",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Test an Indexer from the Node it searches from. A pass clears its backoff and any stop.",
         "tags": [
           "indexers"
         ],
@@ -26875,6 +31562,382 @@
         "summary": "Rename a Node. A Node in step has its new name when this responds",
         "tags": [
           "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/nodes/{id}/challenge-solver": {
+      "get": {
+        "operationId": "getChallengeSolver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersChallengeSolver"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_searching",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the Challenge solver of a Node that stands in Searching",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "setChallengeSolver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexersSolverChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersChallengeSolver"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_searching",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "challenge_solver_unreachable",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "indexer_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Set a Node's Challenge solver once the Node reaches the solver's /health, or remove it with an empty address",
+        "tags": [
+          "indexers"
         ],
         "x-slipstream-access": "admin"
       }
@@ -41616,9 +46679,748 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
+        "summary": "Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds",
         "tags": [
           "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/trackers": {
+      "get": {
+        "operationId": "listTrackers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersTrackerList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Trackers and the Indexers that reach each",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/trackers/{id}": {
+      "get": {
+        "operationId": "getTracker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersTracker"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "tracker_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Tracker",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "renameTracker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTrackerInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersTracker"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "tracker_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "tracker_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rename a Tracker. Every Indexer and Release that reached it still does.",
+        "tags": [
+          "indexers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/trackers/{id}/merge": {
+      "post": {
+        "operationId": "mergeTracker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeTrackerInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexersTracker"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "tracker_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "tracker_merge_self"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.",
+        "tags": [
+          "indexers"
         ],
         "x-slipstream-access": "admin"
       }

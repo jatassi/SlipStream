@@ -9,7 +9,10 @@ import type { LiveEventIdentityAddressChanged } from "./liveEventIdentityAddress
 import type { LiveEventIdentityLinksChanged } from "./liveEventIdentityLinksChanged.ts";
 import type { LiveEventIdentityPasskeysChanged } from "./liveEventIdentityPasskeysChanged.ts";
 import type { LiveEventIdentitySessionsChanged } from "./liveEventIdentitySessionsChanged.ts";
+import type { LiveEventIndexersCatalogChanged } from "./liveEventIndexersCatalogChanged.ts";
 import type { LiveEventIndexersChanged } from "./liveEventIndexersChanged.ts";
+import type { LiveEventIndexersSettingsChanged } from "./liveEventIndexersSettingsChanged.ts";
+import type { LiveEventIndexersStatusChanged } from "./liveEventIndexersStatusChanged.ts";
 import type { LiveEventLiveAccessChanged } from "./liveEventLiveAccessChanged.ts";
 import type { LiveEventLiveResync } from "./liveEventLiveResync.ts";
 import type { LiveEventLiveSessionEnded } from "./liveEventLiveSessionEnded.ts";
@@ -23,6 +26,7 @@ import type { LiveEventTasksChanged } from "./liveEventTasksChanged.ts";
 import type { LiveEventTasksProgress } from "./liveEventTasksProgress.ts";
 import type { LiveEventTorrentsChanged } from "./liveEventTorrentsChanged.ts";
 import type { LiveEventTorrentsLive } from "./liveEventTorrentsLive.ts";
+import type { LiveEventTrackersChanged } from "./liveEventTrackersChanged.ts";
 import type { LiveEventTransfersChanged } from "./liveEventTransfersChanged.ts";
 import type { LiveEventVolumesChanged } from "./liveEventVolumesChanged.ts";
 import type { LiveEventWorksChanged } from "./liveEventWorksChanged.ts";
@@ -42,7 +46,10 @@ export type LiveEvent =
   | LiveEventIdentityLinksChanged
   | LiveEventIdentityPasskeysChanged
   | LiveEventIdentitySessionsChanged
+  | LiveEventIndexersCatalogChanged
   | LiveEventIndexersChanged
+  | LiveEventIndexersSettingsChanged
+  | LiveEventIndexersStatusChanged
   | LiveEventLiveAccessChanged
   | LiveEventLiveResync
   | LiveEventLiveSessionEnded
@@ -56,6 +63,7 @@ export type LiveEvent =
   | LiveEventTasksProgress
   | LiveEventTorrentsChanged
   | LiveEventTorrentsLive
+  | LiveEventTrackersChanged
   | LiveEventTransfersChanged
   | LiveEventVolumesChanged
   | LiveEventWorksChanged

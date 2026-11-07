@@ -194,6 +194,38 @@ func TestImagesAndVideosFollowTheirLanguageLists(t *testing.T) {
 	})
 }
 
+func TestRecordedImagesAndProfilesAnswerVerbatim(t *testing.T) {
+	s := load(t, "single-machine")
+	s.TMDB.Movies[0].Images = []scenario.TMDBImage{
+		{Shape: "poster", Language: "en", Votes: 5.4, Path: "/rec0rdedP0ster.jpg", Width: 1000, Height: 1500},
+		{Shape: "backdrop", Path: "/rec0rdedBackdr0p.jpg"},
+		{Shape: "logo", Language: "en", Path: "/rec0rdedL0go.svg", Width: 800, Height: 310},
+	}
+	s.TMDB.Movies[0].Credits = scenario.TMDBCredits{
+		Cast: []scenario.TMDBCast{{ID: 100, Name: "Mara Quell", Profile: "/rec0rdedMara.jpg"}, {ID: 101, Name: "Tove Lind"}},
+		Crew: []scenario.TMDBCrew{{ID: 10, Name: "Ines Varga", Department: "Directing", Job: "Director", Profile: "/rec0rdedInes.jpg"}},
+	}
+	inBothTiers(t, s, func(t *testing.T, f faketest.Served) {
+		got := get(t, f, "/3/movie/9000001?append_to_response=images,credits&include_image_language=en,null")
+		for _, want := range []string{
+			`"backdrop_path":"/rec0rdedBackdr0p.jpg"`,
+			`"poster_path":"/rec0rdedP0ster.jpg"`,
+			`{"aspect_ratio":0.6666666666666666,"height":1500,"iso_3166_1":"US","iso_639_1":"en","file_path":"/rec0rdedP0ster.jpg","vote_average":5.4,"vote_count":1,"width":1000}`,
+			`{"aspect_ratio":1.7777777777777777,"height":2160,"iso_3166_1":null,"iso_639_1":null,"file_path":"/rec0rdedBackdr0p.jpg","vote_average":0,"vote_count":1,"width":3840}`,
+			`"file_path":"/rec0rdedL0go.svg","vote_average":0,"vote_count":1,"width":800}`,
+			`"name":"Mara Quell","profile_path":"/rec0rdedMara.jpg"`,
+			`"name":"Ines Varga","profile_path":"/rec0rdedInes.jpg"`,
+		} {
+			if !strings.Contains(got, want) {
+				t.Errorf("GET the movie = %s\nwant it to hold %s", got, want)
+			}
+		}
+		if strings.Contains(got, `"name":"Tove Lind","profile_path":"/rec0rded`) || !strings.Contains(got, `"name":"Tove Lind","profile_path":"/`) {
+			t.Errorf("GET the movie = %s\nwant Tove Lind's made-up profile path", got)
+		}
+	})
+}
+
 func TestRevokeKeyAnswersTMDBs401Body(t *testing.T) {
 	inBothTiers(t, load(t, "single-machine"), func(t *testing.T, f faketest.Served) {
 		before := get(t, f, "/3/configuration?api_key=bundled")

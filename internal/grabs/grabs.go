@@ -24,6 +24,8 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -58,6 +60,9 @@ const (
 
 const (
 	IndexerUnavailable Code = "indexer_unavailable"
+	IndexerRemoved     Code = "indexer_removed"
+	IndexerStopped     Code = "indexer_stopped"
+	HomeOffline        Code = "home_offline"
 	TorrentUnreachable Code = "torrent_unreachable"
 	TorrentInvalid     Code = "torrent_invalid"
 	InfohashMismatch   Code = "infohash_mismatch"
@@ -75,10 +80,8 @@ const (
 )
 
 const (
-	Grabbed                  Outcome = "grabbed"
-	NothingAcceptable        Outcome = "nothing_acceptable"
-	SearchIndexerUnavailable Outcome = "indexer_unavailable"
-	SearchIndexerRefused     Outcome = "indexer_refused"
+	Grabbed           Outcome = "grabbed"
+	NothingAcceptable Outcome = "nothing_acceptable"
 )
 
 type Timings struct {
@@ -165,11 +168,13 @@ type Roots interface {
 }
 
 type Config struct {
-	Library   *storage.DB[file]
-	Works     *works.Works
-	Targets   *targets.Targets
-	Files     *files.Files
-	Indexers  *indexers.Indexers
+	Library  *storage.DB[file]
+	Works    *works.Works
+	Targets  *targets.Targets
+	Files    *files.Files
+	Indexers *indexers.Indexers
+	// Sealer seals each Grab's release link.
+	Sealer    *secret.Sealer
 	Terms     map[works.TypeID]indexers.Facet
 	Roster    Roster
 	Downloads Downloads
@@ -192,7 +197,7 @@ type Config struct {
 type Grabs struct {
 	cfg       Config
 	poke      chan struct{}
-	searching searching
+	searching metadataPeers
 
 	mu sync.Mutex
 	// moved is each Grab a transfers hook moved, for grabs.changed once
@@ -202,7 +207,7 @@ type Grabs struct {
 
 // New builds the Grab pipeline and registers its Transfers purpose.
 func New(cfg Config) *Grabs {
-	gr := &Grabs{cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: searching{peers: map[GrabID]int{}}}
+	gr := &Grabs{cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: metadataPeers{peers: map[GrabID]int{}}}
 	cfg.Transfers.Register(transfers.Purpose{
 		Kind:     transfers.Grab,
 		Verified: gr.transferVerified,
@@ -215,12 +220,28 @@ func New(cfg Config) *Grabs {
 
 // Release is the release a Grab took, as the Indexer answered it.
 type Release struct {
-	Title   string
-	Size    int64
-	Indexer indexers.ID
-	Link    string
+	Title string
+	Size  int64
 	// InfoHash is the Indexer's infohash attribute, nil when it sent none.
 	InfoHash *bencode.InfoHash
+	// link is the sealed .torrent link the Grab fetches, else magnet.
+	link   secret.Sealed
+	magnet string
+}
+
+var linkColumn = secret.NewColumn("grabs_grab.release_link_sealed")
+
+// link is the link g fetches: its .torrent link opened, else its magnet
+// link.
+func (gr *Grabs) link(g Grab) (searching.Link, error) {
+	if !g.Release.link.Set() {
+		return searching.LinkOf(g.Release.magnet), nil
+	}
+	raw, err := gr.cfg.Sealer.Open(g.Release.link, linkColumn.Row(g.ID.String()))
+	if err != nil {
+		return searching.Link{}, fmt.Errorf("grab %s: open the release link: %w", g.ID, err)
+	}
+	return searching.LinkOf(string(raw)), nil
 }
 
 // Torrent is the Torrent a Grab downloads, as the Grab reads it.
@@ -262,6 +283,10 @@ type Grab struct {
 	Edition targets.Edition
 	Targets []targets.TargetID
 	Release Release
+	// Ticket is the Grab's Indexer, zero once the Indexer is deleted, the
+	// grab Take reserved on it and the Tracker its Release reached, zero
+	// for a Grab older than Trackers.
+	Ticket indexers.Ticket
 	// Node downloads the release: the Indexer's home Node until the fetch,
 	// then the Downloading Node the fetch handed the .torrent to.
 	Node role.NodeID
@@ -335,7 +360,8 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel related) (Grab, error) {
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
-		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, Link: row.ReleaseLink},
+		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
+		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
 	}
@@ -377,4 +403,11 @@ func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (
 		}
 	}
 	return out, nil
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

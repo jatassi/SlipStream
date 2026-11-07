@@ -580,12 +580,20 @@ func releaseDates(m scenario.TMDBMovie) *releaseDatesJSON {
 func credits(cr scenario.TMDBCredits) *creditsJSON {
 	out := &creditsJSON{Cast: []castJSON{}, Crew: []crewJSON{}}
 	for i, c := range cr.Cast {
-		out.Cast = append(out.Cast, castJSON{ID: c.ID, Name: c.Name, Character: c.Character, Order: i, ProfilePath: file("person", strconv.FormatInt(c.ID, 10), ".jpg")})
+		out.Cast = append(out.Cast, castJSON{ID: c.ID, Name: c.Name, Character: c.Character, Order: i, ProfilePath: profile(c.ID, c.Profile)})
 	}
 	for _, c := range cr.Crew {
-		out.Crew = append(out.Crew, crewJSON{ID: c.ID, Name: c.Name, Department: c.Department, Job: c.Job, ProfilePath: file("person", strconv.FormatInt(c.ID, 10), ".jpg")})
+		out.Crew = append(out.Crew, crewJSON{ID: c.ID, Name: c.Name, Department: c.Department, Job: c.Job, ProfilePath: profile(c.ID, c.Profile)})
 	}
 	return out
+}
+
+// profile is a person's recorded photo, else one made up for their id.
+func profile(id int64, recorded string) *string {
+	if recorded != "" {
+		return &recorded
+	}
+	return file("person", strconv.FormatInt(id, 10), ".jpg")
 }
 
 // videos is the one trailer, published on day, in English.
@@ -637,6 +645,9 @@ func (a art) set(langs []string) *imagesJSON {
 			continue
 		}
 		d := dimensions[im.Shape]
+		if im.Width > 0 {
+			d = [2]int{im.Width, im.Height}
+		}
 		img := imageJSON{FilePath: *a.path(i), VoteAverage: im.Votes, VoteCount: 1, Width: d[0], Height: d[1], AspectRatio: float64(d[0]) / float64(d[1])}
 		if im.Language != "" {
 			img.Language, img.Country = &im.Language, countryOf(im.Language)
@@ -661,9 +672,15 @@ func (a art) pathOf(shape, lang string) *string {
 	return nil
 }
 
+// path is the image's recorded path, else one made up for its place in
+// the record's list.
 func (a art) path(i int) *string {
+	im := a.images[i]
+	if im.Path != "" {
+		return &im.Path
+	}
 	ext := ".jpg"
-	if a.images[i].Shape == "logo" {
+	if im.Shape == "logo" {
 		ext = ".png"
 	}
 	return file("image", fmt.Sprintf("%s/%d", a.key, i), ext)

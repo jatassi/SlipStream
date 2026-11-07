@@ -7,16 +7,16 @@ import { openRoots } from "../test/roots-page";
 import { renderApp } from "../test/render-app";
 import { asPhone } from "../test/viewport";
 
-const settingsTabs = () => page.getByRole("navigation", { name: "Settings" });
+const settingsNav = () => page.getByRole("navigation", { name: "Settings" });
 
-test("the Library roots tab carries a red dot with its counts in words while Storage has an error", async () => {
+test("the Library roots link carries a red dot with its counts in words while Storage has an error", async () => {
   serveRoots();
   const health = healthServer(reportOf({ storage: [fullVolume, fillingVolume] }));
   renderApp({ path: "/settings/address", handlers: health.handlers });
   await expect
-    .element(settingsTabs().getByRole("link", { name: "Library roots 1 error, 1 warning" }))
+    .element(settingsNav().getByRole("link", { name: "Library roots 1 error, 1 warning" }))
     .toBeVisible();
-  await expect.element(settingsTabs().getByRole("link", { name: "Address" })).toBeVisible();
+  await expect.element(settingsNav().getByRole("link", { name: "Address" })).toBeVisible();
 });
 
 test("Library roots opens with its worst Health item, called an error, leading to it on the Health page", async () => {
@@ -36,7 +36,7 @@ test("with nothing wrong in Storage Library roots has no dot and no line at its 
   serveRoots();
   openRoots({ handlers: healthServer(reportOf()).handlers });
   await expect
-    .element(settingsTabs().getByRole("link", { name: "Library roots", exact: true }))
+    .element(settingsNav().getByRole("link", { name: "Library roots", exact: true }))
     .toBeVisible();
   expect(page.getByRole("button", { name: "Open Health" }).query()).toBeNull();
 });

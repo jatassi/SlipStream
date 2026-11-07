@@ -1,0 +1,355 @@
+name: target
+
+on:
+  workflow_call:
+    inputs:
+      build:
+        description: The build matrix for this target, as JSON
+        type: string
+        required: true
+      e2e:
+        description: The e2e matrix for this target, as JSON
+        type: string
+        required: true
+      browser:
+        description: The browser matrix for this target, as JSON
+        type: string
+        required: true
+      package:
+        description: Whether to build the release packages, true or false
+        type: string
+        required: true
+      timings:
+        description: The cache key of the test timings to split by
+        type: string
+      filter:
+        description: Run only the tests that match, as go test -run and playwright --grep
+        type: string
+      repeat:
+        description: Run each test this many times, as go test -count and playwright --repeat-each
+        type: string
+        default: "1"
+    secrets:
+      TMDB_API_KEY:
+      TVDB_API_KEY:
+      OMDB_API_KEY:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build release binaries (${{ matrix.target }})
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.build) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      GOARCH: ${{ matrix.goarch }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: Select Xcode
+        if: matrix.xcode
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Set up Go and restore the Go caches
+        id: go
+        uses: ./.github/actions/go
+        with:
+          cache: go-${{ matrix.target }}
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      # Bun installs faster on Windows than its cache restores there.
+      - name: Cache Bun's install cache
+        if: runner.os != 'Windows'
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - name: Restore the native layers cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      # The e2e and browser jobs run fakeworld and the release tool from
+      # dist/, so no job after this one builds anything.
+      # Only a tag build carries SlipStream's metadata keys, and only into
+      # cmd/slipstream; its e2e jobs still reach nothing but fakes. Until the
+      # repository has the secrets, a release is keyless and status says so;
+      # with some but not all three, the build refuses.
+      - name: Build the release binaries, fakeworld and the release tool
+        run: |
+          args=()
+          if [ "$TAG" = true ] && [ -n "$SLIPSTREAM_TMDB_KEY$SLIPSTREAM_TVDB_KEY$SLIPSTREAM_OMDB_KEY" ]; then args+=(-bundle-keys); fi
+          go run ./cmd/release build "${args[@]}"
+          eval "$(go run ./cmd/release deps env)"
+          go build -o dist/ ./cmd/fakeworld ./cmd/release
+        env:
+          TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          SLIPSTREAM_TMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TMDB_API_KEY || '' }}
+          SLIPSTREAM_TVDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TVDB_API_KEY || '' }}
+          SLIPSTREAM_OMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.OMDB_API_KEY || '' }}
+      # The build test checks that the binary embeds web/dist/index.html.
+      - name: Upload dist/ for the test jobs
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.target }}
+          path: |
+            dist
+            web/dist/index.html
+            !dist/slipstream-app*
+          retention-days: 3
+          if-no-files-found: error
+      # The AppImage smoke mounts the image through FUSE.
+      - name: Install FUSE for the AppImage smoke test
+        if: inputs.package == 'true' && runner.os == 'Linux'
+        run: sudo apt-get install -y fuse3
+      - name: Build the release packages
+        if: inputs.package == 'true'
+        run: |
+          args=(-o out)
+          if [ "$TAG" = true ]; then args+=(-tag "$GITHUB_REF_NAME"); fi
+          if [ "$TARGET" = linux-amd64 ]; then args+=(-source); fi
+          if [ "$TAG" = true ] && [ "$TARGET" = windows-amd64 ] && [ -n "$SIGNPATH" ]; then args+=(-sign signpath); fi
+          go run ./cmd/release package "${args[@]}"
+        env:
+          TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          TARGET: ${{ matrix.target }}
+          SIGNPATH: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+      - name: Smoke-test the release packages
+        if: inputs.package == 'true'
+        run: go run ./cmd/release smoke -from out -disposable
+      - name: Upload the release packages
+        if: inputs.package == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages-${{ matrix.target }}
+          path: |
+            out
+            !out/docker
+          if-no-files-found: error
+      # The context links ffmpeg to where the image's package installs it,
+      # a link an artifact cannot hold, so it goes up as a tar.
+      - name: Pack the Docker context as a tar
+        if: inputs.package == 'true' && runner.os == 'Linux'
+        run: tar -C out -cf "$RUNNER_TEMP/docker-context.tar" docker
+      - name: Upload the Docker context
+        if: inputs.package == 'true' && runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-context-${{ matrix.target }}
+          path: ${{ runner.temp }}/docker-context.tar
+          if-no-files-found: error
+      # Only main saves, one cache per target, and every other ref restores
+      # main's newest. A save per branch push or per job evicts main's
+      # caches from the repo's 10 GB. So this job also compiles what the
+      # lint, go and e2e jobs compile but do not save: the race builds of
+      # the tests and the tools the lint jobs run.
+      - name: Precompile the race tests and lint tools for the cache
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          eval "$(go run ./cmd/release deps env)"
+          go test -race -count=1 -run '^$' ./...
+          go tool -modfile=tools/go.mod golangci-lint version
+          go tool -modfile=tools/go.mod buf --version
+          go tool -modfile=tools/go.mod sqlc version
+      - name: Save this target's Go caches
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ runner.temp }}/go-build
+            ${{ runner.temp }}/go-mod
+          key: ${{ steps.go.outputs.cache-key }}
+
+  e2e:
+    name: End-to-end Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
+    needs: build
+    if: fromJSON(inputs.e2e).include[0]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.e2e) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      GOARCH: ${{ matrix.goarch }}
+      SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+      FILTER: ${{ inputs.filter }}
+      REPEAT: ${{ inputs.repeat }}
+      EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: Select Xcode
+        if: matrix.xcode
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
+        with:
+          cache: go-${{ matrix.target }}
+      - name: Restore the native layers cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      - name: Download dist/ from the build job
+        uses: actions/download-artifact@v8
+        with:
+          name: dist-${{ matrix.target }}
+      # An artifact does not keep the executable bit.
+      - name: Restore the executable bits on dist/
+        run: chmod +x dist/*
+      - name: Restore the Go test timings
+        if: inputs.timings != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: .timings
+          key: ${{ inputs.timings }}
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
+      # The tier's Nodes bind 127.0.0.2 and up, which macOS answers only
+      # once aliased. The second run must change nothing.
+      - name: Alias loopback addresses for the Nodes
+        if: matrix.goos == 'darwin'
+        run: |
+          sudo dist/fakeworld setup-loopback
+          second="$(sudo dist/fakeworld setup-loopback)"
+          echo "$second"
+          test "$second" = "loopback aliases already set up"
+      - name: Point TEMP at the fast drive
+        if: runner.os == 'Windows'
+        run: |
+          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Run end-to-end test shard
+        id: test
+        run: go run ./cmd/release test -tier e2e -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-e2e-${{ matrix.shard }}.json"
+        env:
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
+          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ env.EXE }}
+          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
+          TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      # Each failed run dir is a replay bundle. The run's copies of the
+      # binaries stay out of it; fakeworld replay --binary takes them from
+      # the dist artifact.
+      - name: Upload fakeworld replay bundles on failure
+        if: failure() && steps.test.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fakeworld-runs-e2e-${{ matrix.target }}-${{ matrix.shard }}
+          path: |
+            ${{ runner.temp }}/fakeworld-runs
+            !${{ runner.temp }}/fakeworld-runs/**/bin/**
+          if-no-files-found: ignore
+      - name: Upload this shard's test timings
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: timings-${{ matrix.target }}-e2e-${{ matrix.shard }}
+          path: ${{ runner.temp }}/timings
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # The browser tier runs the build job's dist/ and needs no Go.
+  browser:
+    name: Browser tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
+    needs: build
+    if: fromJSON(inputs.browser).include[0]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.browser) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+      FILTER: ${{ inputs.filter }}
+      REPEAT: ${{ inputs.repeat }}
+      EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: Download dist/ from the build job
+        uses: actions/download-artifact@v8
+        with:
+          name: dist-${{ matrix.target }}
+      - name: Restore the executable bits on dist/
+        run: chmod +x dist/*
+      # Playwright runs under Node through bun run.
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - name: Cache Bun's install cache
+        if: runner.os != 'Windows'
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - name: Keep Playwright browsers in the runner temp dir
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
+      - name: Cache the Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/ms-playwright
+          key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
+      - name: Alias loopback addresses for the Nodes
+        if: matrix.goos == 'darwin'
+        run: sudo dist/fakeworld setup-loopback
+      - name: Restore the test timings
+        if: inputs.timings != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: .timings
+          key: ${{ inputs.timings }}
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
+      # The browsers' system libraries are not in the cache, so Linux
+      # installs them on every run.
+      - name: Install the Playwright browsers and their system libraries
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/playwright
+        with:
+          cache: playwright-debs-${{ matrix.target }}
+          save: ${{ matrix.shard == 1 }}
+      - name: Point TEMP at the fast drive
+        if: runner.os == 'Windows'
+        run: |
+          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Run browser test shard
+        id: test
+        run: |
+          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json"
+        env:
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
+          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
+          TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      - name: Upload fakeworld replay bundles on failure
+        if: failure() && steps.test.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fakeworld-runs-browser-${{ matrix.target }}-${{ matrix.shard }}
+          path: |
+            ${{ runner.temp }}/fakeworld-runs
+            !${{ runner.temp }}/fakeworld-runs/**/bin/**
+          if-no-files-found: ignore
+      - name: Upload this shard's test timings
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: timings-${{ matrix.target }}-browser-${{ matrix.shard }}
+          path: ${{ runner.temp }}/timings
+          retention-days: 1
+          if-no-files-found: ignore

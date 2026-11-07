@@ -126,6 +126,7 @@ export const adminNav: NavTable = [
     to: "/settings",
     audience: "admin",
     place: "system",
+    within: true,
   },
   {
     id: "tasks",

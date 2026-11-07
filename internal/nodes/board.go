@@ -253,6 +253,25 @@ func (h Holders) Pick(prefer ID) (ID, bool) {
 	return ID{}, false
 }
 
+// Holding is every Node assigned the Role, in step or not, and not only
+// covering it: the Controller first, then by id. The first is where the
+// planner moves an unticked Role's portable work.
+func (h Holders) Holding() []ID {
+	var out []ID
+	for _, n := range h.b.nodes {
+		switch h.State(n.ID) {
+		case Holding, Away, Lapsed:
+			if n.Controller {
+				out = append([]ID{n.ID}, out...)
+			} else {
+				out = append(out, n.ID)
+			}
+		case NoState, Covering, Draining, WritingOff:
+		}
+	}
+	return out
+}
+
 // Serving is every Node that serves the Role, in id order.
 func (h Holders) Serving() []ID {
 	var out []ID

@@ -56,7 +56,7 @@ async function act(page: Page, action: string): Promise<void> {
 }
 
 const header = (page: Page, name: string) => table(page).getByRole("columnheader", { name });
-const wide = ["Ratio", "Speed", "Tracker", "Node · client"];
+const wide = ["Ratio", "Speed", "Announce", "Node · client"];
 
 async function expectColumns(page: Page, shown: readonly string[], hidden: readonly string[]) {
   for (const name of shown) {
@@ -82,7 +82,7 @@ async function expectPoster(page: Page) {
 async function expectCards(page: Page) {
   await expect(header(page, "Work")).toBeHidden();
   await expect(row(page).getByRole("cell", { name: /^Speed Down /u })).toBeVisible();
-  await expect(row(page).getByRole("cell", { name: /^Tracker 127\.0\.0\.1/u })).toBeVisible();
+  await expect(row(page).getByRole("cell", { name: /^Announce 127\.0\.0\.1/u })).toBeVisible();
 }
 
 test("the table shows eight columns at 1280 px, four at 980 px and stacked cards at 620 px, each led by its poster", async ({
@@ -155,7 +155,7 @@ test("the Inspector reads one torrent, and a remove with its download copy cance
   await expect(page).toHaveURL(/\/activity\/torrents\/[\da-f-]+$/u);
   const inspector = inspectorOf(page);
   await expect(inspector.getByText(/^Downloading from \d+ peers?/u)).toBeVisible();
-  for (const section of ["Numbers", "Trackers", "Files", "Grabs", "Details"]) {
+  for (const section of ["Numbers", "Announce URLs", "Files", "Grabs", "Details"]) {
     // oxlint-disable-next-line no-await-in-loop -- one section at a time names the one missing
     await expect(inspector.getByRole("heading", { name: section, exact: true })).toBeVisible();
   }

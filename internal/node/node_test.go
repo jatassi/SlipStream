@@ -42,7 +42,7 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 	stderr := new(syncBuffer)
 	return Env{
 		DataDir: d,
-		Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0"},
+		Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0", "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG=https://127.0.0.1:9/master"},
 		Stderr:  stderr,
 		Version: "test",
 		Net:     osNetwork{},

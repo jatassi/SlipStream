@@ -22,6 +22,7 @@ An Admin changes which Node holds which Role through one plan, from each Node's 
 - `roles-write-off` `POST /api/v1/nodes/{id}/write-offs` answers the Outcome with a `writes-off` effect, `The 1 torrent (3.5 MB) seedbox holds for Downloading is written off. No files are deleted.` seedbox announces `stopped`, the roster lists no Downloading on it, and the downloaded file in seedbox's data dir still matches the release.
 - `roles-write-off-nothing` writing off a Role the Node holds no work for answers 409 `nothing_held` with `outcome`, whose check reads `seedbox holds nothing to write off for Downloading.`
 - `roles-write-off-offline` writing off Downloading on a stopped seedbox with a Grab mid-download answers at once and hands Downloading to home. The Grab fails at `downloading` with `node_written_off`, and Activity reads `What the Node downloading it held was written off. Its files are kept.` Once seedbox is back it runs no Downloading, and the tracker's last announce from it is the `stopped` it sent as it stopped: it never resumes the written-off torrent.
+- `roles-write-off-offline-probing` writing off Downloading on a stopped seedbox with a Grab at `probing` fails it at `probing` with `node_written_off`. A Grab past `downloading` reads the write-off from its parted Torrent as well as the roster, whose forfeit can settle first.
 
 ## How to get to it (user POV)
 
@@ -236,6 +237,35 @@ Steps:
   $FW exec $RUN -- bash -c 'for i in $(seq 30); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/nodes" | jq -e ".nodes[] | select(.name == \"seedbox\") | .link.state == \"up\" and .facts.running == []" >/dev/null && exit 0; sleep 1; done; exit 1'
   $FW exec $RUN --proof roles/roles-write-off-offline -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
   $FW exec $RUN --proof roles/roles-write-off-offline -- bash -c "$FW announces list {runDir} --node seedbox | jq -s -e 'last.data.event == \"stopped\"'"
+  ```
+
+### Write off an offline Node past downloading
+
+Preconditions:
+
+- Another fresh `home` run with doctor passing.
+
+Steps:
+
+- **Hold a Grab at probing.** Throttle seedbox's seeders, add The Quiet Orchard and search it. Once seedbox announces `started`, slow the Node link so the probe call waits, lift the throttle, and watch for stage `probing`.
+
+  ```sh
+  $FW fault set $RUN swarm-hold seeders@seedbox throttle=16KiB/s
+  WORK=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","key":"9000001","monitor":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/search"
+  $FW announces wait $RUN --node seedbox --where event=started --timeout 60s
+  $FW fault set $RUN link-slow link/home latency=4s
+  $FW fault clear $RUN swarm-hold
+  $FW exec $RUN --proof roles/roles-write-off-offline-probing -- bash -c 'for i in $(seq 1200); do s=$(curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/grabs" | jq -r ".grabs[0].stage"); [ "$s" = probing ] && exit 0; sleep 0.05; done; exit 1'
+  ```
+
+- **Stop seedbox and write off its Downloading.** The answer comes at once. The Grab reads stage `failed` with failure `{stage: probing, code: node_written_off}`, and Activity shows its words.
+
+  ```sh
+  $FW node stop $RUN seedbox
+  $FW exec $RUN --proof roles/roles-write-off-offline-probing -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"roles":["downloading"]}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/write-offs'
+  $FW fault clear $RUN link-slow
+  $FW exec $RUN --proof roles/roles-write-off-offline-probing -- bash -c 'for i in $(seq 60); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/grabs" | jq -e ".grabs[0].failure.code == \"node_written_off\"" && exit 0; sleep 0.5; done; exit 1'
   ```
 
 ### The Roles section, its Review and write-off

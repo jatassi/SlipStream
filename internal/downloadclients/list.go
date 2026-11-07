@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
+	"github.com/jatassi/slipstream/internal/indexers"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -278,8 +279,10 @@ type Detail struct {
 	SaveFolder string
 	PieceSize  int64
 	Private    bool
-	Trackers   []TrackerDetail
-	Files      []FileDetail
+	// Tracker is the Tracker its Grab's Release reached, nil for none.
+	Tracker  *indexers.TrackerID
+	Trackers []TrackerDetail
+	Files    []FileDetail
 	// Live: its Node answered, so Trackers, Files and AnnounceAt are its
 	// word now rather than its last report.
 	Live bool
@@ -351,7 +354,7 @@ func detailOf(row Row, details db.GetDetailsRow) (Detail, error) {
 	if err != nil {
 		return Detail{}, fmt.Errorf("torrent %s: %w", row.ID, err)
 	}
-	d := Detail{Row: row, InfoHash: m.InfoHash, PieceSize: m.Info.PieceLength, Private: details.Private == 1}
+	d := Detail{Row: row, InfoHash: m.InfoHash, PieceSize: m.Info.PieceLength, Private: details.Private == 1, Tracker: details.TrackerID}
 	if details.SaveFolder != nil {
 		d.SaveFolder = *details.SaveFolder
 	}

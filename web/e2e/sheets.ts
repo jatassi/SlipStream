@@ -1,11 +1,13 @@
 import { type BrowserContext, type Page, expect } from "@playwright/test";
 
-const sheets = "[role=dialog][data-swipe-direction]";
+const sheets = "[role=dialog][data-swipe-direction]:not([data-ending-style])";
 
 // A sheet slides up from below the screen as it opens. Under load the page can
 // stall before the slide starts, and Playwright's stable check reads the frames
 // either side of the stall as a sheet at rest, so it presses a row that is
 // still sliding and the release lands beside it. A person waits for the sheet.
+// A closing sheet is left alone: nobody presses it, and waiting out its slide
+// lets a toast shown as it closes time out unseen.
 async function arrive(page: Page): Promise<void> {
   const open = page.locator(sheets);
   await expect(open.and(page.locator("[data-starting-style]"))).toHaveCount(0);

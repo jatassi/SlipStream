@@ -14,6 +14,7 @@ import { dropRows, queueRows, wholeLibrary } from "./rows";
 import type { LiveEffects } from "./types";
 
 const everyWork = everyPath(/^\/api\/v1\/works\/[^/]+(\/cells)?$/u);
+const everyIndexersGrabs = everyPath(/^\/api\/v1\/indexers\/[^/]+\/grabs$/u);
 
 /**
  * The library's events: Works, their files, Grabs and searches. A row of
@@ -57,6 +58,7 @@ export const libraryEffects = {
     }
     refresh({ queryKey: getListGrabsQueryKey() });
     refresh({ queryKey: getGetGrabQueryKey(grabId) });
+    refresh(everyIndexersGrabs);
     if (!progress) {
       refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
     }

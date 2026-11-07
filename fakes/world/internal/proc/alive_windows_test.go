@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"testing"
 
 	"golang.org/x/sys/windows"
@@ -38,23 +37,33 @@ func TestAProcessThatIsNotAliveReleasesItsExecutable(t *testing.T) {
 }
 
 // Windows hands a reaped process's PID to a later process, so a check
-// after stop must not mistake that process for the one that stopped. The
-// watch keeps its own PID from reuse, so an unwatched process's PID shows
-// that Windows reused freed PIDs meanwhile.
+// after stop must not mistake that process for the one that stopped. A
+// watch keeps its PID from reuse, so that PID still names the process
+// that exited.
 func TestAWatchedProcessReadsAsGoneOnceItsPIDIsReaped(t *testing.T) {
 	t.Parallel()
 	watched := start(t)
-	w, err := proc.Watch(watched.Process.Pid)
+	pid := watched.Process.Pid
+	w, err := proc.Watch(pid)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer w.Close()
 	reap(t, watched)
-	unwatched := start(t)
-	reap(t, unwatched)
-	parkUntilReused(t, unwatched.Process.Pid)
 	if !w.Gone() {
-		t.Fatalf("the reaped PID %d reads as running once Windows has reused freed PIDs", watched.Process.Pid)
+		t.Fatalf("the reaped PID %d reads as running", pid)
+	}
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid)) //nolint:gosec // a PID is positive and fits
+	if err != nil {
+		t.Fatalf("the watch let PID %d go: %v", pid, err)
+	}
+	defer func() { _ = windows.CloseHandle(h) }()
+	var code uint32
+	if err := windows.GetExitCodeProcess(h, &code); err != nil {
+		t.Fatal(err)
+	}
+	if code != 0 {
+		t.Fatalf("PID %d holds exit code %d, want the 0 of the process the watch kept it for", pid, code)
 	}
 }
 
@@ -73,27 +82,6 @@ func reap(t *testing.T, cmd *exec.Cmd) {
 	if err := cmd.Wait(); err != nil {
 		t.Fatal(err)
 	}
-}
-
-// parkUntilReused starts suspended processes until one gets pid. Each is
-// killed at once, freeing its memory, but its handle stays open until t
-// ends, so none frees a PID that Windows would reuse before pid.
-func parkUntilReused(t *testing.T, pid int) {
-	t.Helper()
-	const spawns = 1000
-	for range spawns {
-		cmd := exec.CommandContext(worldtest.Context(t), os.Args[0])
-		cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_SUSPENDED}
-		if err := cmd.Start(); err != nil {
-			t.Fatal(err)
-		}
-		_ = cmd.Process.Kill()
-		t.Cleanup(func() { _ = cmd.Wait() })
-		if cmd.Process.Pid == pid {
-			return
-		}
-	}
-	t.Fatalf("no process got PID %d within %d spawns", pid, spawns)
 }
 
 func copyFile(t *testing.T, src, dst string) {

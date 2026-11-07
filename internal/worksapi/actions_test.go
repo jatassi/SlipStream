@@ -748,15 +748,14 @@ func TestADeleteThatFailsInItsWriteLeavesEveryRow(t *testing.T) {
 func TestDeletingAWorkMidDownloadLeavesItsTorrentSeeding(t *testing.T) {
 	s := shelve(t)
 	w1 := s.add(t, contenttypetest.ID, "w1", nil, nil)
-	indexer, torrent, grab := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	torrent, grab := storage.NewUUID(), storage.NewUUID()
 	hash := []byte("aaaaaaaaaaaaaaaaaaaa")
-	s.exec(t, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, seedbox)
 	s.exec(t, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, wanted,
 		added_order, added_at) VALUES (?, ?, ?, x'00', 'Shelf.w1.1080p.WEB', 4096, 1, '[]', 'fixture', 'started', 1, 0)`, torrent, seedbox, hash)
-	s.exec(t, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link,
+	s.exec(t, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id, release_title, release_size, release_magnet,
 		stage, torrent_id, created_at, updated_at)
-		SELECT ?, work_id, id, 'any', 'search', ?, ?, 'Shelf.w1.1080p.WEB', 4096, 'https://site.test/dl/1', 'downloading', ?, 0, 0
-		FROM works_item WHERE work_id = ?`, grab, indexer, seedbox, torrent, workID(t, w1))
+		SELECT ?, work_id, id, 'any', 'search', ?, 'Shelf.w1.1080p.WEB', 4096, 'magnet:?xt=urn:btih:6161616161616161616161616161616161616161', 'downloading', ?, 0, 0
+		FROM works_item WHERE work_id = ?`, grab, seedbox, torrent, workID(t, w1))
 
 	got, a := s.act(t, http.MethodPost, "/api/v1/works/delete", ids(w1)+`,"files":"delete"}`)
 	expectOutcomes(t, "the delete", got, "w1 done")

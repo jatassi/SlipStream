@@ -98,6 +98,14 @@ func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick
 
 func (s *Service) PickOther(r role.Name, besides ID) (ID, bool) { return s.Who(r).PickOther(besides) }
 
+func (s *Service) Holding(r role.Name) []ID { return s.Who(r).Holding() }
+
+// Name is node's name, "" for a Node the board doesn't list.
+func (s *Service) Name(node ID) string {
+	v, _ := s.Board().Node(node)
+	return v.Name
+}
+
 // Why is why no Node may take new r work, in words, or "" when one may.
 func (s *Service) Why(r role.Name) string { return s.Who(r).Why() }
 

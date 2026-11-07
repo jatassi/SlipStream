@@ -38,4 +38,4 @@ tracker:
 library:
   storage_levels: {warn_below: 0B, error_below: 0B}
   roots: [{content_type: movie, folder: movies}]
-  indexers: [{name: Fixture Site, site: fixture-site}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

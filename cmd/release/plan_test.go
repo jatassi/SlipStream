@@ -117,13 +117,17 @@ func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for kind, planned := range got.Planned() {
+		for kind, m := range got.Lanes {
+			planned := len(m.Include) > 0
 			if planned != tt.want[kind] {
 				t.Errorf("dispatch of %v on %s: %s planned %t, want %t", tt.keep, tt.tier, kind, planned, tt.want[kind])
 			}
-			if targets := laneTargets(got.Lanes[kind]); tt.keep != nil && planned && !slices.Equal(targets, tt.keep) {
+			if targets := laneTargets(m); tt.keep != nil && planned && !slices.Equal(targets, tt.keep) {
 				t.Errorf("dispatch of %v on %s runs %s on %v", tt.keep, tt.tier, kind, targets)
 			}
+		}
+		if planned := got.PlannedJobs()["target"]; planned != tt.want["build"] {
+			t.Errorf("dispatch of %v on %s: target planned %t, want %t", tt.keep, tt.tier, planned, tt.want["build"])
 		}
 	}
 	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, []string{"plan9-amd64"}, "all"); err == nil {
@@ -156,7 +160,7 @@ func TestPlanDiagramWhenTouched(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if planned := got.Planned()["diagram"]; planned != tt.want {
+		if planned := got.PlannedJobs()["diagram"]; planned != tt.want {
 			t.Errorf("plan(%s, %s, %+v) plans diagram %t, want %t", tt.event, tt.scope, tt.touched, planned, tt.want)
 		}
 	}
@@ -192,6 +196,47 @@ func TestLanesCoverEveryTarget(t *testing.T) {
 	}
 }
 
+func TestPlanTargetsSplitsEachLaneByTarget(t *testing.T) {
+	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "browser")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	browser := 0
+	for _, c := range got.Targets().Include {
+		names = append(names, c.Target)
+		browser += len(c.Browser.Include)
+		for kind, m := range map[string]Matrix{"build": c.Build, "browser": c.Browser} {
+			if targets := laneTargets(m); !slices.Equal(targets, []string{c.Target}) {
+				t.Errorf("call for %s runs %s on %v", c.Target, kind, targets)
+			}
+		}
+		if len(c.E2E.Include) != 0 {
+			t.Errorf("call for %s runs e2e on a browser dispatch: %v", c.Target, c.E2E)
+		}
+	}
+	if want := laneTargets(got.Lanes["build"]); !slices.Equal(names, want) {
+		t.Errorf("calls on %v, want %v", names, want)
+	}
+	if want := len(got.Lanes["browser"].Include); browser != want {
+		t.Errorf("calls hold %d browser jobs, want %d", browser, want)
+	}
+}
+
+func TestPlanTargetsEmptyWithoutABuild(t *testing.T) {
+	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(got.Targets())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"include":[]}`; string(b) != want {
+		t.Errorf("target matrix JSON = %s, want %s", b, want)
+	}
+}
+
 func TestPlanJSON(t *testing.T) {
 	p, err := plan(planInputs, events["push"], changescope.PR, touched{}, nil, "all")
 	if err != nil {
@@ -210,35 +255,87 @@ func TestPlanJSON(t *testing.T) {
 	}
 }
 
-// TestCIRunsEveryLane holds ci.yml to the lane table: a job per lane that
-// runs the plan's matrix when the plan says so, and a gate over them all.
-func TestCIRunsEveryLane(t *testing.T) {
+type ciJob struct {
+	If       string            `yaml:"if"`
+	Needs    any               `yaml:"needs"`
+	Uses     string            `yaml:"uses"`
+	Outputs  map[string]string `yaml:"outputs"`
+	Strategy struct {
+		Matrix any `yaml:"matrix"`
+	} `yaml:"strategy"`
+}
+
+func readWorkflow(t *testing.T, name string) map[string]ciJob {
+	t.Helper()
 	root, err := repoRoot(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "ci.yml"))
+	b, err := os.ReadFile(filepath.Join(root, ".github", "workflows", name))
 	if err != nil {
 		t.Fatal(err)
 	}
-	type job struct {
-		If       string            `yaml:"if"`
-		Needs    any               `yaml:"needs"`
-		Outputs  map[string]string `yaml:"outputs"`
-		Strategy struct {
-			Matrix any `yaml:"matrix"`
-		} `yaml:"strategy"`
+	var w struct {
+		Jobs map[string]ciJob `yaml:"jobs"`
 	}
-	var ci struct {
-		Jobs map[string]job `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal(b, &ci); err != nil {
+	if err := yaml.Unmarshal(b, &w); err != nil {
 		t.Fatal(err)
 	}
-	gateNeeds := []string{"plan"}
+	return w.Jobs
+}
+
+func TestCICallsTargetWorkflowPerTarget(t *testing.T) {
+	ci := readWorkflow(t, "ci.yml")
+	call := ci["target"]
+	if want := "./.github/workflows/target.yml"; call.Uses != want {
+		t.Errorf("job target uses %q, want %q", call.Uses, want)
+	}
+	if want := "fromJSON(needs.plan.outputs.planned)['target']"; call.If != want {
+		t.Errorf("job target if = %q, want %q", call.If, want)
+	}
+	if want := "${{ fromJSON(needs.plan.outputs.target) }}"; call.Strategy.Matrix != want {
+		t.Errorf("job target matrix = %v, want %q", call.Strategy.Matrix, want)
+	}
+	if want := "${{ steps.plan.outputs.target }}"; ci["plan"].Outputs["target"] != want {
+		t.Errorf("plan output target = %q, want %q", ci["plan"].Outputs["target"], want)
+	}
+}
+
+func TestTargetWorkflowRunsItsLanesOnItsBuild(t *testing.T) {
+	jobs := readWorkflow(t, "target.yml")
 	for _, l := range lanes {
+		if !l.inTargetWorkflow() {
+			continue
+		}
+		j, ok := jobs[l.kind]
+		if !ok {
+			t.Errorf("target.yml has no %s job", l.kind)
+			continue
+		}
+		if want := fmt.Sprintf("${{ fromJSON(inputs.%s) }}", l.kind); j.Strategy.Matrix != want {
+			t.Errorf("job %s matrix = %v, want %q", l.kind, j.Strategy.Matrix, want)
+		}
+		if l.kind == "build" {
+			continue
+		}
+		if want := fmt.Sprintf("fromJSON(inputs.%s).include[0]", l.kind); j.If != want {
+			t.Errorf("job %s if = %q, want %q", l.kind, j.If, want)
+		}
+		if j.Needs != "build" {
+			t.Errorf("job %s needs %v, want build for its dist/", l.kind, j.Needs)
+		}
+	}
+}
+
+func TestCIRunsEveryLane(t *testing.T) {
+	ci := readWorkflow(t, "ci.yml")
+	gateNeeds := []string{"plan", "target"}
+	for _, l := range lanes {
+		if l.inTargetWorkflow() {
+			continue
+		}
 		gateNeeds = append(gateNeeds, l.kind)
-		j, ok := ci.Jobs[l.kind]
+		j, ok := ci[l.kind]
 		if !ok {
 			t.Errorf("ci.yml has no %s job", l.kind)
 			continue
@@ -249,16 +346,13 @@ func TestCIRunsEveryLane(t *testing.T) {
 		if want := fmt.Sprintf("fromJSON(needs.plan.outputs.planned)['%s']", l.kind); j.If != want {
 			t.Errorf("job %s if = %q, want %q", l.kind, j.If, want)
 		}
-		if needs, _ := j.Needs.([]any); slices.Contains(lanesOnBuild, l.kind) && !slices.Contains(needs, any("build")) {
-			t.Errorf("job %s needs %v, want build among them for its dist/", l.kind, j.Needs)
-		}
-		if want := fmt.Sprintf("${{ steps.plan.outputs.%s }}", l.kind); ci.Jobs["plan"].Outputs[l.kind] != want {
-			t.Errorf("plan output %s = %q, want %q", l.kind, ci.Jobs["plan"].Outputs[l.kind], want)
+		if want := fmt.Sprintf("${{ steps.plan.outputs.%s }}", l.kind); ci["plan"].Outputs[l.kind] != want {
+			t.Errorf("plan output %s = %q, want %q", l.kind, ci["plan"].Outputs[l.kind], want)
 		}
 	}
-	gate, ok := ci.Jobs["gate"].Needs.([]any)
+	gate, ok := ci["gate"].Needs.([]any)
 	if !ok {
-		t.Fatalf("gate needs %v, want a list", ci.Jobs["gate"].Needs)
+		t.Fatalf("gate needs %v, want a list", ci["gate"].Needs)
 	}
 	var needs []string
 	for _, n := range gate {

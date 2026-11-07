@@ -9,9 +9,14 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 type Registry interface {
@@ -30,27 +35,54 @@ func open(r Registry) *indexers.Indexers {
 var (
 	indexerNameTaken   = api.NewCode(http.StatusConflict, "indexer_name_taken", "Another Indexer has that name")
 	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node holds Searching. Give one the Searching Role first.")
-	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Indexer didn't respond")
-	indexerRefused     = api.NewCode(http.StatusUnprocessableEntity, "indexer_refused", "The Indexer refused the request")
+	nodeNotSearching   = api.NewCode(http.StatusConflict, "node_not_searching", "That Node doesn't stand in Searching")
+	indexerTestFailed  = api.NewCarrying[captchaImage](http.StatusUnprocessableEntity, "indexer_test_failed", "The Indexer's Test failed", "captcha")
+	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Test couldn't run")
 	indexerNotFound    = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )
 
-func answer(err error) error {
+func answer(x *indexers.Indexers, err error) error {
+	var failed *indexers.TestFailedError
+	var wait *indexers.WaitError
 	var unavailable *indexers.UnavailableError
-	var refused *indexers.RefusedError
+	var refused *indexers.FeedRefusedError
+	var unrunnable *cardigann.Unrunnable
+	var value *indexers.ValueError
 	switch {
+	case errors.As(err, &failed) && failed.Captcha != nil:
+		return indexerTestFailed.Explained(failed.Sentence, captchaOf(*failed.Captcha))
+	case errors.As(err, &failed):
+		return indexerTestFailed.Because(failed.Sentence)
 	case errors.As(err, &refused):
-		return indexerRefused.Because("error " + refused.Code + ": " + refused.Description)
-	case errors.As(err, &unavailable) && errors.Is(err, indexers.ErrAPIKeyDropped):
-		return indexerUnavailable.Because(unavailable.Reason() + " Enter it again.")
-	case errors.As(err, &unavailable):
-		return indexerUnavailable.Because(unavailable.Reason())
+		return indexerTestFailed.Because(refused.Sentence)
+	case errors.As(err, &wait), errors.As(err, &unavailable), errors.Is(err, indexers.ErrLate):
+		return indexerUnavailable.Because(x.Unreached(err))
 	case errors.Is(err, indexers.ErrNameTaken):
 		return indexerNameTaken
 	case errors.Is(err, indexers.ErrNoSearchingNode):
 		return noSearchingNode
+	case errors.Is(err, indexers.ErrNotSearching):
+		return nodeNotSearching
 	case errors.Is(err, indexers.ErrNoIndexer):
 		return indexerNotFound
+	case errors.Is(err, indexers.ErrMedia):
+		return api.Invalid.On("media", "Choose one or more of SlipStream's Content Types for the feed.")
+	case errors.Is(err, indexers.ErrCookie):
+		return api.Invalid.On("cookie.cookie", "Paste the cookie as name=value pairs separated by semicolons.")
+	case errors.Is(err, indexers.ErrCookieNeeded):
+		return api.Invalid.On("cookie", "Paste the cookie and User-Agent of a browser signed in to the site.")
+	case errors.Is(err, indexers.ErrNotALink):
+		return api.Invalid.On("baseAddress", "Choose one of the definition's addresses.")
+	case errors.As(err, &value):
+		return api.Invalid.On("values."+value.Field, value.Sentence)
+	case errors.Is(err, indexers.ErrCaptchaExpired):
+		return captchaExpired
+	case errors.Is(err, indexers.ErrNoCaptcha):
+		return captchaNotShown
+	case errors.Is(err, indexers.ErrCatalogUnavailable):
+		return catalogUnavailable
+	case errors.As(err, &unrunnable), errors.Is(err, indexers.ErrNoDefinition):
+		return catalogAnswer(err)
 	}
 	return err
 }
@@ -60,52 +92,423 @@ type searchMode struct {
 	Params []string `json:"params" nullable:"false" doc:"In the Indexer's order"`
 }
 
+type limit struct {
+	Count int    `json:"count" minimum:"0" maximum:"100000" doc:"0 is no limit"`
+	Per   string `json:"per" enum:"hour,day" doc:"The sliding window it counts in"`
+}
+
+type limitUse struct {
+	Count  int        `json:"count" minimum:"0" doc:"0 is no limit"`
+	Per    string     `json:"per" enum:"hour,day"`
+	Used   int        `json:"used" minimum:"0" doc:"The calls counted in the window now"`
+	FreeAt *time.Time `json:"freeAt" doc:"When the oldest counted call leaves the window; null while under the limit"`
+}
+
+type failure struct {
+	At   time.Time `json:"at"`
+	Text string    `json:"text"`
+}
+
+type status struct {
+	State       string                `json:"state" enum:"ok,limited,failing,stopped,home_only" doc:"home_only: a stop met on a failover Node, which waits for home"`
+	Cause       *string               `json:"cause" enum:"credentials_rejected,captcha_needed,challenge_unsolved,cookie_expired,definition_unloadable,account_refused,request_rejected" doc:"Null unless stopped or home_only"`
+	Text        *string               `json:"text" doc:"The site's or feed's own words"`
+	Until       *time.Time            `json:"until" doc:"When a limited or failing Indexer is asked again"`
+	Since       *time.Time            `json:"since" doc:"When it began failing, stopped or began waiting for home"`
+	NodeID      *string               `json:"nodeId" format:"uuid" doc:"The Node the stop was met on"`
+	SolverTried bool                  `json:"solverTried" doc:"A challenge_unsolved that the Node's Challenge solver couldn't clear"`
+	Rung        int                   `json:"rung" minimum:"0" doc:"The backoff ladder's position, stepping down one on each success"`
+	LastFailure api.Nullable[failure] `json:"lastFailure"`
+	SuccessAt   *time.Time            `json:"successAt" doc:"The last answer the site responded to"`
+}
+
+type outcome struct {
+	Kind     string     `json:"kind" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed"`
+	Releases int        `json:"releases" minimum:"0"`
+	Until    *time.Time `json:"until" doc:"Set for limited, failing and limit_reached"`
+	Since    *time.Time `json:"since" doc:"Set for waiting: since when the home Node is away; null when it holds no Role to search with"`
+	NodeID   *string    `json:"nodeId" format:"uuid" doc:"Set for waiting: the Node waited for; for stopped: the Node the stop was met on"`
+	Lapsed   bool       `json:"lapsed" doc:"Waiting past the offline grace"`
+	Cause    *string    `json:"cause" doc:"Set for stopped"`
+	Text     *string    `json:"text" doc:"Set for stopped: the site's own words"`
+}
+
+type pin struct {
+	ID          string            `json:"id"`
+	Version     string            `json:"version" doc:"The pinned version's git blob sha"`
+	FetchedAt   time.Time         `json:"fetchedAt" doc:"When SlipStream downloaded the pinned version"`
+	BaseAddress string            `json:"baseAddress"`
+	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
+}
+
+type session struct {
+	NodeID   string    `json:"nodeId" format:"uuid"`
+	Pasted   bool      `json:"pasted" doc:"Seeded from a browser cookie an Admin pasted"`
+	EarnedAt time.Time `json:"earnedAt"`
+}
+
 type indexer struct {
-	ID          string                `json:"id" format:"uuid"`
-	Name        string                `json:"name"`
-	Protocol    string                `json:"protocol" enum:"torznab"`
-	URL         string                `json:"url"`
-	HomeNodeID  string                `json:"homeNodeId" format:"uuid" doc:"The Node that reaches the Indexer"`
-	APIKeySet   bool                  `json:"apiKeySet" doc:"False when the key was dropped and an Admin must enter it again"`
-	SearchModes []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
-	Waiting     api.Nullable[waiting] `json:"waiting" doc:"Why its calls wait for its home Node, null while they go through"`
-	CreatedAt   time.Time             `json:"createdAt"`
+	ID              string                `json:"id" format:"uuid"`
+	Name            string                `json:"name"`
+	Kind            string                `json:"kind" enum:"catalog,torznab,rss"`
+	HomeNodeID      string                `json:"homeNodeId" format:"uuid" doc:"The Node it searches from"`
+	On              bool                  `json:"on"`
+	AutomaticSearch bool                  `json:"automaticSearch"`
+	RSS             bool                  `json:"rss"`
+	AllowFailover   bool                  `json:"allowFailover" doc:"Read only for an Indexer that signs in"`
+	Priority        int                   `json:"priority" minimum:"1" maximum:"50" doc:"Lower wins a tie"`
+	Categories      []int                 `json:"categories" doc:"Newznab category ids; null for every category it advertises"`
+	Media           []string              `json:"media" doc:"The Content Types an RSS feed carries; null for every other kind"`
+	AllowNoSize     bool                  `json:"allowNoSize" doc:"An RSS feed whose items may have no size"`
+	Searches        limitUse              `json:"searches"`
+	Grabs           limitUse              `json:"grabs"`
+	Status          status                `json:"status"`
+	Sentence        string                `json:"sentence" doc:"Its status in words"`
+	Fix             *string               `json:"fix" doc:"What the Admin can do about its status, in words; null when nothing"`
+	SignsIn         bool                  `json:"signsIn" doc:"It holds a login session, so it waits for its home rather than failing over unless allowFailover"`
+	TrackerIDs      []string              `json:"trackerIds" nullable:"false" doc:"The Trackers it reaches"`
+	Waits           api.Nullable[outcome] `json:"waits" doc:"Why its searches wait now, null when they don't"`
+	Session         api.Nullable[session] `json:"session" doc:"Its newest session on any Node, null for none"`
+	FeedHost        *string               `json:"feedHost" doc:"The host of a feed's address, which is never returned"`
+	Definition      api.Nullable[pin]     `json:"definition" doc:"A catalog Indexer's definition; null for a feed"`
+	SearchModes     []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
+	Revision        int64                 `json:"revision" minimum:"1"`
+	CreatedAt       time.Time             `json:"createdAt"`
 }
 
-type waiting struct {
-	Standing string    `json:"standing" enum:"reconnecting,offline,mismatched" doc:"How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable"`
-	Since    time.Time `json:"since" doc:"The home Node's last Sync frame, or the Controller's start when it sent none since"`
-}
-
-func indexerOf(xs *indexers.Indexers, x indexers.Indexer) indexer {
-	out := indexer{ID: x.ID.String(), Name: x.Name, Protocol: x.Protocol, URL: x.URL, HomeNodeID: x.HomeNode.String(), APIKeySet: x.Key.Set(), SearchModes: []searchMode{}, CreatedAt: x.CreatedAt}
-	for _, m := range slices.Sorted(maps.Keys(x.Caps.Modes)) {
-		out.SearchModes = append(out.SearchModes, searchMode{Mode: m, Params: x.Caps.Modes[m]})
+func when(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
 	}
-	if a, ok := xs.Waiting(x); ok {
-		out.Waiting = api.Some(waiting{Standing: a.Standing.String(), Since: a.Since})
+	return &t
+}
+
+func text[T ~string](s T) *string {
+	if s == "" {
+		return nil
+	}
+	v := string(s)
+	return &v
+}
+
+func node(n role.NodeID) *string {
+	if n.IsZero() {
+		return nil
+	}
+	s := n.String()
+	return &s
+}
+
+func indexerOf(v indexers.View) indexer {
+	out := indexer{
+		ID: v.ID.String(), Name: v.Name, Kind: string(v.Kind), HomeNodeID: v.Home.String(), On: v.On, AutomaticSearch: v.AutoSearch,
+		RSS: v.RSS, AllowFailover: v.AllowFailover, Priority: v.Priority,
+		Searches:    limitUseOf(v.Searches, v.Usage.Searches, v.Usage.SearchesFree),
+		Grabs:       limitUseOf(v.Grabs, v.Usage.Grabs, v.Usage.GrabsFree),
+		Status:      statusOf(v.Status),
+		Sentence:    v.Sentence,
+		Fix:         text(v.Fix),
+		SignsIn:     v.SignsIn,
+		TrackerIDs:  []string{},
+		FeedHost:    text(v.FeedHost),
+		SearchModes: []searchMode{},
+		Revision:    v.Revision,
+		CreatedAt:   v.Created,
+	}
+	if v.Categories != nil {
+		out.Categories = []int{}
+		for _, c := range v.Categories {
+			out.Categories = append(out.Categories, int(c))
+		}
+	}
+	for _, t := range v.Trackers {
+		out.TrackerIDs = append(out.TrackerIDs, t.String())
+	}
+	if v.Media != nil {
+		out.Media = []string{}
+		for _, m := range v.Media {
+			out.Media = append(out.Media, string(m))
+		}
+	}
+	switch s := v.Source.(type) {
+	case indexers.Feed:
+		out.AllowNoSize = s.AllowNoSize
+	case indexers.Definition:
+		values := map[string]string{}
+		maps.Copy(values, s.Plain)
+		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, FetchedAt: s.Fetched, BaseAddress: s.BaseAddress, Values: values})
+	}
+	if v.Waits != nil {
+		out.Waits = api.Some(outcomeOf(*v.Waits))
+	}
+	if v.Session != nil {
+		out.Session = api.Some(session{NodeID: v.Session.Node.String(), Pasted: v.Session.Pasted, EarnedAt: v.Session.Earned})
+	}
+	for _, m := range slices.Sorted(maps.Keys(v.Caps.Modes)) {
+		out.SearchModes = append(out.SearchModes, searchMode{Mode: m, Params: v.Caps.Modes[m]})
 	}
 	return out
 }
 
+func limitUseOf(l indexers.Limit, used int, free time.Time) limitUse {
+	if l.Per == "" {
+		l.Per = indexers.Hour
+	}
+	return limitUse{Count: l.Count, Per: string(l.Per), Used: used, FreeAt: when(free)}
+}
+
+func statusOf(s indexers.Status) status {
+	out := status{
+		State: string(s.State), Cause: text(s.Cause), Text: text(s.Text), Until: when(s.Until), Since: when(s.Since), NodeID: node(s.Node),
+		SolverTried: s.SolverTried, Rung: s.Rung, SuccessAt: when(s.Success),
+	}
+	if s.Last != nil {
+		out.LastFailure = api.Some(failure{At: s.Last.At, Text: s.Last.Text})
+	}
+	return out
+}
+
+func outcomeOf(o indexers.Outcome) outcome {
+	return outcome{
+		Kind: string(o.Kind), Releases: o.Releases, Until: when(o.Until), Since: when(o.Since), NodeID: node(o.Node), Lapsed: o.Lapsed,
+		Cause: text(o.Cause), Text: text(o.Text),
+	}
+}
+
+type pastedCookie struct {
+	Cookie    string `json:"cookie" minLength:"1" maxLength:"8192" doc:"The Cookie header's value from a signed-in browser: name=value pairs separated by semicolons"`
+	UserAgent string `json:"userAgent,omitempty" maxLength:"512" doc:"The User-Agent of that browser, sent with the cookie"`
+}
+
 type newIndexer struct {
-	Name   string `json:"name" minLength:"1" maxLength:"100"`
-	URL    string `json:"url" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?$" doc:"The Torznab feed's base; SlipStream adds /api"`
-	APIKey string `json:"apiKey" maxLength:"256"`
+	Kind            string            `json:"kind" enum:"catalog,torznab,rss"`
+	Name            string            `json:"name" minLength:"1" maxLength:"100"`
+	Definition      string            `json:"definition,omitempty" maxLength:"200" doc:"A catalog Indexer's definition id; required for one"`
+	BaseAddress     string            `json:"baseAddress,omitempty" maxLength:"2048" doc:"One of the definition's addresses; absent for its first"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only"`
+	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this draft"`
+	Address         string            `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only"`
+	APIKey          string            `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
+	TrackerName     string            `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
+	Media           []string          `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
+	AllowNoSize     bool              `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"`
+	HomeNodeID      string            `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
+	On              bool              `json:"on,omitempty" default:"true"`
+	AutomaticSearch bool              `json:"automaticSearch,omitempty" default:"true"`
+	RSS             bool              `json:"rss,omitempty" default:"true"`
+	AllowFailover   bool              `json:"allowFailover,omitempty"`
+	Priority        int               `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
+	Categories      []int             `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
+	Searches        *limit            `json:"searches,omitempty"`
+	Grabs           *limit            `json:"grabs,omitempty"`
+}
+
+func (n newIndexer) draft() (indexers.Draft, error) {
+	if err := n.fitsKind(); err != nil {
+		return indexers.Draft{}, err
+	}
+	d := indexers.Draft{
+		Kind: indexers.Kind(n.Kind), Name: n.Name, Definition: n.Definition, BaseAddress: n.BaseAddress, Values: n.Values,
+		Address: n.Address, APIKey: n.APIKey, Tracker: n.TrackerName, Media: media(n.Media),
+		AllowNoSize: n.AllowNoSize, Cookie: cookieIn(n.Cookie), On: n.On, AutoSearch: n.AutomaticSearch, RSS: n.RSS,
+		AllowFailover: n.AllowFailover, Priority: n.Priority, Categories: indexers.CategoriesOf(n.Categories),
+	}
+	if n.Searches != nil {
+		d.Searches = limitIn(*n.Searches)
+	}
+	if n.Grabs != nil {
+		d.Grabs = limitIn(*n.Grabs)
+	}
+	if n.HomeNodeID != "" {
+		id, err := storage.ParseUUID(n.HomeNodeID)
+		if err != nil {
+			return indexers.Draft{}, nodeNotSearching
+		}
+		d.Home = role.NodeID{UUID: id}
+	}
+	return d, nil
+}
+
+// misfit is a field that doesn't fit an Indexer's kind when wrong holds.
+type misfit struct {
+	field   string
+	wrong   bool
+	message string
+}
+
+// fitsKind refuses a field n's kind doesn't take, and one it needs that n
+// leaves out.
+func (n newIndexer) fitsKind() error {
+	catalog, rss := n.Kind == string(indexers.Catalog), n.Kind == string(indexers.RSS)
+	var errs []api.FieldError
+	for _, m := range []misfit{
+		{"definition", catalog && n.Definition == "", "Choose a definition from the Indexer catalog."},
+		{"address", catalog && n.Address != "", "A catalog Indexer takes one of its definition's addresses as baseAddress."},
+		{"apiKey", catalog && n.APIKey != "", "A catalog Indexer takes its API key as one of its values."},
+		{"trackerName", catalog && n.TrackerName != "", "A catalog Indexer's Tracker is named after its definition."},
+		{"definition", !catalog && (n.Definition != "" || n.BaseAddress != "" || n.Values != nil), "Only a catalog Indexer takes a definition, its addresses and its values."},
+		{"address", !catalog && n.Address == "", "Enter the feed's address."},
+		{"media", !rss && n.Media != nil, "Only an RSS feed takes Content Types in place of categories."},
+		{"allowNoSize", !rss && n.AllowNoSize, "Only an RSS feed may have items with no size."},
+		{"apiKey", rss && n.APIKey != "", "An RSS feed takes no API key. Put a passkey in its address."},
+		{"categories", rss && n.Categories != nil, "An RSS feed takes Content Types in place of categories."},
+		{"trackerName", rss && n.TrackerName == "", "Name the Tracker the RSS feed reaches."},
+		{"cookie", n.Kind == string(indexers.Torznab) && n.Cookie != nil, "A Torznab feed takes no cookie."},
+	} {
+		if m.wrong {
+			errs = append(errs, api.FieldError{Location: "body." + m.field, Message: m.message})
+		}
+	}
+	if errs != nil {
+		return api.Invalid.Fields(errs...)
+	}
+	return nil
+}
+
+func media(ids []string) []works.TypeID {
+	if ids == nil {
+		return nil
+	}
+	out := make([]works.TypeID, len(ids))
+	for i, id := range ids {
+		out[i] = works.TypeID(id)
+	}
+	return out
+}
+
+func cookieIn(c *pastedCookie) *indexers.PastedCookie {
+	if c == nil {
+		return nil
+	}
+	return &indexers.PastedCookie{Cookie: c.Cookie, UserAgent: c.UserAgent}
+}
+
+func limitIn(l limit) indexers.Limit {
+	return indexers.Limit{Count: l.Count, Per: indexers.Window(l.Per)}
+}
+
+type indexerEdit struct {
+	Name            *string           `json:"name,omitempty" minLength:"1" maxLength:"100"`
+	HomeNodeID      *string           `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching"`
+	Address         *string           `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"Write-only"`
+	APIKey          *string           `json:"apiKey,omitempty" maxLength:"256" doc:"Write-only"`
+	On              api.Patch[bool]   `json:"on,omitempty" doc:"Null resets it to on"`
+	AutomaticSearch api.Patch[bool]   `json:"automaticSearch,omitempty" doc:"Null resets it to on"`
+	RSS             api.Patch[bool]   `json:"rss,omitempty" doc:"Null resets it to on"`
+	AllowFailover   api.Patch[bool]   `json:"allowFailover,omitempty" doc:"Null resets it to off"`
+	Priority        api.Patch[int]    `json:"priority,omitempty" minimum:"1" maximum:"50" doc:"Null resets it to 25"`
+	Categories      api.Patch[[]int]  `json:"categories,omitempty" doc:"Null for every category it advertises"`
+	Searches        api.Patch[limit]  `json:"searches,omitempty" doc:"Null turns the limit off"`
+	Grabs           api.Patch[limit]  `json:"grabs,omitempty" doc:"Null turns the limit off"`
+	Media           *[]string         `json:"media,omitempty" doc:"An RSS feed's Content Types"`
+	AllowNoSize     *bool             `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A new browser cookie. Write-only"`
+	BaseAddress     *string           `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value"`
+	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this Indexer, for the Test the change runs"`
+}
+
+// patched is p's value, def for null, nil when absent.
+func patched[T any](p api.Patch[T], def T) *T {
+	switch {
+	case !p.Sent():
+		return nil
+	case p.Value() == nil:
+		return &def
+	}
+	return p.Value()
+}
+
+func (e indexerEdit) edit() (indexers.Edit, error) {
+	out := indexers.Edit{
+		Name: e.Name, Address: e.Address, APIKey: e.APIKey,
+		On: patched(e.On, true), AutoSearch: patched(e.AutomaticSearch, true), RSS: patched(e.RSS, true),
+		AllowFailover: patched(e.AllowFailover, false), Priority: patched(e.Priority, indexers.DefaultPriority),
+		AllowNoSize: e.AllowNoSize, Cookie: cookieIn(e.Cookie), BaseAddress: e.BaseAddress, Values: e.Values,
+	}
+	if e.Media != nil {
+		m := media(*e.Media)
+		out.Media = &m
+	}
+	if e.Categories.Sent() {
+		var c []newznab.ID
+		if v := e.Categories.Value(); v != nil {
+			c = indexers.CategoriesOf(*v)
+		}
+		out.Categories = &c
+	}
+	for _, l := range []struct {
+		p  api.Patch[limit]
+		to **indexers.Limit
+	}{{e.Searches, &out.Searches}, {e.Grabs, &out.Grabs}} {
+		if v := patched(l.p, limit{Per: string(indexers.Hour)}); v != nil {
+			in := limitIn(*v)
+			*l.to = &in
+		}
+	}
+	if e.HomeNodeID != nil {
+		id, err := storage.ParseUUID(*e.HomeNodeID)
+		if err != nil {
+			return indexers.Edit{}, nodeNotSearching
+		}
+		out.Home = &role.NodeID{UUID: id}
+	}
+	return out, nil
+}
+
+type report struct {
+	SearchModes []searchMode `json:"searchModes" nullable:"false" doc:"By mode"`
+	Items       int          `json:"items" minimum:"0" doc:"The newest items it listed"`
+	Sources     []string     `json:"sources" nullable:"false" doc:"The different sources a Torznab feed's items named: more than one is an aggregate feed"`
+}
+
+func reportOf(r indexers.Report) report {
+	out := report{SearchModes: []searchMode{}, Items: r.Items, Sources: append([]string{}, r.Sources...)}
+	for _, m := range slices.Sorted(maps.Keys(r.Caps.Modes)) {
+		out.SearchModes = append(out.SearchModes, searchMode{Mode: m, Params: r.Caps.Modes[m]})
+	}
+	return out
+}
+
+type query struct {
+	ID          string     `json:"id" format:"uuid"`
+	Use         string     `json:"use" enum:"search,recent,fetch,test"`
+	ReservedAt  time.Time  `json:"reservedAt"`
+	StartedAt   *time.Time `json:"startedAt" doc:"When its Node sent its first request; null before, or when it sent none"`
+	CompletedAt *time.Time `json:"completedAt" doc:"Null while it runs"`
+	Outcome     *string    `json:"outcome" enum:"ok,limited,failing,stopped,lost" doc:"Null while it runs; lost when its Node never answered"`
+	Releases    int        `json:"releases" minimum:"0"`
+}
+
+const queriesPage = 50
+
+type queryList struct {
+	Queries    []query `json:"queries" nullable:"false" doc:"Newest first"`
+	NextOffset *int    `json:"nextOffset" doc:"The offset of the next page; null on the last"`
+}
+
+type idInput struct {
+	ID string `path:"id" format:"uuid"`
+}
+
+type queriesInput struct {
+	ID     string `path:"id" format:"uuid"`
+	Offset int    `query:"offset" minimum:"0" doc:"How many of the newest to skip"`
 }
 
 type createIndexerInput struct{ Body newIndexer }
 
+type updateIndexerInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body indexerEdit
+}
+
 type indexerOutput struct{ Body indexer }
 
-type newAPIKey struct {
-	APIKey string `json:"apiKey" maxLength:"256"`
-}
+type reportOutput struct{ Body report }
 
-type apiKeyInput struct {
-	ID   string `path:"id" format:"uuid"`
-	Body newAPIKey
-}
+type queriesOutput struct{ Body queryList }
 
 type indexerList struct {
 	Indexers []indexer `json:"indexers" nullable:"false" doc:"By name"`
@@ -116,67 +519,316 @@ type indexerListOutput struct{ Body indexerList }
 func Routes(r *api.Router, registry Registry) {
 	o := r.Owner("indexers", api.Admin)
 	h := handlers{registry}
+	tested := []*api.Code{indexerTestFailed.Code, indexerUnavailable, captchaExpired}
+	drafted := append([]*api.Code{noSearchingNode, nodeNotSearching, definitionNotFound, catalogUnavailable, definitionUnloadable}, tested...)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "listIndexers", Method: http.MethodGet, Path: "/indexers", Summary: "List the Indexers", Status: http.StatusOK,
+	}, h.listIndexers)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "getIndexer", Method: http.MethodGet, Path: "/indexers/{id}", Summary: "Get an Indexer", Status: http.StatusOK,
+		Errors: []*api.Code{indexerNotFound},
+	}, h.getIndexer)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "createIndexer",
 		Method:  http.MethodPost,
 		Path:    "/indexers",
-		Summary: "Add a Torznab Indexer, once its home Node has read its caps",
+		Summary: "Add an Indexer once its Test passed on the Node it searches from",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{indexerNameTaken, noSearchingNode, indexerUnavailable, indexerRefused},
+		Errors:  append([]*api.Code{indexerNameTaken}, drafted...),
 	}, h.createIndexer)
 
 	api.Register(o, api.Admin, api.Op{
-		ID:      "listIndexers",
-		Method:  http.MethodGet,
-		Path:    "/indexers",
-		Summary: "List the Indexers",
+		ID:      "updateIndexer",
+		Method:  http.MethodPatch,
+		Path:    "/indexers/{id}",
+		Summary: "Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings",
 		Status:  http.StatusOK,
-	}, h.listIndexers)
+		Errors:  append([]*api.Code{indexerNotFound, indexerNameTaken, nodeNotSearching, definitionUnloadable}, tested...),
+	}, h.updateIndexer)
 
 	api.Register(o, api.Admin, api.Op{
-		ID:      "setIndexerAPIKey",
-		Method:  http.MethodPut,
-		Path:    "/indexers/{id}/api-key",
-		Summary: "Enter an Indexer's API key again, once its home Node has read its caps with it",
+		ID:      "deleteIndexer",
+		Method:  http.MethodDelete,
+		Path:    "/indexers/{id}",
+		Summary: "Delete an Indexer with its status, sessions and queries. Its Grabs keep their history.",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{indexerNotFound},
+	}, h.deleteIndexer)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "testIndexer",
+		Method:  http.MethodPost,
+		Path:    "/indexers/{id}/test",
+		Summary: "Test an Indexer from the Node it searches from. A pass clears its backoff and any stop.",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{indexerNotFound, indexerUnavailable, indexerRefused},
-	}, h.setIndexerAPIKey)
+		Errors:  append([]*api.Code{indexerNotFound}, tested...),
+	}, h.testIndexer)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "testIndexerDraft",
+		Method:  http.MethodPost,
+		Path:    "/indexers/test",
+		Summary: "Test an Indexer without saving it",
+		Status:  http.StatusOK,
+		Errors:  drafted,
+	}, h.testIndexerDraft)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCaptchaDraft",
+		Method:  http.MethodPost,
+		Path:    "/indexers/captcha",
+		Summary: "Load the captcha of an unsaved Indexer's sign-in, from the Node it would search from",
+		Status:  http.StatusOK,
+		Errors:  append([]*api.Code{captchaNotShown}, drafted...),
+	}, h.captchaDraft)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCaptcha",
+		Method:  http.MethodPost,
+		Path:    "/indexers/{id}/captcha",
+		Summary: "Load the captcha of an Indexer's sign-in, from the Node it searches from",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{indexerNotFound, captchaNotShown, indexerTestFailed.Code, indexerUnavailable},
+	}, h.captcha)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listIndexerQueries",
+		Method:  http.MethodGet,
+		Path:    "/indexers/{id}/queries",
+		Summary: "List an Indexer's searches, fetches and Tests, 50 at a time",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{indexerNotFound},
+	}, h.listIndexerQueries)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIndexerCatalog",
+		Method:  http.MethodGet,
+		Path:    "/indexer-catalog",
+		Summary: "List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed",
+		Status:  http.StatusOK,
+	}, h.getCatalog)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getCatalogDefinition",
+		Method:  http.MethodGet,
+		Path:    "/indexer-catalog/{id}",
+		Summary: "Get the fields of a definition's add form, from the custom definition with the id or else the catalog's",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{definitionNotFound, catalogUnavailable},
+	}, h.getDefinition)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setCatalogAddress",
+		Method:  http.MethodPut,
+		Path:    "/indexer-catalog/address",
+		Summary: "Change the Indexer catalog's address once SlipStream reads a schema 12 index there. The next refresh reads it in full.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{catalogAddressUnreachable},
+	}, h.setAddress)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "addCustomDefinition",
+		Method:  http.MethodPost,
+		Path:    "/indexer-catalog/custom",
+		Summary: "Add a custom definition, or replace the custom definition with its id and move that definition's Indexers to it",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{definitionUnloadable, definitionIDTaken},
+	}, h.addCustom)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteCustomDefinition",
+		Method:  http.MethodDelete,
+		Path:    "/indexer-catalog/custom/{id}",
+		Summary: "Delete a custom definition that no Indexer runs",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{definitionNotFound, definitionInUse},
+	}, h.deleteCustom)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "listTrackers", Method: http.MethodGet, Path: "/trackers", Summary: "List the Trackers and the Indexers that reach each", Status: http.StatusOK,
+	}, h.listTrackers)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "getTracker", Method: http.MethodGet, Path: "/trackers/{id}", Summary: "Get a Tracker", Status: http.StatusOK,
+		Errors: []*api.Code{trackerNotFound},
+	}, h.getTracker)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "renameTracker",
+		Method:  http.MethodPatch,
+		Path:    "/trackers/{id}",
+		Summary: "Rename a Tracker. Every Indexer and Release that reached it still does.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{trackerNotFound, trackerNameTaken},
+	}, h.renameTracker)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "mergeTracker",
+		Method:  http.MethodPost,
+		Path:    "/trackers/{id}/merge",
+		Summary: "Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{trackerNotFound, trackerMergeSelf},
+	}, h.mergeTracker)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "getIndexerSettings", Method: http.MethodGet, Path: "/indexer-settings", Summary: "Get the Indexer settings", Status: http.StatusOK,
+	}, h.getSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateIndexerSettings",
+		Method:  http.MethodPatch,
+		Path:    "/indexer-settings",
+		Summary: "Change Indexer settings by key, all or none",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getChallengeSolver",
+		Method:  http.MethodGet,
+		Path:    "/nodes/{id}/challenge-solver",
+		Summary: "Get the Challenge solver of a Node that stands in Searching",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotSearching},
+	}, h.getChallengeSolver)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setChallengeSolver",
+		Method:  http.MethodPut,
+		Path:    "/nodes/{id}/challenge-solver",
+		Summary: "Set a Node's Challenge solver once the Node reaches the solver's /health, or remove it with an empty address",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotSearching, challengeSolverUnreachable, indexerUnavailable},
+	}, h.setChallengeSolver)
 }
 
 type handlers struct{ registry Registry }
 
-func (h handlers) createIndexer(ctx context.Context, by identity.Admin, in *createIndexerInput) (*indexerOutput, error) {
-	xs := open(h.registry)
-	x, err := xs.Create(ctx, by, indexers.Draft{Name: in.Body.Name, URL: in.Body.URL, APIKey: in.Body.APIKey})
+func parseID(raw string) (indexers.ID, error) {
+	id, err := storage.ParseUUID(raw)
 	if err != nil {
-		return nil, answer(err)
+		return indexers.ID{}, indexerNotFound
 	}
-	return &indexerOutput{Body: indexerOf(xs, x)}, nil
-}
-
-func (h handlers) setIndexerAPIKey(ctx context.Context, by identity.Admin, in *apiKeyInput) (*indexerOutput, error) {
-	id, err := storage.ParseUUID(in.ID)
-	if err != nil {
-		return nil, indexerNotFound
-	}
-	xs := open(h.registry)
-	x, err := xs.SetAPIKey(ctx, by, indexers.ID{UUID: id}, in.Body.APIKey)
-	if err != nil {
-		return nil, answer(err)
-	}
-	return &indexerOutput{Body: indexerOf(xs, x)}, nil
+	return indexers.ID{UUID: id}, nil
 }
 
 func (h handlers) listIndexers(ctx context.Context, by identity.Admin, _ *struct{}) (*indexerListOutput, error) {
-	xs := open(h.registry)
-	list, err := xs.List(ctx, by)
+	list, err := open(h.registry).List(ctx, by)
 	if err != nil {
 		return nil, err
 	}
 	out := indexerList{Indexers: []indexer{}}
-	for _, x := range list {
-		out.Indexers = append(out.Indexers, indexerOf(xs, x))
+	for _, v := range list {
+		out.Indexers = append(out.Indexers, indexerOf(v))
 	}
 	return &indexerListOutput{Body: out}, nil
+}
+
+func (h handlers) getIndexer(ctx context.Context, by identity.Admin, in *idInput) (*indexerOutput, error) {
+	id, err := parseID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	xs := open(h.registry)
+	v, err := xs.Get(ctx, by, id)
+	if err != nil {
+		return nil, answer(xs, err)
+	}
+	return &indexerOutput{Body: indexerOf(v)}, nil
+}
+
+func (h handlers) createIndexer(ctx context.Context, by identity.Admin, in *createIndexerInput) (*indexerOutput, error) {
+	d, err := in.Body.draft()
+	if err != nil {
+		return nil, err
+	}
+	xs := open(h.registry)
+	v, err := xs.Create(ctx, by, d, answerIn(in.Body.Captcha))
+	if err != nil {
+		return nil, answer(xs, err)
+	}
+	return &indexerOutput{Body: indexerOf(v)}, nil
+}
+
+func (h handlers) updateIndexer(ctx context.Context, by identity.Admin, in *updateIndexerInput) (*indexerOutput, error) {
+	id, err := parseID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	e, err := in.Body.edit()
+	if err != nil {
+		return nil, err
+	}
+	xs := open(h.registry)
+	v, err := xs.Update(ctx, by, id, e, answerIn(in.Body.Captcha))
+	if err != nil {
+		return nil, answer(xs, err)
+	}
+	return &indexerOutput{Body: indexerOf(v)}, nil
+}
+
+func (h handlers) deleteIndexer(ctx context.Context, by identity.Admin, in *idInput) (*struct{}, error) {
+	id, err := parseID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	xs := open(h.registry)
+	return nil, answer(xs, xs.Delete(ctx, by, id))
+}
+
+func (h handlers) testIndexer(ctx context.Context, by identity.Admin, in *testIndexerInput) (*reportOutput, error) {
+	id, err := parseID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	var c *indexers.CaptchaAnswer
+	if in.Body != nil {
+		c = answerIn(in.Body.Captcha)
+	}
+	xs := open(h.registry)
+	r, err := xs.Test(ctx, by, id, c)
+	if err != nil {
+		return nil, answer(xs, err)
+	}
+	return &reportOutput{Body: reportOf(r)}, nil
+}
+
+func (h handlers) testIndexerDraft(ctx context.Context, by identity.Admin, in *createIndexerInput) (*reportOutput, error) {
+	d, err := in.Body.draft()
+	if err != nil {
+		return nil, err
+	}
+	xs := open(h.registry)
+	r, err := xs.TestDraft(ctx, by, d, answerIn(in.Body.Captcha))
+	if err != nil {
+		return nil, answer(xs, err)
+	}
+	return &reportOutput{Body: reportOf(r)}, nil
+}
+
+func (h handlers) listIndexerQueries(ctx context.Context, by identity.Admin, in *queriesInput) (*queriesOutput, error) {
+	id, err := parseID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	xs := open(h.registry)
+	rows, err := xs.Queries(ctx, by, id, indexers.Page{Offset: in.Offset, Limit: queriesPage + 1})
+	if err != nil {
+		return nil, answer(xs, err)
+	}
+	out := queryList{Queries: []query{}}
+	if len(rows) > queriesPage {
+		rows, out.NextOffset = rows[:queriesPage], new(in.Offset+queriesPage)
+	}
+	for _, q := range rows {
+		out.Queries = append(out.Queries, query{
+			ID: q.ID.String(), Use: string(q.Use), ReservedAt: q.Reserved, StartedAt: when(q.Started), CompletedAt: when(q.Completed),
+			Outcome: text(q.Outcome), Releases: q.Releases,
+		})
+	}
+	return &queriesOutput{Body: out}, nil
 }
