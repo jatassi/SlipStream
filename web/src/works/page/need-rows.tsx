@@ -28,7 +28,7 @@ export function Upgrades({
               size="small"
               busy={search.isPending}
               onClick={() => {
-                search.mutate({ workId: naming.work.id });
+                search.start(naming.work.id, { levelIds: [], itemIds: need.itemIds });
               }}
             >
               Search

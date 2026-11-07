@@ -8,10 +8,8 @@ import (
 	"embed"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
-	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -108,11 +106,3 @@ type Series struct {
 }
 
 func (*Series) Describe() works.Description { return Description }
-
-// SearchTerms answers no Terms, so no episode is searched.
-func (*Series) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (indexers.Terms, error) {
-	return indexers.Terms{}, nil
-}
-
-// Categories are none, since no episode is searched.
-func (*Series) Categories() []newznab.ID { return nil }

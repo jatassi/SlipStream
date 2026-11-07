@@ -1,7 +1,7 @@
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import type { ReactElement, ReactNode } from "react";
 
-import type { WorksWorkView } from "../../api/gen/model";
+import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { SearchAction } from "../../grabs/search";
 import { Button } from "../../ui/button";
 import { IconButton } from "../../ui/icon-button";
@@ -38,12 +38,20 @@ const monitoringEntry = (monitoring: HeroActions["monitoring"]): MenuEntry =>
     : { label: "Set monitoring…", onSelect: monitoring.open };
 
 // On phone the actions past Search sit in one action sheet, with Editions as "Edit Editions".
-export function Actions({ work, actions }: { work: WorksWorkView; actions: HeroActions }) {
+export function Actions({
+  type,
+  work,
+  actions,
+}: {
+  type: WorksContentType;
+  work: WorksWorkView;
+  actions: HeroActions;
+}) {
   const more = <IconButton icon={MoreHorizontalIcon} label={`More actions for ${work.label}`} />;
   if (useShell() === "phone") {
     return (
       <div className="flex items-center gap-2">
-        <SearchAction workId={work.id} />
+        <SearchAction workId={work.id} type={type} />
         <Menu
           label={`Actions for ${work.label}`}
           trigger={more}
@@ -60,7 +68,7 @@ export function Actions({ work, actions }: { work: WorksWorkView; actions: HeroA
   }
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <SearchAction workId={work.id} />
+      <SearchAction workId={work.id} type={type} />
       {actions.editions(
         <Button>
           Editions <span className="font-normal text-ink-3">{actions.editionsFrom}</span>

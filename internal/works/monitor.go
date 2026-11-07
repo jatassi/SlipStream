@@ -459,9 +459,10 @@ func (e *NotInWorkError) Error() string { return ErrNotInWork.Error() }
 
 func (e *NotInWorkError) Unwrap() error { return ErrNotInWork }
 
-// within is the Items part names of t: the live Items under each named
-// level, at any depth, and each named Item.
-func within(t Tree, part Within) ([]Item, error) {
+// ItemsWithin is the Items part names of t: the live Items under each
+// named level, at any depth, and each named Item, in tree order. It fails
+// with a *NotInWorkError for an id t doesn't have.
+func (t *Tree) ItemsWithin(part Within) ([]Item, error) {
 	parent := make(map[LevelID]LevelID, len(t.Levels))
 	for _, l := range t.Levels {
 		parent[l.ID] = l.ParentID
@@ -519,7 +520,7 @@ func (w *Works) SetMonitored(ctx context.Context, _ identity.Admin, id WorkID, p
 		if err != nil {
 			return err
 		}
-		items, err := within(trees[0], part)
+		items, err := trees[0].ItemsWithin(part)
 		if err != nil {
 			return err
 		}

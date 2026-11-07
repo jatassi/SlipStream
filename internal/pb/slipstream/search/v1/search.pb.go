@@ -918,8 +918,9 @@ type Query struct {
 	// ids are the mode's id parameters the Work has.
 	Ids map[string]string `protobuf:"bytes,2,rep,name=ids,proto3" json:"ids,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// text is empty when an id is sent.
-	Text          string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
-	Season        int32  `protobuf:"varint,4,opt,name=season,proto3" json:"season,omitempty"`
+	Text string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	// season is unset when the search names none; 0 is Specials.
+	Season        *int32 `protobuf:"varint,4,opt,name=season,proto3,oneof" json:"season,omitempty"`
 	Episode       string `protobuf:"bytes,5,opt,name=episode,proto3" json:"episode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -977,8 +978,8 @@ func (x *Query) GetText() string {
 }
 
 func (x *Query) GetSeason() int32 {
-	if x != nil {
-		return x.Season
+	if x != nil && x.Season != nil {
+		return *x.Season
 	}
 	return 0
 }
@@ -2594,16 +2595,17 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x10LINK_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eLINK_ENCLOSURE\x10\x01\x12\r\n" +
 	"\tLINK_ITEM\x10\x02\x12\x13\n" +
-	"\x0fLINK_TORRENT_NS\x10\x03\"\xd1\x01\n" +
+	"\x0fLINK_TORRENT_NS\x10\x03\"\xe1\x01\n" +
 	"\x05Query\x12\x12\n" +
 	"\x04mode\x18\x01 \x01(\tR\x04mode\x126\n" +
 	"\x03ids\x18\x02 \x03(\v2$.slipstream.search.v1.Query.IdsEntryR\x03ids\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04text\x12\x16\n" +
-	"\x06season\x18\x04 \x01(\x05R\x06season\x12\x18\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12\x1b\n" +
+	"\x06season\x18\x04 \x01(\x05H\x00R\x06season\x88\x01\x01\x12\x18\n" +
 	"\aepisode\x18\x05 \x01(\tR\aepisode\x1a6\n" +
 	"\bIdsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"?\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\t\n" +
+	"\a_season\"?\n" +
 	"\n" +
 	"SearchCall\x121\n" +
 	"\x05query\x18\x01 \x01(\v2\x1b.slipstream.search.v1.QueryR\x05query\"\f\n" +
@@ -2858,6 +2860,7 @@ func file_slipstream_search_v1_search_proto_init() {
 		(*Job_Test)(nil),
 		(*Job_Captcha)(nil),
 	}
+	file_slipstream_search_v1_search_proto_msgTypes[8].OneofWrappers = []any{}
 	file_slipstream_search_v1_search_proto_msgTypes[15].OneofWrappers = []any{
 		(*RunResponse_Running)(nil),
 		(*RunResponse_Done)(nil),

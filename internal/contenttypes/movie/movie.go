@@ -205,7 +205,7 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	if err != nil {
 		return indexers.Terms{}, err
 	}
-	t := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}, Query: mv.TitleEnglish}
+	t := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}, Query: mv.TitleEnglish, Covers: indexers.CoversOnly}
 	if mv.ImdbID != nil {
 		t.IDs["imdbid"] = string(*mv.ImdbID)
 	}

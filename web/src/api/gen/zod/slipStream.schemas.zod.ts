@@ -1537,25 +1537,33 @@ export const GrabsReason = zod.object({
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
     .exactOptional()
     .describe("The attribute a failed filter rules on"),
-  code: zod.enum([
-    "wrong_work",
-    "cut_not_wanted",
-    "quality_not_in_target",
-    "filter",
-    "size_below",
-    "size_above",
-    "size_not_checked",
-    "not_an_upgrade",
-  ]),
+  code: zod
+    .enum([
+      "wrong_work",
+      "wrong_item",
+      "covers_more",
+      "cut_not_wanted",
+      "quality_not_in_target",
+      "filter",
+      "size_below",
+      "size_above",
+      "size_not_checked",
+      "not_an_upgrade",
+    ])
+    .describe(
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that covers more than one Item, such as a season pack, and SlipStream doesn't grab those yet.",
+    ),
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe("The Target whose verdict it is, absent for wrong_work and cut_not_wanted"),
+    .describe(
+      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and cut_not_wanted",
+    ),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut no open cell wants, or what a wrong_item or covers_more title names, such as S01E02",
     ),
 });
 
@@ -1654,8 +1662,23 @@ export const GrabsSearchList = zod.object({
 export type GrabsSearchList = zod.input<typeof GrabsSearchList>;
 export type GrabsSearchListOutput = zod.output<typeof GrabsSearchList>;
 
+export const grabsSearchScopeItemIdsMax = 20000;
+
+export const grabsSearchScopeLevelIdsMax = 20000;
+
+export const GrabsSearchScope = zod.object({
+  itemIds: zod.array(zod.uuid()).max(grabsSearchScopeItemIdsMax),
+  levelIds: zod
+    .array(zod.uuid())
+    .max(grabsSearchScopeLevelIdsMax)
+    .describe("Each level stands for every Item under it"),
+});
+
+export type GrabsSearchScope = zod.input<typeof GrabsSearchScope>;
+export type GrabsSearchScopeOutput = zod.output<typeof GrabsSearchScope>;
+
 export const GrabsSearchStarted = zod.object({
-  searchIds: zod.array(zod.string()).describe("One run per Item with a wanted cell"),
+  searchIds: zod.array(zod.string()).describe("One run per Item in the scope with a wanted cell"),
 });
 
 export type GrabsSearchStarted = zod.input<typeof GrabsSearchStarted>;

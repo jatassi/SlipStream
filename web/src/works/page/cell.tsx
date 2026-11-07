@@ -50,7 +50,7 @@ export function CellBlock({
           aria-label={`Search for ${view.target.name}, ${row}`}
           busy={search.isPending}
           onClick={() => {
-            search.mutate({ workId: shown.work.id });
+            search.start(shown.work.id, { levelIds: [], itemIds: [cell.itemId] });
           }}
         >
           Search

@@ -469,6 +469,8 @@ export const getListSearchesResponseMock = (
             : {}),
           code: faker.helpers.arrayElement([
             "wrong_work",
+            "wrong_item",
+            "covers_more",
             "cut_not_wanted",
             "quality_not_in_target",
             "filter",
@@ -506,6 +508,8 @@ export const getListSearchesResponseMock = (
               : {}),
             code: faker.helpers.arrayElement([
               "wrong_work",
+              "wrong_item",
+              "covers_more",
               "cut_not_wanted",
               "quality_not_in_target",
               "filter",
