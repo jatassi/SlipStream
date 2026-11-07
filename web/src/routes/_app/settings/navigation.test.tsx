@@ -61,6 +61,9 @@ test("a link in the Settings nav opens its section", async () => {
   );
   await expect.poll(() => router.state.location.pathname).toBe("/settings/email");
   await expect.element(server()).toHaveValue("smtp.example.test");
+  await expect
+    .element(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Settings" }))
+    .toHaveAttribute("aria-current", "page");
 });
 
 test("on phone, Settings lists its sections by group, and each pushes with a back link to Settings", async () => {
