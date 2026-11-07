@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_app/library/$contentType")({
   },
   loader: async ({ context, params: { contentType } }) => {
     const [{ contentTypes }] = await libraryReads(context.queryClient);
-    return { title: enabledTypeOf(contentTypes, contentType).work.many };
+    return { title: enabledTypeOf(contentTypes, contentType).name };
   },
   pendingComponent: () => <Skeleton label="Loading the Library" />,
   component: ContentTypeLibrary,

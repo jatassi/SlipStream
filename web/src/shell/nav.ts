@@ -193,7 +193,7 @@ function useContentTypeChildren(): NavChild[] {
     .filter((type) => type.enabled)
     .map((type) => ({
       id: type.id,
-      label: type.work.many,
+      label: type.name,
       icon: contentTypeIcons[type.icon],
       to: contentTypeLibrary,
       params: { contentType: type.id },

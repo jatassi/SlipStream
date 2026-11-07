@@ -61,5 +61,5 @@ export function libraryTrail(types: readonly WorksContentType[], id: string): Cr
   const type = types.find((candidate) => candidate.id === id && candidate.enabled);
   return type === undefined
     ? [library]
-    : [library, { title: type.work.many, pathname: `${library.pathname}/${type.id}` }];
+    : [library, { title: type.name, pathname: `${library.pathname}/${type.id}` }];
 }
