@@ -585,7 +585,7 @@ func TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Library.Indexers = nil
-		w := sim.Launch(t, s, sim.WithWalk())
+		w := sim.Launch(t, s, sim.WithWalk(), inUTC)
 		synctest.Wait()
 		flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link

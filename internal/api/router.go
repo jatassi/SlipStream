@@ -83,7 +83,7 @@ func NewRouter(s Services) *Router {
 				},
 			},
 		},
-		Formats:       huma.DefaultFormats,
+		Formats:       map[string]huma.Format{"application/json": jsonFormat, "json": jsonFormat},
 		DefaultFormat: "application/json",
 	}, humago.NewAdapter(mux, Prefix))
 	registry.Schema(reflect.TypeFor[Problem](), true, "Problem")
