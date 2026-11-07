@@ -173,7 +173,7 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, p Purpose, j *ja
 		client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	}
 	sent := time.Now()
-	res, err := client.Do(req.WithContext(ctx))
+	res, err := client.Do(req.WithContext(ctx)) //nolint:gosec // G704: an Indexer's requests go to the address its Admin chose
 	if err != nil {
 		err = WithoutURL(err)
 		s.svc.cfg.Log.Debug("A request to an Indexer failed", "indexer", s.Indexer, "method", req.Method, "host", req.URL.Host, "err", err.Error())
