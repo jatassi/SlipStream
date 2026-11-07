@@ -3,7 +3,6 @@ package indexers_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"sync"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
@@ -24,12 +24,14 @@ import (
 )
 
 // slowNode is a Node whose one job waits queue for its first request,
-// answers take after it, and holds each Run call up to hold.
+// answers take after it, and holds each Run call up to hold. A held call
+// ends early before the caller's deadline, as a call over the link does
+// when its timeout reaches the Node in whole milliseconds.
 type slowNode struct {
-	queue, take, hold time.Duration
-	mu                sync.Mutex
-	begun             time.Time
-	calls             int
+	queue, take, hold, early time.Duration
+	mu                       sync.Mutex
+	begun                    time.Time
+	calls                    int
 }
 
 func (*slowNode) ReachSolver(context.Context, searching.Solver) (int, error) {
@@ -44,13 +46,18 @@ func (n *slowNode) Run(ctx context.Context, _ searching.Job) (searching.Poll, er
 	n.calls++
 	started := n.begun.Add(n.queue)
 	n.mu.Unlock()
+	if d, ok := ctx.Deadline(); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, d.Add(-n.early))
+		defer cancel()
+	}
 	done := started.Add(n.take)
 	t := time.NewTimer(min(time.Until(done), n.hold))
 	defer t.Stop()
 	select {
 	case <-t.C:
 	case <-ctx.Done():
-		return searching.Poll{}, fmt.Errorf("hold the call: %w", ctx.Err())
+		return searching.Poll{}, rpc.Errorf(rpc.CodeDeadlineExceeded, "hold the call: %v", ctx.Err())
 	}
 	switch now := time.Now(); {
 	case !now.Before(done):
@@ -146,6 +153,15 @@ func TestALateJobIsLateAtItsDeadlineAndIsRecordedWhenItAnswers(t *testing.T) {
 		}
 		if outcome != "ok" || releases != 1 || successes != 1 {
 			t.Fatalf("the late answer at 3m left its query %s with %d Releases, want ok with 1 and a success in the status", outcome, releases)
+		}
+	})
+}
+
+func TestAJobWhoseLastCallEndsJustBeforeItsDeadlineIsLate(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := &slowNode{take: 3 * time.Minute, hold: 20 * time.Second, early: time.Millisecond / 2}
+		if a, _, _ := searchOn(t, n); a.Outcome.Kind != indexers.Late {
+			t.Fatalf("a search that takes 3m, its last call ended 0.5ms before the 2m deadline = %+v, want late", a.Outcome)
 		}
 	})
 }
