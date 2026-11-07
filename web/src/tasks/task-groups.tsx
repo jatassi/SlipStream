@@ -1,5 +1,6 @@
 import type { TasksGroup, TasksTask } from "../api/gen/model";
 import { Section } from "../ui/section";
+import { SharedColumns } from "../ui/shared-columns";
 import { useShell } from "../ui/shell-context";
 import { type Column, Table } from "../ui/table";
 import { TaskAction } from "./task-actions";
@@ -34,30 +35,35 @@ function columnsOf(multinode: boolean, live: Live): Columns {
   ];
 }
 
-export function TaskGroup({
-  group: { group, tasks },
+export function TaskGroups({
+  groups,
   multinode,
   live,
 }: {
-  group: TasksGroup;
+  groups: readonly TasksGroup[];
   multinode: boolean;
   live: Live;
 }) {
-  const title = groupTitles[group];
-  return (
-    <Section title={title}>
-      {useShell() === "phone" ? (
-        <TaskList label={title} tasks={tasks} live={live} />
-      ) : (
-        <Table
-          label={title}
-          lines={2}
-          rows={tasks}
-          rowKey={(task) => task.id}
-          tone={(task) => (task.state.kind === "waiting" ? "warn" : undefined)}
-          columns={columnsOf(multinode, live)}
-        />
-      )}
-    </Section>
-  );
+  const columns = columnsOf(multinode, live);
+  const phone = useShell() === "phone";
+  const sections = groups.map(({ group, tasks }) => {
+    const title = groupTitles[group];
+    return (
+      <Section key={group} title={title}>
+        {phone ? (
+          <TaskList label={title} tasks={tasks} live={live} />
+        ) : (
+          <Table
+            label={title}
+            lines={2}
+            rows={tasks}
+            rowKey={(task) => task.id}
+            tone={(task) => (task.state.kind === "waiting" ? "warn" : undefined)}
+            columns={columns}
+          />
+        )}
+      </Section>
+    );
+  });
+  return phone ? sections : <SharedColumns columns={columns}>{sections}</SharedColumns>;
 }
