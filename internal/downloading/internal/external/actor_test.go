@@ -153,6 +153,8 @@ type rig struct {
 	id      storage.UUID
 	share   external.Share
 	actor   *external.Actor
+	// kind is the kind whose facts the actor follows.
+	kind clients.Kind
 }
 
 func newRig(t *testing.T, version string, d faketransmission.Daemon) *rig {
@@ -165,6 +167,7 @@ func newRig(t *testing.T, version string, d faketransmission.Daemon) *rig {
 	r := &rig{
 		t: t, daemon: d, rels: map[string]release{}, local: storagetest.Local(t, downloading.Schema()),
 		ctl: &control{torrents: map[storage.UUID]*dlv1.TorrentResponse{}, password: d.Password}, h: &holder{}, id: storage.NewUUID(),
+		kind: clients.Transmission,
 	}
 	for _, rel := range catalog.Releases {
 		x := release{name: rel.Name, hash: rel.InfoHash, metainfo: rel.Metainfo, id: storage.NewUUID()}
@@ -202,7 +205,7 @@ func (r *rig) want(names ...string) {
 func (r *rig) start() {
 	r.t.Helper()
 	r.actor = external.Start(context.Background(), external.Config{
-		ID: r.id, Kind: clients.Transmission, Open: transmission.Open, HTTP: &http.Client{Transport: r.signIns},
+		ID: r.id, Kind: r.kind, Open: transmission.Open, HTTP: &http.Client{Transport: r.signIns},
 		Subfolder: func(name string) string { return name },
 		Links:     func(string) (uint64, error) { return 1, nil },
 		Timings:   timings, Local: r.local, Holder: r.h, Control: r.ctl,
@@ -654,6 +657,45 @@ func TestAnAttachedTorrentIsNeverRemovedFromTheClient(t *testing.T) {
 		}
 		if _, ok := r.inClient(); !ok {
 			t.Error("removing an attached torrent removed it from the client")
+		}
+	})
+}
+
+// TestARemoveWithDataDeletesTheFilesForAKindThatKeepsThem removes, with
+// their files, torrents in a client that never deletes data: the actor
+// deletes each torrent's files itself, and its folder once nothing else
+// is in it, but never the download folder.
+func TestARemoveWithDataDeletesTheFilesForAKindThatKeepsThem(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, version, faketransmission.Daemon{})
+		r.kind = clients.RTorrent
+		r.want("orchard", "harbor")
+		r.start()
+		r.sleep(30 * time.Second)
+		movies := filepath.Join(r.daemon.Dir, "Movies")
+		discard := func(name string) {
+			rel := r.rels[name]
+			r.share.Torrents = slices.DeleteFunc(r.share.Torrents, func(t *dlv1.Torrent) bool { return bytes.Equal(t.GetId(), rel.id.Bytes()) })
+			r.share.Discards = append(r.share.Discards, &dlv1.Discard{Id: rel.id.Bytes(), InfoHash: rel.hash[:], DeleteFiles: true, ClientId: r.id.Bytes()})
+			r.update()
+			r.sleep(checkEvery)
+		}
+		exists := func(path string) bool {
+			_, err := os.Stat(path)
+			return err == nil
+		}
+
+		discard("orchard")
+		if _, ok := r.inClient(); ok {
+			t.Fatal("the removed orchard is still in the client")
+		}
+		if exists(filepath.Join(movies, "orchard.mkv")) || !exists(filepath.Join(movies, "harbor.mkv")) {
+			t.Fatal("after removing orchard with its files, want orchard.mkv deleted and harbor.mkv kept")
+		}
+
+		discard("harbor")
+		if exists(movies) || !exists(r.daemon.Dir) {
+			t.Error("after removing harbor with its files, want its emptied folder deleted and the download folder kept")
 		}
 	})
 }
