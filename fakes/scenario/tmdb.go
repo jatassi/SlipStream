@@ -162,7 +162,8 @@ type TMDBImage struct {
 }
 
 var (
-	imdbID   = regexp.MustCompile(`^tt\d{7,}$`)
+	// IMDbID is an IMDb title id.
+	IMDbID   = regexp.MustCompile(`^tt\d{7,}$`)
 	dayDate  = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	country  = regexp.MustCompile(`^[A-Z]{2}$`)
 	language = regexp.MustCompile(`^[a-z]{2}-[A-Z]{2}$`)
@@ -182,7 +183,7 @@ func (c TMDB) check(add func(format string, args ...any)) {
 		if slices.ContainsFunc(c.Movies[:i], func(o TMDBMovie) bool { return o.ID == m.ID }) {
 			add("tmdb movie %d is listed twice", m.ID)
 		}
-		if !imdbID.MatchString(m.IMDbID) {
+		if !IMDbID.MatchString(m.IMDbID) {
 			add("tmdb movie %d imdb_id %q is not tt and seven or more digits", m.ID, m.IMDbID)
 		}
 		if m.Title == "" {

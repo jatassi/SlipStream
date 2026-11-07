@@ -162,7 +162,7 @@ func (u *upstream) servers(t *testing.T) config {
 	})
 	return config{
 		tmdbAPI: tmdbAPI + "/3", tmdbImages: images + "/t/p", omdbAPI: omdb + "/",
-		tmdbKey: "tmdb-key", omdbKey: "omdb-key", ids: []int64{4101, 4007, 4101}, client: &http.Client{Timeout: 10 * time.Second},
+		tmdbKey: "tmdb-key", omdbKey: "omdb-key", movies: []int64{4101, 4007, 4101}, client: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -283,7 +283,7 @@ func TestRecordStopsOnAMovieTMDBOrOMDbLacks(t *testing.T) {
 		{4007, "spent-key", "OMDb has no title tt0004007: Movie not found!"},
 	} {
 		cfg := u.servers(t)
-		cfg.ids, cfg.omdbKey = []int64{c.id}, c.omdbKey
+		cfg.movies, cfg.omdbKey = []int64{c.id}, c.omdbKey
 		cfg.scenario, cfg.store = filepath.Join(t.TempDir(), "real.yaml"), t.TempDir()
 		if err := os.WriteFile(cfg.scenario, []byte(scenarioFile), 0o644); err != nil {
 			t.Fatal(err)

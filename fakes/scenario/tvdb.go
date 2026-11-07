@@ -96,7 +96,8 @@ const (
 	TVDBMaxGenerated = 1_000_000
 )
 
-var tvdbStatuses = []string{"continuing", "ended", "upcoming"}
+// TVDBStatuses are the statuses a TVDBSeries can have.
+var TVDBStatuses = []string{"continuing", "ended", "upcoming"}
 
 func (c TVDB) check(add func(format string, args ...any)) {
 	if c.TokenLifetime < 0 {
@@ -131,10 +132,10 @@ func (s TVDBSeries) check(add func(format string, args ...any), seen []int64) []
 	if s.Name == "" {
 		add("tvdb series %d has no name", s.ID)
 	}
-	if !slices.Contains(tvdbStatuses, s.Status) {
-		add("tvdb series %d status %q is not one of %v", s.ID, s.Status, tvdbStatuses)
+	if !slices.Contains(TVDBStatuses, s.Status) {
+		add("tvdb series %d status %q is not one of %v", s.ID, s.Status, TVDBStatuses)
 	}
-	if s.IMDb != "" && !imdbID.MatchString(s.IMDb) {
+	if s.IMDb != "" && !IMDbID.MatchString(s.IMDb) {
 		add("tvdb series %d imdb %q is not tt and seven or more digits", s.ID, s.IMDb)
 	}
 	checkTVDBFile(add, s.ID, "image", s.Image)
