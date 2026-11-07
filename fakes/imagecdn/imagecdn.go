@@ -1,12 +1,14 @@
 // Package imagecdn is fake-image-cdn: TMDB's image host and TVDB's
-// artwork host. TMDB's answers a file in the artwork store with its
-// recorded bytes, scaled down to the size asked, and any other image file
-// name at any size TMDB offers with a generated image. TVDB's answers any
-// artwork path as an original or its _t thumbnail.
+// artwork host. Each answers a file in the artwork store with its recorded
+// bytes, TMDB's scaled down to the size asked and TVDB's _t thumbnail to
+// half its width, and any other image file name with a generated image:
+// TMDB's at any size it offers, TVDB's as an original or its thumbnail.
 package imagecdn
 
 import (
+	"bytes"
 	"fmt"
+	"image"
 	"net/http"
 	"path"
 	"slices"
@@ -47,7 +49,7 @@ func serve(store artwork.Store, env fake.Env) fake.Server {
 	srv := &server{store: store, scaled: map[sized][]byte{}}
 	return fake.HTTP(env, fake.Routes{
 		"image":     {Pattern: "GET " + Root + "/{size}/{file}", Handler: srv.image},
-		"artwork":   {Pattern: "GET " + ArtworkRoot + "/{path...}", Handler: serveArtwork},
+		"artwork":   {Pattern: "GET " + ArtworkRoot + "/{path...}", Handler: srv.artwork},
 		"not-found": {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
 	})
 }
@@ -80,7 +82,11 @@ func (s *server) image(w http.ResponseWriter, r *http.Request) {
 		images.Serve(w, f, "/"+file, size, width, height)
 		return
 	}
-	body, err := s.resized(sized{"/" + file, size}, f, stored)
+	s.send(w, sized{"/" + file, size}, f, stored)
+}
+
+func (s *server) send(w http.ResponseWriter, at sized, f images.Format, stored []byte) {
+	body, err := s.resized(at, f, stored)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -124,14 +130,32 @@ func dimensions(size string) (width, height int, ok bool) {
 // ArtworkRoot is the path TVDB's artwork host serves under.
 const ArtworkRoot = "/banners"
 
-// serveArtwork answers a TVDB artwork path at its kind's shape: a poster
-// at 2:3, a clear logo at 2.58:1, anything else at 16:9, and a _t
-// thumbnail at a third of the original's width.
-func serveArtwork(w http.ResponseWriter, r *http.Request) {
+// artwork answers a TVDB artwork path from the store: the stored file as
+// it is, and its _t thumbnail at half its width. Any other path is
+// generated at its kind's shape: a poster at 2:3, a clear logo at 2.58:1,
+// anything else at 16:9, and a _t thumbnail at a third of the original's
+// width.
+func (s *server) artwork(w http.ResponseWriter, r *http.Request) {
 	p := r.PathValue("path")
 	f, ok := images.FormatOf(p)
 	if !ok {
 		notFound(w)
+		return
+	}
+	at := ArtworkRoot + "/" + p
+	ext := path.Ext(at)
+	original, thumbnail := strings.CutSuffix(strings.TrimSuffix(at, ext), "_t")
+	if stored, ok := s.store.Lookup(at); ok {
+		s.send(w, sized{at, "original"}, f, stored)
+		return
+	}
+	if stored, ok := s.store.Lookup(original + ext); thumbnail && ok {
+		c, _, err := image.DecodeConfig(bytes.NewReader(stored))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("decode %s: %v", original+ext, err), http.StatusInternalServerError)
+			return
+		}
+		s.send(w, sized{original + ext, "w" + strconv.Itoa(c.Width/2)}, f, stored)
 		return
 	}
 	width, height := 1920, 1080
@@ -142,10 +166,10 @@ func serveArtwork(w http.ResponseWriter, r *http.Request) {
 		width, height = 800, 310
 	}
 	size := "original"
-	if base := strings.TrimSuffix(p, path.Ext(p)); strings.HasSuffix(base, "_t") {
+	if thumbnail {
 		size, width, height = "thumbnail", width/3, height/3
 	}
-	images.Serve(w, f, ArtworkRoot+"/"+p, size, width, height)
+	images.Serve(w, f, at, size, width, height)
 }
 
 func notFound(w http.ResponseWriter) { html(w, http.StatusNotFound, "<h1>File Not Found</h1>") }
