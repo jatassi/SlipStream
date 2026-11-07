@@ -19,6 +19,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-palette-add` once typing pauses with at least two characters, the group `Add a Movie` lists up to five catalog results; a result in the library reads `In the library` and opens its Work page, any other opens the add sheet over the current page, and `See all results` opens `/add?contentType=movie&query=<query>` (P-020).
 - `shell-palette-history` typing in the palette pushes no history entry: after closing it, Back leaves the page the palette was opened on.
 - `shell-palette-reopen` in the desktop shell, the shortcut pressed again straight after Esc, while the palette is still closing, reopens it with focus in the search field, and every key typed straight after lands in the query.
+- `shell-palette-highlight` opening the palette or changing the query highlights the top result. Results that land later for the same query leave the highlight where it was, even when they land above it. With `et` typed, `Go to Settings` stays highlighted after `The Quiet Orchard` lands in `Add a Movie` above Commands, and Enter opens Settings. A highlighted result that a later answer drops gives the highlight to the top result.
 - `shell-palette-commands` with no query the palette lists only its commands: Go to each nav row and Content Type, Go to each section of the browser's own Node, `Add a Movie`, `Toggle sidebar` (desktop shell only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` in both shells.
 - `shell-palette-empty` an unmatched query reads `Nothing matches "volcano". Try a Work's name, or a command such as Add a Movie.`
 - `shell-palette-phone` the `Search` tab opens the palette full screen with `Cancel`.
@@ -99,6 +100,21 @@ Steps:
   $FW exec $RUN --proof shell/shell-palette-reopen -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.keyboard.press("Control+k"); await page.getByRole("dialog").getByRole("combobox").waitFor(); await page.keyboard.press("Escape"); await page.keyboard.press("Control+k"); await page.keyboard.type("go to act"); return page.getByRole("dialog").getByRole("combobox").inputValue(); }'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Enter
   $FW exec $RUN --proof shell/shell-palette-reopen -- $PW cli -s={runId}-admin-desktop eval 'location.pathname'
+  ```
+
+- **Keep the highlight when the catalog answers.** From Activity, choose the capsule and type `et`. `Go to Settings` is highlighted. Once the group `Add a Movie` lands above Commands with `The Quiet Orchard`, `Go to Settings` is still highlighted, and Enter opens `/settings/content-types`. The read step prints the option that the search field's `aria-activedescendant` names. The capsule opens the palette on any host, where `press Control+k` does nothing on macOS, whose shortcut is ⌘K.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/activity'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search Works or run a command" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop type et
+  $FW exec $RUN --proof shell/shell-palette-highlight -- $PW cli -s={runId}-admin-desktop run-code 'async page => page.evaluate(() => document.getElementById(document.querySelector("[role=dialog] [role=combobox]").getAttribute("aria-activedescendant")).textContent)'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("group", { name: "Add a Movie" }).getByRole("option", { name: /^The Quiet Orchard/ }).waitFor({ timeout: 5000 }); }'
+  $FW exec $RUN --proof shell/shell-palette-highlight -- $PW cli -s={runId}-admin-desktop run-code 'async page => page.evaluate(() => document.getElementById(document.querySelector("[role=dialog] [role=combobox]").getAttribute("aria-activedescendant")).textContent)'
+  $FW exec $RUN --proof shell/shell-palette-highlight -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("dialog")' --filename={runDir}/proof/shell/shell-palette-highlight/answered.aria.yml
+  $FW exec $RUN --proof shell/shell-palette-highlight -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-palette-highlight/answered.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Enter
+  $FW exec $RUN --proof shell/shell-palette-highlight -- $PW cli -s={runId}-admin-desktop run-code 'async page => page.evaluate(() => location.pathname)'
   ```
 
 - **Add a Work from the palette.** Choose the capsule, type `add a` and press Enter. `Add a Movie` opens at `/add?contentType=movie`; search and add The Quiet Orchard as in [add-a-movie.md](add-a-movie.md). The toast `Added The Quiet Orchard` shows top right, and the Work page is titled `The Quiet Orchard · SlipStream`.
