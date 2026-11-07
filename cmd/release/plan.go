@@ -14,8 +14,8 @@ import (
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
 
-// lane is one kind of CI job: ci.yml has a job named after each kind, which
-// runs once per matrix entry the plan gives it.
+// lane is one kind of CI job: ci.yml or target.yml has a job named after each
+// kind, which runs once per matrix entry the plan gives it.
 type lane struct {
 	kind string
 	// tier is the dispatch input that selects the lane.
@@ -53,6 +53,10 @@ var lanes = []lane{
 
 // lanesOnBuild run against the build job's dist/.
 var lanesOnBuild = []string{"e2e", "browser"}
+
+func (l lane) inTargetWorkflow() bool {
+	return l.kind == "build" || slices.Contains(lanesOnBuild, l.kind)
+}
 
 type event struct {
 	// everyTarget runs every target whatever the change touches.
@@ -92,6 +96,27 @@ type MatrixEntry struct {
 
 type Matrix struct {
 	Include []MatrixEntry `json:"include"`
+}
+
+func (m Matrix) forTarget(target string) Matrix {
+	kept := Matrix{Include: []MatrixEntry{}}
+	for _, e := range m.Include {
+		if e.Target == target {
+			kept.Include = append(kept.Include, e)
+		}
+	}
+	return kept
+}
+
+type TargetCall struct {
+	Target  string `json:"target"`
+	Build   Matrix `json:"build"`
+	E2E     Matrix `json:"e2e"`
+	Browser Matrix `json:"browser"`
+}
+
+type TargetMatrix struct {
+	Include []TargetCall `json:"include"`
 }
 
 func init() {
@@ -134,11 +159,21 @@ func runPlan(_ context.Context, args []string) error {
 			return fmt.Errorf("encode the %s matrix: %w", l.kind, err)
 		}
 		fmt.Printf("%s: %s\n", l.kind, m)
+		if l.inTargetWorkflow() {
+			continue
+		}
 		if err := githubOutput(l.kind, string(m)); err != nil {
 			return err
 		}
 	}
-	planned, err := json.Marshal(p.Planned())
+	calls, err := json.Marshal(p.Targets())
+	if err != nil {
+		return fmt.Errorf("encode the target matrix: %w", err)
+	}
+	if err := githubOutput("target", string(calls)); err != nil {
+		return err
+	}
+	planned, err := json.Marshal(p.PlannedJobs())
 	if err != nil {
 		return fmt.Errorf("encode the planned lanes: %w", err)
 	}
@@ -165,14 +200,27 @@ type Plan struct {
 	Package bool
 }
 
-// Planned says, by lane, whether the lane runs, which the gate job
-// checks each lane's result against.
-func (p Plan) Planned() map[string]bool {
-	planned := map[string]bool{}
-	for kind, m := range p.Lanes {
-		planned[kind] = len(m.Include) > 0
+func (p Plan) PlannedJobs() map[string]bool {
+	planned := map[string]bool{"target": len(p.Lanes["build"].Include) > 0}
+	for _, l := range lanes {
+		if !l.inTargetWorkflow() {
+			planned[l.kind] = len(p.Lanes[l.kind].Include) > 0
+		}
 	}
 	return planned
+}
+
+func (p Plan) Targets() TargetMatrix {
+	m := TargetMatrix{Include: []TargetCall{}}
+	for _, b := range p.Lanes["build"].Include {
+		m.Include = append(m.Include, TargetCall{
+			Target:  b.Target,
+			Build:   p.Lanes["build"].forTarget(b.Target),
+			E2E:     p.Lanes["e2e"].forTarget(b.Target),
+			Browser: p.Lanes["browser"].forTarget(b.Target),
+		})
+	}
+	return m
 }
 
 func plan(in native.Inputs, e event, scope changescope.Scope, t touched, keep []string, tier string) (Plan, error) {
