@@ -38,6 +38,11 @@ export function Numbers({
   ];
   return (
     <InspectorSection title="Numbers">
+      {row.clientName !== undefined && (
+        <p className="mb-3 text-ink-2">
+          {`${row.clientName}'s own seeding rules decide when it stops seeding.`}
+        </p>
+      )}
       <FactList facts={facts} />
     </InspectorSection>
   );

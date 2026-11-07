@@ -2,6 +2,7 @@ import type {
   DownloadclientsCounts,
   DownloadclientsTabCountTab,
   DownloadclientsTorrentRow,
+  DownloadclientsTorrentRowLastKnownCause,
   DownloadclientsTorrentRowState,
   DownloadclientsTrackerCell,
 } from "../api/gen/model";
@@ -63,6 +64,27 @@ export function matches(row: Row, filter: TorrentsFilter, work: string | undefin
 
 export type Place = { readonly node: string; readonly clock: Clock };
 
+type Cause = DownloadclientsTorrentRowLastKnownCause;
+
+/** A stale row's wait: on its Node, or on its external client, named by who, since its last report at. */
+export type Waits = { readonly cause: Cause; readonly who: string; readonly at: string };
+
+/** What a row whose data is its last report waits on, none while it is current. */
+export function waitsOn(row: Row, { node }: Place): Waits | undefined {
+  const { lastKnown: at, lastKnownCause: cause } = row;
+  if (at === undefined || cause === undefined) {
+    return undefined;
+  }
+  return { cause, at, who: cause === "node" ? node : (row.clientName ?? "its client") };
+}
+
+/** How each wait ends, as a cell's fragment and as a sentence's. */
+export const backWords: { readonly [C in Cause]: { readonly line: string; readonly sentence: string } } = {
+  node: { line: "is back", sentence: "reconnects" },
+  client: { line: "responds", sentence: "responds again" },
+  off: { line: "is turned on", sentence: "is turned on" },
+};
+
 const ordinalSuffix: Readonly<Record<Intl.LDMLPluralRule, string>> = {
   zero: "th",
   one: "st",
@@ -77,13 +99,14 @@ export const ordinal = (n: number) => `${n}${ordinalSuffix[ordinals.select(n)]}`
 const peerWords = (live: LiveRow | undefined) =>
   live === undefined ? "" : `${live.peers} ${live.peers === 1 ? "peer" : "peers"}`;
 
-function pendingLine(row: Row, { node }: Place): string | undefined {
-  const away = row.lastKnown !== undefined;
+function pendingLine(row: Row, place: Place): string | undefined {
+  const waits = waitsOn(row, place);
+  const back = waits === undefined ? "" : ` when ${waits.who} ${backWords[waits.cause].line}`;
   switch (row.pending) {
     case "pause":
-      return away ? `Pauses when ${node} is back` : "Pausing";
+      return waits === undefined ? "Pausing" : `Pauses${back}`;
     case "resume":
-      return away ? `Resumes when ${node} is back` : "Resuming";
+      return waits === undefined ? "Resuming" : `Resumes${back}`;
     case undefined:
       return undefined;
     default:
@@ -126,11 +149,17 @@ export function stateLine(row: Row, live: LiveRow | undefined, place: Place): st
   if (pending !== undefined) {
     return pending;
   }
+  const waits = waitsOn(row, place);
   if (row.state === "removing") {
-    return `Waiting for ${place.node} to confirm`;
+    return waits === undefined || waits.cause === "node"
+      ? `Waiting for ${place.node} to confirm`
+      : `Removed when ${waits.who} ${backWords[waits.cause].line}`;
   }
   if (row.lastKnown !== undefined) {
     return `Last known at ${sinceWords(row.lastKnown, place.clock)}`;
+  }
+  if (row.importAt !== undefined) {
+    return `Imports at ${sinceWords(row.importAt, place.clock)}`;
   }
   switch (row.state) {
     case "failed":
@@ -144,7 +173,7 @@ export function stateLine(row: Row, live: LiveRow | undefined, place: Place): st
     case "queued":
       return row.hold === undefined ? `Waiting for ${place.node}` : heldLine(row, place);
     case "paused":
-      return heldLine(row, place);
+      return row.stoppedAtLimit === true ? "Stopped at its seeding limit" : heldLine(row, place);
     case "stalled":
       return "No data is arriving";
     case "downloading":

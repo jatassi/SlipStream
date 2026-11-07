@@ -3,26 +3,32 @@ import type { LiveRow } from "../live/torrents";
 import {
   type Place,
   type Row,
+  type Waits,
+  backWords,
   ordinal,
   paceOf,
   seedLength,
   stateWords,
   trackerLine,
+  waitsOn,
 } from "./model";
 
 const peers = (count: number) => `${count} ${count === 1 ? "peer" : "peers"}`;
 
-function pendingSentence(row: Row, { node }: Place): string | undefined {
-  const away = row.lastKnown !== undefined;
+const backSentence = ({ who, cause }: Waits) => `${who} ${backWords[cause].sentence}`;
+
+function pendingSentence(row: Row, place: Place): string | undefined {
+  const waits = waitsOn(row, place);
+  const { node } = place;
   switch (row.pending) {
     case "pause":
-      return away
-        ? `It pauses when ${node} reconnects.`
-        : `Pausing. It stops downloading and seeding once ${node} applies the pause.`;
+      return waits === undefined
+        ? `Pausing. It stops downloading and seeding once ${node} applies the pause.`
+        : `It pauses when ${backSentence(waits)}.`;
     case "resume":
-      return away
-        ? `It resumes when ${node} reconnects.`
-        : `Resuming. It continues once ${node} applies the resume.`;
+      return waits === undefined
+        ? `Resuming. It continues once ${node} applies the resume.`
+        : `It resumes when ${backSentence(waits)}.`;
     case undefined:
       return undefined;
     default:
@@ -94,6 +100,28 @@ function movingSentence(row: Row, live: LiveRow | undefined): string {
   return `Downloading from ${peers(live.peers)}${pace}.`;
 }
 
+// Why a row is its last report, and what it was doing then.
+function lastKnownSentence(row: Row, { cause, who, at }: Waits, place: Place) {
+  const when = sinceWords(at, place.clock);
+  const was = stateWords[row.state].toLowerCase();
+  switch (cause) {
+    case "node":
+      return `${place.node} is offline. When it last reported, at ${when}, this was ${was}.`;
+    case "client":
+      return `${who} on ${place.node} isn't responding. When it last responded, at ${when}, this was ${was}.`;
+    case "off":
+      return `SlipStream isn't checking ${who} while it's turned off. When it last responded, at ${when}, this was ${was}.`;
+    default:
+      return cause satisfies never;
+  }
+}
+
+/** What removing a torrent SlipStream attached to does, none for one it added. */
+export const attachedSentence = (row: Row): string | undefined =>
+  row.attached === true && row.clientName !== undefined
+    ? `This torrent was in ${row.clientName} before SlipStream attached to it. Removing it here stops SlipStream tracking it and leaves it in ${row.clientName}.`
+    : undefined;
+
 /**
  * What the Inspector leads with: what the Torrent is doing and what happens
  * next, in words, so no number needs reading.
@@ -103,11 +131,17 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
   if (pending !== undefined) {
     return pending;
   }
+  const waits = waitsOn(row, place);
   if (row.state === "removing") {
-    return `Removing. Waiting for ${place.node} to confirm.`;
+    return waits === undefined || waits.cause === "node"
+      ? `Removing. Waiting for ${place.node} to confirm.`
+      : `It's removed once ${backSentence(waits)}.`;
   }
-  if (row.lastKnown !== undefined) {
-    return `${place.node} is offline. When it last reported, at ${sinceWords(row.lastKnown, place.clock)}, this was ${stateWords[row.state].toLowerCase()}.`;
+  if (waits !== undefined) {
+    return lastKnownSentence(row, waits, place);
+  }
+  if (row.importAt !== undefined) {
+    return `Finished. SlipStream imports it at ${sinceWords(row.importAt, place.clock)}, when the Import delay for ${row.clientName ?? "its client"} ends.`;
   }
   switch (row.state) {
     case "failed":
@@ -125,7 +159,9 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
         ? `Waiting for ${place.node} to start it.`
         : heldSentence(row, place);
     case "paused":
-      return heldSentence(row, place);
+      return row.stoppedAtLimit === true
+        ? `${row.clientName ?? "Its client"} stopped it at its seeding limit.`
+        : heldSentence(row, place);
     case "stalled":
       return "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this Release, mark it failed.";
     case "downloading":

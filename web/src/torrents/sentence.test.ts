@@ -2,9 +2,15 @@ import { expect, test } from "vitest";
 
 import type { DownloadclientsTorrentRow } from "../api/gen/model";
 import { torrent } from "../test/torrents";
-import { inspectorSentence } from "./sentence";
+import { attachedSentence, inspectorSentence } from "./sentence";
 
 type Shape = Partial<DownloadclientsTorrentRow> & Pick<DownloadclientsTorrentRow, "state">;
+
+const transmission = {
+  clientId: "7d3f9b1e-5a2c-4e8f-b6d0-1c3e5a7f9b2d",
+  clientName: "Transmission",
+  clientKind: "transmission",
+} as const;
 
 const place = { node: "seedbox", clock: { now: new Date("2026-10-20T12:00:00Z"), zone: "UTC" } };
 const sample = {
@@ -57,13 +63,13 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
   ],
   [
     "a pause on an offline Node waits for it",
-    { state: "downloading", pending: "pause", lastKnown: "2026-10-20T11:00:00Z" },
+    { state: "downloading", pending: "pause", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "node" },
     undefined,
     "It pauses when seedbox reconnects.",
   ],
   [
     "an offline Node's last word",
-    { state: "seeding", lastKnown: "2026-10-20T11:00:00Z" },
+    { state: "seeding", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "node" },
     undefined,
     "seedbox is offline. When it last reported, at 11:00, this was seeding.",
   ],
@@ -123,6 +129,55 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     undefined,
     "Removing. Waiting for seedbox to confirm.",
   ],
+  [
+    "a client that isn't responding names itself and its Node",
+    { ...transmission, state: "downloading", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "client" },
+    undefined,
+    "Transmission on seedbox isn't responding. When it last responded, at 11:00, this was downloading.",
+  ],
+  [
+    "an off client isn't checked",
+    { ...transmission, state: "seeding", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "off" },
+    undefined,
+    "SlipStream isn't checking Transmission while it's turned off. When it last responded, at 11:00, this was seeding.",
+  ],
+  [
+    "a pause waits for the client to respond",
+    {
+      ...transmission,
+      state: "downloading",
+      pending: "pause",
+      lastKnown: "2026-10-20T11:00:00Z",
+      lastKnownCause: "client",
+    },
+    undefined,
+    "It pauses when Transmission responds again.",
+  ],
+  [
+    "a remove waits for the client to respond",
+    { ...transmission, state: "removing", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "client" },
+    undefined,
+    "It's removed once Transmission responds again.",
+  ],
+  [
+    "a stop at the seeding limit is no pause of the Admin's",
+    { ...transmission, state: "paused", stoppedAtLimit: true },
+    undefined,
+    "Transmission stopped it at its seeding limit.",
+  ],
+  [
+    "a finished torrent waits out the Import delay",
+    { ...transmission, state: "seeding", importAt: "2026-10-20T14:32:00Z" },
+    undefined,
+    "Finished. SlipStream imports it at 14:32, when the Import delay for Transmission ends.",
+  ],
 ])("%s", (_, shape, live, sentence) => {
   expect(inspectorSentence(torrent(shape), live, place)).toBe(sentence);
+});
+
+test("an attached torrent says a remove leaves it in its client, and an added one says nothing", () => {
+  expect(attachedSentence(torrent({ ...transmission, state: "seeding", attached: true }))).toBe(
+    "This torrent was in Transmission before SlipStream attached to it. Removing it here stops SlipStream tracking it and leaves it in Transmission.",
+  );
+  expect(attachedSentence(torrent({ ...transmission, state: "seeding" }))).toBeUndefined();
 });
