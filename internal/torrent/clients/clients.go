@@ -78,7 +78,8 @@ type Client interface {
 	Files(ctx context.Context, h bencode.InfoHash) ([]File, error)
 	Act(ctx context.Context, a Act, hashes []bencode.InfoHash) error
 	// Remove removes one torrent, deleting its data when data is set and
-	// the kind DeletesData.
+	// the kind DeletesData. A kind that doesn't removes the torrent only,
+	// and the Node deletes its files.
 	Remove(ctx context.Context, h bencode.InfoHash, data bool) error
 	// Close signs out where the kind has a sign-out, and drops the session.
 	Close(ctx context.Context) error
