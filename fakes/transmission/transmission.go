@@ -12,6 +12,7 @@
 package transmission
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -46,6 +47,31 @@ var Fake = fake.Spec{
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.OnlineSuite("transmission"),
 	Cues:      clientfake.Cues(name),
+	Captures:  []fake.CaptureSpec{Added, Removed},
+	Entered:   clientfake.Entered(name),
+}
+
+var (
+	// Added records each torrent a daemon added, not one it already had.
+	Added = fake.CaptureSpec{Name: "transmission-adds", Kind: "transmission.add"}
+	// Removed records each torrent a daemon removed.
+	Removed = fake.CaptureSpec{Name: "transmission-removes", Kind: "transmission.remove"}
+)
+
+// Add is an Added record's data, Folder as the daemon names it.
+type Add struct {
+	InfoHash string   `json:"infoHash"`
+	Name     string   `json:"name"`
+	Folder   string   `json:"folder"`
+	Labels   []string `json:"labels"`
+	Paused   bool     `json:"paused,omitempty"`
+}
+
+// Removal is a Removed record's data, with Data for a remove that deleted
+// the torrent's files.
+type Removal struct {
+	InfoHash string `json:"infoHash"`
+	Data     bool   `json:"data,omitempty"`
 }
 
 // Daemon is one Node's Transmission.
@@ -89,7 +115,31 @@ func Playing(daemons ...Daemon) fake.Spec {
 	return spec
 }
 
-func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(env, nil) }
+// newServer plays the Transmission of each Node the Scenario gives one,
+// downloading into that Node's folder under env.Dir.
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	var daemons []Daemon
+	for _, n := range s.Nodes {
+		for _, c := range n.DownloadClients {
+			if c.Kind != name {
+				continue
+			}
+			dir := clientfake.Folder(env.Dir, n.Name)
+			folder := cmp.Or(c.Folder, dir)
+			daemons = append(daemons, Daemon{
+				Node: n.Name, Version: c.Version, Username: c.Username, Password: c.Password,
+				Dir: dir, Folder: folder, Windows: drive(folder), Rate: clientfake.Rate,
+			})
+		}
+	}
+	return serve(env, daemons)
+}
+
+// drive reports whether folder starts with a drive letter, as a Windows
+// daemon's download_dir does.
+func drive(folder string) bool {
+	return len(folder) >= 2 && folder[1] == ':'
+}
 
 type version struct {
 	name, semver string
@@ -118,23 +168,36 @@ type server struct {
 	daemons map[string]*daemon
 }
 
+type captures struct {
+	added, removed *fake.Capture
+}
+
 type daemon struct {
 	Daemon
 	version version
 	engine  *torrentclient.Engine
+	captures
 
 	mu       sync.Mutex
 	failures int
 }
 
 func serve(env fake.Env, daemons []Daemon) (fake.Server, error) {
+	var c captures
+	var err error
+	if c.added, err = env.Capture(Added.Name); err != nil {
+		return nil, err
+	}
+	if c.removed, err = env.Capture(Removed.Name); err != nil {
+		return nil, err
+	}
 	s := &server{daemons: map[string]*daemon{}}
 	for _, d := range daemons {
 		v, ok := versions[d.Version]
 		if !ok {
 			return nil, fmt.Errorf("fake-transmission plays %v, not %q", Versions, d.Version)
 		}
-		s.daemons[d.Node] = &daemon{Daemon: d, version: v, engine: torrentclient.New(torrentclient.Config{
+		s.daemons[d.Node] = &daemon{Daemon: d, version: v, captures: c, engine: torrentclient.New(torrentclient.Config{
 			Releases: env.Releases, Dir: d.Dir, Name: d.Folder, Windows: d.Windows, Rate: d.Rate, Slots: d.Slots, SeedRatio: d.SeedRatio, Check: d.Check,
 		})}
 	}

@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
+	"github.com/jatassi/slipstream/fakes/internal/clientfake"
 	"github.com/jatassi/slipstream/fakes/internal/front"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
@@ -390,7 +391,7 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
-		f.env.Releases, f.env.Fronts, f.env.Files = r.releases, r.table, r.runDir
+		f.env.Releases, f.env.Fronts, f.env.Files, f.env.Dir = r.releases, r.table, r.runDir, r.fakeDir(f.spec.Name)
 		if f.spec.TLS == fake.OwnTLS {
 			leaf, err := r.leaf(f.spec.Name)
 			if err != nil {
@@ -742,7 +743,11 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 			solvers[n.Name] = challengesolver.Fake.URL(at)
 		}
 	}
-	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), sites, solvers); err != nil {
+	clients := func(node, kind string) (string, string) {
+		at, _ := r.table.Find(fault.Target(kind), node)
+		return at.URL(""), clientfake.Folder(r.fakeDir(kind), node)
+	}
+	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), sites, solvers, clients); err != nil {
 		return err
 	}
 	r.log.Info("library seeded")
@@ -774,6 +779,9 @@ func (r *Run) ready() []node.Ready {
 }
 
 func (r *Run) mediaDir() string { return filepath.Join(r.scratchDir, "media") }
+
+// fakeDir is the folder of the fake named name, which it alone writes.
+func (r *Run) fakeDir(name string) string { return filepath.Join(r.scratchDir, "fakes", name) }
 
 func (r *Run) publish(ctx context.Context, undo *unwind) error {
 	var err error

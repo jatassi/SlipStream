@@ -187,7 +187,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	}
 	t.Cleanup(func() { _ = log.Close() })
 	env := fake.NewEnv(s, spec, slog.New(slog.NewTextHandler(t.Output(), nil)), plan, log)
-	env.Releases, env.Fronts, env.Files = o.releases, o.fronts, runDir
+	env.Releases, env.Fronts, env.Files, env.Dir = o.releases, o.fronts, runDir, t.TempDir()
 	if spec.TLS == fake.OwnTLS {
 		env.Leaf = served
 	}

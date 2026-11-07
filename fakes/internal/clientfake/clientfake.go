@@ -16,6 +16,7 @@ import (
 
 const (
 	remove  = "remove"
+	pause   = "pause"
 	stall   = "stall"
 	failCue = "error"
 	tracker = "tracker"
@@ -25,13 +26,15 @@ const (
 	restart = "restart"
 )
 
-var cueNames = []string{remove, stall, failCue, tracker, empty, dropAdd, lateAdd, restart}
+var cueNames = []string{remove, pause, stall, failCue, tracker, empty, dropAdd, lateAdd, restart}
 
 // Cues are the cues the fake named kind plays, each <kind>-<cue>:
 //
 //   - remove {node, release, data}: the client removes the release's
 //     torrent, as its own seeding rule or a person in its web UI does,
 //     deleting its files with data.
+//   - pause {node, release}: a person pauses the release's torrent in the
+//     client's own web UI.
 //   - stall {node, release, on}: no more data arrives, or it arrives again.
 //   - error {node, release, message}: a local error such as a full disk
 //     stops the torrent; "" clears it.
@@ -93,6 +96,9 @@ func OnCues(env fake.Env, kind string, engineOf func(node string) (*torrentclien
 	return firstErr(
 		fake.OnCue(env, kind+"-"+remove, onReleaseCue(c, func(e *torrentclient.Engine, h bencode.InfoHash, a removeArgs) error {
 			return e.Remove(h, a.Data)
+		})),
+		fake.OnCue(env, kind+"-"+pause, onReleaseCue(c, func(e *torrentclient.Engine, h bencode.InfoHash, _ onRelease) error {
+			return e.Stop(h)
 		})),
 		fake.OnCue(env, kind+"-"+stall, onReleaseCue(c, func(e *torrentclient.Engine, h bencode.InfoHash, a stallArgs) error {
 			return e.Stall(h, a.On)

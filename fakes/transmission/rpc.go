@@ -2,6 +2,7 @@ package transmission
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"maps"
@@ -99,7 +100,7 @@ func (d *daemon) rpc(w http.ResponseWriter, r *http.Request) {
 	if len(bytes.TrimSpace(args)) == 0 {
 		args = json.RawMessage("{}")
 	}
-	result, err := d.call(method, args, !json2)
+	result, err := d.call(r.Context(), method, args, !json2)
 	switch {
 	case json2 && len(req.ID) == 0:
 		w.WriteHeader(http.StatusNoContent)
@@ -148,12 +149,12 @@ type ids struct {
 func (i *ids) named() []json.RawMessage { return i.IDs }
 
 // call runs method with args, whose names are snake_case.
-func (d *daemon) call(method string, args json.RawMessage, legacy bool) (any, *rpcError) {
+func (d *daemon) call(ctx context.Context, method string, args json.RawMessage, legacy bool) (any, *rpcError) {
 	switch method {
 	case "session_get":
 		return d.sessionGet(), nil
 	case "torrent_add":
-		return d.add(args)
+		return d.add(ctx, args)
 	case "torrent_get":
 		return d.torrentGet(args, legacy)
 	case "torrent_set":
@@ -163,7 +164,13 @@ func (d *daemon) call(method string, args json.RawMessage, legacy bool) (any, *r
 			ids
 			Delete bool `json:"delete_local_data"`
 		}
-		return d.each(args, &a, func(h bencode.InfoHash) error { return d.engine.Remove(h, a.Delete) })
+		return d.each(args, &a, func(h bencode.InfoHash) error {
+			if err := d.engine.Remove(h, a.Delete); err != nil {
+				return err
+			}
+			d.removed.Record(ctx, Removal{InfoHash: h.String(), Data: a.Delete})
+			return nil
+		})
 	}
 	act, ok := map[string]func(bencode.InfoHash) error{
 		"torrent_start": d.engine.Start, "torrent_stop": d.engine.Stop, "torrent_verify": d.engine.Verify,
@@ -223,7 +230,7 @@ func (d *daemon) sessionGet() map[string]any {
 	}
 }
 
-func (d *daemon) add(args json.RawMessage) (any, *rpcError) {
+func (d *daemon) add(ctx context.Context, args json.RawMessage) (any, *rpcError) {
 	var a struct {
 		Metainfo string    `json:"metainfo"`
 		Dir      string    `json:"download_dir"`
@@ -251,6 +258,8 @@ func (d *daemon) add(args json.RawMessage) (any, *rpcError) {
 	key := "torrent_added"
 	if duplicate {
 		key = "torrent_duplicate"
+	} else {
+		d.added.Record(ctx, Add{InfoHash: t.Hash.String(), Name: t.Name, Folder: t.Folder, Labels: labels, Paused: a.Paused})
 	}
 	return map[string]any{key: map[string]any{"id": t.ID, "name": t.Name, "hash_string": t.Hash.String()}}, nil
 }

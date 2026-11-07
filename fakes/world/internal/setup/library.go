@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -30,9 +31,10 @@ const tvdbKey = "fake-world-tvdb-key"
 // has a tvdb catalog, each root's folder under mediaDir and the root on
 // its Node, which shares the machine and so the media dir, then the
 // Targets and Profiles as goals makes them, then each Node's Challenge
-// solver at the address solvers names for it, and the Indexers on the
-// site fakes at sites, as an Admin would.
-func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address, solvers map[string]string) error {
+// solver at the address solvers names for it, and each Node's Download
+// Clients where clients says, and the Indexers on the site fakes at sites,
+// as an Admin would.
+func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address, solvers map[string]string, clients Clients) error {
 	if err := StorageLevels(ctx, c, s, ready, claims); err != nil {
 		return err
 	}
@@ -63,7 +65,52 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 			}
 		}
 	}
+	if err := addClients(ctx, c, s, claims, controller, clients); err != nil {
+		return err
+	}
 	return addIndexers(ctx, c, s, claims, controller, sites[site.Fake.Name])
+}
+
+// Clients is where the Node named node reaches the fake Download Client of
+// kind, and the folder that client downloads into as the Node sees it.
+type Clients func(node, kind string) (url, folder string)
+
+// addClients adds each Node's Download Clients as an Admin would, each at
+// the address clients names, with the Client folder pairing its own name
+// for its folder with the Node's when it says so, then sends the Node's New
+// Grabs to the client that says so. Each client's folder is made first, as
+// the client has it before anyone adds it.
+func addClients(ctx context.Context, c *http.Client, s scenario.Scenario, claims Claims, controller string, clients Clients) error {
+	for i, n := range s.Nodes {
+		for _, dc := range n.DownloadClients {
+			address, folder := clients(n.Name, dc.Kind)
+			if err := addClient(ctx, c, claims, controller, claims.Members[i].ID, dc, address, folder); err != nil {
+				return fmt.Errorf("node %s: %w", n.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func addClient(ctx context.Context, c *http.Client, claims Claims, controller, nodeID string, dc scenario.DownloadClient, address, folder string) error {
+	if err := os.MkdirAll(folder, 0o700); err != nil {
+		return fmt.Errorf("make the %s folder: %w", dc.Kind, err)
+	}
+	body := nodeapi.NewClient{
+		NodeID: nodeID, Kind: dc.Kind, Name: dc.Name, Address: address,
+		Username: dc.Username, Password: dc.Password, Label: dc.Label,
+	}
+	if dc.Pair {
+		body.ClientFolders = []nodeapi.ClientFolder{{Client: dc.Folder, Node: folder}}
+	}
+	if dc.ImportDelay > 0 {
+		body.ImportDelay = new(int64(dc.ImportDelay / time.Second))
+	}
+	id, err := nodeapi.CreateExternalClient(ctx, c, controller, claims.APIKey, body)
+	if err != nil || !dc.GrabsTo {
+		return err
+	}
+	return nodeapi.SetClientSettings(ctx, c, controller, claims.APIKey, nodeID, nodeapi.ClientSettings{GrabsTo: &id})
 }
 
 // addIndexers adds the Scenario's Indexers as an Admin would, each on its

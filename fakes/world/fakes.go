@@ -1,6 +1,8 @@
 package world
 
 import (
+	"slices"
+
 	"github.com/jatassi/slipstream/fakes/catalog"
 	"github.com/jatassi/slipstream/fakes/challengesolver"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/coverart"
@@ -37,4 +39,13 @@ func Captures() []fake.CaptureSpec {
 		out = append(out, f.Captures...)
 	}
 	return out
+}
+
+// FakeNamed is the world's fake named name.
+func FakeNamed(name string) (fake.Spec, bool) {
+	i := slices.IndexFunc(fakes, func(f fake.Spec) bool { return f.Name == name })
+	if i < 0 {
+		return fake.Spec{}, false
+	}
+	return fakes[i], true
 }
