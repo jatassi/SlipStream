@@ -134,7 +134,7 @@ func (r *Run) serveFronts(f *fakeRun) error {
 	var leaves func(fault.Front) *tls.Config
 	if f.spec.TLS == fake.FrontTLS {
 		var err error
-		if leaves, err = r.leaves(f.spec.Name); err != nil {
+		if leaves, err = r.leaves(f.spec); err != nil {
 			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
 		}
 	}
@@ -153,9 +153,9 @@ func (r *Run) serveFronts(f *fakeRun) error {
 
 // leaves are the certificates a fake's fronts present: a leaf from the run
 // CA, and the bad leaf each TLS failure plays.
-func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
-	names := fake.LeafNames(name)
-	good, err := r.leaf(name)
+func (r *Run) leaves(spec fake.Spec) (func(fault.Front) *tls.Config, error) {
+	names := spec.LeafNames()
+	good, err := r.leaf(spec)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
 	return func(f fault.Front) *tls.Config { return front.TLS(r.faults, f, good, bad) }, nil
 }
 
-func (r *Run) leaf(name string) (tls.Certificate, error) { return r.ca.Leaf(fake.LeafNames(name)...) }
+func (r *Run) leaf(spec fake.Spec) (tls.Certificate, error) { return r.ca.Leaf(spec.LeafNames()...) }
 
 // LinkTarget is the fault target of the link front of the Node named
 // name: one front every peer dials, since each dials the one address the

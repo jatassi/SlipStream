@@ -19,7 +19,7 @@ import (
 func serve(t *testing.T, taken fake.Routes, load Loader) (site faketest.Served, served Served) {
 	t.Helper()
 	spec := fake.Spec{
-		Name: "fixture-site", TLS: fake.FrontTLS, Cues: []fake.CueSpec{PortCase},
+		Name: "fixture-site", TLS: fake.FrontTLS, Cues: []fake.CueSpec{PortCase}, Subdomains: []string{string(testport.ID)},
 		New: func(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
 			routes := fake.Routes{}
 			for k, v := range taken {
@@ -96,6 +96,30 @@ func TestAFamilyFakeOnAPortsHostServesItInPlaceOfItsFixture(t *testing.T) {
 		}
 		if code, body := get(t, s, "/api/search?q="); code != http.StatusOK || body != "family" {
 			t.Errorf("the search = %d %q, want the family fake's", code, body)
+		}
+	})
+}
+
+func TestAReplayServesEveryHostItsExchangesName(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		api := "api." + Host(testport.ID)
+		withAPI := func(id port.ID) (Fixture, error) {
+			f, err := Embedded(id)
+			f.Cases = append(f.Cases, Case{Name: "api", Exchanges: []Exchange{{Request: Match{Host: api, Path: "/v1/ping"}}}})
+			return f, err
+		}
+		s, _ := serve(t, nil, withAPI)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://"+api+"/v1/ping", http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := s.Client.Do(req)
+		if err != nil {
+			t.Fatalf("GET on %s = %v, want the leaf to name it and the replay to answer", api, err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Errorf("GET on %s = %d, want the api case's 200", api, res.StatusCode)
 		}
 	})
 }

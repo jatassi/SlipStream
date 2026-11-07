@@ -66,13 +66,23 @@ type Spec struct {
 	// front for the Node that dials it, directly or through that Node's
 	// endpoints.searching. nil is a fake no Admin types.
 	Entered func(get func(path string) ([]byte, error)) ([]Entered, error)
+	// Subdomains are the labels under the fake's domain whose own hosts it
+	// serves too, such as a site's api. host. A certificate's wildcard
+	// covers one label, so the leaf names each.
+	Subdomains []string
 }
 
-// LeafNames are the names on the run-CA leaf of the fake named name:
-// 127.0.0.1, its domain <name>.fake.localhost, and every host under that
-// domain, where a fake hosting several sites serves each.
-func LeafNames(name string) []string {
-	return []string{"127.0.0.1", name + ".fake.localhost", "*." + name + ".fake.localhost"}
+// LeafNames are the names on the run-CA leaf of the fake: 127.0.0.1,
+// its domain <name>.fake.localhost, every host under that domain, where a
+// fake hosting several sites serves each, and every host under each of
+// its Subdomains.
+func (s Spec) LeafNames() []string {
+	domain := s.Name + ".fake.localhost"
+	out := []string{"127.0.0.1", domain, "*." + domain}
+	for _, label := range s.Subdomains {
+		out = append(out, "*."+label+"."+domain)
+	}
+	return out
 }
 
 func (s Spec) URL(at Address) string {
@@ -143,7 +153,7 @@ type Env struct {
 	Fronts Fronts
 	// Files is the run dir a capture's files land under.
 	Files string
-	// Leaf serves a run-CA certificate for LeafNames, for an OwnTLS fake,
+	// Leaf serves a run-CA certificate for Spec.LeafNames, for an OwnTLS fake,
 	// and is nil otherwise.
 	Leaf *tls.Config
 
