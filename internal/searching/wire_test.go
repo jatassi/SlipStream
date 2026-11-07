@@ -33,6 +33,16 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 		t.Fatalf("the RSS job came across as %+v, %+v, %v; want %+v", got, site, err, feed)
 	}
 
+	native := Job{
+		ID: "n", Indexer: "h", Revision: 4, Kind: Native, Address: "https://hdbits.test/", Port: "hdbits",
+		Settings: map[string]string{"username": "u", "apiKey": "k"},
+		Session:  &Session{UserAgent: "Mozilla/5.0", Token: "bearer", Earned: earned},
+		Call:     TestCall{Code: "123456"},
+	}
+	if got, site, err := decodeJob(encodeJob(native)); err != nil || !reflect.DeepEqual(got, native) || site.Port != "hdbits" || site.Code != "123456" {
+		t.Fatalf("the native job came across as %+v, %+v, %v; want %+v", got, site, err, native)
+	}
+
 	for _, call := range []Call{TestCall{Captcha: &CaptchaAnswer{PreLogin: []byte(`{"Action":"x"}`), Text: "x7k2"}}, CaptchaCall{}} {
 		catalog := Job{
 			ID: "c", Indexer: "l", Revision: 2, Kind: Catalog, Address: "https://larkspur.test/", Definition: &Definition{YAML: []byte("id: larkspur"), SHA: "abc"},
@@ -56,13 +66,14 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 			Categories: []int{5040}, IDs: map[string]string{"tvdbid": "1"}, Factors: Factors{Download: 0, Upload: 2},
 			Floor: Floor{MinRatio: 1, MinSeed: 48 * time.Hour}, Details: "https://site.test/t/1",
 			Source: &Source{ID: "12", Name: "Larkspur", Privacy: "private", Origin: "prowlarr"},
+			Flags:  []Flag{Freeleech, Internal},
 		}},
 	}
 	back, err := decodeAnswer(encodeAnswer(answer))
 	if err != nil || !same(back, answer) {
 		t.Fatalf("the answer came across as %+v, %v; want %+v", back, err, answer)
 	}
-	for _, outcome := range []error{nil, &Limited{RetryAfter: 2 * time.Second}} {
+	for _, outcome := range []error{nil, &Limited{RetryAfter: 2 * time.Second}, &Stopped{Cause: CodeNeeded}, &Stopped{Cause: PortRetired, Text: "the site closed"}} {
 		a := Answer{Outcome: outcome, Report: &Report{Capabilities: Capabilities{Modes: map[string][]string{"search": {"q"}}, Categories: []int{2000}}, Items: 3, Sources: []string{"Larkspur"}}}
 		if back, err := decodeAnswer(encodeAnswer(a)); err != nil || !same(back, a) {
 			t.Fatalf("a Test's answer came across as %+v, %v; want %+v", back, err, a)

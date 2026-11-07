@@ -24,6 +24,9 @@ func (s *Service) Run(ctx context.Context, req *searchv1.RunRequest) (*searchv1.
 	if (job.Kind == Catalog) != (job.Definition != nil) {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a catalog Indexer's job carries its definition, and no other job carries one")
 	}
+	if (job.Kind == Native) != (job.Port != "") {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a native Indexer's job names its port, and no other job names one")
+	}
 	r := s.jobs.join(job.ID, func(r *run) Answer { return s.do(job, site, r) })
 	hold := time.NewTimer(s.cfg.Timings.Hold)
 	defer hold.Stop()
@@ -67,7 +70,8 @@ func (s *Service) do(job Job, site *Site, r *run) Answer {
 			a.Outcome = &Stopped{Cause: DefinitionUnloadable, Text: err.Error()}
 			return a
 		}
-		site.def, site.delay = def, def.Summary().RequestDelay
+		site.def = def
+		site.Space(def.Summary().RequestDelay)
 	}
 	var err error
 	switch c := job.Call.(type) {

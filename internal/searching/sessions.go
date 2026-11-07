@@ -3,6 +3,7 @@ package searching
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 )
 
@@ -100,6 +101,43 @@ func (sl *slot) cleared(c clearance) {
 	}
 	s.Cookies, s.UserAgent, s.Earned = withCookies(s.Cookies, c.cookies), c.userAgent, c.at
 	sl.session = &s
+}
+
+// SignIn runs fn, one at a time for the Indexer on this Node, and holds
+// the session it returns. A caller that saw seen and finds a session
+// earned after it once its turn comes uses that one, unless must. fn's
+// requests go through in, whose jar holds the cookies the sign-in earns
+// and any pasted ones.
+func (s *Site) SignIn(ctx context.Context, seen *Session, must bool, fn func(ctx context.Context, in *SigningIn) (*Session, error)) error {
+	return s.signIn(ctx, seen, must, func(ctx context.Context) (*Session, error) {
+		return fn(ctx, &SigningIn{site: s, jar: s.signInJar()})
+	})
+}
+
+// SigningIn is one sign-in's requests and the cookies they earned.
+type SigningIn struct {
+	site *Site
+	jar  *jar
+}
+
+// Do sends req as o says, with the sign-in's cookies.
+func (in *SigningIn) Do(ctx context.Context, req *http.Request, o Send) (*Response, error) {
+	return in.site.send(ctx, req, o.Purpose, in.jar, o.follow())
+}
+
+// Cookies are the cookies the sign-in holds now.
+func (in *SigningIn) Cookies() []Cookie {
+	cookies, _ := in.jar.held()
+	return cookies
+}
+
+// signInJar is a sign-in's jar: the pasted cookies, which every sign-in
+// request sends beside its own.
+func (s *Site) signInJar() *jar {
+	if held := s.slot.held(); held != nil && held.Pasted {
+		return newJar(held.Cookies)
+	}
+	return newJar(nil)
 }
 
 // signIn runs fn, one at a time for the Indexer on this Node, and holds

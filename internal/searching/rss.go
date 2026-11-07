@@ -81,9 +81,9 @@ func (rssDriver) Fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 func (rssDriver) feed(ctx context.Context, s *Site) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Address.String(), http.NoBody)
 	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
+		return nil, &Failing{Err: fmt.Errorf("build the request: %w", WithoutURL(err))}
 	}
-	res, err := s.Do(ctx, req, Read)
+	res, err := s.Do(ctx, req, Send{Purpose: Read})
 	switch {
 	case err != nil:
 		return nil, err
