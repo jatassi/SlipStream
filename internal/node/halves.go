@@ -464,7 +464,7 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		deps.Log = n.rootLog.With("subsystem", "contenttype."+string(t.ID()))
 		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
-	return metadata.HolderConfig{Types: sources, Testers: []metadata.Tester{deps.TMDB, deps.OMDb}, Timings: n.cfg.Timings.Metadata, Lines: lines}
+	return metadata.HolderConfig{Types: sources, Testers: deps.Testers(), Timings: n.cfg.Timings.Metadata, Lines: lines}
 }
 
 // openLibraries opens every Content Type's library half, on the

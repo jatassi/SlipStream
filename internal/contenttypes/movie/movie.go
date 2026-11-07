@@ -276,7 +276,6 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws works.Am
 // Cuts answers none: every cut a movie names is built in.
 func (*Movie) Cuts() []release.Cut { return nil }
 
-// Growing answers none: a movie never gains Items.
 // OptionFields answers none: a movie has no per-Work options.
 func (*Movie) OptionFields(context.Context, storage.Reader[file], works.WorkID) ([]setting.Field, error) {
 	return nil, nil
@@ -299,6 +298,7 @@ func (*Movie) KeysOf(context.Context, storage.Reader[file], []works.Key) ([]work
 	return nil, nil
 }
 
+// Growing answers none: a movie never gains Items.
 func (*Movie) Growing(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID]bool, error) {
 	return nil, nil
 }
