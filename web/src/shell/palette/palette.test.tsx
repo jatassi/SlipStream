@@ -1,17 +1,22 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { getSearchCatalogMockHandler } from "../../api/gen/query/works/works.msw";
+import {
+  getSearchCatalogMockHandler,
+  getSearchWorksMockHandler,
+} from "../../api/gen/query/works/works.msw";
 import { nodeSystems } from "../../test/node-system";
 import { homeId } from "../../test/nodes";
 import {
   capsule,
   duneId,
   group,
+  highlighted,
   label,
   library,
   openFromCapsule,
   optionTexts,
+  orchards,
   palette,
   groupLabels,
   pressShortcut,
@@ -20,8 +25,6 @@ import {
 import { renderApp } from "../../test/render-app";
 import { asPhone } from "../../test/viewport";
 
-// A catalog answers a typed command 400ms after the last key, and its Add
-// group lands above Commands with the highlight, so Enter would add a Film.
 const noCatalog = () => [getSearchCatalogMockHandler({ candidates: [] }), ...library().handlers];
 
 test("the shortcut opens the palette, and Enter on a typed Work opens its page", async () => {
@@ -44,6 +47,7 @@ test("at rest the palette lists the commands, and Esc returns focus to the capsu
   await userEvent.click(capsule());
 
   await expect.poll(groupLabels).toEqual(["Commands"]);
+  await expect.poll(highlighted).toBe("Go to Library");
   await expect
     .poll(() => optionTexts("Commands"))
     .toEqual([
@@ -102,16 +106,60 @@ test("the shortcut toggles the palette closed", async () => {
   await expect.element(palette()).not.toBeInTheDocument();
 });
 
-test("Toggle sidebar collapses the sidebar", async () => {
-  renderApp({ path: "/library", handlers: noCatalog() });
+test("Toggle sidebar keeps the highlight when the catalog answers, and collapses the sidebar", async () => {
+  renderApp({ path: "/library", handlers: library().handlers });
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect.poll(() => nav.element().getBoundingClientRect().width).toBe(228);
 
   await openFromCapsule();
   await userEvent.keyboard("toggle");
-  await expect.poll(() => optionTexts("Commands")).toEqual(["Toggle sidebar"]);
+  await expect.poll(highlighted).toBe("Toggle sidebar");
+  await expect.poll(groupLabels).toEqual(["Add a Film", "Commands"]);
+  expect(highlighted()).toBe("Toggle sidebar");
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => nav.element().getBoundingClientRect().width).toBe(60);
+});
+
+test("a changed query highlights the top result", async () => {
+  renderApp({ path: "/library", handlers: library().handlers });
+  await openFromCapsule();
+  await userEvent.keyboard("toggle");
+  await expect.poll(groupLabels).toEqual(["Add a Film", "Commands"]);
+  await expect.poll(highlighted).toBe("Toggle sidebar");
+  await userEvent.keyboard("{Backspace}");
+  await expect.poll(highlighted).toBe("The Quiet Orchard2021");
+});
+
+test("a highlighted Work the answer drops gives the highlight to the top result", async () => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const rows = orchards(3);
+  renderApp({
+    path: "/library",
+    handlers: [
+      getSearchWorksMockHandler(async ({ request }) => {
+        if (new URL(request.url).searchParams.get("q") !== "orch") {
+          return { workIds: [], rows: rows.slice(0, 2) };
+        }
+        await held;
+        return { workIds: [], rows: rows.filter((_, index) => index !== 1) };
+      }),
+      ...noCatalog(),
+    ],
+  });
+  await openFromCapsule();
+  await userEvent.keyboard("orc");
+  await expect.poll(() => optionTexts("Works")).toHaveLength(2);
+  await userEvent.keyboard("h{ArrowDown}");
+  await expect.poll(highlighted).toBe("Orchard 22021 · Film · Missing");
+
+  release();
+  await expect
+    .poll(() => optionTexts("Works"))
+    .toEqual(["Orchard 12021 · Film · Missing", "Orchard 32021 · Film · Missing"]);
+  expect(highlighted()).toBe("Orchard 12021 · Film · Missing");
 });
 
 test("Add a Film opens the Add page for its Content Type", async () => {
@@ -124,7 +172,7 @@ test("Add a Film opens the Add page for its Content Type", async () => {
 test("Go to Log settings opens that section of the browser's own Node", async () => {
   const { router } = renderApp({
     path: "/library",
-    handlers: [...noCatalog(), ...nodeSystems().handlers],
+    handlers: [...library().handlers, ...nodeSystems().handlers],
   });
   await openFromCapsule();
   await userEvent.keyboard("log set");
