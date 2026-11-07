@@ -6,16 +6,11 @@ package series
 import (
 	"context"
 	"embed"
-	"errors"
-	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/providers/omdb"
-	"github.com/jatassi/slipstream/internal/providers/tmdb"
-	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -24,8 +19,6 @@ type file = storage.Library
 
 //go:embed schema/*.sql
 var schemaFiles embed.FS
-
-var errNotImplemented = errors.New("not implemented")
 
 var Def = contenttype.Define("series", schemaFiles, DefaultEndpoints, contenttype.Halves[Endpoints]{
 	Provider: func(d contenttype.ProviderDeps, _ Endpoints) metadata.Source {
@@ -105,31 +98,6 @@ var (
 )
 
 func in(places ...works.Place) []works.Place { return places }
-
-// Source is the provider half: TVDB for the tree, TMDB for what TVDB
-// lacks, and OMDb for ratings.
-type Source struct {
-	tvdb *tvdb.Client
-	tmdb *tmdb.Client
-	omdb *omdb.Client
-}
-
-func (s *Source) Search(context.Context, metadata.Ask, string) ([]works.Candidate, error) {
-	return nil, errNotImplemented
-}
-
-func (s *Source) Fetch(context.Context, metadata.Ask, works.Key, []byte) (works.Fetched, error) {
-	return works.Fetched{}, errNotImplemented
-}
-
-// Sources are TMDB's image host and TVDB's artwork host.
-func (s *Source) Sources() []artwork.Source {
-	return []artwork.Source{s.tmdb.Images(), s.tvdb.Artwork()}
-}
-
-func (s *Source) Changes(context.Context, metadata.Ask, time.Time, time.Time, int) (metadata.ChangesPage, error) {
-	return metadata.ChangesPage{}, errNotImplemented
-}
 
 // Series is the library half.
 type Series struct {
