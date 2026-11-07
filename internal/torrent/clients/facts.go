@@ -19,8 +19,6 @@ type Facts struct {
 	// Name is the product's name, the default client name and the subject
 	// of its sentences: "Transmission".
 	Name string
-	// Example is the Address field's example.
-	Example string
 	// Path is what ParseAddress fills in for an address with no path, ""
 	// for a kind that has none.
 	Path string
@@ -67,7 +65,6 @@ var allActs = []Act{Pause, Resume, Recheck, Announce}
 var facts = map[Kind]Facts{
 	QBittorrent: {
 		Name:        "qBittorrent",
-		Example:     "http://192.168.1.20:8080",
 		WebUI:       "/",
 		SignIn:      SignIn{Username: Optional, Password: Optional, APIKey: true},
 		Label:       AnyLabel,
@@ -78,7 +75,6 @@ var facts = map[Kind]Facts{
 	},
 	Transmission: {
 		Name:        "Transmission",
-		Example:     "http://192.168.1.20:9091/transmission/rpc",
 		Path:        "/transmission/rpc",
 		WebUI:       "/transmission/web/",
 		SignIn:      SignIn{Username: Optional, Password: Optional},
@@ -90,7 +86,6 @@ var facts = map[Kind]Facts{
 	},
 	Deluge: {
 		Name:        "Deluge",
-		Example:     "http://192.168.1.20:8112",
 		Path:        "/json",
 		WebUI:       "/",
 		SignIn:      SignIn{Password: Required},
@@ -102,7 +97,6 @@ var facts = map[Kind]Facts{
 	},
 	RTorrent: {
 		Name:          "rTorrent",
-		Example:       "http://192.168.1.20/RPC2",
 		Path:          "/RPC2",
 		SignIn:        SignIn{Username: Optional, Password: Optional},
 		Label:         AnyLabel,

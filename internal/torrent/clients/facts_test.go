@@ -1,7 +1,6 @@
 package clients_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/torrent/clients"
@@ -15,13 +14,6 @@ func TestEveryKindHasFactsTheFormCanUse(t *testing.T) {
 		f := kind.Facts()
 		if f.Name == "" {
 			t.Fatalf("%s has no facts", kind)
-		}
-		a, err := clients.ParseAddress(f.Example, kind)
-		if err != nil {
-			t.Errorf("%s's example %q doesn't parse: %v", f.Name, f.Example, err)
-		}
-		if !strings.HasSuffix(a.String(), f.Path) {
-			t.Errorf("%s's example %q parses to %q, want its path %q", f.Name, f.Example, a, f.Path)
 		}
 		if got := f.Floor.String(); got != floors[kind] {
 			t.Errorf("%s's floor = %s, want %s", f.Name, got, floors[kind])
