@@ -17,7 +17,10 @@ import (
 	"github.com/jatassi/slipstream/internal/setting"
 )
 
-var fightClub = conformance.Known{ID: 550, Title: "Fight Club", IMDbID: "tt0137523", Year: 1999}
+var (
+	fightClub   = conformance.Known{ID: 550, Title: "Fight Club", IMDbID: "tt0137523", Year: 1999}
+	breakingBad = conformance.KnownSeries{ID: 1396, Name: "Breaking Bad", TVDB: 81189, IMDbID: "tt0903747"}
+)
 
 func TestTMDBConforms(t *testing.T) {
 	key := os.Getenv("TEST_ONLINE_TMDB_KEY")
@@ -25,7 +28,7 @@ func TestTMDBConforms(t *testing.T) {
 		t.Fatal("TEST_ONLINE_TMDB_KEY is not set")
 	}
 	var bodies []shape.Body
-	tgt := conformance.Target{Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute}, Key: key, Known: fightClub, Lines: lines, Timings: provider.DefaultTimings()}
+	tgt := conformance.Target{Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute}, Key: key, Known: fightClub, Series: breakingBad, Lines: lines, Timings: provider.DefaultTimings()}
 	if *shape.Update {
 		tgt.Record = func(key string, body []byte) { bodies = append(bodies, shape.Body{Key: key, JSON: body}) }
 	}

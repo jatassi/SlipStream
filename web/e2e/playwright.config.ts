@@ -46,15 +46,31 @@ export const engineOf = (name: ProjectName): Engine => projects[name][0];
 
 // Specs of the desktop shell's own controls, such as the account menu, and
 // of the Diagram's drags, which a phone doesn't take. The Library's scale
-// measure seeds 20,000 Works once, against the desktop grid.
-const desktopOnly = ["restart.spec.ts", "diagram.spec.ts", "library-scale.spec.ts"];
+// measure seeds 20,000 Works once, against the desktop grid, and the Work
+// page's measures a 1,200-episode series on the desktop rows.
+const desktopOnly = [
+  "restart.spec.ts",
+  "diagram.spec.ts",
+  "library-scale.spec.ts",
+  "work-scale.spec.ts",
+];
+
+// Linux WebKit paints on the page's main thread in software, because CI's
+// runners have no GPU. At the phone's 3x scale a frame of a closing sheet
+// blocks the page for seconds, and a view transition waits for that frame
+// before the next page commits. macOS keeps the phone's scale.
+const softwarePainted = (engine: Engine): boolean => engine === "webkit" && platform === "linux";
 
 function project(name: ProjectName): Project {
   const [engine, preset] = projects[name];
   const { width, height, ...device } = presets[preset];
+  const scale = softwarePainted(engine) ? { deviceScaleFactor: 1 } : {};
   return {
     name,
-    use: { browserName: engine, contextOptions: { viewport: { width, height }, ...device } },
+    use: {
+      browserName: engine,
+      contextOptions: { viewport: { width, height }, ...device, ...scale },
+    },
     ...(preset === "phone" && { testIgnore: desktopOnly }),
     grepInvert: [
       // A test tagged @cdp drives Chromium's DevTools Protocol, as its virtual

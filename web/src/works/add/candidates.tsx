@@ -12,6 +12,10 @@ import { openAddSheet } from "./sheet-state";
 
 const shown = 25;
 
+/** Why a result another source found can't be added, in the type's source and nouns. */
+export const unlistedLine = ({ source, work }: WorksContentType): string =>
+  `${source} doesn't list this ${work.one.toLowerCase()}. SlipStream needs ${source} to keep it up to date.`;
+
 export function Candidates({ type, query }: { type: WorksContentType; query: string }) {
   const candidates = useSearchCatalogSuspense(type.id, { query }).data.candidates.slice(0, shown);
   if (candidates.length === 0) {
@@ -38,8 +42,12 @@ function Meta({ type, candidate }: { type: WorksContentType; candidate: WorksCan
   return (
     <>
       <span className="block truncate">{facts.join(" · ")}</span>
-      {candidate.overview !== "" && (
-        <span className="block truncate text-ink-2">{candidate.overview}</span>
+      {candidate.unlisted ? (
+        <span className="block whitespace-normal text-ink-2">{unlistedLine(type)}</span>
+      ) : (
+        candidate.overview !== "" && (
+          <span className="block truncate text-ink-2">{candidate.overview}</span>
+        )
       )}
     </>
   );
@@ -55,6 +63,15 @@ function Candidate({ type, candidate }: { type: WorksContentType; candidate: Wor
         meta={<Meta type={type} candidate={candidate} />}
         trailing={<Chip>In the library</Chip>}
         render={<Link to="/works/$workId" params={{ workId: candidate.workId }} />}
+      />
+    );
+  }
+  if (candidate.unlisted) {
+    return (
+      <ListRow
+        leading={poster}
+        title={candidate.label}
+        meta={<Meta type={type} candidate={candidate} />}
       />
     );
   }

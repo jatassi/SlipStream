@@ -148,7 +148,7 @@ func (s *served) plant(t *testing.T, name, key string) string {
 	return id.String()
 }
 
-const modes = `"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}]`
+const modes = `"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]},{"mode":"tvsearch","params":["q","season","ep","tvdbid"]}]`
 
 // fresh is the wire of a just-created Fixture Site at revision with
 // switches and priority, its home being id2 and its last success T.

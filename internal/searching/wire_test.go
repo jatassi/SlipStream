@@ -18,7 +18,7 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 	job := Job{
 		ID: "j", Indexer: "i", Revision: 3, Kind: Torznab, Address: "https://site.test/torznab", Settings: map[string]string{"username": "u"},
 		APIKey: "k", Session: session, Categories: []int{2000, 2040},
-		Call: SearchCall{Query: Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1"}, Text: "Lantern", Season: 2, Episode: "5"}},
+		Call: SearchCall{Query: Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1"}, Text: "Lantern", Season: new(2), Episode: "5"}},
 	}
 	got, site, err := decodeJob(encodeJob(job))
 	if err != nil || !reflect.DeepEqual(got, job) || site.Address.Host != "site.test" || site.APIKey != "k" {

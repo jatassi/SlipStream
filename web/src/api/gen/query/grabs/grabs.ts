@@ -26,6 +26,7 @@ import type {
   GrabsGrabList,
   GrabsIndexerGrabList,
   GrabsSearchList,
+  GrabsSearchScope,
   GrabsSearchStarted,
   ListGrabs401,
   ListGrabs403,
@@ -475,15 +476,37 @@ export const getSearchWorkUrl = (workId: string) => {
 };
 
 /**
- * @summary Search for each of a Work's wanted cells and grab the best release
+ * @summary Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release
  */
 export const searchWork = async (
   workId: string,
+  grabsSearchScope?: GrabsSearchScope,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<GrabsSearchStarted> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return apiFetch<GrabsSearchStarted>(getSearchWorkUrl(workId), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(grabsSearchScope),
   });
 };
 
@@ -519,23 +542,23 @@ export const getSearchWorkMutationOptions = <
     Awaited<ReturnType<typeof searchWork>>,
     SearchWorkMutationVariables
   > = (props) => {
-    const { workId } = props ?? {};
+    const { workId, data } = props ?? {};
 
-    return searchWork(workId, requestOptions);
+    return searchWork(workId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
 export type SearchWorkMutationResult = NonNullable<Awaited<ReturnType<typeof searchWork>>>;
-
+export type SearchWorkMutationBody = GrabsSearchScope | undefined;
 export type SearchWorkMutationError = ErrorType<
   SearchWork401 | SearchWork403 | SearchWork404 | SearchWork409 | SearchWork422 | SearchWork500
 >;
-export type SearchWorkMutationVariables = { workId: string };
+export type SearchWorkMutationVariables = { workId: string; data?: GrabsSearchScope };
 
 /**
- * @summary Search for each of a Work's wanted cells and grab the best release
+ * @summary Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release
  */
 export const useSearchWork = <
   TError = ErrorType<

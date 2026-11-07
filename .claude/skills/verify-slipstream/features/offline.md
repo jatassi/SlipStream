@@ -37,7 +37,7 @@ Steps:
   $FW exec $RUN --proof offline/offline-grace -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"offlineGrace":30}' '{nodes.home.url}/api/v1/nodes/settings'
   $FW exec $RUN --proof offline/offline-grace -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"offlineGrace":120}' '{nodes.home.url}/api/v1/nodes/settings'
   $FW exec $RUN --proof offline/offline-alert -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/counts'
-  WORK=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","key":"9000001","monitor":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
+  WORK=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","key":"9000001","preset":"all"}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
   ```
 
 - **Stop seedbox and search within the grace.** The Indexer reads `waits` of kind `waiting` while seedbox's `standing` is `reconnecting`, and the search finishes `nothing_acceptable` with its line `waiting`.

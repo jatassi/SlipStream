@@ -52,8 +52,7 @@ func TestPlanTargets(t *testing.T) {
 		{"stacked", changescope.PR, false, prOnly, false},
 		{"stacked", changescope.Native, false, prOnly, false},
 		{"stacked", changescope.PR, true, prOnly, true},
-		{"push", changescope.Docs, false, all, false},
-		{"push", changescope.PR, false, all, false},
+		{"dispatch", changescope.Docs, false, all, false},
 		{"dispatch", changescope.Native, false, all, false},
 		{"schedule", changescope.Docs, false, all, true},
 		{"tag", changescope.Docs, false, all, true},
@@ -78,7 +77,7 @@ func TestPlanTargets(t *testing.T) {
 }
 
 func TestPlanShardsEachLanePerTarget(t *testing.T) {
-	got, err := plan(planInputs, events["push"], changescope.PR, touched{}, nil, "all")
+	got, err := plan(planInputs, events["dispatch"], changescope.PR, touched{}, nil, "all")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +137,21 @@ func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
 	}
 }
 
+func TestPlanPushOnlyRefreshesTheCaches(t *testing.T) {
+	got, err := plan(planInputs, events["push"], changescope.Native, touched{packages: true, diagram: true}, nil, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range lanes {
+		if planned := len(got.Lanes[l.kind].Include) > 0; planned != l.savesCaches {
+			t.Errorf("a push to main plans %s %t, want %t", l.kind, planned, l.savesCaches)
+		}
+	}
+	if targets := laneTargets(got.Lanes["build"]); !slices.Equal(targets, laneTargets(got.Lanes["lint"])) || len(targets) == 0 {
+		t.Errorf("a push to main builds on %v and lints on %v, want every target for both", targets, laneTargets(got.Lanes["lint"]))
+	}
+}
+
 func TestPlanDiagramWhenTouched(t *testing.T) {
 	for _, tt := range []struct {
 		event   string
@@ -151,7 +165,6 @@ func TestPlanDiagramWhenTouched(t *testing.T) {
 		{"pr", changescope.Docs, touched{diagram: true}, false},
 		{"stacked", changescope.PR, touched{}, false},
 		{"stacked", changescope.PR, touched{diagram: true}, true},
-		{"push", changescope.PR, touched{}, true},
 		{"dispatch", changescope.Native, touched{}, true},
 		{"schedule", changescope.Docs, touched{}, true},
 		{"tag", changescope.Docs, touched{}, true},
@@ -238,7 +251,7 @@ func TestPlanTargetsEmptyWithoutABuild(t *testing.T) {
 }
 
 func TestPlanJSON(t *testing.T) {
-	p, err := plan(planInputs, events["push"], changescope.PR, touched{}, nil, "all")
+	p, err := plan(planInputs, events["dispatch"], changescope.PR, touched{}, nil, "all")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,6 +362,13 @@ func TestCIRunsEveryLane(t *testing.T) {
 		if want := fmt.Sprintf("${{ steps.plan.outputs.%s }}", l.kind); ci["plan"].Outputs[l.kind] != want {
 			t.Errorf("plan output %s = %q, want %q", l.kind, ci["plan"].Outputs[l.kind], want)
 		}
+	}
+	var offPlan []string
+	for _, n := range gateNeeds[1:] {
+		offPlan = append(offPlan, fmt.Sprintf("needs.%s.result != (fromJSON(needs.plan.outputs.planned)['%s'] && 'success' || 'skipped')", n, n))
+	}
+	if want := fmt.Sprintf("${{ always() && (needs.plan.result != 'success' || %s) }}", strings.Join(offPlan, " || ")); ci["gate"].If != want {
+		t.Errorf("gate if = %q, want it to run only when a lane ended off plan: %q", ci["gate"].If, want)
 	}
 	gate, ok := ci["gate"].Needs.([]any)
 	if !ok {

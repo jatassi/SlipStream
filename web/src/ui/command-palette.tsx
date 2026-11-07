@@ -128,6 +128,7 @@ export function CommandSearch({
       value={query}
       onValueChange={onQueryChange}
       itemToStringValue={(option: PaletteOption) => option.label}
+      isItemEqualToValue={(option: PaletteOption, other: PaletteOption) => option.id === other.id}
       autoHighlight="always"
       keepHighlight
     >

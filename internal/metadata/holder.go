@@ -71,7 +71,7 @@ func (h *Holder) Search(ctx context.Context, req *metadatav1.SearchRequest) (*me
 
 func (h *Holder) Fetch(ctx context.Context, req *metadatav1.FetchRequest) (*metadatav1.FetchResponse, error) {
 	f, failure, outcomes, err := run(ctx, h, req.GetAsk(), req.GetContentType(), func(s Source, ask Ask) (works.Fetched, error) {
-		return s.Fetch(ctx, ask, works.Key(req.GetKey()))
+		return s.Fetch(ctx, ask, works.Key(req.GetKey()), req.GetOptions())
 	})
 	if err != nil || failure != nil {
 		return &metadatav1.FetchResponse{Failure: failure, Outcomes: outcomes}, err

@@ -32,8 +32,8 @@ type Query struct {
 	// IDs are keyed imdbid (tt form), tmdbid, tvdbid, rid, tvmazeid,
 	// traktid and doubanid.
 	IDs map[string]string
-	// Season and Year are 0 when the search has none.
-	Season     int
+	// Season is nil and Year 0 when the search has none.
+	Season     *int
 	Episode    string
 	Year       int
 	Categories []newznab.ID
@@ -154,8 +154,8 @@ func (d *Definition) searchScope(s Settings, q Query, c Clock) (scope, error) {
 	}
 	if q.Mode == "tv-search" {
 		sc[".Query.Ep"] = optionalText(q.Episode)
-		if q.Season != 0 {
-			sc[".Query.Season"] = textValue(strconv.Itoa(q.Season))
+		if q.Season != nil {
+			sc[".Query.Season"] = textValue(strconv.Itoa(*q.Season))
 		}
 		sc[".Query.Episode"] = optionalText(episodeSearchString(q.Season, q.Episode, c))
 	}
@@ -186,11 +186,13 @@ func keywords(sc scope) string {
 }
 
 // episodeSearchString is TvSearchCriteria.GetEpisodeSearchString: empty
-// without a season, yyyy.MM.dd for a daily episode, else S01 or S01E02.
-func episodeSearchString(season int, episode string, c Clock) string {
-	if season == 0 {
+// without a season or for season 0, yyyy.MM.dd for a daily episode, else
+// S01 or S01E02.
+func episodeSearchString(at *int, episode string, c Clock) string {
+	if at == nil || *at == 0 {
 		return ""
 	}
+	season := *at
 	if t, ok := datetimeutil.TryParseExact(fmt.Sprintf("%d %s", season, episode), "yyyy MM/dd", datetimeutil.None, c); ok {
 		return t.Format("2006.01.02")
 	}

@@ -63,7 +63,7 @@ async function addOrchard(world: World): Promise<string> {
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key: "9000001",
-    monitor: true,
+    preset: "all",
   });
   expect(added.status, "The Quiet Orchard is added").toBe(200);
   return Added.parse(added.body).work.id;
@@ -171,6 +171,8 @@ test("an Admin adds a root through home's folder browser, makes it the default, 
 
   await page.getByRole("button", { name: "Add a library root" }).click();
   const adding = page.getByRole("dialog", { name: "Add a library root" });
+  await adding.getByRole("combobox", { name: "Content Type" }).click();
+  await page.getByRole("option", { name: "Movies" }).click();
   await adding.getByRole("button", { name: "Browse" }).click();
   await browseToFilms(page, movies);
   await expect(adding.getByRole("textbox", { name: "Folder" })).toHaveValue(films);

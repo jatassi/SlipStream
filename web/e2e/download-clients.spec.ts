@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { openSettingsSection } from "./shell.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 const Thresholds = z.object({
   thresholds: z.object({ unregisteredGap: z.object({ value: z.number() }) }),
@@ -38,7 +39,7 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
   const saved = Thresholds.parse((await world.api("GET", "/api/v1/download-clients")).body);
   expect(saved.thresholds.unregisteredGap.value, "45 minutes in seconds").toBe(2700);
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("download-clients.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("download-clients.png"));
 
   await card.getByRole("link", { name: "Torrent client settings on home" }).click();
   await expect(page).toHaveURL(/\/nodes\/[\da-f-]+\/torrent-client$/u);
@@ -53,5 +54,5 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
   }
   const limits = await world.api("GET", `/api/v1/download-clients/${home.nodeId}/settings`);
   expect(Limits.parse(limits.body).activeDownloads.value).toBe(1);
-  await page.screenshot({ path: testInfo.outputPath("torrent-client.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("torrent-client.png"));
 });

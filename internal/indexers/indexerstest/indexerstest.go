@@ -160,3 +160,15 @@ func Native(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secret
 	}
 	return nil
 }
+
+// TVCaps are a Torznab Indexer's that searches TV by TVDB id, season and
+// episode, beside Caps' modes, in the families 2000 and 5000.
+const TVCaps = `{"modes":{"search":["q"],"movie":["q","imdbid","tmdbid"],"tvsearch":["q","season","ep","tvdbid"]},"categories":[2000,5000]}`
+
+// SetCaps sets the caps of Indexer id, as a test of it would, in tx.
+func SetCaps(ctx context.Context, tx *storage.Tx[storage.Library], id indexers.ID, caps string) error {
+	if err := db.New(tx).SetCaps(ctx, db.SetCapsParams{ID: id, Caps: caps}); err != nil {
+		return fmt.Errorf("set the caps of Indexer %s: %w", id, err)
+	}
+	return nil
+}

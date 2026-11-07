@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -43,6 +44,24 @@ type Catalog interface {
 	// changed host needs no refresh.
 	Links(key Key, fields []FieldValue) []WebLink
 	Settings
+	Options
+}
+
+// Options is a type's own per-Work options, such as an episode order. A
+// type with none answers no fields, nil options, and a
+// *setting.UnknownKeyError for every key it is asked to patch.
+type Options interface {
+	// OptionFields are w's options with their values, in Edit's order. A
+	// choice lists only the values w's source has.
+	OptionFields(ctx context.Context, r storage.Reader[storage.Library], w WorkID) ([]setting.Field, error)
+	// FetchOptions is how w is fetched now, handed to the source unread;
+	// nil for the type's default.
+	FetchOptions(ctx context.Context, r storage.Reader[storage.Library], w WorkID) ([]byte, error)
+	// PatchOptions is the fetch options p makes of w's, writing nothing:
+	// ErrOrderUnavailable for an order w's source doesn't list, a
+	// *setting.RangeError for another value it refuses. Store writes the
+	// options from the Detail a fetch with them made.
+	PatchOptions(ctx context.Context, r storage.Reader[storage.Library], w WorkID, p setting.Patch) ([]byte, error)
 }
 
 // Source is the network: a Content Type's metadata source, reached through
@@ -80,6 +99,10 @@ type Fetching struct {
 	// Via is the Node a scheduled refresh runs on, which the call must
 	// leave from; zero lets the Controller pick one.
 	Via role.NodeID
+	// Options is the Work's fetch options as its type's FetchOptions
+	// answered them, nil on an add for the type's default. The core never
+	// reads them.
+	Options []byte
 }
 
 type Description struct {
@@ -90,7 +113,11 @@ type Description struct {
 	Work   Noun
 	// Levels are outermost first, empty when Items hang off the Work.
 	Levels []Noun
-	Item   Noun
+	// Aside names the outermost levels outside a Work's main run, such as
+	// Specials, zero when the type marks none. Only a type with levels
+	// names one.
+	Aside Noun
+	Item  Noun
 	// Items is how many Items a Work of the type holds, which picks the
 	// Work page's layout.
 	Items  ItemsShape
@@ -104,6 +131,12 @@ type Description struct {
 	// Work holds is its hero rating and the Library's rating column. A
 	// source missing here is never shown.
 	Ratings []RatingSource
+	// Availability labels the Library's availability column and sort, such
+	// as Next airing; empty reads Available.
+	Availability string
+	// Releases is the verb a fold of unreleased Items uses for their coming
+	// out, such as air; empty reads come out.
+	Releases string
 }
 
 type ItemsShape uint8
@@ -185,10 +218,14 @@ const (
 	PlaceCredits
 	// PlaceDetails is under About's Details.
 	PlaceDetails
+	// PlaceCode is the short identifier the many-Items layout shows before
+	// an Item's label, such as a track number. It takes one Item-tier field
+	// of kind text or number; a type with none shows the Item's position.
+	PlaceCode
 )
 
 var placeNames = map[Place]string{
-	PlaceFacts: "facts", PlaceTagline: "tagline", PlaceOverview: "overview", PlaceAbout: "about", PlaceCredits: "credits", PlaceDetails: "details",
+	PlaceFacts: "facts", PlaceTagline: "tagline", PlaceOverview: "overview", PlaceAbout: "about", PlaceCredits: "credits", PlaceDetails: "details", PlaceCode: "code",
 }
 
 func (p Place) String() string { return placeNames[p] }
@@ -210,25 +247,15 @@ const (
 
 func (l Listing) Has(f Listing) bool { return l&f != 0 }
 
-type Tier int
+type Tier = artwork.Tier
 
 const (
-	TierWork Tier = 0
-	TierItem Tier = -1
+	TierWork = artwork.TierWork
+	TierItem = artwork.TierItem
 )
 
 // TierLevel is the levels at depth, 1 for the outermost.
-func TierLevel(depth int) Tier { return Tier(depth) }
-
-func (t Tier) String() string {
-	switch t {
-	case TierWork:
-		return "the Work"
-	case TierItem:
-		return "the Items"
-	}
-	return "level " + strconv.Itoa(int(t))
-}
+func TierLevel(depth int) Tier { return artwork.TierLevel(depth) }
 
 type FieldKind uint8
 
@@ -421,20 +448,26 @@ var RatingSources = map[RatingSource]RatingScale{
 	"metacritic":     {Label: "Metacritic", Scale: 100},
 }
 
-// Art is the source's image of one kind for the Work, or one of its Items.
+// Art is the source's image of one kind for the Work, one of its levels or
+// one of its Items.
 type Art struct {
-	// Item is empty for the Work's own image.
-	Item Key
-	// Kind is the key of an artwork.Kind the Description declares at the
-	// Item's or the Work's tier.
+	// Level is set for a level's image and Item for an Item's, never both;
+	// both are empty for the Work's own image.
+	Level Key
+	Item  Key
+	// Kind is the key of an artwork.Kind the Description declares at its
+	// owner's tier.
 	Kind string
 	Ref  artwork.Ref
 }
 
 // Entry is a level or an Item.
 type Entry struct {
-	Key      Key
-	Label    string
+	Key   Key
+	Label string
+	// Aside marks an outermost level outside the Work's main run. Only a
+	// type whose Description names an Aside sets it.
+	Aside    bool
 	Children []Entry
 }
 
@@ -450,6 +483,10 @@ type Candidate struct {
 	Overview string
 	Poster   artwork.Ref
 	Fields   []FieldValue
+	// Unlisted is a result another provider found that the type's source
+	// doesn't list, so it can't be added: Fetch refuses its key with
+	// ErrNotOnSource.
+	Unlisted bool
 	WorkID   WorkID `json:"-"`
 }
 

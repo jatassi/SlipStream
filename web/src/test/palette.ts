@@ -53,9 +53,11 @@ export const orchards = (count: number): WorksLibraryRow[] =>
   }));
 
 /** The library's search over rows, matching a row whose label holds the query, and the catalog. */
-export function library(rows: WorksLibraryRow[] = [rowOf(orchard, 2021), rowOf(dune, 2024)]) {
+export function library(
+  rows: WorksLibraryRow[] = [rowOf(orchard, 2021), rowOf(dune, 2024)],
+  catalog = addServer(),
+) {
   const asked: string[] = [];
-  const catalog = addServer();
   const handlers = [
     getSearchWorksMockHandler(({ request }) => {
       const url = new URL(request.url);
@@ -84,6 +86,15 @@ export const pressShortcut = () => userEvent.keyboard(`{${modifier}>}k{/${modifi
 export const openFromCapsule = async () => {
   await userEvent.click(capsule());
   await expect.element(palette().getByRole("combobox", { name: label })).toHaveFocus();
+};
+
+/** The option the search field points at, the one Enter chooses. */
+export const highlighted = () => {
+  const id = palette()
+    .getByRole("combobox", { name: label })
+    .element()
+    .getAttribute("aria-activedescendant");
+  return id === null ? null : document.querySelector(`#${CSS.escape(id)}`)?.textContent;
 };
 
 export const groupLabels = () =>

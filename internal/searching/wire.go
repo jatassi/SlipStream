@@ -127,7 +127,7 @@ func encodeJob(j Job) *searchv1.Job {
 	case SearchCall:
 		q := c.Query
 		w.Call = &searchv1.Job_Search{Search: &searchv1.SearchCall{Query: &searchv1.Query{
-			Mode: q.Mode, Ids: q.IDs, Text: q.Text, Season: int32(q.Season), Episode: q.Episode, //nolint:gosec // a season fits
+			Mode: q.Mode, Ids: q.IDs, Text: q.Text, Season: season32(q.Season), Episode: q.Episode,
 		}}}
 	case RecentCall:
 		w.Call = &searchv1.Job_Recent{Recent: &searchv1.RecentCall{}}
@@ -172,7 +172,7 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	switch c := w.GetCall().(type) {
 	case *searchv1.Job_Search:
 		q := c.Search.GetQuery()
-		j.Call = SearchCall{Query: Query{Mode: q.GetMode(), IDs: q.GetIds(), Text: q.GetText(), Season: int(q.GetSeason()), Episode: q.GetEpisode()}}
+		j.Call = SearchCall{Query: Query{Mode: q.GetMode(), IDs: q.GetIds(), Text: q.GetText(), Season: seasonOf(q), Episode: q.GetEpisode()}}
 	case *searchv1.Job_Recent:
 		j.Call = RecentCall{}
 	case *searchv1.Job_Fetch:
@@ -437,4 +437,18 @@ func ints(ids []int32) []int {
 		out[i] = int(id)
 	}
 	return out
+}
+
+func season32(s *int) *int32 {
+	if s == nil {
+		return nil
+	}
+	return new(int32(*s)) //nolint:gosec // G115: a season fits
+}
+
+func seasonOf(q *searchv1.Query) *int {
+	if q.Season == nil {
+		return nil
+	}
+	return new(int(*q.Season))
 }

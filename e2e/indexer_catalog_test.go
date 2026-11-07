@@ -83,7 +83,12 @@ func TestLarkspurMovesToACatalogUpdateOnlyWhenItLoads(t *testing.T) {
 	if got := w.pinned(t, larkspur); got != moved {
 		t.Errorf("after an update that doesn't load Larkspur runs the version from %s, want %s", got, moved)
 	}
-	it := healthItems(t, w.a, "indexers")["definition."+larkspur]
+	key := "definition." + larkspur
+	worldtest.Until(t, "Health raises the bad update's item", func() (bool, error) {
+		_, open := healthItems(t, w.a, "indexers")[key]
+		return open, nil
+	})
+	it := healthItems(t, w.a, "indexers")[key]
 	if it.Level != "warn" || !strings.HasPrefix(it.Text, "The catalog's new version of Larkspur doesn't load. The Indexer keeps running the version from ") ||
 		it.Action == nil || it.Action.Href != "/settings/indexers/"+larkspur {
 		t.Errorf("the bad update's item is %+v, want a Warn linking to Larkspur", it)

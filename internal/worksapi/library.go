@@ -18,20 +18,20 @@ type libraryInput struct {
 
 type libraryRow struct {
 	Work
-	Monitored   string                                 `json:"monitored" enum:"all,some,none" doc:"How many of its Items are monitored"`
+	Monitored   string                                 `json:"monitored" enum:"all,some,none" doc:"How many of the Items its source still lists are monitored"`
 	ProfileID   string                                 `json:"profileId" format:"uuid"`
 	RootID      *string                                `json:"rootId" format:"uuid" doc:"Null while the Work has no root"`
 	PosterURL   *string                                `json:"posterUrl" doc:"The artwork route for its poster, without a size; null when it has none"`
 	Rating      api.Nullable[rowRating]                `json:"rating" doc:"The first of its Content Type's ratings sources that it holds; null when it holds none"`
-	AvailableOn *string                                `json:"availableOn" pattern:"^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$" doc:"Its one Item's availability date, or for many Items the earliest not yet out, else the latest out; null while no Item has a date"`
+	AvailableOn *string                                `json:"availableOn" pattern:"^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$" doc:"Its one Item's availability date, or for many Items the earliest not yet out, else the latest out, read over its monitored Items, or over every Item while none is monitored; null while none of those has a date"`
 	Bytes       int64                                  `json:"bytes" minimum:"0" doc:"The size of its library files, Kept files included"`
 	Files       int                                    `json:"files" minimum:"0" doc:"Its library files, Kept files included"`
 	Kept        int                                    `json:"kept" minimum:"0" doc:"Its Kept files"`
-	Status      api.Nullable[api.Enum[filesapi.State]] `json:"status" doc:"The first status its Items hold, in the glossary's order; null for a Work with no cell"`
-	Cells       api.Counts[filesapi.State]             `json:"cells" doc:"Its cells by state"`
+	Status      api.Nullable[api.Enum[filesapi.State]] `json:"status" doc:"The first status its monitored Items hold, in the glossary's order; null while none holds a cell"`
+	Cells       api.Counts[filesapi.State]             `json:"cells" doc:"Its monitored Items' cells by state"`
 	Failed      int                                    `json:"failed" minimum:"0" doc:"Its wanted cells whose download failed"`
-	Items       int                                    `json:"items" minimum:"0"`
-	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its Items by status; an Item with no cell isn't counted"`
+	Items       int                                    `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
+	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
 	NeedsYou    int                                    `json:"needsYou" minimum:"0" doc:"The entries of its Needs you"`
 	Values      map[string]api.Bare                    `json:"values" doc:"Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out"`
 }

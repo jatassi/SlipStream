@@ -97,7 +97,7 @@ test("Write off shows what seedbox holds first, then gives it up", async ({
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key: "9000001",
-    monitor: true,
+    preset: "all",
   });
   const workId = Added.parse(added.body).work.id;
   expect((await world.api("POST", `/api/v1/works/${workId}/search`)).status).toBe(202);

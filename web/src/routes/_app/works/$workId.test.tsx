@@ -5,11 +5,12 @@ import { page, userEvent } from "vitest/browser";
 import type { GrabsGrab } from "../../../api/gen/model";
 import { getListTorrentsMockHandler } from "../../../api/gen/query/downloadclients/downloadclients.msw";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
+import { anthologyId, longShelf, longShelfCells } from "../../../test/anthology";
 import { downloading, imported } from "../../../test/grabs";
 import { problem } from "../../../test/handlers";
 import { orchardId } from "../../../test/library";
-import { liveServer } from "../../../test/live-server";
 // oxlint-disable-next-line import/max-dependencies -- the Work page's Grabs read the Torrents and the live stream too
+import { liveServer } from "../../../test/live-server";
 import { renderApp } from "../../../test/render-app";
 import { listOf, torrent } from "../../../test/torrents";
 import { failedCells, filled, filledTwice, upgradable } from "../../../test/work-cells";
@@ -47,6 +48,15 @@ test("the Work page shows its facts, its cells and one column per Target", async
   await expect
     .element(page.getByText("No Grabs yet. A search that finds a Release grabs it."))
     .toBeVisible();
+});
+
+test("a many-Item Work's page opens on its 1,200 Stories", async () => {
+  const server = workServer({ work: longShelf, startCells: longShelfCells });
+  renderApp({ path: `/works/${anthologyId}`, handlers: server.handlers });
+  await expect
+    .element(page.getByRole("heading", { name: "The Long Shelf", level: 1 }))
+    .toBeVisible();
+  expect(longShelf.items).toHaveLength(1200);
 });
 
 test("files.changed shows the new file without a reload", async () => {

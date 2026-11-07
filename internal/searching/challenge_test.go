@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -99,7 +100,7 @@ func (s *solver) at(timeout time.Duration) *searching.Solver {
 func search(t *testing.T, n searching.Remote, indexer, address string, v *searching.Solver, session *searching.Session) searching.Answer {
 	t.Helper()
 	poll, err := n.Run(t.Context(), searching.Job{
-		ID: t.Name() + "/" + indexer + "/" + time.Now().String(), Indexer: indexer, Kind: searching.Torznab, Address: address, APIKey: "k",
+		ID: t.Name() + "/" + indexer + "/" + strconv.Itoa(int(jobs.Add(1))), Indexer: indexer, Kind: searching.Torznab, Address: address, APIKey: "k",
 		Solver: v, Session: session, Call: searching.SearchCall{Query: searching.Query{Mode: "search", Text: "orchard"}},
 	})
 	if err != nil || poll.Answer == nil {
@@ -186,7 +187,9 @@ func TestEveryRequestToAClearedHostSendsTheSolversUserAgent(t *testing.T) {
 	if a := search(t, n, "j", site.URL, nil, nil); a.Outcome != nil || v.times() != 1 {
 		t.Fatalf("another Indexer's search of the cleared host = %s after %d solves, want ok with the Node's clearance", outcome(a), v.times())
 	}
-	search(t, n, "j", other.URL, nil, nil)
+	if a := search(t, n, "j", other.URL, nil, nil); a.Outcome != nil {
+		t.Fatalf("another host's search = %s, want ok", outcome(a))
+	}
 	if len(agents) != 1 || agents[0] == "Solver/seedbox" {
 		t.Fatalf("another host got User-Agent %q, want Go's own, since only the cleared host gets the solver's", agents)
 	}

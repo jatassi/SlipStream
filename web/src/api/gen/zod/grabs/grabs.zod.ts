@@ -5,6 +5,7 @@ import {
   GrabsGrabList,
   GrabsIndexerGrabList,
   GrabsSearchList,
+  GrabsSearchScope,
   GrabsSearchStarted,
 } from "../slipStream.schemas.zod.ts";
 
@@ -42,11 +43,13 @@ export const ListIndexerGrabsQueryParams = zod.object({
 export const ListIndexerGrabsResponse = GrabsIndexerGrabList;
 
 /**
- * @summary Search for each of a Work's wanted cells and grab the best release
+ * @summary Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release
  */
 export const SearchWorkParams = zod.object({
   workId: zod.uuid(),
 });
+
+export const SearchWorkBody = GrabsSearchScope;
 
 export const SearchWorkResponse = GrabsSearchStarted;
 

@@ -37,8 +37,8 @@ export async function rootAt(world: World, folder: string) {
   return Created.parse(made.body).id;
 }
 
-export async function add(world: World, key: string, monitor: boolean) {
-  const added = await world.api("POST", "/api/v1/works", { contentType: "movie", key, monitor });
+export async function add(world: World, key: string, preset: "all" | "none") {
+  const added = await world.api("POST", "/api/v1/works", { contentType: "movie", key, preset });
   expect(added.status, `movie ${key} is added`).toBe(200);
   return Added.parse(added.body).work.id;
 }
@@ -90,7 +90,7 @@ export async function pick(page: Page, ...labels: string[]) {
 
 // The Quiet Orchard, added and searched as a script would, with its WEB-DL imported.
 export async function imported(world: World): Promise<string> {
-  const workId = await add(world, "9000001", true);
+  const workId = await add(world, "9000001", "all");
   const search = await world.api("POST", `/api/v1/works/${workId}/search`);
   expect(search.status, "its search starts").toBe(202);
   await expect

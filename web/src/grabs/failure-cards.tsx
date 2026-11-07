@@ -45,7 +45,7 @@ export function GrabFailure({
         fix={{
           label: "Search again",
           onClick: () => {
-            search.mutate({ workId: grab.workId });
+            search.start(grab.workId, { levelIds: [], itemIds: [grab.itemId] });
           },
         }}
         {...(form === "full" && {

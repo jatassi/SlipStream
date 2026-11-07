@@ -7,6 +7,26 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { type ServerOptions, defineConfig } from "vite";
 
+const cacheGroups = {
+  react: ["node_modules/react", "node_modules/react-dom", "node_modules/scheduler"],
+  "base-ui": ["node_modules/@base-ui", "node_modules/@floating-ui"],
+  motion: [
+    "node_modules/motion",
+    "node_modules/motion-dom",
+    "node_modules/motion-utils",
+    "node_modules/framer-motion",
+  ],
+  tanstack: ["node_modules/@tanstack"],
+  vendor: ["node_modules"],
+  api: ["src/api/gen"],
+  nodes: ["src/diagram", "vendor/anatomy", "src/routes/_app/nodes"],
+};
+
+function underAny(dirs: readonly string[]): RegExp {
+  const alternatives = dirs.map((dir) => dir.split("/").join(String.raw`[/\\]`));
+  return new RegExp(String.raw`[/\\](?:${alternatives.join("|")})[/\\]`, "u");
+}
+
 function devServer(command: string, mode: string): ServerOptions {
   if (command !== "serve" || mode === "test") {
     return {};
@@ -18,6 +38,15 @@ function devServer(command: string, mode: string): ServerOptions {
   return { proxy: { "/api": { target, changeOrigin: false } } };
 }
 
+// The React Compiler compiles only components, which return JSX, and hooks,
+// named use*. Its default filter matches any capitalized word, which sends
+// nearly every file through Babel.
+const reactCompiler = reactCompilerPreset();
+const compileComponentsAndHooks = {
+  ...reactCompiler,
+  rolldown: { ...reactCompiler.rolldown, filter: { code: /<\/|\/>|\buse[A-Z0-9]/u } },
+};
+
 export default defineConfig(({ command, mode }) => ({
   plugins: [
     // One bundle: a route whose code loads lazily can't open while the Node is
@@ -27,7 +56,8 @@ export default defineConfig(({ command, mode }) => ({
     react(),
     // Vendored code runs as upstream wrote and tested it, not recompiled.
     babel({
-      presets: [reactCompilerPreset()],
+      presets: [compileComponentsAndHooks],
+      sourceMap: command === "serve",
       exclude: [/[/\\]node_modules[/\\]/u, /[/\\]vendor[/\\]/u],
     }),
     tailwindcss(),
@@ -39,7 +69,18 @@ export default defineConfig(({ command, mode }) => ({
   // Zod schema.
   build: {
     chunkSizeWarningLimit: 1200,
-    rolldownOptions: { output: { strictExecutionOrder: true } },
+    rolldownOptions: {
+      checks: { bundlerTimings: false },
+      output: {
+        strictExecutionOrder: true,
+        codeSplitting: {
+          groups: Object.entries(cacheGroups).map(([name, dirs]) => ({
+            name,
+            test: underAny(dirs),
+          })),
+        },
+      },
+    },
   },
   // The startup sequence and its stage are brand/'s masters, imported as is.
   server: { ...devServer(command, mode), fs: { allow: [".", "../brand"] } },

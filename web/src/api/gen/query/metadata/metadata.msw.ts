@@ -40,7 +40,7 @@ export const getListMetadataProvidersResponseMock = (
     () => ({
       attribution: faker.helpers.arrayElement([
         {
-          logo: faker.helpers.arrayElement(["tmdb"] as const),
+          logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
           text: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         null,
@@ -73,6 +73,7 @@ export const getListMetadataProvidersResponseMock = (
         null,
       ]),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      pinSet: faker.datatype.boolean(),
       state: faker.helpers.arrayElement([
         "unused",
         "working",
@@ -82,6 +83,7 @@ export const getListMetadataProvidersResponseMock = (
         "unreachable",
       ] as const),
       summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      takesPin: faker.datatype.boolean(),
       until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
     }),
   ),
@@ -93,7 +95,7 @@ export const getClearMetadataKeyResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.helpers.arrayElement(["tmdb"] as const),
+      logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -123,6 +125,7 @@ export const getClearMetadataKeyResponseMock = (
   keyPage: faker.internet.url(),
   keySetAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pinSet: faker.datatype.boolean(),
   state: faker.helpers.arrayElement([
     "unused",
     "working",
@@ -132,6 +135,7 @@ export const getClearMetadataKeyResponseMock = (
     "unreachable",
   ] as const),
   summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  takesPin: faker.datatype.boolean(),
   until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   ...overrideResponse,
 });
@@ -141,7 +145,7 @@ export const getSetMetadataKeyResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.helpers.arrayElement(["tmdb"] as const),
+      logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -171,6 +175,7 @@ export const getSetMetadataKeyResponseMock = (
   keyPage: faker.internet.url(),
   keySetAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pinSet: faker.datatype.boolean(),
   state: faker.helpers.arrayElement([
     "unused",
     "working",
@@ -180,6 +185,7 @@ export const getSetMetadataKeyResponseMock = (
     "unreachable",
   ] as const),
   summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  takesPin: faker.datatype.boolean(),
   until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   ...overrideResponse,
 });
@@ -189,7 +195,7 @@ export const getTestMetadataProviderResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.helpers.arrayElement(["tmdb"] as const),
+      logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -219,6 +225,7 @@ export const getTestMetadataProviderResponseMock = (
   keyPage: faker.internet.url(),
   keySetAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pinSet: faker.datatype.boolean(),
   state: faker.helpers.arrayElement([
     "unused",
     "working",
@@ -228,6 +235,7 @@ export const getTestMetadataProviderResponseMock = (
     "unreachable",
   ] as const),
   summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  takesPin: faker.datatype.boolean(),
   until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   ...overrideResponse,
 });

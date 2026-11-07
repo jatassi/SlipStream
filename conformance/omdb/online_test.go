@@ -15,9 +15,13 @@ import (
 	provider "github.com/jatassi/slipstream/internal/providers/omdb"
 )
 
-// fightClub is rated on IMDb, Rotten Tomatoes and Metacritic and has an
-// awards line.
-const fightClub = "tt0137523"
+const (
+	// fightClub is rated on IMDb, Rotten Tomatoes and Metacritic and has an
+	// awards line.
+	fightClub = "tt0137523"
+	// breakingBad rates every episode of its first season.
+	breakingBad = "tt0903747"
+)
 
 func TestOMDbConforms(t *testing.T) {
 	key := os.Getenv("TEST_ONLINE_OMDB_KEY")
@@ -25,7 +29,7 @@ func TestOMDbConforms(t *testing.T) {
 		t.Skip("TEST_ONLINE_OMDB_KEY is not set until CI holds an OMDb key: https://github.com/jatassi/SlipStream/issues/310")
 	}
 	var bodies []shape.Body
-	tgt := conformance.Target{Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute}, Key: key, Known: fightClub, Lines: lines, Timings: provider.DefaultTimings()}
+	tgt := conformance.Target{Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute}, Key: key, Known: fightClub, Series: breakingBad, Lines: lines, Timings: provider.DefaultTimings()}
 	if *shape.Update {
 		tgt.Record = func(key string, body []byte) { bodies = append(bodies, shape.Body{Key: key, JSON: body}) }
 	}

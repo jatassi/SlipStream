@@ -49,7 +49,7 @@ var Fake = fake.Spec{
 	},
 	Online:   fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
 	Cues:     []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse, ports.PortCase},
-	Captures: []fake.CaptureSpec{CaptchaShown, SignedIn},
+	Captures: []fake.CaptureSpec{CaptchaShown, SignedIn, Searched},
 	Entered:  indexers,
 }
 
@@ -106,7 +106,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			}
 			listed = append(listed, Release{
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
-				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
+				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
 				Link: r.Link, Trackerless: r.Trackerless,
 			})
 		}
@@ -124,6 +124,9 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		return nil, err
 	}
 	if site.signIns, err = env.Capture(SignedIn.Name); err != nil {
+		return nil, err
+	}
+	if site.searches, err = env.Capture(Searched.Name); err != nil {
 		return nil, err
 	}
 	for _, cue := range []error{
@@ -151,10 +154,13 @@ type Release struct {
 	Size int64
 	// InfoHash is the torrent's v1 info hash, lowercase hex.
 	InfoHash string
-	TMDBID   int64
-	IMDbID   string
-	Seeders  int64
-	Torrent  []byte
+	// TMDBID and IMDbID name a movie, and TVDB the episode or season
+	// pack, Episode 0, of a series.
+	TMDBID  int64
+	IMDbID  string
+	TVDB    *scenario.ReleaseEpisode
+	Seeders int64
+	Torrent []byte
 	// Unlisted leaves it out of every feed until the List cue lists it.
 	Unlisted bool
 	// Link is how the feeds link it: a magnet or redirect release's item
@@ -221,6 +227,7 @@ type site struct {
 	// signed in, nil where no event log keeps them.
 	captchas *fake.Capture
 	signIns  *fake.Capture
+	searches *fake.Capture
 
 	mu        sync.Mutex
 	listed    map[string]bool
@@ -326,6 +333,23 @@ func (s *site) refuse(_ context.Context, a RefuseArgs) (any, error) {
 	return struct{}{}, nil
 }
 
+// Search is a Searched record's data: the site and the parameters of one
+// search it served, each empty when the search left it out.
+type Search struct {
+	Site   string `json:"site"`
+	T      string `json:"t"`
+	Q      string `json:"q,omitempty"`
+	TVDBID string `json:"tvdbid,omitempty"`
+	Season string `json:"season,omitempty"`
+	Ep     string `json:"ep,omitempty"`
+}
+
+func (s *site) searched(ctx context.Context, rec Search) {
+	if s.searches != nil {
+		s.searches.Record(ctx, rec)
+	}
+}
+
 func (s *site) refusing() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -374,45 +398,76 @@ func (s *site) api(w http.ResponseWriter, r *http.Request) {
 		torznabError(w, 100, "Invalid API Key")
 		return
 	}
+	label, _, _ := strings.Cut(r.Host, ".")
+	if t := q.Get("t"); t != "caps" {
+		s.searched(r.Context(), Search{Site: label, T: t, Q: q.Get("q"), TVDBID: q.Get("tvdbid"), Season: q.Get("season"), Ep: q.Get("ep")})
+	}
 	switch q.Get("t") {
 	case "caps":
-		reply(w, caps)
+		reply(w, capsOf(label))
+	case "tvsearch":
+		s.feed(w, r, func(rel Release) bool {
+			return rel.TVDB != nil && episodeMatches(*rel.TVDB, q) && matches(rel.Name, q.Get("q"))
+		})
 	case "search":
 		s.feed(w, r, func(rel Release) bool { return matches(rel.Name, q.Get("q")) })
 	case "movie":
 		tmdb, imdb := q.Get("tmdbid"), q.Get("imdbid")
 		s.feed(w, r, func(rel Release) bool {
-			return (tmdb == "" || tmdb == strconv.FormatInt(rel.TMDBID, 10)) && (imdb == "" || imdb == rel.IMDbID) && matches(rel.Name, q.Get("q"))
+			return rel.TVDB == nil && (tmdb == "" || tmdb == strconv.FormatInt(rel.TMDBID, 10)) && (imdb == "" || imdb == rel.IMDbID) && matches(rel.Name, q.Get("q"))
 		})
 	default:
 		torznabError(w, 202, "No such function")
 	}
 }
 
-// movies is the Newznab category every release is listed under.
-const movies = 2000
+// family is the Newznab category a release is listed under: Movies for a
+// movie and TV for an episode.
+func (rel Release) family() int {
+	if rel.TVDB != nil {
+		return 5000
+	}
+	return 2000
+}
 
-// window is the offset and limit a feed request asks for, and whether it
-// asks for movies when it names categories.
+// window is the offset and limit a feed request asks for, and the
+// category families it asks for, every family when it names none.
 type window struct {
 	offset, limit int
-	movies        bool
+	families      map[int]bool
 }
 
 func windowOf(q url.Values) window {
-	w := window{limit: pageLimit, movies: q.Get("cat") == ""}
+	w := window{limit: pageLimit}
 	if n, err := strconv.Atoi(q.Get("offset")); err == nil && n > 0 {
 		w.offset = n
 	}
 	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n < pageLimit {
 		w.limit = n
 	}
+	if q.Get("cat") == "" {
+		return w
+	}
+	w.families = map[int]bool{}
 	for c := range strings.SplitSeq(q.Get("cat"), ",") {
-		if n, err := strconv.Atoi(c); err == nil && n/1000 == movies/1000 {
-			w.movies = true
+		if n, err := strconv.Atoi(c); err == nil {
+			w.families[n/1000*1000] = true
 		}
 	}
 	return w
+}
+
+func (w window) asks(rel Release) bool { return w.families == nil || w.families[rel.family()] }
+
+// episodeMatches is whether a tvsearch for q lists the release of ep: of
+// the series q's tvdbid names, in q's season, with q's episode or as a
+// pack of that season. A parameter q leaves out matches any.
+func episodeMatches(ep scenario.ReleaseEpisode, q url.Values) bool {
+	is := func(param string, n int64) bool {
+		v := q.Get(param)
+		return v == "" || v == strconv.FormatInt(n, 10)
+	}
+	return is("tvdbid", ep.Series) && is("season", int64(ep.Season)) && (ep.Episode == 0 || is("ep", int64(ep.Episode)))
 }
 
 // pageLimit is the caps' default and largest page.
@@ -430,20 +485,31 @@ func matches(name, query string) bool {
 	return true
 }
 
-const caps = `<?xml version="1.0" encoding="UTF-8"?>
+// capsOf is the caps of the site whose label is label: the Torznab site
+// searches TV by TVDB id, season and episode, and the Prowlarr site
+// searches TV only as free text.
+func capsOf(label string) string {
+	tv := `    <tv-search available="yes" supportedParams="q,season,ep,tvdbid" />
+`
+	if label == Prowlarr {
+		tv = `    <tv-search available="no" supportedParams="q" />
+`
+	}
+	return `<?xml version="1.0" encoding="UTF-8"?>
 <caps>
   <server title="fixture-site" />
   <limits default="100" max="100" />
   <searching>
     <search available="yes" supportedParams="q" />
-    <tv-search available="no" supportedParams="q" />
-    <movie-search available="yes" supportedParams="q,tmdbid,imdbid" />
+` + tv + `    <movie-search available="yes" supportedParams="q,tmdbid,imdbid" />
   </searching>
   <categories>
     <category id="2000" name="Movies" />
+    <category id="5000" name="TV" />
   </categories>
 </caps>
 `
+}
 
 // feed lists the releases keep keeps in the window the request asks for.
 // An extended request gets every attribute.
@@ -457,7 +523,7 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 	}
 	var listed []Release
 	for _, rel := range s.releases {
-		if win.movies && keep(rel) && s.shown(rel) {
+		if win.asks(rel) && keep(rel) && s.shown(rel) {
 			listed = append(listed, rel)
 		}
 	}
@@ -491,13 +557,22 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
       <enclosure url="%s" length="%d" type="application/x-bittorrent" />
       <torznab:attr name="seeders" value="%d" />
       <torznab:attr name="infohash" value="%s" />
-      <torznab:attr name="tmdbid" value="%d" />
-      <torznab:attr name="imdbid" value="%s" />
-%s%s%s    </item>
-`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, rel.TMDBID, esc(rel.IMDbID), magnetAttr, extendedAttrs(rel, origin, extended), source)
+%s%s%s%s    </item>
+`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, idAttrs(rel), magnetAttr, extendedAttrs(rel, origin, extended), source)
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())
+}
+
+// idAttrs are the id attributes of rel's item: an episode's tvdbid, else
+// a movie's tmdbid and imdbid.
+func idAttrs(rel Release) string {
+	if rel.TVDB != nil {
+		return fmt.Sprintf(`      <torznab:attr name="tvdbid" value="%d" />`+"\n", rel.TVDB.Series)
+	}
+	return fmt.Sprintf(`      <torznab:attr name="tmdbid" value="%d" />
+      <torznab:attr name="imdbid" value="%s" />
+`, rel.TMDBID, esc(rel.IMDbID))
 }
 
 // originOf is the scheme and host r was sent to.
@@ -528,7 +603,7 @@ func extendedAttrs(rel Release, origin string, extended bool) string {
       <torznab:attr name="uploadvolumefactor" value="1" />
       <torznab:attr name="minimumratio" value="1" />
       <torznab:attr name="minimumseedtime" value="172800" />
-`, published, esc(origin+"/details/"+rel.InfoHash), movies, movies, rel.Seeders+rel.Leechers, rel.Grabs, download)
+`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, download)
 }
 
 // published is when the site says every release was posted.

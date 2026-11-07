@@ -407,3 +407,69 @@ func TestPlanNeverAsksAnRSSFeed(t *testing.T) {
 		})
 	}
 }
+
+// sent is the query of each search job the Node ran.
+func (n *scripted) sent() []searching.Query {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	var out []searching.Query
+	for _, j := range n.jobs {
+		if c, ok := j.Call.(searching.SearchCall); ok {
+			out = append(out, c.Query)
+		}
+	}
+	return out
+}
+
+// searchEpisode searches Alder, whose caps are caps, for the episode at
+// season and episode of TVDB series 1001.
+func searchEpisode(t *testing.T, caps string, season int, episode string) searching.Query {
+	t.Helper()
+	p := plannedWith(t, "Alder")
+	err := p.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return indexerstest.SetCaps(ctx, tx, p.ids["Alder"], caps)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terms := indexers.Terms{
+		Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1001"}, Query: "The Lantern Keepers",
+		Season: &season, Episode: episode, Covers: indexers.CoversOnly,
+	}
+	if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan()}); err != nil {
+		t.Fatal(err)
+	}
+	sent := p.node.sent()
+	if len(sent) != 1 {
+		t.Fatalf("the Node ran %d searches, want 1", len(sent))
+	}
+	return sent[0]
+}
+
+func TestQuerySendsSeasonZero(t *testing.T) {
+	got := searchEpisode(t, indexerstest.TVCaps, 0, "2")
+	want := searching.Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1001"}, Season: new(0), Episode: "2"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("the special's query = %+v (season %v), want %+v with season 0", got, got.Season, want)
+	}
+}
+
+func TestQueryFallbackNamesTheEpisode(t *testing.T) {
+	for _, tc := range []struct {
+		name, caps, want string
+		season           int
+		episode          string
+	}{
+		{"an episode", indexerstest.Caps, "The Lantern Keepers S01E03", 1, "3"},
+		{"a special", indexerstest.Caps, "The Lantern Keepers S00E02", 0, "2"},
+		{"a three-digit episode", indexerstest.Caps, "The Lantern Keepers S02E103", 2, "103"},
+		{"tvsearch without tvdbid", `{"modes":{"search":["q"],"tvsearch":["q","season","ep"]},"categories":[2000]}`, "The Lantern Keepers S01E03", 1, "3"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := searchEpisode(t, tc.caps, tc.season, tc.episode)
+			if want := (searching.Query{Mode: "search", Text: tc.want}); !reflect.DeepEqual(got, want) {
+				t.Fatalf("the query = %+v, want the free-text search %+v", got, want)
+			}
+		})
+	}
+}

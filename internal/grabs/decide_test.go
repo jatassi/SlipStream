@@ -47,7 +47,7 @@ func cellOf(e targets.Edition, t targets.Target, s files.State) files.Cell {
 	return files.Cell{Item: item, Edition: e, Target: t, State: s}
 }
 
-var orchard = indexers.Terms{Mode: "search", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
+var orchard = indexers.Terms{Mode: "search", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021", Covers: indexers.CoversOnly}
 
 func listed(title string, seeders int, size int64, ids map[string]string) candidate {
 	return candidateOf(indexers.Release{Release: searching.Release{Title: title, Seeders: seeders, Size: size, IDs: ids}}, release.BuiltIn(), item.ID, release.Fact[time.Duration]{})
@@ -111,6 +111,42 @@ func TestDecideRefusesWithEveryReasonPerTarget(t *testing.T) {
 	}
 	if !reflect.DeepEqual(refused, want) {
 		t.Fatalf("refused = %+v\nwant %+v", refused, want)
+	}
+}
+
+// lanternS01E03 is S01E03 of TVDB series 1001, covered by the titles
+// that name S01E03 alone.
+var lanternS01E03 = indexers.Terms{
+	Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1001"}, Query: "The Lantern Keepers", Season: new(1), Episode: "3",
+	Covers: func(title string) indexers.Covering {
+		switch {
+		case strings.Contains(title, ".S01E02."):
+			return indexers.Covering{Kind: indexers.CoversOther, Names: "S01E02"}
+		case strings.Contains(title, ".S01."):
+			return indexers.Covering{Kind: indexers.CoversMore, Names: "S01"}
+		}
+		return indexers.Covering{Kind: indexers.CoversItem}
+	},
+}
+
+func TestDecideRefusesAnotherEpisodeAndAPack(t *testing.T) {
+	candidates := []candidate{
+		listed("Lantern.Keepers.S01E02.1080p.WEB-DL", 90, 10, nil),
+		listed("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil),
+		listed("Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1001"}),
+		listed("Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1002"}),
+	}
+	pick, refused := best(decide([]files.Cell{cell(hd, files.Missing)}, lanternS01E03, candidates))
+	if pick == nil || pick.Release.Title != "Lantern.Keepers.S01E03.1080p.WEB-DL" {
+		t.Fatalf("decide picked %+v, want the release of S01E03 alone over better-seeded ones of S01E02 and S01", pick)
+	}
+	want := []Refusal{
+		{"Lantern.Keepers.S01E02.1080p.WEB-DL", []Reason{{Reason: targets.Reason{Code: WrongItem, Value: "S01E02"}}}},
+		{"Lantern.Keepers.S01.1080p.WEB-DL", []Reason{{Reason: targets.Reason{Code: CoversMore, Value: "S01"}}}},
+		{"Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", []Reason{{Reason: targets.Reason{Code: WrongWork}}}},
+	}
+	if !reflect.DeepEqual(refused, want) {
+		t.Fatalf("refused = %+v\nwant another episode as wrong_item, the pack as covers_more and another series as wrong_work, each before its cut: %+v", refused, want)
 	}
 }
 
