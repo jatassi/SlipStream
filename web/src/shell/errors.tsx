@@ -2,6 +2,7 @@ import { Link, type ErrorComponentProps, useRouter } from "@tanstack/react-route
 import type { ReactNode } from "react";
 
 import { UnreachableError, isApiError, isProblem } from "../api/errors";
+import { PageDownloadError } from "../app/route-chunk";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
@@ -10,10 +11,12 @@ import { thisPage } from "./reload";
 
 export type Fact = { readonly label: string; readonly value: ReactNode };
 
+type Action = "retry" | "reload" | "portal";
+
 type Failure = {
   readonly sentence: string;
   readonly facts: readonly Fact[];
-  readonly forAdmins: boolean;
+  readonly action: Action;
 };
 
 function failureOf(error: unknown): Failure {
@@ -26,17 +29,27 @@ function failureOf(error: unknown): Failure {
         { label: "Status", value: <Data>{error.status}</Data> },
         ...(error.detail === undefined ? [] : [{ label: "Detail", value: error.detail }]),
       ],
-      forAdmins,
+      action: forAdmins ? "portal" : "retry",
     };
   }
-  return {
-    sentence:
-      error instanceof UnreachableError
-        ? "SlipStream isn't responding. Check that it's running, then try again."
-        : "This page couldn't load.",
-    facts: [{ label: "Message", value: error instanceof Error ? error.message : String(error) }],
-    forAdmins: false,
-  };
+  const facts = [
+    { label: "Message", value: error instanceof Error ? error.message : String(error) },
+  ];
+  if (error instanceof UnreachableError) {
+    return {
+      sentence: "SlipStream isn't responding. Check that it's running, then try again.",
+      facts,
+      action: "retry",
+    };
+  }
+  if (error instanceof PageDownloadError) {
+    return {
+      sentence: "This page didn't download. Reload to try again.",
+      facts,
+      action: "reload",
+    };
+  }
+  return { sentence: "This page couldn't load.", facts, action: "retry" };
 }
 
 const sentence = "text-sentence text-ink-1 in-data-[density=touch]:text-sentence-touch";
@@ -77,23 +90,30 @@ export function ProblemCard({
   );
 }
 
-function FailureCard({ error, retry }: { error: unknown; retry: ReactNode }) {
-  const { sentence: said, facts, forAdmins } = failureOf(error);
+function ReloadButton() {
   return (
-    <ProblemCard
-      said={said}
-      facts={facts}
-      action={
-        forAdmins ? (
-          <Button nativeButton={false} render={<Link to="/portal" />}>
-            Open the portal
-          </Button>
-        ) : (
-          retry
-        )
-      }
-    />
+    <Button
+      onClick={() => {
+        thisPage.reload();
+      }}
+    >
+      Reload
+    </Button>
   );
+}
+
+function FailureCard({ error, retry }: { error: unknown; retry: ReactNode }) {
+  const { sentence: said, facts, action } = failureOf(error);
+  const actions: Record<Action, ReactNode> = {
+    retry,
+    reload: <ReloadButton />,
+    portal: (
+      <Button nativeButton={false} render={<Link to="/portal" />}>
+        Open the portal
+      </Button>
+    ),
+  };
+  return <ProblemCard said={said} facts={facts} action={actions[action]} />;
 }
 
 export function RouteError({ error, reset }: ErrorComponentProps) {
@@ -123,18 +143,7 @@ function FullScreen({ children }: { children: ReactNode }) {
 export function ShellError({ error }: ErrorComponentProps) {
   return (
     <FullScreen>
-      <FailureCard
-        error={error}
-        retry={
-          <Button
-            onClick={() => {
-              thisPage.reload();
-            }}
-          >
-            Reload
-          </Button>
-        }
-      />
+      <FailureCard error={error} retry={<ReloadButton />} />
     </FullScreen>
   );
 }

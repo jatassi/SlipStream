@@ -1,8 +1,12 @@
 import { signIn } from "../harness/sign-in.ts";
-import { type Request } from "@playwright/test";
+import { type Page, type Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures.ts";
 import { navigate, shellNav, signOut } from "./shell.ts";
+
+// WebKit keeps a failed import.
+const pagesPrefetched = (page: Page) =>
+  page.waitForFunction(() => performance.getEntriesByName("pages-prefetched").length > 0);
 
 const isSessionRead = (request: Request) =>
   request.method() === "GET" && new URL(request.url()).pathname === "/api/v1/session";
@@ -72,6 +76,7 @@ test("a page not opened before fails inside the standing shell while the Node is
 }) => {
   test.setTimeout(60_000);
   await expect(shellNav(adminPage)).toBeVisible();
+  await pagesPrefetched(adminPage);
   await world.fw.node("kill", world.node.name);
   await expect(adminPage.getByText("Reconnecting to SlipStream…")).toBeVisible();
 
