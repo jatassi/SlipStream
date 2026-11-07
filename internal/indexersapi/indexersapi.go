@@ -38,7 +38,7 @@ var (
 	indexerNameTaken   = api.NewCode(http.StatusConflict, "indexer_name_taken", "Another Indexer has that name")
 	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node holds Searching. Give one the Searching Role first.")
 	nodeNotSearching   = api.NewCode(http.StatusConflict, "node_not_searching", "That Node doesn't stand in Searching")
-	indexerTestFailed  = api.NewCarrying[captchaImage](http.StatusUnprocessableEntity, "indexer_test_failed", "The Indexer's Test failed", "captcha")
+	indexerTestFailed  = api.NewCarryingMembers[testFailure](http.StatusUnprocessableEntity, "indexer_test_failed", "The Indexer's Test failed")
 	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Test couldn't run")
 	indexerNotFound    = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )
@@ -51,10 +51,8 @@ func answer(x *indexers.Indexers, err error) error {
 	var unrunnable *cardigann.Unrunnable
 	var value *indexerfields.ValueError
 	switch {
-	case errors.As(err, &failed) && failed.Captcha != nil:
-		return indexerTestFailed.Explained(failed.Sentence, captchaOf(*failed.Captcha))
 	case errors.As(err, &failed):
-		return indexerTestFailed.Because(failed.Sentence)
+		return indexerTestFailed.Explained(failed.Sentence, testFailureOf(failed))
 	case errors.As(err, &refused):
 		return indexerTestFailed.Because(refused.Sentence)
 	case errors.As(err, &wait), errors.As(err, &unavailable), errors.Is(err, indexers.ErrLate):
@@ -97,6 +95,20 @@ func answer(x *indexers.Indexers, err error) error {
 		return catalogAnswer(err)
 	}
 	return err
+}
+
+type testFailure struct {
+	Captcha *captchaImage `json:"captcha,omitempty" doc:"A new captcha to answer, when the Test failed at a sign-in that shows one"`
+	Cause   string        `json:"cause,omitempty" enum:"credentials_rejected,captcha_needed,challenge_unsolved,cookie_expired,definition_unloadable,account_refused,request_rejected,code_needed,port_retired" doc:"The stop cause, when the Test stopped"`
+}
+
+func testFailureOf(e *indexers.TestFailedError) testFailure {
+	f := testFailure{Cause: string(e.Outcome.Cause)}
+	if e.Captcha != nil {
+		c := captchaOf(*e.Captcha)
+		f.Captcha = &c
+	}
+	return f
 }
 
 type searchMode struct {

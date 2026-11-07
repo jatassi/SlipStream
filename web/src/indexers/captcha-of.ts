@@ -1,7 +1,5 @@
-import { z } from "zod";
-
 import { isProblem } from "../api/errors";
-import type { IndexersCaptchaImage } from "../api/gen/model";
+import type { IndexersCaptchaImage, TestIndexer422Cause } from "../api/gen/model";
 
 const isCaptcha = (value: unknown): value is IndexersCaptchaImage =>
   typeof value === "object" &&
@@ -23,10 +21,13 @@ export function captchaOf(error: unknown): IndexersCaptchaImage | undefined {
   return isCaptcha(captcha) ? captcha : undefined;
 }
 
-// indexer_test_failed carries no cause in the API yet, so this reads a
-// cause member the Controller is asked to add beside the captcha.
-const codeCause = z.object({ cause: z.literal("code_needed") });
+const codeNeeded: TestIndexer422Cause = "code_needed";
 
 /** A failed Test that met a sign-in needing a two-factor code. */
-export const needsCode = (error: unknown): boolean =>
-  isProblem(error, "indexer_test_failed") && codeCause.safeParse(error.body).success;
+export function needsCode(error: unknown): boolean {
+  if (!isProblem(error, "indexer_test_failed")) {
+    return false;
+  }
+  const { body } = error;
+  return typeof body === "object" && body !== null && "cause" in body && body.cause === codeNeeded;
+}
