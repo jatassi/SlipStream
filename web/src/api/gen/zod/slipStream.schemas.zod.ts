@@ -203,6 +203,136 @@ export type DownloadclientsDownloadsVolumeOutput = zod.output<
   typeof DownloadclientsDownloadsVolume
 >;
 
+export const SettingDurationField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Seconds"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  floor: zod
+    .string()
+    .exactOptional()
+    .describe("Why the minimum protects someone outside the install"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["duration"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Seconds"),
+  min: zod.int().describe("Seconds"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Seconds"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  step: zod.int().describe("Seconds: a second, minute, hour or day"),
+  value: zod.int().describe("Seconds"),
+});
+
+export type SettingDurationField = zod.input<typeof SettingDurationField>;
+export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
+
+export const downloadclientsClientFolderClientMax = 4096;
+
+export const downloadclientsClientFolderNodeMax = 4096;
+
+export const DownloadclientsClientFolder = zod.object({
+  client: zod
+    .string()
+    .min(1)
+    .max(downloadclientsClientFolderClientMax)
+    .describe("The folder as the client reports it, such as /downloads"),
+  node: zod
+    .string()
+    .min(1)
+    .max(downloadclientsClientFolderNodeMax)
+    .describe("The same folder on the client's Node, such as D:\\Torrents"),
+});
+
+export type DownloadclientsClientFolder = zod.input<typeof DownloadclientsClientFolder>;
+export type DownloadclientsClientFolderOutput = zod.output<typeof DownloadclientsClientFolder>;
+
+export const downloadclientsDaemonHostMax = 253;
+
+export const downloadclientsDaemonPortMax = 65535;
+
+export const DownloadclientsDaemon = zod.object({
+  host: zod.string().min(1).max(downloadclientsDaemonHostMax),
+  port: zod.int().min(1).max(downloadclientsDaemonPortMax),
+});
+
+export type DownloadclientsDaemon = zod.input<typeof DownloadclientsDaemon>;
+export type DownloadclientsDaemonOutput = zod.output<typeof DownloadclientsDaemon>;
+
+export const DownloadclientsPollProblem = zod.object({
+  cause: zod
+    .string()
+    .describe("Why the client isn't responding, refused the sign-in or needs attention"),
+  fields: zod.array(zod.string()).describe("The form fields an Admin changes to fix it"),
+  sentence: zod.string().describe("What happened and what to do, as a sentence"),
+});
+
+export type DownloadclientsPollProblem = zod.input<typeof DownloadclientsPollProblem>;
+export type DownloadclientsPollProblemOutput = zod.output<typeof DownloadclientsPollProblem>;
+
+export const downloadclientsExternalClientTorrentsMin = 0;
+
+export const DownloadclientsExternalClient = zod.object({
+  actions: zod
+    .array(zod.enum(["pause", "resume", "recheck", "announce"]))
+    .describe("The actions its kind supports"),
+  address: zod.string().describe("The whole address, with the kind's usual path filled in"),
+  apiKeySaved: zod.boolean().describe("An API key is saved. Secrets are never returned"),
+  checkEvery: SettingDurationField,
+  clientFolders: zod.array(DownloadclientsClientFolder),
+  daemon: zod
+    .union([DownloadclientsDaemon, zod.null()])
+    .describe("Deluge's daemon; null for the only one and for every other kind"),
+  folder: zod
+    .string()
+    .describe("The download folder as the client sees it; empty for the client's default"),
+  id: zod.uuid(),
+  importDelay: SettingDurationField,
+  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
+  label: zod.string(),
+  name: zod.string(),
+  nodeId: zod.uuid(),
+  on: zod.boolean(),
+  passwordSaved: zod.boolean().describe("A password is saved. Secrets are never returned"),
+  problem: zod
+    .union([DownloadclientsPollProblem, zod.null()])
+    .describe("Why its last poll failed; null while it responds and before its first poll"),
+  productVersion: zod
+    .string()
+    .describe("The product's version at the last sign-in, such as 4.1.1; empty before one"),
+  reach: zod.enum([
+    "responding",
+    "not_responding",
+    "sign_in_refused",
+    "needs_attention",
+    "off",
+    "node_offline",
+    "unchecked",
+  ]),
+  settingsVersion: zod.int().min(1).describe("Bumped on every edit"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When its poll state began; null before its Node first polled it"),
+  torrents: zod.int().min(downloadclientsExternalClientTorrentsMin).describe("Its live Torrents"),
+  username: zod.string().describe("Empty when it signs in with none"),
+  webUi: zod.string().nullable().describe("The client's own web UI; null for a kind with none"),
+});
+
+export type DownloadclientsExternalClient = zod.input<typeof DownloadclientsExternalClient>;
+export type DownloadclientsExternalClientOutput = zod.output<typeof DownloadclientsExternalClient>;
+
 export const downloadclientsLimitsActiveDownloadsMin = 0;
 
 export const downloadclientsLimitsDownloadLimitMin = 0;
@@ -262,6 +392,13 @@ export const DownloadclientsClientCard = zod.object({
   downloads: DownloadclientsDownloadsVolume.exactOptional().describe(
     "The downloads folder's volume as last sampled, absent until the first sample",
   ),
+  externals: zod
+    .array(DownloadclientsExternalClient)
+    .describe("The Node's external clients, by name"),
+  grabsTo: zod
+    .uuid()
+    .nullable()
+    .describe("The external client the Node's new Grabs go to; null for its built-in client"),
   inStep: zod.boolean().describe("The Node is in step; while it isn't the card has no client"),
   limits: DownloadclientsLimits,
   nodeId: zod.uuid(),
@@ -269,56 +406,108 @@ export const DownloadclientsClientCard = zod.object({
   torrents: zod
     .int()
     .min(downloadclientsClientCardTorrentsMin)
-    .describe("The Node's live Torrents"),
-  totals: DownloadclientsTotals.describe("Added up over the Node's live Torrents"),
+    .describe("The built-in client's live Torrents"),
+  totals: DownloadclientsTotals.describe("Added up over the built-in client's live Torrents"),
 });
 
 export type DownloadclientsClientCard = zod.input<typeof DownloadclientsClientCard>;
 export type DownloadclientsClientCardOutput = zod.output<typeof DownloadclientsClientCard>;
 
+export const downloadclientsClientEditAddressMax = 2048;
+
+export const downloadclientsClientEditApiKeyMax = 1024;
+
+export const downloadclientsClientEditClientFoldersMax = 50;
+
+export const downloadclientsClientEditFolderMax = 4096;
+
+export const downloadclientsClientEditLabelMax = 100;
+
+export const downloadclientsClientEditNameMax = 100;
+
+export const downloadclientsClientEditPasswordMax = 1024;
+
+export const downloadclientsClientEditUsernameMax = 256;
+
+export const DownloadclientsClientEdit = zod.object({
+  address: zod.string().min(1).max(downloadclientsClientEditAddressMax).exactOptional(),
+  apiKey: zod
+    .string()
+    .max(downloadclientsClientEditApiKeyMax)
+    .exactOptional()
+    .describe("Write-only; empty keeps the saved one"),
+  checkEvery: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  clientFolders: zod
+    .array(DownloadclientsClientFolder)
+    .max(downloadclientsClientEditClientFoldersMax)
+    .exactOptional(),
+  daemon: zod
+    .union([DownloadclientsDaemon, zod.null()])
+    .exactOptional()
+    .describe("Null for Deluge's only daemon"),
+  folder: zod
+    .string()
+    .max(downloadclientsClientEditFolderMax)
+    .exactOptional()
+    .describe("Empty for the client's default"),
+  importDelay: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]).exactOptional(),
+  label: zod.string().min(1).max(downloadclientsClientEditLabelMax).exactOptional(),
+  name: zod
+    .string()
+    .max(downloadclientsClientEditNameMax)
+    .exactOptional()
+    .describe("Empty for the kind's name"),
+  nodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("Another Node that holds Downloading; a client with Torrents can't move"),
+  on: zod.boolean().exactOptional(),
+  password: zod
+    .string()
+    .max(downloadclientsClientEditPasswordMax)
+    .exactOptional()
+    .describe("Write-only; empty keeps the saved one"),
+  username: zod
+    .string()
+    .max(downloadclientsClientEditUsernameMax)
+    .exactOptional()
+    .describe("Empty signs in with none"),
+});
+
+export type DownloadclientsClientEdit = zod.input<typeof DownloadclientsClientEdit>;
+export type DownloadclientsClientEditOutput = zod.output<typeof DownloadclientsClientEdit>;
+
 export const DownloadclientsClientsChanged = zod.object({
-  nodeIds: zod
+  clientIds: zod
     .array(zod.string())
-    .describe("The Nodes whose built-in client's card or settings changed"),
+    .describe("The external clients whose settings or state changed"),
+  nodeIds: zod.array(zod.string()).describe("The Nodes whose card or settings changed"),
 });
 
 export type DownloadclientsClientsChanged = zod.input<typeof DownloadclientsClientsChanged>;
 export type DownloadclientsClientsChangedOutput = zod.output<typeof DownloadclientsClientsChanged>;
 
-export const SettingDurationField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int().describe("Seconds"),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  floor: zod
-    .string()
-    .exactOptional()
-    .describe("Why the minimum protects someone outside the install"),
-  isDefault: zod
+export const DownloadclientsKind = zod.object({
+  actions: zod.array(zod.enum(["pause", "resume", "recheck", "announce"])),
+  apiKey: zod
     .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["duration"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  max: zod.int().describe("Seconds"),
-  min: zod.int().describe("Seconds"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int().describe("Seconds"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  step: zod.int().describe("Seconds: a second, minute, hour or day"),
-  value: zod.int().describe("Seconds"),
+    .describe("It may sign in with an API key in place of the username and password"),
+  daemon: zod.boolean().describe("Its web UI connects to a daemon the Admin may choose"),
+  deletesData: zod.boolean().describe("Its remove deletes data itself"),
+  floor: zod.string().describe("The oldest version SlipStream supports, such as 4.0"),
+  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
+  label: zod
+    .enum(["any", "no_comma", "lower_word"])
+    .describe("Which labels it takes: lower_word is a-z, 0-9, _ and - only"),
+  name: zod.string().describe("The product's name, a new client's name by default"),
+  password: zod.enum(["none", "optional", "required"]),
+  path: zod.string().describe("The path an address with none takes; empty for a kind with none"),
+  username: zod.enum(["none", "optional", "required"]),
 });
 
-export type SettingDurationField = zod.input<typeof SettingDurationField>;
-export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
+export type DownloadclientsKind = zod.input<typeof DownloadclientsKind>;
+export type DownloadclientsKindOutput = zod.output<typeof DownloadclientsKind>;
 
 export const DownloadclientsThresholds = zod.object({
   faultStall: SettingDurationField,
@@ -333,6 +522,14 @@ export const DownloadclientsClientsList = zod.object({
   cards: zod
     .array(DownloadclientsClientCard)
     .describe("Each Node assigned Downloading or draining it, in Node order"),
+  kinds: zod
+    .array(DownloadclientsKind)
+    .describe("The kinds of external client, in the order the form offers them"),
+  orphans: zod
+    .array(DownloadclientsExternalClient)
+    .describe(
+      "External clients on Nodes that no longer serve Downloading, which can only be deleted",
+    ),
   thresholds: DownloadclientsThresholds,
 });
 
@@ -442,6 +639,73 @@ export const DownloadclientsLiveTick = zod.object({
 export type DownloadclientsLiveTick = zod.input<typeof DownloadclientsLiveTick>;
 export type DownloadclientsLiveTickOutput = zod.output<typeof DownloadclientsLiveTick>;
 
+export const downloadclientsNewClientAddressMax = 2048;
+
+export const downloadclientsNewClientApiKeyMax = 1024;
+
+export const downloadclientsNewClientClientFoldersMax = 50;
+
+export const downloadclientsNewClientFolderMax = 4096;
+
+export const downloadclientsNewClientLabelMax = 100;
+
+export const downloadclientsNewClientNameMax = 100;
+
+export const downloadclientsNewClientPasswordMax = 1024;
+
+export const downloadclientsNewClientUsernameMax = 256;
+
+export const DownloadclientsNewClient = zod.object({
+  address: zod
+    .string()
+    .min(1)
+    .max(downloadclientsNewClientAddressMax)
+    .describe(
+      "The client's whole address, such as http://192.168.1.20:9091/transmission/rpc; with no path it takes the kind's usual one",
+    ),
+  apiKey: zod
+    .string()
+    .max(downloadclientsNewClientApiKeyMax)
+    .exactOptional()
+    .describe("qBittorrent 5.2 and later. Write-only"),
+  checkEvery: zod.int().exactOptional().describe("Seconds; absent for the default"),
+  clientFolders: zod
+    .array(DownloadclientsClientFolder)
+    .max(downloadclientsNewClientClientFoldersMax)
+    .nullish(),
+  daemon: DownloadclientsDaemon.exactOptional().describe(
+    "Deluge's daemon; absent for the only one",
+  ),
+  folder: zod
+    .string()
+    .max(downloadclientsNewClientFolderMax)
+    .exactOptional()
+    .describe("The download folder as the client sees it; absent for the client's default"),
+  importDelay: zod.int().exactOptional().describe("Seconds; absent for the default"),
+  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
+  label: zod
+    .string()
+    .max(downloadclientsNewClientLabelMax)
+    .exactOptional()
+    .describe("Absent for slipstream"),
+  name: zod
+    .string()
+    .max(downloadclientsNewClientNameMax)
+    .exactOptional()
+    .describe("Absent for the kind's name, such as Transmission"),
+  nodeId: zod.uuid().describe("A Node that holds Downloading"),
+  on: zod.boolean().exactOptional().describe("Absent for on"),
+  password: zod
+    .string()
+    .max(downloadclientsNewClientPasswordMax)
+    .exactOptional()
+    .describe("Write-only"),
+  username: zod.string().max(downloadclientsNewClientUsernameMax).exactOptional(),
+});
+
+export type DownloadclientsNewClient = zod.input<typeof DownloadclientsNewClient>;
+export type DownloadclientsNewClientOutput = zod.output<typeof DownloadclientsNewClient>;
+
 export const SettingNoun = zod.object({
   many: zod.string(),
   one: zod.string(),
@@ -550,6 +814,10 @@ export const DownloadclientsSettings = zod.object({
   connections: SettingCountField,
   dht: SettingSwitchField,
   downloadLimit: SettingRateField,
+  grabsTo: zod
+    .uuid()
+    .nullable()
+    .describe("The external client the Node's new Grabs go to; null for its built-in client"),
   stalledAfter: SettingDurationField,
   uploadLimit: SettingRateField,
   utp: SettingSwitchField,
@@ -572,6 +840,12 @@ export const DownloadclientsSettingsPatch = zod.object({
     .int()
     .nullish()
     .describe("Bytes a second, 0 for no limit; null resets it to its default"),
+  grabsTo: zod
+    .uuid()
+    .nullish()
+    .describe(
+      "One of the Node's on external clients, which Grabs for Works whose library root is on the Node go to; null for its built-in client",
+    ),
   stalledAfter: zod.int().nullish().describe("Seconds; null resets it to its default"),
   uploadLimit: zod
     .int()
@@ -582,6 +856,21 @@ export const DownloadclientsSettingsPatch = zod.object({
 
 export type DownloadclientsSettingsPatch = zod.input<typeof DownloadclientsSettingsPatch>;
 export type DownloadclientsSettingsPatchOutput = zod.output<typeof DownloadclientsSettingsPatch>;
+
+export const DownloadclientsTestReport = zod.object({
+  daemons: zod
+    .array(DownloadclientsDaemon)
+    .describe("The daemons Deluge's web UI lists; empty for every other kind"),
+  nodeFolder: zod.string().describe("The download folder as the Node sees it"),
+  product: zod.string().describe("The product's name as it responded, such as Transmission"),
+  version: zod.string().describe("Such as 4.1.1"),
+  warnings: zod
+    .array(zod.string())
+    .describe("What could go wrong with these settings, as sentences"),
+});
+
+export type DownloadclientsTestReport = zod.input<typeof DownloadclientsTestReport>;
+export type DownloadclientsTestReportOutput = zod.output<typeof DownloadclientsTestReport>;
 
 export const DownloadclientsThresholdsPatch = zod.object({
   faultStall: zod.int().nullish().describe("Seconds; null resets it to its default"),
@@ -690,6 +979,21 @@ export const DownloadclientsTorrentDetail = zod.object({
     .datetime({ offset: true })
     .exactOptional()
     .describe("The earliest every announce URL accepts an announce, set while live"),
+  attached: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "It was in its external client before SlipStream attached to it, so removing it only stops tracking it",
+    ),
+  clientId: zod
+    .uuid()
+    .exactOptional()
+    .describe("Its external client; absent for its Node's built-in client"),
+  clientKind: zod
+    .enum(["qbittorrent", "transmission", "deluge", "rtorrent"])
+    .exactOptional()
+    .describe("Its external client's kind"),
+  clientName: zod.string().exactOptional().describe("Its external client's name"),
   contentType: zod.string().describe("The Content Type it was first grabbed for"),
   done: zod
     .int()
@@ -700,7 +1004,12 @@ export const DownloadclientsTorrentDetail = zod.object({
     .min(downloadclientsTorrentDetailDownloadedMin)
     .describe("All-time bytes downloaded"),
   edition: zod.string().exactOptional().describe("Its newest Grab's Edition"),
-  error: zod.string().exactOptional().describe("The engine's error message for the failure"),
+  error: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "The engine's error message for the failure, or an external client's own words for its error",
+    ),
   fault: DownloadclientsFault.exactOptional().describe(
     "The fault found in the release itself, once there is one",
   ),
@@ -716,9 +1025,12 @@ export const DownloadclientsTorrentDetail = zod.object({
       "disk_guard",
       "draining",
       "controller",
+      "client_error",
     ])
     .exactOptional()
-    .describe("Why its Node holds it back, as its Node last reported"),
+    .describe(
+      "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
+    ),
   id: zod.uuid(),
   infoHash: zod.string().describe("The v1 info hash in hex"),
   lastKnown: zod.iso
@@ -835,13 +1147,33 @@ export const downloadclientsTorrentRowUploadedMin = 0;
 
 export const DownloadclientsTorrentRow = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  attached: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "It was in its external client before SlipStream attached to it, so removing it only stops tracking it",
+    ),
+  clientId: zod
+    .uuid()
+    .exactOptional()
+    .describe("Its external client; absent for its Node's built-in client"),
+  clientKind: zod
+    .enum(["qbittorrent", "transmission", "deluge", "rtorrent"])
+    .exactOptional()
+    .describe("Its external client's kind"),
+  clientName: zod.string().exactOptional().describe("Its external client's name"),
   contentType: zod.string().describe("The Content Type it was first grabbed for"),
   done: zod
     .int()
     .min(downloadclientsTorrentRowDoneMin)
     .describe("Bytes done as its Node last reported them; torrents.live carries the live figure"),
   edition: zod.string().exactOptional().describe("Its newest Grab's Edition"),
-  error: zod.string().exactOptional().describe("The engine's error message for the failure"),
+  error: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "The engine's error message for the failure, or an external client's own words for its error",
+    ),
   fault: DownloadclientsFault.exactOptional().describe(
     "The fault found in the release itself, once there is one",
   ),
@@ -855,9 +1187,12 @@ export const DownloadclientsTorrentRow = zod.object({
       "disk_guard",
       "draining",
       "controller",
+      "client_error",
     ])
     .exactOptional()
-    .describe("Why its Node holds it back, as its Node last reported"),
+    .describe(
+      "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
+    ),
   id: zod.uuid(),
   lastKnown: zod.iso
     .datetime({ offset: true })
@@ -1364,7 +1699,6 @@ export const GrabsFailure = zod.object({
     "torrent_invalid",
     "infohash_mismatch",
     "torrent_v2_only",
-    "no_download_client",
     "download_failed",
     "removed",
     "no_video_file",

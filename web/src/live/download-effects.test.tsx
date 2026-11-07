@@ -21,7 +21,10 @@ test("download-clients.changed invalidates the cards and only the named Nodes' c
     home: getGetDownloadClientSettingsQueryKey(home),
   });
 
-  server.clients[0]?.send({ event: "download-clients.changed", data: { nodeIds: [seedbox] } });
+  server.clients[0]?.send({
+    event: "download-clients.changed",
+    data: { nodeIds: [seedbox], clientIds: [] },
+  });
   await expect.poll(invalidated).toEqual({ cards: true, seedbox: true, home: false });
 });
 

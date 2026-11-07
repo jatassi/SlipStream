@@ -103,6 +103,8 @@ function heldLine(row: Row, { node, clock }: Place): string {
       return `Waiting because ${node} is draining`;
     case "controller":
       return "Waiting for the Controller";
+    case "client_error":
+      return `Stopped by ${row.clientName} with an error`;
     case "wanted":
     case undefined:
       return "";

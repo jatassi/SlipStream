@@ -10,7 +10,6 @@ export type GrabsFailureCode =
   | "torrent_invalid"
   | "infohash_mismatch"
   | "torrent_v2_only"
-  | "no_download_client"
   | "download_failed"
   | "removed"
   | "no_video_file"

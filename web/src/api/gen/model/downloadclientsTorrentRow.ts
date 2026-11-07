@@ -1,4 +1,5 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
+import type { DownloadclientsTorrentRowClientKind } from "./downloadclientsTorrentRowClientKind.ts";
 import type { DownloadclientsTorrentRowHold } from "./downloadclientsTorrentRowHold.ts";
 import type { DownloadclientsTorrentRowPending } from "./downloadclientsTorrentRowPending.ts";
 import type { DownloadclientsTorrentRowQuality } from "./downloadclientsTorrentRowQuality.ts";
@@ -9,6 +10,14 @@ import type { DownloadclientsTrackerCell } from "./downloadclientsTrackerCell.ts
 
 export interface DownloadclientsTorrentRow {
   addedAt: string;
+  /** It was in its external client before SlipStream attached to it, so removing it only stops tracking it */
+  attached?: boolean;
+  /** Its external client; absent for its Node's built-in client */
+  clientId?: string;
+  /** Its external client's kind */
+  clientKind?: DownloadclientsTorrentRowClientKind;
+  /** Its external client's name */
+  clientName?: string;
   /** The Content Type it was first grabbed for */
   contentType: string;
   /**
@@ -18,11 +27,11 @@ export interface DownloadclientsTorrentRow {
   done: number;
   /** Its newest Grab's Edition */
   edition?: string;
-  /** The engine's error message for the failure */
+  /** The engine's error message for the failure, or an external client's own words for its error */
   error?: string;
   /** The fault found in the release itself, once there is one */
   fault?: DownloadclientsFault;
-  /** Why its Node holds it back, as its Node last reported */
+  /** Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error */
   hold?: DownloadclientsTorrentRowHold;
   id: string;
   /** When its Node last reported it, set while the Node is out of step */

@@ -1,5 +1,6 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
 import type { DownloadclientsFileDetail } from "./downloadclientsFileDetail.ts";
+import type { DownloadclientsTorrentDetailClientKind } from "./downloadclientsTorrentDetailClientKind.ts";
 import type { DownloadclientsTorrentDetailHold } from "./downloadclientsTorrentDetailHold.ts";
 import type { DownloadclientsTorrentDetailPending } from "./downloadclientsTorrentDetailPending.ts";
 import type { DownloadclientsTorrentDetailQuality } from "./downloadclientsTorrentDetailQuality.ts";
@@ -19,6 +20,14 @@ export interface DownloadclientsTorrentDetail {
   addedAt: string;
   /** The earliest every announce URL accepts an announce, set while live */
   announceAt?: string;
+  /** It was in its external client before SlipStream attached to it, so removing it only stops tracking it */
+  attached?: boolean;
+  /** Its external client; absent for its Node's built-in client */
+  clientId?: string;
+  /** Its external client's kind */
+  clientKind?: DownloadclientsTorrentDetailClientKind;
+  /** Its external client's name */
+  clientName?: string;
   /** The Content Type it was first grabbed for */
   contentType: string;
   /**
@@ -33,7 +42,7 @@ export interface DownloadclientsTorrentDetail {
   downloaded: number;
   /** Its newest Grab's Edition */
   edition?: string;
-  /** The engine's error message for the failure */
+  /** The engine's error message for the failure, or an external client's own words for its error */
   error?: string;
   /** The fault found in the release itself, once there is one */
   fault?: DownloadclientsFault;
@@ -41,7 +50,7 @@ export interface DownloadclientsTorrentDetail {
   files: DownloadclientsFileDetail[];
   /** The Grabs that used it, newest first */
   grabs: DownloadclientsTorrentGrab[];
-  /** Why its Node holds it back, as its Node last reported */
+  /** Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error */
   hold?: DownloadclientsTorrentDetailHold;
   id: string;
   /** The v1 info hash in hex */

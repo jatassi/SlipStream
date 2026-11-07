@@ -50,6 +50,8 @@ function heldSentence(row: Row, { node, clock }: Place): string {
       return `Waiting because ${node} is draining.`;
     case "controller":
       return `Waiting for the Controller to send it to ${node}.`;
+    case "client_error":
+      return `${row.clientName} stopped this torrent with the error "${row.error}". Fix the cause in ${row.clientName} and the download carries on.`;
     case "wanted":
     case undefined:
       return "Paused. It stays paused until you resume it.";

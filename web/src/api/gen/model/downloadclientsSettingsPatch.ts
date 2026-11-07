@@ -25,6 +25,11 @@ export interface DownloadclientsSettingsPatch {
    */
   downloadLimit?: number | null;
   /**
+   * One of the Node's on external clients, which Grabs for Works whose library root is on the Node go to; null for its built-in client
+   * @nullable
+   */
+  grabsTo?: string | null;
+  /**
    * Seconds; null resets it to its default
    * @nullable
    */

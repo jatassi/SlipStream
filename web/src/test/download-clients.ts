@@ -144,6 +144,7 @@ export const clientSettings: DownloadclientsSettings = {
     default: true,
   },
   stalledAfter: duration("downloading.stalledAfter", "Stalled after", 600, [60, 86_400, 60]),
+  grabsTo: null,
 };
 
 const limits = {
@@ -169,6 +170,8 @@ export const unbound = {
 export const homeCard: DownloadclientsClientCard = {
   nodeId: homeId,
   nodeName: "home",
+  grabsTo: null,
+  externals: [],
   inStep: true,
   client: { ...unbound, bound: "192.168.1.20:6881" },
   limits,
@@ -184,6 +187,8 @@ export const homeCard: DownloadclientsClientCard = {
 export const seedboxCard: DownloadclientsClientCard = {
   nodeId: seedboxId,
   nodeName: "seedbox",
+  grabsTo: null,
+  externals: [],
   inStep: true,
   client: {
     ...unbound,
@@ -245,8 +250,11 @@ export type ClientWrite = { path: string; body: JsonBodyType };
  * Serves the Download Clients list and each Node's client settings, and
  * records every PATCH. A test changes `state` to change what is served.
  */
-export function downloadClients(list?: DownloadclientsClientsList) {
-  const state = { list: list ?? { cards: [homeCard], thresholds }, settings: clientSettings };
+export function downloadClients(list?: Pick<DownloadclientsClientsList, "cards" | "thresholds">) {
+  const state = {
+    list: { orphans: [], kinds: [], ...(list ?? { cards: [homeCard], thresholds }) },
+    settings: clientSettings,
+  };
   const writes: ClientWrite[] = [];
   const handlers = [
     http.get("*/api/v1/download-clients", () => HttpResponse.json(state.list)),
