@@ -50,10 +50,9 @@ export const engineOf = (name: ProjectName): Engine => projects[name][0];
 const desktopOnly = ["restart.spec.ts", "diagram.spec.ts", "library-scale.spec.ts"];
 
 // Linux WebKit paints on the page's main thread in software, because CI's
-// runners have no GPU. At the phone's 3x scale it paints nine times the
-// pixels, and a frame of a closing sheet can block the page for seconds. A
-// view transition waits for that frame before the next page commits. macOS
-// keeps the phone's scale.
+// runners have no GPU. At the phone's 3x scale a frame of a closing sheet
+// blocks the page for seconds, and a view transition waits for that frame
+// before the next page commits. macOS keeps the phone's scale.
 const softwarePainted = (engine: Engine): boolean => engine === "webkit" && platform === "linux";
 
 function project(name: ProjectName): Project {
