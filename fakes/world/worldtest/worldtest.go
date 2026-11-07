@@ -73,7 +73,7 @@ func launch(t *testing.T, s scenario.Scenario, binary string) *world.Run {
 			checkStop(t, run)
 		}
 		if t.Failed() {
-			logNodeLogs(t, runDir)
+			logNodeLogs(t, runDir, s)
 		}
 	})
 	run, err := world.Launch(Context(t), world.Options{Binary: binary, Scenario: s, RunDir: runDir, Origin: Origin(t)})
@@ -165,13 +165,13 @@ func checkStop(t *testing.T, run *world.Run) {
 	}
 }
 
-func logNodeLogs(t *testing.T, runDir string) {
+func logNodeLogs(t *testing.T, runDir string, s scenario.Scenario) {
 	t.Helper()
-	logs, _ := filepath.Glob(filepath.Join(runDir, "nodes", "*.log"))
-	for _, path := range logs {
+	for _, spec := range s.Nodes {
+		path := filepath.Join(runDir, "nodes", spec.Name+".log")
 		data, err := os.ReadFile(path)
 		if err != nil {
-			t.Log(err)
+			t.Logf("node %s has no log to show: %v", spec.Name, err)
 			continue
 		}
 		lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")

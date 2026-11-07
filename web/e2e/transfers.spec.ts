@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 test.use({ scenario: "home" });
 
@@ -63,7 +64,7 @@ test("seedbox's Transfers say nothing moves and save a send limit the Node reads
   const saved = await world.api("GET", `/api/v1/transfers/nodes/${seedbox}/settings`);
   expect(Settings.parse(saved.body).sendLimit.value, "10 MB/s in bytes").toBe(10 * 1024 * 1024);
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("transfers.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("transfers.png"));
 });
 
 test.describe("between two Workers", () => {
@@ -86,14 +87,14 @@ test.describe("between two Workers", () => {
     await expect(row.getByText(pace)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/^Receiving The Quiet Orchard from seedbox at /u)).toBeVisible();
     await expectAccessible(page);
-    await page.screenshot({ path: testInfo.outputPath("nas-transfers.png"), fullPage: true });
+    await screenshotWholePage(page, testInfo.outputPath("nas-transfers.png"));
 
     await navigate(page, "Activity");
     const job = page.getByRole("table", { name: "Grabs" }).getByRole("row", { name: /Quiet/u });
     await expect(job.getByText("Transferring from seedbox", { exact: true })).toBeVisible();
     await expect(job.getByText(pace)).toBeVisible();
     await expectAccessible(page);
-    await page.screenshot({ path: testInfo.outputPath("activity.png"), fullPage: true });
+    await screenshotWholePage(page, testInfo.outputPath("activity.png"));
 
     await expect(job).toContainText("Imported", { timeout: 90_000 });
     await openTransfers(page, nas, "nas");

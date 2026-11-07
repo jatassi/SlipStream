@@ -5,6 +5,7 @@ import { expectColumns, orchardCells } from "./cells.ts";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, openSettingsSection } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 const Made = z.object({ id: z.string() });
 
@@ -89,7 +90,7 @@ test("a Profile takes two Targets reordered by keyboard, and warns once its cuts
     chip.scrollIntoView({ block: "center" });
   });
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("editor.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("editor.png"));
 
   await page.getByRole("radio", { name: "Any cut" }).click();
   await page.getByRole("button", { name: "Create Profile" }).click();
@@ -98,7 +99,7 @@ test("a Profile takes two Targets reordered by keyboard, and warns once its cuts
   await expect(both).toContainText("2160p, 1080p");
   await expect(both).not.toContainText("Default");
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("list.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("list.png"));
 });
 
 test("an Admin adds a movie on a Profile other than the default and sees its Targets wanted", async ({

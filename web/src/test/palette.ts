@@ -88,6 +88,15 @@ export const openFromCapsule = async () => {
   await expect.element(palette().getByRole("combobox", { name: label })).toHaveFocus();
 };
 
+/** The option the search field points at, the one Enter chooses. */
+export const highlighted = () => {
+  const id = palette()
+    .getByRole("combobox", { name: label })
+    .element()
+    .getAttribute("aria-activedescendant");
+  return id === null ? null : document.querySelector(`#${CSS.escape(id)}`)?.textContent;
+};
+
 export const groupLabels = () =>
   palette()
     .getByRole("group")

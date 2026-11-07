@@ -479,15 +479,8 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
-		torrent, err := torrentPort(ctx, n.addr)
-		if err != nil {
-			return fmt.Errorf("node %s: %w", name, err)
-		}
-		if config, err = setup.Pin(config, map[string]string{"torrent": torrent.String()}); err != nil {
-			return fmt.Errorf("node %s: %w", name, err)
-		}
-		if err := os.WriteFile(filepath.Join(n.dataDir.Path(), "config.yaml"), config, 0o600); err != nil {
-			return fmt.Errorf("node %s: %w", name, err)
+		if err := n.pinTorrent(ctx, config); err != nil {
+			return err
 		}
 		n.env = env
 		n.log = filepath.Join(r.runDir, "nodes", name+".log")
@@ -589,8 +582,48 @@ func (r *Run) startNodes(ctx context.Context, undo *unwind) error {
 	return nil
 }
 
+// pinTorrent writes config as n's config.yaml with its torrent listener on
+// a port free on its address.
+func (n *nodeRun) pinTorrent(ctx context.Context, config []byte) error {
+	torrent, err := torrentPort(ctx, n.addr)
+	if err != nil {
+		return fmt.Errorf("node %s: %w", n.spec.Name, err)
+	}
+	if config, err = setup.Pin(config, map[string]string{"torrent": torrent.String()}); err != nil {
+		return fmt.Errorf("node %s: %w", n.spec.Name, err)
+	}
+	if err := os.WriteFile(filepath.Join(n.dataDir.Path(), "config.yaml"), config, 0o600); err != nil {
+		return fmt.Errorf("node %s: %w", n.spec.Name, err)
+	}
+	return nil
+}
+
+// torrentLaunches bounds the launches of a Node that finds its torrent port
+// taken. Another process can bind the port between torrentPort's probe and
+// the Node's own bind, so each launch after the first gets a fresh port.
+const torrentLaunches = 3
+
 func (r *Run) startNode(ctx context.Context, undo *unwind, n *nodeRun) error {
 	undo.push(func() { n.life.End(r.life) })
+	for range torrentLaunches - 1 {
+		if err := n.life.Start(ctx); err != nil {
+			return err
+		}
+		if n.life.Ready().Listeners.Torrent.IsValid() {
+			return nil
+		}
+		r.log.Warn("torrent port taken", "node", n.spec.Name)
+		if err := n.life.Stop(ctx); err != nil {
+			return err
+		}
+		config, err := os.ReadFile(filepath.Join(n.dataDir.Path(), "config.yaml"))
+		if err != nil {
+			return fmt.Errorf("node %s: %w", n.spec.Name, err)
+		}
+		if err := n.pinTorrent(ctx, config); err != nil {
+			return err
+		}
+	}
 	return n.life.Start(ctx)
 }
 
