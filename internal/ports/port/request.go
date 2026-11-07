@@ -1,19 +1,18 @@
 package port
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
@@ -118,7 +117,6 @@ type SearchCriteria struct {
 var (
 	dashes       = regexp.MustCompile(`\p{Pd}+`)
 	singleQuotes = regexp.MustCompile("[`´‘’]")
-	imdbID       = regexp.MustCompile(`^(?:tt)?(\d{1,8})$`)
 )
 
 func (q SearchCriteria) SanitizedSearchTerm() string {
@@ -148,32 +146,10 @@ func (q SearchCriteria) EpisodeSearchString() string {
 	if strings.TrimSpace(q.Episode) == "" {
 		return fmt.Sprintf("S%02d", q.Season)
 	}
-	if ep, ok := coerceInt(q.Episode); ok {
+	if ep, ok := parseutil.TryCoerceInt(q.Episode); ok {
 		return fmt.Sprintf("S%02dE%02d", q.Season, ep)
 	}
 	return fmt.Sprintf("S%02dE%s", q.Season, q.Episode)
-}
-
-// coerceInt is ParseUtil.CoerceInt: the digits of s, read with "," and
-// "." as thousands separators, 0 for none. ok is false where C# throws.
-func coerceInt(s string) (int, bool) {
-	var digits strings.Builder
-	commas, dots := false, false
-	for _, r := range s {
-		switch {
-		case unicode.IsDigit(r):
-			digits.WriteRune(r)
-		case r == ',':
-			commas = true
-		case r == '.':
-			dots = true
-		}
-	}
-	if commas && dots {
-		return 0, false
-	}
-	n, err := strconv.Atoi(cmp.Or(digits.String(), "0"))
-	return n, err == nil
 }
 
 // FullImdbID is the IMDb id as "tt" and at least seven digits, "" for
@@ -186,11 +162,7 @@ func (q SearchCriteria) FullImdbID() string {
 }
 
 func (q SearchCriteria) ImdbNumber() int {
-	m := imdbID.FindStringSubmatch(q.ImdbID)
-	if m == nil {
-		return 0
-	}
-	n, _ := strconv.Atoi(m[1])
+	n, _ := parseutil.GetImdbID(q.ImdbID)
 	return n
 }
 

@@ -132,6 +132,8 @@ func TestDefinePanicsOnAMisdeclaredPort(t *testing.T) {
 	tvOnly.Capabilities.TvSearchParams = []Param{Q}
 	derived := entry("derived")
 	derived.Key = "passkey"
+	unknownCharset := entry("charset")
+	unknownCharset.Encoding = "klingon-1"
 	for name, define := range map[string]func(){
 		"a rate limit below 2 s": func() {
 			Define(slow, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
@@ -156,6 +158,9 @@ func TestDefinePanicsOnAMisdeclaredPort(t *testing.T) {
 		},
 		"no family": func() {
 			Define(entry("x"), Impl[keySettings]{Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
+		},
+		"an encoding .NET doesn't know": func() {
+			Define(unknownCharset, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
 		},
 		"a derived field set": func() {
 			Define(derived, Impl[keySettings]{Login: NoLogin{}, Movie: search[keySettings], Basic: search[keySettings], Parse: parse[keySettings]})
@@ -271,4 +276,26 @@ func TestReadUpstreamNeedsItsCommitDateAndFiles(t *testing.T) {
 		}
 	}()
 	ReadUpstream([]byte(`{"commit": "ef9c1824", "date": "2026-11-06"}`))
+}
+
+func TestSearchCriteriaWritesEpisodesAndImdbIDsAsProwlarrDoes(t *testing.T) {
+	for _, tt := range []struct {
+		q    SearchCriteria
+		want string
+	}{
+		{SearchCriteria{Season: 1, Episode: "2"}, "S01E02"},
+		{SearchCriteria{Season: 1, Episode: "1.000"}, "S01E1000"},
+		{SearchCriteria{Season: 1}, "S01"},
+		{SearchCriteria{Season: 1, Episode: "2a"}, "S01E02"},
+		{SearchCriteria{Season: 2026, Episode: "06/01"}, "2026.06.01"},
+	} {
+		if got := tt.q.EpisodeSearchString(); got != tt.want {
+			t.Errorf("%+v.EpisodeSearchString() = %q, want %q", tt.q, got, tt.want)
+		}
+	}
+	for in, want := range map[string]string{"tt0076759": "tt0076759", "76759": "tt0076759", "tt123456789": "", "": "", "x1": ""} {
+		if got := (SearchCriteria{ImdbID: in}).FullImdbID(); got != want {
+			t.Errorf("FullImdbID of %q = %q, want %q", in, got, want)
+		}
+	}
 }

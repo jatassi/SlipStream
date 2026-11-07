@@ -101,8 +101,9 @@ type Entry struct {
 	// derived from the address: MTeamTp's "api." + domain. Credentials
 	// and port headers reach only the address's host and these.
 	Hosts func(base *url.URL) []string
-	// Encoding is "", "iso-8859-1" or "windows-1251": responses are
-	// decoded and form bodies encoded with it.
+	// Encoding is a name Encoding.GetEncoding takes, such as
+	// "windows-1251", or "" for UTF-8. Responses are decoded and form
+	// bodies encoded with it.
 	Encoding string
 	// UserAgent is a fixed User-Agent the site requires, sent unless a
 	// pasted session carries its own.

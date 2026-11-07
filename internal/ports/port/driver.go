@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
@@ -37,6 +38,7 @@ type typed[S any] struct {
 	impl     Impl[S]
 	settings []setting
 	login    family[S]
+	charset  encoding.Charset
 }
 
 // family is what the request loop does for one Login family.
@@ -519,7 +521,7 @@ func (j *job[S]) body(r *Request) (body []byte, contentType string) {
 	case r.form != nil:
 		pairs := make([]string, len(r.form))
 		for i, kv := range r.form {
-			pairs[i] = url.QueryEscape(kv[0]) + "=" + url.QueryEscape(string(encodeText(j.e.Encoding, kv[1])))
+			pairs[i] = url.QueryEscape(kv[0]) + "=" + url.QueryEscape(string(j.t.charset.GetBytes(kv[1])))
 		}
 		return []byte(strings.Join(pairs, "&")), "application/x-www-form-urlencoded"
 	}
@@ -528,7 +530,7 @@ func (j *job[S]) body(r *Request) (body []byte, contentType string) {
 
 func (j *job[S]) response(r *Request, res *searching.Response) *IndexerResponse {
 	out := &IndexerResponse{
-		StatusCode: res.Status, Headers: res.Header, Body: res.Body, Content: decodeText(j.e.Encoding, res.Body), URL: res.URL, Request: r,
+		StatusCode: res.Status, Headers: res.Header, Body: res.Body, Content: j.t.charset.GetString(res.Body), URL: res.URL, Request: r,
 	}
 	if loc := res.Header.Get("Location"); loc != "" && res.Status >= http.StatusMultipleChoices && res.Status < http.StatusBadRequest {
 		out.HasHTTPRedirect = true

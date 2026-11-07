@@ -9,12 +9,11 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/indexerfields"
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 )
 
 // Floor is the least spacing a port may declare, the Node's own.
 const Floor = 2 * time.Second
-
-var encodings = []string{"", "iso-8859-1", "windows-1251"}
 
 // Define is the one way to make a Port. It reflects S into Fields,
 // derives Auth, Key and SignInWords, and panics when the parts disagree,
@@ -40,7 +39,16 @@ func Define[S any](e Entry, impl Impl[S]) Port {
 	}
 	e.Key = words(settings, func(s setting) bool { return s.key })
 	e.SignInWords = words(settings, func(s setting) bool { return s.signin })
-	return Port{entry: e, run: &typed[S]{impl: impl, settings: settings, login: familyOf[S](impl.Login)}}
+	charset, _ := charsetOf(e.Encoding)
+	return Port{entry: e, run: &typed[S]{impl: impl, settings: settings, login: familyOf[S](impl.Login), charset: charset}}
+}
+
+// charsetOf is Encoding.GetEncoding(name), UTF-8 for "".
+func charsetOf(name string) (encoding.Charset, error) {
+	if name == "" {
+		return encoding.UTF8, nil
+	}
+	return encoding.GetEncoding(name)
 }
 
 func check[S any](e Entry, impl Impl[S], settings []setting) error {
@@ -69,8 +77,8 @@ func checkEntry(e Entry) error {
 	if e.PageSize < 0 || e.QueryLimit.Count < 0 || e.GrabLimit.Count < 0 {
 		errs = append(errs, errors.New("a page size or limit is negative"))
 	}
-	if !slices.Contains(encodings, e.Encoding) {
-		errs = append(errs, fmt.Errorf("encoding %q is none of %q", e.Encoding, encodings))
+	if _, err := charsetOf(e.Encoding); err != nil {
+		errs = append(errs, err)
 	}
 	if e.Capabilities.Categories == nil {
 		errs = append(errs, errors.New("the capabilities need a category mapping"))
