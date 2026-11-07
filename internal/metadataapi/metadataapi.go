@@ -62,7 +62,9 @@ func answer(err error) error {
 	case isSource && errors.Is(err, metadata.ErrKeyRefused):
 		return keyRefused.Because(se.Source + " " + se.Words)
 	case isSource && errors.Is(err, metadata.ErrPinRefused):
-		return pinRefused.Because(se.Source + " " + se.Words)
+		return pinRefused.Because(se.Source + " " + se.Words + ". Check the PIN on your " + se.Source + " account page.")
+	case isSource && errors.Is(err, metadata.ErrTakesNoPin):
+		return api.Invalid.Fields(api.FieldError{Location: "body.pin", Message: se.Source + " keys don't use a PIN. Leave the PIN out."})
 	case isSource && errors.Is(err, works.ErrUnavailable):
 		return metadataUnavailable.Because(se.Error())
 	case errors.Is(err, works.ErrNoType):
@@ -86,6 +88,7 @@ var states = map[metadata.State]string{
 	metadata.StateUnused:         "unused",
 	metadata.StateWorking:        "working",
 	metadata.StateKeyRefused:     "key_refused",
+	metadata.StatePinRefused:     "key_refused",
 	metadata.StateRateLimited:    "rate_limited",
 	metadata.StateOutOfAllowance: "out_of_allowance",
 	metadata.StateUnreachable:    "unreachable",
