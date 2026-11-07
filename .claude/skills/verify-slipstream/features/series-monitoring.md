@@ -47,7 +47,7 @@ Steps:
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("switch", { name: "Monitor Season 2" })'
   $FW exec $RUN --proof series-monitoring/season-switch -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-monitoring/season-switch/after.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Season 1", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const season = page.getByRole("button", { name: "Season 1", exact: true }); if (await season.getAttribute("aria-expanded") !== "true") await season.click(); }'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("switch", { name: "Monitor S01E02" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
   $FW exec $RUN --proof series-monitoring/episode-switch -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-monitoring/episode-switch/reloaded.aria.yml
@@ -58,5 +58,5 @@ Steps:
 
 - The dialog opens on All whatever the series was added with: a Work stores which episodes are monitored, not the preset that set them.
 - The hero's count reads live episodes only. An episode TVDB dropped keeps its `monitored` flag in the API's tree, so count Items with `withdrawnAt` null when checking by API.
-- A season that holds nothing wanted starts closed, so open Season 1 before its episode switches exist.
+- A season keeps the open or closed state it had for the rest of the session, so open one only when its button reads `aria-expanded="false"`; a click on an open one closes it.
 - On phone the hero has no Monitoring button; `More actions for <series>` holds `Set monitoring…`.
