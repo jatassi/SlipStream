@@ -223,7 +223,6 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 		{"Contact", "failed", "all", 1, 1, "2000-01-01"},
 		{"Dune", "unreleased", "all", 0, 0, "2026-12"},
 		{"Eraser", "upgradable", "all", 0, 1, "2000-01-01"},
-		{"Fargo", "failed", "none", 0, 0, "2000-01-01"},
 	} {
 		r := got[i]
 		if r.Label != c.label || *r.Status != c.status || !reflect.DeepEqual(r.Cells, map[string]int{c.status: 1}) || r.Monitored != c.monitored ||
@@ -232,6 +231,14 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 			t.Fatalf("row %d is %+v, want %s %s, %s monitored, %d failed, %d Needs you, available %s, from One, in the root, with no poster, rating or values",
 				i, r, c.label, c.status, c.monitored, c.failed, c.needsYou, c.available)
 		}
+	}
+
+	unmonitored := row{
+		ID: fargo.ID.String(), Label: "Fargo", Monitored: "none", ProfileID: s.one.ID.String(), RootID: root,
+		Rating: json.RawMessage("null"), AvailableOn: str("2000-01-01"), Cells: map[string]int{}, ItemStatus: map[string]int{}, Values: json.RawMessage("{}"),
+	}
+	if !reflect.DeepEqual(got[5], unmonitored) {
+		t.Fatalf("Fargo's row is\n%+v\nwant\n%+v: an unmonitored Work counts nothing, so it reads no status, though its download failed", got[5], unmonitored)
 	}
 
 	named := s.rows(t, "?workIds="+heat.ID.String()+","+contact.ID.String()+","+storage.NewUUID().String())

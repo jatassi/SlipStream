@@ -118,6 +118,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	empty := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Empty", ContentType: contenttypetest.ID}))
 	fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Top", Children: []works.Entry{{Key: "c1", Label: "Jar"}}}}}})
 	bare, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", works.Adding{
+		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
 			if err := targets.Assign(ctx, tx, w, &empty.ID); err != nil {
 				return err

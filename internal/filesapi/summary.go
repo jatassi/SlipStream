@@ -8,10 +8,10 @@ import (
 )
 
 type summary struct {
-	Status     api.Nullable[api.Enum[State]] `json:"status" doc:"The first status its Items hold, in the glossary's order; null for a Work with no cell"`
-	Cells      api.Counts[State]             `json:"cells" doc:"Its cells by state"`
-	Items      int                           `json:"items" minimum:"0"`
-	ItemStatus api.Counts[State]             `json:"itemStatus" doc:"Its Items by status; an Item with no cell isn't counted"`
+	Status     api.Nullable[api.Enum[State]] `json:"status" doc:"The first status its monitored Items hold, in the glossary's order; null while none holds a cell"`
+	Cells      api.Counts[State]             `json:"cells" doc:"Its monitored Items' cells by state"`
+	Items      int                           `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
+	ItemStatus api.Counts[State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
 }
 
 func summaryOf(r files.Rollup) summary {

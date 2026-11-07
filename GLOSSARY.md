@@ -289,7 +289,7 @@ A link that names a Release by its info hash, with an optional name and trackers
 _Avoid_: Magnet URI, magnet (alone, in UI)
 
 **Want**:
-One Edition at one Target of a monitored, released Item that no file fills, or whose filling file is below the Target's cutoff. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
+One Edition at one Target of a monitored, released Item, still listed by its source, that no file fills, or whose filling file is below the Target's cutoff. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
 _Avoid_: Missing item, wanted cell, slot
 
 **Grab**:
