@@ -3,6 +3,7 @@ package grabs
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/role"
 )
 
@@ -14,7 +15,7 @@ import (
 func (gr *Grabs) settleWriteOffs(ctx context.Context, open []Grab) (bool, error) {
 	settled := false
 	for _, g := range open {
-		if g.Stage == Fetching || !gr.cfg.Roster.WrittenOff(role.Downloading, g.Node) {
+		if g.Stage == Fetching || !gr.cfg.Roster.WrittenOff(role.Downloading, g.Node) && !g.partedByWriteOff() {
 			continue
 		}
 		if err := gr.commit(ctx, g, fail{NodeWrittenOff, writtenOffWords}); err != nil {
@@ -23,4 +24,8 @@ func (gr *Grabs) settleWriteOffs(ctx context.Context, open []Grab) (bool, error)
 		settled = true
 	}
 	return settled, nil
+}
+
+func (g Grab) partedByWriteOff() bool {
+	return g.Torrent.Outcome == downloadclients.Outcome(downloadclients.Gone{Reason: downloadclients.NodeWrittenOff})
 }
