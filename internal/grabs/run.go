@@ -212,19 +212,29 @@ func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 	case downloadclients.Failed:
 		return fail{DownloadFailed, o.Error}
 	case downloadclients.Gone:
-		return failOfGone[o.Reason]
+		return failOfGone(o)
 	}
 	panic("grabs: a Grab whose Torrent is Pending is never due")
 }
 
 const writtenOffWords = "The Admin wrote off what this Grab's Node downloads"
 
-// failOfGone is how a Grab at downloading fails when its Torrent is
-// removed, by why.
-var failOfGone = map[downloadclients.RemoveReason]fail{
-	downloadclients.ByAdmin:        {Removed, "The Admin removed this Grab's torrent"},
-	downloadclients.ByMarkFailed:   {DownloadFailed, "The Admin marked this Grab's download failed"},
-	downloadclients.NodeWrittenOff: {NodeWrittenOff, writtenOffWords},
+// failOfGone is how a Grab fails when its Torrent is removed, by why. The
+// two client reasons name the client.
+func failOfGone(g downloadclients.Gone) fail {
+	switch g.Reason {
+	case downloadclients.ByAdmin:
+		return fail{Removed, "The Admin removed this Grab's torrent"}
+	case downloadclients.ByMarkFailed:
+		return fail{DownloadFailed, "The Admin marked this Grab's download failed"}
+	case downloadclients.NodeWrittenOff:
+		return fail{NodeWrittenOff, writtenOffWords}
+	case downloadclients.ByClient:
+		return fail{Removed, g.Client + " removed the torrent before SlipStream imported it."}
+	case downloadclients.ClientDeleted:
+		return fail{Removed, "The Admin deleted " + g.Client + " before SlipStream imported this torrent."}
+	}
+	panic("grabs: no failure for removal reason " + string(g.Reason))
 }
 
 func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
@@ -439,18 +449,22 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	return nil
 }
 
-// confirm re-reads a downloading Grab's Torrent in tx, so a removal that
-// committed after the step read it fails the Grab rather than advancing it.
+// confirm re-reads a Grab's Torrent in tx, so a removal that committed
+// after the step read it fails the Grab by its reason: a downloading Grab
+// rather than advancing it, and a later one rather than failing it for
+// the files the removal took.
 func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outcome, error) {
-	if g.Stage != Downloading {
+	_, failing := o.(fail)
+	if g.Stage == Fetching || g.Stage != Downloading && !failing {
 		return o, nil
 	}
 	now, err := downloadclients.Outcomes(ctx, tx, []downloadclients.ID{g.Torrent.ID})
 	if err != nil {
 		return nil, err
 	}
-	if gone, ok := now[g.Torrent.ID].Outcome.(downloadclients.Gone); ok {
-		return failOfGone[gone.Reason], nil
+	gone, ok := now[g.Torrent.ID].Outcome.(downloadclients.Gone)
+	if ok && (g.Stage == Downloading || slices.Contains(failsAtAnyStage, gone.Reason)) {
+		return failOfGone(gone), nil
 	}
 	return o, nil
 }
@@ -700,7 +714,7 @@ type schedule struct {
 }
 
 // Run reconciles until ctx ends. Each pass settles what the Admin wrote
-// off, reads every open search run and unfinished Grab and starts the step
+// off and what a client removed, reads every open search run and unfinished Grab and starts the step
 // each is due, unless it runs or backs off. A pass runs at each change of
 // the roster too. A restart needs no recovery: the first pass is the
 // recovery.
@@ -749,13 +763,13 @@ func (gr *Grabs) Run(ctx context.Context) error {
 }
 
 // settled is the open search runs and unfinished Grabs once what the
-// Admin wrote off is settled.
+// Admin wrote off and what a client removed are settled.
 func (gr *Grabs) settled(ctx context.Context) ([]Search, []Grab, error) {
 	searches, grabs, err := gr.open(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	changed, err := gr.settleWriteOffs(ctx, grabs)
+	changed, err := gr.settleGone(ctx, grabs)
 	if err != nil || !changed {
 		return searches, grabs, err
 	}
