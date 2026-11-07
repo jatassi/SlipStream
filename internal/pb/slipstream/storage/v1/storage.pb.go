@@ -151,6 +151,10 @@ const (
 	// DOWNLOADS: where the Node downloads, writable, on no network share,
 	// and apart from every root it holds.
 	Purpose_PURPOSE_DOWNLOADS Purpose = 2
+	// CLIENT_FOLDER: an external Download Client's download folder as its
+	// Node sees it: readable, on any volume, and apart from every root the
+	// Node holds. It is never written.
+	Purpose_PURPOSE_CLIENT_FOLDER Purpose = 3
 )
 
 // Enum value maps for Purpose.
@@ -159,11 +163,13 @@ var (
 		0: "PURPOSE_UNSPECIFIED",
 		1: "PURPOSE_ROOT",
 		2: "PURPOSE_DOWNLOADS",
+		3: "PURPOSE_CLIENT_FOLDER",
 	}
 	Purpose_value = map[string]int32{
-		"PURPOSE_UNSPECIFIED": 0,
-		"PURPOSE_ROOT":        1,
-		"PURPOSE_DOWNLOADS":   2,
+		"PURPOSE_UNSPECIFIED":   0,
+		"PURPOSE_ROOT":          1,
+		"PURPOSE_DOWNLOADS":     2,
+		"PURPOSE_CLIENT_FOLDER": 3,
 	}
 )
 
@@ -2550,11 +2556,12 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x17VOLUME_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11VOLUME_KIND_LOCAL\x10\x01\x12\x19\n" +
 	"\x15VOLUME_KIND_REMOVABLE\x10\x02\x12\x17\n" +
-	"\x13VOLUME_KIND_NETWORK\x10\x03*K\n" +
+	"\x13VOLUME_KIND_NETWORK\x10\x03*f\n" +
 	"\aPurpose\x12\x17\n" +
 	"\x13PURPOSE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPURPOSE_ROOT\x10\x01\x12\x15\n" +
-	"\x11PURPOSE_DOWNLOADS\x10\x02*\xd2\x02\n" +
+	"\x11PURPOSE_DOWNLOADS\x10\x02\x12\x19\n" +
+	"\x15PURPOSE_CLIENT_FOLDER\x10\x03*\xd2\x02\n" +
 	"\x06Reason\x12\x16\n" +
 	"\x12REASON_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13REASON_NOT_ABSOLUTE\x10\x01\x12\x14\n" +
