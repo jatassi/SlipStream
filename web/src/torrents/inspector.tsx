@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { useShellSlots } from "../shell/page";
 import { Inspector, InspectorBody, InspectorSection } from "../ui/inspector";
 import { SignalChip } from "../ui/signal-chip";
-import { subjectOf } from "./actions";
 import { Actions } from "./inspector-actions";
 import { useInspected } from "./inspector-detail";
 import { Sections } from "./inspector-sections";
@@ -15,7 +14,6 @@ function Content({ row, names }: { row: Row; names: Names }) {
   const inspected = useInspected(row.id);
   const { live, clock } = inspected;
   const node = names.node(row.nodeId);
-  const subject = subjectOf(row, names.work(row.workId) ?? row.name);
   return (
     <>
       <InspectorSection>
@@ -29,7 +27,11 @@ function Content({ row, names }: { row: Row; names: Names }) {
             {row.fault.sentence}
           </p>
         )}
-        <Actions row={row} subject={subject} trackersAccept={inspected.trackersAccept} />
+        <Actions
+          row={row}
+          name={names.work(row.workId) ?? row.name}
+          trackersAccept={inspected.trackersAccept}
+        />
       </InspectorSection>
       <Sections row={row} names={names} node={node} clock={clock} inspected={inspected} />
     </>

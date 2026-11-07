@@ -38,7 +38,10 @@ function DeleteClientDialog({
       onOpenChange={onOpenChange}
       onConfirm={async () => {
         try {
-          await deleteDownloadClient(client.id, client.torrents === 0 ? {} : { stopTracking: true });
+          await deleteDownloadClient(
+            client.id,
+            client.torrents === 0 ? {} : { stopTracking: true },
+          );
         } catch (error) {
           throw new Error(sentenceOf(error), { cause: error });
         }

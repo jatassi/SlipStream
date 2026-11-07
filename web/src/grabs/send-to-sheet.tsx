@@ -24,7 +24,6 @@ export type ClientPick = {
 
 const builtInKey = (nodeId: string) => `built-in:${nodeId}`;
 
-/** The key of the client a Grab downloads with now. */
 export const currentKey = (grab: GrabsGrab): string =>
   grab.downloadClient?.id ?? builtInKey(grab.nodeId);
 
@@ -50,7 +49,6 @@ export const clientsOf = (cards: readonly Card[]): ClientPick[] =>
       })),
   ]);
 
-/** The clients to choose from, as radio buttons. */
 export function ClientChoice({
   picks,
   value,

@@ -79,7 +79,9 @@ export function waitsOn(row: Row, { node }: Place): Waits | undefined {
 }
 
 /** How each wait ends, as a cell's fragment and as a sentence's. */
-export const backWords: { readonly [C in Cause]: { readonly line: string; readonly sentence: string } } = {
+export const backWords: {
+  readonly [C in Cause]: { readonly line: string; readonly sentence: string };
+} = {
   node: { line: "is back", sentence: "reconnects" },
   client: { line: "responds", sentence: "responds again" },
   off: { line: "is turned on", sentence: "is turned on" },

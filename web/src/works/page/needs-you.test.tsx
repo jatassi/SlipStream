@@ -34,7 +34,11 @@ test("a download waiting on an away Node names it and opens it", async () => {
 test("a download waiting on a client that isn't responding names the client and offers another", async () => {
   const inTransmission = {
     ...stuck,
-    downloadClient: { id: "7d3f9b1e-5a2c-4e8f-b6d0-1c3e5a7f9b2d", kind: "transmission", name: "Transmission" },
+    downloadClient: {
+      id: "7d3f9b1e-5a2c-4e8f-b6d0-1c3e5a7f9b2d",
+      kind: "transmission",
+      name: "Transmission",
+    },
   } as const;
   const needsYou = openWith(
     [{ kind: "waiting", grabId: inTransmission.id, code: "client_away" }],

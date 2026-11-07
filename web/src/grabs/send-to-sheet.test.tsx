@@ -1,18 +1,14 @@
-import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { FilesCellList, GrabsGrab, SendToInputBody } from "../api/gen/model";
-import { getGetWorkCellsMockHandler } from "../api/gen/query/files/files.msw";
-import { getListGrabsMockHandler } from "../api/gen/query/grabs/grabs.msw";
-import { downloadClients, homeCard, seedboxCard } from "../test/download-clients";
+import type { GrabsGrab } from "../api/gen/model";
+import { homeCard, seedboxCard } from "../test/download-clients";
 import { attic, atticAway, refusal, withExternals } from "../test/external-clients";
 import { downloading } from "../test/grabs";
 import { orchardId } from "../test/library";
 import { homeId, seedboxId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
-import { upgradable } from "../test/work-cells";
-import { workServer } from "../test/work-server";
+import { sendingServer } from "../test/sending";
 
 const inTransmission: GrabsGrab = {
   ...downloading,
@@ -29,29 +25,14 @@ const upstairs = {
 const sheet = () => page.getByRole("dialog", { name: "Send to another client" });
 const choices = () => sheet().getByRole("radiogroup", { name: "Send to" });
 
-function open(answer: () => Response = () => new HttpResponse(null, { status: 204 })) {
-  const sent: SendToInputBody[] = [];
-  const cells: FilesCellList = {
-    ...upgradable,
-    needsYou: [{ kind: "waiting", grabId: inTransmission.id, code: "client_away" }],
-  };
-  renderApp({
-    path: `/works/${orchardId}`,
-    handlers: [
-      getGetWorkCellsMockHandler(cells),
-      getListGrabsMockHandler({ grabs: [inTransmission] }),
-      ...downloadClients({
-        cards: [withExternals(homeCard, atticAway, upstairs), seedboxCard],
-      }).handlers,
-      http.post("*/api/v1/grabs/:grabId/send-to", async ({ request }) => {
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the generated client sends the body it types
-        sent.push((await request.json()) as SendToInputBody);
-        return answer();
-      }),
-      ...workServer().handlers,
-    ],
-  });
-  return { sent, needsYou: page.getByRole("region", { name: "Needs you" }) };
+function open(answer?: () => Response) {
+  const server = sendingServer(
+    inTransmission,
+    [withExternals(homeCard, atticAway, upstairs), seedboxCard],
+    answer,
+  );
+  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
+  return { sent: server.sent, needsYou: page.getByRole("region", { name: "Needs you" }) };
 }
 
 test("send-to lists every other client that can take the Grab and sends it to the one chosen", async () => {
@@ -64,7 +45,9 @@ test("send-to lists every other client that can take the Grab and sends it to th
   await userEvent.click(choices().getByText("Built-in client on seedbox"));
   await userEvent.click(sheet().getByRole("button", { name: "Send" }));
   await expect
-    .element(page.getByText(`Sent ${inTransmission.releaseTitle} to the built-in client on seedbox`))
+    .element(
+      page.getByText(`Sent ${inTransmission.releaseTitle} to the built-in client on seedbox`),
+    )
     .toBeVisible();
   await expect.element(sheet()).not.toBeInTheDocument();
   expect(sent).toEqual([{ builtInOn: seedboxId }]);

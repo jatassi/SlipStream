@@ -1,19 +1,15 @@
 import { FilterHorizontalIcon } from "@hugeicons/core-free-icons";
 
-import { useListDownloadClientsSuspense } from "../api/gen/query/downloadclients/downloadclients";
-import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
-import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
 import { SearchField } from "../ui/search-field";
 import { Segmented } from "../ui/segmented";
 import { Select, type SelectOption } from "../ui/select";
 import { Sheet } from "../ui/sheet";
 import { useShell } from "../ui/shell-context";
-import { type Row, type Tab, builtInClient, clientOf, tabLabels, tabOrder } from "./model";
+import { type Row, type Tab, tabLabels, tabOrder } from "./model";
+import { type Choice, useChoices } from "./toolbar-choices";
 
 const every = "";
-
-type Choice = { readonly id: string; readonly name: string };
 
 export type ToolbarProps = {
   readonly tab: Tab;
@@ -38,38 +34,6 @@ const optionsOf = (choices: readonly Choice[], all: string): SelectOption<string
 ];
 
 const chosen = (value: string) => (value === every ? undefined : value);
-
-// The Nodes and Content Types the Torrents fall under, plus the one chosen,
-// so a link to a Node holding none still reads its name.
-function choicesOf(
-  rows: readonly Row[],
-  of: (row: Row) => string,
-  named: readonly Choice[],
-  picked: string | undefined,
-): Choice[] {
-  const held = new Set(rows.map((row) => of(row)));
-  return named.filter(({ id }) => held.has(id) || id === picked);
-}
-
-function useChoices({ rows, node, type, client }: ToolbarProps) {
-  const { cards } = useListDownloadClientsSuspense().data;
-  const clients = [
-    { id: builtInClient, name: "Built-in client" },
-    ...cards.flatMap((card) =>
-      card.externals.map(({ id, name }) => ({ id, name: `${name} on ${card.nodeName}` })),
-    ),
-  ];
-  return {
-    clients: choicesOf(rows, clientOf, clients, client),
-    nodes: choicesOf(rows, (row) => row.nodeId, useListNodesSuspense().data.nodes, node),
-    types: choicesOf(
-      rows,
-      (row) => row.contentType,
-      useListContentTypesSuspense().data.contentTypes,
-      type,
-    ),
-  };
-}
 
 const shows = (choices: readonly Choice[], picked: string | undefined): boolean =>
   choices.length > 1 || picked !== undefined;
@@ -133,7 +97,7 @@ function Search({ q, onQChange, className }: ToolbarProps & { className: string 
 
 export function Toolbar(props: ToolbarProps) {
   const shell = useShell();
-  const choices = useChoices(props);
+  const choices = useChoices(props.rows, props);
   const tabs = (
     <Segmented
       label="Show"

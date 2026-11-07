@@ -19,7 +19,6 @@ export type Subject = {
   readonly keptIn?: string | undefined;
 };
 
-/** The Subject of row, named name. */
 export const subjectOf = (row: Row, name: string): Subject => ({
   id: row.id,
   name,

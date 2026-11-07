@@ -3,15 +3,12 @@ import type {
   DownloadclientsKind as Kind,
 } from "../api/gen/model";
 import { useListDownloadClientsSuspense } from "../api/gen/query/downloadclients/downloadclients";
-import { useCheckHealthCategory } from "../api/gen/query/health/health";
 import { ClientSheetButton } from "../download-clients/client-sheet";
-import type { NodeChoice } from "../download-clients/client-fields";
 import { kindOf } from "../download-clients/client-form";
 import { statusOf } from "../download-clients/client-status";
 import { type Clock, countWords, sinceWords } from "../format";
-import { Checked, useCheckAnswered } from "../health/checked";
-import { Button } from "../ui/button";
 import { SignalChip } from "../ui/signal-chip";
+import { CheckNow } from "./client-check";
 import type { Row } from "./model";
 
 const torrents = { one: "torrent", many: "torrents" } as const;
@@ -27,13 +24,12 @@ type CardProps = {
   client: External;
   node: string;
   kinds: readonly Kind[];
-  nodes: readonly NodeChoice[];
+  nodes: readonly { readonly id: string; readonly name: string }[];
   stale: number;
   clock: Clock;
 };
 
 function ClientCard({ client, node, kinds, nodes, stale, clock }: CardProps) {
-  const check = useCheckHealthCategory({ mutation: useCheckAnswered() });
   const subject = `${client.name} on ${node}`;
   const status = statusOf(client, kindOf(kinds, client.kind), node);
   const since = client.since === null ? undefined : `Since ${sinceWords(client.since, clock)}`;
@@ -49,21 +45,7 @@ function ClientCard({ client, node, kinds, nodes, stale, clock }: CardProps) {
       </div>
       {status.sentence !== undefined && <p>{status.sentence}</p>}
       {staleWords(stale) !== undefined && <p className="text-fail-dim">{staleWords(stale)}</p>}
-      {check.data !== undefined && (
-        <div className="text-fail-dim">
-          <Checked unreached={check.data.unreached} />
-        </div>
-      )}
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          look="fail"
-          busy={check.isPending}
-          onClick={() => {
-            check.mutate({ category: "download-clients" });
-          }}
-        >
-          Check now
-        </Button>
+      <CheckNow>
         <ClientSheetButton
           label="Edit client"
           look="on-fail"
@@ -71,7 +53,7 @@ function ClientCard({ client, node, kinds, nodes, stale, clock }: CardProps) {
           kinds={kinds}
           nodes={nodes}
         />
-      </div>
+      </CheckNow>
     </section>
   );
 }
@@ -84,7 +66,9 @@ export function ClientCards({ rows, clock }: { rows: readonly Row[]; clock: Cloc
   const { cards, kinds } = useListDownloadClientsSuspense().data;
   const nodes = cards.map((card) => ({ id: card.nodeId, name: card.nodeName }));
   const away = cards.flatMap((card) =>
-    card.externals.filter(({ away }) => away).map((client) => ({ client, node: card.nodeName })),
+    card.externals
+      .filter((client) => client.away)
+      .map((client) => ({ client, node: card.nodeName })),
   );
   if (away.length === 0) {
     return null;
@@ -98,7 +82,9 @@ export function ClientCards({ rows, clock }: { rows: readonly Row[]; clock: Cloc
           node={node}
           kinds={kinds}
           nodes={nodes}
-          stale={rows.filter((row) => row.clientId === client.id && row.lastKnown !== undefined).length}
+          stale={
+            rows.filter((row) => row.clientId === client.id && row.lastKnown !== undefined).length
+          }
           clock={clock}
         />
       ))}

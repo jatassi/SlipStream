@@ -58,13 +58,24 @@ test.each<
   ["an Admin's pause", { state: "paused", hold: "wanted" }, false, ""],
   [
     "a pause an offline Node has yet to take",
-    { state: "paused", pending: "pause", lastKnown: "2026-10-20T11:52:00Z", lastKnownCause: "node" },
+    {
+      state: "paused",
+      pending: "pause",
+      lastKnown: "2026-10-20T11:52:00Z",
+      lastKnownCause: "node",
+    },
     false,
     "Pauses when seedbox is back",
   ],
   [
     "a resume an offline Node has yet to take",
-    { state: "paused", hold: "wanted", pending: "resume", lastKnown: "2026-10-20T11:52:00Z", lastKnownCause: "node" },
+    {
+      state: "paused",
+      hold: "wanted",
+      pending: "resume",
+      lastKnown: "2026-10-20T11:52:00Z",
+      lastKnownCause: "node",
+    },
     false,
     "Resumes when seedbox is back",
   ],

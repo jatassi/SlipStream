@@ -69,7 +69,11 @@ test("removing a torrent SlipStream attached to stops tracking it and offers no 
   await removeFromMenu("Orchard Harvest");
   const dialog = page.getByRole("dialog", { name: "Remove Orchard Harvest?" });
   await expect
-    .element(dialog.getByText("SlipStream stops tracking it and leaves it in Transmission. Files in your library stay."))
+    .element(
+      dialog.getByText(
+        "SlipStream stops tracking it and leaves it in Transmission. Files in your library stay.",
+      ),
+    )
     .toBeVisible();
   await expect.element(dialog.getByRole("checkbox")).not.toBeInTheDocument();
   await userEvent.click(dialog.getByRole("button", { name: "Stop tracking" }));

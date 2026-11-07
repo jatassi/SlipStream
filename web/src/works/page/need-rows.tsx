@@ -78,7 +78,13 @@ function WaitingOnClient({
 }
 
 /** A Grab waiting on its Node that is away, or on its client that isn't responding. */
-export function Waiting({ grab, code }: { grab: GrabsGrab | undefined; code: FilesWaitingNeedCode }) {
+export function Waiting({
+  grab,
+  code,
+}: {
+  grab: GrabsGrab | undefined;
+  code: FilesWaitingNeedCode;
+}) {
   const navigate = useNavigate();
   const { nodes } = useListNodesSuspense().data;
   const node = nodes.find(({ id }) => id === grab?.nodeId);

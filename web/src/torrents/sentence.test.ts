@@ -63,7 +63,12 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
   ],
   [
     "a pause on an offline Node waits for it",
-    { state: "downloading", pending: "pause", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "node" },
+    {
+      state: "downloading",
+      pending: "pause",
+      lastKnown: "2026-10-20T11:00:00Z",
+      lastKnownCause: "node",
+    },
     undefined,
     "It pauses when seedbox reconnects.",
   ],
@@ -131,7 +136,12 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
   ],
   [
     "a client that isn't responding names itself and its Node",
-    { ...transmission, state: "downloading", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "client" },
+    {
+      ...transmission,
+      state: "downloading",
+      lastKnown: "2026-10-20T11:00:00Z",
+      lastKnownCause: "client",
+    },
     undefined,
     "Transmission on seedbox isn't responding. When it last responded, at 11:00, this was downloading.",
   ],
@@ -155,7 +165,12 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
   ],
   [
     "a remove waits for the client to respond",
-    { ...transmission, state: "removing", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "client" },
+    {
+      ...transmission,
+      state: "removing",
+      lastKnown: "2026-10-20T11:00:00Z",
+      lastKnownCause: "client",
+    },
     undefined,
     "It's removed once Transmission responds again.",
   ],

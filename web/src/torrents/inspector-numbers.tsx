@@ -40,7 +40,7 @@ export function Numbers({
     <InspectorSection title="Numbers">
       {row.clientName !== undefined && (
         <p className="mb-3 text-ink-2">
-          {`${row.clientName}'s own seeding rules decide when it stops seeding.`}
+          {`${row.clientName}'s own seeding rules apply to this torrent.`}
         </p>
       )}
       <FactList facts={facts} />
