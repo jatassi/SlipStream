@@ -756,6 +756,9 @@ const (
 	Refusal_REFUSAL_WINDOW Refusal = 3
 	// REFUSAL_FAILED is a recheck of a torrent the engine failed.
 	Refusal_REFUSAL_FAILED Refusal = 4
+	// REFUSAL_CLIENT_AWAY is a torrent of an external client whose polls
+	// don't succeed now.
+	Refusal_REFUSAL_CLIENT_AWAY Refusal = 5
 )
 
 // Enum value maps for Refusal.
@@ -766,6 +769,7 @@ var (
 		2: "REFUSAL_NOT_RUNNING",
 		3: "REFUSAL_WINDOW",
 		4: "REFUSAL_FAILED",
+		5: "REFUSAL_CLIENT_AWAY",
 	}
 	Refusal_value = map[string]int32{
 		"REFUSAL_UNSPECIFIED": 0,
@@ -773,6 +777,7 @@ var (
 		"REFUSAL_NOT_RUNNING": 2,
 		"REFUSAL_WINDOW":      3,
 		"REFUSAL_FAILED":      4,
+		"REFUSAL_CLIENT_AWAY": 5,
 	}
 )
 
@@ -5161,13 +5166,14 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x03Act\x12\x13\n" +
 	"\x0fACT_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fACT_ANNOUNCE\x10\x01\x12\x0f\n" +
-	"\vACT_RECHECK\x10\x02*y\n" +
+	"\vACT_RECHECK\x10\x02*\x92\x01\n" +
 	"\aRefusal\x12\x17\n" +
 	"\x13REFUSAL_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10REFUSAL_NOT_HELD\x10\x01\x12\x17\n" +
 	"\x13REFUSAL_NOT_RUNNING\x10\x02\x12\x12\n" +
 	"\x0eREFUSAL_WINDOW\x10\x03\x12\x12\n" +
-	"\x0eREFUSAL_FAILED\x10\x042\xb4\x06\n" +
+	"\x0eREFUSAL_FAILED\x10\x04\x12\x17\n" +
+	"\x13REFUSAL_CLIENT_AWAY\x10\x052\xb4\x06\n" +
 	"\x12DownloadingService\x12Z\n" +
 	"\x05Watch\x12'.slipstream.downloading.v1.WatchRequest\x1a(.slipstream.downloading.v1.WatchResponse\x12`\n" +
 	"\aInspect\x12).slipstream.downloading.v1.InspectRequest\x1a*.slipstream.downloading.v1.InspectResponse\x12T\n" +

@@ -94,6 +94,15 @@ type Wanted struct {
 
 type WantedChange struct{ From, To clients.Run }
 
+// Shown is w once an intent wanting intent arrives: a reported change the
+// intent shows no longer holds it back.
+func (w Wanted) Shown(intent clients.Run) Wanted {
+	if w.Reported != nil && intent == w.Reported.To {
+		w.Reported = nil
+	}
+	return w
+}
+
 // wantedStep is one poll's wanted sync. An intent that differs from
 // applied is sent to the client. Otherwise a client that differs from
 // applied was changed there, and the change is reported. A reported
@@ -101,13 +110,10 @@ type WantedChange struct{ From, To clients.Run }
 // intent never undoes it. A stop at the client's seeding limit is no
 // pause, so it neither reports a change nor sends a resume.
 func wantedStep(intent, observed clients.Run, atLimit bool, w Wanted) (send clients.Run, change *WantedChange, next Wanted) {
+	w = w.Shown(intent)
 	next = w
-	if r := w.Reported; r != nil {
-		if intent == r.To {
-			next.Reported = nil
-		} else {
-			intent = w.Applied
-		}
+	if w.Reported != nil {
+		intent = w.Applied
 	}
 	if atLimit && observed == clients.Paused {
 		observed = w.Applied

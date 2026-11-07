@@ -156,7 +156,9 @@ func TestWantedSync(t *testing.T) {
 	}
 }
 
-func sameChange(a, b *WantedChange) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
+func sameChange(a, b *WantedChange) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
 
 func TestAStallNeedsARunningUnfinishedTorrentWithoutGrowth(t *testing.T) {
 	after := 10 * time.Minute
