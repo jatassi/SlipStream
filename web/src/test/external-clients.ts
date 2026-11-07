@@ -114,6 +114,7 @@ export const attic: DownloadclientsExternalClient = {
   on: true,
   settingsVersion: 1,
   reach: "responding",
+  away: false,
   since: "2026-11-07T09:00:00Z",
   productVersion: "4.1.0",
   problem: null,
@@ -124,6 +125,7 @@ export const attic: DownloadclientsExternalClient = {
 export const atticAway: DownloadclientsExternalClient = {
   ...attic,
   reach: "not_responding",
+  away: true,
   since: "2026-11-07T14:02:00Z",
   problem: {
     cause: "no_response",
@@ -136,6 +138,7 @@ export const atticAway: DownloadclientsExternalClient = {
 export const atticRefused: DownloadclientsExternalClient = {
   ...attic,
   reach: "sign_in_refused",
+  away: true,
   problem: {
     cause: "wrong_credentials",
     sentence:
