@@ -265,6 +265,28 @@ func until(t *testing.T, d time.Duration, what string, announces func() []tracke
 	}
 }
 
+// untilEvery waits until the tracker has heard want announces of event,
+// failing only once a minute passes without a new one: the client works
+// through a thousand torrents at a pace set by the CPU it gets, which
+// -race on a shared runner cuts past any fixed bound.
+func untilEvery(t *testing.T, event string, want int, announces func() []tracker.Announce) []tracker.Announce {
+	t.Helper()
+	heard, at := -1, time.Now()
+	for ; ; time.Sleep(time.Second) {
+		got := announces()
+		n := count(event)(got)
+		if n == want {
+			return got
+		}
+		if n != heard {
+			heard, at = n, time.Now()
+		}
+		if time.Since(at) > time.Minute {
+			t.Fatalf("the tracker heard %d of %d %s announces and no new one for a minute:%s", n, want, eventName(event), summary(got))
+		}
+	}
+}
+
 func count(event string) func([]tracker.Announce) int {
 	return func(as []tracker.Announce) int {
 		n := 0
@@ -330,14 +352,14 @@ func TestARestartOf1000TorrentsDrawsNoRejection(t *testing.T) {
 	box := newSeedbox(t, rels)
 	send, stop := box.start()
 	send(dlv1.Wanted_WANTED_STARTED)
-	until(t, 3*time.Minute, "every torrent starts", announces, func(as []tracker.Announce) bool { return count("started")(as) == n })
+	untilEvery(t, "started", n, announces)
 	stop()
-	until(t, time.Minute, "every torrent stops", announces, func(as []tracker.Announce) bool { return count("stopped")(as) == n })
+	untilEvery(t, "stopped", n, announces)
 
 	restart := time.Now()
 	send, _ = box.start()
 	send(dlv1.Wanted_WANTED_STARTED)
-	got := until(t, 3*time.Minute, "every torrent starts again", announces, func(as []tracker.Announce) bool { return count("started")(as) == 2*n })
+	got := untilEvery(t, "started", 2*n, announces)
 	if r := rejections(got); len(r) != 0 {
 		t.Fatalf("UNIT3D rejected %d announces: %s", len(r), summary(r[:min(len(r), 10)]))
 	}
