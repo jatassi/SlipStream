@@ -24,7 +24,6 @@ type Charset struct {
 	enc xencoding.Encoding
 }
 
-// UTF8 is Encoding.UTF8.
 var UTF8 = Charset{}
 
 // GetEncoding resolves an encoding name as .NET's Encoding.GetEncoding

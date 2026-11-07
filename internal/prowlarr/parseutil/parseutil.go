@@ -160,8 +160,8 @@ func GetImdbID(s string) (int, bool) {
 	if m == nil {
 		return 0, false
 	}
-	n, err := strconv.Atoi(m[1])
-	return n, err == nil
+	n, _ := strconv.Atoi(m[1])
+	return n, true
 }
 
 // GetArgumentFromQueryString is the first value of arg, matched ignoring

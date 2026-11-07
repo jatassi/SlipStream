@@ -31,7 +31,6 @@ type Clock struct {
 // Local is DateTime.Now.
 func (c Clock) Local() time.Time { return c.Now.In(c.Location) }
 
-// Rfc1123ZPattern is DateTimeUtil.Rfc1123ZPattern.
 const Rfc1123ZPattern = "ddd, dd MMM yyyy HH':'mm':'ss z"
 
 // UnixTimestampToDateTime is the instant secs seconds after the Unix

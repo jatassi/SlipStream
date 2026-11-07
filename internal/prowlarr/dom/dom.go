@@ -211,7 +211,6 @@ func (x *Node) Attributes() []Attribute {
 	return out
 }
 
-// Children is the element children.
 func (x *Node) Children() []*Node {
 	var out []*Node
 	for c := x.FirstElementChild(); c != nil; c = c.NextElementSibling() {
@@ -276,7 +275,6 @@ func (x *Node) ParentElement() *Node {
 	return wrap(x.n.Parent)
 }
 
-// InnerHTML is the markup of the node's children.
 func (x *Node) InnerHTML() string {
 	if x == nil {
 		return ""
@@ -290,7 +288,6 @@ func (x *Node) InnerHTML() string {
 	return b.String()
 }
 
-// Remove takes the node out of its document.
 func (x *Node) Remove() {
 	if x != nil && x.n.Parent != nil {
 		x.n.Parent.RemoveChild(x.n)

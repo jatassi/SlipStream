@@ -1,7 +1,6 @@
 package cardigann
 
 import (
-	"strings"
 	"testing"
 
 	"golang.org/x/net/html"
@@ -36,14 +35,6 @@ func mustSelector(t *testing.T, css string) *dom.Selector {
 	return s
 }
 
-func texts(nodes []*html.Node) []string {
-	out := make([]string, len(nodes))
-	for i, n := range nodes {
-		out[i] = strings.TrimSpace(dom.TextContent(n))
-	}
-	return out
-}
-
 func TestQuerySelectorRoot(t *testing.T) {
 	doc := testDoc(t)
 	row := mustSelector(t, "tr.row").First(doc)
@@ -70,7 +61,7 @@ func block(t *testing.T, sel, attribute string) *selectorBlock {
 }
 
 func TestSelectHTML(t *testing.T) {
-	e := testEnv(t)
+	e := testEnv()
 	row := func() *html.Node { return mustSelector(t, "tr.row").First(testDoc(t)) }
 	tests := []struct {
 		name string
@@ -117,7 +108,7 @@ func mustFilter(t *testing.T, name string, a filterArgs) filterBlock {
 }
 
 func TestSelectRemoveAndCase(t *testing.T) {
-	e := testEnv(t)
+	e := testEnv()
 	r := mustSelector(t, "tr.row").First(testDoc(t))
 	b := block(t, "td.title a", "")
 	b.Remove = "span"
@@ -145,16 +136,16 @@ func TestSelectorFieldMatch(t *testing.T) {
 	doc := testDoc(t)
 	sel, _ := parseTemplate(":root a.logout")
 	f := &selectorField{Selector: sel, Attribute: "href"}
-	v, ok, err := f.Match(doc, testEnv(t))
+	v, ok, err := f.Match(doc, testEnv())
 	if err != nil || !ok || v.String() != "/logout" {
 		t.Errorf("Match = %q, %v, %v", v.String(), ok, err)
 	}
 	sel, _ = parseTemplate("a.none")
-	if _, ok, err := (&selectorField{Selector: sel}).Match(doc, testEnv(t)); ok || err != nil {
+	if _, ok, err := (&selectorField{Selector: sel}).Match(doc, testEnv()); ok || err != nil {
 		t.Errorf("a selector that matches nothing = %v, %v", ok, err)
 	}
 	sel, _ = parseTemplate("a.logout")
-	if _, _, err := (&selectorField{Selector: sel, Attribute: "title"}).Match(doc, testEnv(t)); err == nil {
+	if _, _, err := (&selectorField{Selector: sel, Attribute: "title"}).Match(doc, testEnv()); err == nil {
 		t.Error("a missing attribute: want an error")
 	}
 }
