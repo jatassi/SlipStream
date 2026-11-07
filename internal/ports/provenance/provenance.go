@@ -218,7 +218,7 @@ func holdsGo(dir string) (bool, error) {
 		return false, fmt.Errorf("read %s: %w", dir, err)
 	}
 	return slices.ContainsFunc(entries, func(e os.DirEntry) bool {
-		return !e.IsDir() && strings.HasSuffix(e.Name(), ".go")
+		return !e.IsDir() && strings.HasSuffix(e.Name(), ".go") && !strings.HasSuffix(e.Name(), "_test.go")
 	}), nil
 }
 
@@ -300,7 +300,8 @@ func Check(root string, prowlarr *Tree) ([]Problem, error) {
 	return append(problems, skipped...), nil
 }
 
-// checkHeaders compares each Go file's header with the manifest. Every
+// checkHeaders compares each non-test Go file's header with the
+// manifest. Every
 // file the manifest maps has the header naming its files and the
 // manifest's commit, and no other file has one, so the headers together
 // name exactly the manifest's files.
@@ -313,7 +314,7 @@ func checkHeaders(root string, u Unit) ([]Problem, error) {
 	var problems []Problem
 	seen := map[string]bool{}
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
 			continue
 		}
 		seen[e.Name()] = true

@@ -99,6 +99,7 @@ var hdbitsFiles = []string{
 func TestAPortThatAgreesWithItsManifestAndProwlarrPasses(t *testing.T) {
 	tree, commit := prowlarr(t, hdbitsFiles...)
 	root := repo(t, commit)
+	write(t, root, "internal/ports/hdbits/parser_test.go", Header(commit, []string{"src/Tests/HDBitsFixture.cs"})+"\npackage hdbits\n")
 	if got := checkOf(t, root, tree); len(got) > 0 {
 		t.Fatalf("Check = %q, want no problems", got)
 	}

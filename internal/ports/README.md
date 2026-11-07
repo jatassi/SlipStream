@@ -22,7 +22,7 @@ You never write a sign-in loop, a retry, Recent, Test, a spacing call, a credent
 
 ## Provenance
 
-Each unit keeps an `upstream.json` beside its Go files. Every port and family must have one, and the kit (`port/`) and each `internal/prowlarr` package keep one when they mirror Prowlarr files. It names the Prowlarr commit the unit was last synced to, that commit's date, the family a port builds on, and the Prowlarr files each Go file was ported from:
+Each unit keeps an `upstream.json` beside its Go files. Every port and family must have one, and the kit (`port/`) and each `internal/prowlarr` package keep one when they mirror Prowlarr files. It names the Prowlarr commit the unit was last synced to, that commit's committer date (ef9c1824's is 2026-11-06, a day after its author date), the family a port builds on, and the Prowlarr files each Go file was ported from:
 
 ```json
 {
@@ -44,7 +44,7 @@ A port's `Entry.Upstream` embeds the same file through `port.ReadUpstream`, so t
 // contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
 ```
 
-`go test ./internal/ports/provenance`, which `make test` runs, fails when a port or family has no `upstream.json`, when a Go file's header names other files or another commit than its entry maps to it, when a file has a header its entry doesn't map, or when an entry maps a Go file that doesn't exist. CI's `prowlarr-sync check` also fails when a named file isn't in Prowlarr at its commit.
+`go test ./internal/ports/provenance`, which `make test` runs, fails when a port or family has no `upstream.json`, when a Go file's header names other files or another commit than its entry maps to it, when a file has a header its entry doesn't map, or when an entry maps a Go file that doesn't exist. Test files carry no header and the check skips them. An entry may name any Prowlarr file, inside `Indexers/` or not, such as `src/NzbDrone.Common/Extensions/StringExtensions.cs`. CI's `prowlarr-sync check` also fails when a named file isn't in Prowlarr at its commit.
 
 `skipped.json` lists every Prowlarr indexer SlipStream doesn't port, with why. Each is obsolete upstream, dead, a generic engine, usenet, or a base no site uses. Its `commit` is the Prowlarr commit it and Prowlarr's hidden list (`_definitionBlocklist`) were last reviewed at.
 
