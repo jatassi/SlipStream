@@ -169,15 +169,17 @@ func TestA429FromTheIndexerLimitsOneSearch(t *testing.T) {
 }
 
 // TestALinkCutMidTransferResumes cuts every link/seedbox connection at
-// 256 KiB until one is cut, then lets the Transfer finish. The rule can't
-// play once: the Controller's own lanes can dial before seedbox's intent
-// names the Transfer, and seedbox closes those before they carry it.
+// 256 KiB until one is cut, then lets the Transfer finish. Only a
+// Transfer's lane carries that much, so the rule holds from the start: on
+// loopback the whole Transfer can pass before seedbox announces its
+// download completed. The rule can't play once: the Controller's own
+// lanes can dial before seedbox's intent names the Transfer, and seedbox
+// closes those before they carry it.
 func TestALinkCutMidTransferResumes(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
 	link := string(world.LinkTarget("seedbox"))
-	completed := &events.Query{Kind: tracker.Announces.Kind, Match: map[string]string{"event": "completed"}}
-	w.setFault(t, fault.Rule{ID: "link-cut", Target: fault.Target(link), After: completed}, "cut=256KiB")
+	w.setFault(t, fault.Rule{ID: "link-cut", Target: fault.Target(link)}, "cut=256KiB")
 	s := w.searched(t, w.search(t))
 	if s.Outcome == nil || *s.Outcome != "grabbed" || s.GrabID == nil {
 		t.Fatalf("the search ended %+v, want grabbed", s)
