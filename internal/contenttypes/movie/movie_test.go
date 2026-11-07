@@ -632,6 +632,7 @@ func TestTheEnglishTitleFeedsSearchTermsAndNaming(t *testing.T) {
 		tokens, err = sh.m.NamingTokens(ctx, r, tree.Items[0].ID)
 		return err
 	})
+	terms.Covers = nil
 	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000005", "imdbid": "tt9000005"}, Query: "The Salt Road 2022"}
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)
@@ -844,6 +845,10 @@ func TestSearchTermsCarryTheIDsAndTitleYear(t *testing.T) {
 		terms, err = sh.m.SearchTerms(ctx, r, tree.Items[0].ID)
 		return err
 	})
+	if terms.Covers("Anything.At.All").Kind != indexers.CoversItem {
+		t.Fatal("a movie's terms cover only the movie, so every title covers it")
+	}
+	terms.Covers = nil
 	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)

@@ -2842,8 +2842,11 @@
             "type": "string"
           },
           "code": {
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that covers more than one Item, such as a season pack, and SlipStream doesn't grab those yet.",
             "enum": [
               "wrong_work",
+              "wrong_item",
+              "covers_more",
               "cut_not_wanted",
               "quality_not_in_target",
               "filter",
@@ -2855,12 +2858,12 @@
             "type": "string"
           },
           "targetId": {
-            "description": "The Target whose verdict it is, absent for wrong_work and cut_not_wanted",
+            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and cut_not_wanted",
             "format": "uuid",
             "type": "string"
           },
           "value": {
-            "description": "The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants",
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut no open cell wants, or what a wrong_item or covers_more title names, such as S01E02",
             "type": "string"
           }
         },
@@ -3061,11 +3064,38 @@
         ],
         "type": "object"
       },
+      "GrabsSearchScope": {
+        "additionalProperties": false,
+        "properties": {
+          "itemIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "type": "array"
+          },
+          "levelIds": {
+            "description": "Each level stands for every Item under it",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "type": "array"
+          }
+        },
+        "required": [
+          "levelIds",
+          "itemIds"
+        ],
+        "type": "object"
+      },
       "GrabsSearchStarted": {
         "additionalProperties": false,
         "properties": {
           "searchIds": {
-            "description": "One run per Item with a wanted cell",
+            "description": "One run per Item in the scope with a wanted cell",
             "items": {
               "type": "string"
             },
@@ -51034,6 +51064,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabsSearchScope"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -51213,7 +51252,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Search for each of a Work's wanted cells and grab the best release",
+        "summary": "Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release",
         "tags": [
           "grabs"
         ],

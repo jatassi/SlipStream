@@ -1147,6 +1147,7 @@ export * from "./grabsSearchIndexer.ts";
 export * from "./grabsSearchIndexerOutcome.ts";
 export * from "./grabsSearchList.ts";
 export * from "./grabsSearchOutcome.ts";
+export * from "./grabsSearchScope.ts";
 export * from "./grabsSearchStarted.ts";
 export * from "./healthAction.ts";
 export * from "./healthActionKind.ts";

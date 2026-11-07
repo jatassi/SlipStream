@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -111,14 +110,35 @@ func outcomeOf(row db.GrabsSearchIndexer) *indexers.Outcome {
 	return o
 }
 
-// SearchWork records a search run for each Item of work with a wanted cell
-// no unfinished Grab holds, each with the Indexers it asks and skips and a
-// query reserved on each it asks, and returns their ids. Run searches
-// them.
-func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.WorkID) ([]SearchID, error) {
+// Scope is the part of a Work a search covers. The zero Scope is the
+// whole Work.
+type Scope struct{ part *works.Within }
+
+// Within is the Items within part: the live Items under its levels and
+// each Item it names.
+func Within(part works.Within) Scope { return Scope{part: &part} }
+
+func (s Scope) items(t works.Tree) ([]works.Item, error) {
+	if s.part == nil {
+		return t.Items, nil
+	}
+	return t.ItemsWithin(*s.part)
+}
+
+// SearchWork records a search run for each Item of work within scope with
+// a wanted cell no unfinished Grab holds, each with the Indexers it asks
+// and skips and a query reserved on each it asks, and returns their ids.
+// Each run reserves its own queries, so an Indexer's search limit skips it
+// for the runs past the limit. Run searches them. An id scope names that
+// work doesn't have is a *works.NotInWorkError.
+func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.WorkID, scope Scope) ([]SearchID, error) {
 	var ids []SearchID
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		tree, err := gr.cfg.Works.TreeIn(ctx, tx, work)
+		if err != nil {
+			return err
+		}
+		items, err := scope.items(tree)
 		if err != nil {
 			return err
 		}
@@ -129,9 +149,13 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 		if err != nil {
 			return err
 		}
+		wanted := make(map[works.ItemID]bool, len(open))
+		for _, c := range open {
+			wanted[c.Item.ID] = true
+		}
 		started := storage.Now()
-		for _, it := range tree.Items {
-			if !slices.ContainsFunc(open, func(c files.Cell) bool { return c.Item.ID == it.ID }) {
+		for _, it := range items {
+			if !wanted[it.ID] {
 				continue
 			}
 			id, err := gr.plan(ctx, tx, tree, it.ID, started)
@@ -184,7 +208,7 @@ func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree wo
 		if err != nil {
 			return err
 		}
-		if terms.Mode == "" && terms.Query == "" && len(terms.IDs) == 0 {
+		if terms.Covers == nil {
 			return ErrNotSearchable
 		}
 	}
@@ -367,10 +391,11 @@ func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Sea
 }
 
 // sight records a sighting of the cut of every listed release of run's
-// Work, so a cut seen now is wanted now.
+// Item, so a cut seen now is wanted now: one of its Work that covers the
+// Item alone.
 func sight(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, candidates []candidate) error {
 	for _, c := range candidates {
-		if wrongWork(c.Release, terms) {
+		if wrongWork(c.Release, terms) || terms.Covers(c.Release.Title).Kind != indexers.CoversItem {
 			continue
 		}
 		if err := targets.See(ctx, tx, run.ItemID, c.Facts.Cut, releaseKey(c.Release)); err != nil {
