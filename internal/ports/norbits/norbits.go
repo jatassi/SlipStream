@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/prowlarr/dom"
 	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
 //go:embed upstream.json
@@ -123,14 +124,13 @@ func GetPagedRequests(ix *port.Indexer[NorBitsSettings], term string, categories
 	if ix.Settings.UseFullSearch {
 		fullsearch = "1"
 	}
-	parameters := [][2]string{
-		{"incldead", "1"},
-		{"fullsearch", fullsearch},
-		{"scenerelease", "0"},
-	}
+	var parameters stringutil.NameValueCollection
+	parameters.Add("incldead", "1")
+	parameters.Add("fullsearch", fullsearch)
+	parameters.Add("scenerelease", "0")
 
 	if ix.Settings.FreeLeechOnly {
-		parameters = append(parameters, [2]string{"FL", "1"})
+		parameters.Set("FL", "1")
 	}
 
 	searchTerm := "search="
@@ -141,22 +141,13 @@ func GetPagedRequests(ix *port.Indexer[NorBitsSettings], term string, categories
 		searchTerm = "search=" + encoding.UTF8.URLEncode(term)
 	}
 
-	searchURL.RawQuery = searchTerm + "&" + getQueryString(parameters)
+	searchURL.RawQuery = searchTerm + "&" + parameters.GetQueryString()
 
 	if categoriesList := ix.Categories.TrackerIDs(categories); len(categoriesList) > 0 {
 		searchURL.RawQuery += "&" + strings.Join(categoriesList, "&")
 	}
 
 	return port.Get(searchURL).Accept("text/html")
-}
-
-// getQueryString is StringUtil.GetQueryString over a NameValueCollection.
-func getQueryString(parameters [][2]string) string {
-	pairs := make([]string, len(parameters))
-	for i, kv := range parameters {
-		pairs[i] = kv[0] + "=" + encoding.UTF8.URLEncode(kv[1])
-	}
-	return strings.Join(pairs, "&")
 }
 
 func MovieSearchRequests(ix *port.Indexer[NorBitsSettings], q port.SearchCriteria) (port.Chain, error) {

@@ -31,6 +31,8 @@
 //	IndexerPageableRequestChain            port.Chain (Add, AddTier)
 //	HttpRequestBuilder / IndexerRequest    port.Get(u), port.Post(u), then AddQueryParam, AddFormParameter, SetHeader, ...
 //	AllowAutoRedirect = false              r.NoRedirect()
+//	SuppressHttpErrorStatusCodes           r.SuppressHTTPErrorStatusCodes(codes...)
+//	NameValueCollection, GetQueryString()  stringutil.NameValueCollection, qc.GetQueryString()
 //	GetParser().ParseResponse              Impl.Parse
 //	IndexerResponse / HttpResponse         port.IndexerResponse
 //	TorrentInfo                            port.TorrentInfo (same field names, Go initialisms:
@@ -48,7 +50,7 @@
 //	searchCriteria.FullImdbId              q.FullImdbID()
 //	searchCriteria.IsRssSearch             q.IsRssSearch()
 //	searchCriteria.IsIdSearch              q.IsIDSearch()
-//	ParseUtil.X, DateTimeUtil.X            parseutil.X, datetimeutil.X
+//	ParseUtil.X, DateTimeUtil.X, StringUtil.X   parseutil.X, datetimeutil.X, stringutil.X
 //	DateTime.Now, the host's zone         ix.Clock, as the clock argument of datetimeutil.X
 //	AngleSharp QuerySelector(All)          dom.Parse(...).QuerySelector(All)
 //	IndexerException                       port.IndexerError

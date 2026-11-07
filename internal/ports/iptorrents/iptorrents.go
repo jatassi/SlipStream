@@ -6,7 +6,6 @@ package iptorrents
 
 import (
 	_ "embed"
-	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -17,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/dom"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
 //go:embed upstream.json
@@ -147,7 +147,7 @@ func setCapabilities() port.Capabilities {
 func getPagedRequests(c *ix, term string, q port.SearchCriteria, imdbID string) (port.Chain, error) {
 	searchURL := c.URL("t")
 
-	var qc nameValueCollection
+	var qc stringutil.NameValueCollection
 
 	for _, cat := range c.Categories.TrackerIDs(q.Categories) {
 		qc.Add(cat, "")
@@ -212,34 +212,6 @@ func tvSearch(c *ix, q port.SearchCriteria) (port.Chain, error) {
 
 func basicSearch(c *ix, q port.SearchCriteria) (port.Chain, error) {
 	return getPagedRequests(c, q.SanitizedSearchTerm(), q, "")
-}
-
-// nameValueCollection is NameValueCollection with NzbDrone's
-// GetQueryString: keys in the order first added, a repeated key's values
-// joined by commas.
-type nameValueCollection struct {
-	keys   []string
-	values map[string][]string
-}
-
-func (n *nameValueCollection) Add(k, v string) {
-	if n.values == nil {
-		n.values = map[string][]string{}
-	}
-	if _, ok := n.values[k]; !ok {
-		n.keys = append(n.keys, k)
-	}
-	n.values[k] = append(n.values[k], v)
-}
-
-func (n *nameValueCollection) Count() int { return len(n.keys) }
-
-func (n *nameValueCollection) GetQueryString() string {
-	pairs := make([]string, len(n.keys))
-	for i, k := range n.keys {
-		pairs[i] = k + "=" + url.QueryEscape(strings.Join(n.values[k], ","))
-	}
-	return strings.Join(pairs, "&")
 }
 
 func parseResponse(c *ix, r *port.IndexerResponse) ([]port.TorrentInfo, error) {
