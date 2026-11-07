@@ -82,3 +82,18 @@ func SummaryOf(ctx context.Context, r storage.Reader[file], id WorkID) (Summary,
 	}
 	return Summary(w), err
 }
+
+// LevelsOf reads Work id's levels, without their fields or artwork,
+// inside a caller's read: outermost first, live before withdrawn, each by
+// position.
+func LevelsOf(ctx context.Context, r storage.Reader[file], id WorkID) ([]Level, error) {
+	rows, err := db.New(r).ListLevels(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Level, len(rows))
+	for i, l := range rows {
+		out[i] = Level{ID: l.ID, ParentID: l.ParentID, Depth: int(l.Depth), Key: l.Key, Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside}
+	}
+	return out, nil
+}

@@ -624,7 +624,7 @@ func TestDeleteWithFilesRemovesTheBytesThroughTheDiskQueue(t *testing.T) {
 	}
 	expectEvents(t, s, "the delete", "works.removed w1\nroots.changed movies")
 	s.settle(t)
-	if got, want := onDisk(t, s.movies), map[string]string{"Shelf w2/Shelf w2 - Scarf - Web.mkv": "w2 web"}; !maps.Equal(got, want) {
+	if got, want := onDisk(t, s.movies), map[string]string{"Shelf w2/Winter/Shelf w2 - Scarf - Web.mkv": "w2 web"}; !maps.Equal(got, want) {
 		t.Fatalf("movies holds %v once the disk queue ran, want w2's file alone", got)
 	}
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+w1, "", http.StatusNotFound, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
