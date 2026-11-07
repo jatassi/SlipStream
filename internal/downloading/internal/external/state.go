@@ -86,6 +86,9 @@ type track struct {
 	unregAt    time.Time
 	fault      *dlv1.Fault
 	notKept    bool
+	// relabeled is an added torrent listed without its label, sent once
+	// more to heal it.
+	relabeled  bool
 	unreadable *clients.Problem
 	// vanished is two successful polls without it, and told its Vanished in
 	// the outbox.
@@ -439,6 +442,9 @@ func (s *state) listed(ctx context.Context, t *track, st clients.Status, now tim
 	if st.Activity == clients.Moving {
 		t.quietSince = now
 	}
+	if *t.row.Origin == originAdded && st.Label != s.label.String() && !t.relabeled {
+		t.relabeled = s.send(ctx, t)
+	}
 	s.wantedSync(ctx, t, st)
 	s.trackers(t, st, now)
 	s.finish(ctx, t, st, now)
@@ -501,9 +507,21 @@ func (s *state) unlisted(ctx context.Context, t *track, now time.Time) {
 	}
 }
 
-// add sends the torrent's .torrent bytes to its Content Type's subfolder
-// of the download folder, paused when the intent wants it paused.
+// add sends the torrent and records it as added.
 func (s *state) add(ctx context.Context, t *track, now time.Time) bool {
+	if !s.send(ctx, t) {
+		return false
+	}
+	added := originAdded
+	t.row.Origin, t.row.SentAt = &added, storage.FromTime(now)
+	t.wanted.Applied = t.intent
+	return true
+}
+
+// send sends the torrent's .torrent bytes to its Content Type's subfolder
+// of the download folder with the label, paused when the intent wants it
+// paused.
+func (s *state) send(ctx context.Context, t *track) bool {
 	res, err := s.fetch(ctx, t)
 	if err != nil || res.GetOrigin() == dlv1.Origin_ORIGIN_ATTACHED {
 		return false
@@ -524,9 +542,6 @@ func (s *state) add(ctx context.Context, t *track, now time.Time) bool {
 		s.cfg.Log.Warn("add a torrent to the client", "info_hash", t.hash.String(), "err", err.Error())
 		return false
 	}
-	added := originAdded
-	t.row.Origin, t.row.SentAt = &added, storage.FromTime(now)
-	t.wanted.Applied = t.intent
 	return true
 }
 

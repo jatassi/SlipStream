@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,7 +20,9 @@ import (
 	"github.com/jatassi/slipstream/fakes/transmission"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
+	delugeclient "github.com/jatassi/slipstream/internal/torrent/clients/deluge"
 )
 
 const importDelay = 5 * time.Minute
@@ -38,7 +41,9 @@ func TestQBittorrent(t *testing.T) {
 
 func TestDeluge(t *testing.T) {
 	for _, v := range deluge.Versions {
-		t.Run(v, func(t *testing.T) { clientSuite(t, deluge.Fake, v) })
+		t.Run(v, func(t *testing.T) {
+			clientSuite(t, deluge.Fake, v, scenarioTest{"heals a label that never arrived", suite.healsALabelThatNeverArrived})
+		})
 	}
 }
 
@@ -156,6 +161,18 @@ func (c suite) testsImportsSharesAPauseAndRemoves(t *testing.T) {
 	}
 }
 
+// healsALabelThatNeverArrived has Deluge list the Grab's torrent only
+// after SlipStream labeled it, so the label never arrived, and sees the
+// torrent labeled once the Node lists it.
+func (c suite) healsALabelThatNeverArrived(t *testing.T) {
+	w, r := c.launch(t, func(*scenario.DownloadClient) {})
+	w.Cue(c.kind, c.kind+"-late-add", map[string]string{"node": "home", "after": "30s"})
+	search(t, w, addOrchard(t, w))
+	expectImportedFrom(t, await(t, w))
+	if got := r.delugeLabel(w.InfoHash(release)); got != clients.DefaultLabel {
+		t.Fatalf("the torrent's label in Deluge reads %q, want %q", got, clients.DefaultLabel)
+	}
+}
 
 // importsThroughAClientFolderAfterTheDelay sets grabsTo through the API
 // on a client that names its folder unlike its Node, and sees the Grab's
@@ -311,6 +328,25 @@ func (r *clientRig) act(body string) {
 	}
 }
 
+// delugeLabel is the label Deluge gives the torrent h, as its own web UI
+// shows it.
+func (r *clientRig) delugeLabel(h bencode.InfoHash) string {
+	r.t.Helper()
+	address, err := clients.ParseAddress(r.w.ClientURL("home", r.kind), clients.Deluge)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	c := delugeclient.Open(clients.Session{
+		HTTP: r.w.Client(), Address: address, Username: r.client.Username,
+		Secrets: clients.Secrets{Password: r.client.Password}, Call: time.Minute, Log: slog.New(slog.DiscardHandler),
+	})
+	defer func() { _ = c.Close(r.t.Context()) }()
+	got, err := c.Poll(r.t.Context(), []bencode.InfoHash{h})
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return got[h].Label
+}
 
 // downloaded is the client's download of the release, nil when its folder
 // holds none.
