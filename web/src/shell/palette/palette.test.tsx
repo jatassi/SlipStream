@@ -20,6 +20,10 @@ import {
 import { renderApp } from "../../test/render-app";
 import { asPhone } from "../../test/viewport";
 
+// A catalog answers a typed command 400ms after the last key, and its Add
+// group lands above Commands with the highlight, so Enter would add a Film.
+const noCatalog = () => [getSearchCatalogMockHandler({ candidates: [] }), ...library().handlers];
+
 test("the shortcut opens the palette, and Enter on a typed Work opens its page", async () => {
   const { router } = renderApp({ path: "/library", handlers: library().handlers });
   await expect.element(capsule()).toBeVisible();
@@ -99,7 +103,7 @@ test("the shortcut toggles the palette closed", async () => {
 });
 
 test("Toggle sidebar collapses the sidebar", async () => {
-  renderApp({ path: "/library", handlers: library().handlers });
+  renderApp({ path: "/library", handlers: noCatalog() });
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect.poll(() => nav.element().getBoundingClientRect().width).toBe(228);
 
@@ -120,7 +124,7 @@ test("Add a Film opens the Add page for its Content Type", async () => {
 test("Go to Log settings opens that section of the browser's own Node", async () => {
   const { router } = renderApp({
     path: "/library",
-    handlers: [...library().handlers, ...nodeSystems().handlers],
+    handlers: [...noCatalog(), ...nodeSystems().handlers],
   });
   await openFromCapsule();
   await userEvent.keyboard("log set");
@@ -137,7 +141,7 @@ test("Go to Log settings opens that section of the browser's own Node", async ()
 test("an unmatched query suggests what to try", async () => {
   renderApp({
     path: "/library",
-    handlers: [getSearchCatalogMockHandler({ candidates: [] }), ...library().handlers],
+    handlers: noCatalog(),
   });
   await openFromCapsule();
   await userEvent.keyboard("zzz");
