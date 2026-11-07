@@ -17,6 +17,8 @@ const parserCS = "src/NzbDrone.Core/Indexers/Definitions/HDBits/HDBitsParser.cs"
 // that commit.
 func prowlarr(t *testing.T, files ...string) (tree *Tree, commit string) {
 	t.Helper()
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	dir := t.TempDir()
 	for _, f := range files {
 		write(t, dir, f, "namespace NzbDrone;\n")

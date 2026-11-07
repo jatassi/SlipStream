@@ -85,6 +85,8 @@ func blocklist(ids ...string) string {
 // history builds the fixture's Prowlarr repository and the SlipStream
 // repository ported from its first commit.
 func history(t *testing.T) (prowlarrDir, repo string) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	f := &fixture{t: t, dir: t.TempDir(), day: 1}
 	f.git("init", "-q")
 	f.base = f.commit("Initial", map[string]string{
@@ -206,7 +208,7 @@ func TestBumpBringsAUnitUpToDate(t *testing.T) {
 	if !strings.Contains(report, "- family:gazelle at ") {
 		t.Errorf("the report after bump doesn't list family:gazelle as up to date:\n%s", report)
 	}
-	if got := runSync(t, "check", "--repo", repo, "--prowlarr", prowlarr); !strings.Contains(got, "agrees") {
+	if got := runSync(t, "check", "--repo", repo, "--prowlarr", prowlarr); !strings.Contains(got, "matches its code") {
 		t.Errorf("check after bump = %q", got)
 	}
 }
@@ -230,7 +232,7 @@ func TestNewWritesAPortThatPassesTheCheck(t *testing.T) {
 	if strings.Contains(report, "### new:DesiGaane@") {
 		t.Error("the report still lists DesiGaane as new once it has a port")
 	}
-	if got := runSync(t, "check", "--repo", repo, "--prowlarr", prowlarr); !strings.Contains(got, "agrees") {
+	if got := runSync(t, "check", "--repo", repo, "--prowlarr", prowlarr); !strings.Contains(got, "matches its code") {
 		t.Errorf("check after new = %q", got)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"slices"
 	"strconv"
@@ -18,18 +17,20 @@ type Tree struct {
 	Dir string
 }
 
-// Git runs git in the clone with no user or system config, in the C
-// locale, so the same history gives the same bytes on every machine.
+// Git runs git in the clone with every setting that shapes the output
+// of log and diff fixed, so the same history gives the same bytes on
+// every machine.
 func (t *Tree) Git(ctx context.Context, args ...string) ([]byte, error) {
 	return t.run(ctx, nil, args...)
 }
 
 func (t *Tree) run(ctx context.Context, stdin []byte, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", t.Dir}, args...)...) //nolint:gosec // G204: git, with arguments this package builds
+	fixed := []string{"-C", t.Dir, "-c", "core.quotePath=true", "-c", "color.ui=false", "-c", "diff.algorithm=myers",
+		"-c", "diff.indentHeuristic=true", "-c", "diff.interHunkContext=0", "-c", "diff.suppressBlankEmpty=false", "-c", "log.showSignature=false"}
+	cmd := exec.CommandContext(ctx, "git", append(fixed, args...)...) //nolint:gosec // G204: git, with arguments this package builds
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}
-	cmd.Env = append(os.Environ(), "LC_ALL=C", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_TERMINAL_PROMPT=0")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

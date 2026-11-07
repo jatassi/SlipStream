@@ -127,7 +127,7 @@ index a7f04c7..5b04e2e 100644
 
 ### new:DesiGaane@5fd890d
 
-DesiGaane derives from GazelleBase and carries movies, music. Start its port with `prowlarr-sync new --site DesiGaane`, or list it in skipped.json with why.
+DesiGaane derives from GazelleBase and carries movies, audio. Start its port with `prowlarr-sync new --site DesiGaane`, or list it in skipped.json with why.
 
 - `src/NzbDrone.Core/Indexers/Definitions/DesiGaane.cs`
 

@@ -101,7 +101,7 @@ func check(out io.Writer, repo string, tree *provenance.Tree) error {
 	if len(problems) > 0 {
 		return problemsError(problems)
 	}
-	_, err = fmt.Fprintln(out, "Every port's provenance agrees with its code.")
+	_, err = fmt.Fprintln(out, "Every port's provenance matches its code.")
 	return err //nolint:wrapcheck // the one write of the command's output
 }
 

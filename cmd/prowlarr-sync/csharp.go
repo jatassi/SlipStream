@@ -80,14 +80,14 @@ func sites(all []class) []class {
 }
 
 // media maps a NewznabStandardCategory member, by the longest prefix
-// that names it, to the media it carries.
+// that names it, to the media it carries, in Newznab's words.
 var media = []struct{ prefix, media string }{
 	{"AudioAudiobook", "books"},
 	{"PCGames", "games"},
 	{"TVAnime", "anime"},
 	{"Console", "games"},
 	{"Movies", "movies"},
-	{"Audio", "music"},
+	{"Audio", "audio"},
 	{"Books", "books"},
 	{"Other", "other"},
 	{"PC", "apps"},
@@ -95,7 +95,7 @@ var media = []struct{ prefix, media string }{
 	{"XXX", "adult"},
 }
 
-var mediaOrder = []string{"movies", "tv", "anime", "music", "books", "games", "apps", "adult", "other"}
+var mediaOrder = []string{"movies", "tv", "anime", "audio", "books", "games", "apps", "adult", "other"}
 
 // mediaOf is the media srcs' AddCategoryMapping lines carry, in
 // mediaOrder.
