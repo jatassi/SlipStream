@@ -187,12 +187,12 @@ func (s seriesJSON) series(lang string) (Series, error) {
 		return Series{}, invalid("series", err)
 	}
 	for _, t := range s.SeasonTypes {
-		if o := Order(t.Type); slices.Contains(orders, o) && !slices.Contains(out.Orders, o) {
+		if o, ok := orderOf(t.Type); ok && !slices.Contains(out.Orders, o) {
 			out.Orders = append(out.Orders, o)
 		}
 	}
 	for _, season := range s.Seasons {
-		if o := Order(season.Type.Type); slices.Contains(orders, o) {
+		if o, ok := orderOf(season.Type.Type); ok {
 			out.Seasons = append(out.Seasons, Season{ID: SeasonID(season.ID), Number: season.Number, Order: o, Name: season.Name, Poster: artworkPath(season.Image)})
 		}
 	}
