@@ -18,7 +18,7 @@ test("Refresh metadata reads the source again, and a Work the source drops says 
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key: "9000005",
-    monitor: true,
+    preset: "all",
   });
   expect(added.status, "The Salt Road is added").toBe(200);
   const workId = Added.parse(added.body).work.id;

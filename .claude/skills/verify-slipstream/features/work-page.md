@@ -33,7 +33,7 @@ Steps:
 - **Add The Salt Road and open it.** Set `W` to the reply's `work.id`.
 
   ```sh
-  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","monitor":true}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","preset":"all"}' '{nodes.home.url}/api/v1/works'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$W"
   $FW exec $RUN --proof work-page/work-hero -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/work-page/work-hero/desktop.aria.yml
   $FW exec $RUN --proof work-page/work-hero -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/work-page/work-hero/desktop.png

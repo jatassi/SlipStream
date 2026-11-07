@@ -16,7 +16,7 @@ async function add(world: World, key: string): Promise<string> {
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key,
-    monitor: true,
+    preset: "all",
   });
   expect(added.status, `TMDB ${key} is added`).toBe(200);
   return Added.parse(added.body).work.id;

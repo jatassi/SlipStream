@@ -58,10 +58,10 @@ Steps:
   $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/settings'
   MOVIES=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles' | jq -r '.profiles[] | select(.name == "Movies") | .id')
   SMALL=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"name":"Small","contentType":"movie","targets":[],"editions":{"kind":"any"}}' '{nodes.home.url}/api/v1/profiles' | jq -r .id)
-  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","profileId":"'$SMALL'","monitor":false,"remember":true}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","profileId":"'$SMALL'","preset":"none","remember":true}' '{nodes.home.url}/api/v1/works'
   $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles'
   $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/settings'
-  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","profileId":"'$MOVIES'","monitor":true,"remember":true}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","profileId":"'$MOVIES'","preset":"all","remember":true}' '{nodes.home.url}/api/v1/works'
   $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles'
   $FW exec $RUN --proof add-a-movie/add-remember -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/settings'
   $FW sse list $RUN --as admin --event targets.changed
