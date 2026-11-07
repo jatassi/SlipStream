@@ -117,6 +117,13 @@ const pinch: BrowserCommand<[centre: At, from: number, to: number]> = async (
   );
 };
 
+// One page runs many test files, and a pointer left where an earlier test
+// clicked hovers whatever the next test draws there. A hovered link preloads
+// its route, whose reads then land in the middle of that test.
+const parkPointer: BrowserCommand = async ({ page }) => {
+  await page.mouse.move(-1, -1);
+};
+
 export default defineConfig((env) =>
   mergeConfig(viteConfig(env), {
     plugins: [msw({ mode: "worker-only" })],
@@ -137,7 +144,7 @@ export default defineConfig((env) =>
         // prefers-reduced-motion: reduce. Tests that want it emulate it.
         provider: playwright({ contextOptions: { reducedMotion: "no-preference" } }),
         instances: [{ browser: "chromium" }],
-        commands: { emulateReducedMotion, drag, swipe, pinch, wheel },
+        commands: { emulateReducedMotion, drag, parkPointer, swipe, pinch, wheel },
         viewport: { width: presets.desktop.width, height: presets.desktop.height },
       },
     },
