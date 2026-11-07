@@ -305,13 +305,20 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 }
 
 // holdsOnly waits for the media dir to hold exactly paths: an import
-// commits before the disk queue gives the file its name.
+// commits before the disk queue gives the file its name, and a Transfer's
+// staging folder goes after the Transfer ends.
 func holdsOnly(t *testing.T, m world.Manifest, paths ...string) {
 	t.Helper()
-	var got []string
+	var partial error
+	defer func() {
+		if t.Failed() && partial != nil {
+			t.Logf("the last read of the media dir was partial: %v", partial)
+		}
+	}()
 	worldtest.Until(t, "the media dir holds exactly "+strings.Join(paths, ", "), func() (bool, error) {
-		got = filesUnder(t, m.MediaDir)
-		return slices.Equal(got, paths), nil
+		var got []string
+		got, partial = filesUnder(t, m.MediaDir)
+		return partial == nil && slices.Equal(got, paths), nil
 	})
 }
 
@@ -389,10 +396,17 @@ func announce(t *testing.T, r events.Record) tracker.Announce {
 	return an
 }
 
-func filesUnder(t *testing.T, dir string) []string {
+// filesUnder lists the files under dir. A folder below dir that can't be
+// read leaves the list partial, and partial is why. SlipStream removes
+// folders while the walk reads them, and on Windows a folder that is being
+// removed can't be opened even while it still exists.
+func filesUnder(t *testing.T, dir string) (out []string, partial error) {
 	t.Helper()
-	var out []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil && path != dir {
+			partial = err
+			return fs.SkipAll
+		}
 		if err != nil || d.IsDir() || d.Name() == storing.MarkerName {
 			return err
 		}
@@ -406,5 +420,5 @@ func filesUnder(t *testing.T, dir string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return out
+	return out, partial
 }
