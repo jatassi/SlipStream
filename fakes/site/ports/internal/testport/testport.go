@@ -166,7 +166,6 @@ func parse(body []byte) ([]searching.Release, error) {
 		}
 		if r.Freeleech {
 			rel.Factors.Download = 0
-			rel.Flags = []searching.Flag{searching.Freeleech}
 		}
 		out = append(out, rel)
 	}
