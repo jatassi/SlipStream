@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW",
+      "size": 6000000000,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://testport.fixture-site.fake.localhost/download/1",
+      "magnet": "",
+      "infoHash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "categories": [
+        2000
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://testport.fixture-site.fake.localhost/torrent/1",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW",
+      "size": 3000000000,
+      "published": "2026-05-30T08:30:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 9,
+      "link": "https://testport.fixture-site.fake.localhost/download/2",
+      "magnet": "",
+      "infoHash": "f3d82ea776451f96507397646f0e0f626997da6a",
+      "categories": [
+        2000
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://testport.fixture-site.fake.localhost/torrent/2",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

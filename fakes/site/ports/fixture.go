@@ -1,0 +1,319 @@
+// Package ports is fixture-site's replay of every port's scrubbed
+// exchanges, and the runner tier that proves each port against them.
+//
+// On disk, one directory per port, so a new port adds a directory and
+// edits no Go:
+//
+//	fakes/site/ports/<port id>/
+//	  fixture.yaml        source, settings, session and the cases with their exchanges
+//	  bodies/<name>       response bodies, byte for byte as the site sent them
+//	  want/<case>.json    the golden of each case, written by go test -update
+//
+// fixture.yaml:
+//
+//	source: prowlarr            # prowlarr (rewritten from its Files/Indexers) or synthetic
+//	settings:                   # what the Admin entered, fictional and scrub-checked
+//	  username: fixture-user
+//	  apiKey: "{{apiKey}}"      # a placeholder, sent and matched as written
+//	session: {cookie: "sid={{sid}}", pasted: true}   # held before each case, when the family needs one
+//	cases:
+//	  - name: search            # search, empty, auth and limit are required; loggedout for
+//	                            # a family that holds a session; code for a CodeLogin
+//	    call: {search: {mode: movie, ids: {imdbid: tt0000001}}}
+//	    exchanges:
+//	      - request:
+//	          method: POST
+//	          path: /api/torrents
+//	          json: {passkey: "{{passkey}}", imdb: {id: 1}}   # a subset match
+//	        response:
+//	          status: 200
+//	          headers: {Content-Type: application/json}
+//	          body: search.json  # under bodies/
+//
+// A call is one of search, recent, fetch (a link, relative to the
+// address) and test (with a typed code). A case may set its own session,
+// and session: {} starts it with none.
+//
+// A request matches an exchange on method, host (the port's fixture host
+// when the exchange names none), path, and the headers and the query,
+// form or JSON fields the exchange names. Exchanges answer in order
+// within a case, so a loggedout case answers the logged-out page, the
+// sign-in and then the page again.
+//
+// go run ./fakes/site/ports/record writes a case from a live capture or
+// a body from a Prowlarr recording, and Scrub keeps real values out.
+package ports
+
+import (
+	"bytes"
+	"embed"
+	"errors"
+	"fmt"
+	"io/fs"
+	"path"
+	"slices"
+	"strings"
+
+	"go.yaml.in/yaml/v3"
+
+	"github.com/jatassi/slipstream/internal/ports/port"
+	"github.com/jatassi/slipstream/internal/searching"
+)
+
+// FS holds every port's fixture. testport's is always there, so the
+// patterns match with no port registered.
+//
+//go:embed */fixture.yaml */bodies */want
+var FS embed.FS
+
+// Source is where a fixture's exchanges came from.
+type Source string
+
+const (
+	// Prowlarr is a recording from Prowlarr's Files/Indexers, rewritten
+	// to the fixture catalog.
+	Prowlarr Source = "prowlarr"
+	// Synthetic is written from the C# parser's shape.
+	Synthetic Source = "synthetic"
+	// Recorded is a live exchange the record tool captured.
+	Recorded Source = "recorded"
+)
+
+type Fixture struct {
+	Port     port.ID           `yaml:"-"`
+	Source   Source            `yaml:"source"`
+	Settings map[string]string `yaml:"settings,omitempty"`
+	Session  *Session          `yaml:"session,omitempty"`
+	Cases    []Case            `yaml:"cases"`
+	// Bodies are bodies/ by file name, and Wants want/ by case name.
+	Bodies map[string][]byte `yaml:"-"`
+	Wants  map[string][]byte `yaml:"-"`
+}
+
+// Session is what the Node holds for the Indexer before a case runs.
+type Session struct {
+	// Cookie is name=value pairs joined by "; ".
+	Cookie    string `yaml:"cookie,omitempty"`
+	UserAgent string `yaml:"userAgent,omitempty"`
+	Token     string `yaml:"token,omitempty"`
+	// Pasted is a session from a browser cookie the Admin pasted.
+	Pasted bool `yaml:"pasted,omitempty"`
+}
+
+type Case struct {
+	Name string `yaml:"name"`
+	Call Call   `yaml:"call"`
+	// Session replaces the fixture's for this case.
+	Session   *Session   `yaml:"session,omitempty"`
+	Exchanges []Exchange `yaml:"exchanges"`
+}
+
+// Call is one of Search, Recent, Fetch and Test.
+type Call struct {
+	Search *Search   `yaml:"search,omitempty"`
+	Recent *struct{} `yaml:"recent,omitempty"`
+	Fetch  string    `yaml:"fetch,omitempty"`
+	Test   *Test     `yaml:"test,omitempty"`
+}
+
+// Search is searching.Query as a fixture writes it.
+type Search struct {
+	Mode    string            `yaml:"mode"`
+	IDs     map[string]string `yaml:"ids,omitempty"`
+	Text    string            `yaml:"text,omitempty"`
+	Season  int               `yaml:"season,omitempty"`
+	Episode string            `yaml:"episode,omitempty"`
+}
+
+// Test is a Test call, with the two-factor code the Admin typed.
+type Test struct {
+	Code string `yaml:"code,omitempty"`
+}
+
+type Exchange struct {
+	Request  Match    `yaml:"request"`
+	Response Response `yaml:"response"`
+}
+
+// Match is what a request must carry. Every field it names must be
+// there with that value. Others may be too.
+type Match struct {
+	Method  string            `yaml:"method,omitempty"`
+	Host    string            `yaml:"host,omitempty"`
+	Path    string            `yaml:"path"`
+	Headers map[string]string `yaml:"headers,omitempty"`
+	Query   map[string]string `yaml:"query,omitempty"`
+	Form    map[string]string `yaml:"form,omitempty"`
+	JSON    map[string]any    `yaml:"json,omitempty"`
+}
+
+type Response struct {
+	Status  int               `yaml:"status,omitempty"`
+	Headers map[string]string `yaml:"headers,omitempty"`
+	// Body names a file under bodies/, "" for none.
+	Body string `yaml:"body,omitempty"`
+}
+
+// Host is the host fixture-site serves port id's fixture at, the host of
+// fixture-site's site labeled id.
+func Host(id port.ID) string { return string(id) + ".fixture-site.fake.localhost" }
+
+// Address is the base address a fixture's Indexer has.
+func Address(id port.ID) string { return "https://" + Host(id) + "/" }
+
+// Required are the cases every fixture of a port in family a has.
+func Required(a port.Auth) []string {
+	out := []string{"search", "empty", "auth", "limit"}
+	if a.HoldsSession() {
+		out = append(out, "loggedout")
+	}
+	if a == port.FormWithCode {
+		out = append(out, "code")
+	}
+	return out
+}
+
+// Load reads port id's fixture from fsys, strictly: every case has one
+// call and a unique name, and every body it names is there.
+func Load(fsys fs.FS, id port.ID) (Fixture, error) {
+	raw, err := fs.ReadFile(fsys, path.Join(string(id), "fixture.yaml"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return Fixture{}, fmt.Errorf("port %s has no fixture: add %s/fixture.yaml", id, id)
+	}
+	if err != nil {
+		return Fixture{}, fmt.Errorf("read the fixture of %s: %w", id, err)
+	}
+	f, err := Parse(id, raw)
+	if err != nil {
+		return Fixture{}, err
+	}
+	if f.Bodies, err = files(fsys, path.Join(string(id), "bodies"), ""); err != nil {
+		return Fixture{}, err
+	}
+	if f.Wants, err = files(fsys, path.Join(string(id), "want"), ".json"); err != nil {
+		return Fixture{}, err
+	}
+	var errs []error
+	for _, c := range f.Cases {
+		for i, x := range c.Exchanges {
+			if _, ok := f.Bodies[x.Response.Body]; x.Response.Body != "" && !ok {
+				errs = append(errs, fmt.Errorf("fixture %s, case %s, exchange %d: bodies/%s isn't there", id, c.Name, i+1, x.Response.Body))
+			}
+		}
+	}
+	return f, errors.Join(errs...)
+}
+
+// Parse reads fixture.yaml strictly and checks its cases.
+func Parse(id port.ID, raw []byte) (Fixture, error) {
+	f := Fixture{Port: id}
+	dec := yaml.NewDecoder(bytes.NewReader(raw))
+	dec.KnownFields(true)
+	if err := dec.Decode(&f); err != nil {
+		return Fixture{}, fmt.Errorf("fixture %s: %w", id, err)
+	}
+	var errs []error
+	if !slices.Contains([]Source{Prowlarr, Synthetic, Recorded}, f.Source) {
+		errs = append(errs, fmt.Errorf("fixture %s: source %q is none of prowlarr, synthetic and recorded", id, f.Source))
+	}
+	seen := map[string]bool{}
+	for _, c := range f.Cases {
+		if c.Name == "" || seen[c.Name] {
+			errs = append(errs, fmt.Errorf("fixture %s: case %q is unnamed or named twice", id, c.Name))
+		}
+		seen[c.Name] = true
+		if n := c.Call.count(); n != 1 {
+			errs = append(errs, fmt.Errorf("fixture %s, case %s: a call is one of search, recent, fetch and test, and this one sets %d", id, c.Name, n))
+		}
+		if len(c.Exchanges) == 0 {
+			errs = append(errs, fmt.Errorf("fixture %s, case %s: a case needs at least one exchange", id, c.Name))
+		}
+	}
+	return f, errors.Join(errs...)
+}
+
+// Case is the case named name.
+func (f Fixture) Case(name string) (Case, bool) {
+	i := slices.IndexFunc(f.Cases, func(c Case) bool { return c.Name == name })
+	if i < 0 {
+		return Case{}, false
+	}
+	return f.Cases[i], true
+}
+
+// SessionOf is the session c starts with, nil for none.
+func (f Fixture) SessionOf(c Case) *Session {
+	s := f.Session
+	if c.Session != nil {
+		s = c.Session
+	}
+	if s == nil || *s == (Session{}) {
+		return nil
+	}
+	return s
+}
+
+// Marshal is f as fixture.yaml.
+func (f Fixture) Marshal() ([]byte, error) {
+	var b bytes.Buffer
+	enc := yaml.NewEncoder(&b)
+	enc.SetIndent(2)
+	if err := enc.Encode(f); err != nil {
+		return nil, fmt.Errorf("write the fixture of %s: %w", f.Port, err)
+	}
+	return b.Bytes(), nil
+}
+
+// Searching is c as a Job's call, a relative fetch link resolved
+// against address.
+func (c Call) Searching(address string) searching.Call {
+	switch {
+	case c.Search != nil:
+		return searching.SearchCall{Query: searching.Query{
+			Mode: c.Search.Mode, IDs: c.Search.IDs, Text: c.Search.Text, Season: c.Search.Season, Episode: c.Search.Episode,
+		}}
+	case c.Fetch != "":
+		link := c.Fetch
+		if strings.HasPrefix(link, "/") {
+			link = strings.TrimSuffix(address, "/") + link
+		}
+		return searching.FetchCall{Link: searching.LinkOf(link)}
+	case c.Test != nil:
+		return searching.TestCall{Code: c.Test.Code}
+	}
+	return searching.RecentCall{}
+}
+
+func (c Call) count() int {
+	n := 0
+	for _, set := range []bool{c.Search != nil, c.Recent != nil, c.Fetch != "", c.Test != nil} {
+		if set {
+			n++
+		}
+	}
+	return n
+}
+
+// files are dir's files by name, without suffix, nil when dir isn't
+// there.
+func files(fsys fs.FS, dir, suffix string) (map[string][]byte, error) {
+	entries, err := fs.ReadDir(fsys, dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", dir, err)
+	}
+	out := map[string][]byte{}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), suffix) {
+			continue
+		}
+		raw, err := fs.ReadFile(fsys, path.Join(dir, e.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", e.Name(), err)
+		}
+		out[strings.TrimSuffix(e.Name(), suffix)] = raw
+	}
+	return out, nil
+}
