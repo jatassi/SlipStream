@@ -49,6 +49,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
+	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -69,11 +70,17 @@ type Library interface {
 // Node's call layer and nothing that reaches library.db or a key.
 type ProviderDeps struct {
 	TMDB *tmdb.Client
+	TVDB *tvdb.Client
 	OMDb *omdb.Client
 	// Lines is the Node's call layer, for a type that reaches a host of its
 	// own.
 	Lines *metadata.Lines
 	Log   *slog.Logger
+}
+
+// Testers are the providers' tests, in the order status lists them.
+func (d ProviderDeps) Testers() []metadata.Tester {
+	return []metadata.Tester{d.TMDB, d.TVDB, d.OMDb}
 }
 
 type LibraryDeps struct {

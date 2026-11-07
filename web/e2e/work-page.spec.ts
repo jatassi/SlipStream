@@ -5,6 +5,7 @@ import { orchardCells, workAction } from "./cells.ts";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 test.use({ scenario: "targets" });
 test.describe.configure({ timeout: 120_000 });
@@ -16,7 +17,7 @@ async function add(world: World, key: string): Promise<string> {
   const added = await world.api("POST", "/api/v1/works", {
     contentType: "movie",
     key,
-    monitor: true,
+    preset: "all",
   });
   expect(added.status, `TMDB ${key} is added`).toBe(200);
   return Added.parse(added.body).work.id;
@@ -71,7 +72,7 @@ test("a failed download shows under Needs you, and Search again retries it", asy
   await expect(card).not.toContainText("unavailable:");
   await expect(page.getByRole("list", { name: "Cells" })).toContainText("failed");
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("needs-you.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("needs-you.png"));
 
   await world.fw.fault.clear("download-damaged");
   await card.getByRole("button", { name: "Search again" }).click();

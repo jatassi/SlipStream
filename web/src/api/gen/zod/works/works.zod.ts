@@ -10,7 +10,11 @@ import {
   WorksEnabled,
   WorksLibraryRows,
   WorksMonitoredChange,
+  WorksMonitoringChange,
+  WorksMonitoringList,
   WorksNewWork,
+  WorksOptionsChange,
+  WorksOptionsChanged,
   WorksOutcomeList,
   WorksPreviewed,
   WorksProfileChange,
@@ -20,6 +24,7 @@ import {
   WorksSearchResult,
   WorksSettingsChange,
   WorksTypeSettings,
+  WorksWorkMonitored,
   WorksWorkView,
 } from "../slipStream.schemas.zod.ts";
 
@@ -140,6 +145,13 @@ export const SetWorksMonitoredBody = WorksMonitoredChange;
 export const SetWorksMonitoredResponse = WorksOutcomeList;
 
 /**
+ * @summary Apply a monitoring preset to each Work, or preview what it would move, with an outcome per Work
+ */
+export const SetWorksMonitoringBody = WorksMonitoringChange;
+
+export const SetWorksMonitoringResponse = WorksMonitoringList;
+
+/**
  * @summary Give each Work a Profile through one Impact, with an outcome per Work
  */
 export const setWorksProfileQueryUnwantedDefault = `delete`;
@@ -213,10 +225,32 @@ export const SearchWorksQueryParams = zod.object({
 export const SearchWorksResponse = WorksSearchResult;
 
 /**
- * @summary Get a Work's tree with each node's fields, its links, Profile and root
+ * @summary Get a Work's tree with each node's fields, its links, Profile, root and options
  */
 export const GetWorkParams = zod.object({
   workId: zod.uuid(),
 });
 
 export const GetWorkResponse = WorksWorkView;
+
+/**
+ * @summary Monitor some of a Work's levels and Items, or stop
+ */
+export const SetWorkMonitoredParams = zod.object({
+  workId: zod.uuid(),
+});
+
+export const SetWorkMonitoredBody = WorksWorkMonitored;
+
+export const SetWorkMonitoredResponse = zod.void();
+
+/**
+ * @summary Change a Work's options, or preview how many Items the change would withdraw
+ */
+export const SetWorkOptionsParams = zod.object({
+  workId: zod.uuid(),
+});
+
+export const SetWorkOptionsBody = WorksOptionsChange;
+
+export const SetWorkOptionsResponse = WorksOptionsChanged;

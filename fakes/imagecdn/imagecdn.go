@@ -1,7 +1,8 @@
-// Package imagecdn is fake-image-cdn: TMDB's image host. It answers a
-// file in the artwork store with its recorded bytes, scaled down to the
-// size asked, and any other image file name at any size TMDB offers with
-// a generated image.
+// Package imagecdn is fake-image-cdn: TMDB's image host and TVDB's
+// artwork host. TMDB's answers a file in the artwork store with its
+// recorded bytes, scaled down to the size asked, and any other image file
+// name at any size TMDB offers with a generated image. TVDB's answers any
+// artwork path as an original or its _t thumbnail.
 package imagecdn
 
 import (
@@ -11,8 +12,10 @@ import (
 	"image/jpeg"
 	"image/png"
 	"net/http"
+	"path"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 
 	"golang.org/x/image/draw"
@@ -31,6 +34,7 @@ var Fake = fake.Spec{
 	New:  newServer,
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.TMDB.Images = endpoint.MustParseURL(at.URL(Root))
+		e.TVDB.Artwork = endpoint.MustParseURL(at.URL(""))
 	},
 	Online: fake.OnlineSuite("imagecdn"),
 }
@@ -49,6 +53,7 @@ func serve(store artwork.Store, env fake.Env) fake.Server {
 	srv := &server{store: store, scaled: map[sized][]byte{}}
 	return fake.HTTP(env, fake.Routes{
 		"image":     {Pattern: "GET " + Root + "/{size}/{file}", Handler: srv.image},
+		"artwork":   {Pattern: "GET " + ArtworkRoot + "/{path...}", Handler: serveArtwork},
 		"not-found": {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
 	})
 }
@@ -154,6 +159,33 @@ func dimensions(size string) (width, height int, ok bool) {
 		return n * 2 / 3, n, true
 	}
 	return n, n * 3 / 2, true
+}
+
+// ArtworkRoot is the path TVDB's artwork host serves under.
+const ArtworkRoot = "/banners"
+
+// serveArtwork answers a TVDB artwork path at its kind's shape: a poster
+// at 2:3, a clear logo at 2.58:1, anything else at 16:9, and a _t
+// thumbnail at a third of the original's width.
+func serveArtwork(w http.ResponseWriter, r *http.Request) {
+	p := r.PathValue("path")
+	f, ok := images.FormatOf(p)
+	if !ok {
+		notFound(w)
+		return
+	}
+	width, height := 1920, 1080
+	switch {
+	case strings.Contains(p, "/posters/"):
+		width, height = 680, 1000
+	case strings.Contains(p, "/clearlogo/"):
+		width, height = 800, 310
+	}
+	size := "original"
+	if base := strings.TrimSuffix(p, path.Ext(p)); strings.HasSuffix(base, "_t") {
+		size, width, height = "thumbnail", width/3, height/3
+	}
+	images.Serve(w, f, ArtworkRoot+"/"+p, size, width, height)
 }
 
 func notFound(w http.ResponseWriter) { html(w, http.StatusNotFound, "<h1>File Not Found</h1>") }

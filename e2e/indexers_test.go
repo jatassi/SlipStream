@@ -34,7 +34,7 @@ func TestHomeSeedsTheFixtureSiteIndexerOnTheSeedbox(t *testing.T) {
 		`"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"` + ix.Status.SuccessAt + `"},` +
 		`"sentence":"Fixture Site is working.","fix":null,"signsIn":false,"trackerIds":["` + ix.TrackerIDs[0] + `"],"waits":null,"session":null,"feedHost":"` + site.Host("torznab") + `","definition":null,` +
-		`"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}],"revision":1,"createdAt":"` + ix.CreatedAt + `"}]}` + "\n"})
+		`"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]},{"mode":"tvsearch","params":["q","season","ep","tvdbid"]}],"revision":1,"createdAt":"` + ix.CreatedAt + `"}]}` + "\n"})
 }
 
 func TestHomeDownloadsTheIndexerCatalogFromFakeCatalogAtStart(t *testing.T) {

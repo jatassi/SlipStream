@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
@@ -143,7 +144,7 @@ func openRefreshed(t *testing.T, pages int) *refreshed {
 func (l *refreshed) add(t *testing.T, key works.Key, unreleased bool) works.WorkID {
 	t.Helper()
 	l.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: strings.ToUpper(string(key)), Children: []works.Entry{{Key: "box", Label: "Box", Children: []works.Entry{{Key: "item", Label: "Item"}}}}, RatingsRead: true}})
-	tree, _, err := l.works.Add(t.Context(), identity.Admin{}, contenttypetest.ID, key, works.Adding{})
+	tree, _, err := l.works.Add(t.Context(), identity.Admin{}, contenttypetest.ID, key, works.Adding{Monitor: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,6 +293,36 @@ func TestEachTierMakesItsWorksDue(t *testing.T) {
 	})
 }
 
+func TestDatelessItemKeepsNoEndedWorkDaily(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		l := openRefreshed(t, 500)
+		stock := func(key works.Key, boxes ...works.Entry) works.Tree {
+			t.Helper()
+			l.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: strings.ToUpper(string(key)), Children: boxes, RatingsRead: true}})
+			tree, _, err := l.works.Add(t.Context(), identity.Admin{}, contenttypetest.ID, key, works.Adding{Monitor: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			l.ids[key] = tree.ID
+			return tree
+		}
+		aired := works.Entry{Key: "b1", Label: "Box", Children: []works.Entry{{Key: "c1", Label: "Aired"}}}
+		spare := stock("spare", aired, works.Entry{Key: "b9", Label: "Spares", Aside: true, Children: []works.Entry{{Key: "c9", Label: "Undated"}}})
+		undated := stock("undated", works.Entry{Key: "b1", Label: "Box", Children: []works.Entry{{Key: "c1", Label: "Aired"}, {Key: "c2", Label: "Undated"}}})
+		dated := stock("dated", works.Entry{Key: "b1", Label: "Box", Children: []works.Entry{{Key: "c1", Label: "Aired"}, {Key: "c2", Label: "Coming"}}})
+		l.add(t, "announced", true)
+		l.fx.SetTiming(spare.Items[1].ID, targets.Timing{})
+		l.fx.SetTiming(undated.Items[1].ID, targets.Timing{})
+		l.fx.SetTiming(dated.Items[1].ID, targets.Timing{Released: release.Known(works.Date{Year: 2000, Month: 6, Day: 1})})
+
+		nights := l.nightly(t, 3)
+		want := [][]works.Key{nil, keys("announced", "dated"), keys("announced", "dated")}
+		if fmt.Sprint(nights) != fmt.Sprint(want) {
+			t.Fatalf("the first three nights fetched %v, want %v: an Item with no date keeps a Work daily only while none of its counted Items is out, and an unmonitored one never", nights, want)
+		}
+	})
+}
+
 func TestTheTaskIsListedOnceAWorkExistsAndRunsWithNothingDue(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		l := openRefreshed(t, 500)
@@ -340,6 +371,21 @@ func TestTheChangesListCoversSinceTheLastGoodRun(t *testing.T) {
 		}
 		if asked, want := l.changesAsked(), []time.Time{first, second, second}; !slices.EqualFunc(asked, want, time.Time.Equal) {
 			t.Fatalf("changes lists were read from %v, want from %v: each from the last good run's start", asked, want)
+		}
+	})
+}
+
+func TestAChangedKeyAnotherProviderNamesMarksItsWork(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		l := openRefreshed(t, 500)
+		l.add(t, "out", false)
+		l.add(t, "still", false)
+		l.fx.Alias("elsewhere-out", "out")
+		l.fx.Change("elsewhere-out", "elsewhere-unknown")
+
+		l.nightly(t, 1)
+		if nights := l.nightly(t, 1); !slices.Equal(nights[0], keys("out")) {
+			t.Fatalf("the second night fetched %v, want the Work the other provider's key maps to", nights[0])
 		}
 	})
 }

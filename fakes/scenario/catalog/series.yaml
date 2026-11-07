@@ -1,0 +1,172 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  home's two Nodes with fake-tvdb's fictional series catalog. The Lantern
+  Keepers has specials, all three orders, a special that moves into season 3
+  on the tvdb-move-episode cue and an episode tvdb-remove-episode drops.
+  Harbor Nights is ended, findable by its alternative title, and returns on
+  tvdb-add-season. Signal Nine has no TMDB id and an episode announced with
+  no date. The Shell Forest's own name is Japanese. Harbor Lights is a
+  series only TMDB lists, and The Quiet Orchard is a movie beside them. The
+  library has a TV root, a Movies root and the Torznab Indexer, and the
+  world sets an Admin TVDB key. The site lists seeded releases of The
+  Lantern Keepers' S01E01, S01E03, S00E01 and S00E02, and under S01E03 a
+  720p release whose name says S01E02 and the season 1 pack. A release
+  named S01E03 of The Lantern Keepers is listed under Harbor Nights.
+seed: series
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+timings:
+  node:
+    stop_deadline: 5s
+tvdb:
+  series:
+    - id: 1001
+      name: The Lantern Keepers
+      status: continuing
+      network: Lantern One
+      imdb: tt1001001
+      tmdb: 7001
+      seasons:
+        - number: 0
+          episodes:
+            - {id: 100101, number: 1, name: The Keepers Before, aired: 2019-12-20, runtime: 30}
+            - {id: 100102, number: 2, name: A Winter Light, aired: 2021-12-24, runtime: 44}
+        - number: 1
+          episodes:
+            - {id: 100111, number: 1, name: First Flame, aired: 2020-01-10, runtime: 52}
+            - {id: 100112, number: 2, name: The Tide Book, aired: 2020-01-17, runtime: 50}
+            - {id: 100113, number: 3, name: Salt and Oil, aired: 2020-01-24, runtime: 51}
+        - number: 2
+          episodes:
+            - {id: 100121, number: 1, name: The Northern Lamp, aired: 2021-01-08, runtime: 49}
+            - {id: 100122, number: 2, name: Fog Signal, aired: 2021-01-15, runtime: 47}
+            - {id: 100123, number: 3, name: Keeper's Log, aired: 2021-01-22, runtime: 53}
+        - number: 3
+          episodes:
+            - {id: 100131, number: 1, name: A New Wick, aired: 2023-03-03, runtime: 50}
+            - {id: 100132, number: 2, name: The Long Watch, aired: 2023-03-10, runtime: 48}
+            - {id: 100133, number: 3, name: Lightless, aired: 2023-03-17, runtime: 55}
+      dvd:
+        100111: {season: 1, episode: 1}
+        100113: {season: 1, episode: 2}
+        100112: {season: 1, episode: 3}
+        100121: {season: 2, episode: 1}
+        100122: {season: 2, episode: 2}
+        100123: {season: 2, episode: 3}
+        100101: {season: 0, episode: 1}
+      absolute:
+        100111: 1
+        100112: 2
+        100113: 3
+        100121: 4
+        100122: 5
+        100123: 6
+        100131: 7
+        100132: 8
+        100133: 9
+    - id: 1002
+      name: Harbor Nights
+      aliases: [Nights at the Harbor]
+      status: ended
+      network: Harbor TV
+      imdb: tt1002001
+      tmdb: 7002
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 100211, number: 1, name: Docklands, aired: 2015-09-14, runtime: 42}
+            - {id: 100212, number: 2, name: The Night Ferry, aired: 2015-09-21, runtime: 43}
+        - number: 2
+          episodes:
+            - {id: 100221, number: 1, name: Low Water, aired: 2016-09-12, runtime: 44}
+            - {id: 100222, number: 2, name: Last Crossing, aired: 2016-09-19, runtime: 45}
+    - id: 1003
+      name: Signal Nine
+      status: continuing
+      network: Signal Nine
+      imdb: tt1003001
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 100311, number: 1, name: Carrier Wave, aired: 2026-10-02, runtime: 30}
+            - {id: 100312, number: 2, name: Static, aired: 2027-01-15, runtime: 30}
+            - {id: 100313, number: 3, name: Untitled}
+    - id: 1004
+      name: Kōkaku no Mori
+      english: The Shell Forest
+      status: ended
+      network: Northlight
+      imdb: tt1004001
+      tmdb: 7004
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 100411, number: 1, name: The Shell Forest, aired: 2018-04-05, runtime: 24}
+            - {id: 100412, number: 2, name: Moss and Iron, aired: 2018-04-12, runtime: 24}
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+  series:
+    - id: 7101
+      name: Harbor Lights
+      first_aired: "2019-05-02"
+      overview: Harbor Lights is a fictional series only TMDB lists.
+releases:
+  - name: The.Lantern.Keepers.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 9
+    seeded: true
+    advertised_size: 4.1GiB
+  - name: The.Lantern.Keepers.S01E03.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 1, episode: 3}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 7
+    seeded: true
+    advertised_size: 4.0GiB
+  - name: The.Lantern.Keepers.S01E02.720p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 1, episode: 3}
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 30
+    advertised_size: 2.0GiB
+  - name: The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 40
+    advertised_size: 12.2GiB
+  - name: The.Lantern.Keepers.S00E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 0, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 5
+    seeded: true
+    advertised_size: 2.4GiB
+  - name: The.Lantern.Keepers.S00E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 0, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 5
+    seeded: true
+    advertised_size: 3.5GiB
+  - name: The.Lantern.Keepers.S01E03.Proper.720p.WEB-DL.H264-NTB
+    tvdb: {series: 1002, season: 1, episode: 2}
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 3
+    advertised_size: 2.0GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: series, folder: tv}, {content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

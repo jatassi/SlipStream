@@ -38,6 +38,7 @@ import (
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
+	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -487,6 +488,7 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 	lines := metadata.NewLines(client, userAgent, n.cfg.Timings.Metadata, n.metadataRand)
 	deps := contenttype.ProviderDeps{
 		TMDB:  tmdb.New(lines, n.cfg.Endpoints.TMDB, n.cfg.Timings.TMDB),
+		TVDB:  tvdb.New(lines, n.cfg.Endpoints.TVDB, n.cfg.Timings.TVDB),
 		OMDb:  omdb.New(lines, n.cfg.Endpoints.OMDb, n.cfg.Timings.OMDb),
 		Lines: lines,
 	}
@@ -495,7 +497,7 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		deps.Log = n.rootLog.With("subsystem", "contenttype."+string(t.ID()))
 		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
-	return metadata.HolderConfig{Types: sources, Testers: []metadata.Tester{deps.TMDB, deps.OMDb}, Timings: n.cfg.Timings.Metadata, Lines: lines}
+	return metadata.HolderConfig{Types: sources, Testers: deps.Testers(), Timings: n.cfg.Timings.Metadata, Lines: lines}
 }
 
 // openLibraries opens every Content Type's library half, on the

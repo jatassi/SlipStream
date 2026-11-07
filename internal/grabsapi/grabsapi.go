@@ -6,6 +6,7 @@ package grabsapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -69,17 +70,27 @@ type workInput struct {
 	WorkID string `path:"workId" format:"uuid"`
 }
 
+type searchWorkInput struct {
+	WorkID string `path:"workId" format:"uuid"`
+	Body   *searchScope
+}
+
+type searchScope struct {
+	LevelIDs []string `json:"levelIds" format:"uuid" maxItems:"20000" nullable:"false" doc:"Each level stands for every Item under it"`
+	ItemIDs  []string `json:"itemIds" format:"uuid" maxItems:"20000" nullable:"false"`
+}
+
 type searchStarted struct {
-	SearchIDs []string `json:"searchIds" nullable:"false" doc:"One run per Item with a wanted cell"`
+	SearchIDs []string `json:"searchIds" nullable:"false" doc:"One run per Item in the scope with a wanted cell"`
 }
 
 type searchStartedOutput struct{ Body searchStarted }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,not_an_upgrade"`
-	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work and cut_not_wanted"`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,not_an_upgrade" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that covers more than one Item, such as a season pack, and SlipStream doesn't grab those yet."`
+	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and cut_not_wanted"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
-	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants"`
+	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut no open cell wants, or what a wrong_item or covers_more title names, such as S01E02"`
 }
 
 func reasonsOf(rs []grabs.Reason) []reason {
@@ -284,7 +295,7 @@ func Routes(r *api.Router, p Pipeline) {
 		ID:      "searchWork",
 		Method:  http.MethodPost,
 		Path:    "/works/{workId}/search",
-		Summary: "Search for each of a Work's wanted cells and grab the best release",
+		Summary: "Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release",
 		Status:  http.StatusAccepted,
 		Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable},
 	}, h.searchWork)
@@ -323,12 +334,23 @@ func Routes(r *api.Router, p Pipeline) {
 
 type handlers struct{ p Pipeline }
 
-func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *workInput) (*searchStartedOutput, error) {
+func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchWorkInput) (*searchStartedOutput, error) {
 	u, err := storage.ParseUUID(in.WorkID)
 	if err != nil {
 		return nil, workNotFound
 	}
-	ids, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u})
+	scope, err := scopeOf(in.Body)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
+	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
+		field, noun := "itemIds", "Item"
+		if e.Level {
+			field, noun = "levelIds", "level"
+		}
+		return nil, api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
+	}
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -337,6 +359,33 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *workInp
 		out.SearchIDs = append(out.SearchIDs, id.String())
 	}
 	return &searchStartedOutput{Body: out}, nil
+}
+
+// scopeOf is the search scope body names, the whole Work when it is left
+// out.
+func scopeOf(body *searchScope) (grabs.Scope, error) {
+	if body == nil {
+		return grabs.Scope{}, nil
+	}
+	if len(body.LevelIDs) == 0 && len(body.ItemIDs) == 0 {
+		return grabs.Scope{}, api.Invalid.On("levelIds", "Send at least one level or Item id, or leave the body out to search the whole Work.")
+	}
+	var part works.Within
+	for _, s := range body.LevelIDs {
+		u, err := storage.ParseUUID(s)
+		if err != nil {
+			return grabs.Scope{}, api.Invalid
+		}
+		part.Levels = append(part.Levels, works.LevelID{UUID: u})
+	}
+	for _, s := range body.ItemIDs {
+		u, err := storage.ParseUUID(s)
+		if err != nil {
+			return grabs.Scope{}, api.Invalid
+		}
+		part.Items = append(part.Items, works.ItemID{UUID: u})
+	}
+	return grabs.Within(part), nil
 }
 
 func (h handlers) listSearches(ctx context.Context, by identity.Admin, in *workInput) (*searchListOutput, error) {

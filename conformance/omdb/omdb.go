@@ -33,6 +33,9 @@ type Target struct {
 	// Known is the IMDb id of a title the target rates on IMDb (with
 	// votes), Rotten Tomatoes and Metacritic, and gives an awards line.
 	Known string
+	// Series is the IMDb id of a series the target rates on IMDb (with
+	// votes) whose first season rates each episode.
+	Series string
 	// Lines builds a call layer over a client, as a Node does.
 	Lines   func(*http.Client) *metadata.Lines
 	Timings provider.Timings
@@ -43,8 +46,10 @@ type Target struct {
 
 // Run drives the OMDb client through every call SlipStream makes and
 // asserts what holds on both sides: the test call answers, Known reads
-// three ratings inside their scales and an awards line, and an unknown id
-// is works.ErrNotFound. A target with a key also gets a wrong key refused.
+// three ratings inside their scales and an awards line, an unknown id is
+// works.ErrNotFound, Series reads an IMDb rating and its first season one
+// per episode, and a season the target lacks is works.ErrNotFound and not
+// an outage. A target with a key also gets a wrong key refused.
 // It then checks every recorded body against shape.json: keys and types,
 // no values. The daily cap is checked against the fake alone, since the
 // real one would spend a day's allowance.
@@ -52,13 +57,15 @@ func Run(t *testing.T, tgt Target) {
 	t.Helper()
 	ctx := t.Context()
 	rec := shape.NewRecorder(tgt.Client.Transport, func(string) string { return "title" })
-	client := func() *provider.Client {
+	seasons := shape.NewRecorder(tgt.Client.Transport, func(string) string { return "season" })
+	over := func(r *shape.Recorder) *provider.Client {
 		c := *tgt.Client
-		c.Transport = rec
+		c.Transport = r
 		return provider.New(tgt.Lines(&c), tgt.Endpoints, tgt.Timings)
 	}
+	client := func() *provider.Client { return over(rec) }
 	ask := func(key string) metadata.Ask {
-		return metadata.NewAsk(metadata.AskOptions{Ratings: true, Keys: map[metadata.ProviderID]string{provider.ID: key}})
+		return metadata.NewAsk(metadata.AskOptions{Ratings: metadata.RatingsWork, Keys: map[metadata.ProviderID]string{provider.ID: key}})
 	}
 	c := client()
 
@@ -94,11 +101,40 @@ func Run(t *testing.T, tgt Target) {
 		t.Errorf("Title(%s) = %v, want %s", unknownID, err, want)
 	}
 
+	series(t, c, over(seasons), ask(tgt.Key), tgt.Series)
+
 	if tgt.Key != "" {
 		if err := client().Test(ctx, ask("0")); !errors.Is(err, works.ErrRefused) {
 			t.Errorf("Test with a wrong key = %v, want works.ErrRefused", err)
 		}
 	}
 
-	shape.Verify(t, rec.Bodies(), shapeJSON, tgt.Record)
+	shape.Verify(t, append(rec.Bodies(), seasons.Bodies()...), shapeJSON, tgt.Record)
+}
+
+// absentSeason is a season number no series reaches.
+const absentSeason = 99
+
+func series(t *testing.T, titles, seasons *provider.Client, ask metadata.Ask, imdb string) {
+	t.Helper()
+	ctx := t.Context()
+	title, err := titles.Title(ctx, ask, imdb)
+	if err != nil || len(title.Ratings) == 0 || title.Ratings[0].Source != "imdb" || title.Ratings[0].Votes == nil {
+		t.Errorf("Title(%s) = %+v, %v; want an IMDb rating with votes", imdb, title, err)
+	}
+
+	first, err := seasons.Season(ctx, ask, imdb, 1)
+	if err != nil || len(first) == 0 {
+		t.Fatalf("Season(%s, 1) = %+v, %v; want its episodes", imdb, first, err)
+	}
+	for i, e := range first {
+		if e.Episode != i+1 || e.IMDbID == "" || e.Rating.Source != "imdb" || e.Rating.Value <= 0 || e.Rating.Value > works.RatingSources["imdb"].Scale || e.Rating.Votes != nil {
+			t.Errorf("Season(%s, 1) episode %d = %+v, want episode %d rated on IMDb without votes", imdb, i, e, i+1)
+		}
+	}
+
+	_, err = seasons.Season(ctx, ask, imdb, absentSeason)
+	if want := "GET " + imdb + " season 99: OMDb: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
+		t.Errorf("Season(%s, %d) = %v, want %s", imdb, absentSeason, err, want)
+	}
 }

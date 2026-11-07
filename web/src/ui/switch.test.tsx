@@ -38,3 +38,28 @@ test.each([
   const style = getComputedStyle(control.element());
   expect([style.width, style.height]).toEqual(size);
 });
+
+function knobOffset(control: Element) {
+  const track = control.getBoundingClientRect();
+  const knob = control.firstElementChild?.getBoundingClientRect();
+  return knob === undefined ? NaN : knob.left + knob.width / 2 - (track.left + track.width / 2);
+}
+
+function Season() {
+  const [on, setOn] = useState<boolean | "mixed">("mixed");
+  return <Switch label="Monitor season 2" checked={on} onCheckedChange={setOn} />;
+}
+
+test.each(["desktop", "phone"] satisfies ShellKind[])(
+  "in the %s shell a mixed switch reads mixed with its knob centred, and turns on",
+  async (shell) => {
+    renderKit(<Season />, { shell });
+    const control = page.getByRole("switch", { name: "Monitor season 2" });
+    await expect.element(control).toHaveAttribute("aria-checked", "mixed");
+    await expect.poll(() => Math.abs(knobOffset(control.element()))).toBeLessThan(0.5);
+    await control.click();
+    await expect.element(control).toHaveAttribute("aria-checked", "true");
+    await control.click();
+    await expect.element(control).toHaveAttribute("aria-checked", "false");
+  },
+);

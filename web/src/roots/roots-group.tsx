@@ -31,24 +31,23 @@ export function RootsGroup({
   volumes: readonly RootsNodeVolumes[];
   onAct: (acting: Acting) => void;
 }) {
-  const label = type.work.many;
   return (
-    <Section title={label} count={roots.length}>
+    <Section title={type.name} count={roots.length}>
       {roots.length === 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-glass px-4 py-3.5 ring-1 ring-hairline ring-inset">
-          <p className="text-ink-2">Add a library root to hold {label}.</p>
+          <p className="text-ink-2">Add a library root to hold {type.work.many}.</p>
           <Button
             icon={Add01Icon}
             onClick={() => {
               onAct({ kind: "add", contentType: type.id });
             }}
           >
-            {`Add a root for ${label}`}
+            {`Add a root for ${type.name}`}
           </Button>
         </div>
       ) : (
         <Table
-          label={`${label} roots`}
+          label={`${type.name} roots`}
           columns={rootColumns(type, nodes, volumes, onAct)}
           rows={roots}
           rowKey={(root) => root.id}

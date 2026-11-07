@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { harvestId } from "../../test/adding";
+import { addServer, anthologyCatalog, cinemaCatalog, harvestId } from "../../test/adding";
 import {
   capsule,
   group,
@@ -28,6 +28,28 @@ test("typing groups the library's Works, then the catalog's results, then comman
     "Orchard Harvest2019 · In the library",
     "See all resultsFilms",
   ]);
+});
+
+test("the Add groups hold every type's results, and one its source doesn't list opens the results page", async () => {
+  const catalogs = addServer({ catalogs: [cinemaCatalog(), anthologyCatalog()] });
+  const { router } = renderApp({
+    path: "/library",
+    handlers: library(undefined, catalogs).handlers,
+  });
+  await openFromCapsule();
+  await userEvent.keyboard("or");
+
+  await expect.poll(groupLabels).toEqual(["Works", "Add a Film", "Add an Anthology", "Commands"]);
+  expect(optionTexts("Add an Anthology")).toEqual([
+    "The Long ShelfHarbor Press",
+    "The Lost ShelfTide Books · Fixture source doesn't list this anthology. SlipStream needs Fixture source to keep it up to date.",
+    "See all resultsAnthologies",
+  ]);
+  await userEvent.click(
+    group("Add an Anthology").getByRole("option", { name: /^The Lost Shelf/u }),
+  );
+  await expect.element(palette()).not.toBeInTheDocument();
+  expect(router.state.location.href).toBe("/add?contentType=anthology&query=or");
 });
 
 test("Works ask the library for its first 8 matches", async () => {

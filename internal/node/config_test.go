@@ -32,7 +32,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	want := []string{
 		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
 		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines",
-		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
+		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
@@ -42,7 +42,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.downloading.announce_floor", "timings.downloading.resume_save", "timings.downloading.shutdown_save", "timings.downloading.start_spread", "timings.downloading.announce_jitter", "timings.downloading.totals_report", "timings.downloading.live_sample", "timings.downloading.route_check", "timings.downloading.resolve_hold", "timings.downloading.resolve_lease", "timings.downloading.resolve_keep", "timings.downloading.client_retry_min", "timings.downloading.client_retry_max", "timings.downloading.client_refused_retry", "timings.downloading.client_grace", "timings.downloading.client_resend_wait", "timings.downloading.client_missing_share", "timings.downloading.client_missing_floor", "timings.downloading.client_trackers", "timings.downloading.client_call", "timings.downloading.client_live_floor", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 		"timings.storing.stat",
 		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max", "timings.metadata.artwork_retry", "timings.metadata.changes_pages",
-		"timings.tmdb.interval", "timings.tmdb.burst", "timings.omdb.interval", "timings.omdb.burst",
+		"timings.tmdb.interval", "timings.tmdb.burst", "timings.tvdb.interval", "timings.tvdb.burst", "timings.omdb.interval", "timings.omdb.burst",
 		"timings.health.retry", "timings.health.check",
 	}
 	if !slices.Equal(paths, want) {
@@ -204,7 +204,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := Key{Key: "endpoints.content_types.fixture.api", Value: "https://fixture.invalid/v1", Default: "https://fixture.invalid/v1", Source: config.SourceDefault, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
-	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
 		t.Fatalf("resolved = %+v; want %+v, the key in the census and contentTypes [fixture]", resolved, key)
 	}
 
@@ -214,7 +214,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key = Key{Key: "endpoints.content_types.fixture.api", Value: "https://127.0.0.1:8443/v1", Default: "https://fixture.invalid/v1", Source: config.SourceEnv, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
-	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog"}) {
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog"}) {
 		t.Fatalf("resolved = %+v; want %+v and only the core endpoints in the census", resolved, key)
 	}
 	cfg, _, err = LoadConfig(env.DataDir, env.Environ, types, install.Dev)

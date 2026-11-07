@@ -1,5 +1,6 @@
-// Package omdb is fake-omdb: OMDb's lookup of a title by IMDb id, with
-// the ratings and awards the Scenario's omdb section lists. It takes any
+// Package omdb is fake-omdb: OMDb's lookup of a movie or a series by IMDb
+// id, with the ratings and awards the Scenario's omdb section lists, and
+// of a season of a series, with each episode's IMDb rating. It takes any
 // API key or none until a cue revokes it, and answers OMDb's daily cap once
 // a key has spent the Scenario's daily limit or a cue spends it.
 package omdb
@@ -49,6 +50,7 @@ var Fake = fake.Spec{
 type server struct {
 	titles map[string]scenario.OMDbTitle
 	names  map[string]movieName
+	series map[string]scenario.TVDBSeries
 	limit  int
 
 	mu      sync.Mutex
@@ -67,7 +69,7 @@ type movieName struct {
 }
 
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-	srv := &server{titles: map[string]scenario.OMDbTitle{}, names: map[string]movieName{}, seen: map[string]bool{}, revoked: map[string]bool{}}
+	srv := &server{titles: map[string]scenario.OMDbTitle{}, names: map[string]movieName{}, series: map[string]scenario.TVDBSeries{}, seen: map[string]bool{}, revoked: map[string]bool{}}
 	if s.OMDb != nil {
 		srv.limit = s.OMDb.DailyLimit
 		for _, t := range s.OMDb.Titles {
@@ -77,6 +79,13 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	if s.TMDB != nil {
 		for _, m := range s.TMDB.Movies {
 			srv.names[m.IMDbID] = movieName{title: m.Title, year: year(m)}
+		}
+	}
+	if s.TVDB != nil {
+		for _, t := range s.TVDB.Series {
+			if t.IMDb != "" {
+				srv.series[t.IMDb] = t
+			}
 		}
 	}
 	if err := fake.OnCue(env, RevokeKey.Name, srv.revoke); err != nil {
@@ -190,6 +199,7 @@ type titleJSON struct {
 	IMDbVotes  string       `json:"imdbVotes"`
 	IMDbID     string       `json:"imdbID"`
 	Type       string       `json:"Type"`
+	Seasons    string       `json:"totalSeasons,omitempty"`
 	Response   string       `json:"Response"`
 }
 
@@ -200,6 +210,10 @@ func (s *server) title(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := q.Get("i")
+	if q.Has("Season") {
+		s.season(w, id, q.Get("Season"))
+		return
+	}
 	if !imdbID.MatchString(id) {
 		failure(w, http.StatusOK, "Incorrect IMDb ID.")
 		return
@@ -212,7 +226,11 @@ func (s *server) title(w http.ResponseWriter, r *http.Request) {
 	name := s.names[id]
 	out := titleJSON{
 		Title: cmp.Or(name.title, notAvailable), Year: cmp.Or(name.year, notAvailable), Awards: cmp.Or(t.Awards, notAvailable), Ratings: []ratingJSON{},
-		Metascore: notAvailable, IMDbRating: notAvailable, IMDbVotes: notAvailable, IMDbID: id, Type: "movie", Response: "True",
+		Metascore: notAvailable, IMDbRating: notAvailable, IMDbVotes: notAvailable, IMDbID: id, Type: cmp.Or(t.Type, "movie"), Response: "True",
+	}
+	if t.Type == "series" {
+		out.Title = cmp.Or(s.series[id].Name, notAvailable)
+		out.Seasons = totalSeasons(t)
 	}
 	if t.IMDbRating != nil {
 		out.IMDbRating = strconv.FormatFloat(*t.IMDbRating, 'f', 1, 64)
@@ -227,6 +245,61 @@ func (s *server) title(w http.ResponseWriter, r *http.Request) {
 	if t.Metacritic != nil {
 		out.Metascore = strconv.Itoa(*t.Metacritic)
 		out.Ratings = append(out.Ratings, ratingJSON{"Metacritic", out.Metascore + "/100"})
+	}
+	reply(w, http.StatusOK, out)
+}
+
+// totalSeasons is the highest season OMDb lists for a series, as it
+// writes it.
+func totalSeasons(t scenario.OMDbTitle) string {
+	if len(t.Seasons) == 0 {
+		return notAvailable
+	}
+	return strconv.Itoa(slices.MaxFunc(t.Seasons, func(a, b scenario.OMDbSeason) int { return cmp.Compare(a.Number, b.Number) }).Number)
+}
+
+type seasonJSON struct {
+	Title    string        `json:"Title"`
+	Season   string        `json:"Season"`
+	Seasons  string        `json:"totalSeasons"`
+	Episodes []episodeJSON `json:"Episodes"`
+	Response string        `json:"Response"`
+}
+
+type episodeJSON struct {
+	Title      string `json:"Title"`
+	Released   string `json:"Released"`
+	Episode    string `json:"Episode"`
+	IMDbRating string `json:"imdbRating"`
+	IMDbID     string `json:"imdbID"`
+}
+
+// season answers one season of a series; any id, title or season OMDb
+// can't answer gets the same words. An episode's name and air date are
+// what fake-tvdb lists for that number in the series' Aired order.
+func (s *server) season(w http.ResponseWriter, id, number string) {
+	t, ok := s.titles[id]
+	n, err := strconv.Atoi(number)
+	i := slices.IndexFunc(t.Seasons, func(o scenario.OMDbSeason) bool { return o.Number == n })
+	if !ok || err != nil || t.Type != "series" || i < 0 {
+		failure(w, http.StatusOK, "Series or season not found!")
+		return
+	}
+	tvdb := s.series[id]
+	var aired []scenario.TVDBEpisode
+	if j := slices.IndexFunc(tvdb.Seasons, func(o scenario.TVDBSeason) bool { return o.Number == n }); j >= 0 {
+		aired = tvdb.Seasons[j].Episodes
+	}
+	out := seasonJSON{Title: cmp.Or(tvdb.Name, notAvailable), Season: number, Seasons: totalSeasons(t), Episodes: []episodeJSON{}, Response: "True"}
+	for _, e := range t.Seasons[i].Episodes {
+		ep := episodeJSON{Title: notAvailable, Released: notAvailable, Episode: strconv.Itoa(e.Episode), IMDbRating: notAvailable, IMDbID: e.IMDbID}
+		if k := slices.IndexFunc(aired, func(a scenario.TVDBEpisode) bool { return a.Number == e.Episode }); k >= 0 {
+			ep.Title, ep.Released = aired[k].Name, cmp.Or(aired[k].Aired, notAvailable)
+		}
+		if e.Rating != nil {
+			ep.IMDbRating = strconv.FormatFloat(*e.Rating, 'f', 1, 64)
+		}
+		out.Episodes = append(out.Episodes, ep)
 	}
 	reply(w, http.StatusOK, out)
 }

@@ -29,7 +29,7 @@ var (
 
 func grabbed(t *testing.T, a *worldtest.API, rel magnetRelease) string {
 	t.Helper()
-	work := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+rel.key+`","monitor":true}`), &added{})
+	work := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+rel.key+`","preset":"all"}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(work.Work, &tr); err != nil {
 		t.Fatal(err)

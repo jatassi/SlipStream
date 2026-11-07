@@ -153,9 +153,9 @@ type Cell struct {
 }
 
 // Wanted is whether a search should try to fill the cell: a missing,
-// failed or upgradable cell of a monitored, released Item.
+// failed or upgradable cell of a counted, released Item.
 func (c Cell) Wanted() bool {
-	return c.Item.Monitored && c.Released && (c.State == Missing || c.State == Failed || c.State == Upgradable)
+	return c.Item.Counts() && c.Released && (c.State == Missing || c.State == Failed || c.State == Upgradable)
 }
 
 // Status rolls one Item's cells up to the first State any holds, in the

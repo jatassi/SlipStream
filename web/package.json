@@ -57,6 +57,7 @@
   },
   "packageManager": "bun@1.4.3",
   "patchedDependencies": {
-    "msw@3.0.3": "patches/msw@3.0.3.patch"
+    "msw@3.0.3": "patches/msw@3.0.3.patch",
+    "@base-ui/react@1.9.0": "patches/@base-ui%2Freact@1.9.0.patch"
   }
 }

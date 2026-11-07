@@ -643,6 +643,19 @@
           "additionalProperties": false,
           "type": "object"
         },
+        "tvdb": {
+          "properties": {
+            "interval": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "burst": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
         "omdb": {
           "properties": {
             "interval": {
@@ -1119,6 +1132,393 @@
             "count",
             "seed"
           ]
+        },
+        "series": {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "tvdb": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "name": {
+                "type": "string"
+              },
+              "original_name": {
+                "type": "string"
+              },
+              "original_language": {
+                "type": "string",
+                "pattern": "^[a-z]{2}$"
+              },
+              "overview": {
+                "type": "string"
+              },
+              "first_aired": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "network": {
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "name"
+                ]
+              },
+              "creators": {
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "character": {
+                      "type": "string"
+                    },
+                    "profile": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name"
+                  ]
+                },
+                "type": "array"
+              },
+              "credits": {
+                "properties": {
+                  "cast": {
+                    "items": {
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "character": {
+                          "type": "string"
+                        },
+                        "profile": {
+                          "type": "string",
+                          "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name"
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "crew": {
+                    "items": {
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "department": {
+                          "type": "string"
+                        },
+                        "job": {
+                          "type": "string"
+                        },
+                        "profile": {
+                          "type": "string",
+                          "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "department",
+                        "job"
+                      ]
+                    },
+                    "type": "array"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object"
+              },
+              "certifications": {
+                "items": {
+                  "properties": {
+                    "country": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$"
+                    },
+                    "rating": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "country",
+                    "rating"
+                  ]
+                },
+                "type": "array"
+              },
+              "trailer": {
+                "type": "string"
+              },
+              "images": {
+                "items": {
+                  "properties": {
+                    "shape": {
+                      "type": "string",
+                      "enum": [
+                        "poster",
+                        "backdrop",
+                        "logo"
+                      ]
+                    },
+                    "language": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2}$"
+                    },
+                    "votes": {
+                      "type": "number",
+                      "maximum": 10,
+                      "minimum": 0
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "shape"
+                  ]
+                },
+                "type": "array"
+              },
+              "vote_average": {
+                "type": "number",
+                "maximum": 10,
+                "minimum": 0
+              },
+              "vote_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deleted": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "tvdb": {
+      "properties": {
+        "series": {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "english": {
+                "type": "string"
+              },
+              "aliases": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "continuing",
+                  "ended",
+                  "upcoming"
+                ]
+              },
+              "network": {
+                "type": "string"
+              },
+              "imdb": {
+                "type": "string",
+                "pattern": "^tt[0-9]{7,}$"
+              },
+              "tmdb": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "seasons": {
+                "items": {
+                  "properties": {
+                    "number": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "episodes": {
+                      "items": {
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "number": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "aired": {
+                            "type": "string",
+                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                          },
+                          "runtime": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "number",
+                          "name"
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "dvd": {
+                "patternProperties": {
+                  "^[0-9]+$": {
+                    "properties": {
+                      "season": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "episode": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object"
+              },
+              "absolute": {
+                "patternProperties": {
+                  "^[0-9]+$": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "status"
+            ]
+          },
+          "type": "array"
+        },
+        "generated": {
+          "items": {
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "seasons": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "episodes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "seed": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "count",
+              "seasons",
+              "episodes",
+              "seed"
+            ]
+          },
+          "type": "array"
+        },
+        "token_lifetime": {
+          "type": "string",
+          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
         }
       },
       "additionalProperties": false,
@@ -1158,6 +1558,55 @@
               },
               "awards": {
                 "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "movie",
+                  "series"
+                ]
+              },
+              "seasons": {
+                "items": {
+                  "properties": {
+                    "number": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "episodes": {
+                      "items": {
+                        "properties": {
+                          "episode": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "imdb_id": {
+                            "type": "string",
+                            "pattern": "^tt[0-9]{7,}$"
+                          },
+                          "rating": {
+                            "type": "number",
+                            "maximum": 10,
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "episode",
+                          "imdb_id"
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "number"
+                  ]
+                },
+                "type": "array"
               }
             },
             "additionalProperties": false,
@@ -1182,6 +1631,27 @@
           "tmdb_id": {
             "type": "integer",
             "minimum": 1
+          },
+          "tvdb": {
+            "properties": {
+              "series": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "season": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "episode": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "series"
+            ]
           },
           "video": {
             "properties": {
@@ -1256,7 +1726,6 @@
         "type": "object",
         "required": [
           "name",
-          "tmdb_id",
           "video"
         ]
       },
@@ -1612,11 +2081,21 @@
             "content_type": {
               "type": "string",
               "enum": [
-                "movie"
+                "movie",
+                "series"
               ]
             },
-            "monitor": {
-              "type": "boolean"
+            "preset": {
+              "type": "string",
+              "enum": [
+                "all",
+                "future",
+                "missing",
+                "existing",
+                "first",
+                "latest",
+                "none"
+              ]
             }
           },
           "additionalProperties": false,

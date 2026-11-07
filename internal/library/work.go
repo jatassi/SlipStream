@@ -19,6 +19,9 @@ type Work struct {
 	Profile targets.Profile
 	Root    *roots.Root
 	Timings map[works.ItemID]targets.Timing
+	// Options are the Work's level folder switch and its type's own
+	// options.
+	Options works.OptionsChange
 }
 
 // Work reads Work id and what its page shows beside it from one snapshot,
@@ -38,7 +41,11 @@ func (l *Library) Work(ctx context.Context, _ identity.Admin, id works.WorkID) (
 		if err != nil {
 			return err
 		}
-		out = Work{Tree: tree, Links: l.cfg.Works.Links(tree), Profile: goals.Profile, Timings: timings}
+		options, err := l.cfg.Works.OptionsOf(ctx, r, id)
+		if err != nil {
+			return err
+		}
+		out = Work{Tree: tree, Links: l.cfg.Works.Links(tree), Profile: goals.Profile, Timings: timings, Options: options}
 		root, err := roots.OfWork(ctx, r, id)
 		switch {
 		case errors.Is(err, roots.ErrNoRoot):

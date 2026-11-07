@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -31,8 +32,12 @@ type Provider struct {
 	// Rate and Burst are the token bucket per provider per holder.
 	Rate  rate.Limit
 	Burst int
-	// Key puts the key on a request; nil for a keyless host.
+	// Key puts the key on a request; nil for a keyless host or one that
+	// takes its key through Auth.
 	Key func(q url.Values, key string)
+	// Auth logs in for a bearer token, nil for a provider that takes its
+	// key on the query. A provider sets Key or Auth, not both.
+	Auth *Auth
 	// Classify reads an answer the shared rules don't settle, such as a 200
 	// whose body says the daily allowance is spent. Nil leaves every answer
 	// to the shared rules.
@@ -44,8 +49,31 @@ type Provider struct {
 	Attribution *Attribution
 }
 
+// Auth is how a provider trades its key, and a PIN when one is set, for a
+// bearer token.
+type Auth struct {
+	// Login is the JSON POST that logs in; pin is empty when none is set.
+	Login func(key, pin string) (u *url.URL, body []byte)
+	// Token reads a 200 login's token and when it expires.
+	Token func(body []byte) (token string, expires time.Time, err error)
+	// Refused is which credential a refused login names: CredentialKey
+	// when the body can't tell.
+	Refused func(status int, body []byte) Credential
+	// Pin is whether the provider takes an optional PIN beside its key, so
+	// Set key offers one.
+	Pin bool
+}
+
+// Credential is the part of a login a provider refused.
+type Credential uint8
+
+const (
+	CredentialKey Credential = iota + 1
+	CredentialPin
+)
+
 // Attribution is a provider's required credit: its words, and the key of
-// the logo the web app bundles for it.
+// the logo the web app bundles for it, empty when it bundles none.
 type Attribution struct {
 	Text, Logo string
 }
@@ -53,7 +81,7 @@ type Attribution struct {
 type Timings struct {
 	// Attempts bounds the tries of one call, the first included.
 	Attempts int `yaml:"attempts"`
-	// Try bounds one try, its body included.
+	// Try bounds one request, its body included.
 	Try time.Duration `yaml:"try"`
 	// RetryMin and RetryMax bound the jittered backoff between tries.
 	RetryMin time.Duration `yaml:"retry_min"`
@@ -107,7 +135,7 @@ func (l *Lines) Line(p Provider) *Line {
 	if _, ok := l.lines[p.ID]; ok {
 		panic(fmt.Sprintf("metadata: provider %s already has a Line", p.ID))
 	}
-	line := &Line{lines: l, p: p, bucket: rate.NewLimiter(p.Rate, p.Burst), gates: map[string]Outcome{}}
+	line := &Line{lines: l, p: p, bucket: rate.NewLimiter(p.Rate, p.Burst), gates: map[string]Outcome{}, sessions: map[credential]*session{}}
 	l.lines[p.ID] = line
 	return line
 }
@@ -129,6 +157,18 @@ type Line struct {
 	// key included; no call with that key is sent before its Until. An
 	// allowance is a key's, so another key goes on.
 	gates map[string]Outcome
+	// sessions is the login of each key and PIN a call has sent.
+	sessions map[credential]*session
+}
+
+type credential struct{ key, pin string }
+
+// session is one credential's bearer token. Its mutex holds each call
+// while one logs in, so calls on an expired token log in once.
+type session struct {
+	mu      sync.Mutex
+	token   string
+	expires time.Time
 }
 
 type Request struct {
@@ -188,6 +228,7 @@ func (l *Line) decode(body []byte, v any) error {
 }
 
 type answer struct {
+	status int
 	body   []byte
 	header http.Header
 }
@@ -198,6 +239,7 @@ var failures = map[OutcomeKind]error{
 	Limited:     works.ErrUnavailable,
 	Capped:      works.ErrUnavailable,
 	Unreachable: works.ErrUnavailable,
+	PinRefused:  works.ErrRefused,
 }
 
 // verdict is what one try settled: an outcome, the answer when it is OK,
@@ -236,10 +278,10 @@ func (l *Line) tries(ctx context.Context, ask Ask, u *url.URL, lookup bool) (ver
 		if o, shut := l.shut(ask); shut {
 			return verdict{Outcome: o}, nil
 		}
-		if err := l.bucket.Wait(ctx); err != nil {
-			return verdict{}, fmt.Errorf("waiting on the rate limit: %w", err)
+		v, err := l.try(ctx, ask, u, lookup)
+		if err != nil {
+			return verdict{}, err
 		}
-		v := l.try(ctx, ask, u, lookup)
 		if err := ctx.Err(); err != nil {
 			return verdict{}, fmt.Errorf("gave up: %w", err)
 		}
@@ -262,52 +304,143 @@ func (l *Line) tries(ctx context.Context, ask Ask, u *url.URL, lookup bool) (ver
 	}
 }
 
-func (l *Line) try(ctx context.Context, ask Ask, u *url.URL, lookup bool) verdict {
+func (l *Line) try(ctx context.Context, ask Ask, u *url.URL, lookup bool) (verdict, error) {
+	if l.p.Auth == nil {
+		return l.send(ctx, outgoing{method: http.MethodGet, url: l.keyed(ask, u)}, lookup)
+	}
+	c := credential{key: ask.keys[l.p.ID], pin: ask.pins[l.p.ID]}
+	if c.key == "" {
+		return verdict{Outcome: l.outcome(Refused, "can't be called without a key")}, nil
+	}
+	var stale string
+	for {
+		b, v, err := l.bearer(ctx, c, stale)
+		if err != nil || v.Kind != OK {
+			return v, err
+		}
+		v, err = l.send(ctx, outgoing{method: http.MethodGet, url: u, bearer: b.token}, lookup)
+		if err != nil || v.status != http.StatusUnauthorized || b.minted || stale != "" {
+			return v, err
+		}
+		stale = b.token
+	}
+}
+
+type bearer struct {
+	token string
+	// minted is whether this call logged in for it.
+	minted bool
+}
+
+// bearer is c's token, from a login when c has none, it has expired or it
+// is stale, the token a 401 just refused. A verdict that isn't OK is why
+// the login failed.
+func (l *Line) bearer(ctx context.Context, c credential, stale string) (bearer, verdict, error) {
+	l.mu.Lock()
+	s, ok := l.sessions[c]
+	if !ok {
+		s = &session{}
+		l.sessions[c] = s
+	}
+	l.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.token != "" && s.token != stale && time.Now().Before(s.expires) {
+		return bearer{token: s.token}, verdict{Outcome: Outcome{Kind: OK}}, nil
+	}
+	s.token = ""
+	u, body := l.p.Auth.Login(c.key, c.pin)
+	v, err := l.send(ctx, outgoing{method: http.MethodPost, url: u, body: body}, false)
+	switch {
+	case err != nil:
+		return bearer{}, verdict{}, err
+	case v.Kind == Refused && l.p.Auth.Refused(v.status, v.body) == CredentialPin:
+		return bearer{}, verdict{Outcome: l.outcome(PinRefused, "refused the PIN")}, nil
+	case v.Kind != OK:
+		return bearer{}, v, nil
+	}
+	token, expires, err := l.p.Auth.Token(v.body)
+	if err != nil {
+		return bearer{}, verdict{Outcome: l.outcome(Unreachable, "sent a login response SlipStream can't read: "+err.Error())}, nil
+	}
+	s.token, s.expires = token, expires
+	return bearer{token: token, minted: true}, v, nil
+}
+
+type outgoing struct {
+	method string
+	url    *url.URL
+	// body is sent as JSON when set.
+	body   []byte
+	bearer string
+}
+
+// send waits on the bucket, sends o and classifies the response.
+func (l *Line) send(ctx context.Context, o outgoing, lookup bool) (verdict, error) {
+	if err := l.bucket.Wait(ctx); err != nil {
+		return verdict{}, fmt.Errorf("waiting on the rate limit: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, l.lines.timings.Try)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, l.keyed(ask, u).String(), http.NoBody)
+	var sent io.Reader = http.NoBody
+	if o.body != nil {
+		sent = bytes.NewReader(o.body)
+	}
+	req, err := http.NewRequestWithContext(ctx, o.method, o.url.String(), sent)
 	if err != nil {
-		return verdict{Outcome: l.outcome(Unreachable, "can't be requested at "+u.Redacted())}
+		return verdict{Outcome: l.outcome(Unreachable, "can't be requested at "+o.url.Redacted())}, nil
 	}
 	req.Header.Set("User-Agent", l.lines.userAgent)
+	if o.body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if o.bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+o.bearer)
+	}
 	res, err := l.lines.client.Do(req)
 	if err != nil {
 		if ue, ok := errors.AsType[*url.Error](err); ok {
 			err = ue.Err
 		}
-		return verdict{Outcome: l.outcome(Unreachable, "didn't respond: "+err.Error()), retry: true}
+		return verdict{Outcome: l.outcome(Unreachable, "didn't respond: "+err.Error()), retry: true}, nil
 	}
 	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(res.Body, MaxBody+1))
 	if err != nil {
-		return verdict{Outcome: l.outcome(Unreachable, "ended its response early: "+err.Error()), retry: true}
+		return verdict{Outcome: l.outcome(Unreachable, "ended its response early: "+err.Error()), retry: true}, nil
 	}
 	if len(body) > MaxBody {
-		return verdict{Outcome: l.outcome(Unreachable, "sent a response over 16 MiB")}
+		return verdict{Outcome: l.outcome(Unreachable, "sent a response over 16 MiB")}, nil
 	}
+	return l.classify(answer{status: res.StatusCode, body: body, header: res.Header}, res.Status, lookup), nil
+}
+
+func (l *Line) classify(a answer, status string, lookup bool) verdict {
 	now := time.Now()
 	if l.p.Classify != nil {
-		if o, ok := l.p.Classify(res.StatusCode, res.Header, body, now); ok {
+		if o, ok := l.p.Classify(a.status, a.header, a.body, now); ok {
 			o.Provider, o.At = l.p.ID, now
-			return verdict{Outcome: o, answer: answer{body: body, header: res.Header}}
+			return verdict{Outcome: o, answer: a}
 		}
 	}
+	v := verdict{answer: a}
 	switch {
-	case res.StatusCode == http.StatusOK:
-		return verdict{Outcome: l.outcome(OK, ""), answer: answer{body: body, header: res.Header}}
-	case res.StatusCode == http.StatusTooManyRequests:
-		until := now.Add(l.retryAfter(res.Header, now))
-		o := l.outcome(Limited, "is rate limited until "+until.UTC().Format(time.RFC3339))
-		o.Until = until
-		return verdict{Outcome: o}
-	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
-		return verdict{Outcome: l.outcome(Refused, "refused the key: "+res.Status)}
-	case res.StatusCode == http.StatusNotFound && lookup:
-		return verdict{Outcome: l.outcome(NotFound, "has no such record")}
-	case res.StatusCode >= http.StatusInternalServerError:
-		return verdict{Outcome: l.outcome(Unreachable, "responded with "+res.Status), retry: true}
+	case a.status == http.StatusOK:
+		v.Outcome = l.outcome(OK, "")
+	case a.status == http.StatusTooManyRequests:
+		until := now.Add(l.retryAfter(a.header, now))
+		v.Outcome = l.outcome(Limited, "is rate limited until "+until.UTC().Format(time.RFC3339))
+		v.Until = until
+	case a.status == http.StatusUnauthorized || a.status == http.StatusForbidden:
+		v.Outcome = l.outcome(Refused, "refused the key: "+status)
+	case a.status == http.StatusNotFound && lookup:
+		v.Outcome = l.outcome(NotFound, "has no such record")
+	case a.status >= http.StatusInternalServerError:
+		v.Outcome, v.retry = l.outcome(Unreachable, "responded with "+status), true
+	default:
+		v.Outcome = l.outcome(Unreachable, "responded with "+status)
 	}
-	return verdict{Outcome: l.outcome(Unreachable, "responded with "+res.Status)}
+	return v
 }
 
 // retryAfter reads Retry-After as seconds or an HTTP date. Without one the
@@ -325,7 +458,7 @@ func (l *Line) retryAfter(h http.Header, now time.Time) time.Duration {
 
 func (l *Line) keyed(ask Ask, u *url.URL) *url.URL {
 	key := l.key(ask)
-	if key == "" {
+	if key == "" || l.p.Key == nil {
 		return u
 	}
 	q := u.Query()
@@ -337,7 +470,7 @@ func (l *Line) keyed(ask Ask, u *url.URL) *url.URL {
 
 // key is the key a call with ask sends: none to a keyless host.
 func (l *Line) key(ask Ask) string {
-	if l.p.Key == nil {
+	if l.p.Key == nil && l.p.Auth == nil {
 		return ""
 	}
 	return ask.keys[l.p.ID]
