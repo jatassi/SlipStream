@@ -326,6 +326,14 @@ jobs:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
           TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      - name: Upload pw json
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: pwjson-${{ matrix.target }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/pwjson
+          retention-days: 3
+          if-no-files-found: ignore
       - name: Upload fakeworld replay bundles on failure
         if: failure() && steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v7

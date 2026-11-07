@@ -227,8 +227,9 @@ func testBrowser(ctx context.Context, root string, o testOptions) error {
 	if err := run(ctx, web, env, "bun", "run", "e2e:install"); err != nil {
 		return err
 	}
-	for _, args := range playwrightRuns(o) {
-		if err := run(ctx, web, env, "bun", append([]string{"run", "e2e"}, args...)...); err != nil {
+	for i, args := range playwrightRuns(o) {
+		e := append(slices.Clone(env), "PLAYWRIGHT_JSON_OUTPUT_FILE="+filepath.Join(os.Getenv("RUNNER_TEMP"), "pwjson", strconv.Itoa(i)+".json"))
+		if err := run(ctx, web, e, "bun", append([]string{"run", "e2e", "--reporter=dot,json"}, args...)...); err != nil {
 			return err
 		}
 	}
