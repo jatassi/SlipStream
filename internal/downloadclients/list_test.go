@@ -197,7 +197,7 @@ func TestTheListDerivesEachTorrentsWordsAndCountsThemAll(t *testing.T) {
 		{dc.Filter{Search: "lights.2019"}, []string{"Harbor"}},
 		{dc.Filter{Search: "quiet orchard"}, []string{"Harbor"}},
 		{dc.Filter{Type: contenttypetest.ID, Tab: dc.TabSeeding}, []string{"Harbor"}},
-		{dc.Filter{Type: "series"}, nil},
+		{dc.Filter{Type: "anthology"}, nil},
 	} {
 		if got := names(l, list(t, c, c2.filter).Rows); !slices.Equal(got, c2.want) {
 			t.Errorf("listed under %+v: %v, want %v", c2.filter, got, c2.want)
