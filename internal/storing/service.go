@@ -407,7 +407,7 @@ func (s *Store) Judge(ctx context.Context, path string, purpose Purpose) (CheckR
 
 // check judges path as a folder for purpose: absolute, there, a folder,
 // apart from the folders purpose reserves, on no network share for
-// downloads, and writable by a temp file.
+// downloads, and writable by a temp file but for a client folder.
 func (s *Store) check(ctx context.Context, path string, purpose Purpose, others []Other) (CheckResult, error) {
 	dir, err := s.host.Style.Clean(path)
 	switch {
@@ -438,6 +438,9 @@ func (s *Store) check(ctx context.Context, path string, purpose Purpose, others 
 		c.Refusal = &Refusal{Reason: ReasonNetworkShare}
 		return c, nil
 	}
+	if purpose == PurposeClientFolder {
+		return c, nil
+	}
 	if _, err := timed(ctx, s, dir, func(ctx context.Context) (struct{}, error) { return struct{}{}, s.tryWrite(ctx, dir) }); err != nil {
 		reason := ReasonUnwritable
 		if errors.Is(err, errUnresponsive) {
@@ -449,13 +452,13 @@ func (s *Store) check(ctx context.Context, path string, purpose Purpose, others 
 }
 
 // reserved is every folder a folder for purpose may not overlap: for a
-// root, others and the Node's data and downloads folders; for downloads,
-// every root the Node holds.
+// root, others and the Node's data and downloads folders; for downloads
+// and a client folder, every root the Node holds.
 func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
 	switch purpose {
 	case PurposeRoot:
 		return append(apartFrom(others), forRoot(s.host.Data, s.cfg.Downloads())...)
-	case PurposeDownloads:
+	case PurposeDownloads, PurposeClientFolder:
 		s.mu.Lock()
 		held := make([]Other, len(s.roots))
 		for i, r := range s.roots {

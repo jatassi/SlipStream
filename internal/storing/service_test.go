@@ -403,6 +403,50 @@ func TestCheckForDownloads(t *testing.T) {
 	}
 }
 
+func TestCheckForAClientFolder(t *testing.T) {
+	d := newTestDisk(t)
+	base := t.TempDir()
+	share := dir(t, base, "share")
+	d.volumes[share] = Volume{ID: "nas", Kind: Network}
+	held := storage.NewUUID()
+	heldAt := marked(t, held)
+	readOnly := dir(t, base, "read-only")
+	d.flag(d.readOnly, readOnly)
+	s := newStore(d)
+	running(t, s, intentOf(rootAt(held, heldAt, false))).next(t)
+	folders := foldersOf(s)
+	for _, c := range []struct {
+		name   string
+		path   string
+		reason Reason
+		root   storage.UUID
+	}{
+		{"missing", filepath.Join(base, "gone"), ReasonNotFound, storage.UUID{}},
+		{"inside a root the Node holds", dir(t, heldAt, "torrents"), ReasonInsideRoot, held},
+		{"containing a root the Node holds", filepath.Dir(heldAt), ReasonContainsRoot, held},
+	} {
+		got, err := folders.Check(t.Context(), node, c.path, PurposeClientFolder, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if got.Refusal == nil || got.Refusal.Reason != c.reason || got.Refusal.Root != c.root {
+			t.Errorf("%s: refusal = %+v, want %v naming %v", c.name, got.Refusal, c.reason, c.root)
+		}
+	}
+	for name, path := range map[string]string{
+		"on a network share": dir(t, share, "torrents"),
+		"read-only":          readOnly,
+	} {
+		got, err := folders.Check(t.Context(), node, path, PurposeClientFolder, nil)
+		if err != nil || got.Refusal != nil {
+			t.Errorf("%s: Check = %+v, %v, want usable", name, got, err)
+		}
+		if es, _ := os.ReadDir(path); len(es) != 0 {
+			t.Errorf("%s: Check left %d entries in the folder, want it never written", name, len(es))
+		}
+	}
+}
+
 func TestVerifyFindsMissingFilesInBatches(t *testing.T) {
 	d := newTestDisk(t)
 	folder := t.TempDir()

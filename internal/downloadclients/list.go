@@ -15,6 +15,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -25,8 +26,13 @@ var ErrNotFound = errors.New("no Torrent has this id")
 // Row is one Torrent as the Torrents view lists it: its record and what
 // is derived from it.
 type Row struct {
-	ID          ID
-	Node        role.NodeID
+	ID   ID
+	Node role.NodeID
+	// Client is nil for the Node's built-in client.
+	Client *ClientRef
+	// Attached is an external torrent that was in its client before
+	// SlipStream attached to it.
+	Attached    bool
 	Name        string
 	Size        int64
 	ContentType works.TypeID
@@ -38,7 +44,7 @@ type Row struct {
 	Until    time.Time
 	Severity Severity
 	Tabs     Tab
-	// QueuePosition is its place, from 1, among its Node's downloads
+	// QueuePosition is its place, from 1, among its client's downloads
 	// waiting for a slot, 0 while it waits for none.
 	QueuePosition int
 	// Pending is the wanted state its Node has yet to act on, "" when
@@ -49,8 +55,10 @@ type Row struct {
 	Totals Totals
 	// Tracker is nil for a Torrent whose metainfo names no tracker.
 	Tracker *TrackerCell
-	Error   string
-	Fault   *Fault
+	// Error is the engine's error text while failed, or an external
+	// client's words for its local error.
+	Error string
+	Fault *Fault
 	// LastKnown is when its Node last reported it, set only while the
 	// Node is out of step.
 	LastKnown time.Time
@@ -184,7 +192,11 @@ func (c *Clients) rows(ctx context.Context, r storage.Reader[file]) ([]Row, erro
 		if err != nil {
 			return nil, fmt.Errorf("torrent %s: %w", h.ID, err)
 		}
-		if row.State == StateQueued && row.Hold == HoldSlot {
+		switch {
+		case row.State != StateQueued || row.Hold != HoldSlot:
+		case row.Client != nil:
+			row.QueuePosition = row.report.QueuePosition
+		default:
 			inLine[row.Node]++
 			row.QueuePosition = inLine[row.Node]
 		}
@@ -207,6 +219,7 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	row := Row{
 		ID: h.ID, Node: h.NodeID, Name: h.Name, Size: h.Size, ContentType: h.ContentType, AddedAt: h.AddedAt.Time(),
 		Uses: uses, State: state, Severity: SeverityOf(facts, state), Tabs: TabsOf(facts, state),
+		Client: refOf(h.ClientID, h.ClientKind, h.ClientName), Attached: h.Attached != nil && *h.Attached,
 		Done: rep.done(h.Size), Tracker: cellOf(hosts, rep), report: rep,
 		Totals: Totals{
 			Uploaded: h.Uploaded, Downloaded: h.Downloaded,
@@ -227,7 +240,7 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 		return row, nil
 	}
 	row.Hold, row.Until = rep.Hold, rep.Until
-	if rep.Engine == EngineFailed {
+	if rep.Engine == EngineFailed || rep.Hold == HoldClientError {
 		row.Error = rep.Error
 	}
 	if !c.cfg.Roster.InStep(h.NodeID) {
@@ -236,11 +249,24 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	return row, nil
 }
 
+// refOf is a Torrent's client as a row names it, nil for the built-in
+// client.
+func refOf(id *ClientID, kind clients.Kind, name string) *ClientRef {
+	if id == nil {
+		return nil
+	}
+	return &ClientRef{ID: *id, Kind: kind, Name: name}
+}
+
 // pendingOf is wanted when the Node's report doesn't yet show it: a pause
-// the Node hasn't held it for, or a resume of one it still holds.
+// the client doesn't hold it for, or a resume of one it still holds. The
+// built-in client holds it with HoldWanted, an external one with a paused
+// run. A stop at a seeding limit is no pause, so it leaves no resume
+// pending.
 func pendingOf(wanted Wanted, rep *Report) Wanted {
-	held := rep != nil && rep.Hold == HoldWanted
-	if wanted == Paused && !held || wanted == Started && held {
+	held := rep != nil && (rep.Hold == HoldWanted || rep.Run == Paused)
+	limit := rep != nil && rep.StoppedAtLimit
+	if wanted == Paused && !held || wanted == Started && held && !limit {
 		return wanted
 	}
 	return ""

@@ -210,3 +210,11 @@ func (c *Client) Sample(ctx context.Context, _ *dlv1.SampleRequest) (*dlv1.Sampl
 	}
 	return &dlv1.SampleResponse{SampledAtUnixMs: v.SampledAt.UnixMilli()}, nil
 }
+
+func (c *Client) TestClient(context.Context, *dlv1.TestClientRequest) (*dlv1.TestClientResponse, error) {
+	return nil, rpc.Errorf(rpc.CodeUnimplemented, "this Node runs no external Download Client yet")
+}
+
+func (c *Client) CheckClients(context.Context, *dlv1.CheckClientsRequest) (*dlv1.CheckClientsResponse, error) {
+	return nil, rpc.Errorf(rpc.CodeUnimplemented, "this Node runs no external Download Client yet")
+}

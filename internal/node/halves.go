@@ -244,7 +244,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	downloadingv1connect.DownloadingControlService.Mount(cluster, downloadclients.TorrentService{Library: lib.db, Nodes: side, Types: tree})
+	downloadingv1connect.DownloadingControlService.Mount(cluster, downloadclients.ControlService{Library: lib.db, Sealer: lib.sealer, Nodes: side, Types: tree})
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
 			return systemv1connect.NodeSystemService.On(cluster, id)

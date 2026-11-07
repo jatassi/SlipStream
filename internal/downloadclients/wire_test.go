@@ -134,7 +134,7 @@ func TestTheTorrentServiceAnswersOnlyTheTorrentsOwnNode(t *testing.T) {
 	key := link.Key{7}
 	nodes := callers{key: a}
 	d := rpc.NewDispatch(nil, key, key, func(role.Name) bool { return true })
-	downloadingv1connect.DownloadingControlService.Mount(rpc.NewCluster(d, noRoster{}), dc.TorrentService{Library: lib, Nodes: nodes, Types: types{}})
+	downloadingv1connect.DownloadingControlService.Mount(rpc.NewCluster(d, noRoster{}), dc.ControlService{Library: lib, Nodes: nodes, Types: types{}})
 	svc := downloadingv1connect.DownloadingControlService.Call(d)
 	fetch := func() (*dlv1.TorrentResponse, error) {
 		return svc.Torrent(t.Context(), &dlv1.TorrentRequest{Id: id.Bytes()})

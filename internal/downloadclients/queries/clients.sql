@@ -20,3 +20,20 @@ SELECT * FROM downloadclients_client WHERE id = sqlc.arg(id) AND deleted_at IS N
 -- The on client a Node's new Grabs go to. No row is its built-in client.
 SELECT c.id FROM downloadclients_node n JOIN downloadclients_client c ON c.id = n.grabs_to
 WHERE n.node_id = sqlc.arg(node_id) AND c.is_on = 1 AND c.deleted_at IS NULL;
+
+-- name: ListNodeClients :many
+SELECT * FROM downloadclients_client WHERE node_id = sqlc.arg(node_id) AND deleted_at IS NULL ORDER BY id;
+
+-- name: GetClientSecrets :one
+SELECT node_id, secrets_sealed, settings_version FROM downloadclients_client
+WHERE id = sqlc.arg(id) AND deleted_at IS NULL;
+
+-- name: SetPoll :execrows
+-- A poll under settings older than the stored poll's changes nothing. A
+-- poll that answers no Check now keeps the last one's token.
+UPDATE downloadclients_client SET
+    poll_state = sqlc.arg(poll_state), poll_since = sqlc.arg(poll_since), poll_problem = sqlc.narg(poll_problem),
+    poll_settings_version = sqlc.arg(poll_settings_version), poll_check = coalesce(sqlc.narg(poll_check), poll_check),
+    client_version = sqlc.narg(client_version)
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND deleted_at IS NULL
+  AND (poll_settings_version IS NULL OR poll_settings_version <= sqlc.arg(poll_settings_version));

@@ -36,6 +36,47 @@ type External struct {
 	On                      bool
 	// Version is the settings version, bumped on every edit.
 	Version int64
+	// Poll is nil until the Node's first poll.
+	Poll *Poll
+}
+
+// Poll is the client's last poll as its Node reported it.
+type Poll struct {
+	State clients.PollState
+	Since time.Time
+	// Problem is nil while responding.
+	Problem *clients.Problem
+	// Version is the product's version, "4.1.1", "" before a sign-in.
+	Version string
+}
+
+// ClientReach is how an Admin reads an external client now: its Poll, or
+// Off, or its Node being offline, which no report says.
+type ClientReach string
+
+const (
+	ReachResponding     ClientReach = "responding"
+	ReachNotResponding  ClientReach = "not_responding"
+	ReachSignInRefused  ClientReach = "sign_in_refused"
+	ReachNeedsAttention ClientReach = "needs_attention"
+	ReachOff            ClientReach = "off"
+	ReachNodeOffline    ClientReach = "node_offline"
+	// ReachUnchecked is a client no poll has reached yet.
+	ReachUnchecked ClientReach = "unchecked"
+)
+
+// ReachOf derives a client's reach from the record and the link, in that order: off,
+// Node offline, then the poll.
+func ReachOf(e External, inStep bool) ClientReach {
+	switch {
+	case !e.On:
+		return ReachOff
+	case !inStep:
+		return ReachNodeOffline
+	case e.Poll == nil:
+		return ReachUnchecked
+	}
+	return ClientReach(e.Poll.State)
 }
 
 var (
@@ -89,7 +130,46 @@ func externalOf(row db.DownloadclientsClient) (External, error) {
 	if row.DaemonHost != nil {
 		e.Daemon = &clients.Daemon{Host: *row.DaemonHost, Port: int(*row.DaemonPort)}
 	}
+	if row.PollState != nil {
+		if e.Poll, err = pollOf(row); err != nil {
+			return External{}, fmt.Errorf("client %s: the stored poll: %w", row.ID, err)
+		}
+	}
 	return e, nil
+}
+
+func pollOf(row db.DownloadclientsClient) (*Poll, error) {
+	p := &Poll{State: clients.PollState(*row.PollState), Since: row.PollSince.Time()}
+	if row.ClientVersion != nil {
+		p.Version = *row.ClientVersion
+	}
+	if row.PollProblem == nil {
+		return p, nil
+	}
+	var s storedProblem
+	if err := json.Unmarshal([]byte(*row.PollProblem), &s); err != nil {
+		return nil, fmt.Errorf("decode the problem: %w", err)
+	}
+	p.Problem = &clients.Problem{Cause: s.Cause, Status: s.Status, Folder: s.Folder, Paired: s.Paired, Host: s.Host, Missing: s.Missing}
+	if s.Version != "" {
+		v, err := clients.ParseVersion(s.Version)
+		if err != nil {
+			return nil, err
+		}
+		p.Problem.Version = v
+	}
+	return p, nil
+}
+
+// storedProblem is how a poll's problem is stored.
+type storedProblem struct {
+	Cause   clients.Cause `json:"cause"`
+	Status  int           `json:"status,omitempty"`
+	Version string        `json:"version,omitempty"`
+	Folder  string        `json:"folder,omitempty"`
+	Paired  string        `json:"paired,omitempty"`
+	Host    string        `json:"host,omitempty"`
+	Missing int           `json:"missing,omitempty"`
 }
 
 // Imported is a client S54 (Import engine and import from v1) carries
@@ -151,4 +231,20 @@ func seal(sealer *secret.Sealer, id ClientID, s clients.Secrets) (secret.Sealed,
 		return secret.Sealed{}, fmt.Errorf("encode the secrets: %w", err)
 	}
 	return sealer.Seal(b, secretsColumn.Row(id.String())), nil
+}
+
+// unseal is client id's secrets, none when its row holds none.
+func unseal(sealer *secret.Sealer, id ClientID, sealed secret.Sealed) (clients.Secrets, error) {
+	if !sealed.Set() {
+		return clients.Secrets{}, nil
+	}
+	b, err := sealer.Open(sealed, secretsColumn.Row(id.String()))
+	if err != nil {
+		return clients.Secrets{}, fmt.Errorf("client %s: open the secrets: %w", id, err)
+	}
+	var s sealedSecrets
+	if err := json.Unmarshal(b, &s); err != nil {
+		return clients.Secrets{}, fmt.Errorf("client %s: decode the secrets: %w", id, err)
+	}
+	return clients.Secrets(s), nil
 }
