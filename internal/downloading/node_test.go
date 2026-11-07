@@ -291,10 +291,6 @@ func TestInspectActFreesAndTheSeamsRouteByTheClientThatHoldsEach(t *testing.T) {
 			t.Errorf("Inspect the built-in torrent = %v, %v; want its one file done", got, err)
 		}
 
-		ids := [][]byte{theirs.Bytes(), nobody.Bytes(), mine.Bytes()}
-		c.actsInOrder(t, ids, []dlv1.Refusal{dlv1.Refusal_REFUSAL_UNSPECIFIED, dlv1.Refusal_REFUSAL_NOT_HELD, dlv1.Refusal_REFUSAL_UNSPECIFIED})
-		c.freesInOrder(t, ids, []int64{1000, 0, size})
-
 		path, err := c.Open(source.Torrent{Hash: c.rels["orchard"].hash, File: 0})
 		if err != nil || path != filepath.Join(c.daemon.Dir, "Movies", "orchard.mkv") {
 			t.Errorf("Open orchard = %q, %v; want its file in the client's folder", path, err)
@@ -302,6 +298,10 @@ func TestInspectActFreesAndTheSeamsRouteByTheClientThatHoldsEach(t *testing.T) {
 		if _, err := c.Open(source.Torrent{Hash: f.hash, File: 0}); err != nil {
 			t.Errorf("Open the built-in torrent: %v", err)
 		}
+
+		ids := [][]byte{theirs.Bytes(), nobody.Bytes(), mine.Bytes()}
+		c.freesInOrder(t, ids, []int64{1000, 0, size})
+		c.actsInOrder(t, ids, []dlv1.Refusal{dlv1.Refusal_REFUSAL_UNSPECIFIED, dlv1.Refusal_REFUSAL_NOT_HELD, dlv1.Refusal_REFUSAL_UNSPECIFIED})
 	})
 }
 
