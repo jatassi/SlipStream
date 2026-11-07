@@ -14,7 +14,7 @@ export interface WorksFieldSpec {
    * @minimum 1
    */
   depth?: number;
-  /** Every place the Work page shows it */
+  /** Every place the Work page shows it. Code is the short identifier the many-Items layout shows before an Item's label */
   in: WorksFieldSpecInItem[];
   key: string;
   kind: WorksFieldSpecKind;

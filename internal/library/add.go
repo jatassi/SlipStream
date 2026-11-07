@@ -2,7 +2,6 @@ package library
 
 import (
 	"context"
-	"errors"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -25,10 +24,6 @@ type Adding struct {
 	LevelFolders *bool
 	Remember     bool
 }
-
-// errNotImplemented answers a monitoring choice the add can't apply yet:
-// a preset other than All or None, Include, or a Monitor new override.
-var errNotImplemented = errors.New("not implemented")
 
 // Added is the Work an add made or found. Created is false when it was
 // already in the library.

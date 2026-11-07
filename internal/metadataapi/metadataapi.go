@@ -105,7 +105,7 @@ type provider struct {
 
 type attribution struct {
 	Text string `json:"text" doc:"The sentence to show, word for word"`
-	Logo string `json:"logo" enum:"tmdb,tvdb" doc:"The logo the web app bundles to show beside it"`
+	Logo string `json:"logo" enum:"tmdb" doc:"The logo the web app bundles to show beside it"`
 }
 
 type details struct {

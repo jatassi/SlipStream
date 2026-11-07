@@ -267,7 +267,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		t.Fatalf("addWork again = %d %s", code, masked(again))
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
-	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
+	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `","unlisted":false}]}` + "\n"; code != http.StatusOK || search != want {
 		t.Fatalf("searchCatalog = %d %s, want %s", code, search, want)
 	}
 }
@@ -280,7 +280,7 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"aside":false,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}],"artwork":[]}],` +
 		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"aside":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],"availability":{"date":"2000-01-01","basis":""}}]}`
 	code, body := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
-	if want := `{"inLibrary":false,"work":` + tree + "}\n"; code != http.StatusOK || masked(body) != want {
+	if want := `{"inLibrary":false,"work":` + tree + `,"presets":null}` + "\n"; code != http.StatusOK || masked(body) != want {
 		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
 	expect(t, s, http.MethodGet, "/api/v1/library", "", 200, `{"rows":[]}`)
@@ -292,7 +292,7 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 	}
 	id := uuids.FindString(body)
 	code, body = s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
-	if code != http.StatusOK || !strings.HasPrefix(body, `{"inLibrary":true,"work":{"id":"`+id+`"`) || masked(body) != `{"inLibrary":true,"work":`+tree+"}\n" {
+	if code != http.StatusOK || !strings.HasPrefix(body, `{"inLibrary":true,"work":{"id":"`+id+`"`) || masked(body) != `{"inLibrary":true,"work":`+tree+`,"presets":null}`+"\n" {
 		t.Fatalf("previewCatalogRecord once added = %d %s, want the Work %s", code, body, id)
 	}
 }
@@ -331,6 +331,8 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrUnavailable))
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later."}`)
+	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrNotOnSource))
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 422, `{"status":422,"code":"not_on_source","title":"The metadata source doesn't list this record"}`)
 	s.fx.Fail("w1", nil)
 	bad := record()
 	bad.Tree.Children[0].Children = append(bad.Tree.Children[0].Children, works.Entry{Key: "c1", Label: "Again"})
@@ -338,6 +340,8 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 502, `{"status":502,"code":"metadata_invalid","title":"The metadata source sent a record SlipStream can't use"}`)
 	expect(t, s, http.MethodGet, "/api/v1/library?contentType=ghost", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String(), "", 404, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
+	expect(t, s, http.MethodPut, "/api/v1/works/"+storage.NewUUID().String()+"/monitored", `{"levelIds":[],"itemIds":[],"on":true}`, 422,
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"Send at least one level or Item id.","errors":[{"location":"body.levelIds","message":"Send at least one level or Item id."}]}`)
 
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 200,
 		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"aside":{"one":"Spare box","many":"Spare boxes"},"item":{"one":"Thing","many":"Things"},`+

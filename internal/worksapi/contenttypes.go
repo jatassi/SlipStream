@@ -48,21 +48,21 @@ type artworkKind struct {
 }
 
 type contentType struct {
-	ID           string        `json:"id" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	Name         string        `json:"name"`
-	Icon         string        `json:"icon" enum:"film,tv,note,open-book,headphones,panels,image,shapes"`
-	Enabled      bool          `json:"enabled"`
-	Work         noun          `json:"work"`
-	Levels       []noun        `json:"levels" nullable:"false" doc:"Outermost first; empty when Items hang off the Work"`
-	Aside        *noun         `json:"aside" doc:"What the type calls its outermost levels outside a Work's main run, such as Specials; null when it marks none"`
-	Item         noun          `json:"item"`
-	Fields       []fieldSpec   `json:"fields" nullable:"false"`
-	Artwork      []artworkKind `json:"artwork" nullable:"false" doc:"The kinds of image its Works and Items carry"`
-	Source       string        `json:"source" doc:"Its metadata source's name, such as TMDB"`
-	Items        string        `json:"items" enum:"one,many" doc:"How many Items a Work holds, which sets the Work page's layout"`
-	Art          artRoles      `json:"art"`
-	Ratings      []string      `json:"ratings" nullable:"false" doc:"The ratings sources its Works show, in order. The first a Work holds is its hero rating"`
-	Availability string        `json:"availability" doc:"The label of the Library's availability column and sort, such as Next airing; empty reads Available"`
+	ID           string             `json:"id" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Name         string             `json:"name"`
+	Icon         string             `json:"icon" enum:"film,tv,note,open-book,headphones,panels,image,shapes"`
+	Enabled      bool               `json:"enabled"`
+	Work         noun               `json:"work"`
+	Levels       []noun             `json:"levels" nullable:"false" doc:"Outermost first; empty when Items hang off the Work"`
+	Aside        api.Nullable[noun] `json:"aside" doc:"What the type calls its outermost levels outside a Work's main run, such as Specials; null when it marks none"`
+	Item         noun               `json:"item"`
+	Fields       []fieldSpec        `json:"fields" nullable:"false"`
+	Artwork      []artworkKind      `json:"artwork" nullable:"false" doc:"The kinds of image its Works and Items carry"`
+	Source       string             `json:"source" doc:"Its metadata source's name, such as TMDB"`
+	Items        string             `json:"items" enum:"one,many" doc:"How many Items a Work holds, which sets the Work page's layout"`
+	Art          artRoles           `json:"art"`
+	Ratings      []string           `json:"ratings" nullable:"false" doc:"The ratings sources its Works show, in order. The first a Work holds is its hero rating"`
+	Availability string             `json:"availability" doc:"The label of the Library's availability column and sort, such as Next airing; empty reads Available"`
 }
 
 func contentTypeOf(t works.ContentType) contentType {
@@ -76,8 +76,7 @@ func contentTypeOf(t works.ContentType) contentType {
 		out.Ratings = append(out.Ratings, string(r))
 	}
 	if t.Aside != (works.Noun{}) {
-		aside := noun(t.Aside)
-		out.Aside = &aside
+		out.Aside = api.Some(noun(t.Aside))
 	}
 	for _, k := range t.Artwork {
 		tier, depth := tierOf(k.Tier)
@@ -101,15 +100,15 @@ func contentTypeOf(t works.ContentType) contentType {
 }
 
 // tierOf is t on the wire, and its depth for a level tier.
-func tierOf(t works.Tier) (string, *int) {
+func tierOf(t works.Tier) (tier string, depth *int) {
 	switch t {
 	case works.TierWork:
 		return "work", nil
 	case works.TierItem:
 		return "item", nil
 	}
-	depth := int(t)
-	return "level", &depth
+	d := int(t)
+	return "level", &d
 }
 
 type contentTypeList struct {

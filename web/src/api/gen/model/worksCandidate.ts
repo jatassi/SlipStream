@@ -14,6 +14,8 @@ export interface WorksCandidate {
    * @nullable
    */
   posterUrl: string | null;
+  /** Another source found it and the Content Type's source doesn't list it, so it can't be added */
+  unlisted: boolean;
   /**
    * The Work, once it is in the library
    * @nullable

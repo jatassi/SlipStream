@@ -527,7 +527,11 @@ func encodeOrder(o Order) ([]byte, error) {
 	if o == OrderShelf || o == "" {
 		return nil, nil
 	}
-	return json.Marshal(options{Order: o})
+	b, err := json.Marshal(options{Order: o})
+	if err != nil {
+		return nil, fmt.Errorf("contenttypetest: encode order %s: %w", o, err)
+	}
+	return b, nil
 }
 
 // KeysOf maps none: a Shelf is known by its own key alone.

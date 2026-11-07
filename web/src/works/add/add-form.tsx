@@ -34,7 +34,7 @@ function AddButton({
             key: work.key,
             profileId: choices.profileId,
             ...(choices.rootId !== undefined && { rootId: choices.rootId }),
-            monitor: choices.monitor,
+            preset: choices.monitor ? "all" : "none",
             remember: choices.remember,
           },
         });

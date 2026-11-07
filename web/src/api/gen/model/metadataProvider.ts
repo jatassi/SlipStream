@@ -19,10 +19,14 @@ export interface MetadataProvider {
    */
   keySetAt: string | null;
   label: string;
+  /** The Admin's key in use carries a PIN */
+  pinSet: boolean;
   /** From the latest outcome of a call or test, unused until one */
   state: MetadataProviderState;
   /** How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details */
   summary: string;
+  /** Set key offers a subscriber PIN beside the key */
+  takesPin: boolean;
   /**
    * When a rate limited provider, or one out of its daily allowance, takes calls again
    * @nullable

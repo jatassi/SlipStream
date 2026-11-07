@@ -65,7 +65,7 @@ func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 
 	worldtest.Expect(t, "searchCatalog for quiet orchard", artworkMasked(a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", "")), worldtest.Reply{
 		Status: 200,
-		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","original":"","overview":"","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":"ART","workId":null}]}` + "\n",
+		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","original":"","overview":"","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":"ART","workId":null,"unlisted":false}]}` + "\n",
 	})
 
 	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`), &added{})
@@ -195,7 +195,7 @@ func TestAMovieIsAddedWithItsWholeRecordFromThePreviewsOneFetch(t *testing.T) {
 
 	worldtest.Expect(t, "searchCatalog for salt road", artworkMasked(a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=salt+road", "")), worldtest.Reply{
 		Status: 200,
-		Body:   `{"candidates":[{"key":"9000005","label":"The Salt Road","original":"La Route du Sel","overview":"Two sisters walk the salt road.","fields":[{"key":"year","kind":"number","number":2022}],"posterUrl":"ART","workId":null}]}` + "\n",
+		Body:   `{"candidates":[{"key":"9000005","label":"The Salt Road","original":"La Route du Sel","overview":"Two sisters walk the salt road.","fields":[{"key":"year","kind":"number","number":2022}],"posterUrl":"ART","workId":null,"unlisted":false}]}` + "\n",
 	})
 
 	preview := decode(t, "previewCatalogRecord", a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog/"+saltRoad, ""), &struct {

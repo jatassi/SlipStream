@@ -180,11 +180,11 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
 
 /** "Counts as out on April 16, 2021, Digital release in United States" for a one-Item Work. */
 function availabilityOf(type: WorksContentType, work: WorksWorkView): string | undefined {
-  const [item] = work.items;
-  if (type.items === "many" || item === undefined) {
+  const availability = work.items[0]?.availability;
+  if (type.items === "many" || availability === undefined || availability === null) {
     return undefined;
   }
-  const { date, basis } = item.availability;
+  const { date, basis } = availability;
   return basis === ""
     ? `Counts as out on ${dayWords(date)}.`
     : `Counts as out on ${dayWords(date)}, ${basis}.`;
