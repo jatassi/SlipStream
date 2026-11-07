@@ -1,0 +1,62 @@
+source: synthetic
+session:
+  cookie: "session={{session}}"
+  userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+  pasted: true
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers:
+            Cookie: "session={{session}}"
+            User-Agent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+            Accept: text/html
+          query: {order_by: time, order_way: desc, imdbid: tt0000001, groupname: The Quiet Orchard}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: search.html}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges: []
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /torrents.php, query: {groupname: Juniper Falls}, noQuery: [imdbid]}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php, query: {order_by: time, order_way: desc}, noQuery: [groupname, imdbid]}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: auth
+    call: {test: {}}
+    session:
+      cookie: "session={{wrongSession}}"
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+      pasted: true
+    exchanges:
+      - request: {path: /torrents.php, headers: {Cookie: "session={{wrongSession}}"}}
+        response: {status: 302, headers: {Location: /login.php}}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    session:
+      cookie: "session={{expiredSession}}"
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+      pasted: true
+    exchanges:
+      - request: {path: /torrents.php, headers: {Cookie: "session={{expiredSession}}"}}
+        response: {status: 302, headers: {Location: /login.php}}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=1001&authkey={{authkey}}&torrent_pass={{torrentPass}}"}
+    exchanges:
+      - request: {path: /torrents.php, query: {action: download, id: "1001"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

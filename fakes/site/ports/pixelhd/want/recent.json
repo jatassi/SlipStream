@@ -1,0 +1,63 @@
+{
+  "releases": [
+    {
+      "title": "Salt Meadow [2021] 1080p / MP4 / BluRay",
+      "size": 5368709120,
+      "published": "2026-01-07T07:07:00Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 77,
+      "link": "https://pixelhd.fixture-site.fake.localhost/torrents.php?action=download\u0026id=2001\u0026authkey={{authkey}}\u0026torrent_pass={{torrentPass}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2040
+      ],
+      "ids": {
+        "imdbid": "tt0000002"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://pixelhd.fixture-site.fake.localhost/torrents.php?id=21\u0026torrentid=2001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Juniper Falls [2021] 2160p / MP4 / WEB-DL",
+      "size": 12884901888,
+      "published": "2026-01-06T06:00:00Z",
+      "seeders": 18,
+      "leechers": 2,
+      "grabs": 600,
+      "link": "https://pixelhd.fixture-site.fake.localhost/torrents.php?action=download\u0026id=2002\u0026authkey={{authkey}}\u0026torrent_pass={{torrentPass}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2040
+      ],
+      "ids": {
+        "imdbid": "tt0000003"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://pixelhd.fixture-site.fake.localhost/torrents.php?id=22\u0026torrentid=2002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

@@ -1,0 +1,63 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard [2021] 1080p / MP4 / WEB-DL",
+      "size": 4509715660,
+      "published": "2026-01-01T12:00:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://pixelhd.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1001\u0026authkey={{authkey}}\u0026torrent_pass={{torrentPass}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2040
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://pixelhd.fixture-site.fake.localhost/torrents.php?id=11\u0026torrentid=1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard [2021] 720p / MP4 / BluRay",
+      "size": 2254857830,
+      "published": "1999-12-31T19:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 12,
+      "link": "https://pixelhd.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1002\u0026authkey={{authkey}}\u0026torrent_pass={{torrentPass}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2040
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://pixelhd.fixture-site.fake.localhost/torrents.php?id=11\u0026torrentid=1002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}
