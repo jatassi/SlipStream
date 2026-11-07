@@ -252,6 +252,10 @@ _Avoid_: Alert, issue, warning (for an item at either level)
 A torrent client that a downloading Node sends grabs to, either the built-in one or an external one such as qBittorrent.
 _Avoid_: Downloader, torrent app
 
+**Client folder**:
+A folder as a Download Client reports it, paired with the path of the same folder on the client's Node.
+_Avoid_: Path mapping, remote path mapping
+
 **Tracker**:
 A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
 _Avoid_: Site, indexer (for the seeding side), tracker (for an announce URL)
