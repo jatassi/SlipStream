@@ -5,7 +5,7 @@ import { dayWords } from "../page/fields-format";
 /** What folding reads of an Item row. */
 export type Foldable = {
   readonly code: string;
-  /** Its availability date; null while none is known */
+  /** Its availability date; null while none is known. */
   readonly date: string | null;
   readonly unreleased: boolean;
 };
