@@ -162,8 +162,8 @@ type (
 	otherTag struct {
 		PasskeyField `label:"Key"`
 	}
-	malformedTag struct {
-		PasskeyField `help:"Find it under Security.`
+	helpTwice struct {
+		PasskeyField `help:"Find it under Security." help:"Find it on your profile."`
 	}
 )
 
@@ -256,8 +256,8 @@ func TestDefinePanicsOnAMisdeclaredPort(t *testing.T) {
 		"a label on an embedded struct": func() {
 			Define(entry("x"), Impl[otherTag]{Login: NoLogin{}, Movie: search[otherTag], Basic: search[otherTag], Parse: parse[otherTag]})
 		},
-		"an unclosed help tag": func() {
-			Define(entry("x"), Impl[malformedTag]{Login: NoLogin{}, Movie: search[malformedTag], Basic: search[malformedTag], Parse: parse[malformedTag]})
+		"help twice": func() {
+			Define(entry("x"), Impl[helpTwice]{Login: NoLogin{}, Movie: search[helpTwice], Basic: search[helpTwice], Parse: parse[helpTwice]})
 		},
 		"an unknown tag option": func() {
 			Define(entry("x"), Impl[unknownFlag]{Login: NoLogin{}, Movie: search[unknownFlag], Basic: search[unknownFlag], Parse: parse[unknownFlag]})
