@@ -842,6 +842,10 @@
                         },
                         "character": {
                           "type": "string"
+                        },
+                        "profile": {
+                          "type": "string",
+                          "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
                         }
                       },
                       "additionalProperties": false,
@@ -868,6 +872,10 @@
                         },
                         "job": {
                           "type": "string"
+                        },
+                        "profile": {
+                          "type": "string",
+                          "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
                         }
                       },
                       "additionalProperties": false,
@@ -940,6 +948,18 @@
                     "votes": {
                       "type": "number",
                       "maximum": 10,
+                      "minimum": 0
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "height": {
+                      "type": "integer",
                       "minimum": 0
                     }
                   },

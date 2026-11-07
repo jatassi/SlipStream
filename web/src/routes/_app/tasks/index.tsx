@@ -9,7 +9,7 @@ import {
 import { ensureQuery } from "../../../api/query-client";
 import { Page } from "../../../shell/page";
 import { Schedule } from "../../../tasks/schedule";
-import { TaskGroup } from "../../../tasks/task-groups";
+import { TaskGroups } from "../../../tasks/task-groups";
 import { useClock } from "../../../tasks/use-now";
 import { Skeleton } from "../../../ui/skeleton";
 import { StatusSentence } from "../../../ui/status-sentence";
@@ -39,9 +39,7 @@ function TasksPage() {
       <div className="mb-6">
         <StatusSentence parts={sentence} />
       </div>
-      {groups.map((group) => (
-        <TaskGroup key={group.group} group={group} multinode={multinode} live={live} />
-      ))}
+      <TaskGroups groups={groups} multinode={multinode} live={live} />
       <Schedule settings={settings} />
     </Page>
   );

@@ -22,11 +22,11 @@ export function TaskName({ task }: { task: TasksTask }) {
       <Link
         to="/tasks/$taskId"
         params={{ taskId: task.id }}
-        className="truncate rounded-item font-medium hover:underline"
+        className="rounded-item font-medium hover:underline"
       >
         {task.name}
       </Link>
-      <span className="truncate text-meta text-ink-3">{task.about}</span>
+      <span className="text-meta text-pretty text-ink-3">{task.about}</span>
     </span>
   );
 }
@@ -39,7 +39,7 @@ export function LastRun({ run, clock }: { run: TasksRun | undefined; clock: Cloc
   return (
     <span className="flex min-w-0 flex-col items-start gap-1">
       <OutcomeChip outcome={run.result} />
-      <span className="max-w-full truncate text-meta text-ink-3">
+      <span className="max-w-full text-meta text-pretty text-ink-3">
         {[run.summary, ...ended].filter((part) => part !== "").join(" · ")}
       </span>
     </span>
@@ -59,8 +59,8 @@ function Running({
 }) {
   return (
     <span className="flex max-w-[240px] min-w-0 flex-col gap-1.5">
-      <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
-        <span className="truncate">{runningWords(since, clock)}</span>
+      <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-meta text-ink-3">
+        <span>{runningWords(since, clock)}</span>
         <Data className="shrink-0 whitespace-nowrap text-ink-1">
           {progressWords(progress, task.noun)}
         </Data>
