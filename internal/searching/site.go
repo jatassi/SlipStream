@@ -73,6 +73,9 @@ type Response struct {
 	Magnet Link
 	// Cookies is whether the request carried any of the session's cookies.
 	Cookies bool
+	// SetCookies are the cookies each redirect Do followed set, then the
+	// response's own.
+	SetCookies []*http.Cookie
 }
 
 // Send is how Do sends one request. The zero Send reads a page and
@@ -100,8 +103,9 @@ func (o Send) redirect(req *http.Request, via []*http.Request) error {
 // Do sends req as o says through this Node's transport with the Indexer's
 // session on this Node: its cookies, each only to its own host, and its
 // User-Agent. A cookie a response sets joins the session. It waits for
-// the host's turn, caps the body, follows at most 10 redirects, stopping
-// at one to a magnet link, and turns a browser challenge into *Stopped, a
+// the host's turn before the request and before each redirect it
+// follows, caps the body, follows at most 10 redirects, stopping at one
+// to a magnet link, and turns a browser challenge into *Stopped, a
 // 429 into *Limited and a 5xx, a timeout or a connection failure into
 // *Failing. It returns any other response for the driver to read.
 // Credentials go only where the driver puts them, and neither its errors
@@ -168,9 +172,16 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) 
 		j.keep(c.cookies)
 		req.Header.Set("User-Agent", c.userAgent)
 	}
+	var hops []*http.Cookie
 	client := *s.svc.client
 	client.Jar = j
-	client.CheckRedirect = o.redirect
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if err := o.redirect(next, via); err != nil {
+			return err
+		}
+		hops = append(hops, next.Response.Cookies()...)
+		return s.svc.spacer.wait(next.Context(), next.URL.Host, s.delay)
+	}
 	p := o.Purpose
 	sent := time.Now()
 	res, err := client.Do(req.WithContext(ctx)) //nolint:gosec // G704: an Indexer's requests go to the address its Admin chose
@@ -196,7 +207,10 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) 
 	case res.StatusCode >= http.StatusInternalServerError:
 		return nil, &Failing{Err: fmt.Errorf("the Indexer responded with status %d", res.StatusCode)}
 	}
-	out := &Response{Status: res.StatusCode, Header: res.Header, Body: body, URL: res.Request.URL, Cookies: cookies}
+	out := &Response{
+		Status: res.StatusCode, Header: res.Header, Body: body, URL: res.Request.URL, Cookies: cookies,
+		SetCookies: append(hops, res.Cookies()...),
+	}
 	if to := res.Header.Get("Location"); isRedirect(res.StatusCode) && magnet.Is(to) {
 		out.Magnet = LinkOf(to)
 	}

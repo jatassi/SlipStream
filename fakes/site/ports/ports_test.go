@@ -117,25 +117,21 @@ func runCase(t *testing.T, reg port.Registry, native searching.Driver, e port.En
 	if len(hits) != len(c.Exchanges) {
 		t.Errorf("the case got %d matching requests for its %d exchanges. Each exchange matches exactly one request.", len(hits), len(c.Exchanges))
 	}
-	spaced(t, c, hits, max(e.RateLimit, port.Floor))
+	spaced(t, hits, max(e.RateLimit, port.Floor))
 }
 
 // spaced fails two requests to one host closer than floor on the fake
-// clock. A request that follows a redirect goes at once, as Prowlarr's
-// client sends it.
-func spaced(t *testing.T, c Case, hits []Hit, floor time.Duration) {
+// clock, a followed redirect's included.
+func spaced(t *testing.T, hits []Hit, floor time.Duration) {
 	t.Helper()
 	last := map[string]time.Time{}
-	for i, h := range hits {
-		redirected := i > 0 && isRedirect(c.Exchanges[hits[i-1].Exchange].Response.Status)
-		if at, ok := last[h.Host]; ok && !redirected && h.At.Sub(at) < floor {
+	for _, h := range hits {
+		if at, ok := last[h.Host]; ok && h.At.Sub(at) < floor {
 			t.Errorf("exchange %d reached %s %s after the one before, under the %s floor", h.Exchange+1, h.Host, h.At.Sub(at), floor)
 		}
 		last[h.Host] = h.At
 	}
 }
-
-func isRedirect(status int) bool { return status >= 300 && status < 400 }
 
 func sessionOf(s *Session, id port.ID) *searching.Session {
 	if s == nil {

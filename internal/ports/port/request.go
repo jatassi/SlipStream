@@ -332,12 +332,14 @@ type IndexerResponse struct {
 	// RedirectURL where it points.
 	HasHTTPRedirect bool
 	RedirectURL     string
+	setCookies      []*http.Cookie
 }
 
-// Cookies is GetCookies: the cookies the response set, by name.
+// Cookies is GetCookies: the cookies the response and every redirect it
+// followed set, by name, a later one's value over an earlier one's.
 func (r *IndexerResponse) Cookies() map[string]string {
 	out := map[string]string{}
-	for _, c := range (&http.Response{Header: r.Headers}).Cookies() {
+	for _, c := range r.setCookies {
 		out[c.Name] = c.Value
 	}
 	return out

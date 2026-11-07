@@ -551,6 +551,7 @@ func (j *job[S]) body(r *Request) (body []byte, contentType string) {
 func (j *job[S]) response(r *Request, res *searching.Response) *IndexerResponse {
 	out := &IndexerResponse{
 		StatusCode: res.Status, Headers: res.Header, Body: res.Body, Content: j.t.charset.GetString(res.Body), URL: res.URL, Request: r,
+		setCookies: res.SetCookies,
 	}
 	if loc := res.Header.Get("Location"); loc != "" && res.Status >= http.StatusMultipleChoices && res.Status < http.StatusBadRequest {
 		out.HasHTTPRedirect = true

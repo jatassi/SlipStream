@@ -76,6 +76,8 @@ cases:
             Set-Cookie: |-
               uid={{uid}}; path=/
               pass={{pass}}; path=/
+      - request: {path: /, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: home.html}
       - request: {path: /browse.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
         response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
   - name: signin
@@ -98,6 +100,8 @@ cases:
             Set-Cookie: |-
               uid={{uid}}; path=/
               pass={{pass}}; path=/
+      - request: {path: /, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: home.html}
       - request: {path: /browse.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
         response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
   - name: code
@@ -132,6 +136,8 @@ cases:
             Set-Cookie: |-
               uid={{uid}}; path=/
               pass={{pass}}; path=/
+      - request: {path: /, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: home.html}
       - request: {path: /browse.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}, query: {search: ""}}
         response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
   - name: wrongcode

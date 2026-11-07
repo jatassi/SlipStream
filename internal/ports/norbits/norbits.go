@@ -63,10 +63,7 @@ func DoLogin(in *port.SignIn[NorBitsSettings]) error {
 		AddFormParameter("code", code).
 		AddFormParameter("logout", "no").
 		AddFormParameter("returnto", "/").
-		SetHeader("Referer", loginURL.String()).
-		// SlipStream: the cookies are read off takelogin.php's own response,
-		// so its redirect home isn't followed.
-		NoRedirect()
+		SetHeader("Referer", loginURL.String())
 
 	loginResponse, err := in.Do(authLoginCheckRequest)
 	if err != nil {

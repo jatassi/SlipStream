@@ -381,6 +381,41 @@ func TestSpacingKeepsThePortsFloorOnTheFakeClock(t *testing.T) {
 	})
 }
 
+func TestARedirectedSignInWaitsItsTurnAndKeepsTheCookiesOnTheWay(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := lantern("lantern")
+		e.RateLimit = 5 * time.Second
+		w := &world{hosts: map[string]http.HandlerFunc{"lantern.test": func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/login.php":
+				setUID(w, "u1")
+				http.Redirect(w, r, "/index.php", http.StatusFound)
+			case "/index.php":
+				_, _ = w.Write([]byte("Welcome"))
+			case "/browse.php":
+				if _, err := r.Cookie("uid"); err != nil {
+					respond(w, listing{SignedOut: true})
+					return
+				}
+				respond(w, listing{Results: []item{{ID: "1", Title: "Orchard.2026.1080p", Down: 1, Up: 1}}})
+			}
+		}}}
+		a := run(t, node(w, formPort(e)), searching.Job{Port: "lantern", Settings: samAndPW, Call: movieSearch("orchard", nil)})
+		if result(a) != "ok" || len(a.Releases) != 1 {
+			t.Fatalf("a search behind a sign-in that redirects home = %v, %s; want its Release", titles(a.Releases), result(a))
+		}
+		hits := w.to("lantern.test")
+		if got, want := w.requests(), []string{"POST lantern.test/login.php", "GET lantern.test/index.php", "GET lantern.test/browse.php"}; !slices.Equal(got, want) {
+			t.Fatalf("requests = %v, want %v", got, want)
+		}
+		for i := 1; i < len(hits); i++ {
+			if gap := hits[i].at.Sub(hits[i-1].at); gap < e.RateLimit {
+				t.Errorf("%s came %s after the request before, want at least %s", hits[i], gap, e.RateLimit)
+			}
+		}
+	})
+}
+
 func TestCredentialHeadersReachOnlyTheIndexersHosts(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := &world{hosts: map[string]http.HandlerFunc{
