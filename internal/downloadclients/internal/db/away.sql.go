@@ -13,6 +13,7 @@ import (
 const listClientsOfTorrents = `-- name: ListClientsOfTorrents :many
 SELECT t.id AS torrent_id, c.id, c.node_id, c.kind, c.name, c.address, c.address_key, c.username, c.secrets_sealed, c.label, c.folder, c.client_folders, c.daemon_host, c.daemon_port, c.check_every_seconds, c.import_delay_seconds, c.is_on, c.settings_version, c.poll_state, c.poll_since, c.poll_problem, c.poll_settings_version, c.poll_check, c.client_version, c.created_at, c.updated_at, c.deleted_at FROM downloadclients_torrent t JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (/*SLICE:ids*/?)
+ORDER BY t.id
 `
 
 type ListClientsOfTorrentsRow struct {
