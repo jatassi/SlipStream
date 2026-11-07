@@ -106,17 +106,33 @@ type (
 	EpisodeID int64
 )
 
-// Order is one of the orders TVDB lists a series' episodes in, as its
-// season types name them.
+// Order is one of the orders TVDB lists a series' episodes in.
 type Order string
 
 const (
-	OrderAired    Order = "official"
+	OrderAired    Order = "default"
 	OrderDVD      Order = "dvd"
 	OrderAbsolute Order = "absolute"
 )
 
 var orders = []Order{OrderAired, OrderDVD, OrderAbsolute}
+
+// seasonType is the order's name in TVDB's paths and season types, which call
+// the aired order "official".
+func (o Order) seasonType() string {
+	if o == OrderAired {
+		return "official"
+	}
+	return string(o)
+}
+
+func orderOf(seasonType string) (Order, bool) {
+	i := slices.IndexFunc(orders, func(o Order) bool { return o.seasonType() == seasonType })
+	if i < 0 {
+		return "", false
+	}
+	return orders[i], true
+}
 
 type Status string
 
@@ -252,7 +268,7 @@ func (c *Client) Episodes(ctx context.Context, ask metadata.Ask, id SeriesID, o 
 	var out []Episode
 	for page := 0; ; page++ {
 		q := url.Values{"page": {strconv.Itoa(page)}}
-		u := c.url(q, "series", strconv.FormatInt(int64(id), 10), "episodes", string(o), languageOf(ask.Language))
+		u := c.url(q, "series", strconv.FormatInt(int64(id), 10), "episodes", o.seasonType(), languageOf(ask.Language))
 		var p envelope[struct {
 			Episodes []episodeJSON `json:"episodes"`
 		}]
