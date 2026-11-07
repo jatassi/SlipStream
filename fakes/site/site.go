@@ -49,7 +49,7 @@ var Fake = fake.Spec{
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
 	},
-	Online:     fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
+	Online:     fake.OnlineSuite("ports"),
 	Cues:       []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse, ports.PortCase},
 	Captures:   []fake.CaptureSpec{CaptchaShown, SignedIn, Searched},
 	Entered:    indexers,

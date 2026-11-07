@@ -1,0 +1,28 @@
+{
+  "knaben /v1 200": {
+    "$": "object",
+    "$.hits": "array",
+    "$.hits[]": "object",
+    "$.hits[].bytes": "number",
+    "$.hits[].cachedOrigin": "string",
+    "$.hits[].categoryId": "array",
+    "$.hits[].categoryId[]": "number",
+    "$.hits[].date": "string",
+    "$.hits[].details": "string",
+    "$.hits[].hash": "string",
+    "$.hits[].id": "string",
+    "$.hits[].lastSeen": "string",
+    "$.hits[].link": "null|string",
+    "$.hits[].magnetUrl": "null|string",
+    "$.hits[].peers": "number",
+    "$.hits[].seeders": "number",
+    "$.hits[].title": "string",
+    "$.hits[].tracker": "string",
+    "$.hits[].trackerId": "string",
+    "$.hits[].virusDetection": "number",
+    "$.max_score": "null",
+    "$.total": "object",
+    "$.total.relation": "string",
+    "$.total.value": "number"
+  }
+}
