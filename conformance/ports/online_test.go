@@ -14,10 +14,11 @@ import (
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
-// searches are a search each public site always has Releases for: a
-// title it has carried for years.
+// searches are a search each public site has had Releases for, for
+// years.
 var searches = map[port.ID]searching.Query{
-	"knaben": {Mode: "movie", Text: "Big Buck Bunny"},
+	"knaben":      {Mode: "movie", Text: "Big Buck Bunny"},
+	"torrentscsv": {Mode: "search", Text: "Ubuntu"},
 }
 
 // TestThePublicPortsConform runs every public port against its live site,

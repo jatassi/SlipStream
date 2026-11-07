@@ -24,5 +24,20 @@
     "$.total": "object",
     "$.total.relation": "string",
     "$.total.value": "number"
+  },
+  "torrentscsv /service/search 200": {
+    "$": "object",
+    "$.next": "number",
+    "$.torrents": "array",
+    "$.torrents[]": "object",
+    "$.torrents[].completed": "null|number",
+    "$.torrents[].created_unix": "number",
+    "$.torrents[].infohash": "string",
+    "$.torrents[].leechers": "null|number",
+    "$.torrents[].name": "string",
+    "$.torrents[].rowid": "number",
+    "$.torrents[].scraped_date": "number",
+    "$.torrents[].seeders": "null|number",
+    "$.torrents[].size_bytes": "number"
   }
 }
