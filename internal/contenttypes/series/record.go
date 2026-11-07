@@ -23,6 +23,9 @@ type record struct {
 	Show     show         `json:"show"`
 	Seasons  []season     `json:"seasons"`
 	Episodes []episode    `json:"episodes"`
+	// RatedSeasons are the Aired seasons OMDb answered for in this fetch,
+	// with ratings or with none.
+	RatedSeasons []int64 `json:"ratedSeasons,omitempty"`
 }
 
 // show is the series' own facts. Empty text is a fact its sources lack.

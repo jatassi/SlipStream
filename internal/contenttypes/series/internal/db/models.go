@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -31,6 +32,12 @@ type SeriesSeason struct {
 	EpisodeOrder string
 	Name         *string
 	Overview     *string
+}
+
+type SeriesSeasonRating struct {
+	WorkID      works.WorkID
+	AiredSeason int64
+	ReadAt      storage.Time
 }
 
 type SeriesSeries struct {

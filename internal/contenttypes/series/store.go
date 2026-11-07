@@ -18,7 +18,8 @@ import (
 // season and episode row at's levels and Items hold, by their ids. A
 // withdrawn season's or episode's row stays as last stored, and a 10,000-
 // episode series whose title changed writes one row. A detail OMDb wasn't
-// read for keeps the stored awards line.
+// read for keeps the stored awards line. The seasons OMDb rated are
+// stamped with when, which counts as no change.
 func (*Series) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, detail []byte) (bool, error) {
 	r, err := decode(detail)
 	if err != nil {
@@ -69,7 +70,16 @@ func (*Series) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed,
 	wrote, err = writeChanged(ctx, episodes, byID(storedEpisodes, func(e db.SeriesEpisode) (works.ItemID, db.UpsertEpisodeParams) {
 		return e.ItemID, db.UpsertEpisodeParams(e)
 	}), func(e db.UpsertEpisodeParams) works.ItemID { return e.ItemID }, q.UpsertEpisode)
-	return changed || wrote, err
+	if err != nil {
+		return false, err
+	}
+	now := storage.Now()
+	for _, n := range r.RatedSeasons {
+		if err := q.MarkSeasonRatingsRead(ctx, db.MarkSeasonRatingsReadParams{WorkID: at.Work, AiredSeason: n, ReadAt: now}); err != nil {
+			return false, err
+		}
+	}
+	return changed || wrote, nil
 }
 
 func byID[ID comparable, Stored, Row any](rows []Stored, of func(Stored) (ID, Row)) map[ID]Row {

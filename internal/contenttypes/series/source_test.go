@@ -2,7 +2,9 @@ package series
 
 import (
 	"cmp"
+	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"math/rand/v2"
@@ -21,12 +23,15 @@ import (
 	faketmdb "github.com/jatassi/slipstream/fakes/tmdb"
 	faketvdb "github.com/jatassi/slipstream/fakes/tvdb"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -76,7 +81,11 @@ func scenarioOf(t *testing.T, name string) scenario.Scenario {
 		},
 		scenario.TMDBSeries{ID: 7999, Name: "The Lantern Road", FirstAired: "2024-05-01"},
 	)
-	s.OMDb.Titles = append(s.OMDb.Titles, scenario.OMDbTitle{
+	long := scenario.OMDbTitle{IMDbID: "tt60000002", Type: "series", IMDbRating: ptr(7.0)}
+	for n := 1; n <= 40; n++ {
+		long.Seasons = append(long.Seasons, scenario.OMDbSeason{Number: n, Episodes: []scenario.OMDbEpisode{{Episode: 1, IMDbID: fmt.Sprintf("tt7%07d", n), Rating: ptr(6.5)}}})
+	}
+	s.OMDb.Titles = append(s.OMDb.Titles, long, scenario.OMDbTitle{
 		IMDbID: "tt1001001", Type: "series", IMDbRating: ptr(8.4), IMDbVotes: ptr(int64(1200)), Awards: "2 wins.",
 		Seasons: []scenario.OMDbSeason{
 			{Number: 1, Episodes: []scenario.OMDbEpisode{{Episode: 1, IMDbID: "tt1001111", Rating: ptr(8.0)}, {Episode: 2, IMDbID: "tt1001112", Rating: ptr(7.5)}}},
@@ -287,6 +296,56 @@ func TestDetailOf10000EpisodesFitsTheCap(t *testing.T) {
 		}
 		if items := len(itemsOf(f)); items != 10_000 || len(wire) >= link.MaxMessage/4 {
 			t.Errorf("Fetch = %d episodes in %d bytes, want 10,000 well inside the %d-byte link message", items, len(wire), link.MaxMessage)
+		}
+	})
+}
+
+// ratingsDue is p's Source as the core reaches it, each Fetch asking for
+// every rating, as a ratings-due refresh does.
+type ratingsDue struct{ p *providers }
+
+func (d ratingsDue) Search(ctx context.Context, _ works.TypeID, query string) ([]works.Candidate, error) {
+	return d.p.source.Search(ctx, askFor(metadata.RatingsAll), query)
+}
+
+func (d ratingsDue) Fetch(ctx context.Context, _ works.TypeID, key works.Key, f works.Fetching) (works.Fetched, error) {
+	return d.p.source.Fetch(ctx, askFor(metadata.RatingsAll), key, f.Options)
+}
+
+func ratedEpisodes(tree works.Tree) int {
+	n := 0
+	for _, it := range tree.Items {
+		if slices.ContainsFunc(it.Ratings, func(r works.StoredRating) bool { return r.Source == "imdb" }) {
+			n++
+		}
+	}
+	return n
+}
+
+func TestSuccessiveRatingsDueRefreshesReachEverySeason(t *testing.T) {
+	serve(t, "series-scale", func(t *testing.T, p *providers) {
+		lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(Def))...)
+		w, err := works.Open(t.Context(), works.Config{
+			Library: lib, Catalogs: map[works.TypeID]works.Catalog{Def.ID(): Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, Def.Endpoints())},
+			Timings: works.DefaultTimings(), Source: ratingsDue{p}, Artwork: noPrefetch{}, Changed: discard[works.Changed]{},
+			TypesChanged: discard[works.ContentTypesChanged]{}, TypeChanged: discard[works.TypeChanged]{}, Removed: discard[works.Removed]{}, Log: slog.New(slog.DiscardHandler),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree, _, err := w.Add(t.Context(), identity.Admin{}, Def.ID(), "60000002", works.Adding{Monitor: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		first := ratedEpisodes(tree)
+		if first == 0 || first >= 40 {
+			t.Fatalf("the first read rated %d of 40 seasons' episodes, want some inside the budget and not all", first)
+		}
+		if tree, err = w.Refresh(t.Context(), identity.Admin{}, tree.ID); err != nil {
+			t.Fatal(err)
+		}
+		if rated := ratedEpisodes(tree); rated != 40 {
+			t.Errorf("after the next ratings-due refresh %d of 40 seasons' episodes are rated, want the seasons the first read missed rated too", rated)
 		}
 	})
 }

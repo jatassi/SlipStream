@@ -115,10 +115,11 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key, opt
 	if err != nil {
 		return works.Fetched{}, err
 	}
-	order, err := orderIn(options)
+	o, err := optionsIn(options)
 	if err != nil {
 		return works.Fetched{}, err
 	}
+	order := o.Order
 	var (
 		read                           sync.WaitGroup
 		show                           tvdb.Series
@@ -169,7 +170,9 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key, opt
 		case err == nil:
 			f.Ratings, f.RatingsRead, t.rec.Show.Awards = append(f.Ratings, title.Ratings...), true, &title.Awards
 			if ask.Ratings == metadata.RatingsAll {
-				f.Ratings = append(f.Ratings, s.episodeRatings(ctx, ask, imdb, t.rec.Episodes)...)
+				var rated []works.Rating
+				rated, t.rec.RatedSeasons = s.episodeRatings(ctx, ask, imdb, t.rec.Episodes, o.RatedAt)
+				f.Ratings = append(f.Ratings, rated...)
 			}
 		case errors.Is(err, works.ErrNotFound):
 			f.RatingsRead = true
@@ -192,15 +195,15 @@ func seriesIDOf(key works.Key) (tvdb.SeriesID, error) {
 	return tvdb.SeriesID(n), nil
 }
 
-func orderIn(raw []byte) (tvdb.Order, error) {
-	if raw == nil {
-		return orderChoice.Default, nil
-	}
+func optionsIn(raw []byte) (options, error) {
 	var o options
-	if err := json.Unmarshal(raw, &o); err != nil {
-		return "", fmt.Errorf("decode the series options %s: %w", raw, err)
+	if raw != nil {
+		if err := json.Unmarshal(raw, &o); err != nil {
+			return options{}, fmt.Errorf("decode the series options %s: %w", raw, err)
+		}
 	}
-	return o.Order, nil
+	o.Order = cmp.Or(o.Order, orderChoice.Default)
+	return o, nil
 }
 
 // tmdbOf is TMDB's record of show, by the TMDB id TVDB names, else the one
@@ -343,15 +346,18 @@ func workArt(s tvdb.Series, tm *tmdb.Series) []works.Art {
 }
 
 // seasonsBudget is how long one Fetch spends on OMDb's season ratings.
-// OMDb takes a call every half second, so a long series' older seasons
-// keep their stored ratings until a refresh reaches them.
+// OMDb takes a call every half second, so a long series' seasons are
+// read across successive ratings-due refreshes.
 const seasonsBudget = 15 * time.Second
 
 // episodeRatings are OMDb's IMDb ratings of episodes, read a main season
-// at a time in Aired numbering, the latest season first, until
-// seasonsBudget is spent or OMDb stops responding. OMDb numbers an
-// episode by its Aired season and number, which map it to its TVDB key.
-func (s *Source) episodeRatings(ctx context.Context, ask metadata.Ask, imdb string, episodes []episode) []works.Rating {
+// at a time in Aired numbering until seasonsBudget is spent or OMDb stops
+// responding: the latest season first, then the ones longest unread by
+// ratedAt, never-read ones first, later seasons breaking ties. OMDb
+// numbers an episode by its Aired season and number, which map it to its
+// TVDB key. read is every season OMDb answered for, a season it doesn't
+// have included, so that season waits its turn too.
+func (s *Source) episodeRatings(ctx context.Context, ask metadata.Ask, imdb string, episodes []episode, ratedAt map[int64]int64) (ratings []works.Rating, read []int64) {
 	type place struct{ season, number int64 }
 	keys := map[place]works.Key{}
 	var seasons []int64
@@ -365,27 +371,27 @@ func (s *Source) episodeRatings(ctx context.Context, ask metadata.Ask, imdb stri
 		}
 	}
 	slices.SortFunc(seasons, func(a, b int64) int { return cmp.Compare(b, a) })
-	var out []works.Rating
+	if len(seasons) > 1 {
+		slices.SortStableFunc(seasons[1:], func(a, b int64) int { return cmp.Compare(ratedAt[a], ratedAt[b]) })
+	}
 	start := time.Now()
 	for _, n := range seasons {
 		if time.Since(start) >= seasonsBudget {
 			break
 		}
 		rated, err := s.omdb.Season(ctx, ask, imdb, int(n))
-		if errors.Is(err, works.ErrNotFound) {
-			continue
-		}
-		if err != nil {
+		if err != nil && !errors.Is(err, works.ErrNotFound) {
 			break
 		}
+		read = append(read, n)
 		for _, r := range rated {
 			if key, ok := keys[place{n, int64(r.Episode)}]; ok {
 				r.Rating.Item = key
-				out = append(out, r.Rating)
+				ratings = append(ratings, r.Rating)
 			}
 		}
 	}
-	return out
+	return ratings, read
 }
 
 func tvdbRef(shape artwork.Shape, path string) artwork.Ref {

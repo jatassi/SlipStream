@@ -34,6 +34,10 @@ sql:
             go_type:
               type: TMDBID
               pointer: true
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
           - column: series_settings.id
             go_type:
               type: Singleton

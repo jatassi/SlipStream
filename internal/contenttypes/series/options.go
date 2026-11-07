@@ -23,9 +23,13 @@ var orderChoice = setting.Choice[tvdb.Order]{Key: "order", Label: "Episode order
 
 var orderWords = map[tvdb.Order]string{tvdb.OrderAired: "Aired", tvdb.OrderDVD: "DVD", tvdb.OrderAbsolute: "Absolute"}
 
-// options is FetchOptions' encoding, read by the series' Source.
+// options is FetchOptions' encoding, read by the series' Source. Order is
+// empty for Aired. RatedAt is when OMDb last answered for each Aired
+// season, in Unix microseconds, so a ratings-due refresh reads the
+// seasons that have gone longest without a rating next.
 type options struct {
-	Order tvdb.Order `json:"order"`
+	Order   tvdb.Order      `json:"order,omitempty"`
+	RatedAt map[int64]int64 `json:"ratedAt,omitempty"`
 }
 
 // OptionFields is w's episode order, offering only the orders TVDB lists
@@ -44,13 +48,14 @@ func (*Series) OptionFields(ctx context.Context, r storage.Reader[file], w works
 	return []setting.Field{c.Field(override)}, nil
 }
 
-// FetchOptions is w's episode order, nil for Aired.
+// FetchOptions is w's episode order and when each of its seasons' ratings
+// were last read, nil for an Aired series OMDb hasn't rated a season of.
 func (*Series) FetchOptions(ctx context.Context, r storage.Reader[file], w works.WorkID) ([]byte, error) {
 	order, _, err := ordersOf(ctx, r, w)
 	if err != nil {
 		return nil, err
 	}
-	return encodeOptions(order)
+	return encodeOptions(ctx, r, w, order)
 }
 
 // PatchOptions is the fetch options p's order makes of w's,
@@ -73,7 +78,7 @@ func (*Series) PatchOptions(ctx context.Context, r storage.Reader[file], w works
 	if !slices.Contains(orders, order) {
 		return nil, works.ErrOrderUnavailable
 	}
-	return encodeOptions(order)
+	return encodeOptions(ctx, r, w, order)
 }
 
 func ordersOf(ctx context.Context, r storage.Reader[file], w works.WorkID) (order tvdb.Order, orders []tvdb.Order, err error) {
@@ -87,13 +92,27 @@ func ordersOf(ctx context.Context, r storage.Reader[file], w works.WorkID) (orde
 	return tvdb.Order(row.EpisodeOrder), orders, nil
 }
 
-func encodeOptions(o tvdb.Order) ([]byte, error) {
-	if o == orderChoice.Default {
+func encodeOptions(ctx context.Context, r storage.Reader[file], w works.WorkID, order tvdb.Order) ([]byte, error) {
+	rated, err := db.New(r).ListSeasonRatingsRead(ctx, w)
+	if err != nil {
+		return nil, err
+	}
+	o := options{}
+	if order != orderChoice.Default {
+		o.Order = order
+	}
+	for _, s := range rated {
+		if o.RatedAt == nil {
+			o.RatedAt = map[int64]int64{}
+		}
+		o.RatedAt[s.AiredSeason] = s.ReadAt.Time().UnixMicro()
+	}
+	if o.Order == "" && o.RatedAt == nil {
 		return nil, nil
 	}
-	b, err := json.Marshal(options{Order: o})
+	b, err := json.Marshal(o)
 	if err != nil {
-		return nil, fmt.Errorf("encode the %s order: %w", o, err)
+		return nil, fmt.Errorf("encode the options of work %s: %w", w, err)
 	}
 	return b, nil
 }
