@@ -26,6 +26,8 @@ var (
 	FaultStall      = setting.Duration{Key: "downloading.faultStall", Label: "A download with no data at all is bad after", Default: 12 * time.Hour, Min: time.Hour, Max: 30 * 24 * time.Hour, Step: time.Hour}
 	UnregisteredGap = setting.Duration{Key: "downloading.unregisteredGap", Label: "Unregistered twice, this far apart", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
 	MetadataWait    = setting.Duration{Key: "downloading.metadataWait", Label: "A magnet link with no metadata fails after", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
+	CheckEvery      = setting.Duration{Key: "downloadClients.checkEvery", Label: "Check every", Default: 10 * time.Second, Min: 2 * time.Second, Max: time.Hour, Step: time.Second}
+	ImportDelay     = setting.Duration{Key: "downloadClients.importDelay", Label: "Import delay", Default: 0, Min: 0, Max: 24 * time.Hour, Step: time.Minute}
 )
 
 // NodeSettings is one Node's client settings with every default applied.

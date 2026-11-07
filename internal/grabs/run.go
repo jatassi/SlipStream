@@ -455,17 +455,22 @@ func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outc
 	return o, nil
 }
 
-// attach binds g to the Torrent of a's .torrent, on the Node the fetch
-// picked unless another Node already holds it, and records the torrent's
-// privacy and a private torrent's announce hosts on g's Tracker.
+// attach binds g to the Torrent of a's .torrent, in the client Route
+// picks on the Node the fetch picked unless another Node already holds
+// it, and records the torrent's privacy and a private torrent's announce
+// hosts on g's Tracker.
 func (gr *Grabs) attach(ctx context.Context, tx *storage.Tx[file], g Grab, a advance, now storage.Time) (downloadclients.ID, role.NodeID, error) {
 	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
 	if err != nil {
 		return downloadclients.ID{}, role.NodeID{}, err
 	}
+	target, err := downloadclients.Route(ctx, tx, downloadclients.Ask{Node: a.fetched.to, Tracker: g.Ticket.Tracker})
+	if err != nil {
+		return downloadclients.ID{}, role.NodeID{}, err
+	}
 	m := a.torrent.metainfo
 	id, node, err := downloadclients.Attach(ctx, tx, downloadclients.Want{
-		Node: a.fetched.to, Metainfo: m, Raw: a.torrent.raw, ContentType: tree.ContentType, Tracker: g.Ticket.Tracker,
+		Target: target, Metainfo: m, Raw: a.torrent.raw, ContentType: tree.ContentType, Tracker: g.Ticket.Tracker,
 		WrittenOff: func(node role.NodeID) bool { return gr.cfg.Roster.WrittenOff(role.Downloading, node) },
 	}, now)
 	if err != nil || g.Ticket.Tracker.IsZero() {

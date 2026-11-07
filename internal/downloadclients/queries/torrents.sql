@@ -58,10 +58,10 @@ SELECT CAST(coalesce(max(added_order), 0) + 1 AS INTEGER) FROM downloadclients_t
 
 -- name: InsertTorrent :exec
 INSERT INTO downloadclients_torrent (
-    id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
+    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
     uploaded, downloaded, active_seconds, seeding_seconds, totals_at
 ) VALUES (
-    sqlc.arg(id), sqlc.arg(node_id), sqlc.arg(info_hash), sqlc.arg(metainfo), sqlc.arg(name), sqlc.arg(size),
+    sqlc.arg(id), sqlc.arg(node_id), sqlc.narg(client_id), sqlc.arg(info_hash), sqlc.arg(metainfo), sqlc.arg(name), sqlc.arg(size),
     sqlc.arg(private), sqlc.arg(trackers), sqlc.arg(content_type), sqlc.narg(tracker_id), 'started', sqlc.arg(added_order), sqlc.arg(added_at),
     sqlc.arg(uploaded), sqlc.arg(downloaded), sqlc.arg(active_seconds), sqlc.arg(seeding_seconds), sqlc.arg(totals_at)
 );

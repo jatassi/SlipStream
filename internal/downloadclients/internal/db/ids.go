@@ -6,3 +6,5 @@ type TorrentID struct{ storage.UUID }
 
 // Singleton is the id of a one-row table, fixed at 1 by a CHECK.
 type Singleton int64
+
+type ClientID struct{ storage.UUID }

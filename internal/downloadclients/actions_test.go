@@ -257,7 +257,7 @@ func newShelf(t *testing.T) shelf {
 	box := addNode(t, lib, "seedbox")
 	add := func(name string) dc.ID {
 		m, raw := dotTorrent(t, name)
-		id, _ := mustAttach(t, lib, dc.Want{Node: box, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+		id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: box}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 		return id
 	}
 	s := shelf{lib: lib, box: box, orchard: add("Orchard"), attic: add("Attic"), harbor: add("Harbor")}
