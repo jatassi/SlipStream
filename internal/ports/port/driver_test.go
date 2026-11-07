@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
@@ -762,6 +763,32 @@ func TestReleasesCarryTheSitesFlagsAndTheFactorsFlags(t *testing.T) {
 		r := a.Releases[0]
 		if r.InfoHash == nil || r.InfoHash.String() != hash || r.Leechers != 2 || r.Link.Reveal() != "https://lantern.test/dl/1" || !slices.Equal(r.Categories, []int{2000, 100001}) {
 			t.Errorf("the first Release = %+v", r)
+		}
+	})
+}
+
+func TestAPortReadsDatesOnTheJobsClockInUTC(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		started := time.Now()
+		w := &world{hosts: map[string]http.HandlerFunc{"lantern.test": func(w http.ResponseWriter, _ *http.Request) {
+			respond(w, listing{Results: []item{{ID: "1", Title: "2 hours ago", Down: 1, Up: 1}, {ID: "2", Title: "2026-11-06 10:00", Down: 1, Up: 1}}})
+		}}}
+		p := Define(lantern("lantern"), Impl[apiKey]{
+			Login: NoLogin{}, Movie: browse[apiKey], Basic: browse[apiKey],
+			Parse: func(ix *Indexer[apiKey], r *IndexerResponse) ([]TorrentInfo, error) {
+				out, err := parseListing(ix, r)
+				for i := range out {
+					if out[i].PublishDate, err = datetimeutil.FromUnknown(out[i].Title, ix.Clock); err != nil {
+						return nil, err
+					}
+				}
+				return out, err
+			},
+		})
+		a := run(t, node(w, p), searching.Job{Port: "lantern", Settings: map[string]string{"apiKey": "k"}, Call: movieSearch("orchard", nil)})
+		want := []time.Time{started.Add(-2 * time.Hour), time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC)}
+		if len(a.Releases) != 2 || !a.Releases[0].Published.Equal(want[0]) || !a.Releases[1].Published.Equal(want[1]) {
+			t.Fatalf("Releases = %+v, want them published at %v", a.Releases, want)
 		}
 	})
 }

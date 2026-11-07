@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
@@ -305,7 +306,10 @@ func (t *typed[S]) start(ctx context.Context, s *searching.Site, e Entry) (*job[
 			j.hosts = append(j.hosts, strings.ToLower(h))
 		}
 	}
-	j.ix = &Indexer[S]{Settings: settings, BaseURL: base, Categories: e.Capabilities.Categories, j: j}
+	j.ix = &Indexer[S]{
+		Settings: settings, BaseURL: base, Categories: e.Capabilities.Categories,
+		Clock: datetimeutil.Clock{Now: time.Now(), Location: time.UTC}, j: j,
+	}
 	if t.impl.Derive != nil {
 		if j.ix.Derived, err = s.Derived(ctx, func() (map[string]string, error) { return t.impl.Derive(j.ix) }); err != nil {
 			return nil, err

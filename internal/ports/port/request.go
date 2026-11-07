@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
@@ -26,7 +27,10 @@ type Indexer[S any] struct {
 	Categories *newznab.Categories
 	// Derived is what Impl.Derive read for this revision on this Node.
 	Derived map[string]string
-	j       *job[S]
+	// Clock is the job's start in UTC, the DateTime.Now and zone a port
+	// passes to datetimeutil.
+	Clock datetimeutil.Clock
+	j     *job[S]
 }
 
 // URL is BaseURL joined with path, as Settings.BaseUrl + "path". A query
