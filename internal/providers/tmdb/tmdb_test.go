@@ -264,7 +264,7 @@ func withSeries(t *testing.T) scenario.Scenario {
 	s.TMDB.Series = []scenario.TMDBSeries{
 		{
 			ID: 9000001, TVDB: 70001, Name: "The Lantern Keepers", FirstAired: "2022-03-04",
-			Network:  &scenario.TMDBNamed{ID: 93001, Name: "Harbor One"},
+			Network:  &scenario.TMDBNetwork{ID: 93001, Name: "Harbor One"},
 			Creators: []scenario.TMDBCast{{ID: 91003, Name: "Ines Calder"}},
 			Credits: scenario.TMDBCredits{Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Venn", Character: "Ada"}, {ID: 91004, Name: "Tomas Reyl", Character: "Wren"}},
 				Crew: []scenario.TMDBCrew{{ID: 91005, Name: "Lio Sand", Department: "Directing", Job: "Director"}}},

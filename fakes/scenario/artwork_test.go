@@ -25,12 +25,36 @@ func TestARecordedImageInTheStoreValidates(t *testing.T) {
 		ID: 1, IMDbID: "tt0000001", Title: "A", Runtime: 90 * time.Minute,
 		Images:  []TMDBImage{{Shape: "poster", Path: "/st0red.jpg", Width: 500, Height: 750}, {Shape: "logo", Path: "/st0red.jpg"}},
 		Credits: TMDBCredits{Cast: []TMDBCast{{ID: 2, Name: "B", Profile: "/pers0n.jpg"}}, Crew: []TMDBCrew{{ID: 3, Name: "C", Department: "Directing", Job: "Director", Profile: "/pers0n.jpg"}}},
+	}}, Series: []TMDBSeries{{
+		ID: 4, TVDB: 7, Name: "A", Images: []TMDBImage{{Shape: "poster", Path: "/st0red.jpg", Width: 500, Height: 750}},
+		Creators: []TMDBCast{{ID: 5, Name: "D", Profile: "/pers0n.jpg"}}, Credits: TMDBCredits{Cast: []TMDBCast{{ID: 2, Name: "B", Profile: "/pers0n.jpg"}}},
+		Network: &TMDBNetwork{ID: 6, Name: "E", Logo: "/st0red.jpg"},
 	}}}, TVDB: &TVDB{Series: []TVDBSeries{{
 		ID: 7, Name: "A", Status: "ended", Image: "/banners/v4/series/7/posters/p.jpg",
 		Seasons: []TVDBSeason{{Number: 1, Image: "/banners/v4/season/8/posters/s.png", Episodes: []TVDBEpisode{{ID: 9, Number: 1, Name: "B", Image: "/banners/episodes/7/9.jpg"}}}},
 	}}}}
 	if err := s.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestARecordedTMDBSeriesImageOutsideTheStoreFails(t *testing.T) {
+	stored := artworkStore
+	t.Cleanup(func() { artworkStore = stored })
+	artworkStore = artwork.New(fstest.MapFS{})
+	s := Scenario{Name: "x", Seed: "x", Nodes: []Node{{Name: "home"}}, TMDB: &TMDB{Series: []TMDBSeries{{
+		ID: 4, Name: "A", Images: []TMDBImage{{Shape: "poster", Path: "/p0ster.jpg", Width: 500, Height: 750}},
+		Creators: []TMDBCast{{ID: 5, Name: "D", Profile: "/sub/dir.jpg"}}, Network: &TMDBNetwork{ID: 6, Name: "E", Logo: "/l0go.png"},
+	}}}}
+	err := s.Validate()
+	for _, want := range []string{
+		"tmdb series 4 image /p0ster.jpg is not in fakes/internal/artwork/files",
+		`tmdb series 4 profile "/sub/dir.jpg" is not a TMDB file path`,
+		"tmdb series 4 network logo /l0go.png is not in fakes/internal/artwork/files",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Validate = %v; want it to hold %q", err, want)
+		}
 	}
 }
 
@@ -73,6 +97,15 @@ func named(t *testing.T) []string {
 		}
 		for _, m := range s.TMDB.Movies {
 			out = append(out, tmdbNamed(m.Images, m.Credits)...)
+		}
+		for _, series := range s.TMDB.Series {
+			out = append(out, tmdbNamed(series.Images, series.Credits)...)
+			for _, c := range series.Creators {
+				out = append(out, c.Profile)
+			}
+			if series.Network != nil {
+				out = append(out, series.Network.Logo)
+			}
 		}
 	}
 	return out

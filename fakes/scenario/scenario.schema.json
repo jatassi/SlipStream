@@ -1131,6 +1131,10 @@
                   },
                   "name": {
                     "type": "string"
+                  },
+                  "logo": {
+                    "type": "string",
+                    "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
                   }
                 },
                 "additionalProperties": false,
