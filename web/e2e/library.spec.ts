@@ -57,7 +57,6 @@ async function seedBoth(world: World) {
   await add(world, "9000001", "all");
 }
 
-// TV's availability column and sort read Next airing, and All's Available.
 async function expectAvailabilityWords(page: Page, types: Locator) {
   await page.getByRole("button", { name: /^Sort: /u }).click();
   await expect(menuChoice(page, { name: "Next airing" })).toBeVisible();

@@ -32,7 +32,6 @@ export const isPreset = (key: string): key is Preset => Object.hasOwn(presetLabe
 
 export const presets: readonly Preset[] = Object.keys(presetLabels).filter((key) => isPreset(key));
 
-/** The type's verb for an Item coming out, such as air. */
 export const releaseVerb = (type: Pick<WorksContentType, "releases">): string =>
   type.releases === "" ? "come out" : type.releases;
 

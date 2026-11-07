@@ -22,7 +22,6 @@ async function choose(page: Page, sheet: Locator, preset: RegExp) {
 
 const sentence = (sheet: Locator) => sheet.getByText(/^Adds /u);
 
-// Each preset the sheet offers with its count, phrased in its sentence.
 async function expectEachPreset(page: Page, sheet: Locator) {
   await sheet.getByRole("combobox", { name: "Episodes to monitor" }).click();
   await expect(page.getByRole("option")).toHaveText([
@@ -51,7 +50,6 @@ async function expectEachPreset(page: Page, sheet: Locator) {
   }
 }
 
-// Remember made the add's choices the next add's, and the first is in the library.
 async function expectRemembered(page: Page) {
   await page.goto("/add?contentType=series&query=lantern");
   await expect(

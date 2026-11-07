@@ -13,7 +13,7 @@ export function mixedAttributes(checked: SwitchChecked) {
   return checked === "mixed" ? ({ "aria-checked": "mixed", ...mixedKnob(checked) } as const) : {};
 }
 
-/** The knob's look when mixed; only the switch itself carries aria-checked. */
+// aria-checked is allowed on the switch alone, so the knob takes only the look.
 export const mixedKnob = (checked: SwitchChecked) =>
   checked === "mixed" ? ({ "data-mixed": "" } as const) : {};
 

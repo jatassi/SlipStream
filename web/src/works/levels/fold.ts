@@ -12,7 +12,6 @@ export type Foldable = {
 
 export type Fold<T> = { readonly items: readonly T[]; readonly words: string };
 
-/** What folding reads of a Content Type: its Item noun and its verb for coming out. */
 export type Folding = Pick<WorksContentType, "item" | "releases">;
 
 export type Entry<T> =
