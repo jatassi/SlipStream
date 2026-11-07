@@ -13,15 +13,10 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/naming"
-	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
-	"github.com/jatassi/slipstream/internal/release"
-	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -40,26 +35,6 @@ var Def = contenttype.Define("series", schemaFiles, DefaultEndpoints, contenttyp
 		return &Series{region: d.Region, web: e}
 	},
 })
-
-// Endpoints are the hosts a series' outbound links open in the browser.
-// No Node calls them.
-type Endpoints struct {
-	TVDBSite endpoint.URL `yaml:"tvdb_site"`
-	TMDBSite endpoint.URL `yaml:"tmdb_site"`
-	IMDb     endpoint.URL `yaml:"imdb"`
-	Trakt    endpoint.URL `yaml:"trakt"`
-	YouTube  endpoint.URL `yaml:"youtube"`
-}
-
-func DefaultEndpoints() Endpoints {
-	return Endpoints{
-		TVDBSite: endpoint.MustParseURL("https://thetvdb.com"),
-		TMDBSite: endpoint.MustParseURL("https://www.themoviedb.org"),
-		IMDb:     endpoint.MustParseURL("https://www.imdb.com"),
-		Trakt:    endpoint.MustParseURL("https://trakt.tv"),
-		YouTube:  endpoint.MustParseURL("https://www.youtube.com"),
-	}
-}
 
 var Description = works.Description{
 	Name:         "TV",
@@ -164,66 +139,8 @@ type Series struct {
 
 func (*Series) Describe() works.Description { return Description }
 
-func (*Series) Store(context.Context, *storage.Tx[file], works.Placed, []byte) (bool, error) {
-	return false, errNotImplemented
-}
-
-func (*Series) Fields(context.Context, storage.Reader[file], works.WorkID) (works.FieldSet, error) {
-	return works.FieldSet{}, errNotImplemented
-}
-
-func (*Series) ListFields(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID][]works.FieldValue, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) Titles(context.Context, storage.Reader[file], works.WorkID) ([]string, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) Links(works.Key, []works.FieldValue) []works.WebLink { return nil }
-
-func (*Series) SettingFields(context.Context, storage.Reader[file]) ([]setting.Field, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) ApplySettings(context.Context, *storage.Tx[file], setting.Patch) (bool, error) {
-	return false, errNotImplemented
-}
-
-func (*Series) OptionFields(context.Context, storage.Reader[file], works.WorkID) ([]setting.Field, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) FetchOptions(context.Context, storage.Reader[file], works.WorkID) ([]byte, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) PatchOptions(context.Context, storage.Reader[file], works.WorkID, setting.Patch) ([]byte, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) NamingTokens(context.Context, storage.Reader[file], works.ItemID) (map[string]string, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) DefaultTemplates() naming.Templates { return naming.Templates{} }
-
 // SearchTerms answers no Terms, so no episode is searched, until S26
 // (Indexers and Trackers) gives the type its terms.
 func (*Series) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
-}
-
-func (*Series) Timings(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) Cuts() []release.Cut { return nil }
-
-func (*Series) Growing(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID]bool, error) {
-	return nil, errNotImplemented
-}
-
-func (*Series) KeysOf(context.Context, storage.Reader[file], []works.Key) ([]works.Key, error) {
-	return nil, errNotImplemented
 }
