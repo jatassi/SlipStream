@@ -91,6 +91,9 @@
             },
             "type": "array",
             "uniqueItems": true
+          },
+          "challenge_solver": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false,
@@ -304,6 +307,14 @@
             "captcha": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "keep_queries": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "unanswered": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
           },
           "additionalProperties": false,
@@ -344,6 +355,67 @@
         "transfers": {
           "properties": {
             "chunk": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "report": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "dial": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "estimate": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "lanes_start": {
+              "type": "integer"
+            },
+            "lanes_grow": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "lanes_gain": {
+              "type": "integer"
+            },
+            "lanes_max": {
+              "type": "integer"
+            },
+            "ahead": {
+              "type": "integer"
+            },
+            "sync_bytes": {
+              "type": "integer"
+            },
+            "sync_every": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retry_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retry_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "damaged": {
+              "type": "integer"
+            },
+            "piece": {
+              "type": "integer"
+            },
+            "route_retry": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "pair_write": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "changed": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
@@ -839,6 +911,10 @@
                         },
                         "character": {
                           "type": "string"
+                        },
+                        "profile": {
+                          "type": "string",
+                          "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
                         }
                       },
                       "additionalProperties": false,
@@ -865,6 +941,10 @@
                         },
                         "job": {
                           "type": "string"
+                        },
+                        "profile": {
+                          "type": "string",
+                          "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
                         }
                       },
                       "additionalProperties": false,
@@ -938,6 +1018,18 @@
                       "type": "number",
                       "maximum": 10,
                       "minimum": 0
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 0
                     }
                   },
                   "additionalProperties": false,
@@ -970,15 +1062,29 @@
               "runtime"
             ]
           },
-          "type": "array",
-          "minItems": 1
+          "type": "array"
+        },
+        "generated": {
+          "properties": {
+            "count": {
+              "type": "integer",
+              "maximum": 50000,
+              "minimum": 1
+            },
+            "seed": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "count",
+            "seed"
+          ]
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "movies"
-      ]
+      "type": "object"
     },
     "omdb": {
       "properties": {
@@ -1462,6 +1568,24 @@
             ]
           },
           "type": "array"
+        },
+        "works": {
+          "properties": {
+            "content_type": {
+              "type": "string",
+              "enum": [
+                "movie"
+              ]
+            },
+            "monitor": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "content_type"
+          ]
         }
       },
       "additionalProperties": false,

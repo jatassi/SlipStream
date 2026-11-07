@@ -136,6 +136,7 @@ type outcome struct {
 type pin struct {
 	ID          string            `json:"id"`
 	Version     string            `json:"version" doc:"The pinned version's git blob sha"`
+	FetchedAt   time.Time         `json:"fetchedAt" doc:"When SlipStream downloaded the pinned version"`
 	BaseAddress string            `json:"baseAddress"`
 	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
 }
@@ -235,7 +236,7 @@ func indexerOf(v indexers.View) indexer {
 	case indexers.Definition:
 		values := map[string]string{}
 		maps.Copy(values, s.Plain)
-		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, BaseAddress: s.BaseAddress, Values: values})
+		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, FetchedAt: s.Fetched, BaseAddress: s.BaseAddress, Values: values})
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))
@@ -685,6 +686,24 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getChallengeSolver",
+		Method:  http.MethodGet,
+		Path:    "/nodes/{id}/challenge-solver",
+		Summary: "Get the Challenge solver of a Node that stands in Searching",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotSearching},
+	}, h.getChallengeSolver)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setChallengeSolver",
+		Method:  http.MethodPut,
+		Path:    "/nodes/{id}/challenge-solver",
+		Summary: "Set a Node's Challenge solver once the Node reaches the solver's /health, or remove it with an empty address",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotSearching, challengeSolverUnreachable, indexerUnavailable},
+	}, h.setChallengeSolver)
 }
 
 type handlers struct{ registry Registry }

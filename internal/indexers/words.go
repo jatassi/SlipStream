@@ -77,7 +77,7 @@ func (e *TestFailedError) Error() string { return "the Indexer's Test ended " + 
 // testFailed is the TestFailedError of a Test of idx run on node that the
 // site answered with outcome, and the status the answer left.
 func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer, st Status) error {
-	o := outcomeOf(a, st)
+	o := outcomeOf(a, st, idx.Home)
 	var sentence string
 	var limited *searching.Limited
 	var stopped *searching.Stopped
@@ -136,9 +136,8 @@ func (x *Indexers) inZone(t time.Time) time.Time {
 	return t.In(zone)
 }
 
-// stoppedWords is a stop in words, as the Indexer's status and its line in
-// a search: %[1]s is the Indexer, %[2]s the site's own words, %[3]s the
-// Node it was met on.
+// stoppedWords is a stop in words, as the Indexer's status: %[1]s is the
+// Indexer, %[2]s the site's own words, %[3]s the Node it was met on.
 var stoppedWords = map[Cause]string{
 	searching.CredentialsRejected:  "Stopped because %[1]s rejected the username or password.",
 	searching.CaptchaNeeded:        "Stopped because %[1]s needs a captcha to sign in again.",
@@ -148,6 +147,21 @@ var stoppedWords = map[Cause]string{
 	searching.AccountRefused:       "Stopped because %[1]s refused the API key with '%[2]s'.",
 	searching.RequestRejected:      "Stopped because %[1]s refused a search with '%[2]s'.",
 }
+
+// stoppedLines is a stop as its line in a search, said beside the
+// Indexer's name: {text} is the site's own words, {node} the Node it was
+// met on.
+var stoppedLines = map[Cause]string{
+	searching.CredentialsRejected:  "Stopped because the username or password was rejected.",
+	searching.CaptchaNeeded:        "Stopped because signing in again needs a captcha.",
+	searching.ChallengeUnsolved:    "Stopped at a browser challenge because {node} has no Challenge solver.",
+	searching.CookieExpired:        "Stopped because the browser cookie is no longer accepted.",
+	searching.DefinitionUnloadable: "Stopped because its definition doesn't load.",
+	searching.AccountRefused:       "Stopped because the API key was refused with '{text}'.",
+	searching.RequestRejected:      "Stopped because a search was refused with '{text}'.",
+}
+
+const refusedSignInLine = "Stopped because the sign-in was refused with '{text}'."
 
 // stoppedFixes is how the Admin clears a stop from the Indexer's page:
 // {node} is the Node it was met on.
@@ -214,7 +228,7 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	case Waiting:
 		home := x.cfg.Roster.Name(w.Node)
 		var fix string
-		if w.Lapsed && v.SignsIn && !v.AllowFailover {
+		if w.Lapsed && v.SignsIn && !v.AllowFailover && v.Status.State != HomeOnly {
 			fix = "Allow failover to search from another Node."
 		}
 		if w.Since.IsZero() {
@@ -226,9 +240,10 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 	return name + " is working.", ""
 }
 
-// Line is how Indexer name stood in a search of an Item of Content Type
-// typ: o in words, or "Searching" while its job runs and o is nil.
-func (x *Indexers) Line(name string, typ works.TypeID, o *Outcome) string {
+// Line is how an Indexer stood in a search of an Item of Content Type typ,
+// said beside its name: o in words, or "Searching" while its job runs and
+// o is nil.
+func (x *Indexers) Line(typ works.TypeID, o *Outcome) string {
 	if o == nil {
 		return "Searching"
 	}
@@ -248,9 +263,13 @@ func (x *Indexers) Line(name string, typ works.TypeID, o *Outcome) string {
 	case Waiting:
 		return "Waiting for " + x.cfg.Roster.Name(o.Node)
 	case IsFailing:
-		return x.retries(name+" isn't responding.", o.Until)
+		return x.retries("Isn't responding.", o.Until)
 	case IsStopped:
-		return fmt.Sprintf(stoppedFormat(o.Cause, o.Text), name, o.Text, x.cfg.Roster.Name(o.Node))
+		line := stoppedLines[o.Cause]
+		if refusedSignIn(o.Cause, o.Text) {
+			line = refusedSignInLine
+		}
+		return strings.NewReplacer("{text}", o.Text, "{node}", x.cfg.Roster.Name(o.Node)).Replace(line)
 	case NoCategories:
 		d, _ := x.cfg.Works.Describe(typ)
 		return "Skipped because it has no " + strings.ToLower(d.Work.One) + " categories"
@@ -311,6 +330,11 @@ func (x *Indexers) failingItemWords(name string, st Status, now time.Time) strin
 		until = time.Time{}
 	}
 	return x.retries(fmt.Sprintf("Every request to %s has failed since %s.", name, x.clock(st.Since)), until)
+}
+
+// Sentence is the Challenge solver Test's failure, for the form.
+func (e *SolverUnreachableError) Sentence() string {
+	return fmt.Sprintf("%[1]s can't reach a Challenge solver at %[2]s. Check the address and that the solver is running beside %[1]s.", e.Node, e.Address)
 }
 
 // unservedWords is the Health item of a Content Type whose Works, many,

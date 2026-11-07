@@ -22,6 +22,17 @@ func (q *Queries) GetIntent(ctx context.Context, nodeID role.NodeID) (string, er
 	return value, err
 }
 
+const getWide = `-- name: GetWide :one
+SELECT value FROM probe_wide WHERE node_id = ?1
+`
+
+func (q *Queries) GetWide(ctx context.Context, nodeID role.NodeID) (string, error) {
+	row := q.db.QueryRowContext(ctx, getWide, nodeID)
+	var value string
+	err := row.Scan(&value)
+	return value, err
+}
+
 const insertApplied = `-- name: InsertApplied :exec
 INSERT INTO probe_applied (node_id, n) VALUES (?1, ?2)
 `
@@ -75,5 +86,20 @@ type SetIntentParams struct {
 
 func (q *Queries) SetIntent(ctx context.Context, arg SetIntentParams) error {
 	_, err := q.db.ExecContext(ctx, setIntent, arg.NodeID, arg.Value)
+	return err
+}
+
+const setWide = `-- name: SetWide :exec
+INSERT INTO probe_wide (node_id, value) VALUES (?1, ?2)
+ON CONFLICT (node_id) DO UPDATE SET value = excluded.value
+`
+
+type SetWideParams struct {
+	NodeID role.NodeID
+	Value  string
+}
+
+func (q *Queries) SetWide(ctx context.Context, arg SetWideParams) error {
+	_, err := q.db.ExecContext(ctx, setWide, arg.NodeID, arg.Value)
 	return err
 }

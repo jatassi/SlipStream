@@ -19,7 +19,7 @@ export interface GrabsGrab {
   fetchNodeId: string | null;
   /** Why fetching the .torrent waits on its Indexer, absent unless it does */
   fetchWait?: GrabsFetchWait;
-  /** Each stage it entered, oldest first */
+  /** Each stage it entered, when it last entered it, oldest first */
   history: GrabsEntered[];
   id: string;
   /**

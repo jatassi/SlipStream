@@ -24,12 +24,20 @@ import type {
   GetGrab500,
   GrabsGrab,
   GrabsGrabList,
+  GrabsIndexerGrabList,
   GrabsSearchList,
   GrabsSearchStarted,
   ListGrabs401,
   ListGrabs403,
   ListGrabs409,
   ListGrabs500,
+  ListIndexerGrabs401,
+  ListIndexerGrabs403,
+  ListIndexerGrabs404,
+  ListIndexerGrabs409,
+  ListIndexerGrabs422,
+  ListIndexerGrabs500,
+  ListIndexerGrabsParams,
   ListSearches401,
   ListSearches403,
   ListSearches404,
@@ -271,6 +279,188 @@ export function useGetGrabSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getGetGrabSuspenseQueryOptions(grabId, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getListIndexerGrabsUrl = (id: string, params?: ListIndexerGrabsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/indexers/${id}/grabs?${stringifiedParams}`
+    : `/api/v1/indexers/${id}/grabs`;
+};
+
+/**
+ * @summary List the Grabs taken from an Indexer, 50 at a time
+ */
+export const listIndexerGrabs = async (
+  id: string,
+  params?: ListIndexerGrabsParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsIndexerGrabList> => {
+  return apiFetch<GrabsIndexerGrabList>(getListIndexerGrabsUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListIndexerGrabsQueryKey = (id: string, params?: ListIndexerGrabsParams) => {
+  return [`/api/v1/indexers/${id}/grabs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListIndexerGrabsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listIndexerGrabs>>,
+  TError = ErrorType<
+    | ListIndexerGrabs401
+    | ListIndexerGrabs403
+    | ListIndexerGrabs404
+    | ListIndexerGrabs409
+    | ListIndexerGrabs422
+    | ListIndexerGrabs500
+  >,
+>(
+  id: string,
+  params?: ListIndexerGrabsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listIndexerGrabs>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListIndexerGrabsQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listIndexerGrabs>>> = ({ signal }) =>
+    listIndexerGrabs(id, params, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listIndexerGrabs>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListIndexerGrabsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listIndexerGrabs>>
+>;
+export type ListIndexerGrabsSuspenseQueryError = ErrorType<
+  | ListIndexerGrabs401
+  | ListIndexerGrabs403
+  | ListIndexerGrabs404
+  | ListIndexerGrabs409
+  | ListIndexerGrabs422
+  | ListIndexerGrabs500
+>;
+
+export function useListIndexerGrabsSuspense<
+  TData = Awaited<ReturnType<typeof listIndexerGrabs>>,
+  TError = ErrorType<
+    | ListIndexerGrabs401
+    | ListIndexerGrabs403
+    | ListIndexerGrabs404
+    | ListIndexerGrabs409
+    | ListIndexerGrabs422
+    | ListIndexerGrabs500
+  >,
+>(
+  id: string,
+  params: undefined | ListIndexerGrabsParams,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listIndexerGrabs>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListIndexerGrabsSuspense<
+  TData = Awaited<ReturnType<typeof listIndexerGrabs>>,
+  TError = ErrorType<
+    | ListIndexerGrabs401
+    | ListIndexerGrabs403
+    | ListIndexerGrabs404
+    | ListIndexerGrabs409
+    | ListIndexerGrabs422
+    | ListIndexerGrabs500
+  >,
+>(
+  id: string,
+  params?: ListIndexerGrabsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listIndexerGrabs>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListIndexerGrabsSuspense<
+  TData = Awaited<ReturnType<typeof listIndexerGrabs>>,
+  TError = ErrorType<
+    | ListIndexerGrabs401
+    | ListIndexerGrabs403
+    | ListIndexerGrabs404
+    | ListIndexerGrabs409
+    | ListIndexerGrabs422
+    | ListIndexerGrabs500
+  >,
+>(
+  id: string,
+  params?: ListIndexerGrabsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listIndexerGrabs>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the Grabs taken from an Indexer, 50 at a time
+ */
+
+export function useListIndexerGrabsSuspense<
+  TData = Awaited<ReturnType<typeof listIndexerGrabs>>,
+  TError = ErrorType<
+    | ListIndexerGrabs401
+    | ListIndexerGrabs403
+    | ListIndexerGrabs404
+    | ListIndexerGrabs409
+    | ListIndexerGrabs422
+    | ListIndexerGrabs500
+  >,
+>(
+  id: string,
+  params?: ListIndexerGrabsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listIndexerGrabs>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListIndexerGrabsSuspenseQueryOptions(id, params, options);
 
   const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
     TData,

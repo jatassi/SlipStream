@@ -3,6 +3,7 @@ package targetsapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -14,7 +15,7 @@ import (
 )
 
 var (
-	impactChanged    = api.NewCode(http.StatusConflict, "impact_changed", "The change now does more than its preview showed")
+	ImpactChanged    = api.NewCode(http.StatusConflict, "impact_changed", "The change now does more than its preview showed")
 	profileIsDefault = api.NewCode(http.StatusConflict, "profile_is_default", "The default Profile can't be deleted")
 	profileWrongType = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 	profileNotFound  = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
@@ -25,7 +26,7 @@ type unwantedFiles struct {
 	Bytes int64 `json:"bytes" minimum:"0"`
 }
 
-type impact struct {
+type Impact struct {
 	Works       int           `json:"works" minimum:"0" doc:"Works whose cells, fills or file names change"`
 	OwnList     int           `json:"ownList" minimum:"0" doc:"Works that keep their own Edition list through a change to their Profile's"`
 	Unwanted    unwantedFiles `json:"unwanted" doc:"Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"`
@@ -34,8 +35,8 @@ type impact struct {
 	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept"`
 }
 
-func impactOf(i files.Impact) impact {
-	return impact{
+func ImpactOf(i files.Impact) Impact {
+	return Impact{
 		Works: i.Works, OwnList: i.OwnList, Unwanted: unwantedFiles{Files: i.Unwanted, Bytes: i.Bytes},
 		Renamed: i.Renamed, NewlyWanted: i.NewlyWanted, Downloading: i.Downloading,
 	}
@@ -49,7 +50,7 @@ type Changing struct {
 	Confirm  api.Optional[int64] `query:"confirm" minimum:"0" doc:"The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
 }
 
-func (c Changing) mode() files.Mode {
+func (c Changing) Mode() files.Mode {
 	m := files.Mode{Preview: c.Preview, Unwanted: files.Unwanted(c.Unwanted)}
 	if c.Confirm.Set {
 		m.Confirmed = new(int(c.Confirm.Value))
@@ -60,9 +61,22 @@ func (c Changing) mode() files.Mode {
 // changed answers err from a Change.
 func changed(err error) error {
 	if e, ok := errors.AsType[*files.ImpactChangedError](err); ok {
-		return impactChanged.Because(e.Error())
+		return ImpactRefused(e)
 	}
 	return answer(err)
+}
+
+// ImpactRefused is the problem a save that would leave more files
+// unwanted than its preview showed is refused with.
+func ImpactRefused(e *files.ImpactChangedError) error {
+	return ImpactChanged.Because(fmt.Sprintf("The save now leaves %s unwanted, and the preview showed %d. Preview the change again.", filesOf(e.Impact.Unwanted), e.Confirmed))
+}
+
+func filesOf(n int) string {
+	if n == 1 {
+		return "1 file"
+	}
+	return fmt.Sprintf("%d files", n)
 }
 
 type updateTargetInput struct {
@@ -72,7 +86,7 @@ type updateTargetInput struct {
 }
 
 type targetChange struct {
-	Impact impact `json:"impact"`
+	Impact Impact `json:"impact"`
 	Target target `json:"target"`
 }
 
@@ -87,7 +101,7 @@ func (h handlers) updateTarget(ctx context.Context, by identity.Admin, in *updat
 	if err != nil {
 		return nil, err
 	}
-	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateTarget{ID: id, Spec: s}, in.mode())
+	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateTarget{ID: id, Spec: s}, in.Mode())
 	switch {
 	case errors.Is(err, targets.ErrNoTarget):
 		return nil, noSuchTarget
@@ -98,7 +112,7 @@ func (h handlers) updateTarget(ctx context.Context, by identity.Admin, in *updat
 	if err != nil {
 		return nil, err
 	}
-	return &targetChangeOutput{Body: targetChange{Impact: impactOf(i), Target: targetOf(t)}}, nil
+	return &targetChangeOutput{Body: targetChange{Impact: ImpactOf(i), Target: targetOf(t)}}, nil
 }
 
 type updateProfileInput struct {
@@ -108,7 +122,7 @@ type updateProfileInput struct {
 }
 
 type profileChange struct {
-	Impact  impact  `json:"impact"`
+	Impact  Impact  `json:"impact"`
 	Profile Profile `json:"profile"`
 }
 
@@ -123,7 +137,7 @@ func (h handlers) updateProfile(ctx context.Context, by identity.Admin, in *upda
 	if err != nil {
 		return nil, err
 	}
-	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateProfile{ID: id, Spec: s}, in.mode())
+	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateProfile{ID: id, Spec: s}, in.Mode())
 	if err != nil {
 		return nil, wrongType(changed(err))
 	}
@@ -146,7 +160,7 @@ func (h handlers) deleteProfile(ctx context.Context, by identity.Admin, in *dele
 		return nil, profileNotFound
 	}
 	to := targets.ProfileID{UUID: u}
-	i, err := shelf(h.goals).Change(ctx, by, targets.DeleteProfile{ID: id, To: to}, in.mode())
+	i, err := shelf(h.goals).Change(ctx, by, targets.DeleteProfile{ID: id, To: to}, in.Mode())
 	switch {
 	case errors.Is(err, targets.ErrNoReplacement):
 		return nil, profileNotFound
@@ -165,7 +179,7 @@ func (h handlers) profileChanged(ctx context.Context, by identity.Admin, i files
 	if err != nil {
 		return nil, err
 	}
-	return &profileChangeOutput{Body: profileChange{Impact: impactOf(i), Profile: profileOf(p)}}, nil
+	return &profileChangeOutput{Body: profileChange{Impact: ImpactOf(i), Profile: profileOf(p)}}, nil
 }
 
 // wrongType answers a Profile of another Content Type, which the body or
@@ -178,8 +192,7 @@ func wrongType(err error) error {
 }
 
 type newWants struct {
-	ProfileID string                         `json:"profileId" format:"uuid"`
-	Editions  api.Patch[api.OneOf[editions]] `json:"editions" doc:"The Work's own Edition list, or null for its Profile's"`
+	Editions api.Patch[api.OneOf[editions]] `json:"editions" doc:"The Work's own Edition list, or null for its Profile's"`
 }
 
 type setWantsInput struct {
@@ -189,7 +202,7 @@ type setWantsInput struct {
 }
 
 type wantsChange struct {
-	Impact impact `json:"impact"`
+	Impact Impact `json:"impact"`
 	Wants  wants  `json:"wants"`
 }
 
@@ -201,11 +214,7 @@ func (h handlers) setWorkWants(ctx context.Context, by identity.Admin, in *setWa
 		return nil, workNotFound
 	}
 	work := works.WorkID{UUID: u}
-	p, err := storage.ParseUUID(in.Body.ProfileID)
-	if err != nil {
-		return nil, profileNotFound
-	}
-	c := targets.SetWants{Work: work, Profile: targets.ProfileID{UUID: p}}
+	c := targets.SetWants{Work: work}
 	if own := in.Body.Editions.Value(); own != nil {
 		list, err := editionsFrom(*own)
 		if err != nil {
@@ -213,16 +222,13 @@ func (h handlers) setWorkWants(ctx context.Context, by identity.Admin, in *setWa
 		}
 		c.Own = &list
 	}
-	i, err := shelf(h.goals).Change(ctx, by, c, in.mode())
-	switch {
-	case errors.Is(err, targets.ErrNoProfile):
-		return nil, profileNotFound
-	case err != nil:
-		return nil, wrongType(changed(err))
+	i, err := shelf(h.goals).Change(ctx, by, c, in.Mode())
+	if err != nil {
+		return nil, changed(err)
 	}
 	g, err := open(h.goals).Goals(ctx, by, work)
 	if err != nil {
 		return nil, err
 	}
-	return &wantsChangeOutput{Body: wantsChange{Impact: impactOf(i), Wants: wantsOf(g)}}, nil
+	return &wantsChangeOutput{Body: wantsChange{Impact: ImpactOf(i), Wants: wantsOf(g)}}, nil
 }

@@ -38,6 +38,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		targets.Schema(),
 		roots.Schema(),
 		downloadclients.Schema(),
+		transfers.LibrarySchema(),
 		grabs.Schema(),
 		indexers.Schema(),
 		files.Schema(),

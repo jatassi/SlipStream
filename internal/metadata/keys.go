@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata/internal/db"
@@ -94,13 +95,14 @@ func (m *Metadata) SetKey(ctx context.Context, _ identity.Admin, p ProviderID, k
 		return ProviderStatus{}, &works.SourceError{Source: label, Until: o.Until, Words: o.Words, Err: works.ErrUnavailable}
 	}
 	sealed := m.cfg.Sealer.Seal([]byte(key), keyColumn.Row(string(p)))
+	at := storage.Now()
 	err = m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return db.New(tx).PutKey(ctx, db.PutKeyParams{Provider: string(p), ApiKeySealed: sealed, SetAt: storage.Now()})
+		return db.New(tx).PutKey(ctx, db.PutKeyParams{Provider: string(p), ApiKeySealed: sealed, SetAt: at})
 	})
 	if err != nil {
 		return ProviderStatus{}, err
 	}
-	m.rekeyed(ctx, p, key, node, outcomes)
+	m.rekeyed(ctx, p, yourKey{key: key, setAt: at.Time()}, node, outcomes)
 	return m.statusOf(p), nil
 }
 
@@ -120,9 +122,15 @@ func (m *Metadata) ClearKey(ctx context.Context, _ identity.Admin, p ProviderID)
 		return ProviderStatus{}, err
 	}
 	if cleared > 0 {
-		m.rekeyed(ctx, p, "", role.NodeID{}, nil)
+		m.rekeyed(ctx, p, yourKey{}, role.NodeID{}, nil)
 	}
 	return m.statusOf(p), nil
+}
+
+// yourKey is an Admin's key and when they set it.
+type yourKey struct {
+	key   string
+	setAt time.Time
 }
 
 // inEffect is the key each provider is called with.
@@ -130,14 +138,16 @@ func (m *Metadata) inEffect() map[ProviderID]string {
 	keys := maps.Clone(m.bundled)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	maps.Copy(keys, m.yours)
+	for p, k := range m.yours {
+		keys[p] = k.key
+	}
 	return keys
 }
 
 // keyInUse is whose key p is called with; m.mu is held.
 func (m *Metadata) keyInUse(p ProviderID) KeyInUse {
 	switch {
-	case m.yours[p] != "":
+	case m.yours[p].key != "":
 		return KeyYours
 	case m.bundled[p] != "":
 		return KeyBundled

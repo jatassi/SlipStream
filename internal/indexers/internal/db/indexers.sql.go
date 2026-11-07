@@ -140,12 +140,12 @@ func (q *Queries) DeleteIndexer(ctx context.Context, id IndexerID) (int64, error
 	return result.RowsAffected()
 }
 
-const deleteSessions = `-- name: DeleteSessions :exec
-DELETE FROM indexers_session WHERE indexer_id = ?1
+const deleteSessionsOn = `-- name: DeleteSessionsOn :exec
+DELETE FROM indexers_session WHERE node_id = ?1
 `
 
-func (q *Queries) DeleteSessions(ctx context.Context, indexerID IndexerID) error {
-	_, err := q.db.ExecContext(ctx, deleteSessions, indexerID)
+func (q *Queries) DeleteSessionsOn(ctx context.Context, nodeID role.NodeID) error {
+	_, err := q.db.ExecContext(ctx, deleteSessionsOn, nodeID)
 	return err
 }
 
@@ -242,14 +242,17 @@ func (q *Queries) GetDefinition(ctx context.Context, arg GetDefinitionParams) (I
 }
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+    EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 WHERE i.id = ?1
 `
 
 type GetIndexerRow struct {
-	IndexersIndexer   IndexersIndexer
-	DefinitionSummary *string
+	IndexersIndexer     IndexersIndexer
+	DefinitionSummary   *string
+	DefinitionFetchedAt storage.Time
+	Pasted              bool
 }
 
 func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, error) {
@@ -286,6 +289,8 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, 
 		&i.IndexersIndexer.CreatedAt,
 		&i.IndexersIndexer.UpdatedAt,
 		&i.DefinitionSummary,
+		&i.DefinitionFetchedAt,
+		&i.Pasted,
 	)
 	return i, err
 }
@@ -702,14 +707,17 @@ func (q *Queries) ListDefinitionKeys(ctx context.Context) ([]ListDefinitionKeysR
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+    EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 ORDER BY i.name
 `
 
 type ListIndexersRow struct {
-	IndexersIndexer   IndexersIndexer
-	DefinitionSummary *string
+	IndexersIndexer     IndexersIndexer
+	DefinitionSummary   *string
+	DefinitionFetchedAt storage.Time
+	Pasted              bool
 }
 
 func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
@@ -752,6 +760,8 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
 			&i.IndexersIndexer.CreatedAt,
 			&i.IndexersIndexer.UpdatedAt,
 			&i.DefinitionSummary,
+			&i.DefinitionFetchedAt,
+			&i.Pasted,
 		); err != nil {
 			return nil, err
 		}
@@ -881,6 +891,33 @@ func (q *Queries) ListReach(ctx context.Context) ([]IndexersReach, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSessionNodes = `-- name: ListSessionNodes :many
+SELECT DISTINCT node_id FROM indexers_session ORDER BY node_id
+`
+
+func (q *Queries) ListSessionNodes(ctx context.Context) ([]role.NodeID, error) {
+	rows, err := q.db.QueryContext(ctx, listSessionNodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []role.NodeID
+	for rows.Next() {
+		var node_id role.NodeID
+		if err := rows.Scan(&node_id); err != nil {
+			return nil, err
+		}
+		items = append(items, node_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1057,6 +1094,24 @@ func (q *Queries) ListTrackers(ctx context.Context) ([]IndexersTracker, error) {
 	return items, nil
 }
 
+const loseUnanswered = `-- name: LoseUnanswered :execrows
+UPDATE indexers_query SET completed_at = ?1, outcome = 'lost'
+WHERE completed_at IS NULL AND reserved_at < ?2
+`
+
+type LoseUnansweredParams struct {
+	Now    storage.Time
+	Before storage.Time
+}
+
+func (q *Queries) LoseUnanswered(ctx context.Context, arg LoseUnansweredParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, loseUnanswered, arg.Now, arg.Before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const movePin = `-- name: MovePin :execrows
 UPDATE indexers_indexer SET
     definition_sha = ?1, plain = ?2, secrets_sealed = ?3, notes = ?4,
@@ -1194,6 +1249,18 @@ WHERE origin = 'catalog'
 func (q *Queries) PruneDefinitions(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, pruneDefinitions)
 	return err
+}
+
+const pruneQueries = `-- name: PruneQueries :execrows
+DELETE FROM indexers_query WHERE reserved_at < ?1
+`
+
+func (q *Queries) PruneQueries(ctx context.Context, before storage.Time) (int64, error) {
+	result, err := q.db.ExecContext(ctx, pruneQueries, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const putStatus = `-- name: PutStatus :exec
@@ -1425,22 +1492,6 @@ type SetUnknownPrivacyParams struct {
 func (q *Queries) SetUnknownPrivacy(ctx context.Context, arg SetUnknownPrivacyParams) error {
 	_, err := q.db.ExecContext(ctx, setUnknownPrivacy, arg.Privacy, arg.ID)
 	return err
-}
-
-const trackerNameTaken = `-- name: TrackerNameTaken :one
-SELECT EXISTS (SELECT 1 FROM indexers_tracker WHERE name = ?1 AND id IS NOT ?2)
-`
-
-type TrackerNameTakenParams struct {
-	Name   string
-	Except TrackerID
-}
-
-func (q *Queries) TrackerNameTaken(ctx context.Context, arg TrackerNameTakenParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, trackerNameTaken, arg.Name, arg.Except)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }
 
 const updateIndexer = `-- name: UpdateIndexer :execrows

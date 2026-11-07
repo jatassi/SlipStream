@@ -10,12 +10,19 @@ import type {
 
 import type {
   FilesCellList,
+  FilesFileList,
   GetWorkCells401,
   GetWorkCells403,
   GetWorkCells404,
   GetWorkCells409,
   GetWorkCells422,
   GetWorkCells500,
+  ListWorkFiles401,
+  ListWorkFiles403,
+  ListWorkFiles404,
+  ListWorkFiles409,
+  ListWorkFiles422,
+  ListWorkFiles500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -191,6 +198,170 @@ export function useGetWorkCellsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getGetWorkCellsSuspenseQueryOptions(workId, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getListWorkFilesUrl = (workId: string) => {
+  return `/api/v1/works/${workId}/files`;
+};
+
+/**
+ * @summary List a Work's library files with the cells each fills, and the folder they sit in
+ */
+export const listWorkFiles = async (
+  workId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<FilesFileList> => {
+  return apiFetch<FilesFileList>(getListWorkFilesUrl(workId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListWorkFilesQueryKey = (workId: string) => {
+  return [`/api/v1/works/${workId}/files`] as const;
+};
+
+export const getListWorkFilesSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkFiles>>,
+  TError = ErrorType<
+    | ListWorkFiles401
+    | ListWorkFiles403
+    | ListWorkFiles404
+    | ListWorkFiles409
+    | ListWorkFiles422
+    | ListWorkFiles500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorkFiles>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListWorkFilesQueryKey(workId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkFiles>>> = ({ signal }) =>
+    listWorkFiles(workId, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorkFiles>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListWorkFilesSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkFiles>>
+>;
+export type ListWorkFilesSuspenseQueryError = ErrorType<
+  | ListWorkFiles401
+  | ListWorkFiles403
+  | ListWorkFiles404
+  | ListWorkFiles409
+  | ListWorkFiles422
+  | ListWorkFiles500
+>;
+
+export function useListWorkFilesSuspense<
+  TData = Awaited<ReturnType<typeof listWorkFiles>>,
+  TError = ErrorType<
+    | ListWorkFiles401
+    | ListWorkFiles403
+    | ListWorkFiles404
+    | ListWorkFiles409
+    | ListWorkFiles422
+    | ListWorkFiles500
+  >,
+>(
+  workId: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorkFiles>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListWorkFilesSuspense<
+  TData = Awaited<ReturnType<typeof listWorkFiles>>,
+  TError = ErrorType<
+    | ListWorkFiles401
+    | ListWorkFiles403
+    | ListWorkFiles404
+    | ListWorkFiles409
+    | ListWorkFiles422
+    | ListWorkFiles500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorkFiles>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListWorkFilesSuspense<
+  TData = Awaited<ReturnType<typeof listWorkFiles>>,
+  TError = ErrorType<
+    | ListWorkFiles401
+    | ListWorkFiles403
+    | ListWorkFiles404
+    | ListWorkFiles409
+    | ListWorkFiles422
+    | ListWorkFiles500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorkFiles>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List a Work's library files with the cells each fills, and the folder they sit in
+ */
+
+export function useListWorkFilesSuspense<
+  TData = Awaited<ReturnType<typeof listWorkFiles>>,
+  TError = ErrorType<
+    | ListWorkFiles401
+    | ListWorkFiles403
+    | ListWorkFiles404
+    | ListWorkFiles409
+    | ListWorkFiles422
+    | ListWorkFiles500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWorkFiles>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListWorkFilesSuspenseQueryOptions(workId, options);
 
   const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
     TData,

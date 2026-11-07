@@ -47,8 +47,13 @@ type ProviderStatus struct {
 	Label    string
 	// Summary says how the provider stands and what to do, in plain words.
 	// The fields after Key are the machinery under it.
-	Summary     string
-	Key         KeyInUse
+	Summary string
+	Key     KeyInUse
+	// KeySetAt is when the Admin set the key in use, zero unless it is
+	// theirs.
+	KeySetAt    time.Time
+	KeyPage     string
+	Attribution *Attribution
 	State       State
 	Until       time.Time
 	LastSuccess time.Time
@@ -230,9 +235,9 @@ func (m *Metadata) fold(ctx context.Context, node role.NodeID, outcomes []Outcom
 
 // rekeyed puts key in use for p, or SlipStream's when key is empty, and
 // starts p's status afresh from outcomes, which node answered testing it.
-func (m *Metadata) rekeyed(ctx context.Context, p ProviderID, key string, node role.NodeID, outcomes []Outcome) {
+func (m *Metadata) rekeyed(ctx context.Context, p ProviderID, key yourKey, node role.NodeID, outcomes []Outcome) {
 	m.mu.Lock()
-	if key == "" {
+	if key.key == "" {
 		delete(m.yours, p)
 	} else {
 		m.yours[p] = key
@@ -306,7 +311,8 @@ func (m *Metadata) label(p ProviderID) (string, bool) {
 // view is s as the API reads it; m.mu is held.
 func (m *Metadata) view(s *status) ProviderStatus {
 	v := ProviderStatus{
-		Provider: s.p.ID, Label: s.p.Label, Key: m.keyInUse(s.p.ID), State: s.state, Until: s.until,
+		Provider: s.p.ID, Label: s.p.Label, Key: m.keyInUse(s.p.ID), KeySetAt: m.yours[s.p.ID].setAt, KeyPage: s.p.KeyPage, Attribution: s.p.Attribution,
+		State: s.state, Until: s.until,
 		LastSuccess: s.lastSuccess, LastError: s.lastError, LastErrorAt: s.lastErrorAt, Nodes: []NodeReach{},
 	}
 	for _, n := range s.nodes {

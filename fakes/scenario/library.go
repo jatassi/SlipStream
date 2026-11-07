@@ -22,6 +22,16 @@ type Library struct {
 	Targets       []LibraryTarget  `yaml:"targets,omitempty"`
 	Profiles      []LibraryProfile `yaml:"profiles,omitempty"`
 	Indexers      []LibraryIndexer `yaml:"indexers,omitempty"`
+	// Works are added last, after the Indexers.
+	Works *LibraryWorks `yaml:"works,omitempty"`
+}
+
+// LibraryWorks adds a Work for every movie fake-tmdb serves, listed and
+// generated, through POST /api/v1/works as an Admin would, monitored when
+// Monitor is set.
+type LibraryWorks struct {
+	ContentType string `jsonschema:"required,enum=movie" yaml:"content_type"`
+	Monitor     bool   `yaml:"monitor,omitempty"`
 }
 
 // LibraryRoot is a root of a Content Type, the folder named Folder under

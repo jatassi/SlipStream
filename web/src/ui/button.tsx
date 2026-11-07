@@ -41,7 +41,7 @@ export function Button({
 }: Omit<ComponentProps<typeof BaseButton>, "className" | "children" | "focusableWhenDisabled"> & {
   look?: ButtonLook;
   size?: ButtonSize;
-  icon?: IconSvgElement;
+  icon?: IconSvgElement | undefined;
   busy?: boolean;
   className?: string;
   children: ReactNode;

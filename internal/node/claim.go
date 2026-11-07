@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -29,10 +30,11 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-type library struct {
+type libraryDB struct {
 	db     *storage.DB[storage.Library]
 	sealer *secret.Sealer
 	minter artwork.Minter
@@ -41,7 +43,7 @@ type library struct {
 	ids    *identity.Service
 }
 
-func (l *library) close(ctx context.Context) error {
+func (l *libraryDB) close(ctx context.Context) error {
 	return errors.Join(l.outbox.Close(ctx), l.db.Close())
 }
 
@@ -55,7 +57,7 @@ type libraryFiles struct {
 
 // openLibraryFiles is where a running Node and `slipstream admin reset`
 // offline both open library.db.
-func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
+func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
 	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, preMigrationHook, f.timings.Storage, f.log.With("subsystem", "storage"))
 	if err != nil {
 		return nil, err
@@ -66,7 +68,7 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
 	}
 	sealer := keys.Sealer()
 	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: f.timings.Mail})
-	lib := &library{db: db, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
+	lib := &libraryDB{db: db, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
 	lib.ids, err = identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: f.hub, Mail: smtp, Outbox: lib.outbox})
 	if err != nil {
 		return nil, errors.Join(err, lib.close(ctx))
@@ -77,7 +79,7 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
 // openLibrary opens library.db and what opens with it once. A Node opens
 // it at start only if library.db exists, and otherwise when it is claimed
 // as a Controller.
-func (n *Node) openLibrary(ctx context.Context) (*library, error) {
+func (n *Node) openLibrary(ctx context.Context) (*libraryDB, error) {
 	n.libMu.Lock()
 	defer n.libMu.Unlock()
 	if lib := n.lib.Load(); lib != nil {
@@ -258,6 +260,14 @@ func (s surfaceNode) Files() (*files.Files, bool) {
 	return h.files, true
 }
 
+func (s surfaceNode) Library() (*library.Library, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.library == nil {
+		return nil, false
+	}
+	return h.library, true
+}
+
 func (s surfaceNode) Grabs() (*grabs.Grabs, bool) {
 	h := s.n.half.Load()
 	if h == nil || h.grabs == nil {
@@ -272,6 +282,14 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 		return nil, false
 	}
 	return h.clients, true
+}
+
+func (s surfaceNode) Transfers() (*transfers.Transfers, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.transfers == nil {
+		return nil, false
+	}
+	return h.transfers, true
 }
 
 func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {
@@ -315,6 +333,15 @@ func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func
 	return s.n.join(ctx, code, awaiting)
 }
 
-func (s surfaceNode) Pending() (pairing.Pending, bool) { return s.n.pairing.Pending() }
+// Pending holds a joined claim at awaiting-dial until the Worker half
+// runs, so a page that opens the Worker page on joined finds getServing
+// answering.
+func (s surfaceNode) Pending() (pairing.Pending, bool) {
+	p, ok := s.n.pairing.Pending()
+	if ok && p.State == pairing.JoinedState && s.n.half.Load() == nil {
+		p.State, p.Joined = pairing.AwaitingDial, nil
+	}
+	return p, ok
+}
 
 func (s surfaceNode) Removal() (pairing.Removal, bool) { return s.n.pairing.Removal() }

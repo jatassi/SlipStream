@@ -37,6 +37,17 @@ type Provider struct {
 	// whose body says the daily allowance is spent. Nil leaves every answer
 	// to the shared rules.
 	Classify func(status int, h http.Header, body []byte, now time.Time) (Outcome, bool)
+	// KeyPage is where an Admin gets a key, opened in the browser only.
+	KeyPage string
+	// Attribution is what the provider's terms make SlipStream show beside
+	// it, nil when they ask for none.
+	Attribution *Attribution
+}
+
+// Attribution is a provider's required credit: its words, and the key of
+// the logo the web app bundles for it.
+type Attribution struct {
+	Text, Logo string
 }
 
 type Timings struct {

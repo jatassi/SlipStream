@@ -41,6 +41,18 @@ const doctorReport = z.strictObject({
 
 export type DoctorReport = z.infer<typeof doctorReport>;
 
+const siteEntry = z.strictObject({
+  origin: z.string(),
+  feed: z.optional(z.string()),
+  apiKey: z.optional(z.string()),
+  settings: z.optional(z.record(z.string(), z.string())),
+  cookie: z.optional(z.string()),
+  userAgent: z.optional(z.string()),
+});
+
+/** What an Admin enters to add an Indexer for one of fixture-site's sites. */
+export type SiteEntry = z.infer<typeof siteEntry>;
+
 export type FaultRule = {
   id: string;
   target: string;
@@ -192,6 +204,10 @@ export function fw(runDir: string) {
       manifestNode.parse(JSON.parse(await run(runDir, ["node", action, runDir, name]))),
     capture: (name: string) => reader(runDir, name),
     sse: (as: string) => reader(runDir, "sse", ["--as", as]),
+    site: async (label: string, node?: string): Promise<SiteEntry> =>
+      siteEntry.parse(
+        JSON.parse(await run(runDir, ["site", runDir, label, ...optional("--node", node)])),
+      ),
     // doctor resolves with the report of a run that fails a check too.
     doctor: async (): Promise<DoctorReport> =>
       doctorReport.parse(JSON.parse(await run(runDir, ["doctor", runDir, "--json"], [0, 1]))),

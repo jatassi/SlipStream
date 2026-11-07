@@ -28,9 +28,11 @@ type Site struct {
 	// def is a catalog Indexer's definition, and delay its request delay.
 	def   *cardigann.Definition
 	delay time.Duration
-	svc   *Service
-	run   *run
-	slot  *slot
+	// solver is the Node's Challenge solver, nil for none.
+	solver *Solver
+	svc    *Service
+	run    *run
+	slot   *slot
 }
 
 // Purpose is what a request fetches, which sets its body cap.
@@ -88,23 +90,52 @@ func (s *Site) Do(ctx context.Context, req *http.Request, p Purpose) (*Response,
 }
 
 // send is Do with the cookies of j, following redirects only when follow
-// is set.
+// is set. A browser challenge goes to the Node's Challenge solver, and the
+// request goes again once, with the clearance.
 func (s *Site) send(ctx context.Context, req *http.Request, p Purpose, j *jar, follow bool) (*Response, error) {
+	res, err := s.sendOnce(ctx, req, p, j, follow)
+	if !errors.Is(err, errChallenged) {
+		return res, err
+	}
+	if err := s.clear(ctx, req.URL); err != nil {
+		return nil, err
+	}
+	again := req.Clone(ctx)
+	if req.GetBody != nil {
+		if again.Body, err = req.GetBody(); err != nil {
+			return nil, &Failing{Err: fmt.Errorf("build the request again: %w", err)}
+		}
+	}
+	res, err = s.sendOnce(ctx, again, p, j, follow)
+	if errors.Is(err, errChallenged) {
+		return nil, &Stopped{Cause: ChallengeUnsolved, SolverTried: true}
+	}
+	return res, err
+}
+
+// sendOnce sends req once with the cookies of j and the User-Agent of
+// the session, or the clearance this Node holds for its host, with that
+// clearance's cookies. A browser challenge is errChallenged.
+func (s *Site) sendOnce(ctx context.Context, req *http.Request, p Purpose, j *jar, follow bool) (*Response, error) {
 	if err := s.svc.spacer.wait(ctx, req.URL.Host, s.delay); err != nil {
 		return nil, err
 	}
 	s.run.start()
 	ctx, cancel := context.WithTimeout(ctx, s.svc.cfg.Timings.Request)
 	defer cancel()
+	cookies := len(j.Cookies(req.URL)) > 0
 	if held := s.slot.held(); held != nil && held.UserAgent != "" {
 		req.Header.Set("User-Agent", held.UserAgent)
+	}
+	if c, ok := s.svc.cleared.of(req.URL.Host); ok {
+		j.keep(c.cookies)
+		req.Header.Set("User-Agent", c.userAgent)
 	}
 	client := *s.svc.client
 	client.Jar = j
 	if !follow {
 		client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	}
-	cookies := len(j.Cookies(req.URL)) > 0
 	sent := time.Now()
 	res, err := client.Do(req.WithContext(ctx))
 	if err != nil {
@@ -123,7 +154,7 @@ func (s *Site) send(ctx context.Context, req *http.Request, p Purpose, j *jar, f
 	case int64(len(body)) > p.limit():
 		return nil, &Failing{Err: fmt.Errorf("the Indexer's response is over %d bytes", p.limit())}
 	case challenged(res, body):
-		return nil, &Stopped{Cause: ChallengeUnsolved}
+		return nil, errChallenged
 	case res.StatusCode == http.StatusTooManyRequests:
 		return nil, &Limited{RetryAfter: retryAfter(res.Header.Get("Retry-After"), time.Now())}
 	case res.StatusCode >= http.StatusInternalServerError:

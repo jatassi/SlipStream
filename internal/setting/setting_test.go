@@ -445,6 +445,7 @@ func TestAmountWords(t *testing.T) {
 		{setting.Amount{N: 0, Unit: setting.BytesUnit}, "0 GB"},
 		{setting.Amount{N: 100 * setting.GB, Unit: setting.BytesUnit}, "100 GB"},
 		{setting.Amount{N: setting.GB / 2, Unit: setting.BytesUnit}, "0.5 GB"},
+		{setting.Amount{N: 40 * setting.MB, Unit: setting.BytesUnit}, "40 MB"},
 		{setting.Amount{N: 1023 * setting.GB, Unit: setting.BytesUnit}, "1023 GB"},
 		{setting.Amount{N: 1536 * setting.GB, Unit: setting.BytesUnit}, "1.5 TB"},
 		{setting.Amount{N: 2 * setting.TB, Unit: setting.BytesUnit}, "2 TB"},

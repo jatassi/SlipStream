@@ -151,11 +151,14 @@ func (x *Indexers) Fetch(ctx context.Context, t Ticket, link searching.Link) (Go
 	if err != nil {
 		return nil, err
 	}
-	if errors.As(a.Outcome, new(*searching.Stopped)) {
+	stopped := errors.As(a.Outcome, new(*searching.Stopped))
+	switch {
+	case stopped && st.State == HomeOnly:
+		return nil, x.homeOnly(idx, st)
+	case stopped:
 		return nil, &DropError{Why: DropStopped}
-	}
-	if a.Outcome != nil {
-		return nil, &WaitError{Outcome: outcomeOf(a, st)}
+	case a.Outcome != nil:
+		return nil, &WaitError{Outcome: outcomeOf(a, st, idx.Home)}
 	}
 	switch got := a.Got.(type) {
 	case searching.Torrent:
@@ -181,6 +184,16 @@ func (x *Indexers) fetchGate(idx Indexer, st Status, now time.Time) error {
 		return &DropError{Why: DropHomeOffline}
 	}
 	return &WaitError{Outcome: *wait}
+}
+
+// homeOnly is why a fetch of idx, whose failover Node met a stop that
+// leaves it waiting for home at st, can't go on: dropped while its home
+// stays lapsed, else waiting for home.
+func (x *Indexers) homeOnly(idx Indexer, st Status) error {
+	if err := x.fetchGate(idx, st, time.Now()); err != nil {
+		return err
+	}
+	return &WaitError{Outcome: Outcome{Kind: Waiting, Node: idx.Home}}
 }
 
 func parseMagnet(link searching.Link) (Got, error) {

@@ -13,8 +13,9 @@ export type MenuItem =
   | {
       kind?: "action";
       label: string;
-      icon?: IconSvgElement;
+      icon?: IconSvgElement | undefined;
       tone?: Tone;
+      disabled?: boolean;
       onSelect: () => void;
     }
   | {
@@ -67,7 +68,13 @@ function ActionSheet({ trigger, label, items }: MenuProps) {
                 {item.label}
               </SheetToggle>
             ) : (
-              <SheetItem key={item.label} icon={item.icon} tone={item.tone} onClick={item.onSelect}>
+              <SheetItem
+                key={item.label}
+                icon={item.icon}
+                tone={item.tone}
+                disabled={item.disabled}
+                onClick={item.onSelect}
+              >
                 {item.label}
               </SheetItem>
             ),
@@ -82,7 +89,7 @@ function ActionSheet({ trigger, label, items }: MenuProps) {
 const popup = `group/rows max-h-(--available-height) min-w-[220px] overflow-y-auto p-1 ${floatingPanel}`;
 
 const item =
-  "flex h-(--menu-item-height) cursor-default items-center gap-2 rounded-item px-3 text-(length:--body-size) leading-(--body-line-height) outline-none select-none data-highlighted:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";
+  "flex h-(--menu-item-height) cursor-default items-center gap-2 rounded-item px-3 text-(length:--body-size) leading-(--body-line-height) outline-none select-none data-disabled:opacity-40 data-highlighted:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";
 
 function ItemIcon({ icon }: { icon: IconSvgElement | undefined }) {
   return icon ? (
@@ -124,6 +131,7 @@ function PopupMenu({ trigger, label, items }: MenuProps) {
                     ) : (
                       <BaseMenu.Item
                         key={entry.label}
+                        disabled={entry.disabled}
                         onClick={entry.onSelect}
                         className={`${item} ${tones[entry.tone ?? "default"]}`}
                       >

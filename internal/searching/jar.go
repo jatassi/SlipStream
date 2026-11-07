@@ -89,6 +89,23 @@ func (j *jar) add(header, host string) error {
 	return nil
 }
 
+// keep puts cookies in the jar in place of any of the same name, domain
+// and path, as the session's own, not as cookies a response set.
+func (j *jar) keep(cookies []Cookie) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.cookies = withCookies(j.cookies, cookies)
+}
+
+// withCookies is base with each of over in place of any of base's of the
+// same name, domain and path.
+func withCookies(base, over []Cookie) []Cookie {
+	out := slices.DeleteFunc(slices.Clone(base), func(c Cookie) bool {
+		return slices.ContainsFunc(over, func(o Cookie) bool { return o.Name == c.Name && o.Domain == c.Domain && o.Path == c.Path })
+	})
+	return append(out, over...)
+}
+
 // held is what the jar holds now, and whether a response changed it.
 func (j *jar) held() ([]Cookie, bool) {
 	j.mu.Lock()

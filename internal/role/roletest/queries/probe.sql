@@ -10,3 +10,10 @@ INSERT INTO probe_applied (node_id, n) VALUES (sqlc.arg(node_id), sqlc.arg(n));
 
 -- name: ListApplied :many
 SELECT n FROM probe_applied WHERE node_id = sqlc.arg(node_id) ORDER BY id;
+
+-- name: GetWide :one
+SELECT value FROM probe_wide WHERE node_id = sqlc.arg(node_id);
+
+-- name: SetWide :exec
+INSERT INTO probe_wide (node_id, value) VALUES (sqlc.arg(node_id), sqlc.arg(value))
+ON CONFLICT (node_id) DO UPDATE SET value = excluded.value;

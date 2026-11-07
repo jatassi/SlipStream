@@ -8,7 +8,9 @@ import type {
   HealthSettings,
   HealthVolume,
   HealthVolumeList,
+  IndexersChallengeSolver,
   IndexersIndexer,
+  IndexersIndexerCatalog,
   IndexersIndexerList,
   IndexersSettings,
   IndexersTracker,
@@ -17,6 +19,7 @@ import type {
   SystemNodeConfig,
   TasksOverview,
   TasksSchedule,
+  TransfersSettings,
   WorksContentType,
   WorksContentTypeList,
 } from "../api/gen/model";
@@ -30,6 +33,8 @@ import {
   getListHealthVolumesQueryKey,
 } from "../api/gen/query/health/health";
 import {
+  getGetChallengeSolverQueryKey,
+  getGetIndexerCatalogQueryKey,
   getGetIndexerQueryKey,
   getGetIndexerSettingsQueryKey,
   getGetTrackerQueryKey,
@@ -39,6 +44,7 @@ import {
 import { getGetRootSettingsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
 import { getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
+import { getGetTransferSettingsQueryKey } from "../api/gen/query/transfers/transfers";
 import { getListContentTypesQueryKey } from "../api/gen/query/works/works";
 
 // A save answers with the settings as written, so the page shows them at once
@@ -65,6 +71,22 @@ export function adoptClientSettings(
   settings: DownloadclientsSettings,
 ) {
   queryClient.setQueryData(getGetDownloadClientSettingsQueryKey(nodeId), settings);
+}
+
+export function adoptChallengeSolver(
+  queryClient: QueryClient,
+  nodeId: string,
+  solver: IndexersChallengeSolver,
+) {
+  queryClient.setQueryData(getGetChallengeSolverQueryKey(nodeId), solver);
+}
+
+export function adoptTransferSettings(
+  queryClient: QueryClient,
+  nodeId: string,
+  settings: TransfersSettings,
+) {
+  queryClient.setQueryData(getGetTransferSettingsQueryKey(nodeId), settings);
 }
 
 export function adoptThresholds(queryClient: QueryClient, thresholds: DownloadclientsThresholds) {
@@ -138,6 +160,10 @@ export function dropIndexer(queryClient: QueryClient, id: string) {
     getListIndexersQueryKey(),
     (list) => list && { indexers: list.indexers.filter((shown) => shown.id !== id) },
   );
+}
+
+export function adoptCatalog(queryClient: QueryClient, catalog: IndexersIndexerCatalog) {
+  queryClient.setQueryData(getGetIndexerCatalogQueryKey(), catalog);
 }
 
 export function adoptIndexerSettings(queryClient: QueryClient, settings: IndexersSettings) {

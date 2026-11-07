@@ -7,6 +7,7 @@ import type {
   NodesNode,
 } from "../api/gen/model";
 import { KeyValues } from "../routes/_app/nodes/-facts";
+import { Data } from "../ui/data";
 import { Meter } from "../ui/meter";
 import { Section } from "../ui/section";
 import { SettingGroup } from "../ui/setting-field";
@@ -38,6 +39,12 @@ function trackerWords(indexer: IndexersIndexer, trackers: readonly IndexersTrack
 
 const words = (text: string): ReactNode => <span>{text}</span>;
 
+/** The account it signs in with, so two Indexers on one site tell apart. */
+function usernameRow(indexer: IndexersIndexer): (readonly [string, ReactNode])[] {
+  const username = indexer.definition?.values["username"];
+  return username === undefined ? [] : [["Username", <Data key="username">{username}</Data>]];
+}
+
 /** What the Indexer reaches, where it searches from, its limits and its switches. */
 export function IndexerFacts({
   indexer,
@@ -57,6 +64,7 @@ export function IndexerFacts({
         <KeyValues
           rows={[
             ["Tracker", words(trackerWords(indexer, trackers))],
+            ...usernameRow(indexer),
             ["Searches from", words(nodeName(nodes, indexer.homeNodeId))],
             ["Kind", words(kindWords[indexer.kind])],
             ["Priority", words(String(indexer.priority))],

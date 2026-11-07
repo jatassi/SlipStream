@@ -43,7 +43,7 @@ type TorrentRow struct {
 	Uploaded    int64        `json:"uploaded" minimum:"0" doc:"All-time bytes uploaded"`
 	Ratio       float64      `json:"ratio" minimum:"0" doc:"Uploaded over the larger of downloaded and size"`
 	Seeding     int64        `json:"seedingSeconds" minimum:"0" doc:"All-time seconds seeded"`
-	Tracker     *trackerCell `json:"tracker,omitempty" doc:"Absent when its metainfo names no tracker"`
+	Tracker     *trackerCell `json:"tracker,omitempty" doc:"Absent when its metainfo names no announce URL"`
 	Error       string       `json:"error,omitempty" doc:"The engine's error message for the failure"`
 	Fault       *fault       `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
 	LastKnown   *time.Time   `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the Node is out of step"`
@@ -51,10 +51,10 @@ type TorrentRow struct {
 }
 
 type trackerCell struct {
-	Host    string     `json:"host" doc:"Empty when its tracker list is unknown"`
+	Host    string     `json:"host" doc:"Empty when its announce URLs are unknown"`
 	Status  string     `json:"status" enum:"working,updating,error,unregistered,not_contacted"`
-	Message string     `json:"message,omitempty" doc:"The tracker's failure reason or warning, verbatim"`
-	RetryAt *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing tracker again"`
+	Message string     `json:"message,omitempty" doc:"The announce URL's failure reason or warning, verbatim"`
+	RetryAt *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing announce URL again"`
 }
 
 type fault struct {
@@ -65,8 +65,8 @@ type fault struct {
 
 // faultWords is why each fault makes a release look bad.
 var faultWords = map[downloadclients.FaultKind]string{
-	downloadclients.FaultEngineError:  "The torrent client found an error in the release's data.",
-	downloadclients.FaultUnregistered: "The release's tracker reports that the torrent is no longer registered.",
+	downloadclients.FaultEngineError:  "The torrent client found an error in the Release's data.",
+	downloadclients.FaultUnregistered: "An announce URL responded that the torrent is no longer registered.",
 	downloadclients.FaultNoPayload:    "The torrent received no data while it was downloading.",
 }
 
@@ -230,16 +230,16 @@ type TorrentDetail struct {
 	Trackers   []trackerDetail `json:"trackers" nullable:"false" doc:"In its metainfo's order"`
 	Files      []fileDetail    `json:"files" nullable:"false" doc:"In its metainfo's order"`
 	Grabs      []torrentGrab   `json:"grabs" nullable:"false" doc:"The Grabs that used it, newest first"`
-	Live       bool            `json:"live" doc:"Its Node responded, so trackers and files are live. Otherwise they are from its last report"`
-	AnnounceAt *time.Time      `json:"announceAt,omitempty" doc:"The earliest every tracker accepts an announce, set while live"`
+	Live       bool            `json:"live" doc:"Its Node responded, so announce URLs and files are live. Otherwise they are from its last report"`
+	AnnounceAt *time.Time      `json:"announceAt,omitempty" doc:"The earliest every announce URL accepts an announce, set while live"`
 }
 
 type trackerDetail struct {
 	URL          string     `json:"url" doc:"With its passkey hidden"`
 	Tier         int        `json:"tier" minimum:"0"`
 	Status       string     `json:"status" enum:"working,updating,error,unregistered,not_contacted"`
-	Message      string     `json:"message,omitempty" doc:"The tracker's failure reason or warning, verbatim"`
-	RetryAt      *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing tracker again, from the last report"`
+	Message      string     `json:"message,omitempty" doc:"The announce URL's failure reason or warning, verbatim"`
+	RetryAt      *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing announce URL again, from the last report"`
 	AnsweredAt   *time.Time `json:"answeredAt,omitempty" doc:"When it last responded, set while live"`
 	NextAnnounce *time.Time `json:"nextAnnounce,omitempty" doc:"When its next announce is due, set while live"`
 	MinInterval  int64      `json:"minIntervalSeconds,omitempty" minimum:"0" doc:"Its min interval as the announce policy holds to it, set while live"`
@@ -335,7 +335,7 @@ type actResult struct {
 type refusal struct {
 	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,window,not_running,failed"`
 	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it"`
-	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every tracker accepts an announce"`
+	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every announce URL accepts an announce"`
 }
 
 type preview struct {

@@ -9,7 +9,7 @@ export interface DownloadclientsClientFacts {
   listen: string;
   /** Why it has no listener */
   listenError?: string;
-  /** The peer ID prefix it announces, which a tracker's allow list names */
+  /** The peer ID prefix it announces, which a Tracker's allow list names */
   peerIdPrefix: string;
   /** reachable once a peer from the internet has connected to the address it listens on now */
   reach: DownloadclientsClientFactsReach;

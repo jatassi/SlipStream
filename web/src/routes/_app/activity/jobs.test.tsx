@@ -2,11 +2,11 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { GrabsGrab, GrabsGrabList, WorksListedWork } from "../../../api/gen/model";
+import type { GrabsGrab, GrabsGrabList } from "../../../api/gen/model";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
-import { getListWorksMockHandler } from "../../../api/gen/query/works/works.msw";
+import { getListLibraryMockHandler } from "../../../api/gen/query/works/works.msw";
 import { downloading, imported } from "../../../test/grabs";
-import { orchardId, orchardListed } from "../../../test/library";
+import { libraryRow, orchardId, orchardRow } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
 import { renderApp } from "../../../test/render-app";
 // oxlint-disable-next-line import/max-dependencies -- Jobs read Grabs, Works, Targets, Torrents and the live stream
@@ -15,18 +15,12 @@ import { actionsServer, torrent, torrentsServer } from "../../../test/torrents";
 
 const harvestId = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
-const harvest: WorksListedWork = {
+const harvest = libraryRow({
   id: harvestId,
   contentType: "zines",
   key: "9000002",
   label: "Orchard Harvest",
-  sortLabel: "Orchard Harvest",
-  addedAt: "2026-10-11T09:00:00Z",
-  refreshedAt: "2026-10-11T09:00:00Z",
-  goneUpstreamAt: null,
-  fields: [],
-  artwork: [],
-};
+});
 
 const failed: GrabsGrab = {
   ...downloading,
@@ -53,9 +47,7 @@ const orchardTorrent = torrent({
   name: downloading.releaseTitle,
 });
 
-const works = getListWorksMockHandler({
-  works: [harvest, orchardListed],
-});
+const works = getListLibraryMockHandler({ rows: [harvest, orchardRow] });
 function activityServer() {
   let list: GrabsGrabList = { grabs: [downloading, failed] };
   const { clients, handlers: liveHandlers } = liveServer();
@@ -93,7 +85,10 @@ function activityServer() {
     },
     grabMoves(next: GrabsGrab) {
       list = { grabs: [next, failed] };
-      clients[0]?.send({ event: "grabs.changed", data: { grabId: next.id, workId: next.workId } });
+      clients[0]?.send({
+        event: "grabs.changed",
+        data: { grabId: next.id, workId: next.workId, progress: false },
+      });
     },
   };
 }

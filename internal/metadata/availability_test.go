@@ -166,14 +166,14 @@ func (h *hook) want(t *testing.T, calls ...[]works.ItemID) {
 // changed records the timer's works.changed and passes each on to the
 // hub, which wakes the timer as it does on a Controller.
 type changed struct {
-	hub   works.Publisher[works.WorkChanged]
+	hub   works.Publisher[works.Changed]
 	mu    sync.Mutex
 	works []string
 }
 
-func (c *changed) Publish(ctx context.Context, v works.WorkChanged) {
+func (c *changed) Publish(ctx context.Context, v works.Changed) {
 	c.mu.Lock()
-	c.works = append(c.works, v.WorkID)
+	c.works = append(c.works, v.WorkIDs...)
 	c.mu.Unlock()
 	c.hub.Publish(ctx, v)
 }

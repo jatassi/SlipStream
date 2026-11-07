@@ -25,7 +25,7 @@ type Timing struct {
 // so a Profile's disk estimate reads one batch per type. Cuts is the
 // type's own cuts, beside the built-in ones; a type with none answers nil.
 type Facet interface {
-	Timings(ctx context.Context, r storage.Reader[storage.Library], works []works.WorkID) (map[works.ItemID]Timing, error)
+	Timings(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[works.ItemID]Timing, error)
 	Cuts() []release.Cut
 }
 

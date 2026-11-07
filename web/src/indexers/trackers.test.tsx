@@ -50,7 +50,9 @@ test("Rename to another Tracker's name says so on the field and keeps the dialog
 });
 
 test("Merge into offers every other Tracker but never the Tracker itself, and moves its Indexers to the one kept", async () => {
-  const server = indexersServer({ trackerList: byName([...trackers, beyondHd]) });
+  const server = indexersServer({
+    trackerList: byName([...trackers, beyondHd]),
+  });
   renderApp({ path, handlers: server.handlers });
   await choose("Aither", "Merge into…");
   const dialog = page.getByRole("dialog", { name: "Merge Aither" });
@@ -100,7 +102,11 @@ test("a merge the server refuses keeps the dialog open with its reason", async (
     (tracker) => tracker.id !== torrentLeechTrackerId,
   );
   await userEvent.click(dialog.getByRole("button", { name: "Merge" }));
-  await expect.element(dialog.getByRole("alert")).toHaveTextContent("No Tracker has that id");
+  await expect
+    .element(dialog.getByRole("alert"))
+    .toHaveTextContent(
+      "That Tracker no longer exists. It may have been merged into another Tracker.",
+    );
 });
 
 test("a Tracker no Indexer reaches stays, says so and keeps its keys and hosts under Details", async () => {

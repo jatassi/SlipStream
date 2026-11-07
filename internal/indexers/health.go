@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
@@ -31,7 +32,8 @@ var HealthAbout = health.About{
 
 // HealthSource is the indexers category's items, each linking to the
 // Indexer page: a Fail for each stopped Indexer that is on, a Warn for
-// each one failing longer than LongBackoff, a Fail for each Content Type
+// each one failing longer than LongBackoff, a Warn for each login-session
+// Indexer waiting for a home that lapsed, a Fail for each Content Type
 // with Works that no usable Indexer serves, and a Warn for each catalog
 // Indexer whose definition left the catalog or whose new version doesn't
 // load. An Indexer whose calls wait for its home is unsure. Next is the
@@ -81,7 +83,8 @@ func (x *Indexers) healthAnswer(ctx context.Context, r storage.Reader[file], now
 
 // judge adds what Health says of idx standing at st to a: its stop, or
 // its failing past long. While its calls wait for its home, those items
-// are unsure.
+// are unsure, and once that home lapsed a login-session Indexer whose
+// fix is Allow failover warns.
 func (x *Indexers) judge(a *health.Answer, idx Indexer, st Status, long time.Duration, now time.Time) {
 	var items []health.Item
 	switch {
@@ -100,7 +103,10 @@ func (x *Indexers) judge(a *health.Answer, idx Indexer, st Status, long time.Dur
 		a.Items = append(a.Items, items...)
 		return
 	}
-	waiting, _ := x.waitWords(View{Indexer: idx, Status: st}, *wait)
+	waiting, fix := x.waitWords(View{Indexer: idx, Status: st, SignsIn: holdsSession(idx)}, *wait)
+	if fix != "" {
+		a.Items = append(a.Items, waitingItem(idx, *wait, waiting+" "+fix))
+	}
 	for _, it := range items {
 		a.Unsure = append(a.Unsure, health.Unsure{Key: it.Key, Says: health.Says{Subject: idx.Name, Text: waiting}})
 	}
@@ -113,12 +119,18 @@ func soonest(a, b time.Time) time.Time {
 	return a
 }
 
+// stopItem links a challenge met with no Challenge solver to the
+// Searching section of the Node it was met on, where the solver is set.
 func (x *Indexers) stopItem(idx Indexer, st Status) health.Item {
+	action := indexerLink(idx)
+	if st.Cause == searching.ChallengeUnsolved && !st.SolverTried {
+		action = health.LinkAction("/nodes/"+st.Node.String()+"/searching", "Open Searching on "+x.cfg.Roster.Name(st.Node))
+	}
 	return health.Item{Key: health.KeyOf("stopped", idx.ID.String()), Level: health.Fail, Says: health.Says{
 		Subject: idx.Name,
 		Text:    x.stopItemWords(idx.Name, st),
 		Detail:  []health.Fact{{Label: "Stopped since", At: st.Since}},
-		Action:  indexerLink(idx),
+		Action:  action,
 	}}
 }
 
@@ -132,6 +144,17 @@ func (x *Indexers) failingItem(idx Indexer, st Status, now time.Time) health.Ite
 		Text:    x.failingItemWords(idx.Name, st, now),
 		Detail:  detail,
 		Action:  indexerLink(idx),
+	}}
+}
+
+// waitingItem is the Warn of idx waiting at wait for a home that lapsed,
+// saying text and linking to its Allow failover switch.
+func waitingItem(idx Indexer, wait Outcome, text string) health.Item {
+	return health.Item{Key: health.KeyOf("waiting", idx.ID.String()), Level: health.Warn, Says: health.Says{
+		Subject: idx.Name,
+		Text:    text,
+		Detail:  []health.Fact{{Label: "Offline since", At: wait.Since}},
+		Action:  health.LinkAction("/settings/indexers/"+idx.ID.String()+"#allow-failover", "Open "+idx.Name),
 	}}
 }
 

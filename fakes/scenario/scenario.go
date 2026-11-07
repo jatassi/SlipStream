@@ -81,6 +81,9 @@ type Node struct {
 	Setup Setup  `yaml:"setup"`
 	// Roles are the Roles the world assigns a controller or join Node.
 	Roles []role.Name `jsonschema:"uniqueItems=true" yaml:"roles,omitempty"`
+	// ChallengeSolver has the world set the Node's Challenge solver to its
+	// fake-challenge-solver front before it adds the library's Indexers.
+	ChallengeSolver bool `yaml:"challenge_solver,omitempty"`
 }
 
 const MaxNodes = 31
@@ -177,6 +180,7 @@ func (s Scenario) Validate() error {
 		s.Library.check(add)
 		s.checkRootNodes(add)
 		s.checkHomes(add)
+		s.checkWorks(add)
 	}
 	checkFaults(add, s.Faults)
 	if problems != nil {
@@ -263,6 +267,9 @@ func (s Scenario) checkNodes(add func(format string, args ...any)) []string {
 func (n Node) checkRoles(add func(format string, args ...any)) {
 	if n.Setup == SetupNone && len(n.Roles) > 0 {
 		add("node %s has roles, but only controller and join nodes hold Roles", n.Name)
+	}
+	if n.ChallengeSolver && !n.searches() {
+		add("node %s has a challenge solver, but doesn't hold searching", n.Name)
 	}
 	for i, r := range n.Roles {
 		if _, err := role.ParseName(string(r)); err != nil {
@@ -363,11 +370,23 @@ func (s Scenario) Home(ix LibraryIndexer) string {
 func (s Scenario) searching() []string {
 	var holders []string
 	for _, n := range s.Nodes {
-		if (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching)) {
+		if n.searches() {
 			holders = append(holders, n.Name)
 		}
 	}
 	return holders
+}
+
+// searches reports whether n holds Searching once set up: a join or
+// controller Node listing it, and a controller Node that lists no Roles.
+func (n Node) searches() bool {
+	return (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching))
+}
+
+// Solving is whether the Node named name has a Challenge solver once set
+// up.
+func (s Scenario) Solving(name string) bool {
+	return slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Name == name && n.ChallengeSolver })
 }
 
 func (s Scenario) RootNode(r LibraryRoot) string {
@@ -380,6 +399,19 @@ func (s Scenario) RootNode(r LibraryRoot) string {
 		}
 	}
 	return ""
+}
+
+func (s Scenario) checkWorks(add func(format string, args ...any)) {
+	w := s.Library.Works
+	switch {
+	case w == nil:
+	case w.ContentType != "movie":
+		add("library works content_type is %q; only movie Works come from a catalog", w.ContentType)
+	case s.TMDB == nil:
+		add("library works adds movies, and tmdb serves none")
+	case !slices.ContainsFunc(s.Library.Roots, func(r LibraryRoot) bool { return r.ContentType == w.ContentType }):
+		add("library works adds movies, and library has no movie root")
+	}
 }
 
 func (s Scenario) checkRootNodes(add func(format string, args ...any)) {

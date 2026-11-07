@@ -38,7 +38,7 @@ type AvailabilityConfig struct {
 	Targets *targets.Targets
 	// Hub wakes the timer on works.changed and works.type-changed.
 	Hub     *live.Hub
-	Changed works.Publisher[works.WorkChanged]
+	Changed works.Publisher[works.Changed]
 	// Now is the time in the Controller's zone, whose calendar days the
 	// timer announces.
 	Now      func() time.Time
@@ -162,8 +162,8 @@ func (a *Availability) release(ctx context.Context, last, today time.Time, ws []
 			return fmt.Errorf("hand %d released Items to the hook: %w", len(items), err)
 		}
 	}
-	for _, w := range ws {
-		a.cfg.Changed.Publish(ctx, works.WorkChanged{WorkID: w.String()})
+	if len(ws) > 0 {
+		a.cfg.Changed.Publish(ctx, works.ChangedOf(ws...))
 	}
 	err := a.cfg.Local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		return announced.SetDay(ctx, tx, today)
@@ -189,7 +189,7 @@ func (a *Availability) arrivals(ctx context.Context) ([]arrival, error) {
 		for i, w := range all {
 			ids[i] = w.ID
 		}
-		items, err := works.ItemsOf(ctx, r, ids)
+		items, err := works.ItemsOf(ctx, r, works.Only(ids))
 		if err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func (a *Availability) timings(ctx context.Context, r storage.Reader[storage.Lib
 	}
 	out := map[works.ItemID]targets.Timing{}
 	for typ, ws := range watched {
-		t, err := a.cfg.Targets.TimingsIn(ctx, r, typ, ws)
+		t, err := a.cfg.Targets.TimingsIn(ctx, r, typ, works.Only(ws))
 		if err != nil {
 			return nil, fmt.Errorf("read the %s timings: %w", typ, err)
 		}

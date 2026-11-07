@@ -1,41 +1,17 @@
 import { useState } from "react";
 
-import { sentenceOf } from "../api/errors";
 import type { IndexersIndexer, NodesNode } from "../api/gen/model";
-import { testIndexer } from "../api/gen/query/indexers/indexers";
-import { countWords } from "../format";
 import { Button } from "../ui/button";
 import { EditIndexerDialog } from "./edit-indexer";
 import { DeleteIndexerDialog } from "./delete-indexer";
+import { CaptchaField } from "./fields/captcha";
 import { MoveIndexerDialog } from "./move-indexer";
-
-const items = { one: "item", many: "items" } as const;
-
-type Result = { readonly passed: boolean; readonly words: string };
-
-/** Runs the Indexer's Test; its new status arrives with indexers.status-changed. */
-function useTest(indexer: IndexersIndexer) {
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Result>();
-  const run = async () => {
-    setBusy(true);
-    setResult(undefined);
-    try {
-      const report = await testIndexer(indexer.id);
-      const listed = countWords(report.items, items);
-      setResult({ passed: true, words: `${indexer.name} passed the Test and listed ${listed}.` });
-    } catch (error) {
-      setResult({ passed: false, words: sentenceOf(error) });
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { busy, result, run };
-}
+import { type TestForm, type TestResult, useIndexerTest } from "./test-indexer";
+import { nodeName } from "./words";
 
 type Open = "edit" | "move" | "delete" | undefined;
 
-function TestResult({ result }: { result: Result | undefined }) {
+function Result({ result }: { result: TestResult | undefined }) {
   if (result === undefined) {
     return null;
   }
@@ -48,6 +24,80 @@ function TestResult({ result }: { result: Result | undefined }) {
   );
 }
 
+function Buttons({ form, onOpen }: { form: TestForm; onOpen: (dialog: Open) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(testing) => (
+          <Button type="submit" busy={testing}>
+            Test
+          </Button>
+        )}
+      </form.Subscribe>
+      <Button
+        onClick={() => {
+          onOpen("edit");
+        }}
+      >
+        Edit
+      </Button>
+      <Button
+        onClick={() => {
+          onOpen("move");
+        }}
+      >
+        Move
+      </Button>
+      <Button
+        look="ghost"
+        onClick={() => {
+          onOpen("delete");
+        }}
+      >
+        Delete
+      </Button>
+    </div>
+  );
+}
+
+/** Test with the buttons that open the dialogs, then the captcha a failed Test hands back and the Test's answer. */
+function TestPanel({
+  indexer,
+  home,
+  onOpen,
+}: {
+  indexer: IndexersIndexer;
+  home: string;
+  onOpen: (dialog: Open) => void;
+}) {
+  const { form, step, result, reload } = useIndexerTest(indexer);
+  return (
+    <form
+      noValidate
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.AppForm>
+        <Buttons form={form} onOpen={onOpen} />
+        {step.kind !== "none" && (
+          <CaptchaField
+            form={form}
+            fields={{ captcha: "captcha" }}
+            name={indexer.name}
+            home={home}
+            step={step}
+            onReload={reload}
+          />
+        )}
+        <Result result={result} />
+      </form.AppForm>
+    </form>
+  );
+}
+
 /** Test, Edit, Move and Delete, with the Test's answer under them. */
 export function IndexerActions({
   indexer,
@@ -57,28 +107,14 @@ export function IndexerActions({
   nodes: readonly NodesNode[];
 }) {
   const [open, setOpen] = useState<Open>();
-  const test = useTest(indexer);
-  const opener = (dialog: Open) => () => {
-    setOpen(dialog);
-  };
   const close = (next: boolean) => {
     if (!next) {
       setOpen(undefined);
     }
   };
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
-        <Button busy={test.busy} onClick={() => void test.run()}>
-          Test
-        </Button>
-        <Button onClick={opener("edit")}>Edit</Button>
-        <Button onClick={opener("move")}>Move</Button>
-        <Button look="ghost" onClick={opener("delete")}>
-          Delete
-        </Button>
-      </div>
-      <TestResult result={test.result} />
+    <div>
+      <TestPanel indexer={indexer} home={nodeName(nodes, indexer.homeNodeId)} onOpen={setOpen} />
       {open === "edit" && <EditIndexerDialog indexer={indexer} open onOpenChange={close} />}
       {open === "move" && (
         <MoveIndexerDialog indexer={indexer} nodes={nodes} open onOpenChange={close} />

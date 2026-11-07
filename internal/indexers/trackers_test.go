@@ -84,6 +84,21 @@ func TestASourceReachesOneTrackerByItsKeyNameOrDefinitionID(t *testing.T) {
 	}
 }
 
+func TestARenameRefusesAnotherTrackersNameInAnyCaseOrPunctuation(t *testing.T) {
+	p := plannedWith(t, "Alder", "Birch")
+	plain := searching.Release{Title: "Orchard.1080p", Link: searching.LinkOf("https://site.test/a.torrent")}
+	alder := p.reached("Alder", plain)
+	p.reached("Birch", plain)
+	for _, taken := range []string{"Birch", "birch", "B.I.R.C.H!"} {
+		if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, taken); !errors.Is(err, indexers.ErrTrackerNameTaken) {
+			t.Errorf("renaming Alder to %q beside Birch = %v, want ErrTrackerNameTaken", taken, err)
+		}
+	}
+	if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, "alder"); err != nil {
+		t.Errorf("renaming Alder to its own name in lower case = %v, want it saved", err)
+	}
+}
+
 func TestARenameAndAMergeSurviveTheNextTake(t *testing.T) {
 	p := plannedWith(t, "Alder", "Birch")
 	plain := searching.Release{Title: "Orchard.1080p", Link: searching.LinkOf("https://site.test/a.torrent")}
@@ -92,9 +107,6 @@ func TestARenameAndAMergeSurviveTheNextTake(t *testing.T) {
 		t.Fatalf("Alder's sourceless Release reached %+v and Birch's %+v, want a Tracker named for each feed", alder, birch)
 	}
 
-	if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, "Birch"); !errors.Is(err, indexers.ErrTrackerNameTaken) {
-		t.Fatalf("renaming Alder onto Birch = %v, want ErrTrackerNameTaken", err)
-	}
 	if err := p.x.RenameTracker(t.Context(), identity.Admin{}, alder.ID, "Alder Site"); err != nil {
 		t.Fatal(err)
 	}

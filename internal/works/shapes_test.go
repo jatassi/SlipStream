@@ -13,35 +13,41 @@ import (
 
 var (
 	flatShape = works.Description{
-		Name: "Films",
-		Icon: works.IconShapes,
-		Work: works.Noun{One: "Film", Many: "Films"},
-		Item: works.Noun{One: "Cut", Many: "Cuts"},
+		Name:   "Films",
+		Icon:   works.IconShapes,
+		Source: "Films source",
+		Work:   works.Noun{One: "Film", Many: "Films"},
+		Item:   works.Noun{One: "Cut", Many: "Cuts"},
+		Items:  works.ItemsMany,
 		Fields: []works.FieldSpec{
-			{Key: "year", Label: "Year", Tier: works.TierWork, Kind: works.KindNumber},
-			{Key: "runtime", Label: "Runtime", Tier: works.TierItem, Kind: works.KindDuration},
+			{Key: "year", Label: "Year", Tier: works.TierWork, Kind: works.KindNumber, In: []works.Place{works.PlaceFacts}},
+			{Key: "runtime", Label: "Runtime", Tier: works.TierItem, Kind: works.KindDuration, In: []works.Place{works.PlaceFacts}},
 		},
 	}
 	seasonalShape = works.Description{
 		Name:   "Shows",
 		Icon:   works.IconShapes,
+		Source: "Shows source",
 		Work:   works.Noun{One: "Show", Many: "Shows"},
 		Levels: []works.Noun{{One: "Season", Many: "Seasons"}},
 		Item:   works.Noun{One: "Episode", Many: "Episodes"},
+		Items:  works.ItemsMany,
 		Fields: []works.FieldSpec{
-			{Key: "number", Label: "Number", Tier: works.TierLevel(1), Kind: works.KindNumber},
-			{Key: "aired", Label: "Aired", Tier: works.TierItem, Kind: works.KindDate},
+			{Key: "number", Label: "Number", Tier: works.TierLevel(1), Kind: works.KindNumber, In: []works.Place{works.PlaceFacts}},
+			{Key: "aired", Label: "Aired", Tier: works.TierItem, Kind: works.KindDate, In: []works.Place{works.PlaceFacts}},
 		},
 	}
 	nestedShape = works.Description{
 		Name:   "Serials",
 		Icon:   works.IconShapes,
+		Source: "Serials source",
 		Work:   works.Noun{One: "Show", Many: "Shows"},
 		Levels: []works.Noun{{One: "Arc", Many: "Arcs"}, {One: "Part", Many: "Parts"}},
 		Item:   works.Noun{One: "Episode", Many: "Episodes"},
+		Items:  works.ItemsMany,
 		Fields: []works.FieldSpec{
-			{Key: "arc_no", Label: "Arc", Tier: works.TierLevel(1), Kind: works.KindNumber},
-			{Key: "part_no", Label: "Part", Tier: works.TierLevel(2), Kind: works.KindNumber},
+			{Key: "arc_no", Label: "Arc", Tier: works.TierLevel(1), Kind: works.KindNumber, In: []works.Place{works.PlaceFacts}},
+			{Key: "part_no", Label: "Part", Tier: works.TierLevel(2), Kind: works.KindNumber, In: []works.Place{works.PlaceFacts}},
 		},
 	}
 )

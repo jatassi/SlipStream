@@ -35,7 +35,7 @@ func (s *server) file(t *testing.T, work, root, dir, rel string, size int) {
 	}
 	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		w := works.WorkID{UUID: must(storage.ParseUUID(work))}
-		items, err := works.ItemsOf(ctx, tx, []works.WorkID{w})
+		items, err := works.ItemsOf(ctx, tx, works.Only([]works.WorkID{w}))
 		if err != nil {
 			return err
 		}

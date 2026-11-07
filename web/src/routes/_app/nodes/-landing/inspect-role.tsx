@@ -55,6 +55,23 @@ function DownloadingLinks({ nodeId }: { nodeId: string }) {
   );
 }
 
+function SearchingLinks({ nodeId }: { nodeId: string }) {
+  return (
+    <p className="mt-2 flex gap-3">
+      <Link to="/nodes/$nodeId/searching" params={{ nodeId }} className="text-ink-1 underline">
+        Searching
+      </Link>
+      <Link
+        to="/settings/$section"
+        params={{ section: "indexers" }}
+        className="text-ink-1 underline"
+      >
+        Indexers
+      </Link>
+    </p>
+  );
+}
+
 /** A Role on a Node in the Inspector: what it is doing, and what its machine shows. */
 export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
   const live = chip.role === "downloading";
@@ -70,6 +87,7 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
           <p className="mt-2 text-ink-3">No torrents right now.</p>
         )}
         {live && <DownloadingLinks nodeId={node.id} />}
+        {chip.role === "searching" && <SearchingLinks nodeId={node.id} />}
       </InspectorSection>
       {live && node.torrents.length > 0 && (
         <InspectorSection title="Torrents">

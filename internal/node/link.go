@@ -51,7 +51,8 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 		_ = ln.Close()
 		return err
 	}
-	n.link.HandleStream(link.KindTransfer, claimStreams{n}.transfer)
+	n.link.HandleLanes(claimLanes{n})
+	n.link.HandleStream(link.KindTransfer, claimLanes{n}.stream)
 	n.served = serving.NewListener()
 	n.link.HandleStream(link.KindServe, claimStreams{n}.serve)
 	n.stack.OnStop("link", func(context.Context) error { return n.link.Close() })

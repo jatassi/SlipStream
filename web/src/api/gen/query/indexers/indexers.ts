@@ -49,6 +49,11 @@ import type {
   GetCatalogDefinition422,
   GetCatalogDefinition500,
   GetCatalogDefinition503,
+  GetChallengeSolver401,
+  GetChallengeSolver403,
+  GetChallengeSolver409,
+  GetChallengeSolver422,
+  GetChallengeSolver500,
   GetIndexer401,
   GetIndexer403,
   GetIndexer404,
@@ -88,6 +93,7 @@ import type {
   IndexersCaptchaImage,
   IndexersCatalogAddress,
   IndexersCatalogEntry,
+  IndexersChallengeSolver,
   IndexersCustomDefinition,
   IndexersDefinitionForm,
   IndexersIndexer,
@@ -99,6 +105,7 @@ import type {
   IndexersReport,
   IndexersSettings,
   IndexersSettingsChange,
+  IndexersSolverChange,
   IndexersTestBody,
   IndexersTracker,
   IndexersTrackerList,
@@ -136,6 +143,12 @@ import type {
   SetCatalogAddress409,
   SetCatalogAddress422,
   SetCatalogAddress500,
+  SetChallengeSolver401,
+  SetChallengeSolver403,
+  SetChallengeSolver409,
+  SetChallengeSolver422,
+  SetChallengeSolver500,
+  SetChallengeSolver502,
   TestIndexer401,
   TestIndexer403,
   TestIndexer404,
@@ -2408,6 +2421,294 @@ export const useTestIndexer = <
   TContext
 > => {
   return useMutation(getTestIndexerMutationOptions(options), queryClient);
+};
+export const getGetChallengeSolverUrl = (id: string) => {
+  return `/api/v1/nodes/${id}/challenge-solver`;
+};
+
+/**
+ * @summary Get the Challenge solver of a Node that stands in Searching
+ */
+export const getChallengeSolver = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersChallengeSolver> => {
+  return apiFetch<IndexersChallengeSolver>(getGetChallengeSolverUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetChallengeSolverQueryKey = (id: string) => {
+  return [`/api/v1/nodes/${id}/challenge-solver`] as const;
+};
+
+export const getGetChallengeSolverSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getChallengeSolver>>,
+  TError = ErrorType<
+    | GetChallengeSolver401
+    | GetChallengeSolver403
+    | GetChallengeSolver409
+    | GetChallengeSolver422
+    | GetChallengeSolver500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getChallengeSolver>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetChallengeSolverQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getChallengeSolver>>> = ({ signal }) =>
+    getChallengeSolver(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getChallengeSolver>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetChallengeSolverSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getChallengeSolver>>
+>;
+export type GetChallengeSolverSuspenseQueryError = ErrorType<
+  | GetChallengeSolver401
+  | GetChallengeSolver403
+  | GetChallengeSolver409
+  | GetChallengeSolver422
+  | GetChallengeSolver500
+>;
+
+export function useGetChallengeSolverSuspense<
+  TData = Awaited<ReturnType<typeof getChallengeSolver>>,
+  TError = ErrorType<
+    | GetChallengeSolver401
+    | GetChallengeSolver403
+    | GetChallengeSolver409
+    | GetChallengeSolver422
+    | GetChallengeSolver500
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getChallengeSolver>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetChallengeSolverSuspense<
+  TData = Awaited<ReturnType<typeof getChallengeSolver>>,
+  TError = ErrorType<
+    | GetChallengeSolver401
+    | GetChallengeSolver403
+    | GetChallengeSolver409
+    | GetChallengeSolver422
+    | GetChallengeSolver500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getChallengeSolver>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetChallengeSolverSuspense<
+  TData = Awaited<ReturnType<typeof getChallengeSolver>>,
+  TError = ErrorType<
+    | GetChallengeSolver401
+    | GetChallengeSolver403
+    | GetChallengeSolver409
+    | GetChallengeSolver422
+    | GetChallengeSolver500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getChallengeSolver>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the Challenge solver of a Node that stands in Searching
+ */
+
+export function useGetChallengeSolverSuspense<
+  TData = Awaited<ReturnType<typeof getChallengeSolver>>,
+  TError = ErrorType<
+    | GetChallengeSolver401
+    | GetChallengeSolver403
+    | GetChallengeSolver409
+    | GetChallengeSolver422
+    | GetChallengeSolver500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getChallengeSolver>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetChallengeSolverSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSetChallengeSolverUrl = (id: string) => {
+  return `/api/v1/nodes/${id}/challenge-solver`;
+};
+
+/**
+ * @summary Set a Node's Challenge solver once the Node reaches the solver's /health, or remove it with an empty address
+ */
+export const setChallengeSolver = async (
+  id: string,
+  indexersSolverChange: IndexersSolverChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersChallengeSolver> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersChallengeSolver>(getSetChallengeSolverUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersSolverChange),
+  });
+};
+
+export const getSetChallengeSolverMutationKey = () => ["setChallengeSolver"] as const;
+
+export const getSetChallengeSolverMutationOptions = <
+  TError = ErrorType<
+    | SetChallengeSolver401
+    | SetChallengeSolver403
+    | SetChallengeSolver409
+    | SetChallengeSolver422
+    | SetChallengeSolver500
+    | SetChallengeSolver502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setChallengeSolver>>,
+    TError,
+    SetChallengeSolverMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setChallengeSolver>>,
+  TError,
+  SetChallengeSolverMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetChallengeSolverMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setChallengeSolver>>,
+    SetChallengeSolverMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setChallengeSolver(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetChallengeSolverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setChallengeSolver>>
+>;
+export type SetChallengeSolverMutationBody = IndexersSolverChange;
+export type SetChallengeSolverMutationError = ErrorType<
+  | SetChallengeSolver401
+  | SetChallengeSolver403
+  | SetChallengeSolver409
+  | SetChallengeSolver422
+  | SetChallengeSolver500
+  | SetChallengeSolver502
+>;
+export type SetChallengeSolverMutationVariables = { id: string; data: IndexersSolverChange };
+
+/**
+ * @summary Set a Node's Challenge solver once the Node reaches the solver's /health, or remove it with an empty address
+ */
+export const useSetChallengeSolver = <
+  TError = ErrorType<
+    | SetChallengeSolver401
+    | SetChallengeSolver403
+    | SetChallengeSolver409
+    | SetChallengeSolver422
+    | SetChallengeSolver500
+    | SetChallengeSolver502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setChallengeSolver>>,
+      TError,
+      SetChallengeSolverMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setChallengeSolver>>,
+  TError,
+  SetChallengeSolverMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetChallengeSolverMutationOptions(options), queryClient);
 };
 export const getListTrackersUrl = () => {
   return `/api/v1/trackers`;

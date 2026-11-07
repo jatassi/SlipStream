@@ -3,7 +3,8 @@ description: >-
   One Node set up as the Controller, whose movies want the starter 1080p
   and HD, a second Target of the same qualities. fixture-site lists a
   1080p WEB-DL, and a 1080p Bluray or an Extended 1080p WEB-DL once the
-  fixture-site-list cue posts it.
+  fixture-site-list cue posts it. The Salt Road is in the catalog with no
+  releases.
 seed: targets
 admin:
   email: ada@example.test
@@ -22,6 +23,11 @@ tmdb:
       title: The Quiet Orchard
       released: 2021-04-16
       runtime: 104m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: The Salt Road
+      released: 2023-01-20
+      runtime: 112m
 releases:
   - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
     tmdb_id: 9000001

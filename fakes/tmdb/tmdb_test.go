@@ -1,9 +1,11 @@
 package tmdb_test
 
 import (
+	"encoding/json"
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -191,6 +193,38 @@ func TestImagesAndVideosFollowTheirLanguageLists(t *testing.T) {
 	})
 }
 
+func TestRecordedImagesAndProfilesAnswerVerbatim(t *testing.T) {
+	s := load(t, "single-machine")
+	s.TMDB.Movies[0].Images = []scenario.TMDBImage{
+		{Shape: "poster", Language: "en", Votes: 5.4, Path: "/rec0rdedP0ster.jpg", Width: 1000, Height: 1500},
+		{Shape: "backdrop", Path: "/rec0rdedBackdr0p.jpg"},
+		{Shape: "logo", Language: "en", Path: "/rec0rdedL0go.svg", Width: 800, Height: 310},
+	}
+	s.TMDB.Movies[0].Credits = scenario.TMDBCredits{
+		Cast: []scenario.TMDBCast{{ID: 100, Name: "Mara Quell", Profile: "/rec0rdedMara.jpg"}, {ID: 101, Name: "Tove Lind"}},
+		Crew: []scenario.TMDBCrew{{ID: 10, Name: "Ines Varga", Department: "Directing", Job: "Director", Profile: "/rec0rdedInes.jpg"}},
+	}
+	inBothTiers(t, s, func(t *testing.T, f faketest.Served) {
+		got := get(t, f, "/3/movie/9000001?append_to_response=images,credits&include_image_language=en,null")
+		for _, want := range []string{
+			`"backdrop_path":"/rec0rdedBackdr0p.jpg"`,
+			`"poster_path":"/rec0rdedP0ster.jpg"`,
+			`{"aspect_ratio":0.6666666666666666,"height":1500,"iso_3166_1":null,"iso_639_1":"en","file_path":"/rec0rdedP0ster.jpg","vote_average":5.4,"vote_count":1,"width":1000}`,
+			`{"aspect_ratio":1.7777777777777777,"height":2160,"iso_3166_1":null,"iso_639_1":null,"file_path":"/rec0rdedBackdr0p.jpg","vote_average":0,"vote_count":1,"width":3840}`,
+			`"file_path":"/rec0rdedL0go.svg","vote_average":0,"vote_count":1,"width":800}`,
+			`"name":"Mara Quell","profile_path":"/rec0rdedMara.jpg"`,
+			`"name":"Ines Varga","profile_path":"/rec0rdedInes.jpg"`,
+		} {
+			if !strings.Contains(got, want) {
+				t.Errorf("GET the movie = %s\nwant it to hold %s", got, want)
+			}
+		}
+		if strings.Contains(got, `"name":"Tove Lind","profile_path":"/rec0rded`) || !strings.Contains(got, `"name":"Tove Lind","profile_path":"/`) {
+			t.Errorf("GET the movie = %s\nwant Tove Lind's made-up profile path", got)
+		}
+	})
+}
+
 func TestRevokeKeyAnswersTMDBs401Body(t *testing.T) {
 	inBothTiers(t, load(t, "single-machine"), func(t *testing.T, f faketest.Served) {
 		before := get(t, f, "/3/configuration?api_key=bundled")
@@ -284,4 +318,59 @@ func TestTheFakeConforms(t *testing.T) {
 
 func lines(c *http.Client) *metadata.Lines {
 	return metadata.NewLines(c, "SlipStream/conformance ( github.com/jatassi/SlipStream )", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // jitter needs no secrecy
+}
+
+func TestGeneratedMoviesAnswerSearchRecordsAndImages(t *testing.T) {
+	s := load(t, "single-machine")
+	g := scenario.TMDBGenerated{Count: 30, Seed: "generated"}
+	s.TMDB.Generated = &g
+	first, alternative := g.Movie(0), g.Movie(10)
+	inBothTiers(t, s, func(t *testing.T, f faketest.Served) {
+		var record struct {
+			ID           int64   `json:"id"`
+			IMDbID       string  `json:"imdb_id"`
+			Title        string  `json:"title"`
+			ReleaseDate  string  `json:"release_date"`
+			Runtime      int64   `json:"runtime"`
+			PosterPath   *string `json:"poster_path"`
+			BackdropPath *string `json:"backdrop_path"`
+			Genres       []struct {
+				Name string `json:"name"`
+			} `json:"genres"`
+			AlternativeTitles struct {
+				Titles []struct {
+					Title string `json:"title"`
+				} `json:"titles"`
+			} `json:"alternative_titles"`
+			ReleaseDates struct {
+				Results []struct {
+					ReleaseDates []struct {
+						Certification string `json:"certification"`
+					} `json:"release_dates"`
+				} `json:"results"`
+			} `json:"release_dates"`
+			Images struct {
+				Posters   []struct{} `json:"posters"`
+				Backdrops []struct{} `json:"backdrops"`
+			} `json:"images"`
+		}
+		body := get(t, f, "/3/movie/50000011?append_to_response=alternative_titles,release_dates,images")
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(body, "200 OK ")), &record); err != nil {
+			t.Fatalf("GET /3/movie/50000011 = %s: %v", body, err)
+		}
+		if record.ID != 50000011 || record.IMDbID != "tt50000011" || record.Title != alternative.Title || record.ReleaseDate != alternative.Dates[0].Date ||
+			record.Runtime != int64(alternative.Runtime.Minutes()) || len(record.Genres) != 2 || record.PosterPath == nil || record.BackdropPath == nil ||
+			len(record.AlternativeTitles.Titles) != 1 || record.AlternativeTitles.Titles[0].Title != alternative.Titles[0].Title ||
+			len(record.ReleaseDates.Results) != 1 || len(record.ReleaseDates.Results[0].ReleaseDates) != 2 ||
+			len(record.Images.Posters) != 1 || len(record.Images.Backdrops) != 1 {
+			t.Fatalf("GET /3/movie/50000011 = %s, want generated movie 10 %+v", body, alternative)
+		}
+		if got := get(t, f, "/3/search/movie?query="+url.QueryEscape(first.Title)); !strings.Contains(got, `"id":50000001,`) {
+			t.Errorf("search for %q = %s, want generated movie 0 among the results", first.Title, got)
+		}
+		check(t, f, []exchange{
+			{"/3/movie/50000031", notFound},
+			{"/3/movie/50000000", notFound},
+		})
+	})
 }

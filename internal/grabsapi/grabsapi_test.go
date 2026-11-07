@@ -3,6 +3,7 @@ package grabsapi_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
@@ -94,6 +95,10 @@ func (l *lapsing) InStep(role.NodeID) bool         { return !l.lapsed.Load() }
 // .torrent fetch with bytes that aren't bencode.
 type site struct{}
 
+func (site) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the site has no Challenge solver")
+}
+
 func (site) Run(_ context.Context, job searching.Job) (searching.Poll, error) {
 	var a searching.Answer
 	switch job.Call.(type) {
@@ -152,11 +157,11 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
@@ -203,10 +208,10 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
 	g := grabs.New(grabs.Config{
-		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
+		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now}),
 		Indexers: xs,
 		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
-		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
+		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
 	})
@@ -238,6 +243,9 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+storage.NewUUID().String(), http.StatusNotFound,
 		`{"status":404,"code":"grab_not_found","title":"No Grab has that id"}`)
+	ofIndexer := "/api/v1/indexers/" + indexer.String() + "/grabs"
+	expect(t, s, http.MethodGet, ofIndexer, http.StatusNotFound,
+		`{"status":404,"code":"indexer_not_found","title":"No Indexer has that id"}`)
 	none := storage.NewUUID().String()
 	expect(t, s, http.MethodPost, "/api/v1/works/"+none+"/search", http.StatusNotFound,
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
@@ -302,6 +310,8 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)
+	expect(t, s, http.MethodGet, ofIndexer, http.StatusOK, `{"grabs":[`+want+`],"nextOffset":null}`)
+	expect(t, s, http.MethodGet, ofIndexer+"?offset=1", http.StatusOK, `{"grabs":[],"nextOffset":null}`)
 }
 
 type failedGrab struct {
@@ -347,6 +357,10 @@ type mirrors struct {
 	stopped string
 }
 
+func (mirrors) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the mirrors have no Challenge solver")
+}
+
 func (m mirrors) Run(_ context.Context, job searching.Job) (searching.Poll, error) {
 	var a searching.Answer
 	switch job.Call.(type) {
@@ -362,15 +376,23 @@ func (m mirrors) Run(_ context.Context, job searching.Job) (searching.Poll, erro
 	return searching.Poll{Answer: &a}, nil
 }
 
-func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T) {
-	stopping, other := indexers.ID{UUID: storage.NewUUID()}, indexers.ID{UUID: storage.NewUUID()}
-	f := searchable(t, mirrors{titles: map[string]string{stopping.String(): "The.Attic.1080p.WEB-STOP", other.String(): "The.Attic.1080p.WEB-GO"}, stopped: stopping.String()})
+// mirrored searches The Attic across Better Site, at priority 10 with
+// edit, listing betterTitle, and Other Site listing otherTitle. A fetch
+// from Better Site has its account refused when stops.
+func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit indexers.Edit) (f *atticFixture, better, other indexers.ID) {
+	t.Helper()
+	better, other = indexers.ID{UUID: storage.NewUUID()}, indexers.ID{UUID: storage.NewUUID()}
+	m := mirrors{titles: map[string]string{better.String(): betterTitle, other.String(): otherTitle}}
+	if stops {
+		m.stopped = better.String()
+	}
+	f = searchable(t, m)
 	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic"}
 	err := f.lib.Write(f.ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := nodestest.Insert(ctx, tx, f.home, "home"); err != nil {
 			return err
 		}
-		if err := indexerstest.Torznab(ctx, tx, f.sealer, stopping, "Stopping Site", f.home, "https://site.test/api", "k"); err != nil {
+		if err := indexerstest.Torznab(ctx, tx, f.sealer, better, "Better Site", f.home, "https://site.test/api", "k"); err != nil {
 			return err
 		}
 		return indexerstest.Torznab(ctx, tx, f.sealer, other, "Other Site", f.home, "https://site.test/api", "k")
@@ -378,37 +400,77 @@ func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.xs.Update(f.ctx, admin, stopping, indexers.Edit{Priority: new(10)}, nil); err != nil {
+	edit.Priority = new(10)
+	if _, err := f.xs.Update(f.ctx, admin, better, edit, nil); err != nil {
 		t.Fatal(err)
 	}
 	rootstest.Root(t, f.lib, f.home, contenttypetest.ID, t.TempDir())
+	return f, better, other
+}
+
+func (f *atticFixture) searchAttic(t *testing.T) {
+	t.Helper()
 	code, body := f.s.Call(t, http.MethodPost, f.search, "")
 	if code != http.StatusAccepted {
 		t.Fatalf("searchWork = %d %s, want 202", code, body)
 	}
 	f.running(t)
+}
 
-	failed := f.failed(t, 2)
-	dropped, rerun := failed[stopping.String()], failed[other.String()]
-	if dropped.Failure.Code != "indexer_stopped" || dropped.Failure.Message != "The Indexer stopped before the .torrent was fetched" || rerun.Failure.Code != "torrent_invalid" {
-		t.Fatalf("the Grabs are %+v, want Stopping Site's dropped indexer_stopped and Other Site's from the rerun", failed)
-	}
+type searchRun struct {
+	Outcome    string `json:"outcome"`
+	Candidates int    `json:"candidates"`
+	GrabID     string `json:"grabId"`
+}
+
+// onlyRun is the one search run of The Attic.
+func (f *atticFixture) onlyRun(t *testing.T) searchRun {
+	t.Helper()
 	_, got := f.s.Call(t, http.MethodGet, f.search+"es", "")
 	var runs struct {
-		Searches []struct {
-			Outcome    string `json:"outcome"`
-			Candidates int    `json:"candidates"`
-			GrabID     string `json:"grabId"`
-		} `json:"searches"`
+		Searches []searchRun `json:"searches"`
 	}
 	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 1 {
 		t.Fatalf("listSearches = %s, %v; want one run", got, err)
 	}
-	if r := runs.Searches[0]; r.Outcome != "grabbed" || r.Candidates != 2 || r.GrabID != rerun.ID {
+	return runs.Searches[0]
+}
+
+func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T) {
+	f, stopping, other := mirrored(t, "The.Attic.1080p.WEB-STOP", "The.Attic.1080p.WEB-GO", true, indexers.Edit{})
+	f.searchAttic(t)
+	failed := f.failed(t, 2)
+	dropped, rerun := failed[stopping.String()], failed[other.String()]
+	if dropped.Failure.Code != "indexer_stopped" || dropped.Failure.Message != "The Indexer stopped before the .torrent was fetched" || rerun.Failure.Code != "torrent_invalid" {
+		t.Fatalf("the Grabs are %+v, want Better Site's dropped indexer_stopped and Other Site's from the rerun", failed)
+	}
+	if r := f.onlyRun(t); r.Outcome != "grabbed" || r.Candidates != 2 || r.GrabID != rerun.ID {
 		t.Fatalf("the run is %+v, want grabbed of 2 candidates with the rerun's Grab %s", r, rerun.ID)
 	}
 	var kept int
 	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release`).Scan(&kept); err != nil || kept != 0 {
 		t.Fatalf("grabs_release holds %d rows (%v) once the rerun's Grab failed, want none", kept, err)
+	}
+}
+
+// TestASearchTakesTheSameReleaseFromAnotherIndexerWhenTheBetterOneIsAtItsGrabLimit
+// has both Indexers list one Release, counted once from Better Site, whose
+// one grab a day is taken: the search grabs Other Site's copy.
+func TestASearchTakesTheSameReleaseFromAnotherIndexerWhenTheBetterOneIsAtItsGrabLimit(t *testing.T) {
+	f, better, other := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.1080p.WEB", false, indexers.Edit{Grabs: &indexers.Limit{Count: 1, Per: indexers.Day}})
+	err := f.lib.Write(f.ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := f.xs.Take(ctx, tx, indexers.Release{Indexer: better, Release: searching.Release{Link: searching.LinkOf("https://site.test/dl/earlier")}})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.searchAttic(t)
+	failed := f.failed(t, 1)
+	if g, ok := failed[other.String()]; !ok || g.Failure.Code != "torrent_invalid" {
+		t.Fatalf("the Grabs are %+v, want Other Site's copy grabbed", failed)
+	}
+	if r := f.onlyRun(t); r.Outcome != "grabbed" || r.Candidates != 1 {
+		t.Fatalf("the run is %+v, want grabbed of 1 candidate", r)
 	}
 }

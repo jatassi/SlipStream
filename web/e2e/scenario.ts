@@ -4,7 +4,12 @@ export type Scenario =
   | "first-run"
   | "home"
   | "low-space"
+  | "movies"
   | "serving"
   | "targets"
+  | "scale"
   | "torrents"
-  | "cgnat-home";
+  | "cgnat-home"
+  | "catalog-sites"
+  | "indexers"
+  | "seedbox-nas";

@@ -105,7 +105,7 @@ func TestNames(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			w := world{
-				tree: works.Tree{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{best, web, uhd}}, fresh: ids["fresh"],
+				tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{best, web, uhd}}, fresh: ids["fresh"],
 				templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"},
 				tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
 			}
@@ -137,7 +137,7 @@ func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
 	held := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
 	fresh := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
 	w := world{
-		tree: works.Tree{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{web}}, files: []File{held, fresh}, fresh: fresh.ID,
+		tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{web}}, files: []File{held, fresh}, fresh: fresh.ID,
 		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing}"},
 		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
 	}

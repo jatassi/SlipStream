@@ -17,7 +17,7 @@ export interface DownloadclientsTorrentDetail {
    */
   activeSeconds: number;
   addedAt: string;
-  /** The earliest every tracker accepts an announce, set while live */
+  /** The earliest every announce URL accepts an announce, set while live */
   announceAt?: string;
   /** The Content Type it was first grabbed for */
   contentType: string;
@@ -48,7 +48,7 @@ export interface DownloadclientsTorrentDetail {
   infoHash: string;
   /** When its Node last reported it, set while the Node is out of step */
   lastKnown?: string;
-  /** Its Node responded, so trackers and files are live. Otherwise they are from its last report */
+  /** Its Node responded, so announce URLs and files are live. Otherwise they are from its last report */
   live: boolean;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
   name: string;
@@ -89,7 +89,7 @@ export interface DownloadclientsTorrentDetail {
   state: DownloadclientsTorrentDetailState;
   /** The Torrents view's tabs it shows under */
   tabs: DownloadclientsTorrentDetailTabsItem[];
-  /** Absent when its metainfo names no tracker */
+  /** Absent when its metainfo names no announce URL */
   tracker?: DownloadclientsTrackerCell;
   /**
    * The Tracker its Grab's Release reached, null when no Grab named one

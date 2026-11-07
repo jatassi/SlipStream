@@ -93,6 +93,9 @@ SELECT * FROM targets_wants ORDER BY work_id;
 -- name: ListWantsOf :many
 SELECT * FROM targets_wants WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
 
+-- name: ListEveryWants :many
+SELECT * FROM targets_wants ORDER BY rowid;
+
 -- name: ListWorksOfProfile :many
 SELECT work_id FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) ORDER BY work_id;
 
@@ -133,7 +136,7 @@ SELECT count(*) FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) AND e
 UPDATE targets_wants SET profile_id = sqlc.arg(to_profile) WHERE profile_id = sqlc.arg(from_profile);
 
 -- name: SetWants :exec
-UPDATE targets_wants SET profile_id = sqlc.arg(profile_id), editions = sqlc.narg(editions) WHERE work_id = sqlc.arg(work_id);
+UPDATE targets_wants SET editions = sqlc.narg(editions) WHERE work_id = sqlc.arg(work_id);
 
 -- name: InsertProfileCut :exec
 INSERT INTO targets_profile_cut (profile_id, position, cut) VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(cut));
@@ -152,6 +155,9 @@ DELETE FROM targets_wants_cut WHERE work_id = sqlc.arg(work_id);
 
 -- name: ListWantsCutsOf :many
 SELECT * FROM targets_wants_cut WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id, position;
+
+-- name: ListEveryWantsCut :many
+SELECT * FROM targets_wants_cut ORDER BY work_id, position;
 
 -- name: ListProfilesNamingCut :many
 SELECT p.name FROM targets_profile_cut c
@@ -190,6 +196,9 @@ ON CONFLICT (item_id, cut, release) DO NOTHING;
 
 -- name: ListSightingsOf :many
 SELECT DISTINCT item_id, cut FROM targets_sighting WHERE item_id IN (sqlc.slice(item_ids)) ORDER BY item_id, cut;
+
+-- name: ListEverySighting :many
+SELECT DISTINCT item_id, cut FROM targets_sighting ORDER BY item_id, cut;
 
 -- name: DeleteSightingsOfCut :exec
 DELETE FROM targets_sighting WHERE cut = sqlc.arg(cut);

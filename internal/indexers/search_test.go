@@ -36,6 +36,10 @@ type scripted struct {
 	jobs    []searching.Job
 }
 
+func (*scripted) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the scripted Node has no Challenge solver")
+}
+
 func (n *scripted) Run(_ context.Context, j searching.Job) (searching.Poll, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -67,16 +71,24 @@ var self = role.NodeID{UUID: storage.NewUUID()}
 
 func plannedWith(t *testing.T, names ...string) *planned {
 	t.Helper()
+	return plannedIn(t, indexerstest.Alone(self), self, names...)
+}
+
+// plannedIn is planned with roster's Nodes, its Indexers homed on home.
+func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names ...string) *planned {
+	t.Helper()
 	sealer := secrettest.Sealer(t)
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), works.Schema(), indexers.Schema())
 	p := &planned{t: t, lib: lib, node: &scripted{answers: map[string]searching.Answer{}}, ids: map[string]indexers.ID{}}
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if err := nodestest.Insert(ctx, tx, self, "home"); err != nil {
-			return err
+		for _, n := range roster.Holders {
+			if err := nodestest.Insert(ctx, tx, n, roster.Name(n)); err != nil {
+				return err
+			}
 		}
 		for _, name := range names {
 			p.ids[name] = indexers.ID{UUID: storage.NewUUID()}
-			if err := indexerstest.Torznab(ctx, tx, sealer, p.ids[name], name, self, "https://site.test/torznab", "k"); err != nil {
+			if err := indexerstest.Torznab(ctx, tx, sealer, p.ids[name], name, home, "https://site.test/torznab", "k"); err != nil {
 				return err
 			}
 		}
@@ -88,13 +100,13 @@ func plannedWith(t *testing.T, names ...string) *planned {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	p.x = indexers.New(indexers.Config{
-		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(self),
+		Library: lib, Sealer: sealer, Roster: roster,
 		Searching: func(role.NodeID) searching.Remote { return p.node },
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}, contenttypetest.ID: fx},
 		Works:     w,
@@ -293,6 +305,34 @@ func TestAFetchDropsOnceItsIndexerStopsAndWaitsWhileItFails(t *testing.T) {
 	}
 }
 
+func TestAStopMetOnAFailoverNodeWaitsForHome(t *testing.T) {
+	box := role.NodeID{UUID: storage.NewUUID()}
+	roster := indexerstest.Roster{
+		Controller: self, Holders: []role.NodeID{self, box}, Names: map[role.NodeID]string{self: "home", box: "seedbox"},
+		Absent: map[role.NodeID]nodes.Absence{box: {Since: time.Now(), Lapsed: true}},
+	}
+	p := plannedIn(t, roster, box, "Alder")
+	link := searching.LinkOf("https://site.test/a.torrent")
+	tk, err := p.take("Alder", searching.Release{Title: "Orchard.1080p", Link: link})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.node.answer(p.ids["Alder"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.ChallengeUnsolved}})
+	answers := p.search(p.plan())
+	if len(answers) != 1 || answers[0].Outcome != (indexers.Outcome{Kind: indexers.Waiting, Node: box}) {
+		t.Fatalf("a search whose failover Node met a challenge = %+v, want Alder waiting for seedbox", answers)
+	}
+	if line := p.x.Line(indexerstest.Type, &answers[0].Outcome); line != "Waiting for seedbox" {
+		t.Errorf("its line = %q, want Waiting for seedbox", line)
+	}
+	if lines := spelled(p.plan()); !slices.Equal(lines, []string{"Alder waiting"}) {
+		t.Errorf("the next plan = %q, want Alder waiting for seedbox rather than asked on home", lines)
+	}
+	if _, err := p.x.Fetch(t.Context(), tk, link); !isDrop(err, indexers.DropHomeOffline) {
+		t.Errorf("a fetch while Alder waits for its lapsed home = %v, want a drop for the offline home", err)
+	}
+}
+
 func isDrop(err error, why indexers.DropWhy) bool {
 	drop, ok := errors.AsType[*indexers.DropError](err)
 	return ok && drop.Why == why
@@ -322,14 +362,20 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 		{&indexers.Outcome{Kind: indexers.IsLimited, Until: at}, "Limit reached until 14:05"},
 		{&indexers.Outcome{Kind: indexers.LimitReached, Until: at}, "Limit reached until 14:05"},
 		{&indexers.Outcome{Kind: indexers.Waiting, Node: self}, "Waiting for home"},
-		{&indexers.Outcome{Kind: indexers.IsFailing, Until: at}, "TorrentLeech isn't responding. SlipStream retries at 14:05."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected}, "Stopped because TorrentLeech rejected the username or password."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.AccountRefused, Text: "Account suspended"}, "Stopped because TorrentLeech refused the API key with 'Account suspended'."},
+		{&indexers.Outcome{Kind: indexers.IsFailing, Until: at}, "Isn't responding. SlipStream retries at 14:05."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected}, "Stopped because the username or password was rejected."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Stopped because the sign-in was refused with 'Wrong code'."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CaptchaNeeded}, "Stopped because signing in again needs a captcha."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.ChallengeUnsolved, Node: self}, "Stopped at a browser challenge because home has no Challenge solver."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CookieExpired}, "Stopped because the browser cookie is no longer accepted."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.DefinitionUnloadable}, "Stopped because its definition doesn't load."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.AccountRefused, Text: "Account suspended"}, "Stopped because the API key was refused with 'Account suspended'."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Stopped because a search was refused with 'Incorrect parameter'."},
 		{&indexers.Outcome{Kind: indexers.NoCategories}, "Skipped because it has no shelf categories"},
 		{&indexers.Outcome{Kind: indexers.Late}, "Didn't finish in time"},
 		{&indexers.Outcome{Kind: indexers.Removed}, "Deleted since this search"},
 	} {
-		if got := p.x.Line("TorrentLeech", contenttypetest.ID, tc.o); got != tc.want {
+		if got := p.x.Line(contenttypetest.ID, tc.o); got != tc.want {
 			t.Errorf("Line(%+v) = %q, want %q", tc.o, got, tc.want)
 		}
 	}

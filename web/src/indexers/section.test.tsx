@@ -116,9 +116,12 @@ test("with no Indexers the section says what one is for", async () => {
     .toBeVisible();
 });
 
-test("the long backoff saves in hours", async () => {
+test("the long backoff saves in hours, beside the health check's cadence", async () => {
   const server = indexersServer();
   renderApp({ path, handlers: server.handlers });
+  await expect
+    .element(page.getByRole("button", { name: "Runs every: Every 6 hours" }))
+    .toBeVisible();
   await userEvent.fill(
     page.getByRole("textbox", { name: "Warn when every request has failed for" }),
     "12",

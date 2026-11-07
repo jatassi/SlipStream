@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/torrent-client")({
   loader: async ({ context: { queryClient }, params: { nodeId } }) => {
     const { nodes } = await ensureQuery(queryClient, getListNodesSuspenseQueryOptions());
     const node = nodeOf(nodes, nodeId);
-    if (section.shows?.(node) === false) {
+    if (section.shows?.(node, nodes) === false) {
       // oxlint-disable-next-line typescript/only-throw-error -- the router renders its own notFound() as the not-found page
       throw notFound();
     }

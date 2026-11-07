@@ -85,7 +85,7 @@ func TestTakingEveryTargetAwayKeepsTheFileAsKeptAndPuttingThemBackRestoresIt(t *
 	if disk := s.onDisk(t); !maps.Equal(disk, back) {
 		t.Fatalf("the root holds %v, want the WEB-DL filling again, named after Web", disk)
 	}
-	_, cells, err := s.svc.WorkCells(t.Context(), admin, s.tree.ID)
+	_, cells, _, err := s.svc.WorkCells(t.Context(), admin, s.tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func (l *library) snapshot(t *testing.T, svc *files.Files, ws ...works.WorkID) s
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, cells, err := svc.WorkCells(t.Context(), admin, w)
+		_, cells, _, err := svc.WorkCells(t.Context(), admin, w)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -208,7 +208,7 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 	s := shelved(t)
 	bluray := s.target(t, "Bluray", []release.Quality{release.Bluray1080p})
 	discs := s.profile(t, "Discs", bluray)
-	got := s.change(t, s.svc, targets.SetWants{Work: s.tree.ID, Profile: discs}, keeping)
+	got := s.change(t, s.svc, targets.SetProfiles{Works: []works.WorkID{s.tree.ID}, Profile: discs}, keeping)
 	if want := (files.Impact{Works: 1, Unwanted: 1, Bytes: 5, NewlyWanted: 2}); got != want {
 		t.Fatalf("moving the Work to Discs = %+v, want %+v", got, want)
 	}
@@ -229,8 +229,8 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 		{targets.DeleteProfile{ID: s.both, To: s.both}, targets.ErrMovesToItself},
 		{targets.DeleteProfile{ID: discs, To: hds}, targets.ErrNoProfile},
 		{targets.DeleteProfile{ID: s.both, To: discs}, targets.ErrNoReplacement},
-		{targets.SetWants{Work: s.tree.ID, Profile: discs}, targets.ErrNoProfile},
-		{targets.SetWants{Work: works.WorkID{UUID: storage.NewUUID()}, Profile: hds}, works.ErrNoWork},
+		{targets.SetProfiles{Works: []works.WorkID{s.tree.ID}, Profile: discs}, targets.ErrNoProfile},
+		{targets.SetWants{Work: works.WorkID{UUID: storage.NewUUID()}}, works.ErrNoWork},
 	} {
 		if _, err := s.svc.Change(t.Context(), admin, c.change, deleting); !errors.Is(err, c.want) {
 			t.Errorf("%+v: err = %v, want %v", c.change, err, c.want)
@@ -319,7 +319,7 @@ func TestATargetRefusingTheVideoCodecAFileWasProbedAtLetsGoOfIt(t *testing.T) {
 			if disk := l.onDisk(t); !maps.Equal(disk, c.disk) {
 				t.Fatalf("under %s the root holds %v, want %v", c.choice, disk, c.disk)
 			}
-			_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+			_, cells, _, err := svc.WorkCells(t.Context(), admin, tree.ID)
 			if err != nil {
 				t.Fatal(err)
 			}

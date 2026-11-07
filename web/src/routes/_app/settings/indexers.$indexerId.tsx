@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import {
+  getListIndexerGrabsSuspenseQueryOptions,
+  useListIndexerGrabsSuspense,
+} from "../../../api/gen/query/grabs/grabs";
+import {
   getGetIndexerSuspenseQueryOptions,
   getListIndexerQueriesSuspenseQueryOptions,
   getListTrackersSuspenseQueryOptions,
@@ -24,6 +28,7 @@ export const Route = createFileRoute("/_app/settings/indexers/$indexerId")({
     const [indexer] = await Promise.all([
       ensureQuery(queryClient, getGetIndexerSuspenseQueryOptions(indexerId)),
       ensureQuery(queryClient, getListIndexerQueriesSuspenseQueryOptions(indexerId)),
+      ensureQuery(queryClient, getListIndexerGrabsSuspenseQueryOptions(indexerId)),
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
       ensureQuery(queryClient, getListTrackersSuspenseQueryOptions()),
     ]);
@@ -43,11 +48,18 @@ function IndexerRoute() {
   const { indexerId } = Route.useParams();
   const indexer = useGetIndexerSuspense(indexerId).data;
   const { queries } = useListIndexerQueriesSuspense(indexerId).data;
+  const { grabs } = useListIndexerGrabsSuspense(indexerId).data;
   const { nodes } = useListNodesSuspense().data;
   const { trackers } = useListTrackersSuspense().data;
   return (
     <Page>
-      <IndexerPage indexer={indexer} queries={queries} nodes={nodes} trackers={trackers} />
+      <IndexerPage
+        indexer={indexer}
+        queries={queries}
+        grabs={grabs}
+        nodes={nodes}
+        trackers={trackers}
+      />
     </Page>
   );
 }

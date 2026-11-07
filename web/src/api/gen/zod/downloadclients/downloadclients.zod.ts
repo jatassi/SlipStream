@@ -76,7 +76,7 @@ export const ActOnTorrentsBody = ActInputBody;
 export const ActOnTorrentsResponse = DownloadclientsActed;
 
 /**
- * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds
+ * @summary Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds
  */
 export const GetTorrentParams = zod.object({
   id: zod.uuid(),

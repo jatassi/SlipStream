@@ -6,6 +6,7 @@ import type { RequestHandlerOptions } from "msw";
 import type {
   IndexersCaptchaImage,
   IndexersCatalogEntry,
+  IndexersChallengeSolver,
   IndexersDefinitionForm,
   IndexersIndexer,
   IndexersIndexerCatalog,
@@ -940,6 +941,7 @@ export const getListIndexersResponseMock = (
       definition: faker.helpers.arrayElement([
         {
           baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
           values: {
             [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1112,6 +1114,7 @@ export const getCreateIndexerResponseMock = (
   definition: faker.helpers.arrayElement([
     {
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1286,6 +1289,7 @@ export const getGetIndexerResponseMock = (
   definition: faker.helpers.arrayElement([
     {
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1433,6 +1437,7 @@ export const getUpdateIndexerResponseMock = (
   definition: faker.helpers.arrayElement([
     {
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1615,6 +1620,22 @@ export const getTestIndexerResponseMock = (
   sources: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  ...overrideResponse,
+});
+
+export const getGetChallengeSolverResponseMock = (
+  overrideResponse: Partial<Extract<IndexersChallengeSolver, object>> = {},
+): IndexersChallengeSolver => ({
+  address: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  timeout: faker.number.int({ min: 10, max: 180 }),
+  ...overrideResponse,
+});
+
+export const getSetChallengeSolverResponseMock = (
+  overrideResponse: Partial<Extract<IndexersChallengeSolver, object>> = {},
+): IndexersChallengeSolver => ({
+  address: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  timeout: faker.number.int({ min: 10, max: 180 }),
   ...overrideResponse,
 });
 
@@ -2098,6 +2119,54 @@ export const getTestIndexerMockHandler = (
   );
 };
 
+export const getGetChallengeSolverMockHandler = (
+  overrideResponse?:
+    | IndexersChallengeSolver
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IndexersChallengeSolver> | IndexersChallengeSolver),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/nodes/:id/challenge-solver",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetChallengeSolverResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetChallengeSolverMockHandler = (
+  overrideResponse?:
+    | IndexersChallengeSolver
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<IndexersChallengeSolver> | IndexersChallengeSolver),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/nodes/:id/challenge-solver",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetChallengeSolverResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListTrackersMockHandler = (
   overrideResponse?:
     | IndexersTrackerList
@@ -2211,6 +2280,8 @@ export const getIndexersMock = () => [
   getGetIndexerCaptchaMockHandler(),
   getListIndexerQueriesMockHandler(),
   getTestIndexerMockHandler(),
+  getGetChallengeSolverMockHandler(),
+  getSetChallengeSolverMockHandler(),
   getListTrackersMockHandler(),
   getGetTrackerMockHandler(),
   getRenameTrackerMockHandler(),

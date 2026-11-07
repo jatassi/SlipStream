@@ -3,6 +3,7 @@ package works
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works/internal/db"
@@ -23,17 +24,28 @@ func ItemOf(ctx context.Context, r storage.Reader[file], id ItemID) (Summary, It
 	return Summary(w), bare(it), nil
 }
 
-// ItemsOf reads each of works' Items, without their fields, inside a
+// ItemsOf reads each of ws' Items, without their fields, inside a
 // caller's read: per Work, live ones first, each by position. A Content
 // Type reads it to answer for every Item of many Works in one call.
-func ItemsOf(ctx context.Context, r storage.Reader[file], works []WorkID) (map[WorkID][]Item, error) {
-	rows, err := db.New(r).ListItemsOfWorks(ctx, works)
+func ItemsOf(ctx context.Context, r storage.Reader[file], ws Among[WorkID]) (map[WorkID][]Item, error) {
+	q := db.New(r)
+	rows, err := Read(ws, func() ([]db.WorksItem, error) { return q.ListEveryItem(ctx) }, func(ids []WorkID) ([]db.WorksItem, error) {
+		return q.ListItemsOfWorks(ctx, ids)
+	})
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[WorkID][]Item, len(works))
+	of := make(map[WorkID][]db.WorksItem, len(ws.IDs()))
 	for _, it := range rows {
-		out[it.WorkID] = append(out[it.WorkID], bare(it))
+		of[it.WorkID] = append(of[it.WorkID], it)
+	}
+	out := make(map[WorkID][]Item, len(of))
+	for id, items := range of {
+		slices.SortFunc(items, siblings)
+		out[id] = make([]Item, len(items))
+		for i, it := range items {
+			out[id][i] = bare(it)
+		}
 	}
 	return out, nil
 }

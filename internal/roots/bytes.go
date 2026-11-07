@@ -92,6 +92,16 @@ func (r *Roots) Remove(ctx context.Context, root ID, rel storing.Rel) error {
 	return r.cfg.Remote.Remove(ctx, at, rel)
 }
 
+// RemoveAll removes the folder rel and everything in it from root on its
+// Node; a folder already gone is removed.
+func (r *Roots) RemoveAll(ctx context.Context, root ID, rel storing.Rel) error {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return err
+	}
+	return r.cfg.Remote.RemoveAll(ctx, at, rel)
+}
+
 func (r *Roots) ListHeld(ctx context.Context, root ID, folder storing.HeldFolder) ([]string, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
@@ -129,6 +139,8 @@ func (r *Roots) moved() {
 // downloads: offline, or its Storage written off.
 type UnreachableError struct {
 	State State
+	// Node is the Node's name.
+	Node string
 	// Why names the Node and what keeps it, in words.
 	Why string
 }
@@ -158,7 +170,7 @@ func (r *Roots) Reachable(ctx context.Context, rd storage.Reader[file], root Roo
 		return err
 	}
 	if state == WrittenOff {
-		return &UnreachableError{State: state, Why: name + "'s Storage was written off, so the library root there takes no new files."}
+		return &UnreachableError{State: state, Node: name, Why: name + "'s Storage was written off, so the library root there takes no new files."}
 	}
-	return &UnreachableError{State: state, Why: name + " is offline, so the library root there takes no new files."}
+	return &UnreachableError{State: state, Node: name, Why: name + " is offline, so the library root there takes no new files."}
 }

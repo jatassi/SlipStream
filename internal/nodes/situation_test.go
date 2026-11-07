@@ -28,6 +28,7 @@ func (noLink) Drop(link.Key) {}
 
 func (noLink) Invite(context.Context, link.Target) error { return nil }
 func (noLink) Stats(link.Key) (link.Stats, bool)         { return link.Stats{}, false }
+func (noLink) LaneBytes(link.Key) link.Stats             { return link.Stats{} }
 
 type unheard struct{}
 

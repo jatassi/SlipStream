@@ -19,21 +19,33 @@ const count = z
   .regex(/^\d{1,6}$/u, "Enter a whole number")
   .refine((value) => Number(value) <= 100_000, "Use 100,000 or fewer");
 
-const per = z.enum(["hour", "day"]);
+export const limitSchema = z.object({ count, per: z.enum(["hour", "day"]) });
+
+export const nameSchema = z
+  .string()
+  .trim()
+  .min(1, "Enter a name")
+  .max(100, "Use 100 characters or fewer");
+
+export const prioritySchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,2}$/u, "Enter a number from 1 to 50")
+  .refine((value) => Number(value) >= 1 && Number(value) <= 50, "Enter a number from 1 to 50");
+
+/** A limit as the API takes it, from the form's count. */
+export const limitOf = (limit: z.output<typeof limitSchema>) => ({
+  count: Number(limit.count),
+  per: limit.per,
+});
 
 export const editSchema = z.object({
-  name: z.string().trim().min(1, "Enter a name").max(100, "Use 100 characters or fewer"),
+  name: nameSchema,
   address: z.string().trim(),
   apiKey: z.string(),
-  priority: z
-    .string()
-    .trim()
-    .regex(/^\d{1,2}$/u, "Enter a number from 1 to 50")
-    .refine((value) => Number(value) >= 1 && Number(value) <= 50, "Enter a number from 1 to 50"),
-  searches: count,
-  searchesPer: per,
-  grabs: count,
-  grabsPer: per,
+  priority: prioritySchema,
+  searches: limitSchema,
+  grabs: limitSchema,
 });
 
 export type EditValues = z.input<typeof editSchema>;
@@ -43,10 +55,8 @@ export const valuesOf = (indexer: IndexersIndexer): EditValues => ({
   address: "",
   apiKey: "",
   priority: String(indexer.priority),
-  searches: String(indexer.searches.count),
-  searchesPer: indexer.searches.per,
-  grabs: String(indexer.grabs.count),
-  grabsPer: indexer.grabs.per,
+  searches: { count: String(indexer.searches.count), per: indexer.searches.per },
+  grabs: { count: String(indexer.grabs.count), per: indexer.grabs.per },
 });
 
 /** Only what changed, so a PATCH tests the Indexer only when its address or key is new. */
@@ -65,11 +75,11 @@ export function editOf(indexer: IndexersIndexer, value: EditValues): IndexersInd
   if (Number(next.priority) !== indexer.priority) {
     edit.priority = Number(next.priority);
   }
-  const searches = { count: Number(next.searches), per: next.searchesPer };
+  const searches = limitOf(next.searches);
   if (searches.count !== indexer.searches.count || searches.per !== indexer.searches.per) {
     edit.searches = searches;
   }
-  const grabs = { count: Number(next.grabs), per: next.grabsPer };
+  const grabs = limitOf(next.grabs);
   if (grabs.count !== indexer.grabs.count || grabs.per !== indexer.grabs.per) {
     edit.grabs = grabs;
   }

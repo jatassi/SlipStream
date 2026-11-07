@@ -56,6 +56,7 @@ type Service struct {
 	client   *http.Client
 	jobs     *jobs
 	sessions *sessions
+	cleared  *clearances
 	spacer   *spacer
 	defs     *definitions
 	drivers  map[Kind]Driver
@@ -70,6 +71,7 @@ func New(cfg Config) *Service {
 		client:   &client,
 		jobs:     &jobs{keep: cfg.Timings.Keep, byID: map[string]*run{}},
 		sessions: &sessions{by: map[string]*slot{}},
+		cleared:  &clearances{byHost: map[string]clearance{}},
 		spacer:   &spacer{floor: cfg.Timings.Floor, next: map[string]time.Time{}},
 		defs:     &definitions{bySHA: map[string]*cardigann.Definition{}},
 		drivers: map[Kind]Driver{

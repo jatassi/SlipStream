@@ -563,9 +563,10 @@ const (
 	PercentUnit Unit = "percent"
 )
 
-// GB and TB are the 1024-based units the web's byte words use, so a level
-// and the Storage bar read the same.
+// MB, GB and TB are the 1024-based units the web's byte words use, so a
+// level and the Storage bar read the same.
 const (
+	MB int64 = 1 << 20
 	GB int64 = 1 << 30
 	TB int64 = 1 << 40
 )
@@ -597,8 +598,11 @@ func (a Amount) Words() string {
 
 func byteWords(n int64) string {
 	unit, name := GB, "GB"
-	if n >= TB {
+	switch {
+	case n >= TB:
 		unit, name = TB, "TB"
+	case n > 0 && n < GB/20:
+		unit, name = MB, "MB"
 	}
 	return strconv.FormatFloat(math.Round(float64(n)/float64(unit)*10)/10, 'f', -1, 64) + " " + name
 }

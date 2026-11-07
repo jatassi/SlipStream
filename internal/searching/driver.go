@@ -49,8 +49,17 @@ type Job struct {
 	Session    *Session
 	Categories []int
 	// RSS is how an RSS feed's items are read.
-	RSS  RSSReading
-	Call Call
+	RSS RSSReading
+	// Solver is the Node's Challenge solver, nil for none.
+	Solver *Solver
+	Call   Call
+}
+
+// Solver is a Node's Challenge solver: a service at Address that speaks
+// FlareSolverr's API, and how long it may take to clear a page.
+type Solver struct {
+	Address string
+	Timeout time.Duration
 }
 
 // Definition is the Cardigann definition version a catalog Indexer runs.

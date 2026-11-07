@@ -35,10 +35,11 @@ func defaultHome(r Roster) (role.NodeID, error) {
 
 // holdsSession reports whether idx signs in, so its calls stay on the Node
 // that earned its session: a catalog Indexer whose pinned definition's
-// sign-in keeps a session. A Torznab feed is stateless.
+// sign-in keeps a session, or any Indexer with a pasted browser cookie,
+// such as an RSS feed's. A Torznab feed is stateless.
 func holdsSession(idx Indexer) bool {
 	d, ok := idx.Source.(Definition)
-	return ok && d.Login == cardigann.SessionLogin
+	return idx.Pasted || ok && d.Login == cardigann.SessionLogin
 }
 
 // portable reports whether idx's calls may go to a Node other than its

@@ -5,7 +5,7 @@ export interface DownloadclientsTrackerDetail {
   acceptsAt?: string;
   /** When it last responded, set while live */
   answeredAt?: string;
-  /** The tracker's failure reason or warning, verbatim */
+  /** The announce URL's failure reason or warning, verbatim */
   message?: string;
   /**
    * Its min interval as the announce policy holds to it, set while live
@@ -14,7 +14,7 @@ export interface DownloadclientsTrackerDetail {
   minIntervalSeconds?: number;
   /** When its next announce is due, set while live */
   nextAnnounce?: string;
-  /** When it tries a failing tracker again, from the last report */
+  /** When it tries a failing announce URL again, from the last report */
   retryAt?: string;
   status: DownloadclientsTrackerDetailStatus;
   /** @minimum 0 */

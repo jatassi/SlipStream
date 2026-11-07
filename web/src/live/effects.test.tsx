@@ -5,6 +5,7 @@ import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import {
   getGetGrabQueryKey,
   getListGrabsQueryKey,
+  getListIndexerGrabsQueryKey,
   getListSearchesQueryKey,
 } from "../api/gen/query/grabs/grabs";
 import {
@@ -93,7 +94,7 @@ test("a lapse's burst of nodes.changed refetches the counts once and once more a
   });
 });
 
-test("grabs.changed invalidates the Grabs, that Grab and only that Work's cells", async () => {
+test("grabs.changed invalidates the Grabs, that Grab, every Indexer's Grabs and only that Work's cells", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await synced(app);
@@ -101,14 +102,23 @@ test("grabs.changed invalidates the Grabs, that Grab and only that Work's cells"
     grabs: getListGrabsQueryKey(),
     grab: getGetGrabQueryKey(grab),
     other: getGetGrabQueryKey(otherGrab),
+    indexer: getListIndexerGrabsQueryKey(otherGrab),
     orchard: getGetWorkCellsQueryKey(orchard),
     harvest: getGetWorkCellsQueryKey(harvest),
   });
 
-  server.clients[0]?.send({ event: "grabs.changed", data: { grabId: grab, workId: orchard } });
-  await expect
-    .poll(invalidated)
-    .toEqual({ grabs: true, grab: true, other: false, orchard: true, harvest: false });
+  server.clients[0]?.send({
+    event: "grabs.changed",
+    data: { grabId: grab, workId: orchard, progress: false },
+  });
+  await expect.poll(invalidated).toEqual({
+    grabs: true,
+    grab: true,
+    other: false,
+    indexer: true,
+    orchard: true,
+    harvest: false,
+  });
 });
 
 test("grabs.search-changed invalidates only that Work's searches", async () => {

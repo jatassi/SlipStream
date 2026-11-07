@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
+	"sync"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -22,8 +24,9 @@ import (
 // with the Controller's API key: its Storage levels, each root's folder
 // under mediaDir and the root on its Node, which shares the machine and so
 // the media dir, then the Targets and Profiles as goals makes them, then
+// each Node's Challenge solver at the address solvers names for it, and
 // the Indexers on the site fakes at sites, as an Admin would.
-func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address) error {
+func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address, solvers map[string]string) error {
 	if err := StorageLevels(ctx, c, s, ready, claims); err != nil {
 		return err
 	}
@@ -41,6 +44,13 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 	}
 	if err := goals(ctx, c, s.Library, controller, apiKey); err != nil {
 		return err
+	}
+	for i, n := range s.Nodes {
+		if n.ChallengeSolver {
+			if err := nodeapi.SetChallengeSolver(ctx, c, controller, apiKey, claims.Members[i].ID, solvers[n.Name]); err != nil {
+				return err
+			}
+		}
 	}
 	return addIndexers(ctx, c, s, claims, controller, sites[site.Fake.Name])
 }
@@ -175,4 +185,43 @@ func StorageLevels(ctx context.Context, c *http.Client, s scenario.Scenario, rea
 func controllerURL(s scenario.Scenario, ready []node.Ready) string {
 	i := slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Setup == scenario.SetupController })
 	return url(ready[i])
+}
+
+const addsAtOnce = 8
+
+// Works adds a Work for every movie fake-tmdb serves that TMDB still
+// holds, as the Scenario's library works says, on its controller Node,
+// and returns how many it added.
+func Works(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims) (int, error) {
+	w := s.Library.Works
+	controller := controllerURL(s, ready)
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	slots := make(chan struct{}, addsAtOnce)
+	var wg sync.WaitGroup
+	added := 0
+	for m := range s.TMDB.All() {
+		if m.Deleted {
+			continue
+		}
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		added++
+		wg.Go(func() {
+			defer func() { <-slots }()
+			if err := nodeapi.AddWork(ctx, c, controller, claims.APIKey, w.ContentType, strconv.FormatInt(m.ID, 10), w.Monitor); err != nil {
+				cancel(err)
+			}
+		})
+	}
+	wg.Wait()
+	if err := context.Cause(ctx); err != nil {
+		return 0, fmt.Errorf("add the library's Works: %w", err)
+	}
+	return added, nil
 }

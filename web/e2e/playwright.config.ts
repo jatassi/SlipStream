@@ -45,8 +45,9 @@ export function targetProjects(): readonly ProjectName[] {
 export const engineOf = (name: ProjectName): Engine => projects[name][0];
 
 // Specs of the desktop shell's own controls, such as the account menu, and
-// of the Diagram's drags, which a phone doesn't take.
-const desktopOnly = ["restart.spec.ts", "diagram.spec.ts"];
+// of the Diagram's drags, which a phone doesn't take. The Library's scale
+// measure seeds 20,000 Works once, against the desktop grid.
+const desktopOnly = ["restart.spec.ts", "diagram.spec.ts", "library-scale.spec.ts"];
 
 function project(name: ProjectName): Project {
   const [engine, preset] = projects[name];

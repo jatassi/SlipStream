@@ -11,12 +11,14 @@
 //		Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
 //			return &Source{mb: musicbrainz.New(d.Lines, e.Metadata)}
 //		},
-//		Library: func(contenttype.LibraryDeps) contenttype.Library { return &Music{} },
+//		Library: func(contenttype.LibraryDeps, Endpoints) contenttype.Library { return &Music{} },
 //	})
 //
 // The provider half reads the type's metadata source on every Node holding
 // the Metadata Role, with only ProviderDeps and the loaded Endpoints
-// section. The library half reads and writes library.db on the Controller.
+// section. The library half reads and writes library.db on the Controller,
+// with LibraryDeps and the same section, whose browser-only hosts its
+// links open.
 // Its own tables live in its own migration set, named by its id, with
 // foreign keys onto works' ids; its metadata never sits in a core row.
 // Register it by adding Def to both mains:
@@ -85,7 +87,7 @@ type LibraryDeps struct {
 // Neither does IO.
 type Halves[E any] struct {
 	Provider func(ProviderDeps, E) metadata.Source
-	Library  func(LibraryDeps) Library
+	Library  func(LibraryDeps, E) Library
 }
 
 type Registration interface {
@@ -98,7 +100,8 @@ type Registration interface {
 	// OpenProvider builds the provider half from deps and the section
 	// Endpoints returned, once loaded.
 	OpenProvider(deps ProviderDeps, endpoints any) metadata.Source
-	OpenLibrary(deps LibraryDeps) Library
+	// OpenLibrary builds the library half from deps and the same section.
+	OpenLibrary(deps LibraryDeps, endpoints any) Library
 }
 
 type Def[E any] struct {
@@ -148,18 +151,24 @@ func (d Def[E]) Endpoints() any {
 }
 
 func (d Def[E]) OpenProvider(deps ProviderDeps, endpoints any) metadata.Source {
-	var e E
-	if endpoints != nil {
-		loaded, ok := endpoints.(*E)
-		if !ok {
-			panic(fmt.Sprintf("contenttype: %s opened with endpoints %T, not the *%T its Endpoints returns", d.id, endpoints, e))
-		}
-		e = *loaded
-	}
-	return d.halves.Provider(deps, e)
+	return d.halves.Provider(deps, d.loaded(endpoints))
 }
 
-func (d Def[E]) OpenLibrary(deps LibraryDeps) Library { return d.halves.Library(deps) }
+func (d Def[E]) OpenLibrary(deps LibraryDeps, endpoints any) Library {
+	return d.halves.Library(deps, d.loaded(endpoints))
+}
+
+func (d Def[E]) loaded(endpoints any) E {
+	var e E
+	if endpoints == nil {
+		return e
+	}
+	loaded, ok := endpoints.(*E)
+	if !ok {
+		panic(fmt.Sprintf("contenttype: %s opened with endpoints %T, not the *%T its Endpoints returns", d.id, endpoints, e))
+	}
+	return *loaded
+}
 
 // Set is the Content Types a main registers, in id order.
 type Set struct {

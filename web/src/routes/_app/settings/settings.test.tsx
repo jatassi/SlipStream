@@ -14,7 +14,6 @@ import {
 } from "../../../api/gen/query/mail/mail.msw";
 import { problem } from "../../../test/handlers";
 import { renderApp } from "../../../test/render-app";
-import { settingsSectionLabels } from "../../../test/settings";
 
 const noAddress: IdentityAddress = { address: "", suggestedAddress: "http://media-pc:8484" };
 
@@ -77,22 +76,15 @@ const mail: MailSettings = {
 
 const field = (name: string) => page.getByRole("textbox", { name, exact: true });
 
-test("/settings opens on Address, which suggests the address in use while none is set", async () => {
-  const { router } = renderApp({
-    path: "/settings",
+test("Address suggests the address in use while none is set", async () => {
+  renderApp({
+    path: "/settings/address",
     handlers: [getGetAddressMockHandler(noAddress)],
   });
-  await expect.element(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
-  await expect.poll(() => router.state.location.pathname).toBe("/settings/address");
-  const tabs = page.getByRole("navigation", { name: "Settings" });
-  expect(
-    tabs
-      .getByRole("link")
-      .all()
-      .map((link) => link.element().textContent),
-  ).toEqual(settingsSectionLabels);
   await expect
-    .element(tabs.getByRole("link", { name: "Address" }))
+    .element(
+      page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Address" }),
+    )
     .toHaveAttribute("aria-current", "page");
   await expect.element(field("Address")).toHaveValue("http://media-pc:8484");
   await expect

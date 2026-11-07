@@ -248,7 +248,7 @@ export const GetWorkWantsParams = zod.object({
 export const GetWorkWantsResponse = TargetsWants;
 
 /**
- * @summary Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact
+ * @summary Set a Work's own Edition list, or its Profile's, refilling and renaming its files, or preview the change's Impact
  */
 export const SetWorkWantsParams = zod.object({
   workId: zod.uuid(),

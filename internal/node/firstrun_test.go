@@ -12,7 +12,7 @@ import (
 // The steps are built from an empty library and half: only their
 // declarations are read.
 func TestTheFirstRunStepsMatchTheirIDsAndEvents(t *testing.T) {
-	steps := firstRunSteps(&library{}, &half{})
+	steps := firstRunSteps(&libraryDB{}, &half{})
 	ids := make([]firstrun.StepID, len(steps))
 	for i, s := range steps {
 		ids[i] = s.ID

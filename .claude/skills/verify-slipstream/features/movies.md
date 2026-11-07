@@ -6,7 +6,7 @@ A movie added from the metadata catalog carries its whole record: titles in the 
 
 - `movies-whole-record` `POST /api/v1/works` for The Salt Road (`9000005`) answers every field from `english_title` to `awards` (`1 win & 3 nominations`), with `original_title` `La Route du Sel`, `certification` `PG-13` from `US`, four people with a `photoUrl` each, ratings from `imdb`, `metacritic`, `rottentomatoes` and `tmdb` each with its `fetchedAt`, and the `backdrop`, `poster`, `studio_logo` and `title_treatment` artwork. Its Item's availability reads `2023-04-04`, `Digital release in United States`, and the Work page on desktop and phone shows the record (P-286, P-054, P-056, P-058).
 - `movies-preview-then-add` `GET /api/v1/content-types/movie/catalog/9000005` opens a connection to fake-tmdb and none to fake-omdb, and answers the TMDB rating alone. With every TMDB `movie` request then failing, the add still answers 200 with the whole record, the fault never fires, and fake-omdb sees one connection (P-054, P-060).
-- `movies-refresh` after the `tmdb-change` cue, `POST /api/v1/works/{id}/refresh` answers the overview `Two sisters walk the salt road. Revision 1.` and TMDB's 411 votes with the OMDb ratings kept; `POST /api/v1/content-types/movie/refresh` answers 202 and its run ends `succeeded` with `1 Work`. After the `tmdb-delete` cue, a refresh answers 409 `work_gone_upstream` and the Work keeps its record with `goneUpstreamAt` set (P-038, P-231).
+- `movies-refresh` after the `tmdb-change` cue, `POST /api/v1/works/refresh` answers `done` for the Work and `GET /api/v1/works/{id}` then reads the overview `Two sisters walk the salt road. Revision 1.` and TMDB's 411 votes with the OMDb ratings kept; `POST /api/v1/content-types/movie/refresh` answers 202 and its run ends `succeeded` with `1 Work`. After the `tmdb-delete` cue, a refresh answers `skipped` with `work_gone_upstream` and the Work keeps its record with `goneUpstreamAt` set (P-038, P-231).
 - `movies-unreachable` with fake-tmdb answering 503 (or refusing connections, as the end-to-end test plays it), a search answers 502 `metadata_unavailable` naming TMDB and TMDB reads `unreachable`, `SlipStream can't reach TMDB. SlipStream retries automatically. …`. Once the fault clears, TMDB reads `working` again with no call from anyone, from its own retest (P-253, P-061).
 - `movies-rate-limited` a TMDB 429 with `Retry-After: 30` answers 502 `metadata_unavailable` with `TMDB: is rate limited until <time>`, TMDB reads `rate_limited` until that time, and a second search inside it answers the same without reaching fake-tmdb (P-061).
 - `movies-key-refused` after `tmdb-revoke-key`, a search answers 502 `metadata_refused`, `TMDB refused SlipStream's key`, and TMDB reads `key_refused`, `This build has no TMDB key. Add your own.`; an Admin key fake-tmdb takes turns it `working` on `yours` (P-063).
@@ -17,7 +17,7 @@ A movie added from the metadata catalog carries its whole record: titles in the 
 ## How to get to it (user POV)
 
 - Desktop and phone shells: the Work page at `/works/{id}` shows the stored record. The add sheet, the provider key screen and posters in lists belong to S20 (Library, the add flow and the Work page).
-- API: `GET /api/v1/content-types/movie/catalog?query=`, `GET /api/v1/content-types/movie/catalog/{key}`, `POST /api/v1/works`, `GET /api/v1/works/{id}`, `POST /api/v1/works/{id}/refresh`, `POST /api/v1/content-types/movie/refresh`, `GET /api/v1/tasks/metadata-refresh`, `GET /api/v1/metadata/providers`, `PUT /api/v1/metadata/providers/{provider}/key`, `GET /api/v1/artwork/{token}?size=` with the session cookie.
+- API: `GET /api/v1/content-types/movie/catalog?query=`, `GET /api/v1/content-types/movie/catalog/{key}`, `POST /api/v1/works`, `GET /api/v1/works/{id}`, `POST /api/v1/works/refresh`, `POST /api/v1/content-types/movie/refresh`, `GET /api/v1/tasks/metadata-refresh`, `GET /api/v1/metadata/providers`, `PUT /api/v1/metadata/providers/{provider}/key`, `GET /api/v1/artwork/{token}?size=` with the session cookie.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -67,11 +67,12 @@ Steps:
 
   ```sh
   $FW cue $RUN tmdb-change '{"id":9000005}'
-  $FW exec $RUN --proof movies/movies-refresh -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W/refresh"
+  $FW exec $RUN --proof movies/movies-refresh -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"workIds\":[\"$W\"]}" '{nodes.home.url}/api/v1/works/refresh'
+  $FW exec $RUN --proof movies/movies-refresh -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W"
   $FW exec $RUN --proof movies/movies-refresh -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/refresh'
   $FW exec $RUN --proof movies/movies-refresh -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/metadata-refresh'
   $FW cue $RUN tmdb-delete '{"id":9000005}'
-  $FW exec $RUN --proof movies/movies-refresh -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W/refresh"
+  $FW exec $RUN --proof movies/movies-refresh -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"workIds\":[\"$W\"]}" '{nodes.home.url}/api/v1/works/refresh'
   $FW exec $RUN --proof movies/movies-refresh -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W"
   ```
 

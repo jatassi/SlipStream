@@ -354,7 +354,7 @@ func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Sea
 	if err != nil {
 		return nil, err
 	}
-	timings, err := gr.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, []works.WorkID{run.WorkID})
+	timings, err := gr.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, works.Only([]works.WorkID{run.WorkID}))
 	if err != nil {
 		return nil, err
 	}
@@ -397,20 +397,22 @@ func (gr *Grabs) decision(ctx context.Context, r storage.Reader[file], run Searc
 	return picks, refused, nil
 }
 
-// take grabs the first of picks whose Indexer takes it, nil when none
-// does: an Indexer that is stopped, at its grab limit or deleted would
-// make the Grab wait for the Admin.
+// take grabs the first of picks, or of its copies, whose Indexer takes
+// it, nil when none does: an Indexer that is stopped, at its grab limit or
+// deleted would make the Grab wait for the Admin.
 func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, picks []Pick, now storage.Time) (*Grab, Pick, error) {
-	for _, p := range picks {
-		t, err := gr.cfg.Indexers.Take(ctx, tx, p.Release)
-		if errors.As(err, new(*indexers.NotTakenError)) {
-			continue
+	for _, pick := range picks {
+		for _, p := range pick.offers() {
+			t, err := gr.cfg.Indexers.Take(ctx, tx, p.Release)
+			if errors.As(err, new(*indexers.NotTakenError)) {
+				continue
+			}
+			if err != nil {
+				return nil, Pick{}, err
+			}
+			g, err := gr.insertGrab(ctx, tx, run, p, t, now)
+			return &g, p, err
 		}
-		if err != nil {
-			return nil, Pick{}, err
-		}
-		g, err := gr.insertGrab(ctx, tx, run, p, t, now)
-		return &g, p, err
 	}
 	return nil, Pick{}, nil
 }
@@ -498,7 +500,7 @@ func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.Work
 		for _, row := range asked {
 			o := outcomeOf(row)
 			lines[row.SearchID] = append(lines[row.SearchID], SearchIndexer{
-				Indexer: row.IndexerID, Name: row.IndexerName, Outcome: o, Line: gr.cfg.Indexers.Line(row.IndexerName, tree.ContentType, o),
+				Indexer: row.IndexerID, Name: row.IndexerName, Outcome: o, Line: gr.cfg.Indexers.Line(tree.ContentType, o),
 			})
 		}
 		refused := map[SearchID][]Refusal{}

@@ -1,0 +1,53 @@
+.library-table {
+  container: library-table / inline-size;
+}
+
+.library-table [data-library-row] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 2.4fr) var(--library-tracks);
+  align-items: center;
+}
+
+.library-table [data-col] {
+  min-width: 0;
+  padding-inline: 16px;
+}
+
+.library-table [data-col="pick"] {
+  padding-inline: 16px 0;
+}
+
+.library-table [data-align="end"] {
+  text-align: end;
+}
+
+@container library-table (width < 620px) {
+  .library-table [data-library-head] {
+    display: none;
+  }
+
+  .library-table [data-library-row] {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 8px;
+    padding-block: 12px;
+  }
+
+  .library-table [data-col]:not([data-col="pick"], [data-col="work"]) {
+    grid-column: 2;
+    text-align: start;
+  }
+
+  .library-table td[data-col]:not([data-col="pick"], [data-col="work"])::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: var(--text-label);
+    line-height: var(--text-label--line-height);
+    font-weight: var(--text-label--font-weight);
+    color: var(--color-ink-3);
+  }
+
+  .library-table td:empty {
+    display: none;
+  }
+}

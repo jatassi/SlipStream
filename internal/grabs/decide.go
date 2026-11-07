@@ -24,6 +24,16 @@ type candidate struct {
 	Release indexers.Release
 	Facts   release.Facts
 	at      int
+	// copies are the same Release listed by Indexers of no better
+	// priority, best first, which a search takes when this one's Indexer
+	// won't fetch it.
+	copies []copied
+}
+
+// copied is a copy of a Release and its position among the run's.
+type copied struct {
+	Release indexers.Release
+	at      int
 }
 
 // candidateOf reads a listed release's Facts with cuts, every cut its
@@ -47,6 +57,16 @@ type Pick struct {
 	Targets []targets.TargetID
 	Notes   []Reason
 	at      int
+	copies  []copied
+}
+
+// offers is p, then p as each of its copies.
+func (p Pick) offers() []Pick {
+	out := []Pick{p}
+	for _, c := range p.copies {
+		out = append(out, Pick{Release: c.Release, Edition: p.Edition, Targets: p.Targets, Notes: p.Notes, at: c.at})
+	}
+	return out
 }
 
 // WrongWork is a release carrying an id that names another Work, and
@@ -72,28 +92,43 @@ type Refusal struct {
 // dedupe is candidates with each Release listed twice counted once: the
 // same info hash, or the same title and size when either lacks one. The
 // copy from the Indexer with the better priority stays, the first of a
-// tie.
+// tie, and holds the others as its copies.
 func dedupe(candidates []candidate) []candidate {
 	sorted := slices.Clone(candidates)
 	slices.SortStableFunc(sorted, func(a, b candidate) int { return cmp.Compare(a.Release.Priority, b.Release.Priority) })
-	hashes, named, unhashed := map[bencode.InfoHash]bool{}, map[titleSize]bool{}, map[titleSize]bool{}
+	hashes, named, unhashed := map[bencode.InfoHash]int{}, map[titleSize]int{}, map[titleSize]int{}
 	var out []candidate
 	for _, c := range sorted {
 		r := c.Release
 		name := titleSize{r.Title, r.Size}
-		if r.InfoHash == nil && named[name] || r.InfoHash != nil && (hashes[*r.InfoHash] || unhashed[name]) {
+		if kept, ok := keptCopy(r, name, hashes, named, unhashed); ok {
+			out[kept].copies = append(out[kept].copies, copied{Release: r, at: c.at})
 			continue
 		}
-		named[name] = true
+		named[name] = len(out)
 		if r.InfoHash == nil {
-			unhashed[name] = true
+			unhashed[name] = len(out)
 		} else {
-			hashes[*r.InfoHash] = true
+			hashes[*r.InfoHash] = len(out)
 		}
 		out = append(out, c)
 	}
 	slices.SortFunc(out, func(a, b candidate) int { return cmp.Compare(a.at, b.at) })
 	return out
+}
+
+// keptCopy is the position in dedupe's kept candidates of the Release r,
+// titled and sized name, is a copy of.
+func keptCopy(r indexers.Release, name titleSize, hashes map[bencode.InfoHash]int, named, unhashed map[titleSize]int) (int, bool) {
+	if r.InfoHash == nil {
+		i, ok := named[name]
+		return i, ok
+	}
+	if i, ok := hashes[*r.InfoHash]; ok {
+		return i, true
+	}
+	i, ok := unhashed[name]
+	return i, ok
 }
 
 type titleSize struct {
@@ -155,7 +190,7 @@ type ranked struct {
 // judged judges c against the Target of every open cell its cut can fill,
 // and answers every reason given.
 func judged(open []files.Cell, c candidate) (ranked, []Reason) {
-	r := ranked{pick: Pick{Release: c.Release, at: c.at}, cell: -1}
+	r := ranked{pick: Pick{Release: c.Release, at: c.at, copies: c.copies}, cell: -1}
 	var reasons []Reason
 	for i, cell := range open {
 		if !cell.Edition.Takes(c.Facts.Cut) {

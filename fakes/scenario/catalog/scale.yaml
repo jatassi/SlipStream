@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller with a library of 20,000 movies, each
+  added as a monitored Work under a Profile of three Targets. fake-tmdb
+  generates the movies from the seed. TMDB and OMDb take a request every
+  millisecond, so seeding takes minutes rather than hours.
+seed: scale
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 5s
+  tmdb:
+    interval: 1ms
+    burst: 100
+  omdb:
+    interval: 1ms
+    burst: 100
+tmdb:
+  generated: {count: 20000, seed: scale}
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  targets:
+    - name: 2160p
+      tiers: [[remux-2160p, bluray-2160p], [webdl-2160p, webrip-2160p]]
+      cutoff: bluray-2160p
+    - name: 720p
+      tiers: [[bluray-720p], [webdl-720p, webrip-720p, hdtv-720p]]
+      cutoff: bluray-720p
+  profiles: [{name: Films, content_type: movie, targets: [2160p, 1080p, 720p], default: true}]
+  works: {content_type: movie, monitor: true}

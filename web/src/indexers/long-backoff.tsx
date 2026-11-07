@@ -5,10 +5,12 @@ import {
   useGetIndexerSettingsSuspense,
 } from "../api/gen/query/indexers/indexers";
 import { adoptIndexerSettings } from "../live/adopt";
+import { KeyValues } from "../routes/_app/nodes/-facts";
+import { TaskCadence } from "../tasks/task-cadence";
 import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 
-/** indexers.longBackoff: how long an Indexer may fail before Health warns. */
+/** indexers.longBackoff, how long an Indexer may fail before Health warns, and how often the health check tests each Indexer. */
 export function LongBackoff() {
   const { settings } = useGetIndexerSettingsSuspense().data;
   const queryClient = useQueryClient();
@@ -33,6 +35,12 @@ export function LongBackoff() {
             />
           ))}
         </SettingGroup>
+        <p className="text-ink-2">
+          The Indexer health check tests each Indexer that is on from the Node it searches from.
+        </p>
+        <KeyValues
+          rows={[["Indexer health check", <TaskCadence key="check" task="indexer-health-check" />]]}
+        />
       </div>
     </Section>
   );

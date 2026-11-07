@@ -3,8 +3,8 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { DownloadclientsTorrentRow } from "../api/gen/model";
-import { getListWorksMockHandler } from "../api/gen/query/works/works.msw";
-import { orchardListed } from "../test/library";
+import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
+import { orchardRow } from "../test/library";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import {
@@ -106,9 +106,7 @@ test("a poster the Node can't fetch leaves the placeholder", async () => {
   renderApp({
     path: "/activity/torrents",
     handlers: [
-      getListWorksMockHandler({
-        works: [{ ...orchardListed, artwork: [{ kind: "poster", url: gone }] }],
-      }),
+      getListLibraryMockHandler({ rows: [{ ...orchardRow, posterUrl: gone }] }),
       http.get(gone, () => HttpResponse.json({}, { status: 404 })),
       ...liveServer().handlers,
       ...torrentsServer([downloading]).handlers,

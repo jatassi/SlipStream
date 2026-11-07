@@ -38,7 +38,7 @@ func (j job) answer(a searching.Answer) answer {
 }
 
 // prepare is c for idx as node runs it, with idx's secrets and its session
-// on node opened for the length of one job.
+// on node opened for the length of one job, and node's Challenge solver.
 func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, node role.NodeID, c searching.Call) (job, error) {
 	secrets, err := x.open(idx)
 	if err != nil {
@@ -48,9 +48,13 @@ func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, n
 	if err != nil {
 		return job{}, err
 	}
+	solver, err := solverOn(ctx, x.cfg.Library, node)
+	if err != nil {
+		return job{}, err
+	}
 	w := searching.Job{
 		ID: q.String(), Indexer: idx.ID.String(), Revision: idx.Revision, Kind: kindOnWire[idx.Kind], Address: secrets.Address,
-		APIKey: secrets.APIKey, Session: session, Call: c,
+		APIKey: secrets.APIKey, Session: session, Solver: solver.onWire(), Call: c,
 	}
 	if f, ok := idx.Source.(Feed); ok {
 		w.RSS = f.Reading

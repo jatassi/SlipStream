@@ -40,6 +40,7 @@ var Fake = fake.Spec{
 	New:  newServer,
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.OMDb.API = endpoint.MustParseURL(at.URL(""))
+		e.OMDb.KeyPage = endpoint.MustParseURL("https://www.omdb.invalid/apikey.aspx")
 	},
 	Online: fake.OnlineSuite("omdb"),
 	Cues:   []fake.CueSpec{RevokeKey, Cap},

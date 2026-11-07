@@ -28,9 +28,14 @@ func NewOSDisk(data string) (OSDisk, error) {
 
 func (d OSDisk) Host() Host { return d.host }
 
-type osInfo struct{ fs.FileInfo }
+type osInfo struct {
+	fs.FileInfo
+	id []byte
+}
 
 func (i osInfo) Dir() bool { return i.IsDir() }
+
+func (i osInfo) FileID() []byte { return i.id }
 
 func (i osInfo) Same(o Info) bool {
 	other, ok := o.(osInfo)
@@ -42,7 +47,11 @@ func (OSDisk) Stat(_ context.Context, path string) (Info, error) {
 	if err != nil {
 		return nil, err //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
 	}
-	return osInfo{info}, nil
+	id, err := fileID(path, info)
+	if err != nil {
+		return nil, err
+	}
+	return osInfo{info, id}, nil
 }
 
 func (OSDisk) ReadDir(_ context.Context, dir string) ([]Entry, error) {
@@ -80,6 +89,14 @@ func (OSDisk) Open(_ context.Context, path string) (io.ReadCloser, error) {
 	return f, nil
 }
 
+func (OSDisk) OpenAt(_ context.Context, path string) (ReadAtCloser, error) {
+	f, err := os.Open(path) //nolint:gosec // the caller resolves path under a root or a payload
+	if err != nil {
+		return nil, err //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
+	}
+	return f, nil
+}
+
 func (OSDisk) Create(_ context.Context, path string) (File, error) {
 	f, err := os.Create(path) //nolint:gosec // the Store resolves path under a root
 	if err != nil {
@@ -88,8 +105,20 @@ func (OSDisk) Create(_ context.Context, path string) (File, error) {
 	return f, nil
 }
 
+func (OSDisk) OpenWrite(_ context.Context, path string) (WriteAtFile, error) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0o666) //nolint:gosec // the Store resolves path under a root; the umask narrows it as os.Create's
+	if err != nil {
+		return nil, err //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
+	}
+	return f, nil
+}
+
 func (OSDisk) Remove(_ context.Context, path string) error {
 	return os.Remove(path) //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
+}
+
+func (OSDisk) RemoveAll(_ context.Context, path string) error {
+	return os.RemoveAll(path) //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
 }
 
 func (OSDisk) Rename(_ context.Context, from, to string) error {

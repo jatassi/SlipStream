@@ -95,7 +95,7 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: searchAgain,
   },
   no_peer_source: {
-    cause: "The magnet link names no tracker, and DHT is off on the Node that downloads it.",
+    cause: "The magnet link names no announce URL, and DHT is off on the Node that downloads it.",
     recovery:
       "Turn on DHT for public torrents in that Node's torrent client settings, or search again.",
   },
@@ -147,10 +147,5 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   root_changed: {
     cause: "The Work moved to another library root after this download was planned.",
     recovery: searchAgain,
-  },
-  needs_transfer: {
-    cause:
-      "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet.",
-    recovery: "Tick Downloading on the Node that holds the root, then search again.",
   },
 };

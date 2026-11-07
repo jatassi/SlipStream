@@ -2,6 +2,7 @@ package indexers_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -29,6 +30,10 @@ type slowNode struct {
 	mu                sync.Mutex
 	begun             time.Time
 	calls             int
+}
+
+func (*slowNode) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the slow Node has no Challenge solver")
 }
 
 func (n *slowNode) Run(ctx context.Context, _ searching.Job) (searching.Poll, error) {

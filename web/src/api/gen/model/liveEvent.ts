@@ -27,9 +27,11 @@ import type { LiveEventTasksProgress } from "./liveEventTasksProgress.ts";
 import type { LiveEventTorrentsChanged } from "./liveEventTorrentsChanged.ts";
 import type { LiveEventTorrentsLive } from "./liveEventTorrentsLive.ts";
 import type { LiveEventTrackersChanged } from "./liveEventTrackersChanged.ts";
+import type { LiveEventTransfersChanged } from "./liveEventTransfersChanged.ts";
 import type { LiveEventVolumesChanged } from "./liveEventVolumesChanged.ts";
 import type { LiveEventWorksChanged } from "./liveEventWorksChanged.ts";
 import type { LiveEventWorksContentTypesChanged } from "./liveEventWorksContentTypesChanged.ts";
+import type { LiveEventWorksRemoved } from "./liveEventWorksRemoved.ts";
 import type { LiveEventWorksTypeChanged } from "./liveEventWorksTypeChanged.ts";
 
 export type LiveEvent =
@@ -62,7 +64,9 @@ export type LiveEvent =
   | LiveEventTorrentsChanged
   | LiveEventTorrentsLive
   | LiveEventTrackersChanged
+  | LiveEventTransfersChanged
   | LiveEventVolumesChanged
   | LiveEventWorksChanged
   | LiveEventWorksContentTypesChanged
+  | LiveEventWorksRemoved
   | LiveEventWorksTypeChanged;

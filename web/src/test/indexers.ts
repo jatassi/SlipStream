@@ -67,6 +67,13 @@ export const torrentLeech = indexer({
   feedHost: null,
   trackerIds: [torrentLeechTrackerId],
   searches: { count: 10, per: "hour", used: 4, freeAt: null },
+  definition: {
+    id: "torrentleech",
+    version: "3f0c9a1e5b7d2c4a6e8f0b1d3c5e7a9b1d3f5a7c",
+    fetchedAt: "2026-10-03T09:00:00Z",
+    baseAddress: "https://www.torrentleech.org/",
+    values: { username: "orchard" },
+  },
   session: {
     nodeId: seedboxId,
     pasted: false,

@@ -2,6 +2,7 @@ package nodes_test
 
 import (
 	"context"
+	"io"
 	"slices"
 	"testing"
 	"testing/synctest"
@@ -164,6 +165,44 @@ func TestTrafficIsPublishedWhileBytesMoveAndOnceAtRest(t *testing.T) {
 		}
 		if last := samples[len(samples)-1]; !still(last) {
 			t.Fatalf("with seedbox gone the last sample shows %+v, want the link at rest", last.Links)
+		}
+	})
+}
+
+// A Transfer lane between home and seedbox carries 1 MiB each way and
+// closes before the next sample. Its bytes still count on their cable.
+func TestTrafficCountsTransferLanes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		w := c.worker(t, "seedbox", "127.0.0.3")
+		c.pair(t, w, c.mint(t), "seedbox")
+		c.hold(t, w)
+		time.Sleep(time.Minute)
+		synctest.Wait()
+		before := len(c.traffic.all())
+
+		lane, err := w.DialLane(t.Context(), c.node.Key, c.node.Target().Addresses)
+		if err != nil {
+			t.Fatal(err)
+		}
+		const size = 1 << 20
+		go func() { _, _ = lane.Write(make([]byte, size)) }()
+		if _, err := io.ReadFull(lane, make([]byte, size)); err != nil {
+			t.Fatal(err)
+		}
+		_ = lane.Close()
+		time.Sleep(5 * time.Second)
+		synctest.Wait()
+
+		var toSeedbox, toHome float64
+		for _, s := range c.traffic.all()[before:] {
+			for _, l := range s.Links {
+				toSeedbox += float64(l.ABBps) * nodes.DefaultTimings().Traffic.Seconds()
+				toHome += float64(l.BABps) * nodes.DefaultTimings().Traffic.Seconds()
+			}
+		}
+		if toSeedbox < size || toHome < size {
+			t.Fatalf("the cable counted %.0f bytes to seedbox and %.0f to home, want the lane's %d each way", toSeedbox, toHome, size)
 		}
 	})
 }

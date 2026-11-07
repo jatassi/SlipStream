@@ -32,12 +32,13 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	want := []string{
 		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
 		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines",
-		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
+		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
 		"timings.link.join_dial", "timings.link.await_dial",
-		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.role.probe", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.nodes.reach", "timings.works.fetch", "timings.indexers.job", "timings.indexers.poll", "timings.indexers.limited", "timings.indexers.ladder", "timings.indexers.package_share", "timings.indexers.catalog_request", "timings.indexers.captcha", "timings.searching.request", "timings.searching.floor", "timings.searching.hold", "timings.searching.job_cap", "timings.searching.keep", "timings.searching.results", "timings.searching.relogins", "timings.transfers.chunk",
+		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.role.probe", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.nodes.reach", "timings.works.fetch", "timings.indexers.job", "timings.indexers.poll", "timings.indexers.limited", "timings.indexers.ladder", "timings.indexers.package_share", "timings.indexers.catalog_request", "timings.indexers.captcha", "timings.indexers.keep_queries", "timings.indexers.unanswered", "timings.searching.request", "timings.searching.floor", "timings.searching.hold", "timings.searching.job_cap", "timings.searching.keep", "timings.searching.results", "timings.searching.relogins", "timings.transfers.chunk", "timings.transfers.report", "timings.transfers.dial", "timings.transfers.estimate", "timings.transfers.lanes_start", "timings.transfers.lanes_grow", "timings.transfers.lanes_gain", "timings.transfers.lanes_max", "timings.transfers.ahead", "timings.transfers.sync_bytes", "timings.transfers.sync_every", "timings.transfers.retry_min", "timings.transfers.retry_max", "timings.transfers.damaged", "timings.transfers.piece",
+		"timings.transfers.route_retry", "timings.transfers.pair_write", "timings.transfers.changed",
 		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.downloading.announce_floor", "timings.downloading.resume_save", "timings.downloading.shutdown_save", "timings.downloading.start_spread", "timings.downloading.announce_jitter", "timings.downloading.totals_report", "timings.downloading.live_sample", "timings.downloading.route_check", "timings.downloading.resolve_hold", "timings.downloading.resolve_lease", "timings.downloading.resolve_keep", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 		"timings.storing.stat",
 		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max", "timings.metadata.artwork_retry", "timings.metadata.changes_pages",
@@ -203,7 +204,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := Key{Key: "endpoints.content_types.fixture.api", Value: "https://fixture.invalid/v1", Default: "https://fixture.invalid/v1", Source: config.SourceDefault, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
-	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
 		t.Fatalf("resolved = %+v; want %+v, the key in the census and contentTypes [fixture]", resolved, key)
 	}
 
@@ -213,7 +214,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key = Key{Key: "endpoints.content_types.fixture.api", Value: "https://127.0.0.1:8443/v1", Default: "https://fixture.invalid/v1", Source: config.SourceEnv, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
-	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog"}) {
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog"}) {
 		t.Fatalf("resolved = %+v; want %+v and only the core endpoints in the census", resolved, key)
 	}
 	cfg, _, err = LoadConfig(env.DataDir, env.Environ, types, install.Dev)
@@ -239,5 +240,16 @@ func TestAnUnregisteredContentTypesKeyIsUnknown(t *testing.T) {
 	_, _, err = LoadConfig(dir, nil, noTypes, install.Dev)
 	if want := "config.yaml:2: endpoints.content_types: unknown key"; err == nil || err.Error() != want {
 		t.Fatalf("with no types, err = %v, want %q", err, want)
+	}
+}
+
+func TestARunCallsHoldIsShorterThanAJobsDeadline(t *testing.T) {
+	dir := testDataDir(t)
+	if err := os.WriteFile(filepath.Join(dir.Path(), "config.yaml"), []byte("timings:\n  indexers:\n    job: 15s\n  searching:\n    hold: 15s\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := LoadConfig(dir, nil, noTypes, install.Dev)
+	if want := "config.yaml:5: timings.searching.hold: 15s isn't shorter than timings.indexers.job, 15s, so a job's first poll can outlast its deadline"; err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
+		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
 	}
 }

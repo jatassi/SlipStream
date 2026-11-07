@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"net/http"
+	"strconv"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -53,6 +54,91 @@ func TestAnIndexerFailingForTheLongBackoffWarnsAndTheHealthCheckRunsEverySixHour
 		}
 		if _, ok := healthItems(t, a, "indexers")["failing."+id]; !ok {
 			t.Error("the health check's failed Tests cleared the long-backoff warning")
+		}
+	})
+}
+
+type limitUse struct {
+	Used   int        `json:"used"`
+	FreeAt *time.Time `json:"freeAt"`
+}
+
+// TestASearchLimitFreesAnHourAfterTheSearch gives Fixture Site one search
+// an hour. A search uses it until the hour since it passes, and the next
+// second the limit is free again.
+func TestASearchLimitFreesAnHourAfterTheSearch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := sim.Launch(t, home(t), sim.WithWalk(), inUTC)
+		a := w.API()
+		synctest.Wait()
+		id := decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers[0].ID
+		if r := a.Admin("home", http.MethodPatch, "/api/v1/indexers/"+id, `{"searches":{"count":1,"per":"hour"}}`); r.Status != http.StatusOK {
+			t.Fatalf("updateIndexer = %d %s, want 200", r.Status, r.Body)
+		}
+		searches := func() limitUse {
+			return decode[struct{ Searches limitUse }](t, "getIndexer", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id, "")).Searches
+		}
+		search(t, w, addOrchard(t, w))
+		searched := time.Now()
+		synctest.Wait()
+		used := searches()
+		if used.Used != 1 || used.FreeAt == nil || used.FreeAt.Sub(searched) < time.Hour-time.Second || used.FreeAt.Sub(searched) > time.Hour+time.Second {
+			t.Fatalf("after the search Fixture Site's searches are %+v, want its one used until an hour after %s", used, searched)
+		}
+		time.Sleep(time.Until(used.FreeAt.Add(time.Second)))
+		synctest.Wait()
+		if free := searches(); free.Used != 0 || free.FreeAt != nil {
+			t.Errorf("an hour after the search Fixture Site's searches are %+v, want none used", free)
+		}
+	})
+}
+
+type queryPage struct {
+	Queries []struct {
+		ID         string    `json:"id"`
+		ReservedAt time.Time `json:"reservedAt"`
+	} `json:"queries"`
+	NextOffset *int `json:"nextOffset"`
+}
+
+// TestHousekeepingDeletesIndexerQueriesPastTheirKeep keeps Indexer
+// queries 12 hours in place of 30 days. It tests Fixture Site, then lets
+// 18 hours pass, in which the health check tests it every 6 hours. After
+// Housekeeping, the first Test's row is gone and every row left is from
+// the last 12 hours.
+func TestHousekeepingDeletesIndexerQueriesPastTheirKeep(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := home(t)
+		s.Timings.Indexers.KeepQueries = 12 * time.Hour
+		w := sim.Launch(t, s, sim.WithWalk(), inUTC)
+		a := w.API()
+		synctest.Wait()
+		id := decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers[0].ID
+		if r := a.Admin("home", http.MethodPost, "/api/v1/indexers/"+id+"/test", ""); r.Status != http.StatusOK {
+			t.Fatalf("testIndexer = %d %s, want 200", r.Status, r.Body)
+		}
+		first := decode[queryPage](t, "listIndexerQueries", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id+"/queries", "")).Queries[0].ID
+		time.Sleep(18 * time.Hour)
+		synctest.Wait()
+		runNow(t, a, "housekeeping")
+		synctest.Wait()
+		cutoff := time.Now().Add(-s.Timings.Indexers.KeepQueries)
+		rows := 0
+		for offset := 0; ; {
+			page := decode[queryPage](t, "listIndexerQueries", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id+"/queries?offset="+strconv.Itoa(offset), ""))
+			for _, q := range page.Queries {
+				rows++
+				if q.ID == first || q.ReservedAt.Before(cutoff) {
+					t.Fatalf("after Housekeeping a query from %s is kept, want none older than 12 hours", q.ReservedAt)
+				}
+			}
+			if page.NextOffset == nil {
+				break
+			}
+			offset = *page.NextOffset
+		}
+		if rows == 0 {
+			t.Error("Housekeeping deleted every query, want the last 12 hours' health checks kept")
 		}
 	})
 }

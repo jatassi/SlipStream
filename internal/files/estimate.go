@@ -78,7 +78,7 @@ func (f *Files) runtimes(ctx context.Context, r storage.Reader[file], typ works.
 	}
 	out := map[works.ItemID]time.Duration{}
 	for _, t := range slices.Sorted(maps.Keys(byType)) {
-		timings, err := f.cfg.Targets.TimingsIn(ctx, r, t, byType[t])
+		timings, err := f.cfg.Targets.TimingsIn(ctx, r, t, works.Only(byType[t]))
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func runtimeOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID, r
 	if len(ws) == 0 {
 		return 0, nil
 	}
-	items, err := works.ItemsOf(ctx, r, ws)
+	items, err := works.ItemsOf(ctx, r, works.Only(ws))
 	if err != nil {
 		return 0, err
 	}

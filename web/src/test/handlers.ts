@@ -6,10 +6,11 @@ import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
+import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
 import { quietHealth } from "./health";
-import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
+import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { board, boardIs, homeSeat } from "./roles";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
@@ -76,6 +77,7 @@ const signedInAsAda = getGetSessionMockHandler({
   keyPrompt: "ask",
 });
 const noTaskRunning = getListOpenTaskRunsMockHandler({ headerDelaySeconds: 5, runs: [] });
+const emptyLibrary = getListLibraryMockHandler({ rows: [] });
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });
 });
@@ -89,6 +91,7 @@ export const baseHandlers: RequestHandler[] = [
   topologyIs(topologyOf([home], { sentence: "home is online." })),
   boardIs(board(homeSeat)),
   noTaskRunning,
+  emptyLibrary,
   ...quietHealth,
   ...tagMocks,
 ];

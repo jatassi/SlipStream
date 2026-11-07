@@ -7,6 +7,7 @@ package downloading
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -26,7 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
-	"github.com/jatassi/slipstream/internal/transfers"
+	"github.com/jatassi/slipstream/internal/transfers/source"
 )
 
 // Def is the Downloading Role. Its facts are the client itself, so any
@@ -99,7 +100,7 @@ func DefaultTimings() Timings {
 }
 
 // ErrNotPresent is a torrent this Node's client hasn't finished.
-var ErrNotPresent = transfers.ErrNotPresent
+var ErrNotPresent = errors.New("the torrent client hasn't finished the torrent")
 
 type Config struct {
 	Engine engine.Engine
@@ -134,14 +135,28 @@ type Client struct {
 
 // published is what Loop last made of its torrents for other goroutines.
 type published struct {
-	finished map[bencode.InfoHash]finished
+	// intended is false until the first intent comes, while the client
+	// can't tell a torrent it lost from one it hasn't listed yet.
+	intended bool
+	torrents map[bencode.InfoHash]held
+	seeding  int
 	folders  []string
 }
 
-type finished struct {
-	handle engine.Handle
-	folder string
+// held is one torrent as Loop last published it.
+type held struct {
+	// live is whether the intent lists it among its Torrents.
+	live bool
+	// handle is 0 while the engine doesn't hold it.
+	handle   engine.Handle
+	folder   string
+	complete bool
+	checking bool
+	// failed is the engine's error text, "" while it holds the torrent.
+	failed string
 }
+
+func (h held) finished() bool { return h.handle != 0 && h.complete }
 
 func NewClient(cfg Config) *Client {
 	c := &Client{cfg: cfg, in: make(chan func(*loop)), stopped: make(chan struct{})}
@@ -217,16 +232,59 @@ func (c *Client) Shutdown(local *storage.DB[storage.Local]) func(context.Context
 }
 
 // Seeding is how many finished torrents the client holds.
-func (c *Client) Seeding() int { return len(c.held.Load().finished) }
+func (c *Client) Seeding() int { return c.held.Load().seeding }
 
 // Path is where file index of torrent h lies on this Node, ErrNotPresent
 // until the client finished h.
 func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
-	f, ok := c.held.Load().finished[h]
-	if !ok {
+	t, ok := c.held.Load().torrents[h]
+	if !ok || !t.finished() {
 		return "", ErrNotPresent
 	}
-	files, err := c.cfg.Engine.Files(f.handle)
+	return c.pathOf(h, t, index)
+}
+
+// Open is where the file ref names lies on this Node, once the torrent is
+// complete and the file opens, or why it can't be read now:
+//   - *source.Absent{Gone}: the torrent is in neither the intent's live
+//     Torrents nor the engine.
+//   - *source.Absent{Failed}: the engine failed it, with the engine's
+//     text. A torrent that completed and then failed is Failed.
+//   - *source.Absent{NotReady}: present but checking, incomplete, or the
+//     file won't open, with the open error.
+func (c *Client) Open(ref source.Ref) (string, error) {
+	r, ok := ref.(source.Torrent)
+	if !ok {
+		return "", fmt.Errorf("the torrent client can't open a %s source", ref.Kind())
+	}
+	p := c.held.Load()
+	t, ok := p.torrents[r.Hash]
+	switch {
+	case !p.intended:
+		return "", &source.Absent{Reason: source.NotReady, Detail: "the torrent client is starting"}
+	case !ok || !t.live && t.handle == 0:
+		return "", &source.Absent{Reason: source.Gone}
+	case t.failed != "":
+		return "", &source.Absent{Reason: source.Failed, Detail: t.failed}
+	case t.checking:
+		return "", &source.Absent{Reason: source.NotReady, Detail: "the torrent client is checking the torrent's files"}
+	case !t.finished():
+		return "", &source.Absent{Reason: source.NotReady, Detail: "the torrent is incomplete"}
+	}
+	path, err := c.pathOf(r.Hash, t, r.File)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.Open(path) //nolint:gosec // the client's own path for a torrent's file
+	if err != nil {
+		return "", &source.Absent{Reason: source.NotReady, Detail: err.Error()}
+	}
+	_ = f.Close()
+	return path, nil
+}
+
+func (c *Client) pathOf(h bencode.InfoHash, t held, index int) (string, error) {
+	files, err := c.cfg.Engine.Files(t.handle)
 	if err != nil {
 		return "", err
 	}
@@ -234,7 +292,7 @@ func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 	if i < 0 {
 		return "", fmt.Errorf("torrent %s has no file %d", h, index)
 	}
-	return filepath.Join(f.folder, filepath.FromSlash(files[i].Path)), nil
+	return filepath.Join(t.folder, filepath.FromSlash(files[i].Path)), nil
 }
 
 // Dir is the downloads folder.

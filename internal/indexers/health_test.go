@@ -41,6 +41,10 @@ func (s *site) answer(outcome error) {
 	s.outcome = outcome
 }
 
+func (*site) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the site has no Challenge solver")
+}
+
 func (s *site) Run(context.Context, searching.Job) (searching.Poll, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -86,8 +90,9 @@ func newHealthWorld(t *testing.T) *healthWorld {
 		Searching: func(role.NodeID) searching.Remote { return w.site },
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}},
 		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Settings: discard[indexers.SettingsChanged]{},
-		Timings: indexers.Timings{Job: 2 * time.Minute, Poll: time.Second, Limited: time.Minute, Ladder: []time.Duration{time.Minute, time.Hour}},
-		Zone:    time.UTC, Log: slog.New(slog.DiscardHandler),
+		Trackers: discard[indexers.TrackerChanged]{},
+		Timings:  indexers.Timings{Job: 2 * time.Minute, Poll: time.Second, Limited: time.Minute, Ladder: []time.Duration{time.Minute, time.Hour}},
+		Zone:     time.UTC, Log: slog.New(slog.DiscardHandler),
 	})
 	return w
 }
@@ -113,20 +118,24 @@ func (w *healthWorld) answer(t *testing.T) health.Answer {
 
 func (w *healthWorld) key(kind string) health.Key { return health.KeyOf(kind, w.id.String()) }
 
-func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToTheIndexer(t *testing.T) {
+// TestEachStopRaisesOneFailThatNamesItsFixAndLinksToIt links each stop to
+// the Indexer, except a challenge with no Challenge solver, which links to
+// the Searching section of the Node it was met on.
+func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToIt(t *testing.T) {
 	cases := []struct {
-		stop *searching.Stopped
-		want string
+		stop     *searching.Stopped
+		want     string
+		atSolver bool
 	}{
-		{&searching.Stopped{Cause: searching.CredentialsRejected}, "Fixture Site rejected the username or password. Update them on the Indexer and test it."},
-		{&searching.Stopped{Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Fixture Site refused the sign-in with 'Wrong code'. Check the username, password and any code on the Indexer, then test it."},
-		{&searching.Stopped{Cause: searching.CaptchaNeeded}, "Fixture Site needs a captcha to sign in again. Open the Indexer and type the code."},
-		{&searching.Stopped{Cause: searching.ChallengeUnsolved}, "Fixture Site is behind a browser challenge, and seedbox has no Challenge solver. Set one on seedbox, or paste a browser cookie on the Indexer."},
-		{&searching.Stopped{Cause: searching.ChallengeUnsolved, SolverTried: true}, "seedbox's Challenge solver couldn't clear Fixture Site's challenge. Paste a browser cookie on the Indexer."},
-		{&searching.Stopped{Cause: searching.CookieExpired}, "Fixture Site no longer accepts the browser cookie. Paste a new one on the Indexer."},
-		{&searching.Stopped{Cause: searching.DefinitionUnloadable}, "Fixture Site's definition doesn't load. Replace the custom definition, or wait for a catalog fix."},
-		{&searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}, "Fixture Site refused the API key with 'Account suspended'. Check the account, then test the Indexer."},
-		{&searching.Stopped{Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Fixture Site refused a search with 'Incorrect parameter'. Test the Indexer after the feed is fixed."},
+		{&searching.Stopped{Cause: searching.CredentialsRejected}, "Fixture Site rejected the username or password. Update them on the Indexer and test it.", false},
+		{&searching.Stopped{Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Fixture Site refused the sign-in with 'Wrong code'. Check the username, password and any code on the Indexer, then test it.", false},
+		{&searching.Stopped{Cause: searching.CaptchaNeeded}, "Fixture Site needs a captcha to sign in again. Open the Indexer and type the code.", false},
+		{&searching.Stopped{Cause: searching.ChallengeUnsolved}, "Fixture Site is behind a browser challenge, and seedbox has no Challenge solver. Set one on seedbox, or paste a browser cookie on the Indexer.", true},
+		{&searching.Stopped{Cause: searching.ChallengeUnsolved, SolverTried: true}, "seedbox's Challenge solver couldn't clear Fixture Site's challenge. Paste a browser cookie on the Indexer.", false},
+		{&searching.Stopped{Cause: searching.CookieExpired}, "Fixture Site no longer accepts the browser cookie. Paste a new one on the Indexer.", false},
+		{&searching.Stopped{Cause: searching.DefinitionUnloadable}, "Fixture Site's definition doesn't load. Replace the custom definition, or wait for a catalog fix.", false},
+		{&searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}, "Fixture Site refused the API key with 'Account suspended'. Check the account, then test the Indexer.", false},
+		{&searching.Stopped{Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Fixture Site refused a search with 'Incorrect parameter'. Test the Indexer after the feed is fixed.", false},
 	}
 	for _, c := range cases {
 		t.Run(string(c.stop.Cause), func(t *testing.T) {
@@ -136,10 +145,13 @@ func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToTheIndexer(t *testing.T) 
 			if len(a.Items) != 1 || len(a.Unsure) != 0 {
 				t.Fatalf("Health after a stop = %+v, want one item", a)
 			}
-			it := a.Items[0]
+			it, href := a.Items[0], "/settings/indexers/"+w.id.String()
+			if c.atSolver {
+				href = "/nodes/" + w.box.String() + "/searching"
+			}
 			if it.Key != w.key("stopped") || it.Level != health.Fail || it.Subject != "Fixture Site" || it.Text != c.want ||
-				it.Action.Kind() != health.ActionLink || it.Action.Href() != "/settings/indexers/"+w.id.String() {
-				t.Errorf("the stop's item = %+v, want a Fail %q linking to the Indexer", it, c.want)
+				it.Action.Kind() != health.ActionLink || it.Action.Href() != href {
+				t.Errorf("the stop's item = %+v, want a Fail %q linking to %s", it, c.want, href)
 			}
 			w.test(t, nil)
 			if a := w.answer(t); len(a.Items) != 0 {
@@ -304,5 +316,44 @@ func TestTheHealthCheckOfAFeedItCantUseSucceedsAndItsTestSaysWhy(t *testing.T) {
 	var refused *indexers.FeedRefusedError
 	if want := "Some items repeat the same GUID."; !errors.As(err, &refused) || refused.Sentence != want {
 		t.Errorf("Test of a feed SlipStream can't use = %v, want %q", err, want)
+	}
+}
+
+func TestAnIndexerWithAPastedCookieWaitingOnALapsedHomeWarnsUntilItAllowsFailover(t *testing.T) {
+	w := newHealthWorld(t)
+	v, err := w.x.Create(t.Context(), identity.Admin{}, indexers.Draft{
+		Kind: indexers.RSS, Name: "Brook", Home: w.box, On: true, Address: "https://brook.test/rss", Media: []works.TypeID{indexerstest.Type},
+		Cookie: &indexers.PastedCookie{Cookie: "uid=1; pass=2", UserAgent: "Firefox"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.SignsIn {
+		t.Fatalf("an RSS feed added with a pasted cookie = %+v, want it to hold a login session", v)
+	}
+	since := time.Date(2026, 10, 27, 8, 0, 0, 0, time.UTC)
+	w.roster.Absent[w.box] = nodes.Absence{Since: since}
+	if a := w.answer(t); len(a.Items) != 0 {
+		t.Fatalf("Health inside seedbox's grace = %+v, want nothing", a.Items)
+	}
+
+	w.roster.Absent[w.box] = nodes.Absence{Since: since, Lapsed: true}
+	a := w.answer(t)
+	want := "Brook is waiting for seedbox, which has been offline since 08:00. Allow failover to search from another Node."
+	if len(a.Items) != 1 {
+		t.Fatalf("Health past seedbox's grace = %+v, want one Warn for Brook and nothing for the Torznab Fixture Site, which moves to home", a.Items)
+	}
+	it := a.Items[0]
+	if it.Key != health.KeyOf("waiting", v.ID.String()) || it.Level != health.Warn || it.Subject != "Brook" || it.Text != want ||
+		it.Action.Href() != "/settings/indexers/"+v.ID.String()+"#allow-failover" {
+		t.Errorf("the waiting item = %+v, want a Warn %q linking to Allow failover", it, want)
+	}
+
+	allow := true
+	if _, err := w.x.Update(t.Context(), identity.Admin{}, v.ID, indexers.Edit{AllowFailover: &allow}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if a := w.answer(t); len(a.Items) != 0 {
+		t.Errorf("Health once Brook allows failover = %+v, want nothing", a.Items)
 	}
 }

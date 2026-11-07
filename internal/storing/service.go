@@ -178,7 +178,7 @@ func (s *Store) Remove(ctx context.Context, req *storagev1.RemoveRequest) (*stor
 	if err != nil {
 		return nil, err
 	}
-	if err := s.remove(ctx, root, rel); err != nil {
+	if err := s.remove(ctx, root, rel, req.GetRecursive()); err != nil {
 		return nil, wireError(err)
 	}
 	return &storagev1.RemoveResponse{}, nil
@@ -593,12 +593,16 @@ func (s *Store) refused(ctx context.Context, dir string, err error) error {
 	return err
 }
 
-func (s *Store) remove(ctx context.Context, root storage.UUID, rel Rel) error {
+func (s *Store) remove(ctx context.Context, root storage.UUID, rel Rel, recursive bool) error {
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
 		return err
 	}
-	if err := s.cfg.Disk.Remove(ctx, s.host.Style.Under(dir, rel)); err != nil {
+	rm := s.cfg.Disk.Remove
+	if recursive {
+		rm = s.cfg.Disk.RemoveAll
+	}
+	if err := rm(ctx, s.host.Style.Under(dir, rel)); err != nil {
 		return s.folderError(err)
 	}
 	return nil

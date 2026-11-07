@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -84,7 +86,10 @@ type Indexer struct {
 	Secrets secret.Sealed
 	// FeedHost is shown in place of a feed's sealed address.
 	FeedHost string
-	Caps     Caps
+	// Pasted is true while a browser cookie an Admin pasted is stored for
+	// it on some Node.
+	Pasted bool
+	Caps   Caps
 	// Notes are what a pin move changed, for the Indexer page.
 	Notes    []string
 	Revision int64
@@ -125,7 +130,9 @@ const (
 // Definition is the definition version a catalog Indexer pins and its
 // plain settings.
 type Definition struct {
-	ID, SHA     string
+	ID, SHA string
+	// Fetched is when SlipStream downloaded the pinned version.
+	Fetched     time.Time
 	BaseAddress string
 	// Plain is the select and checkbox values and the username.
 	Plain map[string]string
@@ -204,6 +211,12 @@ type Timings struct {
 	CatalogRequest time.Duration `yaml:"catalog_request"`
 	// Captcha is how long a captcha attempt stays open for its answer.
 	Captcha time.Duration `yaml:"captcha"`
+	// KeepQueries is how long Housekeeping keeps a query row.
+	KeepQueries time.Duration `yaml:"keep_queries"`
+	// Unanswered is how long after its reservation Housekeeping completes
+	// a query row whose job never answered as lost. It is longer than a
+	// Node runs a job and keeps its answer.
+	Unanswered time.Duration `yaml:"unanswered"`
 }
 
 func DefaultTimings() Timings {
@@ -214,6 +227,7 @@ func DefaultTimings() Timings {
 			3 * time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour,
 		},
 		PackageShare: 25, CatalogRequest: 2 * time.Minute, Captcha: 5 * time.Minute,
+		KeepQueries: 30 * 24 * time.Hour, Unanswered: time.Hour,
 	}
 }
 
@@ -277,7 +291,17 @@ type UnavailableError struct {
 	Err  error
 }
 
-func (e *UnavailableError) Error() string { return "the Indexer is unavailable: " + e.Err.Error() }
+func (e *UnavailableError) Error() string {
+	return "the Indexer is unavailable: " + rpc.MessageOf(e.Err)
+}
+
+// Reason is the cause alone as a sentence a person reads, for a problem's
+// detail or a failure's Detail, whose title already says the Indexer is
+// unavailable.
+func (e *UnavailableError) Reason() string {
+	m := rpc.MessageOf(e.Err)
+	return strings.ToUpper(m[:1]) + m[1:] + "."
+}
 
 func (e *UnavailableError) Unwrap() error { return e.Err }
 
@@ -393,7 +417,7 @@ func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	}
 	out := make([]Indexer, len(rows))
 	for i, row := range rows {
-		if out[i], err = indexerOf(row.IndexersIndexer, row.DefinitionSummary); err != nil {
+		if out[i], err = indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.DefinitionFetchedAt, row.Pasted); err != nil {
 			return nil, err
 		}
 	}
@@ -409,21 +433,22 @@ func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 	if err != nil {
 		return Indexer{}, err
 	}
-	return indexerOf(row.IndexersIndexer, row.DefinitionSummary)
+	return indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.DefinitionFetchedAt, row.Pasted)
 }
 
 // indexerOf is row as an Indexer, with its pinned definition's summary,
-// nil for a feed or a version that doesn't load.
-func indexerOf(row db.IndexersIndexer, summary *string) (Indexer, error) {
+// nil for a feed or a version that doesn't load, and whether a pasted
+// cookie is stored for it.
+func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pasted bool) (Indexer, error) {
 	idx := Indexer{
 		ID: row.ID, Name: row.Name, Kind: Kind(row.Kind), Home: row.HomeNodeID, On: row.IsOn, AutoSearch: row.AutoSearch,
 		RSS: row.Rss, AllowFailover: row.AllowFailover, Priority: int(row.Priority),
 		Searches: Limit{Count: int(row.SearchLimit), Per: Window(row.SearchWindow)},
 		Grabs:    Limit{Count: int(row.GrabLimit), Per: Window(row.GrabWindow)},
-		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Revision: row.Revision, Created: row.CreatedAt.Time(),
+		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Pasted: pasted, Revision: row.Revision, Created: row.CreatedAt.Time(),
 	}
 	if row.DefinitionID != nil {
-		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), BaseAddress: deref(row.BaseAddress)}
+		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), Fetched: fetched.Time(), BaseAddress: deref(row.BaseAddress)}
 		if err := decode(row.Plain, &d.Plain); err != nil {
 			return Indexer{}, fmt.Errorf("indexer %s: plain: %w", row.ID, err)
 		}

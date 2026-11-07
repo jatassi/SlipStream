@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import type { NodesRoleViewState } from "../api/gen/model";
-import { home } from "../test/nodes";
+import { home, seedbox } from "../test/nodes";
 import { sectionsFor } from "./node-sections";
 
 const downloading = (state: NodesRoleViewState) => ({
@@ -12,10 +12,22 @@ const downloading = (state: NodesRoleViewState) => ({
   ],
 });
 
-const ids = (node: Parameters<typeof sectionsFor>[0]) => sectionsFor(node).map(({ id }) => id);
+const ids = (node: Parameters<typeof sectionsFor>[0], nodes = [node]) =>
+  sectionsFor(node, nodes).map(({ id }) => id);
 
 test("a Node without Downloading has no Torrent client section", () => {
   expect(ids({ ...home, roles: [{ role: "searching", state: "holding" }] })).toEqual([
+    "overview",
+    "roles",
+    "web",
+    "searching",
+    "logs",
+    "log-settings",
+  ]);
+});
+
+test("a Node without Searching has no Searching section", () => {
+  expect(ids({ ...home, roles: [{ role: "storage", state: "holding" }] })).toEqual([
     "overview",
     "roles",
     "web",
@@ -25,6 +37,13 @@ test("a Node without Downloading has no Torrent client section", () => {
 });
 
 test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] as const)(
+  "a Node %s Searching has the Searching section",
+  (state) => {
+    expect(ids({ ...home, roles: [{ role: "searching", state }] })).toContain("searching");
+  },
+);
+
+test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] as const)(
   "a Node %s Downloading has the Torrent client section after Web and API",
   (state) => {
     expect(ids(downloading(state))).toEqual([
@@ -32,8 +51,24 @@ test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] a
       "roles",
       "web",
       "torrent-client",
+      "searching",
       "logs",
       "log-settings",
     ]);
   },
 );
+
+test("with more than one Node, each Node has Transfers after Torrent client and Searching", () => {
+  expect(ids(home, [home, seedbox])).toEqual([
+    "overview",
+    "roles",
+    "web",
+    "torrent-client",
+    "searching",
+    "transfers",
+    "logs",
+    "log-settings",
+  ]);
+  expect(ids(seedbox, [home, seedbox])).toContain("transfers");
+  expect(ids(home)).not.toContain("transfers");
+});

@@ -58,7 +58,7 @@ export interface DownloadclientsTorrentRow {
   state: DownloadclientsTorrentRowState;
   /** The Torrents view's tabs it shows under */
   tabs: DownloadclientsTorrentRowTabsItem[];
-  /** Absent when its metainfo names no tracker */
+  /** Absent when its metainfo names no announce URL */
   tracker?: DownloadclientsTrackerCell;
   /** When a window hold starts it, or a check resumes it */
   until?: string;
