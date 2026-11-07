@@ -6,19 +6,13 @@
 package imagecdn
 
 import (
-	"bytes"
 	"fmt"
-	"image"
-	"image/jpeg"
-	"image/png"
 	"net/http"
 	"path"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
-
-	"golang.org/x/image/draw"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/artwork"
@@ -103,46 +97,12 @@ func (s *server) resized(at sized, f images.Format, stored []byte) ([]byte, erro
 	if body, ok := s.scaled[at]; ok {
 		return body, nil
 	}
-	body, err := scale(f, stored, at.size)
+	body, err := images.Scale(f, stored, at.size)
 	if err != nil {
 		return nil, fmt.Errorf("scale %s to %s: %w", at.path, at.size, err)
 	}
 	s.scaled[at] = body
 	return body, nil
-}
-
-// scale is stored at size: wN is N wide and hN is N high, keeping the
-// aspect ratio. An SVG, the original, or an image no larger than size is
-// the stored bytes.
-func scale(f images.Format, stored []byte, size string) ([]byte, error) {
-	if f == images.SVG || size == "original" {
-		return stored, nil
-	}
-	src, _, err := image.Decode(bytes.NewReader(stored))
-	if err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
-	}
-	n, _ := strconv.Atoi(size[1:])
-	b := src.Bounds()
-	width, height := n, b.Dy()*n/b.Dx()
-	if size[0] == 'h' {
-		width, height = b.Dx()*n/b.Dy(), n
-	}
-	if width >= b.Dx() || height >= b.Dy() {
-		return stored, nil
-	}
-	dst := image.NewNRGBA(image.Rect(0, 0, max(width, 1), max(height, 1)))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), src, b, draw.Src, nil)
-	var out bytes.Buffer
-	if f == images.PNG {
-		err = png.Encode(&out, dst)
-	} else {
-		err = jpeg.Encode(&out, dst, &jpeg.Options{Quality: 85})
-	}
-	if err != nil {
-		return nil, fmt.Errorf("encode: %w", err)
-	}
-	return out.Bytes(), nil
 }
 
 // dimensions are a size's pixels at a poster's 2:3: wN is N wide, hN is N
