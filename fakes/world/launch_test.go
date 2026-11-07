@@ -46,6 +46,8 @@ type stub struct {
 	// successor restarts the stub as Windows does.
 	successor bool
 	noTools   bool
+	// torrentTaken finds the torrent port taken on the stub's first run.
+	torrentTaken bool
 }
 
 func productionKeys() []node.Key {
@@ -71,6 +73,9 @@ func (s stub) build(t *testing.T) string {
 	flags := "-X=main.resolved=" + string(resolved) + " -X=main.torrent=" + s.torrent + " -X=main.runExit=" + s.runExit
 	if s.successor {
 		flags += " -X=main.successor=1"
+	}
+	if s.torrentTaken {
+		flags += " -X=main.torrentTaken=1"
 	}
 	bin := testbin.Build(t, t.TempDir(), "./fakes/world/testdata/stubnode", "-ldflags", flags)
 	if s.noTools {
@@ -329,6 +334,20 @@ func assertStopped(t *testing.T, m world.Manifest) {
 	}
 	if _, err := os.Stat(filepath.Join(m.RunDir, "manifest.stopped.json")); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestLaunchMovesATorrentPortTakenBeforeTheNodeBoundIt(t *testing.T) {
+	t.Parallel()
+	ctx := worldtest.Context(t)
+	run, err := world.Launch(ctx, world.Options{Binary: stub{torrentTaken: true}.build(t), Scenario: stubScenario(), RunDir: filepath.Join(t.TempDir(), "run"), Origin: worldtest.Origin(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = run.Stop(ctx) })
+	home := run.Manifest().Nodes[0]
+	if ap, err := netip.ParseAddrPort(home.Listeners["torrent"]); err != nil || ap.Addr().String() != home.Address {
+		t.Fatalf("home listens for torrents on %q, want a port on %s", home.Listeners["torrent"], home.Address)
 	}
 }
 

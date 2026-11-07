@@ -30,6 +30,9 @@ var (
 	// process closes its handles before it counts as exited. Its last act
 	// writes its PID to exited in the data dir.
 	linger string
+	// torrentTaken finds the torrent port taken on the first run in a data
+	// dir, as a Node does when another process bound it first.
+	torrentTaken string
 )
 
 func main() {
@@ -96,6 +99,10 @@ func run(dir string) {
 	fail(err)
 
 	fmt.Fprintln(os.Stderr, `{"msg":"setup code","code":"0000-0000-0000"}`)
+	torrentAt := bind(cfg.Torrent.Listen)
+	if torrentTaken != "" && first(dir) {
+		torrentAt = netip.AddrPort{}
+	}
 	ready := node.Ready{
 		PID:     os.Getpid(),
 		DataDir: d.Path(),
@@ -104,7 +111,7 @@ func run(dir string) {
 		NodeKey: "0000-0000-0000-0000",
 		Listeners: node.Listeners{
 			Control: d.ControlSocket(),
-			Torrent: bind(cfg.Torrent.Listen),
+			Torrent: torrentAt,
 			HTTP:    bind(cfg.HTTP.Listen),
 			Link:    bind(cfg.Link.Listen),
 		},
@@ -165,6 +172,17 @@ func bind(listen string) netip.AddrPort {
 	fail(err)
 	bound = append(bound, l)
 	return netip.MustParseAddrPort(l.Addr().String())
+}
+
+// first reports whether this is the first run in dir.
+func first(dir string) bool {
+	f, err := os.OpenFile(filepath.Join(dir, "ran"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return false
+	}
+	fail(err)
+	fail(f.Close())
+	return true
 }
 
 // bound keeps each listener open while the stub runs.
