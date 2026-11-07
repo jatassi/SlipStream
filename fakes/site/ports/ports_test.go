@@ -133,11 +133,13 @@ func spaced(t *testing.T, hits []Hit, floor time.Duration) {
 	}
 }
 
+// sessionOf is s as the Node holds it, earned an hour before the case
+// starts, so a session a sign-in earns during the case reads as changed.
 func sessionOf(s *Session, id port.ID) *searching.Session {
 	if s == nil {
 		return nil
 	}
-	out := &searching.Session{UserAgent: s.UserAgent, Token: s.Token, Pasted: s.Pasted, Earned: time.Now()}
+	out := &searching.Session{UserAgent: s.UserAgent, Token: s.Token, Pasted: s.Pasted, Earned: time.Now().Add(-time.Hour)}
 	for pair := range strings.SplitSeq(s.Cookie, ";") {
 		if name, value, ok := strings.Cut(strings.TrimSpace(pair), "="); ok {
 			out.Cookies = append(out.Cookies, searching.Cookie{Name: name, Value: value, Domain: Host(id), Path: "/", HostOnly: true})
