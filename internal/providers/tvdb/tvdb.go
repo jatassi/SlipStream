@@ -67,11 +67,12 @@ func New(lines *metadata.Lines, e Endpoints, t Timings) *Client {
 // the PIN when one is set, for a bearer token.
 func (c *Client) Provider() metadata.Provider {
 	return metadata.Provider{
-		ID:      ID,
-		Label:   "TVDB",
-		Rate:    rate.Every(c.timings.Interval),
-		Burst:   c.timings.Burst,
-		KeyPage: c.endpoints.KeyPage.String(),
+		ID:          ID,
+		Label:       "TVDB",
+		Rate:        rate.Every(c.timings.Interval),
+		Burst:       c.timings.Burst,
+		KeyPage:     c.endpoints.KeyPage.String(),
+		Attribution: &metadata.Attribution{Text: "Metadata provided by TheTVDB."},
 		Auth: &metadata.Auth{
 			Login:   c.login,
 			Token:   token,
