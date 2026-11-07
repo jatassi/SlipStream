@@ -1,6 +1,8 @@
 package world_test
 
 import (
+	"net"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -115,5 +117,38 @@ func TestControlsRefuse(t *testing.T) {
 	}
 	if _, err := world.Dial(runDir); err == nil || err.Error() != "no run is live in "+runDir+": it has no manifest.json" {
 		t.Fatalf("Dial on a stopped run = %v", err)
+	}
+}
+
+func TestARefuseRuleHoldsTheFrontOnceSetFaultReturnsAndLetsItGoOnceClearFaultReturns(t *testing.T) {
+	t.Parallel()
+	runDir := filepath.Join(t.TempDir(), "run")
+	ctx := worldtest.Context(t)
+	run, err := world.LaunchWith(ctx, world.Options{Binary: stub{}.build(t), Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)}, []fake.Spec{echo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = run.Stop(ctx) })
+	u, err := url.Parse(run.Manifest().Fakes[0].URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d net.Dialer
+	for i := range 20 {
+		if _, err := run.SetFault(ctx, fault.Rule{ID: "down", Target: "echo", Fault: fault.Refuse{}}); err != nil {
+			t.Fatal(err)
+		}
+		if c, err := d.DialContext(ctx, "tcp", u.Host); err == nil {
+			_ = c.Close()
+			t.Fatalf("round %d: a dial right after SetFault connected, want it refused", i)
+		}
+		if _, err := run.ClearFault(ctx, "down"); err != nil {
+			t.Fatal(err)
+		}
+		c, err := d.DialContext(ctx, "tcp", u.Host)
+		if err != nil {
+			t.Fatalf("round %d: a dial right after ClearFault = %v, want it to connect", i, err)
+		}
+		_ = c.Close()
 	}
 }
