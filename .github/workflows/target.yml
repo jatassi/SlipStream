@@ -20,7 +20,7 @@ on:
         type: string
         required: true
       timings:
-        description: The cache key of the test timings to split by
+        description: The artifact that holds the test timings to split by; empty splits by count
         type: string
       filter:
         description: Run only the tests that match, as go test -run and playwright --grep
@@ -205,14 +205,12 @@ jobs:
       # An artifact does not keep the executable bit.
       - name: Restore the executable bits on dist/
         run: chmod +x dist/*
-      - name: Restore the Go test timings
+      - name: Download the test timings the plan job restored
         if: inputs.timings != ''
-        uses: actions/cache/restore@v6
+        uses: actions/download-artifact@v8
         with:
+          name: ${{ inputs.timings }}
           path: .timings
-          key: ${{ inputs.timings }}
-          enableCrossOsArchive: true
-          fail-on-cache-miss: true
       # The tier's Nodes bind 127.0.0.2 and up, which macOS answers only
       # once aliased. The second run must change nothing.
       - name: Alias loopback addresses for the Nodes
@@ -305,14 +303,12 @@ jobs:
       - name: Alias loopback addresses for the Nodes
         if: matrix.goos == 'darwin'
         run: sudo dist/fakeworld setup-loopback
-      - name: Restore the test timings
+      - name: Download the test timings the plan job restored
         if: inputs.timings != ''
-        uses: actions/cache/restore@v6
+        uses: actions/download-artifact@v8
         with:
+          name: ${{ inputs.timings }}
           path: .timings
-          key: ${{ inputs.timings }}
-          enableCrossOsArchive: true
-          fail-on-cache-miss: true
       # The browsers' system libraries are not in the cache, so Linux
       # installs them on every run.
       - name: Install the Playwright browsers and their system libraries
