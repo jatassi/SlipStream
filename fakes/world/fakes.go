@@ -11,9 +11,10 @@ import (
 	"github.com/jatassi/slipstream/fakes/smtp"
 	"github.com/jatassi/slipstream/fakes/tmdb"
 	"github.com/jatassi/slipstream/fakes/tracker"
+	"github.com/jatassi/slipstream/fakes/tvdb"
 )
 
-var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, omdb.Fake, imagecdn.Fake, tracker.Fake, dht.Fake, site.Fake, smtp.Fake}
+var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, tvdb.Fake, omdb.Fake, imagecdn.Fake, tracker.Fake, dht.Fake, site.Fake, smtp.Fake}
 
 // Cues are the cues the world's fakes declare, each a name fakeworld cue
 // takes.
