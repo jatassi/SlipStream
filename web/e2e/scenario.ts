@@ -5,6 +5,8 @@ export type Scenario =
   | "home"
   | "low-space"
   | "movies"
+  | "series"
+  | "series-scale"
   | "serving"
   | "targets"
   | "scale"

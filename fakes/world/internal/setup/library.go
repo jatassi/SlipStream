@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"fmt"
+	"iter"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,17 +18,27 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
+// tvdbKey is the Admin's TVDB key a Scenario with a tvdb catalog sets,
+// since TVDB answers nothing without a key and fake-tvdb takes any.
+const tvdbKey = "fake-world-tvdb-key"
+
 // Library creates the Scenario's library on its controller Node, over c
-// with the Controller's API key: its Storage levels, each root's folder
-// under mediaDir and the root on its Node, which shares the machine and so
-// the media dir, then the Targets and Profiles as goals makes them, then
-// the Indexers on the site fakes at sites, as an Admin would.
+// with the Controller's API key: its Storage levels, the TVDB key when it
+// has a tvdb catalog, each root's folder under mediaDir and the root on
+// its Node, which shares the machine and so the media dir, then the
+// Targets and Profiles as goals makes them, then the Indexers on the site
+// fakes at sites, as an Admin would.
 func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address) error {
 	if err := StorageLevels(ctx, c, s, ready, claims); err != nil {
 		return err
 	}
 	controller := controllerURL(s, ready)
 	apiKey := claims.APIKey
+	if s.TVDB != nil {
+		if err := nodeapi.SetMetadataKey(ctx, c, controller, apiKey, "tvdb", tvdbKey); err != nil {
+			return err
+		}
+	}
 	for _, r := range s.Library.Roots {
 		folder := filepath.Join(mediaDir, r.Folder)
 		if err := os.MkdirAll(folder, 0o700); err != nil {
@@ -104,9 +115,10 @@ func controllerURL(s scenario.Scenario, ready []node.Ready) string {
 
 const addsAtOnce = 8
 
-// Works adds a Work for every movie fake-tmdb serves that TMDB still
-// holds, as the Scenario's library works says, on its controller Node,
-// and returns how many it added.
+// Works adds a Work for every record of the Scenario's library works'
+// Content Type its fake serves, as library works says, on its controller
+// Node, and returns how many it added: each movie TMDB still holds, or
+// each series TVDB lists.
 func Works(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims) (int, error) {
 	w := s.Library.Works
 	controller := controllerURL(s, ready)
@@ -115,10 +127,7 @@ func Works(ctx context.Context, c *http.Client, s scenario.Scenario, ready []nod
 	slots := make(chan struct{}, addsAtOnce)
 	var wg sync.WaitGroup
 	added := 0
-	for m := range s.TMDB.All() {
-		if m.Deleted {
-			continue
-		}
+	for key := range keysOf(s, w.ContentType) {
 		select {
 		case slots <- struct{}{}:
 		case <-ctx.Done():
@@ -129,7 +138,7 @@ func Works(ctx context.Context, c *http.Client, s scenario.Scenario, ready []nod
 		added++
 		wg.Go(func() {
 			defer func() { <-slots }()
-			if err := nodeapi.AddWork(ctx, c, controller, claims.APIKey, w.ContentType, strconv.FormatInt(m.ID, 10), w.Preset); err != nil {
+			if err := nodeapi.AddWork(ctx, c, controller, claims.APIKey, w.ContentType, strconv.FormatInt(key, 10), w.Preset); err != nil {
 				cancel(err)
 			}
 		})
@@ -139,4 +148,24 @@ func Works(ctx context.Context, c *http.Client, s scenario.Scenario, ready []nod
 		return 0, fmt.Errorf("add the library's Works: %w", err)
 	}
 	return added, nil
+}
+
+// keysOf is the key of each record of contentType the Scenario's fake
+// serves that its source still holds.
+func keysOf(s scenario.Scenario, contentType string) iter.Seq[int64] {
+	return func(yield func(int64) bool) {
+		if contentType == "series" {
+			for series := range s.TVDB.All() {
+				if !yield(series.ID) {
+					return
+				}
+			}
+			return
+		}
+		for m := range s.TMDB.All() {
+			if !m.Deleted && !yield(m.ID) {
+				return
+			}
+		}
+	}
 }
