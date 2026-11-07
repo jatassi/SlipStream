@@ -1,6 +1,7 @@
 package naming_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/naming"
@@ -42,6 +43,56 @@ func TestRenderRefusesAnUnfilledTokenAndAnEmptyName(t *testing.T) {
 	} {
 		if _, err := naming.Render(c.template, c.tokens, naming.Core{}); err == nil || err.Error() != c.want {
 			t.Errorf("Render(%q) error = %v, want %s", c.template, err, c.want)
+		}
+	}
+}
+
+func TestRenderPadsWholeNumbers(t *testing.T) {
+	tokens := map[string]string{"season": "3", "episode": "12", "absolute": "1042", "title": "Pilot"}
+	for template, want := range map[string]string{
+		"Season {season:00}":                "Season 03",
+		"S{season:00}E{episode:00}":         "S03E12",
+		"{absolute:000}":                    "1042",
+		"{episode:0000} {title}":            "0012 Pilot",
+		"Season {season}":                   "Season 3",
+		"{title} S{season:00}E{episode:00}": "Pilot S03E12",
+	} {
+		got, err := naming.Render(template, tokens, naming.Core{})
+		if err != nil || got != want {
+			t.Errorf("Render(%q) = %q, %v; want %q", template, got, err, want)
+		}
+	}
+	for template, want := range map[string]string{
+		"{title:00}":  `template "{title:00}" pads {title:00}, which needs a whole number and a pattern of zeros`,
+		"{season:0x}": `template "{season:0x}" pads {season:0x}, which needs a whole number and a pattern of zeros`,
+		"{season:}":   `template "{season:}" pads {season:}, which needs a whole number and a pattern of zeros`,
+		"{year:00}":   `template "{year:00}" names {year:00}, which no token fills`,
+	} {
+		if _, err := naming.Render(template, tokens, naming.Core{}); err == nil || err.Error() != want {
+			t.Errorf("Render(%q) error = %v, want %s", template, err, want)
+		}
+	}
+}
+
+func TestFoldersRenderEachLevelAndTheAsideInPlaceOfTheOutermost(t *testing.T) {
+	tv := naming.Templates{Folder: "{title}", Levels: []string{"Season {season:00}"}, Aside: "Specials", File: "{title}"}
+	tokens := map[string]string{"title": "Pilot", "season": "2", "disc": "1"}
+	for _, c := range []struct {
+		name      string
+		templates naming.Templates
+		aside, on bool
+		want      []string
+	}{
+		{"a level folder per level", tv, false, true, []string{"Season 02"}},
+		{"an aside Item takes the aside folder", tv, true, true, []string{"Specials"}},
+		{"level folders off", tv, false, false, nil},
+		{"a type naming no level", naming.Templates{Folder: "{title}", File: "{title}"}, false, true, nil},
+		{"the aside replaces only the outermost level", naming.Templates{Levels: []string{"Season {season}", "Disc {disc:00}"}, Aside: "Specials"}, true, true, []string{"Specials", "Disc 01"}},
+		{"no aside template keeps the level's", naming.Templates{Levels: []string{"Season {season}"}}, true, true, []string{"Season 2"}},
+	} {
+		got, err := naming.Folders(c.templates, tokens, c.aside, c.on)
+		if err != nil || !slices.Equal(got, c.want) {
+			t.Errorf("%s: Folders = %q, %v; want %q", c.name, got, err, c.want)
 		}
 	}
 }
