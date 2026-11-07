@@ -327,6 +327,7 @@ type externalClient struct {
 	On             bool                      `json:"on"`
 	Version        int64                     `json:"settingsVersion" minimum:"1" doc:"Bumped on every edit"`
 	Reach          string                    `json:"reach" enum:"responding,not_responding,sign_in_refused,needs_attention,off,node_offline,unchecked"`
+	Away           bool                      `json:"away" doc:"It isn't responding, refused the sign-in or needs attention while its Node is in step, so its card is red"`
 	Since          *time.Time                `json:"since" doc:"When its poll state began; null before its Node first polled it"`
 	ProductVersion string                    `json:"productVersion" doc:"The product's version at the last sign-in, such as 4.1.1; empty before one"`
 	Problem        api.Nullable[pollProblem] `json:"problem" doc:"Why its last poll failed; null while it responds and before its first poll"`
@@ -341,7 +342,7 @@ func clientOf(e downloadclients.ExternalCard, node string) externalClient {
 		ID: e.ID.String(), NodeID: e.Node.String(), Kind: string(e.Kind), Name: e.Name, Address: e.Address.String(),
 		Username: e.Username, PasswordSaved: e.Saved.Password, APIKeySaved: e.Saved.APIKey, Label: e.Label.String(),
 		Folder: e.Folder, ClientFolders: []clientFolder{}, CheckEvery: e.CheckEveryField(), ImportDelay: e.ImportDelayField(),
-		On: e.On, Version: e.Version, Reach: string(e.Reach), Torrents: e.Torrents, Actions: []string{},
+		On: e.On, Version: e.Version, Reach: string(e.Reach), Away: e.Reach.Away(), Torrents: e.Torrents, Actions: []string{},
 	}
 	if ui, ok := e.Address.WebUI(); ok {
 		out.WebUI = &ui

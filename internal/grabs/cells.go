@@ -3,6 +3,7 @@ package grabs
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
@@ -12,13 +13,20 @@ import (
 
 // GrabCells is files.Inflight over the Grabs: each cell takes its latest
 // Grab, downloading once past fetching and failed once failed. An
-// unfinished Grab whose Node is out of step waits on it, node_away.
+// unfinished Grab whose Node is out of step waits on it, node_away, and
+// one whose Torrent's client is away while its Node is in step waits on
+// the client, client_away.
 type GrabCells struct {
 	InStep func(role.NodeID) bool
 }
 
-// NodeAway is the Waiting code of a Grab whose Node is out of step.
-const NodeAway = "node_away"
+const (
+	// NodeAway is the Waiting code of a Grab whose Node is out of step.
+	NodeAway = "node_away"
+	// ClientAway is the Waiting code of a Grab whose Torrent's client
+	// isn't responding, refused the sign-in or needs attention.
+	ClientAway = "client_away"
+)
 
 func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	q := db.New(r)
@@ -30,6 +38,10 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 		}
 		return out, err
 	}, func(ids []works.WorkID) ([]db.ListTargetsOfWorksRow, error) { return q.ListTargetsOfWorks(ctx, ids) })
+	if err != nil {
+		return nil, err
+	}
+	away, err := g.awayClients(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +59,37 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 			cell.State = files.GrabDownloading
 		case Fetching:
 		}
-		if row.Stage != Failed && !g.InStep(row.NodeID) {
+		switch {
+		case row.Stage == Failed:
+		case !g.InStep(row.NodeID):
 			cell.Waiting = NodeAway
+		case away[row.ID]:
+			cell.Waiting = ClientAway
 		}
 		out[key] = cell
+	}
+	return out, nil
+}
+
+// awayClients is each unfinished Grab whose Torrent an away client holds.
+func (g GrabCells) awayClients(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]bool, error) {
+	open, err := db.New(r).ListOpenGrabs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]downloadclients.ID, len(open))
+	for i, gr := range open {
+		ids[i] = gr.TorrentID
+	}
+	away, err := downloadclients.AwayIn(ctx, r, ids, g.InStep)
+	if err != nil {
+		return nil, err
+	}
+	out := map[GrabID]bool{}
+	for _, gr := range open {
+		if away[gr.TorrentID] {
+			out[gr.ID] = true
+		}
 	}
 	return out, nil
 }

@@ -140,7 +140,7 @@ func (c *Clients) Apply(ctx context.Context, tx *storage.Tx[file], node role.Nod
 			got.ids, got.touch = []ID{id}, n > 0
 		}
 	case *dlv1.Report_Client:
-		got.polled, err = applyPoll(ctx, q, node, k.Client)
+		got.polled, got.ids, err = applyPoll(ctx, q, node, k.Client)
 	case *dlv1.Report_Vanished:
 		var id ID
 		if id, err = idOf(k.Vanished.GetId()); err == nil {
@@ -268,25 +268,26 @@ func applyExternal(ctx context.Context, q *db.Queries, node role.NodeID, id ID, 
 
 // applyPoll stores p on its client when the client is node's and p ran
 // under settings at least as new as the stored poll's, naming the client
-// when it did.
-func applyPoll(ctx context.Context, q *db.Queries, node role.NodeID, p *dlv1.ClientPoll) ([]ClientID, error) {
+// and its live Torrents, whose rows may turn stale or current, when it
+// did.
+func applyPoll(ctx context.Context, q *db.Queries, node role.NodeID, p *dlv1.ClientPoll) (polled []ClientID, held []ID, err error) {
 	u, err := storage.UUIDFromBytes(p.GetClientId())
 	if err != nil {
-		return nil, fmt.Errorf("client id: %w", err)
+		return nil, nil, fmt.Errorf("client id: %w", err)
 	}
 	id := ClientID{UUID: u}
 	state, ok := pollStateFromWire[p.GetState()]
 	if !ok {
-		return nil, fmt.Errorf("client %s: a poll in state %s", id, p.GetState())
+		return nil, nil, fmt.Errorf("client %s: a poll in state %s", id, p.GetState())
 	}
 	var problem *string
 	if pr := p.GetProblem(); pr != nil {
 		got, err := problemFromWire(pr)
 		if err != nil {
-			return nil, fmt.Errorf("client %s: %w", id, err)
+			return nil, nil, fmt.Errorf("client %s: %w", id, err)
 		}
 		if problem, err = storedOf(got); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	n, err := q.SetPoll(ctx, db.SetPollParams{
@@ -294,9 +295,10 @@ func applyPoll(ctx context.Context, q *db.Queries, node role.NodeID, p *dlv1.Cli
 		PollSettingsVersion: new(p.GetSettingsVersion()), PollCheck: p.GetCheck(), ClientVersion: text(p.GetVersion()), ID: id, NodeID: node,
 	})
 	if err != nil || n == 0 {
-		return nil, err
+		return nil, nil, err
 	}
-	return []ClientID{id}, nil
+	held, err = q.ListLiveOfClient(ctx, &id)
+	return []ClientID{id}, held, err
 }
 
 func problemFromWire(pr *dlv1.Problem) (clients.Problem, error) {

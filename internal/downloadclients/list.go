@@ -59,9 +59,10 @@ type Row struct {
 	// client's words for its local error.
 	Error string
 	Fault *Fault
-	// LastKnown is when its Node last reported it, set only while the
-	// Node is out of step.
-	LastKnown time.Time
+	// LastKnown is when its Node last reported it, set only while the row
+	// is stale for LastKnownCause.
+	LastKnown      time.Time
+	LastKnownCause StaleCause
 
 	report *Report
 }
@@ -199,12 +200,22 @@ func (c *Clients) rows(ctx context.Context, r storage.Reader[file]) ([]Row, erro
 	if err != nil {
 		return nil, err
 	}
+	externals, err := externalsIn(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	rows := make([]Row, len(held))
 	inLine := map[role.NodeID]int{}
 	for i, h := range held {
 		row, err := c.rowOf(h, uses[h.ID])
 		if err != nil {
 			return nil, fmt.Errorf("torrent %s: %w", h.ID, err)
+		}
+		if row.LastKnownCause = staleOf(c.cfg.Roster.InStep(h.NodeID), row.Client, externals); row.LastKnownCause != "" {
+			row.LastKnown = row.AddedAt
+			if row.report != nil {
+				row.LastKnown = row.report.At
+			}
 		}
 		switch {
 		case row.State != StateQueued || row.Hold != HoldSlot:
@@ -248,17 +259,11 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 		row.Pending = pendingOf(facts.Wanted, rep)
 	}
 	if rep == nil {
-		if !c.cfg.Roster.InStep(h.NodeID) {
-			row.LastKnown = row.AddedAt
-		}
 		return row, nil
 	}
 	row.Hold, row.Until = rep.Hold, rep.Until
 	if rep.Engine == EngineFailed || rep.Hold == HoldClientError {
 		row.Error = rep.Error
-	}
-	if !c.cfg.Roster.InStep(h.NodeID) {
-		row.LastKnown = rep.At
 	}
 	return row, nil
 }
