@@ -42,7 +42,7 @@ var credentialNames = []string{
 var userNames = []string{"username", "user", "login", "uname", "email"}
 
 // secretHeaders are the headers whose values must be placeholders.
-var secretHeaders = []string{"Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "Api-Key", "Apikey"}
+var secretHeaders = []string{"Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "Api-Key", "Apikey", "Apiuser"}
 
 // Scrub is the scrub check. It reports every value in f shaped like a
 // passkey, API key, token or cookie that isn't a placeholder, a username

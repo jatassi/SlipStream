@@ -1,0 +1,69 @@
+source: prowlarr
+settings:
+  apiUser: "{{apiUser}}"
+  apiKey: "{{apiKey}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}}}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {ApiUser: "{{apiUser}}", ApiKey: "{{apiKey}}", Accept: application/json}
+          query: {action: advanced, json: noredirect, grouping: "0", order_by: time, order_way: desc, searchstr: tt0000001}
+        response:
+          headers: {Content-Type: application/json}
+          body: search.json
+  - name: text
+    call: {search: {mode: movie, text: "The Quiet Orchard 2021 – Director’s Cut!"}}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {ApiUser: "{{apiUser}}", ApiKey: "{{apiKey}}"}
+          query: {action: advanced, searchstr: "The Quiet Orchard 2021 - Director's Cut"}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /torrents.php, query: {action: advanced, searchstr: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {ApiUser: "{{apiUser}}", ApiKey: "{{apiKey}}"}
+          query: {action: advanced, json: noredirect, grouping: "0", order_by: time, order_way: desc, searchstr: ""}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /torrents.php, query: {action: advanced, searchstr: ""}}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php}
+        response: {status: 401}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php}
+        response: {status: 403}
+  - name: toomany
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php}
+        response: {status: 429, headers: {Retry-After: "120"}}
+  - name: notjson
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=910001"}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {ApiUser: "{{apiUser}}", ApiKey: "{{apiKey}}"}
+          query: {action: download, id: "910001"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
