@@ -7,6 +7,7 @@ import { type LibrarySearch, decodeView, encodeView } from "./view-codec";
 
 export { rememberedSearch } from "./remembered";
 export { librarySearch } from "./view-codec";
+export { typeSwitch } from "./type-switch";
 
 /** A Library whose view lives in the address, kept for this Library's next visit. */
 export function RoutedLibrary({

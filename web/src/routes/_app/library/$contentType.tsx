@@ -1,12 +1,17 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
-import { RoutedLibrary, librarySearch, rememberedSearch } from "../../../library/routed";
+import {
+  RoutedLibrary,
+  librarySearch,
+  rememberedSearch,
+  typeSwitch,
+} from "../../../library/routed";
 import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { Skeleton } from "../../../ui/skeleton";
-import { enabledTypeOf } from "../../../works/fields";
+import { enabledTypeOf, enabledTypes } from "../../../works/fields";
 import { AddButton } from "./-add-menu";
 import { libraryReads } from "./-view";
 
@@ -36,9 +41,13 @@ export const Route = createFileRoute("/_app/library/$contentType")({
 function ContentTypeLibrary() {
   const navigate = useNavigate();
   const { contentType } = Route.useParams();
-  const type = enabledTypeOf(useListContentTypesSuspense().data.contentTypes, contentType);
+  const { contentTypes } = useListContentTypesSuspense().data;
+  const type = enabledTypeOf(contentTypes, contentType);
   return (
-    <Page action={<AddButton type={type} look="primary" />}>
+    <Page
+      beside={typeSwitch(enabledTypes(contentTypes))}
+      action={<AddButton type={type} look="primary" />}
+    >
       <RoutedLibrary
         scope={type.id}
         types={[type]}
