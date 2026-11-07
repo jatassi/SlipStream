@@ -12,13 +12,16 @@ export type Artwork = keyof typeof artwork;
 
 export const artworkUrl = (name: Artwork) => `/artwork/${name}.png`;
 
+/** An image fixture as the Node responds with a Work's artwork. */
+export function artworkResponse(dataUrl: string) {
+  const bytes = Uint8Array.from(
+    atob(dataUrl.slice(dataUrl.indexOf(",") + 1)),
+    (c) => c.codePointAt(0) ?? 0,
+  );
+  return HttpResponse.arrayBuffer(bytes.buffer, { headers: { "Content-Type": "image/png" } });
+}
+
 /** Serves each fixture at artworkUrl(name), as the Node will serve a Work's artwork. */
 export const artworkHandlers = Object.entries(artwork).map(([name, dataUrl]) =>
-  http.get(`/artwork/${name}.png`, () => {
-    const bytes = Uint8Array.from(
-      atob(dataUrl.slice(dataUrl.indexOf(",") + 1)),
-      (c) => c.codePointAt(0) ?? 0,
-    );
-    return HttpResponse.arrayBuffer(bytes.buffer, { headers: { "Content-Type": "image/png" } });
-  }),
+  http.get(`/artwork/${name}.png`, () => artworkResponse(dataUrl)),
 );
