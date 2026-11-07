@@ -112,9 +112,9 @@ func TestAPortsFormAndCatalogEntry(t *testing.T) {
 	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-catalog/lantern", "", http.StatusOK,
 		`{"entry":{"id":"lantern","name":"Lantern","description":"Lantern is a fictional tracker for tests.","language":"en-US","privacy":"private","categories":[2000],"origin":"native","reason":null,"replacedByCustom":false,"version":"T"},`+
 			`"links":["https://lantern.test/","https://lantern-mirror.test/"],"fields":[`+
-			`{"name":"passkey","label":"Passkey","type":"text","default":null,"options":[],"min":null,"max":null,"help":null,"sealed":true},`+
-			`{"name":"codecs","label":"Codecs","type":"multiselect","default":null,"options":[{"value":"1","label":"H.264"},{"value":"5","label":"HEVC"}],"min":null,"max":null,"help":null,"sealed":false},`+
-			`{"name":"pages","label":"Pages","type":"number","default":"2","options":[],"min":1,"max":5,"help":null,"sealed":false}],`+
+			`{"name":"passkey","label":"Passkey","type":"text","default":null,"options":[],"min":null,"max":null,"help":null,"sealed":true,"required":true},`+
+			`{"name":"codecs","label":"Codecs","type":"multiselect","default":null,"options":[{"value":"1","label":"H.264"},{"value":"5","label":"HEVC"}],"min":null,"max":null,"help":null,"sealed":false,"required":false},`+
+			`{"name":"pages","label":"Pages","type":"number","default":"2","options":[],"min":1,"max":5,"help":null,"sealed":false,"required":false}],`+
 			`"session":false,"captcha":false,"solver":false,"cookie":false,"code":false,`+
 			`"port":{"userAgent":false,"searches":{"count":150,"per":"hour"},"grabs":{"count":0,"per":"hour"},"recent":true,"spacingSeconds":4.1,"synced":"T"}}`)
 	_, quill := s.owner.Call(t, http.MethodGet, "/api/v1/indexer-catalog/quill", "")
@@ -143,8 +143,9 @@ func TestANativeIndexerIsAddedFromItsPortAndShownWithIt(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
 		{`{"kind":"native","name":"Nowhere","port":"nowhere"}`, invalid + `"detail":"Choose one of the sites SlipStream includes.","errors":[{"location":"body.port","message":"Choose one of the sites SlipStream includes."}]}`},
 		{`{"kind":"native","name":"Bare","port":"lantern","baseAddress":"lantern.test"}`, invalid + `"detail":"Choose one of the site's addresses, or type one that starts with http:// or https://.","errors":[{"location":"body.baseAddress","message":"Choose one of the site's addresses, or type one that starts with http:// or https://."}]}`},
-		{`{"kind":"native","name":"Bad","port":"lantern","values":{"codecs":"1,9"}}`, invalid + `"detail":"Choose from the options for Codecs.","errors":[{"location":"body.values.codecs","message":"Choose from the options for Codecs."}]}`},
-		{`{"kind":"native","name":"Bad","port":"lantern","values":{"pages":"9"}}`, invalid + `"detail":"Pages is a whole number from 1 to 5.","errors":[{"location":"body.values.pages","message":"Pages is a whole number from 1 to 5."}]}`},
+		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":""}}`, invalid + `"detail":"Passkey is required.","errors":[{"location":"body.values.passkey","message":"Passkey is required."}]}`},
+		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":"pk","codecs":"1,9"}}`, invalid + `"detail":"Choose from the options for Codecs.","errors":[{"location":"body.values.codecs","message":"Choose from the options for Codecs."}]}`},
+		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":"pk","pages":"9"}}`, invalid + `"detail":"Pages is a whole number from 1 to 5.","errors":[{"location":"body.values.pages","message":"Pages is a whole number from 1 to 5."}]}`},
 		{`{"kind":"native","name":"Bad","port":"lantern","cookie":{"cookie":"a=b"}}`, invalid + `"detail":"Only a site that signs in with a browser cookie takes one.","errors":[{"location":"body.cookie","message":"Only a site that signs in with a browser cookie takes one."}]}`},
 		{`{"kind":"native","name":"Ported","address":"https://lantern.test/"}`, invalid + `"errors":[{"location":"body.port","message":"Choose the site."},{"location":"body.address","message":"A ported site takes its address as baseAddress."}]}`},
 	} {

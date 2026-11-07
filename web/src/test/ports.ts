@@ -20,6 +20,7 @@ function field(
     min: null,
     max: null,
     sealed: false,
+    required: false,
     ...over,
   } satisfies IndexersDefinitionField;
 }
@@ -43,8 +44,14 @@ export const iptorrentsEntry = port({ id: "iptorrents", name: "IPTorrents" });
 export const torrentDayEntry = port({ id: "torrentday", name: "TorrentDay" });
 export const shazbatEntry = port({ id: "shazbat", name: "Shazbat", categories: [5000] });
 
-const username = field({ name: "username", type: "text", label: "Username" });
-const password = field({ name: "password", type: "password", label: "Password", sealed: true });
+const username = field({ name: "username", type: "text", label: "Username", required: true });
+const password = field({
+  name: "password",
+  type: "password",
+  label: "Password",
+  sealed: true,
+  required: true,
+});
 
 const unlimited = { count: 0, per: "hour" } as const;
 
@@ -74,7 +81,7 @@ export const hdbitsForm = portForm({
   links: ["https://hdbits.org/"],
   fields: [
     username,
-    field({ name: "passkey", type: "text", label: "Passkey", sealed: true }),
+    field({ name: "passkey", type: "text", label: "Passkey", sealed: true, required: true }),
     field({
       name: "codecs",
       type: "multiselect",
@@ -126,7 +133,7 @@ export const shazbatForm = portForm({
   entry: shazbatEntry,
   links: ["https://www.shazbat.tv/"],
   fields: [
-    field({ name: "passkey", type: "text", label: "Passkey", sealed: true }),
+    field({ name: "passkey", type: "text", label: "Passkey", sealed: true, required: true }),
     field({
       name: "showPageLimit",
       type: "number",

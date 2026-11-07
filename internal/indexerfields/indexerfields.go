@@ -24,6 +24,9 @@ type Field struct {
 	// Min and Max bound a number, nil for no bound.
 	Min *int `json:",omitempty"`
 	Max *int `json:",omitempty"`
+	// Required is a ported site's credential, which an Indexer can't save
+	// empty.
+	Required bool `json:",omitempty"`
 }
 
 // Type is a setting's type.
@@ -86,11 +89,14 @@ type ValueError struct {
 
 func (e *ValueError) Error() string { return "setting " + e.Field + " doesn't fit its field" }
 
-// Fits refuses v for a select or multiselect that doesn't offer it, a
-// checkbox that isn't true or false, and a number that isn't a whole
-// number between f's bounds. A multiselect's value is its option values
-// separated by commas.
+// Fits refuses an empty v for a required field, v for a select or
+// multiselect that doesn't offer it, a checkbox that isn't true or false,
+// and a number that isn't a whole number between f's bounds. A
+// multiselect's value is its option values separated by commas.
 func Fits(f Field, v string) error {
+	if f.Required && v == "" {
+		return empty(f)
+	}
 	switch f.Type {
 	case Select:
 		if !offers(f, v) {
@@ -119,6 +125,10 @@ func Fits(f Field, v string) error {
 	return nil
 }
 
+func empty(f Field) *ValueError {
+	return &ValueError{Field: f.Name, Sentence: f.Label + " is required."}
+}
+
 func numberSentence(f Field) string {
 	switch {
 	case f.Min != nil && f.Max != nil:
@@ -135,7 +145,7 @@ func numberSentence(f Field) string {
 // sealed ones, on top of the plain and sealed values saved before. A
 // setting values leaves out keeps its saved value, as does a sealed one
 // sent empty. A setting with no value takes its default when the Node
-// runs it.
+// runs it, and a required one with no value fails.
 func Split(fields []Field, values, plainBefore, sealedBefore map[string]string) (plain, sealed map[string]string, err error) {
 	plain, sealed = map[string]string{}, map[string]string{}
 	byName := map[string]Field{}
@@ -156,14 +166,21 @@ func Split(fields []Field, values, plainBefore, sealedBefore map[string]string) 
 		if !ok {
 			return nil, nil, &ValueError{Field: name, Sentence: "This Indexer has no setting named " + name + "."}
 		}
+		if Sealed(f) && v == "" {
+			continue
+		}
 		if err := Fits(f, v); err != nil {
 			return nil, nil, err
 		}
-		switch {
-		case !Sealed(f):
-			plain[name] = v
-		case v != "":
+		if Sealed(f) {
 			sealed[name] = v
+		} else {
+			plain[name] = v
+		}
+	}
+	for _, f := range fields {
+		if f.Required && plain[f.Name] == "" && sealed[f.Name] == "" {
+			return nil, nil, empty(f)
 		}
 	}
 	return plain, sealed, nil

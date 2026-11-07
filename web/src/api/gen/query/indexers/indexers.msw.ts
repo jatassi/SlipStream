@@ -163,6 +163,7 @@ export const getGetCatalogDefinitionResponseMock = (
           value: faker.string.alpha({ length: { min: 10, max: 20 } }),
         }),
       ),
+      required: faker.datatype.boolean(),
       sealed: faker.datatype.boolean(),
       type: faker.helpers.arrayElement([
         "text",

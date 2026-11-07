@@ -9,7 +9,7 @@ import "github.com/jatassi/slipstream/internal/ports/port"
 // Settings is AvistazSettings. The token it holds in C# is the session
 // the framework keeps, so it isn't a setting.
 type Settings struct {
-	port.UserPass
-	port.PIDField
+	port.UserPass `help.username:"Only accounts of Member rank or higher can use the site's API."`
+	port.PIDField `help:"Find your PID on your My Account or My Profile page."`
 	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
 }

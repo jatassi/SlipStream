@@ -253,8 +253,16 @@ func (w *nativeWorld) healthText(x *indexers.Indexers, id indexers.ID) (health.I
 	return a.Items[i], true
 }
 
+// native is a draft of port p with its required settings filled.
 func native(name string, p port.ID) indexers.Draft {
-	return indexers.Draft{Kind: indexers.Native, Name: name, Port: p}
+	d := indexers.Draft{Kind: indexers.Native, Name: name, Port: p, Values: map[string]string{}}
+	e, _ := livePorts.Lookup(p)
+	for _, f := range e.Fields {
+		if f.Required {
+			d.Values[f.Name] = "x"
+		}
+	}
+	return d
 }
 
 func TestPortsAreListedBeforeTheCatalogAndHideOnlyTheIDsTheyReplace(t *testing.T) {
@@ -360,7 +368,9 @@ func TestANativeIndexerIsAddedWithItsPortsFieldsAddressAndLimit(t *testing.T) {
 		t.Errorf("the Test ran %+v", j)
 	}
 
-	typed := w.add(indexers.Draft{Kind: indexers.Native, Name: "Mirror", Port: "lantern", BaseAddress: "https://lantern.example/", Searches: indexers.Limit{Count: 9, Per: indexers.Day}})
+	mirror := native("Mirror", "lantern")
+	mirror.BaseAddress, mirror.Searches = "https://lantern.example/", indexers.Limit{Count: 9, Per: indexers.Day}
+	typed := w.add(mirror)
 	if p, _ := typed.Source.(indexers.Port); p.Address != "https://lantern.example/" || typed.Searches.Count != 9 {
 		t.Errorf("a typed address and limit saved %+v, %+v", p, typed.Searches)
 	}
@@ -381,8 +391,11 @@ func TestANativeDraftThatDoesntFitItsPortIsRefused(t *testing.T) {
 		{"an unknown port", native("Nowhere", "nowhere"), indexers.ErrNoPort},
 		{"a catalog id a port replaces", native("Lost", "larkspur"), indexers.ErrNoPort},
 		{"an address that isn't http", indexers.Draft{Kind: indexers.Native, Name: "Ftp", Port: "lantern", BaseAddress: "ftp://lantern.test/"}, indexers.ErrNotAnAddress},
-		{"an option the multiselect lacks", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "lantern", Values: map[string]string{"codecs": "1,9"}}, errValue},
-		{"a number past its bound", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "lantern", Values: map[string]string{"pages": "6"}}, errValue},
+		{"an option the multiselect lacks", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "lantern", Values: map[string]string{"passkey": "pk", "codecs": "1,9"}}, errValue},
+		{"a number past its bound", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "lantern", Values: map[string]string{"passkey": "pk", "pages": "6"}}, errValue},
+		{"no passkey", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "lantern"}, errValue},
+		{"an empty passkey", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "lantern", Values: map[string]string{"passkey": ""}}, errValue},
+		{"an empty username", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "quill", Values: map[string]string{"username": "", "password": "pw"}}, errValue},
 		{"a cookie for a site with no cookie", indexers.Draft{Kind: indexers.Native, Name: "Bad", Port: "lantern", Cookie: &indexers.PastedCookie{Cookie: "a=b", UserAgent: "Firefox"}}, indexers.ErrNoCookieSignIn},
 		{"a cookie site with none", native("Ember", "ember"), indexers.ErrCookieNeeded},
 		{"a cookie without its User-Agent", indexers.Draft{Kind: indexers.Native, Name: "Ember", Port: "ember", Cookie: &indexers.PastedCookie{Cookie: "a=b"}}, indexers.ErrUserAgentNeeded},
@@ -490,7 +503,7 @@ func TestATwoFactorCodeGoesWithTheTestAndItsStopWaitsForTheAdmin(t *testing.T) {
 	}
 
 	w.node.answering(nil)
-	lantern := w.add(indexers.Draft{Kind: indexers.Native, Name: "Lantern", Port: "lantern"})
+	lantern := w.add(native("Lantern", "lantern"))
 	if _, err := w.x.Test(t.Context(), identity.Admin{}, lantern.ID, indexers.Typed{Code: "123456"}); !errors.Is(err, indexers.ErrNoCode) {
 		t.Errorf("a code for a site with no two-factor sign-in = %v", err)
 	}
@@ -527,7 +540,8 @@ func TestAPortsStopsNameItsOwnCredentials(t *testing.T) {
 		t.Run(tc.port+" "+string(tc.cause), func(t *testing.T) {
 			w := newNativeWorld(t, livePorts)
 			e, _ := livePorts.Lookup(port.ID(tc.port))
-			d := indexers.Draft{Kind: indexers.Native, Name: e.Name, Port: e.ID, On: true}
+			d := native(e.Name, e.ID)
+			d.On = true
 			if e.Auth == port.PastedCookie {
 				d.Cookie = &indexers.PastedCookie{Cookie: "uid=1", UserAgent: "Firefox"}
 			}

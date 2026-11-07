@@ -83,6 +83,7 @@ const one: One = {
     max: null,
     options: [],
     sealed: false,
+    required: false,
   },
   saved: false,
 };

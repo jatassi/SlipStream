@@ -4666,7 +4666,7 @@
             ]
           },
           "help": {
-            "description": "An info field's text, written by the definition's authors",
+            "description": "An info field's text, written by the definition's authors, or a ported site's help",
             "type": [
               "string",
               "null"
@@ -4702,6 +4702,10 @@
             },
             "type": "array"
           },
+          "required": {
+            "description": "An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value",
+            "type": "boolean"
+          },
           "sealed": {
             "description": "Its saved value is never returned",
             "type": "boolean"
@@ -4733,7 +4737,8 @@
           "min",
           "max",
           "help",
-          "sealed"
+          "sealed",
+          "required"
         ],
         "type": "object"
       },
