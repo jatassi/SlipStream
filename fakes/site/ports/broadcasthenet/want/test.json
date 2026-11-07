@@ -1,0 +1,31 @@
+{
+  "report": {
+    "modes": {
+      "search": [
+        "q"
+      ],
+      "tvsearch": [
+        "q",
+        "season",
+        "ep",
+        "tvdbid",
+        "imdbid",
+        "rid"
+      ]
+    },
+    "categories": [
+      5030,
+      159599,
+      5040,
+      147970,
+      140388,
+      138829,
+      5045,
+      133079,
+      125963
+    ],
+    "items": 3,
+    "sources": null
+  },
+  "sessionChanged": false
+}

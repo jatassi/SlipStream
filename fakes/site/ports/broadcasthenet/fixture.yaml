@@ -1,0 +1,95 @@
+source: synthetic
+settings:
+  apiKey: "{{apiKey}}"
+cases:
+  - name: search
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          method: POST
+          path: /
+          headers: {Content-Type: application/json}
+          json: {jsonrpc: "2.0", method: getTorrents, params: ["{{apiKey}}", {search: "The%Quiet%Orchard"}, 100, 0]}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          method: POST
+          path: /
+          json: {params: ["{{apiKey}}", {search: "Juniper%Falls"}, 100, 0]}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          method: POST
+          path: /
+          json: {jsonrpc: "2.0", method: getTorrents, params: ["{{apiKey}}", {}, 100, 0]}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {method: POST, path: /}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /}
+        response: {status: 401}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /}
+        response: {status: 503, headers: {Retry-After: "300"}}
+  - name: calllimit
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /}
+        response: {headers: {Content-Type: application/json}, body: calllimit.json}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /}
+        response: {headers: {Content-Type: application/json}, body: error.json}
+  - name: html
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: maintenance.html}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          method: POST
+          path: /
+          json: {params: ["{{apiKey}}", {search: "Harbor%Lights", category: Episode, name: "S02E%03%"}, 100, 0]}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: season
+    call: {search: {mode: tvsearch, ids: {tvdbid: "248841"}, season: 2}}
+    exchanges:
+      - request:
+          method: POST
+          path: /
+          json: {params: ["{{apiKey}}", {tvdb: "248841", category: Season, name: "Season 2%"}, 100, 0]}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+      - request:
+          method: POST
+          path: /
+          json: {params: ["{{apiKey}}", {tvdb: "248841", category: Episode, name: "S02E%"}, 100, 0]}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: daily
+    call: {search: {mode: tvsearch, ids: {imdbid: tt0000001}, season: 2026, episode: "05/28"}}
+    exchanges:
+      - request:
+          method: POST
+          path: /
+          json: {params: ["{{apiKey}}", {imdb: tt0000001, category: Episode, name: "2026.05.28%"}, 100, 0]}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=1450003&authkey={{authkey}}&torrent_pass={{passkey}}"}
+    exchanges:
+      - request:
+          path: /torrents.php
+          query: {action: download, id: "1450003"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
