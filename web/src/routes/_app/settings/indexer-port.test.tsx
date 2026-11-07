@@ -36,6 +36,17 @@ test("a ported site is named by its site, and its Details say where its support 
   expect(page.getByText(/native|built-in/iu).query()).toBeNull();
 });
 
+test("an Indexer moved from a ported site to its catalog definition says so on its page", async () => {
+  const note =
+    "TorrentLeech now runs from its catalog definition. It kept its settings, Tracker and history.";
+  const moved = { ...torrentLeech, notes: [note] };
+  renderApp({
+    path: pageOf(moved.id),
+    handlers: indexersServer({ indexers: [moved, prowlarr] }).handlers,
+  });
+  await expect.element(page.getByText(note)).toBeVisible();
+});
+
 test("the Indexers list names a ported site's Indexer by its site", async () => {
   renderApp({
     path: "/settings/indexers",

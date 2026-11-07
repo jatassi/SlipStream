@@ -1,7 +1,7 @@
 import type { IndexersDefinitionForm, NodesNode } from "../../api/gen/model";
 import { AddressField } from "../fields/address-field";
 import { SettingFields, SolverHint } from "../fields/definition-field";
-import type { PortForm } from "../port-shape";
+import type { PortForm } from "../port-form";
 import type { AddForm } from "./use-add";
 
 const privacyLead = {
@@ -22,12 +22,18 @@ export function catalogLead(form: IndexersDefinitionForm, home: string): string 
     : signsIn;
 }
 
-const userAgentHelp = {
-  catalog: () =>
-    "The User-Agent of the same browser. Some Trackers accept the cookie only with it.",
-  native: (name: string) =>
-    `Use the User-Agent of the browser you copied the cookie from. ${name} accepts the cookie only with it.`,
-} as const;
+/**
+ * The User-Agent field's help: a catalog definition can't say whether its
+ * site needs one, and a ported site that doesn't take one gets no field.
+ */
+function userAgentHelp({ entry, port }: IndexersDefinitionForm): string | undefined {
+  if (port === null) {
+    return "The User-Agent of the same browser. Some Trackers accept the cookie only with it.";
+  }
+  return port.userAgent
+    ? `Use the User-Agent of the browser you copied the cookie from. ${entry.name} accepts the cookie only with it.`
+    : undefined;
+}
 
 /** What adding a ported site adds to its catalog-shaped lead. */
 export function portLead(form: PortForm, home: string): string[] {
@@ -35,11 +41,19 @@ export function portLead(form: PortForm, home: string): string[] {
   return [
     catalogLead(form, home),
     `SlipStream includes support for ${name}. Fixes to it come with SlipStream updates.`,
-    ...(form.recent ? [] : [`${name} has no list of new Releases, so RSS sync can't use it.`]),
+    ...(form.port.recent ? [] : [`${name} has no list of new Releases, so RSS sync can't use it.`]),
   ];
 }
 
-function CookieFields({ form, name, ported }: { form: AddForm; name: string; ported: boolean }) {
+function CookieFields({
+  form,
+  name,
+  userAgent,
+}: {
+  form: AddForm;
+  name: string;
+  userAgent: string | undefined;
+}) {
   return (
     <>
       <form.AppField
@@ -61,17 +75,19 @@ function CookieFields({ form, name, ported }: { form: AddForm; name: string; por
           />
         )}
       </form.AppField>
-      <form.AppField name="userAgent">
-        {(field) => (
-          <field.TextField
-            label="User-Agent"
-            data
-            autoComplete="off"
-            spellCheck={false}
-            description={ported ? userAgentHelp.native(name) : userAgentHelp.catalog()}
-          />
-        )}
-      </form.AppField>
+      {userAgent !== undefined && (
+        <form.AppField name="userAgent">
+          {(field) => (
+            <field.TextField
+              label="User-Agent"
+              data
+              autoComplete="off"
+              spellCheck={false}
+              description={userAgent}
+            />
+          )}
+        </form.AppField>
+      )}
     </>
   );
 }
@@ -110,7 +126,9 @@ export function CatalogFields({
         settings={definition.fields}
         saved={false}
       />
-      {definition.cookie && <CookieFields form={form} name={name} ported={ported} />}
+      {definition.cookie && (
+        <CookieFields form={form} name={name} userAgent={userAgentHelp(definition)} />
+      )}
       {definition.solver && <SolverHint name={name} home={home} />}
     </>
   );

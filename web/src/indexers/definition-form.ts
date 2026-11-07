@@ -5,7 +5,7 @@ import {
   getCatalogDefinition,
   getGetCatalogDefinitionQueryKey,
 } from "../api/gen/query/indexers/indexers";
-import { type PortForm, portFormOf } from "./port-shape";
+import { type PortForm, portFormOf } from "./port-form";
 
 /** The form an Indexer's settings are drawn from: its definition's, or its port's. */
 export type SettingsForm =

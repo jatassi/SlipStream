@@ -25,6 +25,11 @@ function Lead({ indexer }: { indexer: IndexersIndexer }) {
         <StatusLine indexer={indexer} />
       </div>
       {indexer.fix !== null && <p className="text-ink-1">{indexer.fix}</p>}
+      {indexer.notes.map((note) => (
+        <p key={note} className="text-ink-2">
+          {note}
+        </p>
+      ))}
       {waitsOnLapsedHome(indexer) && (
         <div id="allow-failover" className="scroll-mt-20 self-start">
           <IndexerSwitch indexer={indexer} name="allowFailover" />

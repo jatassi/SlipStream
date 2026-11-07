@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
 
-import type { IndexersIndexer, NodesNode } from "../api/gen/model";
+import type { IndexersIndexer, IndexersPortPin, NodesNode } from "../api/gen/model";
 import { clock } from "../format";
 import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Details } from "../ui/details";
 import { type SettingsForm, useSettingsForm } from "./definition-form";
-import { type PortPin, portOf } from "./port-shape";
 import { nodeName, portedWords, spacingWords } from "./words";
 
 function sessionWords(indexer: IndexersIndexer, nodes: readonly NodesNode[]): string {
@@ -22,14 +21,16 @@ const words = (text: string): ReactNode => <span>{text}</span>;
 type Row = readonly [string, ReactNode];
 
 /** A ported site's rows: where its support comes from, and its spacing once its form is read. */
-function portRows(port: PortPin | null, settings: SettingsForm | undefined): Row[] {
+function portRows(port: IndexersPortPin | null, settings: SettingsForm | undefined): Row[] {
   if (port === null) {
     return [];
   }
   return [
-    ["Support", words(portedWords(port))],
+    ...(port.synced === null
+      ? []
+      : [["Support", words(portedWords(port.name, port.synced))] as const]),
     ...(settings?.kind === "native"
-      ? [["Spacing", words(spacingWords(port.name, settings.form.spacing))] as const]
+      ? [["Spacing", words(spacingWords(port.name, settings.form.port.spacingSeconds))] as const]
       : []),
   ];
 }
@@ -51,7 +52,7 @@ function machineryOf(
             words(`${definition.id}, the version from ${clock(definition.fetchedAt)}`),
           ] as const,
         ]),
-    ...portRows(portOf(indexer), settings),
+    ...portRows(indexer.port, settings),
     ["Session", words(sessionWords(indexer, nodes))],
     ["State", status.state],
     ["Backoff step", String(status.rung)],

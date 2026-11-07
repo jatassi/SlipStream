@@ -23,8 +23,8 @@ export function captchaOf(error: unknown): IndexersCaptchaImage | undefined {
   return isCaptcha(captcha) ? captcha : undefined;
 }
 
-// indexer_test_failed's cause is a member P0's API shape lacks and the
-// Controller lane adds, like the members port-shape.ts parses.
+// indexer_test_failed carries no cause in the API yet, so this reads a
+// cause member the Controller is asked to add beside the captcha.
 const codeCause = z.object({ cause: z.literal("code_needed") });
 
 /** A failed Test that met a sign-in needing a two-factor code. */

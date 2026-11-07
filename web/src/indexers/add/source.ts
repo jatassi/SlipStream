@@ -1,12 +1,13 @@
 import type {
   IndexersDefinitionForm,
+  IndexersLimit,
   IndexersNewIndexer,
   NodesNode,
   WorksContentType,
 } from "../../api/gen/model";
 import { type LimitValues, noLimit } from "../fields/limit-field";
 import { limitOf, limitSchema } from "../edit-values";
-import type { PortForm } from "../port-shape";
+import type { PortForm } from "../port-form";
 import { type AddressValues, addressOf, startAddress } from "../fields/address-field";
 import { settingAt, settingsOf, startValue } from "../fields/settings";
 import { familiesOf } from "./families";
@@ -50,18 +51,24 @@ export type AddValues = {
 export const formOf = (source: Source) =>
   source.kind === "catalog" || source.kind === "native" ? source.form : undefined;
 
+const limitValuesOf = ({ count, per }: IndexersLimit): LimitValues => ({
+  count: String(count),
+  per,
+});
+
 /** A ported site with no list of new Releases keeps RSS off, since RSS sync can't read it. */
-export const listsRecent = (source: Source) => source.kind !== "native" || source.form.recent;
+export const listsRecent = (source: Source) => source.kind !== "native" || source.form.port.recent;
 
 export function startValues(source: Source, home: NodesNode | undefined, name = ""): AddValues {
   const form = formOf(source);
+  const port = form?.port ?? null;
   const enabled = source.kind === "rss" ? source.contentTypes.filter((type) => type.enabled) : [];
   return {
     name: form?.entry.name ?? name,
     homeNodeId: home?.id ?? "",
     priority: "25",
-    searches: noLimit,
-    grabs: noLimit,
+    searches: port === null ? noLimit : limitValuesOf(port.searches),
+    grabs: port === null ? noLimit : limitValuesOf(port.grabs),
     on: true,
     automaticSearch: true,
     rss: listsRecent(source),

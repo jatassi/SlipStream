@@ -2,8 +2,10 @@ import type {
   IndexersDefinitionField,
   IndexersIndexer,
   IndexersIndexerCatalog,
+  IndexersPortFacts,
+  IndexersPortPin,
 } from "../api/gen/model";
-import type { PortForm, PortPin } from "../indexers/port-shape";
+import type { PortForm } from "../indexers/port-form";
 import { catalog, entry, notDownloaded } from "./catalog";
 import { indexer } from "./indexers";
 import { homeId } from "./nodes";
@@ -38,10 +40,23 @@ export const norbitsEntry = port({
   categories: [2000, 5000],
 });
 export const iptorrentsEntry = port({ id: "iptorrents", name: "IPTorrents" });
+export const torrentDayEntry = port({ id: "torrentday", name: "TorrentDay" });
 export const shazbatEntry = port({ id: "shazbat", name: "Shazbat", categories: [5000] });
 
 const username = field({ name: "username", type: "text", label: "Username" });
 const password = field({ name: "password", type: "password", label: "Password", sealed: true });
+
+const unlimited = { count: 0, per: "hour" } as const;
+
+const facts = (over: Partial<IndexersPortFacts> = {}): IndexersPortFacts => ({
+  userAgent: false,
+  searches: unlimited,
+  grabs: unlimited,
+  recent: true,
+  spacingSeconds: 2,
+  synced: "2026-11-06T15:30:00Z",
+  ...over,
+});
 
 const portForm = (over: Partial<PortForm> & Pick<PortForm, "entry" | "links">): PortForm => ({
   session: false,
@@ -50,8 +65,7 @@ const portForm = (over: Partial<PortForm> & Pick<PortForm, "entry" | "links">): 
   cookie: false,
   code: false,
   fields: [],
-  spacing: 2,
-  recent: true,
+  port: facts(),
   ...over,
 });
 
@@ -79,7 +93,7 @@ export const hdbitsForm = portForm({
 export const torrentsCsvForm = portForm({
   entry: torrentsCsvEntry,
   links: ["https://torrents-csv.com/"],
-  recent: false,
+  port: facts({ recent: false }),
 });
 
 export const norbitsForm = portForm({
@@ -105,7 +119,7 @@ export const iptorrentsForm = portForm({
   links: ["https://iptorrents.com/", "https://iptorrents.me/", "https://nemo.iptorrents.com/"],
   session: true,
   cookie: true,
-  spacing: 6.1,
+  port: facts({ userAgent: true, spacingSeconds: 6.1 }),
 });
 
 export const shazbatForm = portForm({
@@ -124,12 +138,22 @@ export const shazbatForm = portForm({
   ],
 });
 
+/** A cookie site that takes no User-Agent, with Prowlarr's default limits. */
+export const torrentDayForm = portForm({
+  entry: torrentDayEntry,
+  links: ["https://tday.love/", "https://torrentday.cool/"],
+  session: true,
+  cookie: true,
+  port: facts({ searches: { count: 100, per: "day" }, grabs: { count: 20, per: "day" } }),
+});
+
 export const portForms: readonly PortForm[] = [
   hdbitsForm,
   torrentsCsvForm,
   norbitsForm,
   iptorrentsForm,
   shazbatForm,
+  torrentDayForm,
 ];
 
 const ports = portForms.map((form) => form.entry);
@@ -148,7 +172,7 @@ export const iptorrentsId = "0f5c4a8e-6d7b-4c9f-8e1a-3b4c5d6e7f8a";
 
 const synced = "2026-11-06T15:30:00Z";
 
-const norbitsPort: PortPin = {
+const norbitsPort: IndexersPortPin = {
   id: "norbits",
   name: "NorBits",
   synced,
@@ -190,7 +214,7 @@ export const norbits: IndexersIndexer = indexer({
   fix: "Type the current code and test again.",
 });
 
-const iptorrentsPort: PortPin = {
+const iptorrentsPort: IndexersPortPin = {
   id: "iptorrents",
   name: "IPTorrents",
   synced,
@@ -209,7 +233,7 @@ export const iptorrents: IndexersIndexer = indexer({
 });
 
 /** The port a new native Indexer saves, as the server returns it. */
-export const portPinOf = (form: PortForm, baseAddress: string): PortPin => ({
+export const portPinOf = (form: PortForm, baseAddress: string): IndexersPortPin => ({
   id: form.entry.id,
   name: form.entry.name,
   synced,

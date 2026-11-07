@@ -1,6 +1,6 @@
 import type { IndexersDefinitionForm, NodesNode } from "../../api/gen/model";
 import { Details } from "../../ui/details";
-import { portFormOf } from "../port-shape";
+import { portFormOf } from "../port-form";
 import { AddIndexerForm } from "./add-form";
 import { unrunnable } from "./picker-parts";
 import type { Source } from "./source";

@@ -21,7 +21,7 @@ test("ported sites sit in the catalog picker, found by the same search and filte
     path: "/settings/indexers/new",
     handlers: addIndexerServer({ catalog: catalogWithPorts }).handlers,
   });
-  await expect.element(privacy("All").getByText("13", { exact: true })).toBeVisible();
+  await expect.element(privacy("All").getByText("14", { exact: true })).toBeVisible();
   await expect.element(privacy("Public").getByText("3", { exact: true })).toBeVisible();
   await userEvent.click(page.getByRole("combobox", { name: "Language" }));
   await userEvent.click(page.getByRole("option", { name: /^Norwegian Bokmål/u }));
@@ -162,6 +162,30 @@ test("a ported cookie site says which User-Agent the cookie needs", async () => 
       ),
     )
     .toBeVisible();
+});
+
+test("a ported cookie site that takes no User-Agent asks only for the cookie, and starts at its site's limits", async () => {
+  const server = addIndexerServer();
+  renderApp({ path: formOf("torrentday"), handlers: server.handlers });
+  await expect.element(page.getByRole("textbox", { name: "Cookie" })).toBeVisible();
+  expect(page.getByRole("textbox", { name: "User-Agent" }).query()).toBeNull();
+  await expect
+    .element(
+      page.getByText(
+        "It searches from home at priority 25, with at most 100 searches a day and 20 grabs a day.",
+      ),
+    )
+    .toBeVisible();
+  await userEvent.fill(page.getByRole("textbox", { name: "Cookie" }), "uid=7");
+  await userEvent.click(save());
+  await added("TorrentDay");
+  expect(posted(server.writes)).toEqual([
+    expect.objectContaining({
+      searches: { count: 100, per: "day" },
+      grabs: { count: 20, per: "day" },
+      cookie: { cookie: "uid=7", userAgent: "" },
+    }),
+  ]);
 });
 
 test("a number field shows its range and is checked against it before the Test", async () => {

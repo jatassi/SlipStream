@@ -1,7 +1,6 @@
 import type { IndexersIndexer, IndexersLimitUse, IndexersQuery, NodesNode } from "../api/gen/model";
 import { clock, countWords } from "../format";
 import type { AlertTone } from "../ui/count";
-import { type PortPin, portOf } from "./port-shape";
 
 const kindWords: { readonly [K in Exclude<IndexersIndexer["kind"], "native">]: string } = {
   catalog: "Catalog site",
@@ -11,9 +10,8 @@ const kindWords: { readonly [K in Exclude<IndexersIndexer["kind"], "native">]: s
 
 /** What kind of Indexer it is in words; a ported site is named by its site. */
 export function kindOf(indexer: IndexersIndexer): string {
-  const port = portOf(indexer);
-  if (port !== null) {
-    return port.name;
+  if (indexer.port !== null) {
+    return indexer.port.name;
   }
   if (indexer.kind === "native") {
     throw new Error("a native Indexer came without its port");
@@ -29,7 +27,7 @@ const syncedFormat = new Intl.DateTimeFormat("en-GB", {
 });
 
 /** Where a ported site's support comes from: Prowlarr's code as of the commit it was synced to. */
-export const portedWords = ({ name, synced }: PortPin) =>
+export const portedWords = (name: string, synced: string) =>
   `SlipStream's ${name} support is ported from Prowlarr's code of ${syncedFormat.format(new Date(synced))}.`;
 
 const seconds = { one: "second", many: "seconds" } as const;
