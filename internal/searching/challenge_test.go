@@ -246,7 +246,7 @@ func TestReachSolverAnswersTheHealthStatusOrWhyTheNodeCantReachIt(t *testing.T) 
 		t.Fatalf("ReachSolver of a path that serves no solver = %d, %v; want 404", status, err)
 	}
 	_, err := n.ReachSolver(t.Context(), searching.Solver{Address: "http://127.0.0.1:1", Timeout: time.Minute})
-	if u, ok := errors.AsType[*searching.SolverUnreachable](err); !ok || !strings.Contains(u.Cause, "connection refused") {
+	if u, ok := errors.AsType[*searching.SolverUnreachable](err); !ok || !strings.Contains(u.Cause, "dial tcp 127.0.0.1:1") {
 		t.Fatalf("ReachSolver of an address nothing listens on = %v, want SolverUnreachable with the cause", err)
 	}
 }
