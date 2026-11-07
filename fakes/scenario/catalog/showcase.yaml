@@ -1,11 +1,12 @@
 # yaml-language-server: $schema=../scenario.schema.json
+# Re-record every movie and series below from the repository root with:
+#   TMDB_API_KEY=… OMDB_API_KEY=… TVDB_API_KEY=… go run ./fakes/scenario/record -scenario fakes/scenario/catalog/showcase.yaml -movies 155,194,27205,76341,324857,329865,496243,545611,693134,872585 -series ""
 description: >-
   home's two Nodes with ten real movies recorded from TMDB and OMDb, with
   their real posters, backdrops, title treatments and cast photos, so the
   Library and Work pages look as they do against the live providers. Each
-  movie has one seeded 1080p release to grab. Re-record with
-  `go run ./fakes/scenario/record -scenario fakes/scenario/catalog/showcase.yaml`
-  and the ids below.
+  movie has one seeded 1080p release to grab. Re-record with the command at
+  the top of this file.
 seed: showcase
 admin:
   email: ada@example.test
