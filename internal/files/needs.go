@@ -51,13 +51,9 @@ const (
 func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted bool) []Need {
 	var out []Need
 	waits := map[storage.UUID]bool{}
-	editions := map[targets.Edition]int{}
 	wanted := false
 	for group := range groupsOf(cells) {
 		head := group[0]
-		if _, seen := editions[head.Edition]; !seen {
-			editions[head.Edition] = len(editions)
-		}
 		if !head.Item.Counts() {
 			continue
 		}
@@ -94,10 +90,22 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 	if !rooted && wanted {
 		out = append(out, Need{Kind: NeedNoRoot})
 	}
+	editions := ranksOf(cells)
 	slices.SortStableFunc(out, func(a, b Need) int {
 		return cmp.Or(cmp.Compare(a.Kind, b.Kind), cmp.Compare(editions[a.Edition], editions[b.Edition]))
 	})
 	return runs(items, out)
+}
+
+// ranksOf ranks each Edition of cells by where it first appears.
+func ranksOf(cells []Cell) map[targets.Edition]int {
+	out := map[targets.Edition]int{}
+	for _, c := range cells {
+		if _, seen := out[c.Edition]; !seen {
+			out[c.Edition] = len(out)
+		}
+	}
+	return out
 }
 
 // groupsOf yields each run of cells of one Item and Edition.
@@ -127,7 +135,7 @@ func runs(items []works.Item, ns []Need) []Need {
 	for _, n := range ns {
 		if len(out) > 0 && len(n.Items) == 1 {
 			last := &out[len(out)-1]
-			if len(last.Items) > 0 && index[last.Items[len(last.Items)-1]]+1 == index[n.Items[0]] && same(*last, n) {
+			if index[last.Items[len(last.Items)-1]]+1 == index[n.Items[0]] && same(*last, n) {
 				last.Items = append(last.Items, n.Items[0])
 				continue
 			}
