@@ -1,4 +1,4 @@
-import { mixedAttributes, type SwitchChecked, switchKnob, switchTrack } from "./switch";
+import { mixedAttributes, mixedKnob, type SwitchChecked, switchKnob, switchTrack } from "./switch";
 
 /**
  * The switch for rows a page draws by the hundred. It looks like
@@ -32,7 +32,7 @@ export function RowSwitch({
       {...mixed}
       className={`${switchTrack} disabled:opacity-40`}
     >
-      <span {...on} {...mixed} className={switchKnob} />
+      <span {...on} {...mixedKnob(checked)} className={switchKnob} />
     </button>
   );
 }

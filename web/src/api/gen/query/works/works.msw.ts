@@ -150,6 +150,7 @@ export const getListContentTypesResponseMock = (
       ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => faker.string.alpha({ length: { min: 10, max: 20 } }),
       ),
+      releases: faker.string.alpha({ length: { min: 10, max: 20 } }),
       source: faker.string.alpha({ length: { min: 10, max: 20 } }),
       work: {
         many: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -617,6 +618,7 @@ export const getSetContentTypeEnabledResponseMock = (
   ratings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  releases: faker.string.alpha({ length: { min: 10, max: 20 } }),
   source: faker.string.alpha({ length: { min: 10, max: 20 } }),
   work: {
     many: faker.string.alpha({ length: { min: 10, max: 20 } }),

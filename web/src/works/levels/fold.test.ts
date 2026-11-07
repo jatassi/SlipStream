@@ -3,8 +3,9 @@ import { expect, test } from "vitest";
 import { anthologies } from "../../test/anthology";
 import { type Foldable, foldWords, foldsOf } from "./fold";
 
-const stories = anthologies.item;
-const tracks = { one: "Track", many: "Tracks" };
+const stories = anthologies;
+const tracks = { item: { one: "Track", many: "Tracks" }, releases: "" };
+const episodes = { item: { one: "Episode", many: "Episodes" }, releases: "air" };
 
 const story = (n: number, date: string | null, unreleased = true): Foldable => ({
   code: `V01S${String(n).padStart(2, "0")}`,
@@ -21,6 +22,15 @@ test("a run of unreleased Items reads by the Item noun and the number its codes 
       story(7, "2026-11-02"),
     ]),
   ).toBe("Stories 4 to 7 come out October 12 to November 2");
+});
+
+test("a type's own verb for coming out replaces come out", () => {
+  expect(
+    foldWords(episodes, [
+      { code: "S01E04", date: "2026-10-12", unreleased: true },
+      { code: "S01E07", date: "2026-11-02", unreleased: true },
+    ]),
+  ).toBe("Episodes 4 and 7 air October 12 to November 2");
 });
 
 test("two Items read with and, and one shared date reads once", () => {

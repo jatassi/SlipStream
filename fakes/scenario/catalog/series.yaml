@@ -5,8 +5,10 @@ description: >-
   on the tvdb-move-episode cue and an episode tvdb-remove-episode drops.
   Harbor Nights is ended, findable by its alternative title, and returns on
   tvdb-add-season. Signal Nine has no TMDB id and an episode announced with
-  no date. The Shell Forest's own name is Japanese. The library has a TV
-  root, and the world sets an Admin TVDB key.
+  no date. The Shell Forest's own name is Japanese. Harbor Lights is a
+  series only TMDB lists, and The Quiet Orchard is a movie beside them. The
+  library has a TV root and a Movies root, and the world sets an Admin TVDB
+  key.
 seed: series
 admin:
   email: ada@example.test
@@ -107,6 +109,18 @@ tvdb:
           episodes:
             - {id: 100411, number: 1, name: The Shell Forest, aired: 2018-04-05, runtime: 24}
             - {id: 100412, number: 2, name: Moss and Iron, aired: 2018-04-12, runtime: 24}
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+  series:
+    - id: 7101
+      name: Harbor Lights
+      first_aired: "2019-05-02"
+      overview: Harbor Lights is a fictional series only TMDB lists.
 library:
   storage_levels: {warn_below: 0B, error_below: 0B}
-  roots: [{content_type: series, folder: tv}]
+  roots: [{content_type: series, folder: tv}, {content_type: movie, folder: movies}]

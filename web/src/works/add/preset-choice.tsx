@@ -1,8 +1,9 @@
 import type { WorksContentType, WorksPresetCounts } from "../../api/gen/model";
 import { countWords } from "../../format";
 import { Select } from "../../ui/select";
-import type { AddChoices, MonitorControl, Preset } from "./choices";
-import { lowered, monitoringOf } from "./sentence";
+import { type Preset, lowered } from "../monitoring/labels";
+import type { AddChoices, MonitorControl } from "./choices";
+import { monitoringOf } from "./sentence";
 
 /** The monitoring choice, each preset with what it monitors now while the preview counts it. */
 export function PresetChoice({

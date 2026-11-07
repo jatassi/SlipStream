@@ -10,8 +10,12 @@ export const switchKnob =
   "size-4 rounded-capsule bg-solid shadow-[0_1px_3px_rgba(0,0,0,.3)] transition-[translate] duration-280 ease-standard in-data-[density=touch]:size-6.75 data-checked:translate-x-3.5 in-data-[density=touch]:data-checked:translate-x-5 data-mixed:translate-x-1.75 in-data-[density=touch]:data-mixed:translate-x-2.5 motion-reduce:transition-none";
 
 export function mixedAttributes(checked: SwitchChecked) {
-  return checked === "mixed" ? ({ "aria-checked": "mixed", "data-mixed": "" } as const) : {};
+  return checked === "mixed" ? ({ "aria-checked": "mixed", ...mixedKnob(checked) } as const) : {};
 }
+
+// aria-checked is allowed on the switch alone, so the knob takes only the look.
+export const mixedKnob = (checked: SwitchChecked) =>
+  checked === "mixed" ? ({ "data-mixed": "" } as const) : {};
 
 export function Switch({
   label,
@@ -59,7 +63,7 @@ export function SwitchControl({
       {...mixed}
       className={switchTrack}
     >
-      <BaseSwitch.Thumb {...mixed} className={switchKnob} />
+      <BaseSwitch.Thumb {...mixedKnob(checked)} className={switchKnob} />
     </BaseSwitch.Root>
   );
 }

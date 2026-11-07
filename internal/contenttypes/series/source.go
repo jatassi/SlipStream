@@ -74,7 +74,7 @@ func candidateOf(f tvdb.Found) works.Candidate {
 		c.Poster = tvdbRef(artwork.ShapePoster, f.Poster)
 	}
 	if f.Year > 0 {
-		c.Fields = append(c.Fields, works.NumberField("year", float64(f.Year)))
+		c.Fields = append(c.Fields, yearFields(f.Year)...)
 	}
 	if f.Network != "" {
 		c.Fields = append(c.Fields, works.TextField("network", f.Network))
@@ -94,9 +94,15 @@ func tmdbCandidateOf(r tmdb.SeriesFound, ids tmdb.SeriesIDs) works.Candidate {
 		c.Poster = tmdbRef(artwork.ShapePoster, r.PosterPath)
 	}
 	if first, err := works.ParseDate(r.FirstAired); err == nil {
-		c.Fields = append(c.Fields, works.NumberField("year", float64(first.Year)))
+		c.Fields = append(c.Fields, yearFields(first.Year)...)
 	}
 	return c
+}
+
+// yearFields are a result's first-aired year, the only year a search
+// result knows, so its facts line shows it as the years.
+func yearFields(year int) []works.FieldValue {
+	return []works.FieldValue{works.TextField("years", strconv.Itoa(year)), works.NumberField("year", float64(year))}
 }
 
 func firstLine(s string) string {

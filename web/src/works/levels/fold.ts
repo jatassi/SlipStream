@@ -1,4 +1,5 @@
-import type { WorksNoun } from "../../api/gen/model";
+import type { WorksContentType } from "../../api/gen/model";
+import { releaseVerb } from "../monitoring/labels";
 import { dayWords } from "../page/fields-format";
 
 /** What folding reads of an Item row. */
@@ -10,6 +11,8 @@ export type Foldable = {
 };
 
 export type Fold<T> = { readonly items: readonly T[]; readonly words: string };
+
+export type Folding = Pick<WorksContentType, "item" | "releases">;
 
 export type Entry<T> =
   | { readonly kind: "item"; readonly item: T }
@@ -50,30 +53,30 @@ function spanWords(first: string, last: string): string {
     : `${dateWords(first, short)} to ${dateWords(last, short)}`;
 }
 
-/** "Episodes 4 to 7 come out October 12 to November 2", from the Item noun and the codes. */
-export function foldWords(noun: WorksNoun, items: readonly Foldable[]): string {
+/** "Episodes 4 to 7 air 12 October to 2 November", from the Item noun, the type's verb and the codes. */
+export function foldWords(type: Folding, items: readonly Foldable[]): string {
   const first = items.at(0);
   const last = items.at(-1);
   if (first === undefined || last === undefined) {
     return "";
   }
   const [a, b] = shortCodes(first.code, last.code);
-  const which = `${noun.many} ${a} ${items.length === 2 ? "and" : "to"} ${b}`;
+  const which = `${type.item.many} ${a} ${items.length === 2 ? "and" : "to"} ${b}`;
   return first.date === null || last.date === null
     ? `${which} have no availability date yet`
-    : `${which} come out ${spanWords(first.date, last.date)}`;
+    : `${which} ${releaseVerb(type)} ${spanWords(first.date, last.date)}`;
 }
 
 const runOf = (item: Foldable) =>
   item.unreleased ? (item.date === null ? "undated" : "dated") : undefined;
 
 /** The rows of a level: runs of two or more unreleased Items fold into one line, dated runs apart from undated ones. */
-export function foldsOf<T extends Foldable>(noun: WorksNoun, items: readonly T[]): Entry<T>[] {
+export function foldsOf<T extends Foldable>(type: Folding, items: readonly T[]): Entry<T>[] {
   const entries: Entry<T>[] = [];
   let run: T[] = [];
   const flush = () => {
     if (run.length >= 2) {
-      entries.push({ kind: "fold", fold: { items: run, words: foldWords(noun, run) } });
+      entries.push({ kind: "fold", fold: { items: run, words: foldWords(type, run) } });
     } else {
       entries.push(...run.map((item) => ({ kind: "item" as const, item })));
     }

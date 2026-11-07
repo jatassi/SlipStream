@@ -46,8 +46,14 @@ export const engineOf = (name: ProjectName): Engine => projects[name][0];
 
 // Specs of the desktop shell's own controls, such as the account menu, and
 // of the Diagram's drags, which a phone doesn't take. The Library's scale
-// measure seeds 20,000 Works once, against the desktop grid.
-const desktopOnly = ["restart.spec.ts", "diagram.spec.ts", "library-scale.spec.ts"];
+// measure seeds 20,000 Works once, against the desktop grid, and the Work
+// page's measures a 1,200-episode series on the desktop rows.
+const desktopOnly = [
+  "restart.spec.ts",
+  "diagram.spec.ts",
+  "library-scale.spec.ts",
+  "work-scale.spec.ts",
+];
 
 function project(name: ProjectName): Project {
   const [engine, preset] = projects[name];

@@ -134,6 +134,9 @@ type Description struct {
 	// Availability labels the Library's availability column and sort, such
 	// as Next airing; empty reads Available.
 	Availability string
+	// Releases is the verb a fold of unreleased Items uses for their coming
+	// out, such as air; empty reads come out.
+	Releases string
 }
 
 type ItemsShape uint8

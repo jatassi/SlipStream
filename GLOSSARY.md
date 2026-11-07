@@ -57,7 +57,7 @@ One Edition at one Target of one Item. Under any cut, an Item has one cell per T
 _Avoid_: Slot, square
 
 **Availability date**:
-The day an Item counts as released, chosen by its Content Type's rule from the release dates its metadata source lists. A movie counts as released on its first home release in the metadata region, then in any country, then a settable delay after its cinema release; an Admin can let the first cinema release count instead. An Item with no date stays unreleased.
+The day an Item counts as released, chosen by its Content Type's rule from the release dates its metadata source lists. A movie counts as released on its first home release in the metadata region, then in any country, then a settable delay after its cinema release; an Admin can let the first cinema release count instead. An episode counts as released on its TVDB air date plus TV's "Delay after an air date", 0 days unless the Admin sets one, on the Controller's calendar, with no air time or network time zone. An Item with no date stays unreleased.
 _Avoid_: Release date (for the deciding day), available date, out date
 
 **Item status**:
@@ -75,6 +75,10 @@ _Avoid_: Monitor mode, monitor option, preset (alone, which reads as a Target's 
 **Monitor new Items**:
 A Work's switch for whether Items its metadata source adds later arrive monitored. An Item in an aside level arrives monitored only when the Work also includes its asides. A preset sets it, and an Admin can change it on its own. Its label uses the Item noun, such as "Monitor new episodes".
 _Avoid_: Monitor future, auto-monitor
+
+**Episode order**:
+The numbering a series follows, chosen per Work in Edit: Aired (TVDB's default order), DVD or Absolute, Aired unless the Admin picks another. Each episode keeps its identity across orders, so changing the order moves episodes between seasons and keeps their files, Grabs and monitoring. Edit lists only the orders TVDB has for the series, and nothing ever reads TMDB's numbering.
+_Avoid_: Numbering scheme, season type, episode group
 
 **Aside**:
 A code word for an outermost level outside a Work's main run, such as season 0. Copy never says it: it says the Content Type's noun for it, such as Specials.
