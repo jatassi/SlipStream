@@ -344,7 +344,7 @@ jobs:
             !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
       - name: Upload this shard's test timings
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: timings-${{ matrix.target }}-browser-${{ matrix.shard }}

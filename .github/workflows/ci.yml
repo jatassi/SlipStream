@@ -403,7 +403,7 @@ jobs:
   timings:
     name: Save Go test timings
     needs: [go, target]
-    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.go.result != 'skipped' }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
