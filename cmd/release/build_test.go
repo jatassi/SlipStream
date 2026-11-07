@@ -112,9 +112,10 @@ func TestBundleKeysRefusesAnEmptySecret(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		{"no OMDb key", map[string]string{"SLIPSTREAM_TMDB_KEY": "t1"}, "-bundle-keys: SLIPSTREAM_OMDB_KEY is empty"},
-		{"no TMDB key", map[string]string{"SLIPSTREAM_OMDB_KEY": "o1"}, "-bundle-keys: SLIPSTREAM_TMDB_KEY is empty"},
-		{"a key with a space", map[string]string{"SLIPSTREAM_TMDB_KEY": "t 1", "SLIPSTREAM_OMDB_KEY": "o1"}, "-bundle-keys: SLIPSTREAM_TMDB_KEY holds a character no API key has"},
+		{"no OMDb key", map[string]string{"SLIPSTREAM_TMDB_KEY": "t1", "SLIPSTREAM_TVDB_KEY": "v1"}, "-bundle-keys: SLIPSTREAM_OMDB_KEY is empty"},
+		{"no TVDB key", map[string]string{"SLIPSTREAM_TMDB_KEY": "t1", "SLIPSTREAM_OMDB_KEY": "o1"}, "-bundle-keys: SLIPSTREAM_TVDB_KEY is empty"},
+		{"no TMDB key", map[string]string{"SLIPSTREAM_TVDB_KEY": "v1", "SLIPSTREAM_OMDB_KEY": "o1"}, "-bundle-keys: SLIPSTREAM_TMDB_KEY is empty"},
+		{"a key with a space", map[string]string{"SLIPSTREAM_TMDB_KEY": "t 1", "SLIPSTREAM_TVDB_KEY": "v1", "SLIPSTREAM_OMDB_KEY": "o1"}, "-bundle-keys: SLIPSTREAM_TMDB_KEY holds a character no API key has"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			flag, err := bundledKeys(true, func(name string) string { return tc.env[name] })
@@ -124,9 +125,9 @@ func TestBundleKeysRefusesAnEmptySecret(t *testing.T) {
 		})
 	}
 	flag, err := bundledKeys(true, func(name string) string {
-		return map[string]string{"SLIPSTREAM_TMDB_KEY": "t1", "SLIPSTREAM_OMDB_KEY": "o1"}[name]
+		return map[string]string{"SLIPSTREAM_TMDB_KEY": "t1", "SLIPSTREAM_TVDB_KEY": "v1", "SLIPSTREAM_OMDB_KEY": "o1"}[name]
 	})
-	if want := "-X=github.com/jatassi/slipstream/internal/metadata.bundled=tmdb:t1,omdb:o1"; err != nil || flag != want {
+	if want := "-X=github.com/jatassi/slipstream/internal/metadata.bundled=tmdb:t1,tvdb:v1,omdb:o1"; err != nil || flag != want {
 		t.Fatalf("bundledKeys = %q, %v; want %q", flag, err, want)
 	}
 }

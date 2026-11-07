@@ -1,6 +1,7 @@
-// Package tmdb is fake-tmdb: TMDB v3's movie search, whole movie records,
-// changes list and configuration, from the Scenario's tmdb catalog. It
-// takes any API key or none until a cue revokes it.
+// Package tmdb is fake-tmdb: TMDB v3's movie and series searches, whole
+// movie records, what it adds to a series, the lookup by TVDB id, the
+// movie and series changes lists and configuration, from the Scenario's
+// tmdb catalog. It takes any API key or none until a cue revokes it.
 package tmdb
 
 import (
@@ -33,6 +34,10 @@ var (
 	// Delete has TMDB drop {"id": n}: it answers 404 with status_code 34
 	// and is listed as changed now.
 	Delete = fake.CueSpec{Name: "tmdb-delete"}
+	// SeriesChange and SeriesDelete play Change and Delete on the series
+	// {"id": n}, listed on the series changes list.
+	SeriesChange = fake.CueSpec{Name: "tmdb-tv-change"}
+	SeriesDelete = fake.CueSpec{Name: "tmdb-tv-delete"}
 )
 
 var Fake = fake.Spec{
@@ -44,7 +49,7 @@ var Fake = fake.Spec{
 		e.TMDB.KeyPage = endpoint.MustParseURL("https://www.tmdb.invalid/settings/api")
 	},
 	Online: fake.OnlineSuite("tmdb"),
-	Cues:   []fake.CueSpec{RevokeKey, Change, Delete},
+	Cues:   []fake.CueSpec{RevokeKey, Change, Delete, SeriesChange, SeriesDelete},
 }
 
 const (
@@ -57,10 +62,20 @@ const (
 
 type server struct {
 	catalog scenario.TMDB
+	// imdb is the IMDb id of each series fake-tvdb lists, by TVDB id, which
+	// a series' external ids carry.
+	imdb map[int64]string
 
-	mu       sync.Mutex
-	seen     map[string]bool
-	revoked  map[string]bool
+	mu      sync.Mutex
+	seen    map[string]bool
+	revoked map[string]bool
+	movies  ledger
+	series  ledger
+}
+
+// ledger is the changes TMDB has made to the movies or to the series: TMDB
+// numbers each apart and lists each one's changes on its own list.
+type ledger struct {
 	revision map[int64]int
 	deleted  map[int64]bool
 	changes  []change
@@ -72,31 +87,55 @@ type change struct {
 }
 
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-	srv := &server{seen: map[string]bool{}, revoked: map[string]bool{}, revision: map[int64]int{}, deleted: map[int64]bool{}}
+	srv := &server{
+		seen: map[string]bool{}, revoked: map[string]bool{}, imdb: map[int64]string{},
+		movies: ledger{revision: map[int64]int{}, deleted: map[int64]bool{}},
+		series: ledger{revision: map[int64]int{}, deleted: map[int64]bool{}},
+	}
 	if s.TMDB != nil {
 		srv.catalog = scenario.TMDB{
 			Movies:    slices.SortedFunc(slices.Values(s.TMDB.Movies), func(a, b scenario.TMDBMovie) int { return cmp.Compare(a.ID, b.ID) }),
 			Generated: s.TMDB.Generated,
+			Series:    slices.SortedFunc(slices.Values(s.TMDB.Series), func(a, b scenario.TMDBSeries) int { return cmp.Compare(a.ID, b.ID) }),
 		}
 	}
 	for _, m := range srv.catalog.Movies {
-		srv.deleted[m.ID] = m.Deleted
+		srv.movies.deleted[m.ID] = m.Deleted
+	}
+	for _, t := range srv.catalog.Series {
+		srv.series.deleted[t.ID] = t.Deleted
+	}
+	if s.TVDB != nil {
+		for _, t := range s.TVDB.Series {
+			srv.imdb[t.ID] = t.IMDb
+		}
+	}
+	if err := fake.OnCue(env, Change.Name, func(_ context.Context, a Movie) (any, error) { return srv.change(a.ID, false, false) }); err != nil {
+		return nil, err
+	}
+	if err := fake.OnCue(env, Delete.Name, func(_ context.Context, a Movie) (any, error) { return srv.change(a.ID, false, true) }); err != nil {
+		return nil, err
+	}
+	if err := fake.OnCue(env, SeriesChange.Name, func(_ context.Context, a Series) (any, error) { return srv.change(a.ID, true, false) }); err != nil {
+		return nil, err
+	}
+	if err := fake.OnCue(env, SeriesDelete.Name, func(_ context.Context, a Series) (any, error) { return srv.change(a.ID, true, true) }); err != nil {
+		return nil, err
 	}
 	if err := fake.OnCue(env, RevokeKey.Name, srv.revoke); err != nil {
 		return nil, err
 	}
-	if err := fake.OnCue(env, Change.Name, func(_ context.Context, a Movie) (any, error) { return srv.change(a.ID, false) }); err != nil {
-		return nil, err
-	}
-	if err := fake.OnCue(env, Delete.Name, func(_ context.Context, a Movie) (any, error) { return srv.change(a.ID, true) }); err != nil {
-		return nil, err
-	}
 	return fake.HTTP(env, fake.Routes{
-		"search":        {Pattern: "GET " + root + "/search/movie", Handler: srv.keyed(srv.search)},
-		"movie":         {Pattern: "GET " + root + "/movie/{id}", Handler: srv.keyed(srv.movie)},
-		"changes":       {Pattern: "GET " + root + "/movie/changes", Handler: srv.keyed(srv.changed)},
-		"configuration": {Pattern: "GET " + root + "/configuration", Handler: srv.keyed(srv.configuration)},
-		"not-found":     {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
+		"search":          {Pattern: "GET " + root + "/search/movie", Handler: srv.keyed(srv.search)},
+		"movie":           {Pattern: "GET " + root + "/movie/{id}", Handler: srv.keyed(srv.movie)},
+		"changes":         {Pattern: "GET " + root + "/movie/changes", Handler: srv.keyed(srv.changed(&srv.movies))},
+		"search-tv":       {Pattern: "GET " + root + "/search/tv", Handler: srv.keyed(srv.searchSeries)},
+		"tv":              {Pattern: "GET " + root + "/tv/{id}", Handler: srv.keyed(srv.tv)},
+		"tv-external-ids": {Pattern: "GET " + root + "/tv/{id}/external_ids", Handler: srv.keyed(srv.externalIDs)},
+		"tv-changes":      {Pattern: "GET " + root + "/tv/changes", Handler: srv.keyed(srv.changed(&srv.series))},
+		"find":            {Pattern: "GET " + root + "/find/{id}", Handler: srv.keyed(srv.find)},
+		"configuration":   {Pattern: "GET " + root + "/configuration", Handler: srv.keyed(srv.configuration)},
+		"not-found":       {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
 	}), nil
 }
 
@@ -107,6 +146,11 @@ type Key struct {
 
 // Movie names the movie a Change or Delete cue plays on.
 type Movie struct {
+	ID int64 `json:"id"`
+}
+
+// Series names the series a SeriesChange or SeriesDelete cue plays on.
+type Series struct {
 	ID int64 `json:"id"`
 }
 
@@ -132,19 +176,25 @@ type changed struct {
 	Deleted  bool `json:"deleted"`
 }
 
-func (s *server) change(id int64, del bool) (any, error) {
-	if _, ok := s.catalog.Movie(id); !ok {
-		return nil, fmt.Errorf("tmdb lists no movie %d", id)
+func (s *server) change(id int64, series, del bool) (any, error) {
+	l, kind := &s.movies, "movie"
+	_, listed := s.catalog.Movie(id)
+	if series {
+		l, kind = &s.series, "series"
+		_, listed = s.seriesOf(id)
+	}
+	if !listed {
+		return nil, fmt.Errorf("tmdb lists no %s %d", kind, id)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if del {
-		s.deleted[id] = true
+		l.deleted[id] = true
 	} else {
-		s.revision[id]++
+		l.revision[id]++
 	}
-	s.changes = append(s.changes, change{id: id, at: time.Now()})
-	return changed{Revision: s.revision[id], Deleted: s.deleted[id]}, nil
+	l.changes = append(l.changes, change{id: id, at: time.Now()})
+	return changed{Revision: l.revision[id], Deleted: l.deleted[id]}, nil
 }
 
 // keyed refuses a revoked key, as TMDB does a bad one, before h runs.
@@ -173,16 +223,16 @@ func (s *server) live(id int64) (scenario.TMDBMovie, int, bool) {
 	if !ok {
 		return scenario.TMDBMovie{}, 0, false
 	}
-	rev, ok := s.revisionOf(id)
+	rev, ok := s.revisionOf(&s.movies, id)
 	return m, rev, ok
 }
 
-// revisionOf is the revision of the movie whose id is id, and false once
-// TMDB has dropped it.
-func (s *server) revisionOf(id int64) (int, bool) {
+// revisionOf is the revision of the movie or series in l whose id is id,
+// and false once TMDB has dropped it.
+func (s *server) revisionOf(l *ledger, id int64) (int, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.revision[id], !s.deleted[id]
+	return l.revision[id], !l.deleted[id]
 }
 
 type resultJSON struct {
@@ -209,14 +259,14 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 	query, year, lang := strings.ToLower(q.Get("query")), q.Get("primary_release_year"), q.Get("language")
 	var found []resultJSON
 	for m := range s.catalog.All() {
-		rev, ok := s.revisionOf(m.ID)
+		rev, ok := s.revisionOf(&s.movies, m.ID)
 		if !ok || query == "" || !matches(m, query) || (year != "" && !strings.HasPrefix(primary(m), year+"-")) {
 			continue
 		}
 		t := text(m, rev, lang)
 		found = append(found, resultJSON{
 			ID: m.ID, OriginalLanguage: originalLanguage(m), OriginalTitle: originalTitle(m), Overview: t.Overview,
-			PosterPath: pathOf(m, "poster", lang), BackdropPath: pathOf(m, "backdrop", ""), ReleaseDate: primary(m), Title: t.Title,
+			PosterPath: movieArt(m).pathOf("poster", lang), BackdropPath: movieArt(m).pathOf("backdrop", ""), ReleaseDate: primary(m), Title: t.Title,
 		})
 	}
 	page := pageJSON{Page: pageParam(q.Get("page")), Results: []resultJSON{}, TotalResults: len(found)}
@@ -409,7 +459,7 @@ func (s *server) movie(w http.ResponseWriter, r *http.Request) {
 		Overview: t.Overview, Tagline: t.Tagline, Title: t.Title, ReleaseDate: primary(m),
 		Runtime: int64(m.Runtime.Minutes()), Status: cmp.Or(m.Status, "Released"),
 		VoteAverage: m.VoteAverage, VoteCount: m.VoteCount + int64(rev),
-		PosterPath: pathOf(m, "poster", lang), BackdropPath: pathOf(m, "backdrop", ""),
+		PosterPath: movieArt(m).pathOf("poster", lang), BackdropPath: movieArt(m).pathOf("backdrop", ""),
 		Genres: []genreJSON{}, ProductionCompanies: []companyJSON{},
 	}
 	for _, g := range m.Genres {
@@ -435,11 +485,11 @@ func (s *server) movie(w http.ResponseWriter, r *http.Request) {
 				out.AlternativeTitles.Titles = append(out.AlternativeTitles.Titles, titleJSON{Country: at.Country, Title: at.Title, Type: at.Kind})
 			}
 		case "credits":
-			out.Credits = credits(m)
+			out.Credits = credits(m.Credits)
 		case "videos":
-			out.Videos = videos(m, videoLanguages)
+			out.Videos = videos(m.Trailer, primary(m), videoLanguages)
 		case "images":
-			out.Images = imageSet(m, imageLanguages)
+			out.Images = movieArt(m).set(imageLanguages)
 		case "translations":
 			out.Translations = translations(m, rev)
 		}
@@ -527,12 +577,12 @@ func releaseDates(m scenario.TMDBMovie) *releaseDatesJSON {
 	return out
 }
 
-func credits(m scenario.TMDBMovie) *creditsJSON {
+func credits(cr scenario.TMDBCredits) *creditsJSON {
 	out := &creditsJSON{Cast: []castJSON{}, Crew: []crewJSON{}}
-	for i, c := range m.Credits.Cast {
+	for i, c := range cr.Cast {
 		out.Cast = append(out.Cast, castJSON{ID: c.ID, Name: c.Name, Character: c.Character, Order: i, ProfilePath: profile(c.ID, c.Profile)})
 	}
-	for _, c := range m.Credits.Crew {
+	for _, c := range cr.Crew {
 		out.Crew = append(out.Crew, crewJSON{ID: c.ID, Name: c.Name, Department: c.Department, Job: c.Job, ProfilePath: profile(c.ID, c.Profile)})
 	}
 	return out
@@ -546,32 +596,51 @@ func profile(id int64, recorded string) *string {
 	return file("person", strconv.FormatInt(id, 10), ".jpg")
 }
 
-func videos(m scenario.TMDBMovie, langs []string) *videosJSON {
+// videos is the one trailer, published on day, in English.
+func videos(trailer, day string, langs []string) *videosJSON {
 	out := &videosJSON{Results: []videoJSON{}}
-	if m.Trailer != "" && slices.Contains(langs, "en") {
+	if trailer != "" && slices.Contains(langs, "en") {
 		out.Results = append(out.Results, videoJSON{
-			Language: "en", Country: "US", Name: "Official Trailer", Key: m.Trailer, Site: "YouTube", Size: 1080,
-			Type: "Trailer", Official: true, PublishedAt: primary(m) + "T16:00:00.000Z", ID: fmt.Sprintf("%024x", hash("video", m.Trailer)),
+			Language: "en", Country: "US", Name: "Official Trailer", Key: trailer, Site: "YouTube", Size: 1080,
+			Type: "Trailer", Official: true, PublishedAt: day + "T16:00:00.000Z", ID: fmt.Sprintf("%024x", hash("video", trailer)),
 		})
 	}
 	return out
 }
 
-// images is the movie's images as the Scenario lists them, or a poster
-// and title treatment in English and a textless backdrop.
-func images(m scenario.TMDBMovie) []scenario.TMDBImage {
-	if len(m.Images) > 0 {
-		return m.Images
+// art is a movie's or a series' images, as the Scenario lists them or by
+// default a poster and title treatment in English and a textless
+// backdrop. Key keeps one record's file paths apart from another's.
+type art struct {
+	key    string
+	images []scenario.TMDBImage
+}
+
+func movieArt(m scenario.TMDBMovie) art { return artOf(strconv.FormatInt(m.ID, 10), m.Images) }
+
+func artOf(key string, ims []scenario.TMDBImage) art {
+	if len(ims) == 0 {
+		ims = []scenario.TMDBImage{{Shape: "poster", Language: "en", Votes: 5.5}, {Shape: "backdrop", Votes: 5.5}, {Shape: "logo", Language: "en", Votes: 5.5}}
 	}
-	return []scenario.TMDBImage{{Shape: "poster", Language: "en", Votes: 5.5}, {Shape: "backdrop", Votes: 5.5}, {Shape: "logo", Language: "en", Votes: 5.5}}
+	return art{key: key, images: ims}
+}
+
+// countryOf is the country TMDB files an image with text under, which
+// it names beside the language.
+func countryOf(language string) *string {
+	c := strings.ToUpper(language)
+	if language == "en" {
+		c = "US"
+	}
+	return &c
 }
 
 var dimensions = map[string][2]int{"poster": {2000, 3000}, "backdrop": {3840, 2160}, "logo": {1000, 400}}
 
-func imageSet(m scenario.TMDBMovie, langs []string) *imagesJSON {
+func (a art) set(langs []string) *imagesJSON {
 	out := &imagesJSON{Backdrops: []imageJSON{}, Logos: []imageJSON{}, Posters: []imageJSON{}}
 	lists := map[string]*[]imageJSON{"poster": &out.Posters, "backdrop": &out.Backdrops, "logo": &out.Logos}
-	for i, im := range images(m) {
+	for i, im := range a.images {
 		if !slices.Contains(langs, cmp.Or(im.Language, "null")) {
 			continue
 		}
@@ -579,35 +648,34 @@ func imageSet(m scenario.TMDBMovie, langs []string) *imagesJSON {
 		if im.Width > 0 {
 			d = [2]int{im.Width, im.Height}
 		}
-		img := imageJSON{FilePath: *imagePath(m, i), VoteAverage: im.Votes, VoteCount: 1, Width: d[0], Height: d[1], AspectRatio: float64(d[0]) / float64(d[1])}
+		img := imageJSON{FilePath: *a.path(i), VoteAverage: im.Votes, VoteCount: 1, Width: d[0], Height: d[1], AspectRatio: float64(d[0]) / float64(d[1])}
 		if im.Language != "" {
-			img.Language = &im.Language
+			img.Language, img.Country = &im.Language, countryOf(im.Language)
 		}
 		*lists[im.Shape] = append(*lists[im.Shape], img)
 	}
 	return out
 }
 
-// pathOf is the file path of the movie's best image of shape in lang, or
-// with no text when lang is "".
-func pathOf(m scenario.TMDBMovie, shape, lang string) *string {
+// pathOf is the file path of the best image of shape in lang, or with no
+// text when lang is "".
+func (a art) pathOf(shape, lang string) *string {
 	iso, _, _ := strings.Cut(lang, "-")
-	ims := images(m)
 	for _, want := range []string{iso, "en", ""} {
-		if i := slices.IndexFunc(ims, func(im scenario.TMDBImage) bool { return im.Shape == shape && im.Language == want }); i >= 0 {
-			return imagePath(m, i)
+		if i := slices.IndexFunc(a.images, func(im scenario.TMDBImage) bool { return im.Shape == shape && im.Language == want }); i >= 0 {
+			return a.path(i)
 		}
 	}
-	if i := slices.IndexFunc(ims, func(im scenario.TMDBImage) bool { return im.Shape == shape }); i >= 0 {
-		return imagePath(m, i)
+	if i := slices.IndexFunc(a.images, func(im scenario.TMDBImage) bool { return im.Shape == shape }); i >= 0 {
+		return a.path(i)
 	}
 	return nil
 }
 
-// imagePath is the image's recorded path, else one made up for its place
-// in the movie's list.
-func imagePath(m scenario.TMDBMovie, i int) *string {
-	im := images(m)[i]
+// path is the image's recorded path, else one made up for its place in
+// the record's list.
+func (a art) path(i int) *string {
+	im := a.images[i]
 	if im.Path != "" {
 		return &im.Path
 	}
@@ -615,7 +683,7 @@ func imagePath(m scenario.TMDBMovie, i int) *string {
 	if im.Shape == "logo" {
 		ext = ".png"
 	}
-	return file("image", fmt.Sprintf("%d/%d", m.ID, i), ext)
+	return file("image", fmt.Sprintf("%s/%d", a.key, i), ext)
 }
 
 // translations lists English first. TMDB keeps the title of the original
@@ -659,29 +727,31 @@ type changesJSON struct {
 	TotalResults int          `json:"total_results"`
 }
 
-// changed lists each movie changed from start_date to end_date, both
-// whole UTC days, once.
-func (s *server) changed(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	now := time.Now().UTC()
-	start, end := cmp.Or(q.Get("start_date"), now.Add(-24*time.Hour).Format(time.DateOnly)), cmp.Or(q.Get("end_date"), now.Format(time.DateOnly))
-	s.mu.Lock()
-	var ids []int64
-	for _, c := range s.changes {
-		day := c.at.UTC().Format(time.DateOnly)
-		if day >= start && day <= end && !slices.Contains(ids, c.id) {
-			ids = append(ids, c.id)
+// changed lists each movie or series in l changed from start_date to
+// end_date, both whole UTC days, once.
+func (s *server) changed(l *ledger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		now := time.Now().UTC()
+		start, end := cmp.Or(q.Get("start_date"), now.Add(-24*time.Hour).Format(time.DateOnly)), cmp.Or(q.Get("end_date"), now.Format(time.DateOnly))
+		s.mu.Lock()
+		var ids []int64
+		for _, c := range l.changes {
+			day := c.at.UTC().Format(time.DateOnly)
+			if day >= start && day <= end && !slices.Contains(ids, c.id) {
+				ids = append(ids, c.id)
+			}
 		}
-	}
-	s.mu.Unlock()
-	out := changesJSON{Results: []changeJSON{}, Page: pageParam(q.Get("page")), TotalResults: len(ids)}
-	out.TotalPages = (len(ids) + changesPageSize - 1) / changesPageSize
-	if from := (out.Page - 1) * changesPageSize; from < len(ids) {
-		for _, id := range ids[from:min(from+changesPageSize, len(ids))] {
-			out.Results = append(out.Results, changeJSON{ID: id})
+		s.mu.Unlock()
+		out := changesJSON{Results: []changeJSON{}, Page: pageParam(q.Get("page")), TotalResults: len(ids)}
+		out.TotalPages = (len(ids) + changesPageSize - 1) / changesPageSize
+		if from := (out.Page - 1) * changesPageSize; from < len(ids) {
+			for _, id := range ids[from:min(from+changesPageSize, len(ids))] {
+				out.Results = append(out.Results, changeJSON{ID: id})
+			}
 		}
+		reply(w, http.StatusOK, out)
 	}
-	reply(w, http.StatusOK, out)
 }
 
 type configurationJSON struct {

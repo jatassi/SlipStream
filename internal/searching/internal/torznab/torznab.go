@@ -24,8 +24,9 @@ type Query struct {
 	// IDs are id parameters by name, such as tmdbid.
 	IDs map[string]string
 	// Text is q, left out when empty.
-	Text       string
-	Season     int
+	Text string
+	// Season is left out when nil.
+	Season     *int
 	Episode    string
 	Categories []int
 }
@@ -40,8 +41,8 @@ func (q Query) Page(offset, limit int) url.Values {
 	if q.Text != "" {
 		v.Set("q", q.Text)
 	}
-	if q.Season > 0 {
-		v.Set("season", strconv.Itoa(q.Season))
+	if q.Season != nil {
+		v.Set("season", strconv.Itoa(*q.Season))
 	}
 	if q.Episode != "" {
 		v.Set("ep", q.Episode)

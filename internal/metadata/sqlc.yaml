@@ -50,6 +50,11 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/works
               type: WorkID
+          - column: metadata_key.pin_sealed
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed
+              pointer: true
           - column: "*.*_sealed"
             go_type:
               import: github.com/jatassi/slipstream/internal/secret

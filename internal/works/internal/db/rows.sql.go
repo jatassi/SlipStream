@@ -13,7 +13,7 @@ import (
 )
 
 const listEveryItem = `-- name: ListEveryItem :many
-SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item ORDER BY rowid
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored, aside FROM works_item ORDER BY rowid
 `
 
 func (q *Queries) ListEveryItem(ctx context.Context) ([]WorksItem, error) {
@@ -34,6 +34,7 @@ func (q *Queries) ListEveryItem(ctx context.Context) ([]WorksItem, error) {
 			&i.Position,
 			&i.WithdrawnAt,
 			&i.Monitored,
+			&i.Aside,
 		); err != nil {
 			return nil, err
 		}
@@ -49,7 +50,7 @@ func (q *Queries) ListEveryItem(ctx context.Context) ([]WorksItem, error) {
 }
 
 const listEveryLevel = `-- name: ListEveryLevel :many
-SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level ORDER BY rowid
+SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at, aside FROM works_level ORDER BY rowid
 `
 
 func (q *Queries) ListEveryLevel(ctx context.Context) ([]WorksLevel, error) {
@@ -70,6 +71,7 @@ func (q *Queries) ListEveryLevel(ctx context.Context) ([]WorksLevel, error) {
 			&i.Label,
 			&i.Position,
 			&i.WithdrawnAt,
+			&i.Aside,
 		); err != nil {
 			return nil, err
 		}
@@ -85,7 +87,8 @@ func (q *Queries) ListEveryLevel(ctx context.Context) ([]WorksLevel, error) {
 }
 
 const listEveryWorkArt = `-- name: ListEveryWorkArt :many
-SELECT work_id, source, path FROM works_artwork WHERE kind = ?1 AND ifnull(item_id, x'') = x'' ORDER BY rowid
+SELECT work_id, source, path FROM works_artwork
+WHERE kind = ?1 AND ifnull(level_id, x'') = x'' AND ifnull(item_id, x'') = x'' ORDER BY rowid
 `
 
 type ListEveryWorkArtRow struct {
@@ -159,7 +162,7 @@ func (q *Queries) ListEveryWorkRating(ctx context.Context) ([]ListEveryWorkRatin
 }
 
 const listLevelsOfWorks = `-- name: ListLevelsOfWorks :many
-SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at, aside FROM works_level WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 func (q *Queries) ListLevelsOfWorks(ctx context.Context, workIds []WorkID) ([]WorksLevel, error) {
@@ -190,6 +193,7 @@ func (q *Queries) ListLevelsOfWorks(ctx context.Context, workIds []WorkID) ([]Wo
 			&i.Label,
 			&i.Position,
 			&i.WithdrawnAt,
+			&i.Aside,
 		); err != nil {
 			return nil, err
 		}
@@ -206,7 +210,7 @@ func (q *Queries) ListLevelsOfWorks(ctx context.Context, workIds []WorkID) ([]Wo
 
 const listWorkArtOfWorks = `-- name: ListWorkArtOfWorks :many
 SELECT work_id, source, path FROM works_artwork
-WHERE kind = ?1 AND ifnull(item_id, x'') = x'' AND work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+WHERE kind = ?1 AND ifnull(level_id, x'') = x'' AND ifnull(item_id, x'') = x'' AND work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 type ListWorkArtOfWorksParams struct {
@@ -307,7 +311,7 @@ func (q *Queries) ListWorkRatingsOfWorks(ctx context.Context, workIds []WorkID) 
 }
 
 const listWorksByID = `-- name: ListWorksByID :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE id IN (/*SLICE:ids*/?) ORDER BY sort_label, id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE id IN (/*SLICE:ids*/?) ORDER BY sort_label, id
 `
 
 func (q *Queries) ListWorksByID(ctx context.Context, ids []WorkID) ([]WorksWork, error) {
@@ -339,6 +343,9 @@ func (q *Queries) ListWorksByID(ctx context.Context, ids []WorkID) ([]WorksWork,
 			&i.RefreshedAt,
 			&i.GoneUpstreamAt,
 			&i.RatingsReadAt,
+			&i.MonitorNew,
+			&i.MonitorAsides,
+			&i.LevelFolders,
 		); err != nil {
 			return nil, err
 		}

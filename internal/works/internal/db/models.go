@@ -9,16 +9,19 @@ import (
 )
 
 type WorksAddDefault struct {
-	ContentType TypeID
-	Monitor     bool
+	ContentType  TypeID
+	Monitor      *string
+	Asides       *bool
+	LevelFolders *bool
 }
 
 type WorksArtwork struct {
-	WorkID WorkID
-	ItemID ItemID
-	Kind   string
-	Source string
-	Path   string
+	WorkID  WorkID
+	ItemID  ItemID
+	Kind    string
+	Source  string
+	Path    string
+	LevelID LevelID
 }
 
 type WorksDisabledType struct {
@@ -35,6 +38,7 @@ type WorksItem struct {
 	Position    int64
 	WithdrawnAt storage.Time
 	Monitored   bool
+	Aside       bool
 }
 
 type WorksLevel struct {
@@ -46,6 +50,7 @@ type WorksLevel struct {
 	Label       string
 	Position    int64
 	WithdrawnAt storage.Time
+	Aside       bool
 }
 
 type WorksRating struct {
@@ -80,4 +85,7 @@ type WorksWork struct {
 	RefreshedAt    storage.Time
 	GoneUpstreamAt storage.Time
 	RatingsReadAt  storage.Time
+	MonitorNew     bool
+	MonitorAsides  bool
+	LevelFolders   bool
 }

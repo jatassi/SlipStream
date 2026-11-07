@@ -74,7 +74,7 @@ func Run(t *testing.T, tgt Target) {
 		t.Errorf("Search(%q) = %+v, want %s %q among them", tgt.Known.Name, found, tgt.Known.MBID, tgt.Known.Name)
 	}
 
-	f, err := typ.Fetch(ctx, metadata.Ask{}, works.Key(tgt.Known.MBID))
+	f, err := typ.Fetch(ctx, metadata.Ask{}, works.Key(tgt.Known.MBID), nil)
 	if err != nil {
 		t.Fatalf("Fetch(%s): %v", tgt.Known.MBID, err)
 	}
@@ -85,7 +85,7 @@ func Run(t *testing.T, tgt Target) {
 		t.Errorf("Fetch(%s) lists no album with tracks: %+v", tgt.Known.MBID, f.Children)
 	}
 
-	_, err = typ.Fetch(ctx, metadata.Ask{}, unknownArtist)
+	_, err = typ.Fetch(ctx, metadata.Ask{}, unknownArtist, nil)
 	if want := "GET /artist/" + unknownArtist + ": MusicBrainz: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
 		t.Errorf("Fetch(%s) = %v, want %s", unknownArtist, err, want)
 	}

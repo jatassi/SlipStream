@@ -80,7 +80,7 @@ test("the sheet opens on the preview and adds with the defaults, remembering, th
       key: "9000001",
       profileId: films.id,
       rootId: filmsRoot.id,
-      monitor: true,
+      preset: "all",
       remember: true,
     },
   ]);
@@ -112,7 +112,7 @@ test("a changed choice says new Works will start with it, until Remember is off"
       key: "9000001",
       profileId: ultra.id,
       rootId: filmsRoot.id,
-      monitor: false,
+      preset: "none",
       remember: false,
     },
   ]);

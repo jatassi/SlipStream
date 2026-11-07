@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import type { WorksWorkView } from "../../api/gen/model";
 import { useListProfilesSuspense } from "../../api/gen/query/targets/targets";
 import { AttemptActions, useAttempt } from "../../targets/attempt";
 import type { ImpactChange } from "../../targets/use-impact-save";
@@ -8,12 +9,13 @@ import { act } from "../actions/act";
 import type { Subject } from "../actions/actions";
 import { profileChange } from "../actions/profile-change";
 import { ProfilePicker } from "../profile-picker";
+// oxlint-disable-next-line import/max-dependencies -- Edit changes the Profile through the Impact, the root, and the type's own options
+import { LevelFolders, OptionsFields, saveLevelFolders } from "./options-fields";
 import { RootField } from "./root-field";
 
 type EditDialogProps = {
   readonly subject: Subject;
-  readonly profileId: string;
-  readonly rootId: string | undefined;
+  readonly work: WorksWorkView;
   /** Its library files, Kept files included. */
   readonly files: number;
   readonly save: (change: ImpactChange) => Promise<void>;
@@ -22,29 +24,28 @@ type EditDialogProps = {
 };
 
 /**
- * The Work's Profile, saved through the Impact, and its library root while
- * it has no files.
+ * The Work's Profile, saved through the Impact, its library root while it
+ * has no files, and for a Work of many Items its level folders and its
+ * type's options.
  */
-export function EditDialog({
-  subject,
-  profileId,
-  rootId,
-  files,
-  save,
-  open,
-  onOpenChange,
-}: EditDialogProps) {
+export function EditDialog({ subject, work, files, save, open, onOpenChange }: EditDialogProps) {
   const profiles = useListProfilesSuspense().data.profiles.filter(
     (profile) => profile.contentType === subject.type.id,
   );
+  const profileId = work.profile.id;
+  const rootId = work.root?.id;
   const [profile, setProfile] = useState(profileId);
   const [root, setRoot] = useState(rootId ?? "");
+  const [levelFolders, setLevelFolders] = useState(work.levelFolders);
   const close = () => {
     onOpenChange(false);
   };
   const saving = useAttempt(async () => {
     if (root !== "" && root !== rootId) {
       await act([subject], { kind: "root", rootId: root });
+    }
+    if (levelFolders !== work.levelFolders) {
+      await saveLevelFolders(work.id, levelFolders);
     }
     if (profile === profileId) {
       close();
@@ -65,6 +66,8 @@ export function EditDialog({
       <div className="flex flex-col gap-4">
         <ProfilePicker profiles={profiles} value={profile} onValueChange={setProfile} />
         <RootField type={subject.type} value={root} files={files} onValueChange={setRoot} />
+        <LevelFolders type={subject.type} on={levelFolders} onChange={setLevelFolders} />
+        <OptionsFields type={subject.type} work={work} />
         <p className="text-ink-2">Before a new Profile is saved, the Impact lists what changes.</p>
         <AttemptActions attempt={saving} onCancel={close}>
           Save

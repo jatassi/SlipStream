@@ -57,10 +57,10 @@ async function addressPasskeyAndLanguage(
 ): Promise<void> {
   await expect(heading(page, "Where people reach SlipStream")).toBeVisible();
   expect(page.url()).toBe(`${world.baseURL}/setup/address`);
-  await expect(page.getByText("Step 1 of 6")).toBeVisible();
+  await expect(page.getByText("Step 1 of 7")).toBeVisible();
   await expect(
     page.getByText(
-      "After this: Passkey, Language and region, Library roots, Downloads and What SlipStream grabs",
+      "After this: Passkey, Kinds of media, Language and region, Library roots, Downloads and What SlipStream grabs",
     ),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Address" })).toHaveValue(world.baseURL);
@@ -69,6 +69,12 @@ async function addressPasskeyAndLanguage(
   await expect(heading(page, "Add a passkey")).toBeVisible();
   await addVirtualAuthenticator(context, page);
   await page.getByRole("button", { name: "Add a passkey" }).click();
+
+  await expect(heading(page, "Kinds of media")).toBeVisible();
+  await expect(page.getByText("Step 3 of 7")).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Movies" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "TV" })).toBeChecked();
+  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect(heading(page, "Language and region")).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Metadata language" })).toHaveText(
@@ -91,7 +97,7 @@ async function rootsAfterReload(page: Page, world: World): Promise<void> {
   expect(page.url()).toBe(`${world.baseURL}/setup/roots`);
   await expect(
     page.getByRole("list", { name: "Library roots" }).getByRole("listitem"),
-  ).toContainText(["MoviesNo folder yet"]);
+  ).toContainText(["MoviesNo folder yet", "TVNo folder yet"]);
   await page.getByRole("button", { name: "Skip" }).click();
 }
 
@@ -113,6 +119,7 @@ async function doneScreen(page: Page, world: World): Promise<void> {
   await expect(page.getByRole("list", { name: "First setup" }).getByRole("listitem")).toHaveText([
     "AddressSet",
     "PasskeySet",
+    "Kinds of mediaSet",
     "Language and regionSet",
     "Library rootsSet it in SettingsSkipped",
     "DownloadsSet",
@@ -155,10 +162,10 @@ test("the passkey step shows only where the browser can hold a passkey", async (
   await page.goto("/setup/passkey");
   if (browserName === "chromium") {
     await expect(heading(page, "Add a passkey")).toBeVisible();
-    await expect(page.getByText("Step 2 of 6")).toBeVisible();
+    await expect(page.getByText("Step 2 of 7")).toBeVisible();
   } else {
     await expect(heading(page, "Where people reach SlipStream")).toBeVisible();
     expect(page.url()).toBe(`${world.baseURL}/setup/address`);
-    await expect(page.getByText("Step 1 of 5")).toBeVisible();
+    await expect(page.getByText("Step 1 of 6")).toBeVisible();
   }
 });

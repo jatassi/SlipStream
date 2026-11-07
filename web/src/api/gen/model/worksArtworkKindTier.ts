@@ -1,1 +1,1 @@
-export type WorksArtworkKindTier = "work" | "item";
+export type WorksArtworkKindTier = "work" | "level" | "item";

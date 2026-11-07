@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // name is a file's place after a refill.
@@ -136,13 +138,27 @@ func firstMet(ts []targets.Target, f File) (string, bool) {
 	return "", false
 }
 
-// folderOf is f's folder: its own, or for the file being placed the one
-// the template gives its Item.
+// folderOf is f's folder: its own, or for the file being placed the
+// Work's folder the template gives its Item, then its level folders when
+// the Work keeps a folder per level.
 func folderOf(w world, f File) (string, error) {
 	if f.ID != w.fresh {
 		return path.Dir(f.Path), nil
 	}
-	return naming.Render(w.templates.Folder, w.tokens[f.ItemID], naming.Core{})
+	tokens := w.tokens[f.ItemID]
+	work, err := naming.Render(w.templates.Folder, tokens, naming.Core{})
+	if err != nil {
+		return "", err
+	}
+	i := slices.IndexFunc(w.tree.Items, func(it works.Item) bool { return it.ID == f.ItemID })
+	if i < 0 {
+		return "", fmt.Errorf("file %s names item %s, which work %s doesn't hold", f.ID, f.ItemID, w.tree.ID)
+	}
+	levels, err := naming.Folders(w.templates, tokens, w.tree.Items[i].Aside, w.tree.LevelFolders)
+	if err != nil {
+		return "", err
+	}
+	return path.Join(append([]string{work}, levels...)...), nil
 }
 
 func pathOf(w world, f File, nm name) (string, error) {

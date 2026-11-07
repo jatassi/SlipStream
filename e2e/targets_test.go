@@ -87,7 +87,7 @@ func launchedTargets(t *testing.T) walked {
 // add adds the Scenario's movie, monitored.
 func (w *walked) add(t *testing.T) {
 	t.Helper()
-	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`), &added{})
+	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)

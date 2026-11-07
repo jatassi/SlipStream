@@ -4,13 +4,15 @@ import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
 import type { ImpactChange } from "../../targets/use-impact-save";
 import { act } from "../actions/act";
 import type { Subject } from "../actions/actions";
+import { monitoringWords } from "../monitoring/labels";
 import { editionsSource } from "./editions";
 import { EditionsPopover } from "./editions-popover";
 import type { HeroActions } from "./hero-actions";
 import type { WorkReads } from "./reads";
+// oxlint-disable-next-line import/max-dependencies -- the hero's actions open the Editions editor and every Work dialog, and count what the Work monitors
 import { WorkDialogs } from "./work-dialogs";
 
-type Open = "editions" | "another" | "edit" | "delete" | undefined;
+type Open = "editions" | "another" | "edit" | "delete" | "monitoring" | undefined;
 
 export type WorkActions = {
   readonly hero: HeroActions;
@@ -39,9 +41,17 @@ const popover = (
   onOpenChange: (open: boolean) => void,
 ) => <EditionsPopover {...editor} trigger={trigger} open={open} onOpenChange={onOpenChange} />;
 
-function useMonitored(subject: Subject, work: WorksWorkView): HeroActions["monitored"] {
+function useMonitoring(
+  subject: Subject,
+  work: WorksWorkView,
+  open: () => void,
+): HeroActions["monitoring"] {
   const [busy, setBusy] = useState(false);
+  if (subject.type.items === "many") {
+    return { kind: "dialog", words: monitoringWords(subject.type, work.items), open };
+  }
   return {
+    kind: "switch",
     on: work.items.every(({ monitored }) => monitored),
     busy,
     set: (on) => {
@@ -81,14 +91,14 @@ export function useWorkActions({
       editions: editions("editions"),
       editionsFrom: editionsSource(wants),
       openEditions: opener("editions"),
-      monitored: useMonitored(subject, work),
+      monitoring: useMonitoring(subject, work, opener("monitoring")),
       menu: menuOf(subject, work, opener),
     },
     wantAnother: editions("another"),
     openDelete: opener("delete"),
     dialogs: (
       <WorkDialogs
-        open={open === "edit" || open === "delete" ? open : undefined}
+        open={open === "edit" || open === "delete" || open === "monitoring" ? open : undefined}
         subject={subject}
         work={work}
         files={listing.files.length}

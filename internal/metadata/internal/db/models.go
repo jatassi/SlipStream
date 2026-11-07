@@ -20,6 +20,7 @@ type MetadataKey struct {
 	Provider     string
 	ApiKeySealed secret.Sealed
 	SetAt        storage.Time
+	PinSealed    *secret.Sealed
 }
 
 type MetadataSetting struct {

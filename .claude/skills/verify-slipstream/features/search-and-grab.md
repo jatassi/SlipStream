@@ -52,7 +52,7 @@ Steps:
 - **Search into the 429.** Choose `Search` on the Work page. The rule fires once for the seedbox, and the Searches list reads `Found nothing acceptable` with Fixture Site's line `Limit reached until HH:MM` and no Grab.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   FIRED=$($FW fault wait $RUN --rule indexer-429 --timeout 30s | jq .seq)
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText(/^Limit reached until \d\d:\d\d$/).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-indexer-429 -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/search-and-grab/grab-indexer-429/work.aria.yml
@@ -63,7 +63,7 @@ Steps:
 
   ```sh
   sleep 2
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-search/work.png
   $FW announces wait $RUN --node seedbox --where event=started --after $FIRED --timeout 60s

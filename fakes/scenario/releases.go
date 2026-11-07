@@ -15,11 +15,14 @@ import (
 // Release is one release the fakes offer. The release catalog makes its
 // payload video and metainfo, and fixture-seeders seed it when Seeded.
 type Release struct {
-	Name    string `jsonschema:"required,pattern=^[A-Za-z0-9][A-Za-z0-9._-]*$" yaml:"name"`
-	TMDBID  int64  `jsonschema:"required,minimum=1"                           yaml:"tmdb_id"`
-	Video   Video  `jsonschema:"required"                                     yaml:"video"`
-	Seeders int    `jsonschema:"minimum=0"                                    yaml:"seeders,omitempty"`
-	Seeded  bool   `yaml:"seeded,omitempty"`
+	Name string `jsonschema:"required,pattern=^[A-Za-z0-9][A-Za-z0-9._-]*$" yaml:"name"`
+	// TMDBID names a movie and TVDB an episode; a release names exactly
+	// one.
+	TMDBID  int64           `jsonschema:"minimum=1" yaml:"tmdb_id,omitempty"`
+	TVDB    *ReleaseEpisode `yaml:"tvdb,omitempty"`
+	Video   Video           `jsonschema:"required"                                     yaml:"video"`
+	Seeders int             `jsonschema:"minimum=0"                                    yaml:"seeders,omitempty"`
+	Seeded  bool            `yaml:"seeded,omitempty"`
 	// AdvertisedSize is the size fixture-site lists, separate from the
 	// payload's. Zero lists the payload's.
 	AdvertisedSize Bytes `yaml:"advertised_size,omitempty"`
@@ -41,6 +44,16 @@ type Release struct {
 	// Trackerless leaves tr out of the release's magnet link, so a Node
 	// finds its peers only through fake-dht.
 	Trackerless bool `yaml:"trackerless,omitempty"`
+}
+
+// ReleaseEpisode is the series a release is of, by TVDB id, and the
+// Aired season and episode fixture-site lists it under, which its name
+// needn't name. Episode 0 is a pack of the whole season, listed under
+// each of its episodes.
+type ReleaseEpisode struct {
+	Series  int64 `jsonschema:"required,minimum=1" yaml:"series"`
+	Season  int   `jsonschema:"minimum=0"          yaml:"season"`
+	Episode int   `jsonschema:"minimum=0"          yaml:"episode"`
 }
 
 // Link is how fixture-site's feeds link a release.
@@ -194,7 +207,7 @@ func (l Leecher) check(add func(format string, args ...any), s Scenario) {
 
 var releaseName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
-func checkReleases(add func(format string, args ...any), releases []Release, movies *TMDB) {
+func checkReleases(add func(format string, args ...any), releases []Release, movies *TMDB, series *TVDB) {
 	for i, r := range releases {
 		if !releaseName.MatchString(r.Name) {
 			add("release name %q does not match %s", r.Name, releaseName)
@@ -202,11 +215,7 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		if slices.ContainsFunc(releases[:i], func(o Release) bool { return o.Name == r.Name }) {
 			add("release %s is listed twice", r.Name)
 		}
-		if r.TMDBID < 1 {
-			add("release %s has tmdb_id %d; it is at least 1", r.Name, r.TMDBID)
-		} else if movies == nil || !slices.ContainsFunc(movies.Movies, func(m TMDBMovie) bool { return m.ID == r.TMDBID }) {
-			add("release %s names tmdb movie %d, which tmdb does not list", r.Name, r.TMDBID)
-		}
+		r.checkSubject(add, movies, series)
 		v := r.Video
 		if v.Width < 2 || v.Width > 7680 || v.Height < 2 || v.Height > 4320 || v.Width%2 != 0 || v.Height%2 != 0 {
 			add("release %s video is %dx%d; width and height are even, up to 7680x4320", r.Name, v.Width, v.Height)
@@ -253,5 +262,34 @@ func (t Tracker) check(add func(format string, args ...any)) {
 	}
 	if slices.Contains(t.AllowPeerIDs, "") {
 		add("tracker allow_peer_ids lists an empty prefix, which allows every peer ID")
+	}
+}
+
+// checkSubject holds r to one movie or one episode its fake lists.
+func (r Release) checkSubject(add func(format string, args ...any), movies *TMDB, series *TVDB) {
+	switch {
+	case r.TMDBID != 0 && r.TVDB != nil:
+		add("release %s names a tmdb movie and a tvdb episode; it names one", r.Name)
+	case r.TVDB != nil && (series == nil || !slices.ContainsFunc(series.Series, func(s TVDBSeries) bool { return s.ID == r.TVDB.Series })):
+		add("release %s names tvdb series %d, which tvdb does not list", r.Name, r.TVDB.Series)
+	case r.TVDB != nil:
+		r.TVDB.check(add, r.Name, series)
+	case r.TMDBID < 1:
+		add("release %s has tmdb_id %d; it is at least 1", r.Name, r.TMDBID)
+	case movies == nil || !slices.ContainsFunc(movies.Movies, func(m TMDBMovie) bool { return m.ID == r.TMDBID }):
+		add("release %s names tmdb movie %d, which tmdb does not list", r.Name, r.TMDBID)
+	}
+}
+
+// check holds e to a season, and an episode of it unless e is a season
+// pack, that its series lists.
+func (e ReleaseEpisode) check(add func(format string, args ...any), name string, series *TVDB) {
+	i := slices.IndexFunc(series.Series, func(s TVDBSeries) bool { return s.ID == e.Series })
+	j := slices.IndexFunc(series.Series[i].Seasons, func(s TVDBSeason) bool { return s.Number == e.Season })
+	switch {
+	case j < 0:
+		add("release %s names season %d of tvdb series %d, which it does not list", name, e.Season, e.Series)
+	case e.Episode != 0 && !slices.ContainsFunc(series.Series[i].Seasons[j].Episodes, func(ep TVDBEpisode) bool { return ep.Number == e.Episode }):
+		add("release %s names episode %d of season %d of tvdb series %d, which it does not list", name, e.Episode, e.Season, e.Series)
 	}
 }

@@ -1,6 +1,7 @@
 package tmdb_test
 
 import (
+	"encoding/json"
 	"errors"
 	"math/rand/v2"
 	"reflect"
@@ -252,4 +253,144 @@ func TestImagesMapSizeClassesPerShape(t *testing.T) {
 	if perSecond, burst := images.Rate(); perSecond != 20 || burst != 20 || images.ID() != tmdb.ImagesID {
 		t.Errorf("Rate = %v/s burst %d, id %s", perSecond, burst, images.ID())
 	}
+}
+
+// withSeries is single-machine with a series TMDB and fake-tvdb share
+// and one only TMDB lists, both under ids TMDB's movies also use.
+func withSeries(t *testing.T) scenario.Scenario {
+	t.Helper()
+	s := singleMachine(t)
+	s.TVDB = &scenario.TVDB{Series: []scenario.TVDBSeries{{ID: 70001, Name: "The Lantern Keepers", Status: "continuing", IMDb: "tt9100001", TMDB: 9000001}}}
+	s.TMDB.Series = []scenario.TMDBSeries{
+		{
+			ID: 9000001, TVDB: 70001, Name: "The Lantern Keepers", FirstAired: "2022-03-04",
+			Network:  &scenario.TMDBNamed{ID: 93001, Name: "Harbor One"},
+			Creators: []scenario.TMDBCast{{ID: 91003, Name: "Ines Calder"}},
+			Credits: scenario.TMDBCredits{Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Venn", Character: "Ada"}, {ID: 91004, Name: "Tomas Reyl", Character: "Wren"}},
+				Crew: []scenario.TMDBCrew{{ID: 91005, Name: "Lio Sand", Department: "Directing", Job: "Director"}}},
+			Certifications: []scenario.TMDBCertification{{Country: "US", Rating: "TV-14"}, {Country: "FR", Rating: "12"}, {Country: "DE", Rating: ""}},
+			Trailer:        "qLantern01",
+			Images: []scenario.TMDBImage{
+				{Shape: "poster", Language: "en", Votes: 9}, {Shape: "poster", Language: "fr", Votes: 2},
+				{Shape: "backdrop", Language: "fr", Votes: 9}, {Shape: "backdrop", Votes: 1},
+				{Shape: "logo", Language: "en"}, {Shape: "logo", Language: "fr"},
+			},
+			VoteAverage: 8.1, VoteCount: 640,
+		},
+		{ID: 9000002, Name: "Harbor Lights", Overview: "A ferry town keeps its lights on.", FirstAired: "2019-09-01"},
+	}
+	return s
+}
+
+// images is the path of each image fake-tmdb lists for the series, by
+// shape and language, "" for none.
+func images(t *testing.T, f faketest.Served, id int64) map[string]string {
+	t.Helper()
+	res, err := f.Client.Get(f.Address.URL("/3/tv/" + strconv.FormatInt(id, 10) + "?append_to_response=images&include_image_language=en,fr,null"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	var record struct {
+		Images map[string][]struct {
+			FilePath string  `json:"file_path"`
+			Language *string `json:"iso_639_1"`
+		} `json:"images"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&record); err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]string{}
+	for shape, list := range record.Images {
+		for _, im := range list {
+			lang := ""
+			if im.Language != nil {
+				lang = *im.Language
+			}
+			out[shape+" "+lang] = im.FilePath
+		}
+	}
+	return out
+}
+
+func TestSeriesReadsWhatTMDBAddsInTheMetadataLanguage(t *testing.T) {
+	inEachTier(t, withSeries(t), func(t *testing.T, c *tmdb.Client, f faketest.Served) {
+		paths := images(t, f, 9000001)
+		got, err := c.Series(t.Context(), metadata.NewAsk(metadata.AskOptions{Language: "fr-FR"}), 9000001)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range []*string{&got.NetworkLogo, &got.Cast[0].Photo, &got.Cast[1].Photo, &got.Creators[0].Photo} {
+			if _, err := c.Images().URL(artwork.ShapeLogo, *p, artwork.SizeOriginal); err != nil {
+				t.Errorf("file %q: %v", *p, err)
+			}
+			*p = ""
+		}
+		want := tmdb.Series{
+			ID: 9000001, SeriesIDs: tmdb.SeriesIDs{TVDB: 70001, IMDb: "tt9100001"},
+			Cast:           []tmdb.Person{{ID: 91001, Name: "Mara Venn", Role: "Ada"}, {ID: 91004, Name: "Tomas Reyl", Role: "Wren"}},
+			Creators:       []tmdb.Person{{ID: 91003, Name: "Ines Calder"}},
+			Certifications: map[string]string{"US": "TV-14", "FR": "12"},
+			Trailer:        got.Trailer,
+			Poster:         paths["posters fr"], Backdrop: paths["backdrops "], TitleTreatment: paths["logos fr"],
+			VoteAverage: 8.1, VoteCount: 640,
+		}
+		if !reflect.DeepEqual(got, want) || want.Poster == "" || want.Backdrop == "" || want.TitleTreatment == "" {
+			t.Errorf("Series in French =\n%+v\nwant\n%+v", got, want)
+		}
+		if got.Trailer == nil || got.Trailer.Key != "qLantern01" || got.Trailer.Site != "YouTube" {
+			t.Errorf("Series trailer = %+v, want qLantern01 on YouTube", got.Trailer)
+		}
+	})
+}
+
+func TestSeriesSearchIDsAndTheTVDBLookup(t *testing.T) {
+	inEachTier(t, withSeries(t), func(t *testing.T, c *tmdb.Client, _ faketest.Served) {
+		found, err := c.SearchSeries(t.Context(), english, "harbor")
+		want := []tmdb.SeriesFound{{ID: 9000002, Name: "Harbor Lights", OriginalName: "Harbor Lights", Overview: "A ferry town keeps its lights on.", FirstAired: "2019-09-01"}}
+		if err != nil || len(found) != 1 || found[0].PosterPath == "" {
+			t.Fatalf("SearchSeries(harbor) = %+v, %v; want %+v with a poster", found, err, want)
+		}
+		if found[0].PosterPath = ""; !reflect.DeepEqual(found, want) {
+			t.Errorf("SearchSeries(harbor) = %+v, want %+v", found, want)
+		}
+
+		for id, want := range map[int64]tmdb.SeriesIDs{9000001: {TVDB: 70001, IMDb: "tt9100001"}, 9000002: {}} {
+			if got, err := c.SeriesExternalIDs(t.Context(), english, id); err != nil || got != want {
+				t.Errorf("SeriesExternalIDs(%d) = %+v, %v; want %+v", id, got, err, want)
+			}
+		}
+		if id, ok, err := c.FindTVDB(t.Context(), english, 70001); err != nil || !ok || id != 9000001 {
+			t.Errorf("FindTVDB(70001) = %d, %t, %v; want 9000001", id, ok, err)
+		}
+		if id, ok, err := c.FindTVDB(t.Context(), english, 70002); err != nil || ok {
+			t.Errorf("FindTVDB(70002) = %d, %t, %v; want none", id, ok, err)
+		}
+	})
+}
+
+func TestTMDBTVChangesOwnQueue(t *testing.T) {
+	inEachTier(t, withSeries(t), func(t *testing.T, c *tmdb.Client, f faketest.Served) {
+		f.Cue(t, faketmdb.SeriesChange.Name, faketmdb.Series{ID: 9000002})
+		f.Cue(t, faketmdb.SeriesDelete.Name, faketmdb.Series{ID: 9000001})
+		now := time.Now()
+		series, err := c.SeriesChanges(t.Context(), english, now.Add(-24*time.Hour), now, 1)
+		if want := (tmdb.ChangesPage{IDs: []int64{9000002, 9000001}, Page: 1, TotalPages: 1}); err != nil || !reflect.DeepEqual(series, want) {
+			t.Errorf("SeriesChanges = %+v, %v; want %+v", series, err, want)
+		}
+		movies, err := c.MovieChanges(t.Context(), english, now.Add(-24*time.Hour), now, 1)
+		if want := (tmdb.ChangesPage{IDs: []int64{}, Page: 1}); err != nil || !reflect.DeepEqual(movies, want) {
+			t.Errorf("MovieChanges after series changes = %+v, %v; want %+v", movies, err, want)
+		}
+		if _, err := c.Movie(t.Context(), english, 9000001); err != nil {
+			t.Errorf("Movie(9000001) after series 9000001 was deleted = %v", err)
+		}
+		_, err = c.Series(t.Context(), english, 9000001)
+		if want := "GET /tv/9000001: TMDB: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
+			t.Errorf("Series(9000001) after its delete = %v, want %s", err, want)
+		}
+		if _, err := c.SeriesChanges(t.Context(), english, now.Add(-tmdb.ChangesWindow-time.Second), now, 1); !errors.Is(err, metadata.ErrNoChanges) {
+			t.Errorf("SeriesChanges past 14 days = %v, want metadata.ErrNoChanges", err)
+		}
+	})
 }

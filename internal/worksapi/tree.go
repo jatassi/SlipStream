@@ -172,21 +172,24 @@ type level struct {
 	Label       string                  `json:"label"`
 	Position    int                     `json:"position" minimum:"1"`
 	WithdrawnAt *time.Time              `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
+	Aside       bool                    `json:"aside" doc:"An outermost level outside the Work's main run, such as Specials"`
 	Fields      []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
+	Artwork     []art                   `json:"artwork" nullable:"false" doc:"By kind"`
 }
 
 type item struct {
-	ID           string                  `json:"id" format:"uuid"`
-	LevelID      *string                 `json:"levelId" format:"uuid" doc:"Null when the Content Type declares no levels"`
-	Key          string                  `json:"key"`
-	Label        string                  `json:"label"`
-	Position     int                     `json:"position" minimum:"1"`
-	WithdrawnAt  *time.Time              `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
-	Monitored    bool                    `json:"monitored"`
-	Fields       []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
-	Ratings      []rating                `json:"ratings" nullable:"false" doc:"By source"`
-	Artwork      []art                   `json:"artwork" nullable:"false" doc:"By kind"`
-	Availability *availability           `json:"availability" doc:"The day the Item counts as released and the rule that chose it; null while no date is known"`
+	ID           string                     `json:"id" format:"uuid"`
+	LevelID      *string                    `json:"levelId" format:"uuid" doc:"Null when the Content Type declares no levels"`
+	Key          string                     `json:"key"`
+	Label        string                     `json:"label"`
+	Position     int                        `json:"position" minimum:"1"`
+	WithdrawnAt  *time.Time                 `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
+	Monitored    bool                       `json:"monitored"`
+	Aside        bool                       `json:"aside" doc:"It sits in an aside level"`
+	Fields       []api.OneOf[fieldValue]    `json:"fields" nullable:"false"`
+	Ratings      []rating                   `json:"ratings" nullable:"false" doc:"By source"`
+	Artwork      []art                      `json:"artwork" nullable:"false" doc:"By kind"`
+	Availability api.Nullable[availability] `json:"availability" doc:"The day the Item counts as released and the rule that chose it; null while no date is known"`
 }
 
 type availability struct {
@@ -194,12 +197,12 @@ type availability struct {
 	Basis string `json:"basis" doc:"The rule that chose the date, in words, such as Digital release in United States; empty when the Content Type names none"`
 }
 
-func availabilityOf(t targets.Timing) *availability {
+func availabilityOf(t targets.Timing) api.Nullable[availability] {
 	d, known := t.Released.Get()
 	if !known {
-		return nil
+		return api.Nullable[availability]{}
 	}
-	return &availability{Date: d.String(), Basis: t.Basis}
+	return api.Some(availability{Date: d.String(), Basis: t.Basis})
 }
 
 func treeOf(m artwork.Minter, t works.Tree, timings map[works.ItemID]targets.Timing) Tree {
@@ -207,13 +210,13 @@ func treeOf(m artwork.Minter, t works.Tree, timings map[works.ItemID]targets.Tim
 	for _, l := range t.Levels {
 		out.Levels = append(out.Levels, level{
 			ID: l.ID.String(), ParentID: idOrNull(l.ParentID.UUID), Depth: l.Depth, Key: string(l.Key), Label: l.Label,
-			Position: l.Position, WithdrawnAt: timeOrNull(l.WithdrawnAt), Fields: fieldsOf(m, l.Fields),
+			Position: l.Position, WithdrawnAt: timeOrNull(l.WithdrawnAt), Aside: l.Aside, Fields: fieldsOf(m, l.Fields), Artwork: artOf(m, l.Artwork),
 		})
 	}
 	for _, it := range t.Items {
 		out.Items = append(out.Items, item{
 			ID: it.ID.String(), LevelID: idOrNull(it.LevelID.UUID), Key: string(it.Key), Label: it.Label,
-			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Fields: fieldsOf(m, it.Fields),
+			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Aside: it.Aside, Fields: fieldsOf(m, it.Fields),
 			Ratings: ratingsOf(it.Ratings), Artwork: artOf(m, it.Artwork), Availability: availabilityOf(timings[it.ID]),
 		})
 	}

@@ -7,6 +7,7 @@ Every signed-in page keeps a live stream open to the Controller and says nothing
 - `live-on` while the stream is open, no connection line shows.
 - `live-reconnect` killing the Controller shows the status `Reconnecting to SlipStream…`, and starting it again on the same port removes it.
 - `live-stream-captured` the Admin's stream is captured from launch: it opens with `live.resync`, and opens again with `live.resync` after the Controller restarts.
+- `live-monitoring` a Monitor switch, the Monitoring dialog or bulk monitoring publishes `works.changed` with the Work's id, and a Work page open in a second tab redraws the season and the hero's count without a reload.
 
 ## How to get to it (user POV)
 

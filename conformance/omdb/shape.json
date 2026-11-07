@@ -1,4 +1,19 @@
 {
+  "season 200": {
+    "$": "object",
+    "$.Episodes": "array",
+    "$.Episodes[]": "object",
+    "$.Episodes[].Episode": "string",
+    "$.Episodes[].Released": "string",
+    "$.Episodes[].Title": "string",
+    "$.Episodes[].imdbID": "string",
+    "$.Episodes[].imdbRating": "string",
+    "$.Error": "string",
+    "$.Response": "string",
+    "$.Season": "string",
+    "$.Title": "string",
+    "$.totalSeasons": "string"
+  },
   "title 200": {
     "$": "object",
     "$.Actors": "string",
@@ -29,7 +44,8 @@
     "$.Year": "string",
     "$.imdbID": "string",
     "$.imdbRating": "string",
-    "$.imdbVotes": "string"
+    "$.imdbVotes": "string",
+    "$.totalSeasons": "string"
   },
   "title 401": {
     "$": "object",

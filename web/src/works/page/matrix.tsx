@@ -80,7 +80,7 @@ function MatrixCards({ matrix, shown }: { matrix: Matrix; shown: MatrixShown }) 
   );
 }
 
-/** The Edition by Target matrix: a table in the desktop shell, one card per Edition on phone. */
+/** A one-Item Work's Edition by Target matrix: a table in the desktop shell, one card per Edition on phone. */
 export function MatrixSection({
   type,
   matrix,
@@ -93,13 +93,6 @@ export function MatrixSection({
   wantAnother: (trigger: ReactElement) => ReactNode;
 }) {
   const phone = useShell() === "phone";
-  if (type.items === "many") {
-    return (
-      <Section title="Editions and Targets">
-        <p className="text-ink-3">The Item list arrives with series.</p>
-      </Section>
-    );
-  }
   return (
     <Section title="Editions and Targets">
       {matrix.targets.length === 0 ? (

@@ -12,10 +12,11 @@ SELECT * FROM works_item ORDER BY rowid;
 
 -- name: ListWorkArtOfWorks :many
 SELECT work_id, source, path FROM works_artwork
-WHERE kind = sqlc.arg(kind) AND ifnull(item_id, x'') = x'' AND work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+WHERE kind = sqlc.arg(kind) AND ifnull(level_id, x'') = x'' AND ifnull(item_id, x'') = x'' AND work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
 
 -- name: ListEveryWorkArt :many
-SELECT work_id, source, path FROM works_artwork WHERE kind = sqlc.arg(kind) AND ifnull(item_id, x'') = x'' ORDER BY rowid;
+SELECT work_id, source, path FROM works_artwork
+WHERE kind = sqlc.arg(kind) AND ifnull(level_id, x'') = x'' AND ifnull(item_id, x'') = x'' ORDER BY rowid;
 
 -- name: ListWorkRatingsOfWorks :many
 SELECT work_id, source, value, votes, fetched_at FROM works_rating

@@ -4,23 +4,23 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 
 ## Sub-features
 
-- `shell-sidebar` the desktop sidebar lists Library with one child per enabled Content Type (`Movies` in `home`), Activity, a separator, Nodes, Health, Accounts, Settings and Tasks, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
+- `shell-sidebar` the desktop sidebar lists Library with one child per enabled Content Type (`Movies` and `TV` in `home`), Activity, a separator, Nodes, Health, Accounts, Settings and Tasks, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
 - `shell-current-page` the current row is the only link with `aria-current="page"` (the brand link `SlipStream` never is), and the page's title names it; on phone a Work and Add go back to `Movies` (P-001).
 - `shell-collapse` `Collapse sidebar` shrinks the sidebar to a 60px rail whose icons name themselves in a tooltip on hover; the choice survives a reload, and a window below 1100px starts collapsed (P-001). The toggle and the brand mark share the top row and keep their places in both widths, the toggle at x 14 to 46 inside the rail and the mark at x 74 to 98 just past its edge, while the wordmark wipes in and out with the sidebar.
 - `shell-activity-count` a moving Grab shows `Activity 1 live` in the sidebar and `Activity 1` on the phone's tab, and the count leaves when the Grab is imported.
 - `shell-activity-fill` while a download runs, the sidebar's `Activity` row and the phone's `Activity` tab fill behind with the downloads' combined progress, a progressbar named `Downloads` that `torrents.live` moves each second; pausing every download dims the fill and its value reads `<n>%, paused`, and the fill leaves when nothing is downloading (P-003).
-- `shell-page-action` a page's main action sits at the top bar's right: `Add` opens the menu `Add a Work` on the Library, and `Add a Movie` is a link on the Movies library.
+- `shell-page-action` a page's main action sits at the top bar's right: `Add` opens the menu `Add a Work` with `Add a Movie` and `Add a Series` on the Library, and `Add a Movie` is a link on the Movies library.
 - `shell-top-bar-slots` the top bar's right side runs the connection line, the running-tasks capsule and the page's action, in that order; the capsule takes no room while no run is shown, and [Tasks](./tasks.md) drives it (P-007).
 - `shell-account-menu` `Account` at the sidebar's foot opens a menu with `Open the portal`, the `Startup sequence` checkbox, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` (P-010).
 - `shell-tab-bar` the phone's tab bar `Tabs` holds `Library`, `Activity`, `Search` and `More` (P-004).
-- `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`), `Nodes`, `Tasks`, the Admin's name, `Open the portal`, `Restart SlipStream…`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
+- `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`, `TV`), `Nodes`, `Tasks`, the Admin's name, `Open the portal`, `Restart SlipStream…`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
 - `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing a word of any title a Work is known by, accents ignored, lists it under Works from the library's server search with its poster, year, Content Type and status (`The Quiet Orchard 2021 · Movie · Missing`), Enter opens it, and Esc returns focus where it was (P-006, P-019).
 - `shell-palette-add` once typing pauses with at least two characters, the group `Add a Movie` lists up to five catalog results; a result in the library reads `In the library` and opens its Work page, any other opens the add sheet over the current page, and `See all results` opens `/add?contentType=movie&query=<query>` (P-020).
 - `shell-palette-history` typing in the palette pushes no history entry: after closing it, Back leaves the page the palette was opened on.
 - `shell-palette-reopen` in the desktop shell, the shortcut pressed again straight after Esc, while the palette is still closing, reopens it with focus in the search field, and every key typed straight after lands in the query.
 - `shell-palette-highlight` opening the palette or changing the query highlights the top result. Results that land later for the same query leave the highlight where it was, even when they land above it. With `et` typed, `Go to Settings` stays highlighted after `The Quiet Orchard` lands in `Add a Movie` above Commands, and Enter opens Settings. A highlighted result that a later answer drops gives the highlight to the top result.
-- `shell-palette-commands` with no query the palette lists only its commands: Go to each nav row and Content Type, Go to each section of the browser's own Node, `Add a Movie`, `Toggle sidebar` (desktop shell only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` in both shells.
+- `shell-palette-commands` with no query the palette lists only its commands: Go to each nav row and Content Type, Go to each section of the browser's own Node, `Add a Movie`, `Add a Series`, `Toggle sidebar` (desktop shell only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` in both shells.
 - `shell-palette-empty` an unmatched query reads `Nothing matches "volcano". Try a Work's name, or a command such as Add a Movie.`
 - `shell-palette-phone` the `Search` tab opens the palette full screen with `Cancel`.
 - `shell-titles` the tab is titled `<page> · SlipStream`, as `Activity · SlipStream` and `The Quiet Orchard · SlipStream` (P-014).
@@ -35,10 +35,10 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's rows (`Library`, `Movies`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Your Account`, `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`.
+- Desktop shell: the sidebar's rows (`Library`, `Movies`, `TV`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Your Account`, `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`.
 - Desktop shell: the top bar's capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and at the right the connection line while reconnecting, the running-tasks capsule while a run is shown, and the page's action (`Add` on the Library).
-- Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies`, `Go to Activity`, `Go to Nodes`, `Go to Health`, `Go to Accounts`, `Go to Settings`, `Go to Tasks`, then the browser's own Node's sections `Go to Overview`, `Go to Roles`, `Go to Web and API`, `Go to Torrent client` (on a Node that stands in Downloading), `Go to Logs` and `Go to Log settings`, then `Add a Movie`, `Toggle sidebar` (desktop only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`.
-- Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`, `Your Account`, `Open the portal`, `Restart SlipStream…`, `Sign out` and `Startup sequence`).
+- Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies Library`, `Go to TV Library`, `Go to Activity`, `Go to Nodes`, `Go to Health`, `Go to Accounts`, `Go to Settings`, `Go to Tasks`, then the browser's own Node's sections `Go to Overview`, `Go to Roles`, `Go to Web and API`, `Go to Torrent client` (on a Node that stands in Downloading), `Go to Logs` and `Go to Log settings`, then `Add a Movie`, `Add a Series`, `Toggle sidebar` (desktop only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`.
+- Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, `TV`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`, `Your Account`, `Open the portal`, `Restart SlipStream…`, `Sign out` and `Startup sequence`).
 - Phone shell: the large title's `Search` button opens the palette and its `Account` button opens the More sheet; a pushed page's back link names the page above it (a Work's library, or the tab it came from).
 - Both shells: `/` redirects to `/library`, and any address the app doesn't know shows the not-found page.
 - Both shells: the portal at `/portal`, through `Open the portal` in the desktop `Account` menu or the More sheet; the portal leads back through `Back to Library`.
@@ -55,7 +55,7 @@ Preconditions:
 
 Steps:
 
-- **See the desktop shell.** The sidebar lists `Library`, `Movies`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings` and `Tasks`, the Library row is current, and the title reads `Library · SlipStream`.
+- **See the desktop shell.** The sidebar lists `Library`, `Movies`, `TV`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings` and `Tasks`, the Library row is current, and the title reads `Library · SlipStream`.
 
   ```sh
   $FW exec $RUN --proof shell/shell-sidebar -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/shell/shell-sidebar/library.aria.yml
@@ -240,7 +240,7 @@ Steps:
   $FW fault set $RUN swarm-hold seeders@seedbox throttle=16KiB/s
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("link", { name: "The Quiet Orchard" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity 1 live" }).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-phone run-code 'async page => { await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Activity 1" }).waitFor({ timeout: 15000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/counts'
