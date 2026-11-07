@@ -92,7 +92,7 @@ func addOrchard(t *testing.T, w *sim.World) string {
 		Work struct {
 			ID string `json:"id"`
 		} `json:"work"`
-	}](t, "addWork", w.API().Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`))
+	}](t, "addWork", w.API().Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`))
 	return added.Work.ID
 }
 

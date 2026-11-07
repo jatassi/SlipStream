@@ -7,6 +7,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -275,6 +277,28 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws works.Am
 func (*Movie) Cuts() []release.Cut { return nil }
 
 // Growing answers none: a movie never gains Items.
+// OptionFields answers none: a movie has no per-Work options.
+func (*Movie) OptionFields(context.Context, storage.Reader[file], works.WorkID) ([]setting.Field, error) {
+	return nil, nil
+}
+
+// FetchOptions answers the default: a movie is fetched one way.
+func (*Movie) FetchOptions(context.Context, storage.Reader[file], works.WorkID) ([]byte, error) {
+	return nil, nil
+}
+
+func (*Movie) PatchOptions(_ context.Context, _ storage.Reader[file], _ works.WorkID, p setting.Patch) ([]byte, error) {
+	if len(p) > 0 {
+		return nil, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
+	}
+	return nil, nil
+}
+
+// KeysOf maps none: a movie is known by its TMDB id alone.
+func (*Movie) KeysOf(context.Context, storage.Reader[file], []works.Key) ([]works.Key, error) {
+	return nil, nil
+}
+
 func (*Movie) Growing(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID]bool, error) {
 	return nil, nil
 }

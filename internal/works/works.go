@@ -111,6 +111,15 @@ var (
 	ErrLastType     = errors.New("the Content Type is the only one turned on")
 	ErrNoWork       = errors.New("no Work has that id")
 	ErrGoneUpstream = errors.New("the metadata source no longer has this Work")
+	// ErrNotOnSource is a record another provider found that the type's
+	// source doesn't list, so it can't be added.
+	ErrNotOnSource = errors.New("the metadata source doesn't list this record")
+	// ErrOrderUnavailable is an order the Work's source doesn't list its
+	// Items in.
+	ErrOrderUnavailable = errors.New("the metadata source doesn't list this Work in that order")
+	// ErrNotInWork is a level or Item id that names a node of another
+	// Work, or none.
+	ErrNotInWork = errors.New("the Work has no level or Item with that id")
 )
 
 // SourceError is a metadata call that failed at its source. Err is
@@ -203,8 +212,13 @@ func validate(d Description) error {
 		return errors.New("it has no Items shape")
 	case d.Items == ItemsOne && len(d.Levels) > 0:
 		return errors.New("it holds one Item and declares levels")
+	case d.Aside != (Noun{}) && len(d.Levels) == 0:
+		return errors.New("it names an aside and declares no levels")
 	}
 	nouns := append([]Noun{d.Work, d.Item}, d.Levels...)
+	if d.Aside != (Noun{}) {
+		nouns = append(nouns, d.Aside)
+	}
 	for _, n := range nouns {
 		if n.One == "" || n.Many == "" {
 			return fmt.Errorf("noun %+v needs both One and Many", n)
@@ -214,7 +228,7 @@ func validate(d Description) error {
 	if err != nil {
 		return err
 	}
-	for _, err := range []error{validateArtwork(d.Artwork), validatePlaces(d.Fields), validateFieldRefs(d, declared), validateArt(d), validateRatings(d.Ratings)} {
+	for _, err := range []error{validateArtwork(d), validatePlaces(d.Fields), validateFieldRefs(d, declared), validateArt(d), validateRatings(d.Ratings)} {
 		if err != nil {
 			return err
 		}
@@ -289,8 +303,8 @@ func validateRatings(sources []RatingSource) error {
 }
 
 // validatePlaces holds every field to a place that takes it: tagline and
-// overview take one text field each, credits take people only and facts
-// take no people.
+// overview take one text field each, code one Item-tier text or number
+// field, credits take people only and facts take no people.
 func validatePlaces(fields []FieldSpec) error {
 	held := map[Place]string{}
 	for _, f := range fields {
@@ -298,13 +312,17 @@ func validatePlaces(fields []FieldSpec) error {
 			return fmt.Errorf("field %s is in no place", f.Key)
 		}
 		for i, p := range f.In {
-			single := p == PlaceTagline || p == PlaceOverview
+			single := p == PlaceTagline || p == PlaceOverview || p == PlaceCode
 			switch {
 			case placeNames[p] == "":
 				return fmt.Errorf("field %s is in place %d, which doesn't exist", f.Key, p)
 			case slices.Contains(f.In[:i], p):
 				return fmt.Errorf("field %s is in %s twice", f.Key, p)
-			case single && f.Kind != KindText:
+			case p == PlaceCode && f.Tier != TierItem:
+				return fmt.Errorf("field %s sits at %s, and code takes an Item-tier field", f.Key, f.Tier)
+			case p == PlaceCode && f.Kind != KindText && f.Kind != KindNumber:
+				return fmt.Errorf("field %s is %s, and code takes text or a number", f.Key, f.Kind)
+			case single && p != PlaceCode && f.Kind != KindText:
 				return fmt.Errorf("field %s is %s, and %s takes text only", f.Key, f.Kind, p)
 			case single && held[p] != "":
 				return fmt.Errorf("fields %s and %s are both in %s, which takes one", held[p], f.Key, p)
@@ -341,22 +359,24 @@ func validateListing(f FieldSpec) error {
 // shape is set.
 func hasWorkKind(kinds []artwork.Kind, key string, shape artwork.Shape) bool {
 	return slices.ContainsFunc(kinds, func(k artwork.Kind) bool {
-		return !k.Item && k.Key == key && (shape == "" || k.Shape == shape)
+		return k.Tier == TierWork && k.Key == key && (shape == "" || k.Shape == shape)
 	})
 }
 
-func validateArtwork(kinds []artwork.Kind) error {
-	seen := map[bool]map[string]bool{false: {}, true: {}}
-	for _, k := range kinds {
+func validateArtwork(d Description) error {
+	seen := map[Tier]map[string]bool{}
+	for _, k := range d.Artwork {
 		_, shapeErr := artwork.ParseShape(string(k.Shape))
 		switch {
+		case k.Tier != TierWork && k.Tier != TierItem && (k.Tier < 1 || int(k.Tier) > len(d.Levels)):
+			return fmt.Errorf("artwork kind %s sits at %s, which the type does not declare", k.Key, k.Tier)
 		case !fieldKey.MatchString(k.Key):
 			return fmt.Errorf("artwork kind %s is not %s", k.Key, fieldKey)
 		case k.Label == "":
 			return fmt.Errorf("artwork kind %s has no label", k.Key)
 		case shapeErr != nil:
 			return fmt.Errorf("artwork kind %s: %w", k.Key, shapeErr)
-		case seen[k.Item][k.Key]:
+		case seen[k.Tier][k.Key]:
 			return fmt.Errorf("artwork kind %s is declared twice", k.Key)
 		}
 		if k.Prefetch != "" {
@@ -364,7 +384,10 @@ func validateArtwork(kinds []artwork.Kind) error {
 				return fmt.Errorf("artwork kind %s: %w", k.Key, err)
 			}
 		}
-		seen[k.Item][k.Key] = true
+		if seen[k.Tier] == nil {
+			seen[k.Tier] = map[string]bool{}
+		}
+		seen[k.Tier][k.Key] = true
 	}
 	return nil
 }

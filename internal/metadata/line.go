@@ -31,8 +31,12 @@ type Provider struct {
 	// Rate and Burst are the token bucket per provider per holder.
 	Rate  rate.Limit
 	Burst int
-	// Key puts the key on a request; nil for a keyless host.
+	// Key puts the key on a request; nil for a keyless host or one that
+	// takes its key through Auth.
 	Key func(q url.Values, key string)
+	// Auth logs in for a bearer token, nil for a provider that takes its
+	// key on the query. A provider sets Key or Auth, not both.
+	Auth *Auth
 	// Classify reads an answer the shared rules don't settle, such as a 200
 	// whose body says the daily allowance is spent. Nil leaves every answer
 	// to the shared rules.
@@ -43,6 +47,29 @@ type Provider struct {
 	// it, nil when they ask for none.
 	Attribution *Attribution
 }
+
+// Auth is how a provider trades its key, and a PIN when one is set, for a
+// bearer token.
+type Auth struct {
+	// Login is the JSON POST that logs in; pin is empty when none is set.
+	Login func(key, pin string) (u *url.URL, body []byte)
+	// Token reads a 200 login's token and when it expires.
+	Token func(body []byte) (token string, expires time.Time, err error)
+	// Refused is which credential a refused login names: CredentialKey
+	// when the body can't tell.
+	Refused func(status int, body []byte) Credential
+	// Pin is whether the provider takes an optional PIN beside its key, so
+	// Set key offers one.
+	Pin bool
+}
+
+// Credential is the part of a login a provider refused.
+type Credential uint8
+
+const (
+	CredentialKey Credential = iota + 1
+	CredentialPin
+)
 
 // Attribution is a provider's required credit: its words, and the key of
 // the logo the web app bundles for it.
@@ -198,6 +225,7 @@ var failures = map[OutcomeKind]error{
 	Limited:     works.ErrUnavailable,
 	Capped:      works.ErrUnavailable,
 	Unreachable: works.ErrUnavailable,
+	PinRefused:  works.ErrRefused,
 }
 
 // verdict is what one try settled: an outcome, the answer when it is OK,

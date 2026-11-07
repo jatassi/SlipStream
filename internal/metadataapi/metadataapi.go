@@ -97,13 +97,15 @@ type provider struct {
 	Until       api.Nullable[time.Time]   `json:"until" doc:"When a rate limited provider, or one out of its daily allowance, takes calls again"`
 	KeySetAt    api.Nullable[time.Time]   `json:"keySetAt" doc:"When the Admin set the key in use; null unless it is theirs"`
 	KeyPage     string                    `json:"keyPage" format:"uri" doc:"Where an Admin gets a key, opened in the browser"`
+	TakesPin    bool                      `json:"takesPin" doc:"Set key offers a subscriber PIN beside the key"`
+	PinSet      bool                      `json:"pinSet" doc:"The Admin's key in use carries a PIN"`
 	Attribution api.Nullable[attribution] `json:"attribution" doc:"What the provider's terms require SlipStream to show; null when they require nothing"`
 	Details     details                   `json:"details"`
 }
 
 type attribution struct {
 	Text string `json:"text" doc:"The sentence to show, word for word"`
-	Logo string `json:"logo" enum:"tmdb" doc:"The logo the web app bundles to show beside it"`
+	Logo string `json:"logo" enum:"tmdb,tvdb" doc:"The logo the web app bundles to show beside it"`
 }
 
 type details struct {
@@ -124,7 +126,10 @@ type reach struct {
 }
 
 func providerOf(s metadata.ProviderStatus) provider {
-	out := provider{ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], KeyPage: s.KeyPage, State: states[s.State], Details: details{Nodes: []reach{}}}
+	out := provider{
+		ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], KeyPage: s.KeyPage, TakesPin: s.TakesPin, PinSet: s.PinSet,
+		State: states[s.State], Details: details{Nodes: []reach{}},
+	}
 	if !s.KeySetAt.IsZero() {
 		out.KeySetAt = api.Some(s.KeySetAt)
 	}
@@ -160,6 +165,7 @@ type providerInput struct {
 
 type newKey struct {
 	Key string `json:"key" minLength:"1" maxLength:"256"`
+	Pin string `json:"pin,omitempty" maxLength:"256" doc:"A subscriber PIN to send beside the key, for a provider that takes one; left out, none"`
 }
 
 type keyInput struct {
@@ -299,7 +305,7 @@ func (h handlers) listProviders(ctx context.Context, by identity.Admin, _ *struc
 }
 
 func (h handlers) setKey(ctx context.Context, by identity.Admin, in *keyInput) (*providerOutput, error) {
-	s, err := open(h.registry).SetKey(ctx, by, metadata.ProviderID(in.Provider), in.Body.Key)
+	s, err := open(h.registry).SetKey(ctx, by, metadata.ProviderID(in.Provider), metadata.NewKey{Key: in.Body.Key, Pin: in.Body.Pin})
 	if err != nil {
 		return nil, answer(err)
 	}

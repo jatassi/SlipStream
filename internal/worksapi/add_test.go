@@ -90,7 +90,7 @@ func (s *server) add(t *testing.T, body string) added {
 
 // remembering is an add of key that remembers, with each choice given
 // when it isn't empty.
-func remembering(key, profile string, root roots.Root, monitor string) string {
+func remembering(key, profile string, root roots.Root, preset string) string {
 	body := `{"contentType":"fixture","key":"` + key + `","remember":true`
 	if profile != "" {
 		body += `,"profileId":"` + profile + `"`
@@ -98,8 +98,8 @@ func remembering(key, profile string, root roots.Root, monitor string) string {
 	if !root.ID.IsZero() {
 		body += `,"rootId":"` + root.ID.String() + `"`
 	}
-	if monitor != "" {
-		body += `,"monitor":` + monitor
+	if preset != "" {
+		body += `,"preset":"` + preset + `"`
 	}
 	return body + "}"
 }
@@ -164,13 +164,13 @@ func TestRememberMovesExactlyTheChangedDefaults(t *testing.T) {
 		t.Fatalf("defaults at start = %+v, want %+v", got, want)
 	}
 
-	a := s.add(t, remembering("w1", w.small.ID.String(), w.alt, "false"))
+	a := s.add(t, remembering("w1", w.small.ID.String(), w.alt, "none"))
 	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.alt.Path, monitor: false}); !a.Created || got != want {
 		t.Fatalf("after a remembered add with every choice changed: created %t, defaults %+v, want %+v", a.Created, got, want)
 	}
 	w.moved(t, "changing every default", true, w.alt.ID, w.first.ID)
 
-	s.add(t, remembering("w2", w.small.ID.String(), w.alt, "false"))
+	s.add(t, remembering("w2", w.small.ID.String(), w.alt, "none"))
 	w.moved(t, "choosing every default as it is", false)
 
 	a = s.add(t, remembering("w3", w.small.ID.String(), w.first, ""))
@@ -179,7 +179,7 @@ func TestRememberMovesExactlyTheChangedDefaults(t *testing.T) {
 	}
 	w.moved(t, "changing only the root", false, w.first.ID, w.alt.ID)
 
-	a = s.add(t, remembering("w1", w.fixture.ID.String(), w.alt, "true"))
+	a = s.add(t, remembering("w1", w.fixture.ID.String(), w.alt, "all"))
 	if got, want := s.defaults(t), (defaults{profile: "Small", root: w.first.Path, monitor: false}); a.Created || got != want || a.Work.Profile.Name != "Small" {
 		t.Fatalf("a remembered add of a Work already there: created %t, wants from %s, defaults %+v; want created false, Small, %+v", a.Created, a.Work.Profile.Name, got, want)
 	}
@@ -189,7 +189,7 @@ func TestRememberMovesExactlyTheChangedDefaults(t *testing.T) {
 func TestAnAddThatDoesntRememberMovesNoDefault(t *testing.T) {
 	w := newWorld(t)
 	s := w.s
-	a := s.add(t, `{"contentType":"fixture","key":"w1","profileId":"`+w.small.ID.String()+`","rootId":"`+w.alt.ID.String()+`","monitor":false}`)
+	a := s.add(t, `{"contentType":"fixture","key":"w1","profileId":"`+w.small.ID.String()+`","rootId":"`+w.alt.ID.String()+`","preset":"none"}`)
 	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: true}); !a.Created || a.Work.Profile.Name != "Small" || a.Work.Items[0].Monitored || got != want {
 		t.Fatalf("an add without remember: created %t, wants from %s, monitored %t, defaults %+v; want a Small unmonitored Work and %+v", a.Created, a.Work.Profile.Name, a.Work.Items[0].Monitored, got, want)
 	}
@@ -207,7 +207,7 @@ func TestAMonitorLeftOutTakesTheTypesAddMonitor(t *testing.T) {
 	if a := s.add(t, `{"contentType":"fixture","key":"w2"}`); a.Work.Items[0].Monitored {
 		t.Fatal("an add with no monitor while fixture.add.monitor is off monitored its Item")
 	}
-	if a := s.add(t, `{"contentType":"fixture","key":"w3","monitor":true}`); !a.Work.Items[0].Monitored {
+	if a := s.add(t, `{"contentType":"fixture","key":"w3","preset":"all"}`); !a.Work.Items[0].Monitored {
 		t.Fatal("an add with monitor true while fixture.add.monitor is off left its Item unmonitored")
 	}
 }

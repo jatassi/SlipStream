@@ -20,22 +20,34 @@ func addMonitor(t TypeID, d Description) setting.Switch {
 }
 
 func storedAddMonitor(ctx context.Context, r storage.Reader[file], t TypeID) (*bool, error) {
-	on, err := db.New(r).GetAddMonitor(ctx, t)
+	row, err := db.New(r).GetAddDefault(ctx, t)
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
 		return nil, nil
 	case err != nil:
 		return nil, err
+	case row.Monitor == nil:
+		return nil, nil
 	}
+	on := Preset(*row.Monitor) == PresetAll
 	return &on, nil
 }
 
 func storeAddMonitor(ctx context.Context, tx *storage.Tx[file], t TypeID, on *bool) error {
 	q := db.New(tx)
-	if on == nil {
-		return q.ClearAddMonitor(ctx, t)
+	row, err := q.GetAddDefault(ctx, t)
+	if err != nil && !errors.Is(err, storage.ErrNoRows) {
+		return err
 	}
-	return q.SetAddMonitor(ctx, db.SetAddMonitorParams{ContentType: t, Monitor: *on})
+	put := db.PutAddDefaultParams{ContentType: t, Asides: row.Asides, LevelFolders: row.LevelFolders}
+	if on != nil {
+		preset := string(PresetNone)
+		if *on {
+			preset = string(PresetAll)
+		}
+		put.Monitor = &preset
+	}
+	return q.PutAddDefault(ctx, put)
 }
 
 // AddMonitorIn is whether a Work of t added with no Monitor choice is

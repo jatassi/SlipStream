@@ -35,6 +35,7 @@ var Description = works.Description{
 	Source: "Fixture source",
 	Work:   works.Noun{One: "Shelf", Many: "Shelves"},
 	Levels: []works.Noun{{One: "Box", Many: "Boxes"}},
+	Aside:  works.Noun{One: "Spare box", Many: "Spare boxes"},
 	Item:   works.Noun{One: "Thing", Many: "Things"},
 	Items:  works.ItemsMany,
 	Fields: []works.FieldSpec{
@@ -45,10 +46,12 @@ var Description = works.Description{
 		{Key: "tags", Label: "Tags", Tier: works.TierWork, Kind: works.KindTexts, In: []works.Place{works.PlaceAbout}, List: works.ListColumn | works.ListFilter},
 		{Key: "makers", Label: "Makers", Tier: works.TierWork, Kind: works.KindPeople, In: []works.Place{works.PlaceCredits}},
 		{Key: "page", Label: "Page", Tier: works.TierWork, Kind: works.KindLink, In: []works.Place{works.PlaceDetails}},
+		{Key: "code", Label: "Code", Tier: works.TierItem, Kind: works.KindText, In: []works.Place{works.PlaceCode}},
 	},
 	Artwork: []artwork.Kind{
 		{Key: "photo", Label: "Photo", Shape: artwork.ShapePoster, Prefetch: artwork.SizeMedium},
-		{Key: "snap", Label: "Snap", Item: true, Shape: artwork.ShapeBackdrop},
+		{Key: "label", Label: "Label", Tier: works.TierLevel(1), Shape: artwork.ShapePoster},
+		{Key: "snap", Label: "Snap", Tier: works.TierItem, Shape: artwork.ShapeBackdrop},
 	},
 	Art:     works.ArtRoles{Poster: "photo"},
 	Ratings: []works.RatingSource{"tmdb", "imdb"},
@@ -59,12 +62,43 @@ type Endpoints struct {
 }
 
 type Record struct {
-	Tree        works.Fetched
+	Tree works.Fetched
+	// Stacked is the record in OrderStack, nil when its source lists it in
+	// OrderShelf only.
+	Stacked     *works.Fetched
 	WorkFields  []works.FieldValue
 	LevelFields map[works.Key][]works.FieldValue
 	ItemFields  map[works.Key][]works.FieldValue
 	// Titles are the Work's titles beyond its label, which Titles answers.
 	Titles []string
+	// Order is the order a Fetch answered the record in; Fetch sets it.
+	Order Order
+}
+
+// Order is the Fixture's one per-Work option: which of a record's trees a
+// Fetch answers.
+type Order string
+
+const (
+	// OrderShelf answers Record.Tree, and is every Work's default.
+	OrderShelf Order = "shelf"
+	// OrderStack answers Record.Stacked.
+	OrderStack Order = "stack"
+)
+
+var orderChoice = setting.Choice[Order]{Key: "order", Label: "Order", Default: OrderShelf, Options: []setting.Option[Order]{
+	{Value: OrderShelf, Label: "Shelf order"}, {Value: OrderStack, Label: "Stack order"},
+}}
+
+type options struct {
+	Order Order `json:"order"`
+}
+
+// stacking is the order a stored Work was fetched in, and whether its
+// source lists it in OrderStack.
+type stacking struct {
+	order   Order
+	stacked bool
 }
 
 // Fixture is the library half, and each provider half it opens reads its
@@ -88,6 +122,7 @@ type Fixture struct {
 	changed   []works.Key
 	changeErr error
 	growing   map[works.WorkID]bool
+	orders    map[works.WorkID]stacking
 }
 
 // Released is the date every Item is released on until SetTiming says
@@ -107,6 +142,8 @@ type Call struct {
 	Ask   metadata.Ask
 	Query string
 	Key   works.Key
+	// Options are a Fetch's.
+	Options []byte
 	// Since and Page are a Changes call's.
 	Since time.Time
 	Page  int
@@ -126,6 +163,7 @@ func New() *Fixture {
 		titles:  map[works.WorkID][]string{},
 		timings: map[works.ItemID]targets.Timing{},
 		growing: map[works.WorkID]bool{},
+		orders:  map[works.WorkID]stacking{},
 	}
 }
 
@@ -268,11 +306,21 @@ func (s *source) Search(_ context.Context, ask metadata.Ask, query string) ([]wo
 	return out, nil
 }
 
-func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+// Fetch answers the record's tree in the order options name, OrderShelf
+// when they name none.
+func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key, opts []byte) (works.Fetched, error) {
+	order := OrderShelf
+	if opts != nil {
+		var o options
+		if err := json.Unmarshal(opts, &o); err != nil {
+			return works.Fetched{}, fmt.Errorf("decode the options of %s: %w", key, err)
+		}
+		order = o.Order
+	}
 	f := s.f
 	f.mu.Lock()
 	f.fetches[key]++
-	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Key: key})
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Key: key, Options: opts})
 	h := f.hold
 	f.mu.Unlock()
 	if h != nil {
@@ -292,11 +340,18 @@ func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 	if !ok {
 		return works.Fetched{}, works.ErrNotFound
 	}
+	fetched := r.Tree
+	if order == OrderStack {
+		if r.Stacked == nil {
+			return works.Fetched{}, works.ErrOrderUnavailable
+		}
+		fetched = *r.Stacked
+	}
+	r.Order = order
 	detail, err := json.Marshal(r)
 	if err != nil {
 		return works.Fetched{}, fmt.Errorf("encode the record of %s: %w", key, err)
 	}
-	fetched := r.Tree
 	fetched.Detail = detail
 	return fetched, nil
 }
@@ -373,9 +428,11 @@ func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at wo
 	if !ok {
 		fs = works.FieldSet{Levels: map[works.LevelID][]works.FieldValue{}, Items: map[works.ItemID][]works.FieldValue{}}
 	}
-	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields) || !slices.Equal(f.titles[at.Work], r.Titles)
+	order := stacking{order: r.Order, stacked: r.Stacked != nil}
+	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields) || !slices.Equal(f.titles[at.Work], r.Titles) || f.orders[at.Work] != order
 	fs.Work = r.WorkFields
 	f.titles[at.Work] = r.Titles
+	f.orders[at.Work] = order
 	for key, id := range at.Levels {
 		changed = changed || !reflect.DeepEqual(fs.Levels[id], r.LevelFields[key])
 		fs.Levels[id] = r.LevelFields[key]
@@ -416,6 +473,66 @@ func (f *Fixture) Titles(_ context.Context, _ storage.Reader[storage.Library], w
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.titles[w]), nil
+}
+
+// OptionFields answers w's order, offering OrderStack only when its source
+// lists w that way.
+func (f *Fixture) OptionFields(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) ([]setting.Field, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s := f.orders[w]
+	c := orderChoice
+	if !s.stacked {
+		c.Options = c.Options[:1]
+	}
+	var override *Order
+	if s.order != OrderShelf {
+		override = &s.order
+	}
+	return []setting.Field{c.Field(override)}, nil
+}
+
+// FetchOptions answers w's order, nil for OrderShelf.
+func (f *Fixture) FetchOptions(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) ([]byte, error) {
+	f.mu.Lock()
+	order := f.orders[w].order
+	f.mu.Unlock()
+	return encodeOrder(order)
+}
+
+// PatchOptions answers the options p's order makes of w's: ErrOrderUnavailable
+// for OrderStack when w's source lists it in OrderShelf only.
+func (f *Fixture) PatchOptions(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID, p setting.Patch) ([]byte, error) {
+	f.mu.Lock()
+	s := f.orders[w]
+	f.mu.Unlock()
+	order := s.order
+	for key, raw := range p {
+		if key != orderChoice.Key {
+			return nil, &setting.UnknownKeyError{Key: key}
+		}
+		v, err := orderChoice.ParseJSON(raw)
+		if err != nil {
+			return nil, err
+		}
+		order = orderChoice.Value(v.Override())
+	}
+	if order == OrderStack && !s.stacked {
+		return nil, works.ErrOrderUnavailable
+	}
+	return encodeOrder(order)
+}
+
+func encodeOrder(o Order) ([]byte, error) {
+	if o == OrderShelf || o == "" {
+		return nil, nil
+	}
+	return json.Marshal(options{Order: o})
+}
+
+// KeysOf maps none: a Shelf is known by its own key alone.
+func (*Fixture) KeysOf(context.Context, storage.Reader[storage.Library], []works.Key) ([]works.Key, error) {
+	return nil, nil
 }
 
 // Links answers none: a Shelf links nowhere.

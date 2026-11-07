@@ -11,7 +11,7 @@ import (
 )
 
 const listWorksOf = `-- name: ListWorksOf :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE id IN (/*SLICE:ids*/?) ORDER BY id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE id IN (/*SLICE:ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListWorksOf(ctx context.Context, ids []WorkID) ([]WorksWork, error) {
@@ -43,6 +43,9 @@ func (q *Queries) ListWorksOf(ctx context.Context, ids []WorkID) ([]WorksWork, e
 			&i.RefreshedAt,
 			&i.GoneUpstreamAt,
 			&i.RatingsReadAt,
+			&i.MonitorNew,
+			&i.MonitorAsides,
+			&i.LevelFolders,
 		); err != nil {
 			return nil, err
 		}

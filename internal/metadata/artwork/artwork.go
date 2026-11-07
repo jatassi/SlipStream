@@ -6,6 +6,7 @@ package artwork
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 )
 
 // Shape is an image's aspect, which decides the sizes a source offers.
@@ -64,12 +65,35 @@ type Want struct {
 	Size Size
 }
 
+// Tier is which nodes of a Work tree something belongs to: the Work, the
+// levels at one depth, or the Items.
+type Tier int
+
+const (
+	TierWork Tier = 0
+	TierItem Tier = -1
+)
+
+// TierLevel is the levels at depth, 1 for the outermost.
+func TierLevel(depth int) Tier { return Tier(depth) }
+
+func (t Tier) String() string {
+	switch t {
+	case TierWork:
+		return "the Work"
+	case TierItem:
+		return "the Items"
+	}
+	return "level " + strconv.Itoa(int(t))
+}
+
 // Kind is one artwork kind a Content Type declares.
 type Kind struct {
 	Key   string
 	Label string
-	// Item is true for a kind each Item has, false for one per Work.
-	Item  bool
+	// Tier is whether each Work, each level at one depth or each Item has
+	// one.
+	Tier  Tier
 	Shape Shape
 	// Prefetch is the size fetched when a Work is added, empty for none.
 	Prefetch Size

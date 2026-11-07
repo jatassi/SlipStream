@@ -9,10 +9,42 @@ import (
 )
 
 // TMDB is the catalog fake-tmdb serves: the movies it lists, then the
-// ones it generates.
+// ones it generates, and the series it lists.
 type TMDB struct {
 	Movies    []TMDBMovie    `yaml:"movies,omitempty"`
 	Generated *TMDBGenerated `yaml:"generated,omitempty"`
+	Series    []TMDBSeries   `yaml:"series,omitempty"`
+}
+
+// TMDBSeries is one series' TMDB record: what TMDB adds to TVDB's, never
+// its seasons or episodes.
+type TMDBSeries struct {
+	ID int64 `jsonschema:"required,minimum=1" yaml:"id"`
+	// TVDB is the series' TVDB id in its external ids; zero is a series
+	// only TMDB lists.
+	TVDB             int64               `jsonschema:"minimum=0" yaml:"tvdb,omitempty"`
+	Name             string              `jsonschema:"required"  yaml:"name"`
+	OriginalName     string              `yaml:"original_name,omitempty"`
+	OriginalLanguage string              `jsonschema:"pattern=^[a-z]{2}$" yaml:"original_language,omitempty"`
+	Overview         string              `yaml:"overview,omitempty"`
+	FirstAired       string              `jsonschema:"pattern=^[0-9]{4}-[0-9]{2}-[0-9]{2}$" yaml:"first_aired,omitempty"`
+	Network          *TMDBNamed          `yaml:"network,omitempty"`
+	Creators         []TMDBCast          `yaml:"creators,omitempty"`
+	Credits          TMDBCredits         `yaml:"credits,omitempty"`
+	Certifications   []TMDBCertification `yaml:"certifications,omitempty"`
+	// Trailer is the YouTube key of the series' one trailer.
+	Trailer     string      `yaml:"trailer,omitempty"`
+	Images      []TMDBImage `yaml:"images,omitempty"`
+	VoteAverage float64     `jsonschema:"minimum=0,maximum=10" yaml:"vote_average,omitempty"`
+	VoteCount   int64       `jsonschema:"minimum=0"            yaml:"vote_count,omitempty"`
+	// Deleted is a series TMDB no longer has: its id answers 404.
+	Deleted bool `yaml:"deleted,omitempty"`
+}
+
+// TMDBCertification is a series' content rating in one country.
+type TMDBCertification struct {
+	Country string `jsonschema:"required,pattern=^[A-Z]{2}$" yaml:"country"`
+	Rating  string `jsonschema:"required"                    yaml:"rating"`
 }
 
 // TMDBMovie is one movie's whole TMDB record. Only id, imdb_id, title and
@@ -143,8 +175,16 @@ func (c TMDB) check(add func(format string, args ...any)) {
 // checkGenerated checks the generated catalog and keeps listed movies out
 // of its id block, TMDB's and IMDb's alike.
 func (c TMDB) checkGenerated(add func(format string, args ...any)) {
-	if len(c.Movies) == 0 && c.Generated == nil {
-		add("tmdb lists no movie and generates none")
+	if len(c.Movies) == 0 && c.Generated == nil && len(c.Series) == 0 {
+		add("tmdb lists no movie or series and generates none")
+	}
+	for i, s := range c.Series {
+		if slices.ContainsFunc(c.Series[:i], func(o TMDBSeries) bool { return o.ID == s.ID }) {
+			add("tmdb series %d is listed twice", s.ID)
+		}
+		if s.FirstAired != "" && !isDay(s.FirstAired) {
+			add("tmdb series %d first_aired %q is not YYYY-MM-DD", s.ID, s.FirstAired)
+		}
 	}
 	if g := c.Generated; g != nil && (g.Count < 1 || g.Count > MaxGenerated || g.Seed == "") {
 		add("tmdb generated has count %d and seed %q; want a count from 1 to %d and a seed", g.Count, g.Seed, MaxGenerated)

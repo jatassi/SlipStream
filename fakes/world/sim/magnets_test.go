@@ -177,7 +177,7 @@ func TestTwoGrabsOfOneMagnetLinkMakeOneSearch(t *testing.T) {
 			Work struct {
 				ID string `json:"id"`
 			} `json:"work"`
-		}](t, "addWork", w.API().Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000002","monitor":true}`)).Work.ID
+		}](t, "addWork", w.API().Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000002","preset":"all"}`)).Work.ID
 		search(t, w, addOrchard(t, w))
 		search(t, w, harbor)
 		var gs []grabView

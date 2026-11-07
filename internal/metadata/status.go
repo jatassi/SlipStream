@@ -38,6 +38,7 @@ var states = map[OutcomeKind]State{
 	Limited:     StateRateLimited,
 	Capped:      StateOutOfAllowance,
 	Unreachable: StateUnreachable,
+	PinRefused:  StateKeyRefused,
 }
 
 // ProviderStatus is how a provider stands, built only from the outcomes of
@@ -51,7 +52,11 @@ type ProviderStatus struct {
 	Key     KeyInUse
 	// KeySetAt is when the Admin set the key in use, zero unless it is
 	// theirs.
-	KeySetAt    time.Time
+	KeySetAt time.Time
+	// TakesPin is whether Set key offers a PIN beside the key, and PinSet
+	// whether the Admin's key carries one.
+	TakesPin    bool
+	PinSet      bool
 	KeyPage     string
 	Attribution *Attribution
 	State       State
@@ -311,7 +316,8 @@ func (m *Metadata) label(p ProviderID) (string, bool) {
 // view is s as the API reads it; m.mu is held.
 func (m *Metadata) view(s *status) ProviderStatus {
 	v := ProviderStatus{
-		Provider: s.p.ID, Label: s.p.Label, Key: m.keyInUse(s.p.ID), KeySetAt: m.yours[s.p.ID].setAt, KeyPage: s.p.KeyPage, Attribution: s.p.Attribution,
+		Provider: s.p.ID, Label: s.p.Label, Key: m.keyInUse(s.p.ID), KeySetAt: m.yours[s.p.ID].setAt, TakesPin: s.p.Auth != nil && s.p.Auth.Pin,
+		KeyPage: s.p.KeyPage, Attribution: s.p.Attribution,
 		State: s.state, Until: s.until,
 		LastSuccess: s.lastSuccess, LastError: s.lastError, LastErrorAt: s.lastErrorAt, Nodes: []NodeReach{},
 	}

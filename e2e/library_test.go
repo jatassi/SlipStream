@@ -138,7 +138,7 @@ func TestAFreshControllerWantsTheStarterForItsContentType(t *testing.T) {
 	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[{"id":"` + movies.ID + `","name":"Movies","contentType":"movie","default":true,` +
 		`"targets":[{"targetId":"` + starter.ID + `","sourcing":"download"}],"editions":{"kind":"any"},"works":0}]}` + "\n"})
 
-	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`), &added{})
+	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created || len(tr.Items) != 1 {
 		t.Fatalf("addWork created %t, work %s: %v; want a created Work with one Item", first.Created, first.Work, err)

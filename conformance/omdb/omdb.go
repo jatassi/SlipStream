@@ -58,7 +58,7 @@ func Run(t *testing.T, tgt Target) {
 		return provider.New(tgt.Lines(&c), tgt.Endpoints, tgt.Timings)
 	}
 	ask := func(key string) metadata.Ask {
-		return metadata.NewAsk(metadata.AskOptions{Ratings: true, Keys: map[metadata.ProviderID]string{provider.ID: key}})
+		return metadata.NewAsk(metadata.AskOptions{Ratings: metadata.RatingsWork, Keys: map[metadata.ProviderID]string{provider.ID: key}})
 	}
 	c := client()
 

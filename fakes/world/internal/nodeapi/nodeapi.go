@@ -195,14 +195,14 @@ func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentTyp
 
 // AddWork adds the Work of contentType whose catalog key is key, or gets
 // the one already added.
-func AddWork(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, key string, monitor bool) error {
+func AddWork(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, key, preset string) error {
 	return call(ctx, c, request{
 		what: "add " + contentType + " " + key, method: http.MethodPost, url: baseURL + "/api/v1/works",
 		header: apiKeyHeader(apiKey), body: struct {
 			ContentType string `json:"contentType"`
 			Key         string `json:"key"`
-			Monitor     bool   `json:"monitor"`
-		}{contentType, key, monitor}, want: http.StatusOK,
+			Preset      string `json:"preset,omitempty"`
+		}{contentType, key, preset}, want: http.StatusOK,
 	}, nil)
 }
 

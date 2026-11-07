@@ -68,7 +68,7 @@ func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","original":"","overview":"","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":"ART","workId":null}]}` + "\n",
 	})
 
-	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`), &added{})
+	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)
@@ -144,7 +144,7 @@ func moviesAlone(t *testing.T) *world.Run {
 
 func addSaltRoad(t *testing.T, a *worldtest.API) movieView {
 	t.Helper()
-	got := decode(t, "addWork The Salt Road", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+saltRoad+`","monitor":true}`), &struct {
+	got := decode(t, "addWork The Salt Road", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+saltRoad+`","preset":"all"}`), &struct {
 		Created bool      `json:"created"`
 		Work    movieView `json:"work"`
 	}{})

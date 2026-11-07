@@ -17,8 +17,9 @@ SELECT DISTINCT content_type FROM works_work ORDER BY content_type;
 SELECT EXISTS (SELECT 1 FROM works_work WHERE content_type = sqlc.arg(content_type));
 
 -- name: InsertWork :exec
-INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at)
-VALUES (sqlc.arg(id), sqlc.arg(content_type), sqlc.arg(key), sqlc.arg(label), sqlc.arg(sort_label), sqlc.arg(added_at), sqlc.arg(refreshed_at));
+INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, level_folders)
+VALUES (sqlc.arg(id), sqlc.arg(content_type), sqlc.arg(key), sqlc.arg(label), sqlc.arg(sort_label), sqlc.arg(added_at), sqlc.arg(refreshed_at),
+    sqlc.arg(level_folders));
 
 -- name: UpdateWork :exec
 UPDATE works_work SET label = sqlc.arg(label), sort_label = sqlc.arg(sort_label), refreshed_at = sqlc.arg(refreshed_at),
@@ -29,12 +30,13 @@ WHERE id = sqlc.arg(id);
 SELECT * FROM works_level WHERE work_id = sqlc.arg(work_id) ORDER BY depth, withdrawn_at IS NOT NULL, position, id;
 
 -- name: InsertLevel :exec
-INSERT INTO works_level (id, work_id, parent_id, depth, key, label, position, withdrawn_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(parent_id), sqlc.arg(depth), sqlc.arg(key), sqlc.arg(label), sqlc.arg(position), sqlc.arg(withdrawn_at));
+INSERT INTO works_level (id, work_id, parent_id, depth, key, label, position, withdrawn_at, aside)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(parent_id), sqlc.arg(depth), sqlc.arg(key), sqlc.arg(label), sqlc.arg(position), sqlc.arg(withdrawn_at),
+    sqlc.arg(aside));
 
 -- name: UpdateLevel :exec
 UPDATE works_level SET parent_id = sqlc.arg(parent_id), depth = sqlc.arg(depth), label = sqlc.arg(label),
-    position = sqlc.arg(position), withdrawn_at = sqlc.arg(withdrawn_at)
+    position = sqlc.arg(position), withdrawn_at = sqlc.arg(withdrawn_at), aside = sqlc.arg(aside)
 WHERE id = sqlc.arg(id);
 
 -- name: GetItem :one
@@ -47,12 +49,13 @@ SELECT * FROM works_item WHERE work_id = sqlc.arg(work_id) ORDER BY withdrawn_at
 SELECT * FROM works_item WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id, withdrawn_at IS NOT NULL, position, id;
 
 -- name: InsertItem :exec
-INSERT INTO works_item (id, work_id, level_id, key, label, position, withdrawn_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(level_id), sqlc.arg(key), sqlc.arg(label), sqlc.arg(position), sqlc.arg(withdrawn_at));
+INSERT INTO works_item (id, work_id, level_id, key, label, position, withdrawn_at, aside, monitored)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(level_id), sqlc.arg(key), sqlc.arg(label), sqlc.arg(position), sqlc.arg(withdrawn_at),
+    sqlc.arg(aside), sqlc.arg(monitored));
 
 -- name: UpdateItem :exec
 UPDATE works_item SET level_id = sqlc.arg(level_id), label = sqlc.arg(label), position = sqlc.arg(position),
-    withdrawn_at = sqlc.arg(withdrawn_at)
+    withdrawn_at = sqlc.arg(withdrawn_at), aside = sqlc.arg(aside)
 WHERE id = sqlc.arg(id);
 
 -- name: ListDisabledTypes :many
@@ -73,6 +76,12 @@ UPDATE works_item SET monitored = 1 WHERE work_id = sqlc.arg(work_id);
 
 -- name: MarkGoneUpstream :exec
 UPDATE works_work SET gone_upstream_at = sqlc.arg(gone_upstream_at) WHERE id = sqlc.arg(id);
+
+-- name: SetWorkRule :exec
+UPDATE works_work SET monitor_new = sqlc.arg(monitor_new), monitor_asides = sqlc.arg(monitor_asides) WHERE id = sqlc.arg(id);
+
+-- name: SetLevelFolders :exec
+UPDATE works_work SET level_folders = sqlc.arg(level_folders) WHERE id = sqlc.arg(id);
 
 -- name: SetRatingsRead :exec
 UPDATE works_work SET ratings_read_at = sqlc.arg(ratings_read_at) WHERE id = sqlc.arg(id);
@@ -97,12 +106,12 @@ UPDATE works_rating SET value = sqlc.arg(value), scale = sqlc.arg(scale), votes 
 WHERE work_id = sqlc.arg(work_id) AND item_id IS sqlc.arg(item_id) AND source = sqlc.arg(source);
 
 -- name: ListArtwork :many
-SELECT * FROM works_artwork WHERE work_id = sqlc.arg(work_id) ORDER BY item_id, kind;
+SELECT * FROM works_artwork WHERE work_id = sqlc.arg(work_id) ORDER BY level_id, item_id, kind;
 
 -- name: InsertArtwork :exec
-INSERT INTO works_artwork (work_id, item_id, kind, source, path)
-VALUES (sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(path));
+INSERT INTO works_artwork (work_id, level_id, item_id, kind, source, path)
+VALUES (sqlc.arg(work_id), sqlc.arg(level_id), sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(path));
 
 -- name: UpdateArtwork :exec
 UPDATE works_artwork SET source = sqlc.arg(source), path = sqlc.arg(path)
-WHERE work_id = sqlc.arg(work_id) AND item_id IS sqlc.arg(item_id) AND kind = sqlc.arg(kind);
+WHERE work_id = sqlc.arg(work_id) AND level_id IS sqlc.arg(level_id) AND item_id IS sqlc.arg(item_id) AND kind = sqlc.arg(kind);

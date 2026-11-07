@@ -16,6 +16,8 @@ type node struct {
 	Label       string
 	Position    int
 	WithdrawnAt storage.Time
+	// Aside is the level's own mark, or an Item's outermost level's.
+	Aside bool
 }
 
 func (n *node) entry() *node { return n }
@@ -45,8 +47,8 @@ func parseFetched(d Description, key Key, f Fetched) (parsed, error) {
 	if f.Label == "" {
 		return parsed{}, invalid("%s: its label is empty", work)
 	}
-	p := parser{d: d, levels: map[Key]bool{}, items: map[Key]bool{}}
-	if err := p.entries(work, "", 1, f.Children); err != nil {
+	p := parser{d: d, levels: map[Key]int{}, items: map[Key]bool{}}
+	if err := p.entries(work, "", 1, false, f.Children); err != nil {
 		return parsed{}, err
 	}
 	if err := p.ratings(work, f.Ratings); err != nil {
@@ -66,53 +68,76 @@ func parseFetched(d Description, key Key, f Fetched) (parsed, error) {
 }
 
 type parser struct {
-	d      Description
-	levels map[Key]bool
+	d Description
+	// levels is each level's depth by key.
+	levels map[Key]int
 	items  map[Key]bool
 	out    nodes
 }
 
-func (p *parser) entries(parentName string, parent Key, depth int, es []Entry) error {
+// entries parses es under parent, at depth, inside an aside level when
+// aside is set.
+func (p *parser) entries(parentName string, parent Key, depth int, aside bool, es []Entry) error {
 	isItem := depth == len(p.d.Levels)+1
-	noun, seen, tier := p.d.Item, p.items, "Items"
+	noun, tier := p.d.Item, "Items"
 	if !isItem {
-		noun, seen, tier = p.d.Levels[depth-1], p.levels, "levels"
+		noun, tier = p.d.Levels[depth-1], "levels"
 	}
 	for i, e := range es {
 		if len(e.Key) == 0 || len(e.Key) > maxKey {
 			return invalid("%s: %s %d has a key of %d bytes. A key is 1 to %d bytes", parentName, strings.ToLower(noun.One), i+1, len(e.Key), maxKey)
 		}
 		name := strings.ToLower(noun.One) + " " + string(e.Key)
+		_, seenLevel := p.levels[e.Key]
 		switch {
-		case seen[e.Key]:
+		case isItem && p.items[e.Key], !isItem && seenLevel:
 			return invalid("%s: two %s have key %s", parentName, tier, e.Key)
 		case e.Label == "":
 			return invalid("%s: its label is empty", name)
 		case isItem && len(e.Children) > 0:
 			return invalid("%s: an Item has no children, and it lists %d", name, len(e.Children))
+		case e.Aside && (isItem || depth > 1):
+			return invalid("%s: only an outermost level can be an aside", name)
+		case e.Aside && p.d.Aside.One == "":
+			return invalid("%s: it is marked an aside, and the type names no aside", name)
 		}
-		seen[e.Key] = true
-		n := node{Key: e.Key, Parent: parent, Label: e.Label, Position: i + 1}
+		if depth == 1 {
+			aside = e.Aside
+		}
+		n := node{Key: e.Key, Parent: parent, Label: e.Label, Position: i + 1, Aside: aside}
 		if isItem {
+			p.items[e.Key] = true
 			p.out.Items = append(p.out.Items, n)
 			continue
 		}
+		p.levels[e.Key] = depth
 		p.out.Levels = append(p.out.Levels, level{node: n, Depth: depth})
-		if err := p.entries(name, e.Key, depth+1, e.Children); err != nil {
+		if err := p.entries(name, e.Key, depth+1, aside, e.Children); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *parser) owner(work string, item Key) (string, error) {
-	if item == "" {
-		return work, nil
+// owner names the node level or item keys, the Work when both are empty,
+// and the tier it sits at.
+func (p *parser) owner(work string, level, item Key) (string, Tier, error) {
+	switch {
+	case level != "" && item != "":
+		return "", 0, invalid("%s: it names both level %s and %s %s for one value", work, level, strings.ToLower(p.d.Item.One), item)
+	case item != "":
+		if !p.items[item] {
+			return "", 0, invalid("%s: it names %s %s, which it doesn't list", work, strings.ToLower(p.d.Item.One), item)
+		}
+		return strings.ToLower(p.d.Item.One) + " " + string(item), TierItem, nil
+	case level != "":
+		depth, ok := p.levels[level]
+		if !ok {
+			return "", 0, invalid("%s: it names level %s, which it doesn't list", work, level)
+		}
+		return strings.ToLower(p.d.Levels[depth-1].One) + " " + string(level), TierLevel(depth), nil
 	}
-	if !p.items[item] {
-		return "", invalid("%s: it names %s %s, which it doesn't list", work, strings.ToLower(p.d.Item.One), item)
-	}
-	return strings.ToLower(p.d.Item.One) + " " + string(item), nil
+	return work, TierWork, nil
 }
 
 func (p *parser) ratings(work string, rs []Rating) error {
@@ -122,7 +147,7 @@ func (p *parser) ratings(work string, rs []Rating) error {
 	}
 	seen := map[slot]bool{}
 	for _, r := range rs {
-		name, err := p.owner(work, r.Item)
+		name, _, err := p.owner(work, "", r.Item)
 		if err != nil {
 			return err
 		}
@@ -144,16 +169,16 @@ func (p *parser) ratings(work string, rs []Rating) error {
 
 func (p *parser) artwork(work string, as []Art) error {
 	type slot struct {
-		item Key
-		kind string
+		level, item Key
+		kind        string
 	}
 	seen := map[slot]bool{}
 	for _, a := range as {
-		name, err := p.owner(work, a.Item)
+		name, tier, err := p.owner(work, a.Level, a.Item)
 		if err != nil {
 			return err
 		}
-		i := slices.IndexFunc(p.d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == (a.Item != "") })
+		i := slices.IndexFunc(p.d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Tier == tier })
 		switch {
 		case i < 0:
 			return invalid("%s: it has %q artwork, a kind it can't have", name, a.Kind)
@@ -161,12 +186,24 @@ func (p *parser) artwork(work string, as []Art) error {
 			return invalid("%s: its %s artwork names no source or no path", name, a.Kind)
 		case a.Ref.Shape != p.d.Artwork[i].Shape:
 			return invalid("%s: its %s artwork is a %s, not a %s", name, a.Kind, a.Ref.Shape, p.d.Artwork[i].Shape)
-		case seen[slot{a.Item, a.Kind}]:
+		case seen[slot{a.Level, a.Item, a.Kind}]:
 			return invalid("%s: it has two %s artworks", name, a.Kind)
 		}
-		seen[slot{a.Item, a.Kind}] = true
+		seen[slot{a.Level, a.Item, a.Kind}] = true
 	}
 	return nil
+}
+
+// tierOf is the tier a's owner sits at, in a parsed record.
+func (p parsed) tierOf(a Art) Tier {
+	switch {
+	case a.Item != "":
+		return TierItem
+	case a.Level != "":
+		i := slices.IndexFunc(p.Levels, func(l level) bool { return l.Key == a.Level })
+		return TierLevel(p.Levels[i].Depth)
+	}
+	return TierWork
 }
 
 func invalid(format string, args ...any) error {

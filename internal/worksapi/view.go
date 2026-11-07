@@ -7,14 +7,19 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 type workView struct {
 	Tree
-	Links   []webLink              `json:"links" nullable:"false" doc:"Pages about the Work on other sites, in its Content Type's order"`
-	Profile workProfile            `json:"profile" doc:"The Profile the Work wants from"`
-	Root    api.Nullable[workRoot] `json:"root" doc:"The root the Work lives in; null while it has none"`
+	Links         []webLink                     `json:"links" nullable:"false" doc:"Pages about the Work on other sites, in its Content Type's order"`
+	Profile       workProfile                   `json:"profile" doc:"The Profile the Work wants from"`
+	Root          api.Nullable[workRoot]        `json:"root" doc:"The root the Work lives in; null while it has none"`
+	MonitorNew    bool                          `json:"monitorNew" doc:"Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off"`
+	MonitorAsides bool                          `json:"monitorAsides" doc:"The Items of aside levels are part of the Work's monitoring choice"`
+	LevelFolders  bool                          `json:"levelFolders" doc:"New files sit in a folder per level; unread for a Content Type with no levels"`
+	Options       []api.OneOf[settingapi.Field] `json:"options" nullable:"false" doc:"The Content Type's own options for the Work, in Edit's order; empty when it has none"`
 }
 
 type webLink struct {
@@ -58,7 +63,10 @@ func (h handlers) view(ctx context.Context, by identity.Admin, id works.WorkID) 
 }
 
 func viewOf(m artwork.Minter, w library.Work) workView {
-	out := workView{Tree: treeOf(m, w.Tree, w.Timings), Links: make([]webLink, len(w.Links)), Profile: workProfile{ID: w.Profile.ID.String(), Name: w.Profile.Name}}
+	out := workView{
+		Tree: treeOf(m, w.Tree, w.Timings), Links: make([]webLink, len(w.Links)), Profile: workProfile{ID: w.Profile.ID.String(), Name: w.Profile.Name},
+		MonitorNew: w.MonitorNew, MonitorAsides: w.MonitorAsides, LevelFolders: w.Options.LevelFolders, Options: settingapi.FieldsOf(w.Options.Fields),
+	}
 	for i, l := range w.Links {
 		out.Links[i] = webLink{Key: l.Key, Label: l.Label, URL: l.URL, Kind: l.Kind.String()}
 	}

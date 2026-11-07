@@ -67,7 +67,7 @@ func withTitles(t *testing.T, titles ...scenario.OMDbTitle) scenario.Scenario {
 }
 
 var (
-	keyed   = metadata.NewAsk(metadata.AskOptions{Ratings: true, Keys: map[metadata.ProviderID]string{omdb.ID: "yours"}})
+	keyed   = metadata.NewAsk(metadata.AskOptions{Ratings: metadata.RatingsWork, Keys: map[metadata.ProviderID]string{omdb.ID: "yours"}})
 	orchard = scenario.OMDbTitle{IMDbID: "tt9000001", IMDbRating: ptr(7.4), IMDbVotes: ptr(int64(1234567)), RottenTomatoes: ptr(91), Metacritic: ptr(78), Awards: "Won 1 Oscar. 12 wins & 30 nominations total"}
 )
 
