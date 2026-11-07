@@ -6,6 +6,7 @@ export const kindWords: { readonly [K in IndexersIndexer["kind"]]: string } = {
   catalog: "Catalog site",
   torznab: "Torznab feed",
   rss: "RSS feed",
+  native: "Built-in site",
 };
 
 export const nodeName = (nodes: readonly NodesNode[], id: string): string =>

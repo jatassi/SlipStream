@@ -33,6 +33,7 @@ const (
 	Kind_KIND_CATALOG     Kind = 1
 	Kind_KIND_TORZNAB     Kind = 2
 	Kind_KIND_RSS         Kind = 3
+	Kind_KIND_NATIVE      Kind = 4
 )
 
 // Enum value maps for Kind.
@@ -42,12 +43,14 @@ var (
 		1: "KIND_CATALOG",
 		2: "KIND_TORZNAB",
 		3: "KIND_RSS",
+		4: "KIND_NATIVE",
 	}
 	Kind_value = map[string]int32{
 		"KIND_UNSPECIFIED": 0,
 		"KIND_CATALOG":     1,
 		"KIND_TORZNAB":     2,
 		"KIND_RSS":         3,
+		"KIND_NATIVE":      4,
 	}
 )
 
@@ -199,6 +202,8 @@ const (
 	Stopped_CAUSE_DEFINITION_UNLOADABLE Stopped_Cause = 5
 	Stopped_CAUSE_ACCOUNT_REFUSED       Stopped_Cause = 6
 	Stopped_CAUSE_REQUEST_REJECTED      Stopped_Cause = 7
+	Stopped_CAUSE_CODE_NEEDED           Stopped_Cause = 8
+	Stopped_CAUSE_PORT_RETIRED          Stopped_Cause = 9
 )
 
 // Enum value maps for Stopped_Cause.
@@ -212,6 +217,8 @@ var (
 		5: "CAUSE_DEFINITION_UNLOADABLE",
 		6: "CAUSE_ACCOUNT_REFUSED",
 		7: "CAUSE_REQUEST_REJECTED",
+		8: "CAUSE_CODE_NEEDED",
+		9: "CAUSE_PORT_RETIRED",
 	}
 	Stopped_Cause_value = map[string]int32{
 		"CAUSE_UNSPECIFIED":           0,
@@ -222,6 +229,8 @@ var (
 		"CAUSE_DEFINITION_UNLOADABLE": 5,
 		"CAUSE_ACCOUNT_REFUSED":       6,
 		"CAUSE_REQUEST_REJECTED":      7,
+		"CAUSE_CODE_NEEDED":           8,
+		"CAUSE_PORT_RETIRED":          9,
 	}
 )
 
@@ -467,7 +476,10 @@ type Site struct {
 	// rss is how an RSS feed is read, from its add-time Test.
 	Rss *RSSReading `protobuf:"bytes,10,opt,name=rss,proto3" json:"rss,omitempty"`
 	// categories are the Indexer's categories after the Admin's narrowing.
-	Categories    []int32 `protobuf:"varint,11,rep,packed,name=categories,proto3" json:"categories,omitempty"`
+	Categories []int32 `protobuf:"varint,11,rep,packed,name=categories,proto3" json:"categories,omitempty"`
+	// port is the id of the ported site a native Indexer runs, empty for
+	// every other kind.
+	Port          string `protobuf:"bytes,12,opt,name=port,proto3" json:"port,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -579,6 +591,13 @@ func (x *Site) GetCategories() []int32 {
 	return nil
 }
 
+func (x *Site) GetPort() string {
+	if x != nil {
+		return x.Port
+	}
+	return ""
+}
+
 type Definition struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Yaml          []byte                 `protobuf:"bytes,1,opt,name=yaml,proto3" json:"yaml,omitempty"`
@@ -632,11 +651,13 @@ func (x *Definition) GetSha() string {
 }
 
 type Session struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Cookies       []*Cookie              `protobuf:"bytes,1,rep,name=cookies,proto3" json:"cookies,omitempty"`
-	UserAgent     string                 `protobuf:"bytes,2,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	Pasted        bool                   `protobuf:"varint,3,opt,name=pasted,proto3" json:"pasted,omitempty"`
-	EarnedUnixMs  int64                  `protobuf:"varint,4,opt,name=earned_unix_ms,json=earnedUnixMs,proto3" json:"earned_unix_ms,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Cookies      []*Cookie              `protobuf:"bytes,1,rep,name=cookies,proto3" json:"cookies,omitempty"`
+	UserAgent    string                 `protobuf:"bytes,2,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	Pasted       bool                   `protobuf:"varint,3,opt,name=pasted,proto3" json:"pasted,omitempty"`
+	EarnedUnixMs int64                  `protobuf:"varint,4,opt,name=earned_unix_ms,json=earnedUnixMs,proto3" json:"earned_unix_ms,omitempty"`
+	// token is the bearer token a sign-in earned, empty for none.
+	Token         string `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -697,6 +718,13 @@ func (x *Session) GetEarnedUnixMs() int64 {
 		return x.EarnedUnixMs
 	}
 	return 0
+}
+
+func (x *Session) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
 }
 
 type Cookie struct {
@@ -1115,8 +1143,11 @@ func (x *FetchCall) GetLink() string {
 }
 
 type TestCall struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Captcha       *CaptchaAnswer         `protobuf:"bytes,1,opt,name=captcha,proto3" json:"captcha,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Captcha *CaptchaAnswer         `protobuf:"bytes,1,opt,name=captcha,proto3" json:"captcha,omitempty"`
+	// code is the two-factor code the Admin typed for this Test, empty for
+	// none.
+	Code          string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1156,6 +1187,13 @@ func (x *TestCall) GetCaptcha() *CaptchaAnswer {
 		return x.Captcha
 	}
 	return nil
+}
+
+func (x *TestCall) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
 }
 
 type CaptchaAnswer struct {
@@ -1759,7 +1797,7 @@ type Stopped struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Cause Stopped_Cause          `protobuf:"varint,1,opt,name=cause,proto3,enum=slipstream.search.v1.Stopped_Cause" json:"cause,omitempty"`
 	// text is the site's or feed's own words, for account_refused and
-	// request_rejected.
+	// request_rejected, and the reason for port_retired.
 	Text string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
 	// solver_tried is set for challenge_unsolved when a solver was set and
 	// couldn't clear the challenge.
@@ -1884,7 +1922,10 @@ type Release struct {
 	MinSeedSeconds int64             `protobuf:"varint,15,opt,name=min_seed_seconds,json=minSeedSeconds,proto3" json:"min_seed_seconds,omitempty"`
 	Details        string            `protobuf:"bytes,16,opt,name=details,proto3" json:"details,omitempty"`
 	// source is set for a Torznab feed that names one.
-	Source        *Source `protobuf:"bytes,17,opt,name=source,proto3" json:"source,omitempty"`
+	Source *Source `protobuf:"bytes,17,opt,name=source,proto3" json:"source,omitempty"`
+	// flags are Radarr's indexer flags the Release carries, such as
+	// "freeleech" or "internal".
+	Flags         []string `protobuf:"bytes,18,rep,name=flags,proto3" json:"flags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2034,6 +2075,13 @@ func (x *Release) GetDetails() string {
 func (x *Release) GetSource() *Source {
 	if x != nil {
 		return x.Source
+	}
+	return nil
+}
+
+func (x *Release) GetFlags() []string {
+	if x != nil {
+		return x.Flags
 	}
 	return nil
 }
@@ -2540,7 +2588,7 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x05fetch\x18\x05 \x01(\v2\x1f.slipstream.search.v1.FetchCallH\x00R\x05fetch\x124\n" +
 	"\x04test\x18\x06 \x01(\v2\x1e.slipstream.search.v1.TestCallH\x00R\x04test\x12=\n" +
 	"\acaptcha\x18\a \x01(\v2!.slipstream.search.v1.CaptchaCallH\x00R\acaptchaB\x06\n" +
-	"\x04call\"\xac\x04\n" +
+	"\x04call\"\xc0\x04\n" +
 	"\x04Site\x12\x1d\n" +
 	"\n" +
 	"indexer_id\x18\x01 \x01(\tR\tindexerId\x12\x1a\n" +
@@ -2558,20 +2606,22 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	" \x01(\v2 .slipstream.search.v1.RSSReadingR\x03rss\x12\x1e\n" +
 	"\n" +
 	"categories\x18\v \x03(\x05R\n" +
-	"categories\x1a;\n" +
+	"categories\x12\x12\n" +
+	"\x04port\x18\f \x01(\tR\x04port\x1a;\n" +
 	"\rSettingsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"2\n" +
 	"\n" +
 	"Definition\x12\x12\n" +
 	"\x04yaml\x18\x01 \x01(\fR\x04yaml\x12\x10\n" +
-	"\x03sha\x18\x02 \x01(\tR\x03sha\"\x9e\x01\n" +
+	"\x03sha\x18\x02 \x01(\tR\x03sha\"\xb4\x01\n" +
 	"\aSession\x126\n" +
 	"\acookies\x18\x01 \x03(\v2\x1c.slipstream.search.v1.CookieR\acookies\x12\x1d\n" +
 	"\n" +
 	"user_agent\x18\x02 \x01(\tR\tuserAgent\x12\x16\n" +
 	"\x06pasted\x18\x03 \x01(\bR\x06pasted\x12$\n" +
-	"\x0eearned_unix_ms\x18\x04 \x01(\x03R\fearnedUnixMs\"\xbb\x01\n" +
+	"\x0eearned_unix_ms\x18\x04 \x01(\x03R\fearnedUnixMs\x12\x14\n" +
+	"\x05token\x18\x05 \x01(\tR\x05token\"\xbb\x01\n" +
 	"\x06Cookie\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x16\n" +
@@ -2610,9 +2660,10 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\n" +
 	"RecentCall\"\x1f\n" +
 	"\tFetchCall\x12\x12\n" +
-	"\x04link\x18\x01 \x01(\tR\x04link\"I\n" +
+	"\x04link\x18\x01 \x01(\tR\x04link\"]\n" +
 	"\bTestCall\x12=\n" +
-	"\acaptcha\x18\x01 \x01(\v2#.slipstream.search.v1.CaptchaAnswerR\acaptcha\"@\n" +
+	"\acaptcha\x18\x01 \x01(\v2#.slipstream.search.v1.CaptchaAnswerR\acaptcha\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"@\n" +
 	"\rCaptchaAnswer\x12\x1b\n" +
 	"\tpre_login\x18\x01 \x01(\fR\bpreLogin\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\"\r\n" +
@@ -2642,11 +2693,11 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\aLimited\x12$\n" +
 	"\x0eretry_after_ms\x18\x01 \x01(\x03R\fretryAfterMs\"\x1d\n" +
 	"\aFailing\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"\xe6\x02\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"\x95\x03\n" +
 	"\aStopped\x129\n" +
 	"\x05cause\x18\x01 \x01(\x0e2#.slipstream.search.v1.Stopped.CauseR\x05cause\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12!\n" +
-	"\fsolver_tried\x18\x03 \x01(\bR\vsolverTried\"\xe8\x01\n" +
+	"\fsolver_tried\x18\x03 \x01(\bR\vsolverTried\"\x97\x02\n" +
 	"\x05Cause\x12\x15\n" +
 	"\x11CAUSE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aCAUSE_CREDENTIALS_REJECTED\x10\x01\x12\x18\n" +
@@ -2655,9 +2706,11 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x14CAUSE_COOKIE_EXPIRED\x10\x04\x12\x1f\n" +
 	"\x1bCAUSE_DEFINITION_UNLOADABLE\x10\x05\x12\x19\n" +
 	"\x15CAUSE_ACCOUNT_REFUSED\x10\x06\x12\x1a\n" +
-	"\x16CAUSE_REQUEST_REJECTED\x10\a\"E\n" +
+	"\x16CAUSE_REQUEST_REJECTED\x10\a\x12\x15\n" +
+	"\x11CAUSE_CODE_NEEDED\x10\b\x12\x16\n" +
+	"\x12CAUSE_PORT_RETIRED\x10\t\"E\n" +
 	"\bReleases\x129\n" +
-	"\breleases\x18\x01 \x03(\v2\x1d.slipstream.search.v1.ReleaseR\breleases\"\xeb\x04\n" +
+	"\breleases\x18\x01 \x03(\v2\x1d.slipstream.search.v1.ReleaseR\breleases\"\x81\x05\n" +
 	"\aRelease\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x03R\x04size\x12*\n" +
@@ -2678,7 +2731,8 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\tmin_ratio\x18\x0e \x01(\x01R\bminRatio\x12(\n" +
 	"\x10min_seed_seconds\x18\x0f \x01(\x03R\x0eminSeedSeconds\x12\x18\n" +
 	"\adetails\x18\x10 \x01(\tR\adetails\x124\n" +
-	"\x06source\x18\x11 \x01(\v2\x1c.slipstream.search.v1.SourceR\x06source\x1a6\n" +
+	"\x06source\x18\x11 \x01(\v2\x1c.slipstream.search.v1.SourceR\x06source\x12\x14\n" +
+	"\x05flags\x18\x12 \x03(\tR\x05flags\x1a6\n" +
 	"\bIdsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"^\n" +
@@ -2719,12 +2773,13 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\n" +
 	"timeout_ms\x18\x02 \x01(\x03R\ttimeoutMs\"-\n" +
 	"\x13ReachSolverResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\x05R\x06status*N\n" +
+	"\x06status\x18\x01 \x01(\x05R\x06status*_\n" +
 	"\x04Kind\x12\x14\n" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fKIND_CATALOG\x10\x01\x12\x10\n" +
 	"\fKIND_TORZNAB\x10\x02\x12\f\n" +
-	"\bKIND_RSS\x10\x03*\xae\x01\n" +
+	"\bKIND_RSS\x10\x03\x12\x0f\n" +
+	"\vKIND_NATIVE\x10\x04*\xae\x01\n" +
 	"\n" +
 	"RSSRefusal\x12\x1b\n" +
 	"\x17RSS_REFUSAL_UNSPECIFIED\x10\x00\x12\x18\n" +

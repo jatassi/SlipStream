@@ -242,7 +242,7 @@ func (q *Queries) GetDefinition(ctx context.Context, arg GetDefinitionParams) (I
 }
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 WHERE i.id = ?1
@@ -276,6 +276,7 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, 
 		&i.IndexersIndexer.GrabWindow,
 		&i.IndexersIndexer.DefinitionID,
 		&i.IndexersIndexer.DefinitionSha,
+		&i.IndexersIndexer.PortID,
 		&i.IndexersIndexer.BaseAddress,
 		&i.IndexersIndexer.Plain,
 		&i.IndexersIndexer.SecretsSealed,
@@ -296,7 +297,7 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, 
 }
 
 const getSession = `-- name: GetSession :one
-SELECT indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at FROM indexers_session WHERE indexer_id = ?1 AND node_id = ?2
+SELECT indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at, token_sealed FROM indexers_session WHERE indexer_id = ?1 AND node_id = ?2
 `
 
 type GetSessionParams struct {
@@ -314,6 +315,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Indexer
 		&i.UserAgent,
 		&i.Pasted,
 		&i.EarnedAt,
+		&i.TokenSealed,
 	)
 	return i, err
 }
@@ -445,15 +447,15 @@ func (q *Queries) InsertDefinition(ctx context.Context, arg InsertDefinitionPara
 const insertIndexer = `-- name: InsertIndexer :exec
 INSERT INTO indexers_indexer (
     id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media,
-    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain,
+    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, port_id, base_address, plain,
     secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at)
 VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6, ?7,
     ?8, ?9, ?10, ?11, ?12,
     ?13, ?14, ?15, ?16, ?17,
-    ?18, ?19, ?20, ?21, ?22,
-    ?23, ?24, ?25, ?26, ?27, ?28,
-    ?29)
+    ?18, ?19, ?20, ?21, ?22, ?23,
+    ?24, ?25, ?26, ?27, ?28, ?29,
+    ?30)
 `
 
 type InsertIndexerParams struct {
@@ -474,6 +476,7 @@ type InsertIndexerParams struct {
 	GrabWindow    string
 	DefinitionID  *string
 	DefinitionSha *string
+	PortID        *string
 	BaseAddress   *string
 	Plain         string
 	SecretsSealed secret.Sealed
@@ -507,6 +510,7 @@ func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) er
 		arg.GrabWindow,
 		arg.DefinitionID,
 		arg.DefinitionSha,
+		arg.PortID,
 		arg.BaseAddress,
 		arg.Plain,
 		arg.SecretsSealed,
@@ -707,7 +711,7 @@ func (q *Queries) ListDefinitionKeys(ctx context.Context) ([]ListDefinitionKeysR
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 ORDER BY i.name
@@ -747,6 +751,7 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
 			&i.IndexersIndexer.GrabWindow,
 			&i.IndexersIndexer.DefinitionID,
 			&i.IndexersIndexer.DefinitionSha,
+			&i.IndexersIndexer.PortID,
 			&i.IndexersIndexer.BaseAddress,
 			&i.IndexersIndexer.Plain,
 			&i.IndexersIndexer.SecretsSealed,

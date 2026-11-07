@@ -146,7 +146,7 @@ func (d catalogDriver) Test(ctx context.Context, s *Site, answer *CaptchaAnswer)
 
 func (d catalogDriver) Captcha(ctx context.Context, s *Site) (Captcha, error) {
 	x := s.def.CaptchaFetch(d.settings(s), clock())
-	if _, _, err := d.drive(ctx, s, x, d.signInJar(s), false); err != nil {
+	if _, _, err := d.drive(ctx, s, x, s.signInJar(), false); err != nil {
 		return Captcha{}, err
 	}
 	c, err := x.Result()
@@ -202,7 +202,7 @@ func (d catalogDriver) signIn(ctx context.Context, s *Site, seen *Session, must 
 			c = &cardigann.Captcha{PreLogin: answer.PreLogin, Answer: answer.Text}
 		}
 		x := s.def.Login(d.settings(s), c, clock())
-		_, j, err := d.drive(ctx, s, x, d.signInJar(s), false)
+		_, j, err := d.drive(ctx, s, x, s.signInJar(), false)
 		if err != nil {
 			return nil, err
 		}
@@ -219,15 +219,6 @@ func (d catalogDriver) signIn(ctx context.Context, s *Site, seen *Session, must 
 		}
 		return out, nil
 	})
-}
-
-// signInJar is a sign-in's jar: the pasted cookies, which every sign-in
-// request sends beside its own.
-func (catalogDriver) signInJar(s *Site) *jar {
-	if held := s.slot.held(); held != nil && held.Pasted {
-		return newJar(held.Cookies)
-	}
-	return newJar(nil)
 }
 
 // drive sends each request x asks for with j's cookies and feeds it the
@@ -280,7 +271,7 @@ func readsSignedOut(def *cardigann.Definition, req cardigann.Request, res cardig
 func (s *Site) exchange(ctx context.Context, r cardigann.Request, j *jar) (cardigann.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, r.Method, r.URL.String(), bytes.NewReader(r.Body))
 	if err != nil {
-		return cardigann.Response{}, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
+		return cardigann.Response{}, &Failing{Err: fmt.Errorf("build the request: %w", WithoutURL(err))}
 	}
 	req.Header = r.Header.Clone()
 	if req.Header == nil {

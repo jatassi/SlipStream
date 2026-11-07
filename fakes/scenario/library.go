@@ -139,18 +139,21 @@ type LibraryProfile struct {
 // Its address, keys and credentials derive from the seed.
 type LibraryIndexer struct {
 	Name string `jsonschema:"required"                              yaml:"name"`
-	Kind string `jsonschema:"required,enum=catalog,enum=torznab,enum=rss" yaml:"kind"`
+	Kind string `jsonschema:"required,enum=catalog,enum=torznab,enum=rss,enum=native" yaml:"kind"`
 	// Site is the fixture-site site's label: torznab for a Torznab feed,
-	// brook for an RSS feed, or a catalog site such as larkspur.
+	// brook for an RSS feed, a catalog site such as larkspur, or a ported
+	// site.
 	Site string `jsonschema:"required" yaml:"site"`
 	// Definition is a catalog Indexer's definition id, the site's label
 	// when empty.
 	Definition string `yaml:"definition,omitempty"`
+	// Port is a native Indexer's port id.
+	Port string `yaml:"port,omitempty"`
 	// Home is the Node it searches from. Every Indexer names one when
 	// several Nodes hold Searching.
 	Home string `yaml:"home,omitempty"`
-	// Settings are a catalog Indexer's plain settings by name, beside the
-	// credentials the seed gives.
+	// Settings are a catalog or native Indexer's plain settings by name,
+	// beside the credentials the seed gives.
 	Settings map[string]string `yaml:"settings,omitempty"`
 	// Tracker and Media are an RSS feed's.
 	Tracker       string   `yaml:"tracker,omitempty"`
@@ -242,8 +245,17 @@ func (l Library) checkIndexers(add func(format string, args ...any)) {
 		if ix.Kind == "rss" && (ix.Tracker == "" || len(ix.Media) == 0) {
 			add("library indexer %s is an RSS feed with no tracker or media", ix.Name)
 		}
-		if ix.Kind != "catalog" && (ix.Definition != "" || ix.Settings != nil) {
-			add("library indexer %s takes a definition or settings, which only a catalog Indexer has", ix.Name)
+		if ix.Kind != "catalog" && ix.Definition != "" {
+			add("library indexer %s takes a definition, which only a catalog Indexer has", ix.Name)
+		}
+		if ix.Kind != "catalog" && ix.Kind != "native" && ix.Settings != nil {
+			add("library indexer %s takes settings, which only a catalog or native Indexer has", ix.Name)
+		}
+		switch {
+		case ix.Kind == "native" && ix.Port == "":
+			add("library indexer %s is native and names no port", ix.Name)
+		case ix.Kind != "native" && ix.Port != "":
+			add("library indexer %s names a port, which only a native Indexer has", ix.Name)
 		}
 	}
 }

@@ -72,6 +72,7 @@ var kindOnWire = map[searchv1.Kind]Kind{
 	searchv1.Kind_KIND_CATALOG: Catalog,
 	searchv1.Kind_KIND_TORZNAB: Torznab,
 	searchv1.Kind_KIND_RSS:     RSS,
+	searchv1.Kind_KIND_NATIVE:  Native,
 }
 
 var causeOnWire = map[searchv1.Stopped_Cause]StopCause{
@@ -82,6 +83,8 @@ var causeOnWire = map[searchv1.Stopped_Cause]StopCause{
 	searchv1.Stopped_CAUSE_DEFINITION_UNLOADABLE: DefinitionUnloadable,
 	searchv1.Stopped_CAUSE_ACCOUNT_REFUSED:       AccountRefused,
 	searchv1.Stopped_CAUSE_REQUEST_REJECTED:      RequestRejected,
+	searchv1.Stopped_CAUSE_CODE_NEEDED:           CodeNeeded,
+	searchv1.Stopped_CAUSE_PORT_RETIRED:          PortRetired,
 }
 
 var linkOnWire = map[searchv1.RSSReading_Link]rss.Link{
@@ -112,7 +115,7 @@ func encodeJob(j Job) *searchv1.Job {
 	w := &searchv1.Job{Id: j.ID, Site: &searchv1.Site{
 		IndexerId: j.Indexer, Revision: j.Revision, Kind: onWire(kindOnWire, j.Kind), Address: j.Address,
 		Settings: j.Settings, ApiKey: j.APIKey, Session: encodeSession(j.Session), Categories: int32s(j.Categories),
-		Rss: encodeReading(j.RSS),
+		Rss: encodeReading(j.RSS), Port: j.Port,
 	}}
 	if d := j.Definition; d != nil {
 		w.Site.Definition = &searchv1.Definition{Yaml: d.YAML, Sha: d.SHA}
@@ -131,7 +134,7 @@ func encodeJob(j Job) *searchv1.Job {
 	case FetchCall:
 		w.Call = &searchv1.Job_Fetch{Fetch: &searchv1.FetchCall{Link: c.Link.raw}}
 	case TestCall:
-		w.Call = &searchv1.Job_Test{Test: &searchv1.TestCall{}}
+		w.Call = &searchv1.Job_Test{Test: &searchv1.TestCall{Code: c.Code}}
 		if a := c.Captcha; a != nil {
 			w.GetTest().Captcha = &searchv1.CaptchaAnswer{PreLogin: a.PreLogin, Text: a.Text}
 		}
@@ -148,7 +151,7 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	j := Job{
 		ID: w.GetId(), Indexer: s.GetIndexerId(), Revision: s.GetRevision(), Kind: kindOnWire[s.GetKind()], Address: s.GetAddress(),
 		Settings: s.GetSettings(), APIKey: s.GetApiKey(), Session: decodeSession(s.GetSession()), Categories: ints(s.GetCategories()),
-		RSS: decodeReading(s.GetRss()),
+		RSS: decodeReading(s.GetRss()), Port: s.GetPort(),
 	}
 	if d := s.GetDefinition(); d != nil {
 		j.Definition = &Definition{YAML: d.GetYaml(), SHA: d.GetSha()}
@@ -178,7 +181,7 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 		}
 		j.Call = FetchCall{Link: LinkOf(c.Fetch.GetLink())}
 	case *searchv1.Job_Test:
-		var t TestCall
+		t := TestCall{Code: c.Test.GetCode()}
 		if a := c.Test.GetCaptcha(); a != nil {
 			t.Captcha = &CaptchaAnswer{PreLogin: a.GetPreLogin(), Text: a.GetText()}
 		}
@@ -190,7 +193,10 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	}
 	site := &Site{
 		Indexer: j.Indexer, Revision: j.Revision, Address: address, Settings: j.Settings, APIKey: j.APIKey, Categories: j.Categories, RSS: j.RSS,
-		solver: j.Solver,
+		Port: j.Port, solver: j.Solver,
+	}
+	if t, ok := j.Call.(TestCall); ok {
+		site.Code = t.Code
 	}
 	return j, site, nil
 }
@@ -321,6 +327,9 @@ func encodeRelease(r Release) *searchv1.Release {
 		DownloadFactor: r.Factors.Download, UploadFactor: r.Factors.Upload,
 		MinRatio: r.Floor.MinRatio, MinSeedSeconds: int64(r.Floor.MinSeed / time.Second), Details: r.Details,
 	}
+	for _, f := range r.Flags {
+		w.Flags = append(w.Flags, string(f))
+	}
 	if r.InfoHash != nil {
 		w.InfoHash = r.InfoHash[:]
 	}
@@ -338,6 +347,9 @@ func decodeRelease(w *searchv1.Release) (Release, error) {
 		Factors: Factors{Download: w.GetDownloadFactor(), Upload: w.GetUploadFactor()},
 		Floor:   Floor{MinRatio: w.GetMinRatio(), MinSeed: time.Duration(w.GetMinSeedSeconds()) * time.Second},
 		Details: w.GetDetails(),
+	}
+	for _, f := range w.GetFlags() {
+		r.Flags = append(r.Flags, Flag(f))
 	}
 	switch h := w.GetInfoHash(); len(h) {
 	case 0:
@@ -357,7 +369,7 @@ func encodeSession(s *Session) *searchv1.Session {
 	if s == nil {
 		return nil
 	}
-	w := &searchv1.Session{UserAgent: s.UserAgent, Pasted: s.Pasted, EarnedUnixMs: unixMs(s.Earned)}
+	w := &searchv1.Session{UserAgent: s.UserAgent, Pasted: s.Pasted, EarnedUnixMs: unixMs(s.Earned), Token: s.Token}
 	for _, c := range s.Cookies {
 		w.Cookies = append(w.Cookies, &searchv1.Cookie{
 			Name: c.Name, Value: c.Value, Domain: c.Domain, Path: c.Path, ExpiresUnixMs: unixMs(c.Expires), Secure: c.Secure, HostOnly: c.HostOnly,
@@ -370,7 +382,7 @@ func decodeSession(w *searchv1.Session) *Session {
 	if w == nil {
 		return nil
 	}
-	s := &Session{UserAgent: w.GetUserAgent(), Pasted: w.GetPasted(), Earned: fromUnixMs(w.GetEarnedUnixMs())}
+	s := &Session{UserAgent: w.GetUserAgent(), Pasted: w.GetPasted(), Earned: fromUnixMs(w.GetEarnedUnixMs()), Token: w.GetToken()}
 	for _, c := range w.GetCookies() {
 		s.Cookies = append(s.Cookies, Cookie{
 			Name: c.GetName(), Value: c.GetValue(), Domain: c.GetDomain(), Path: c.GetPath(),

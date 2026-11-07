@@ -14,6 +14,8 @@ const (
 	Catalog Kind = iota + 1
 	Torznab
 	RSS
+	// Native is a ported site, which Config.Native runs.
+	Native
 )
 
 // Driver is one kind's protocol on the Node. Every method runs inside one
@@ -44,6 +46,9 @@ type Job struct {
 	Address string
 	// Definition is a catalog Indexer's, nil for every other kind.
 	Definition *Definition
+	// Port is the ported site a native Indexer runs, "" for every other
+	// kind.
+	Port       string
 	Settings   map[string]string
 	APIKey     string
 	Session    *Session
@@ -76,8 +81,12 @@ type (
 	SearchCall struct{ Query Query }
 	RecentCall struct{}
 	FetchCall  struct{ Link Link }
-	// TestCall signs in with Captcha when the Admin answered one.
-	TestCall    struct{ Captcha *CaptchaAnswer }
+	// TestCall signs in with Captcha when the Admin answered one, and
+	// with Code when the Admin typed a two-factor code.
+	TestCall struct {
+		Captcha *CaptchaAnswer
+		Code    string
+	}
 	CaptchaCall struct{}
 )
 
@@ -157,7 +166,25 @@ type Release struct {
 	Details string
 	// Source is the site a Torznab feed says the Release came from.
 	Source *Source
+	Flags  []Flag
 }
+
+// Flag is one of Radarr's indexer flags.
+type Flag string
+
+const (
+	Freeleech    Flag = "freeleech"
+	Halfleech    Flag = "halfleech"
+	Freeleech75  Flag = "freeleech75"
+	Freeleech25  Flag = "freeleech25"
+	DoubleUpload Flag = "doubleupload"
+	Internal     Flag = "internal"
+	Scene        Flag = "scene"
+	Exclusive    Flag = "exclusive"
+	Nuked        Flag = "nuked"
+	Golden       Flag = "golden"
+	Approved     Flag = "approved"
+)
 
 // Factors are the share of a download and an upload the site counts:
 // freeleech is Download 0.
@@ -209,10 +236,13 @@ type Capabilities struct {
 	Categories []int
 }
 
-// Session is one Indexer's cookies and User-Agent on one Node.
+// Session is one Indexer's cookies, User-Agent and bearer token on one
+// Node.
 type Session struct {
 	Cookies   []Cookie
 	UserAgent string
+	// Token is the bearer token a sign-in earned, "" for none.
+	Token string
 	// Pasted is a session seeded from a browser cookie the Admin pasted.
 	Pasted bool
 	Earned time.Time
@@ -232,6 +262,8 @@ func (k Kind) String() string {
 		return "Torznab"
 	case RSS:
 		return "RSS"
+	case Native:
+		return "ported site"
 	}
 	return "unknown"
 }

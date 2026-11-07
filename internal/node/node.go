@@ -38,6 +38,8 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/ports/all"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/system"
@@ -223,6 +225,9 @@ type Node struct {
 	// client.
 	torrent   engine.Engine
 	downloads *downloading.Client
+	// ports is the one port Registry, which the Controller lists and the
+	// Node runs.
+	ports port.Registry
 	// store is the Node's Storage over disk, which Transfers read and
 	// write through too.
 	store *storing.Store
@@ -258,6 +263,7 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 		env:      env,
 		started:  time.Now(),
 		deadline: Defaults(env.Types, env.Install).Timings.Node.StopDeadline,
+		ports:    all.Registry(),
 		stopping: make(chan struct{}),
 		drained:  make(chan struct{}),
 		released: make(chan struct{}),

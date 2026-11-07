@@ -4559,7 +4559,8 @@
           "origin": {
             "enum": [
               "catalog",
-              "custom"
+              "custom",
+              "native"
             ],
             "type": "string"
           },
@@ -4674,12 +4675,28 @@
           "label": {
             "type": "string"
           },
+          "max": {
+            "description": "A number's greatest value; null for none",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "min": {
+            "description": "A number's least value; null for none",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "name": {
             "description": "May hold hyphens or start with a digit",
             "type": "string"
           },
           "options": {
-            "description": "A select's choices, by value",
+            "description": "A select's or a multiselect's choices, by value",
             "items": {
               "$ref": "#/components/schemas/IndexersOption"
             },
@@ -4695,6 +4712,8 @@
               "password",
               "checkbox",
               "select",
+              "number",
+              "multiselect",
               "info",
               "info_cookie",
               "info_flaresolverr",
@@ -4711,6 +4730,8 @@
           "type",
           "default",
           "options",
+          "min",
+          "max",
           "help",
           "sealed"
         ],
@@ -4721,6 +4742,10 @@
         "properties": {
           "captcha": {
             "description": "Signing in asks for an image captcha",
+            "type": "boolean"
+          },
+          "code": {
+            "description": "Signing in may ask for a two-factor code",
             "type": "boolean"
           },
           "cookie": {
@@ -4760,7 +4785,8 @@
           "session",
           "captcha",
           "solver",
-          "cookie"
+          "cookie",
+          "code"
         ],
         "type": "object"
       },
@@ -4819,7 +4845,7 @@
                 "type": "null"
               }
             ],
-            "description": "A catalog Indexer's definition; null for a feed"
+            "description": "A catalog Indexer's definition; null for every other kind"
           },
           "feedHost": {
             "description": "The host of a feed's address, which is never returned",
@@ -4851,7 +4877,8 @@
             "enum": [
               "catalog",
               "torznab",
-              "rss"
+              "rss",
+              "native"
             ],
             "type": "string"
           },
@@ -4870,6 +4897,17 @@
           },
           "on": {
             "type": "boolean"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersPortPin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A native Indexer's ported site; null for every other kind"
           },
           "priority": {
             "description": "Lower wins a tie",
@@ -4961,6 +4999,7 @@
           "session",
           "feedHost",
           "definition",
+          "port",
           "searchModes",
           "revision",
           "createdAt"
@@ -5051,7 +5090,7 @@
             ]
           },
           "baseAddress": {
-            "description": "A catalog Indexer's: one of its definition's addresses",
+            "description": "A catalog Indexer's: one of its definition's addresses. A native Indexer's: one its port knows or a typed http or https one",
             "maxLength": 2048,
             "type": "string"
           },
@@ -5069,6 +5108,11 @@
               "array",
               "null"
             ]
+          },
+          "code": {
+            "description": "The current two-factor code, for the Test the change runs",
+            "maxLength": 16,
+            "type": "string"
           },
           "cookie": {
             "$ref": "#/components/schemas/IndexersPastedCookie",
@@ -5141,7 +5185,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
+            "description": "A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
             "type": "object"
           }
         },
@@ -5253,7 +5297,7 @@
             "type": "boolean"
           },
           "baseAddress": {
-            "description": "One of the definition's addresses; absent for its first",
+            "description": "One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one",
             "maxLength": 2048,
             "type": "string"
           },
@@ -5272,9 +5316,14 @@
               "null"
             ]
           },
+          "code": {
+            "description": "The current two-factor code, for a site whose sign-in asks for one",
+            "maxLength": 16,
+            "type": "string"
+          },
           "cookie": {
             "$ref": "#/components/schemas/IndexersPastedCookie",
-            "description": "A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only"
+            "description": "A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only"
           },
           "definition": {
             "description": "A catalog Indexer's definition id; required for one",
@@ -5293,7 +5342,8 @@
             "enum": [
               "catalog",
               "torznab",
-              "rss"
+              "rss",
+              "native"
             ],
             "type": "string"
           },
@@ -5315,6 +5365,11 @@
           "on": {
             "default": true,
             "type": "boolean"
+          },
+          "port": {
+            "description": "A native Indexer's port id; required for one",
+            "maxLength": 200,
+            "type": "string"
           },
           "priority": {
             "default": 25,
@@ -5339,7 +5394,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only",
+            "description": "A catalog or native Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only",
             "type": "object"
           }
         },
@@ -5493,6 +5548,36 @@
           "id",
           "version",
           "fetchedAt",
+          "baseAddress",
+          "values"
+        ],
+        "type": "object"
+      },
+      "IndexersPortPin": {
+        "additionalProperties": false,
+        "properties": {
+          "baseAddress": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "synced": {
+            "description": "When the Prowlarr commit the port was synced to was made",
+            "format": "date-time",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The settings saved in plain, by name. Sealed settings are never returned",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "synced",
           "baseAddress",
           "values"
         ],
@@ -5730,7 +5815,9 @@
               "cookie_expired",
               "definition_unloadable",
               "account_refused",
-              "request_rejected"
+              "request_rejected",
+              "code_needed",
+              "port_retired"
             ],
             "type": [
               "string",
@@ -5841,6 +5928,11 @@
           "captcha": {
             "$ref": "#/components/schemas/IndexersCaptchaAnswer",
             "description": "The answer to a captcha loaded for this Indexer"
+          },
+          "code": {
+            "description": "The current two-factor code, for a site whose sign-in asks for one",
+            "maxLength": 16,
+            "type": "string"
           }
         },
         "type": "object"

@@ -114,6 +114,8 @@ export function DefinitionField(props: FieldProps) {
   switch (field.type) {
     case "text":
     case "password":
+    case "number":
+    case "multiselect":
       return <TextValue {...props} />;
     case "checkbox":
       return <CheckboxValue {...props} />;

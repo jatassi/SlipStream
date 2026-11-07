@@ -42,6 +42,7 @@ enum Kind {
   KIND_CATALOG = 1;
   KIND_TORZNAB = 2;
   KIND_RSS = 3;
+  KIND_NATIVE = 4;
 }
 
 // Site is everything a Node needs to reach one Indexer for one job.
@@ -67,6 +68,9 @@ message Site {
   RSSReading rss = 10;
   // categories are the Indexer's categories after the Admin's narrowing.
   repeated int32 categories = 11;
+  // port is the id of the ported site a native Indexer runs, empty for
+  // every other kind.
+  string port = 12;
 }
 
 message Definition {
@@ -79,6 +83,8 @@ message Session {
   string user_agent = 2;
   bool pasted = 3;
   int64 earned_unix_ms = 4;
+  // token is the bearer token a sign-in earned, empty for none.
+  string token = 5;
 }
 
 message Cookie {
@@ -132,6 +138,9 @@ message FetchCall {
 
 message TestCall {
   CaptchaAnswer captcha = 1;
+  // code is the two-factor code the Admin typed for this Test, empty for
+  // none.
+  string code = 2;
 }
 
 message CaptchaAnswer {
@@ -200,10 +209,12 @@ message Stopped {
     CAUSE_DEFINITION_UNLOADABLE = 5;
     CAUSE_ACCOUNT_REFUSED = 6;
     CAUSE_REQUEST_REJECTED = 7;
+    CAUSE_CODE_NEEDED = 8;
+    CAUSE_PORT_RETIRED = 9;
   }
   Cause cause = 1;
   // text is the site's or feed's own words, for account_refused and
-  // request_rejected.
+  // request_rejected, and the reason for port_retired.
   string text = 2;
   // solver_tried is set for challenge_unsolved when a solver was set and
   // couldn't clear the challenge.
@@ -235,6 +246,9 @@ message Release {
   string details = 16;
   // source is set for a Torznab feed that names one.
   Source source = 17;
+  // flags are Radarr's indexer flags the Release carries, such as
+  // "freeleech" or "internal".
+  repeated string flags = 18;
 }
 
 message Source {

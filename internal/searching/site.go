@@ -25,7 +25,13 @@ type Site struct {
 	APIKey     string
 	Categories []int
 	RSS        RSSReading
-	// def is a catalog Indexer's definition, and delay its request delay.
+	// Port is the ported site a native Indexer runs.
+	Port string
+	// Code is the two-factor code the Admin typed for this Test, "" for
+	// none.
+	Code string
+	// def is a catalog Indexer's definition, and delay the job's spacing
+	// above the Node's floor.
 	def   *cardigann.Definition
 	delay time.Duration
 	// solver is the Node's Challenge solver, nil for none.
@@ -67,8 +73,30 @@ type Response struct {
 	Cookies bool
 }
 
-// Do sends req through this Node's transport with the Indexer's session
-// on this Node: its cookies, each only to its own host, and its
+// Send is how Do sends one request. The zero Send reads a page and
+// follows redirects.
+type Send struct {
+	Purpose Purpose
+	// NoFollow returns a redirect as the response.
+	NoFollow bool
+	// Hosts are the Indexer's own hosts. A redirect to any other host
+	// drops the Scoped headers, and ends a request that has a body.
+	Hosts  []string
+	Scoped []string
+	// Rotates reports the cookies a response sets as a newly earned
+	// session.
+	Rotates bool
+}
+
+func (o Send) follow() bool {
+	if o.Hosts != nil || o.Scoped != nil || o.Rotates {
+		panic("searching: Send.Hosts, Send.Scoped and Send.Rotates are not implemented")
+	}
+	return !o.NoFollow
+}
+
+// Do sends req as o says through this Node's transport with the Indexer's
+// session on this Node: its cookies, each only to its own host, and its
 // User-Agent. A cookie a response sets joins the session. It waits for
 // the host's turn, caps the body, follows at most 10 redirects to any
 // host, stopping at one to a magnet link, and turns a browser challenge
@@ -76,18 +104,26 @@ type Response struct {
 // failure into *Failing. It returns any other response for the driver to
 // read. Credentials go only where the driver puts them, and neither its
 // errors nor its log lines carry the URL.
-func (s *Site) Do(ctx context.Context, req *http.Request, p Purpose) (*Response, error) {
+func (s *Site) Do(ctx context.Context, req *http.Request, o Send) (*Response, error) {
+	follow := o.follow()
 	held := s.slot.held()
 	j := newJar(nil)
 	if held != nil {
 		j = newJar(held.Cookies)
 	}
-	res, err := s.send(ctx, req, p, j, true)
+	res, err := s.send(ctx, req, o.Purpose, j, follow)
 	if cookies, changed := j.held(); changed && held != nil {
 		s.slot.keep(held, cookies)
 	}
 	return res, err
 }
+
+// Space keeps this job's requests to each host at least d apart, or the
+// Node's floor when that is longer.
+func (s *Site) Space(d time.Duration) { s.delay = max(s.delay, d) }
+
+// Held is the Indexer's session on this Node, nil for none.
+func (s *Site) Held() *Session { return s.slot.held() }
 
 // send is Do with the cookies of j, following redirects only when follow
 // is set. A browser challenge goes to the Node's Challenge solver, and the
@@ -137,16 +173,16 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, p Purpose, j *ja
 		client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	}
 	sent := time.Now()
-	res, err := client.Do(req.WithContext(ctx))
+	res, err := client.Do(req.WithContext(ctx)) //nolint:gosec // G704: an Indexer's requests go to the address its Admin chose
 	if err != nil {
-		err = withoutURL(err)
+		err = WithoutURL(err)
 		s.svc.cfg.Log.Debug("A request to an Indexer failed", "indexer", s.Indexer, "method", req.Method, "host", req.URL.Host, "err", err.Error())
 		return nil, &Failing{Err: fmt.Errorf("reach the Indexer: %w", err)}
 	}
 	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(res.Body, p.limit()+1))
 	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("read the Indexer's response: %w", withoutURL(err))}
+		return nil, &Failing{Err: fmt.Errorf("read the Indexer's response: %w", WithoutURL(err))}
 	}
 	s.svc.cfg.Log.Debug("An Indexer responded", "indexer", s.Indexer, "method", req.Method, "host", req.URL.Host,
 		"status", res.StatusCode, "bytes", len(body), "took", time.Since(sent).String())
@@ -195,16 +231,16 @@ func retryAfter(v string, now time.Time) time.Duration {
 	return 0
 }
 
-// withoutURL drops the request URL from err, since it may carry a key.
-func withoutURL(err error) error {
+// WithoutURL drops the request URL from err, since it may carry a key.
+func WithoutURL(err error) error {
 	if ue, ok := errors.AsType[*url.Error](err); ok {
 		return ue.Err
 	}
 	return err
 }
 
-// spacer spaces the requests to each host by Floor, or a definition's
-// longer request delay, across every Indexer on this Node.
+// spacer spaces the requests to each host by Floor, or a job's longer
+// spacing, across every Indexer on this Node.
 type spacer struct {
 	floor time.Duration
 	mu    sync.Mutex
@@ -236,9 +272,9 @@ func (s *spacer) wait(ctx context.Context, host string, delay time.Duration) err
 func fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link.raw, http.NoBody)
 	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
+		return nil, &Failing{Err: fmt.Errorf("build the request: %w", WithoutURL(err))}
 	}
-	res, err := s.Do(ctx, req, Download)
+	res, err := s.Do(ctx, req, Send{Purpose: Download})
 	switch {
 	case err != nil:
 		return nil, err

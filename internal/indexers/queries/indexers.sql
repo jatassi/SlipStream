@@ -4,13 +4,13 @@ SELECT EXISTS (SELECT 1 FROM indexers_indexer WHERE name = sqlc.arg(name) AND id
 -- name: InsertIndexer :exec
 INSERT INTO indexers_indexer (
     id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media,
-    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain,
+    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, port_id, base_address, plain,
     secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at)
 VALUES (
     sqlc.arg(id), sqlc.arg(name), sqlc.arg(kind), sqlc.arg(home_node_id), sqlc.arg(is_on), sqlc.arg(auto_search), sqlc.arg(rss),
     sqlc.arg(allow_failover), sqlc.arg(priority), sqlc.narg(categories), sqlc.narg(media), sqlc.arg(search_limit),
     sqlc.arg(search_window), sqlc.arg(grab_limit), sqlc.arg(grab_window), sqlc.narg(definition_id), sqlc.narg(definition_sha),
-    sqlc.narg(base_address), sqlc.arg(plain), sqlc.arg(secrets_sealed), sqlc.narg(feed_host), sqlc.narg(tracker_name),
+    sqlc.narg(port_id), sqlc.narg(base_address), sqlc.arg(plain), sqlc.arg(secrets_sealed), sqlc.narg(feed_host), sqlc.narg(tracker_name),
     sqlc.arg(allow_no_size), sqlc.narg(rss_reading), sqlc.arg(caps), sqlc.arg(notes), sqlc.arg(revision), sqlc.arg(created_at),
     sqlc.arg(updated_at));
 
