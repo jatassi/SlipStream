@@ -65,10 +65,26 @@ func (c *Code) problem() *Problem {
 // Because answers c with detail, a reason a person reads beside the title.
 func (c *Code) Because(detail string) error { return &explained{code: c, detail: detail} }
 
-// Until answers c with Retry-After set to the whole seconds until t, and t
-// in detail.
-func (c *Code) Until(t time.Time) error {
-	return &explained{code: c, detail: t.UTC().Format(time.RFC3339), retryAfter: t}
+// At answers c with the detail that words makes of t, which it gets as a
+// person reads a time in the Node's zone.
+func (c *Code) At(t time.Time, words func(at string) string) error {
+	return &explained{code: c, at: t, words: words}
+}
+
+// Waiting is a code whose problem says when to try again: in words in its
+// detail, as a time in its until member, and in Retry-After.
+type Waiting struct{ *Code }
+
+func NewWaiting(status int, name, title string) Waiting {
+	return Waiting{NewCarrying[time.Time](status, name, title, "until").Code}
+}
+
+// Until answers c with t as the time to try again.
+func (c Waiting) Until(t time.Time) error {
+	return &explained{
+		code: c.Code, at: t, retryAfter: t, carried: t.UTC(),
+		words: func(at string) string { return "You can try again at " + at + "." },
+	}
 }
 
 // On answers c about the request body's member field: the problem's
@@ -82,14 +98,22 @@ func (c *Code) On(field, detail string) error {
 func (c *Code) Fields(errs ...FieldError) error { return &explained{code: c, fields: errs} }
 
 type explained struct {
-	code       *Code
-	detail     string
+	code   *Code
+	detail string
+	// words makes the detail of at once the zone is known, when it is set.
+	at         time.Time
+	words      func(at string) string
 	retryAfter time.Time
 	fields     []FieldError
 	carried    any
 }
 
-func (e *explained) Error() string { return e.code.name + ": " + e.detail }
+func (e *explained) Error() string {
+	if e.words != nil {
+		return e.code.name + ": " + e.words(timeWords(e.at, time.Now(), time.Local))
+	}
+	return e.code.name + ": " + e.detail
+}
 
 // ProblemOf is the problem err answers when it is a code, or a code with
 // its detail, and false for any other error.
@@ -102,16 +126,20 @@ func ProblemOf(err error) (*Problem, bool) {
 	if !isCode {
 		return nil, false
 	}
-	p, _ := e.answer(code).(*Problem) //nolint:errorlint // answer returns a *Problem
+	p, _ := e.answer(code, time.Local).(*Problem) //nolint:errorlint // answer returns a *Problem
 	return p, true
 }
 
-func (e *explained) answer(code *Code) error {
+// answer is the problem e answers, with its detail's times in zone.
+func (e *explained) answer(code *Code, zone *time.Location) error {
 	p := code.problem()
 	if e == nil {
 		return p
 	}
 	p.Detail, p.Errors = e.detail, e.fields
+	if e.words != nil {
+		p.Detail = e.words(timeWords(e.at, time.Now(), zone))
+	}
 	if e.carried != nil {
 		p.member, p.carried = code.member, e.carried
 	}
@@ -122,6 +150,20 @@ func (e *explained) answer(code *Code) error {
 	seconds := int64((wait + time.Second - 1) / time.Second)
 	p.headers = http.Header{"Retry-After": {strconv.FormatInt(seconds, 10)}}
 	return p
+}
+
+// timeWords is t as a person reads it in zone: "14:05" on now's day,
+// "3 Oct, 14:05" on another day this year, and "3 Oct 2025, 14:05" in
+// another year.
+func timeWords(t, now time.Time, zone *time.Location) string {
+	t, now = t.In(zone), now.In(zone)
+	switch {
+	case t.Year() != now.Year():
+		return t.Format("2 Jan 2006, 15:04")
+	case t.YearDay() != now.YearDay():
+		return t.Format("2 Jan, 15:04")
+	}
+	return t.Format("15:04")
 }
 
 var (

@@ -3,4 +3,5 @@ import type { Problem } from "./problem.ts";
 
 export type ChangePIN429 = Problem & {
   code?: ChangePIN429Code;
+  until?: string;
 };

@@ -73,7 +73,9 @@ func answer(err error) error {
 		return taskUnknown.Because("Metadata refresh is listed once the library holds a Work")
 	}
 	if running, ok := errors.AsType[*tasks.ErrRunning](err); ok {
-		return taskRunning.Because("Metadata refresh has been running since " + running.Since.UTC().Format(time.RFC3339) + ". The next run refreshes every Work.")
+		return taskRunning.At(running.Since, func(at string) string {
+			return "Metadata refresh has been running since " + at + ". The next run refreshes every Work."
+		})
 	}
 	return err
 }

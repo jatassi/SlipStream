@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -43,7 +45,9 @@ type Services struct {
 	Web            fs.FS
 	TrustedOrigins []Origin
 	TrustedProxies []Proxy
-	Log            *slog.Logger
+	// Zone is where a problem's detail writes its times. Nil is time.Local.
+	Zone *time.Location
+	Log  *slog.Logger
 }
 
 // Node is the Node serving the API as the access checks read it, on every
@@ -324,7 +328,7 @@ func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error
 	}
 	switch {
 	case isCode && slices.Contains(declared, code):
-		return e.answer(code)
+		return e.answer(code, cmp.Or(r.services.Zone, time.Local))
 	case isCode:
 		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)
 	default:
