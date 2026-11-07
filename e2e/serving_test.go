@@ -12,10 +12,11 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
-// TestAServingWorkerFrontsItsController gives seedbox Serving: its address
-// answers with home's API and carries home's live stream. With home
-// stopped, seedbox answers the API 503 controller_unreachable and its
-// status page says what it holds, never what anyone asked for.
+// TestAServingWorkerFrontsItsController gives seedbox Serving: once seedbox
+// takes the Role up, its address answers with home's API and carries
+// home's live stream. With home stopped, seedbox answers the API 503
+// controller_unreachable and its status page says what it holds, never
+// what anyone asked for.
 func TestAServingWorkerFrontsItsController(t *testing.T) {
 	t.Parallel()
 	run := worldtest.Launch(t, "home")
@@ -23,13 +24,13 @@ func TestAServingWorkerFrontsItsController(t *testing.T) {
 	box := a.Node("seedbox")
 	a.SetRoles("home", box.NodeID, "searching", "downloading", "serving")
 
-	var system struct {
-		DataDir string `json:"dataDir"`
-	}
-	r := a.Admin("seedbox", http.MethodGet, "/api/v1/system", "")
-	if err := json.Unmarshal([]byte(r.Body), &system); err != nil || r.Status != http.StatusOK || system.DataDir != a.Node("home").DataDir {
-		t.Fatalf("getSystem at seedbox's address = %d %s, want home's at %s", r.Status, r.Body, a.Node("home").DataDir)
-	}
+	worldtest.Until(t, "getSystem at seedbox's address reports home's", func() (bool, error) {
+		var system struct {
+			DataDir string `json:"dataDir"`
+		}
+		r := a.Admin("seedbox", http.MethodGet, "/api/v1/system", "")
+		return r.Status == http.StatusOK && json.Unmarshal([]byte(r.Body), &system) == nil && system.DataDir == a.Node("home").DataDir, nil
+	})
 
 	session := a.SignIn("seedbox")
 	req, err := http.NewRequestWithContext(worldtest.Context(t), http.MethodGet, box.URL+"/api/v1/events", http.NoBody)

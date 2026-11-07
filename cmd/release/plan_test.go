@@ -363,6 +363,13 @@ func TestCIRunsEveryLane(t *testing.T) {
 			t.Errorf("plan output %s = %q, want %q", l.kind, ci["plan"].Outputs[l.kind], want)
 		}
 	}
+	var offPlan []string
+	for _, n := range gateNeeds[1:] {
+		offPlan = append(offPlan, fmt.Sprintf("needs.%s.result != (fromJSON(needs.plan.outputs.planned)['%s'] && 'success' || 'skipped')", n, n))
+	}
+	if want := fmt.Sprintf("${{ always() && (needs.plan.result != 'success' || %s) }}", strings.Join(offPlan, " || ")); ci["gate"].If != want {
+		t.Errorf("gate if = %q, want it to run only when a lane ended off plan: %q", ci["gate"].If, want)
+	}
 	gate, ok := ci["gate"].Needs.([]any)
 	if !ok {
 		t.Fatalf("gate needs %v, want a list", ci["gate"].Needs)
