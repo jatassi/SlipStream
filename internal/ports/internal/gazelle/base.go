@@ -140,9 +140,9 @@ func download[S settings](ix *port.Indexer[S], link *url.URL) (port.Got, error) 
 	return Download(ix, link, ix.Settings.gazelle().UseFreeleechToken)
 }
 
-// Download is GazelleBase.Download: a download without the token again when Preferred
-// asked for a token the site won't take. Orpheus and Redacted keep the
-// same.
+// Download is GazelleBase.Download: when Preferred asked for a token the
+// site won't take, it downloads again without one. Orpheus and Redacted
+// keep the same.
 func Download[S any](ix *port.Indexer[S], link *url.URL, useFreeleechToken GazelleFreeleechTokenAction) (port.Got, error) {
 	downloadResponse, err := baseDownload(ix, link)
 	if err != nil {

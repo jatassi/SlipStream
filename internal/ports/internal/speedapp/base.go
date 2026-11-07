@@ -23,10 +23,9 @@ import (
 )
 
 const (
-	loginURL = "api/login"
-	PageSize = 100
-	// minimumSeedTime is 48 hours.
-	minimumSeedTime = 172800
+	loginURL        = "api/login"
+	PageSize        = 100
+	minimumSeedTime = 172800 // 48 hours
 )
 
 // Site is what a site's C# class overrides.
