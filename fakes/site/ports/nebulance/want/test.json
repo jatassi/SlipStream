@@ -1,0 +1,25 @@
+{
+  "report": {
+    "modes": {
+      "search": [
+        "q"
+      ],
+      "tvsearch": [
+        "q",
+        "season",
+        "ep",
+        "imdbid",
+        "tvmazeid"
+      ]
+    },
+    "categories": [
+      5000,
+      5030,
+      5040,
+      5045
+    ],
+    "items": 3,
+    "sources": null
+  },
+  "sessionChanged": false
+}

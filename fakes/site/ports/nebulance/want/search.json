@@ -1,0 +1,86 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.S02E03.1080p.WEB-DL.DDP5.1.H.264-NTb",
+      "size": 2361183241,
+      "published": "2026-05-28T21:46:40Z",
+      "seeders": 75,
+      "leechers": 2,
+      "grabs": 190,
+      "link": "https://nebulance.fixture-site.fake.localhost/torrents.php?action=download\u0026id=88001\u0026authkey={{authkey}}\u0026torrent_pass={{apiKey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040
+      ],
+      "ids": {
+        "imdbid": "tt0000002"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "24h0m0s",
+      "details": "https://nebulance.fixture-site.fake.localhost/torrents.php?id=88001",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor.Lights.S02.720p.HDTV.x264-GRP",
+      "size": 15032385536,
+      "published": "2026-05-27T12:00:00Z",
+      "seeders": 12,
+      "leechers": 0,
+      "grabs": 30,
+      "link": "https://nebulance.fixture-site.fake.localhost/torrents.php?action=download\u0026id=88000\u0026authkey={{authkey}}\u0026torrent_pass={{apiKey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "120h0m0s",
+      "details": "https://nebulance.fixture-site.fake.localhost/torrents.php?id=88000",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor.Lights.S02E03.SDTV.XviD-GRP",
+      "size": 734003200,
+      "published": "2026-05-26T06:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 5,
+      "link": "https://nebulance.fixture-site.fake.localhost/torrents.php?action=download\u0026id=88002\u0026authkey={{authkey}}\u0026torrent_pass={{apiKey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "24h0m0s",
+      "details": "https://nebulance.fixture-site.fake.localhost/torrents.php?id=88002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}
