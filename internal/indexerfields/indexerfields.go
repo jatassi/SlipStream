@@ -159,16 +159,14 @@ func Split(fields []Field, values, plainBefore, sealedBefore map[string]string) 
 		if !ok {
 			return nil, nil, &ValueError{Field: name, Sentence: "This Indexer has no setting named " + name + "."}
 		}
-		if Sealed(f) && v == "" {
-			continue
-		}
 		if err := Fits(f, v); err != nil {
 			return nil, nil, err
 		}
-		if Sealed(f) {
-			sealed[name] = v
-		} else {
+		switch {
+		case !Sealed(f):
 			plain[name] = v
+		case v != "":
+			sealed[name] = v
 		}
 	}
 	if err := filled(fields, plain, sealed); err != nil {
