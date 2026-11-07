@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/ports/all"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
 )
@@ -143,7 +144,7 @@ type LibraryIndexer struct {
 	Kind string `jsonschema:"required,enum=catalog,enum=torznab,enum=rss,enum=native" yaml:"kind"`
 	// Site is the fixture-site site's label: torznab for a Torznab feed,
 	// brook for an RSS feed, a catalog site such as larkspur, or a ported
-	// site.
+	// site's port id.
 	Site string `jsonschema:"required" yaml:"site"`
 	// Definition is a catalog Indexer's definition id, the site's label
 	// when empty.
@@ -154,7 +155,8 @@ type LibraryIndexer struct {
 	// several Nodes hold Searching.
 	Home string `yaml:"home,omitempty"`
 	// Settings are a catalog or native Indexer's plain settings by name,
-	// beside the credentials the seed gives.
+	// beside the credentials the seed gives, or a port's fixture on a site
+	// no family fake serves.
 	Settings map[string]string `yaml:"settings,omitempty"`
 	// Tracker and Media are an RSS feed's.
 	Tracker       string   `yaml:"tracker,omitempty"`
@@ -168,6 +170,17 @@ var FixtureSites = map[string][]string{
 	"torznab": {"torznab"},
 	"rss":     {"brook"},
 	"catalog": {"larkspur", "quarry", "cinder", "marsh", "ferry"},
+	"native":  portIDs(),
+}
+
+// portIDs are the ids of every port the release carries, each a ported
+// site fixture-site serves at its own host.
+func portIDs() []string {
+	var out []string
+	for _, e := range all.Registry().Entries() {
+		out = append(out, string(e.ID))
+	}
+	return out
 }
 
 var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
@@ -257,6 +270,8 @@ func (l Library) checkIndexers(add func(format string, args ...any)) {
 			add("library indexer %s is native and names no port", ix.Name)
 		case ix.Kind != "native" && ix.Port != "":
 			add("library indexer %s names a port, which only a native Indexer has", ix.Name)
+		case ix.Kind == "native" && ix.Port != ix.Site:
+			add("library indexer %s is on site %q, and port %s runs only on its own site", ix.Name, ix.Site, ix.Port)
 		}
 	}
 }
