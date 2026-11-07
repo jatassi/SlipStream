@@ -123,18 +123,17 @@ func (p *published) count() int {
 }
 
 type pipeline struct {
-	t       *testing.T
-	lib     library
-	g       *grabs.Grabs
-	swarm   *swarm
-	roster  *roster
-	changed *published
-	node    role.NodeID
-	work    works.WorkID
-	root    roots.ID
-	indexer storage.UUID
-	copies  *transfers.Transfers
-	// beforeStep, when set, sees each step before it runs.
+	t          *testing.T
+	lib        library
+	g          *grabs.Grabs
+	swarm      *swarm
+	roster     *roster
+	changed    *published
+	node       role.NodeID
+	work       works.WorkID
+	root       roots.ID
+	indexer    storage.UUID
+	copies     *transfers.Transfers
 	beforeStep func(context.Context, grabs.Stage)
 }
 

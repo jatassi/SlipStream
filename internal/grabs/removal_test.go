@@ -13,8 +13,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// removals is each reason a Torrent can be removed for, with how its
-// downloading Grab fails.
 var removals = []struct {
 	reason downloadclients.RemoveReason
 	code   grabs.Code
@@ -24,9 +22,14 @@ var removals = []struct {
 	{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff},
 }
 
-// downloadingGrab is a Grab at downloading whose Torrent the Node
-// reported complete with files and, when stalled, stalled since.
-func downloadingGrab(t *testing.T, p *pipeline, stalled bool) grabs.GrabID {
+// Mark failed takes only a stalled download, so its Torrent stalls once
+// complete, as after a recheck.
+const (
+	seedingReport = `{"at":"2026-01-01T00:00:00Z","engine":"seeding","complete":true,"done":4096}`
+	stalledReport = `{"at":"2026-01-01T00:00:00Z","engine":"downloading","stalled":true,"done":4096}`
+)
+
+func downloadingGrab(t *testing.T, p *pipeline, report string) grabs.GrabID {
 	t.Helper()
 	rel := newRelease(t)
 	id := p.grab(rel.link.String(), &rel.link.InfoHash)
@@ -35,10 +38,6 @@ func downloadingGrab(t *testing.T, p *pipeline, stalled bool) grabs.GrabID {
 		t.Fatal(err)
 	}
 	attachTorrent(t, p, raw)
-	report := `{"at":"2026-01-01T00:00:00Z","engine":"seeding","complete":true,"done":4096}`
-	if stalled {
-		report = `{"at":"2026-01-01T00:00:00Z","engine":"downloading","stalled":true,"done":4096}`
-	}
 	now := storage.Now()
 	run(t, p.lib,
 		sql(`UPDATE downloadclients_torrent SET report = ?, reported_at = ?, completed_at = ?,
@@ -69,7 +68,7 @@ func TestADownloadingGrabFailsOnceItsTorrentIsParted(t *testing.T) {
 		t.Run(string(r.reason), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				p := newPipeline(t)
-				id := downloadingGrab(t, p, false)
+				id := downloadingGrab(t, p, seedingReport)
 				now := storage.Now()
 				run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = ?, parted_at = ?, freed = 0`, now, string(r.reason), now))
 
@@ -92,18 +91,18 @@ func TestADownloadingGrabFailsOnceItsTorrentIsParted(t *testing.T) {
 // refused as importing and leaves the Torrent and the Grab be.
 func TestAnAdminRemovalRacingAGrabEitherFailsItOrIsRefused(t *testing.T) {
 	kinds := map[downloadclients.ActionKind]struct {
-		code    grabs.Code
-		stalled bool
+		code   grabs.Code
+		report string
 	}{
-		downloadclients.Remove:     {grabs.Removed, false},
-		downloadclients.MarkFailed: {grabs.DownloadFailed, true},
+		downloadclients.Remove:     {grabs.Removed, seedingReport},
+		downloadclients.MarkFailed: {grabs.DownloadFailed, stalledReport},
 	}
 	for kind, k := range kinds {
 		for _, at := range []grabs.Stage{grabs.Downloading, grabs.Probing} {
 			t.Run(string(kind)+" at "+string(at), func(t *testing.T) {
 				synctest.Test(t, func(t *testing.T) {
 					p := newPipeline(t)
-					id := downloadingGrab(t, p, k.stalled)
+					id := downloadingGrab(t, p, k.report)
 					torrent := torrentOf(t, p)
 					clients := downloadclients.New(downloadclients.Config{
 						Library: p.lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{},
