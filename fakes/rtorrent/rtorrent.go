@@ -47,6 +47,7 @@ var Fake = fake.Spec{
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.OnlineSuite("rtorrent"),
 	Cues:      clientfake.Cues(name),
+	Entered:   clientfake.Entered(name),
 }
 
 // Client is one Node's rTorrent and the nginx in front of it.
@@ -75,7 +76,17 @@ func Playing(clients ...Client) fake.Spec {
 	return spec
 }
 
-func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(env, nil) }
+// newServer plays the rTorrent of each Node the Scenario gives one.
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	var clients []Client
+	for _, p := range clientfake.Playing(s, name, env.Dir) {
+		clients = append(clients, Client{
+			Node: p.Node, Version: p.Version, Username: p.Username, Password: p.Password,
+			Dir: p.Dir, Folder: p.Folder, Rate: clientfake.Rate,
+		})
+	}
+	return serve(env, clients)
+}
 
 type version struct {
 	client string

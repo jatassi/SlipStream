@@ -262,12 +262,13 @@ func TestParseRefuses(t *testing.T) {
 		},
 		{
 			"download clients",
-			"seed: x\nnodes:\n  - name: box\n    setup: none\n    download_clients: [{kind: deluge, version: \"2.1\"}]\n" +
+			"seed: x\nnodes:\n  - name: box\n    setup: none\n    download_clients: [{kind: utorrent, version: \"3.6\"}, {kind: deluge, version: \"2.1\", username: ada}]\n" +
 				"  - name: home\n    setup: controller\n    download_clients:\n" +
 				"      - {kind: transmission, pair: true, grabs_to: true}\n      - {kind: transmission, version: \"4.1\", grabs_to: true}\n" +
 				"admin: {email: a@example.test, display_name: A, pin: \"1234\"}\n",
 			"scenario x: node box has download clients, but doesn't hold downloading\n" +
-				"scenario x: node box download client kind \"deluge\" is not one of [transmission]\n" +
+				"scenario x: node box download client kind \"utorrent\" is not one of [qbittorrent transmission deluge rtorrent]\n" +
+				"scenario x: node box deluge download client has a username, which Deluge doesn't take\n" +
 				"scenario x: node box has download clients, and no library adds them\n" +
 				"scenario x: node home transmission download client names no version\n" +
 				"scenario x: node home transmission download client pairs its folder, but names none\n" +

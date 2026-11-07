@@ -12,7 +12,6 @@
 package transmission
 
 import (
-	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -115,30 +114,16 @@ func Playing(daemons ...Daemon) fake.Spec {
 	return spec
 }
 
-// newServer plays the Transmission of each Node the Scenario gives one,
-// downloading into that Node's folder under env.Dir.
+// newServer plays the Transmission of each Node the Scenario gives one.
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	var daemons []Daemon
-	for _, n := range s.Nodes {
-		for _, c := range n.DownloadClients {
-			if c.Kind != name {
-				continue
-			}
-			dir := clientfake.Folder(env.Dir, n.Name)
-			folder := cmp.Or(c.Folder, dir)
-			daemons = append(daemons, Daemon{
-				Node: n.Name, Version: c.Version, Username: c.Username, Password: c.Password,
-				Dir: dir, Folder: folder, Windows: drive(folder), Rate: clientfake.Rate,
-			})
-		}
+	for _, p := range clientfake.Playing(s, name, env.Dir) {
+		daemons = append(daemons, Daemon{
+			Node: p.Node, Version: p.Version, Username: p.Username, Password: p.Password,
+			Dir: p.Dir, Folder: p.Folder, Windows: p.Windows, Rate: clientfake.Rate,
+		})
 	}
 	return serve(env, daemons)
-}
-
-// drive reports whether folder starts with a drive letter, as a Windows
-// daemon's download_dir does.
-func drive(folder string) bool {
-	return len(folder) >= 2 && folder[1] == ':'
 }
 
 type version struct {

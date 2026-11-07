@@ -61,6 +61,7 @@ var Fake = fake.Spec{
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.OnlineSuite("deluge"),
 	Cues:      append(clientfake.Cues(name), fake.CueSpec{Name: switchCue}, fake.CueSpec{Name: disconnectCue}),
+	Entered:   clientfake.Entered(name),
 }
 
 // Client is one Node's Deluge web UI and the daemons it lists.
@@ -119,7 +120,21 @@ func Playing(clients ...Client) fake.Spec {
 	return spec
 }
 
-func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(env, nil) }
+// newServer plays the Deluge of each Node the Scenario gives one, a web UI
+// listing one daemon on the machine.
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	var clients []Client
+	for _, p := range clientfake.Playing(s, name, env.Dir) {
+		clients = append(clients, Client{
+			Node: p.Node, Version: p.Version, Password: p.Password,
+			Daemons: []Daemon{{Host: "127.0.0.1", Port: daemonPort, Dir: p.Dir, Folder: p.Folder, Windows: p.Windows, Rate: clientfake.Rate}},
+		})
+	}
+	return serve(env, clients)
+}
+
+// daemonPort is deluged's default port.
+const daemonPort = 58846
 
 // version is the daemon.get_version of each of Versions.
 var versions = map[string]string{"2.1": "2.1.1"}

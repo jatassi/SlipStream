@@ -101,7 +101,10 @@
                 "kind": {
                   "type": "string",
                   "enum": [
-                    "transmission"
+                    "qbittorrent",
+                    "transmission",
+                    "deluge",
+                    "rtorrent"
                   ]
                 },
                 "version": {

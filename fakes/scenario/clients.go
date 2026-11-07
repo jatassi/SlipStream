@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 )
 
 // DownloadClient is an external Download Client the world adds to its
@@ -12,7 +13,7 @@ import (
 // fake of its kind. Its faults are fault rules on that front, such as a
 // refuse for a client that isn't running, and the fake's cues.
 type DownloadClient struct {
-	Kind string `jsonschema:"required,enum=transmission" yaml:"kind"`
+	Kind string `jsonschema:"required,enum=qbittorrent,enum=transmission,enum=deluge,enum=rtorrent" yaml:"kind"`
 	// Version is a version the kind's fake plays, such as 4.1.
 	Version string `jsonschema:"required" yaml:"version"`
 	// Name is the client's name in SlipStream, the kind's name when empty.
@@ -34,8 +35,6 @@ type DownloadClient struct {
 	GrabsTo bool `yaml:"grabs_to,omitempty"`
 }
 
-var clientKinds = []string{"transmission"}
-
 func (n Node) checkClients(add func(format string, args ...any)) {
 	if len(n.DownloadClients) > 0 && !n.downloads() {
 		add("node %s has download clients, but doesn't hold downloading", n.Name)
@@ -43,10 +42,13 @@ func (n Node) checkClients(add func(format string, args ...any)) {
 	grabsTo := 0
 	for i, c := range n.DownloadClients {
 		switch {
-		case !slices.Contains(clientKinds, c.Kind):
-			add("node %s download client kind %q is not one of %v", n.Name, c.Kind, clientKinds)
+		case !slices.Contains(clients.Kinds, clients.Kind(c.Kind)):
+			add("node %s download client kind %q is not one of %v", n.Name, c.Kind, clients.Kinds)
 		case slices.ContainsFunc(n.DownloadClients[:i], func(o DownloadClient) bool { return o.Kind == c.Kind }):
 			add("node %s has two %s download clients; the world adds at most one of each kind", n.Name, c.Kind)
+		}
+		if c.Username != "" && clients.Kind(c.Kind).Facts().SignIn.Username == clients.NotTaken {
+			add("node %s %s download client has a username, which %s doesn't take", n.Name, c.Kind, clients.Kind(c.Kind).Facts().Name)
 		}
 		if c.Version == "" {
 			add("node %s %s download client names no version", n.Name, c.Kind)
