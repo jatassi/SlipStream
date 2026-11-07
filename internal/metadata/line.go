@@ -72,7 +72,7 @@ const (
 )
 
 // Attribution is a provider's required credit: its words, and the key of
-// the logo the web app bundles for it.
+// the logo the web app bundles for it, empty when it bundles none.
 type Attribution struct {
 	Text, Logo string
 }
