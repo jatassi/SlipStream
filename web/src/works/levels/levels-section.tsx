@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
+import { useStartSearch } from "../../grabs/search";
 import { CellPopover, useCellPopover } from "../../ui/cell-popover";
 import { Section } from "../../ui/section";
 import { useShell } from "../../ui/shell-context";
@@ -8,8 +9,8 @@ import type { MatrixShown } from "../page/matrix-model";
 import type { WorkReads } from "../page/reads";
 import { CellDetail, type PoppedCell, cellLabel } from "./cell-detail";
 import { ItemDetails } from "./item-details";
-import { ItemSheet } from "./item-sheet";
 // oxlint-disable-next-line import/max-dependencies -- the section composes its rows, cell popover, Item Details and phone sheet
+import { ItemSheet } from "./item-sheet";
 import { type LevelView, levelContext, levelsOf, viewOf } from "./model";
 import { levelRows } from "./rows";
 import { useMonitorParts } from "./use-monitored";
@@ -56,12 +57,16 @@ function useLevels(type: WorksContentType, work: WorksWorkView, reads: WorkReads
 
 type Picked = { readonly id: string; readonly as: "details" | "sheet" };
 
-function useActions(workId: string, toggle: (level: LevelView) => void) {
+function useActions(type: WorksContentType, workId: string, toggle: (level: LevelView) => void) {
   const monitor = useMonitorParts(workId);
+  const search = useStartSearch(type.item);
   const [picked, setPicked] = useState<Picked>();
   const rowActions: Drawn["rowActions"] = {
     monitor: (view, on) => {
       monitor({ levelIds: [], itemIds: [view.item.id], on });
+    },
+    search: (view) => {
+      search.start(workId, { levelIds: [], itemIds: [view.item.id] });
     },
     details: (view) => {
       setPicked({ id: view.item.id, as: "details" });
@@ -74,6 +79,9 @@ function useActions(workId: string, toggle: (level: LevelView) => void) {
     toggle,
     monitor: (level, on) => {
       monitor({ levelIds: [level.level.id], itemIds: [], on });
+    },
+    search: (level) => {
+      search.start(workId, { levelIds: [level.level.id], itemIds: [] });
     },
   };
   // The sheet's Details closes the sheet after it opens Details, so each closes only itself.
@@ -102,7 +110,7 @@ export function LevelsSection({
   const phone = useShell() === "phone";
   const { context, levels, rows, toggle } = useLevels(type, work, reads);
   const popover = useCellPopover<PoppedCell>();
-  const { picked, close, rowActions, headerActions } = useActions(work.id, toggle);
+  const { picked, close, rowActions, headerActions } = useActions(type, work.id, toggle);
   const found = picked && viewOf(levels, picked.id);
   return (
     <Section title={type.levels[0]?.many ?? type.item.many}>

@@ -5,9 +5,11 @@ import { page, userEvent } from "vitest/browser";
 import type { FilesState, WorksItem, WorksWorkMonitored, WorksWorkView } from "../../api/gen/model";
 import { longShelf } from "../../test/anthology";
 import { frames } from "../../test/frames";
+import { SearchWorkBody } from "../../api/gen/zod/grabs/grabs.zod";
 import { SetWorkMonitoredBody } from "../../api/gen/zod/works/works.zod";
 import { renderApp } from "../../test/render-app";
 import { shelfCells } from "../../test/shelf-cells";
+// oxlint-disable-next-line import/max-dependencies -- the rows answer Monitor and Search, so the test parses both bodies
 import { workServer } from "../../test/work-server";
 
 const volumeOf = (item: WorksItem) => longShelf.levels.findIndex(({ id }) => id === item.levelId);
@@ -24,9 +26,19 @@ function open(
     puts.push(SetWorkMonitoredBody.parse(await request.json()));
     return new HttpResponse(null, { status: 204 });
   });
+  const scopes: unknown[] = [];
+  const searched = http.post("*/api/v1/works/:workId/search", async ({ request }) => {
+    const scope = SearchWorkBody.parse(await request.json());
+    scopes.push(scope);
+    const count = scope.levelIds.length > 0 ? 49 : scope.itemIds.length;
+    return HttpResponse.json(
+      { searchIds: Array.from({ length: count }, () => crypto.randomUUID()) },
+      { status: 202 },
+    );
+  });
   const server = workServer({ work, startCells: shelfCells(work, stateOf) });
-  renderApp({ path: `/works/${work.id}`, handlers: [monitored, ...server.handlers] });
-  return { puts };
+  renderApp({ path: `/works/${work.id}`, handlers: [monitored, searched, ...server.handlers] });
+  return { puts, scopes };
 }
 
 const levels = () => page.getByRole("region", { name: "Volumes" });
@@ -159,4 +171,19 @@ test("hovering a square shows its cell, and Details shows the Item's own fields"
     .toHaveTextContent(
       "V01S02 Story V01S02PublishedJanuary 3, 2020Fixture source lists this story as v1s2.",
     );
+});
+
+test("a level's Search searches its Items and an Item's Search the Item, each toasting the count", async () => {
+  const { scopes } = open(() => "missing");
+  const [volumeOne] = longShelf.levels;
+  const [, second] = longShelf.items;
+
+  await userEvent.click(levels().getByRole("button", { name: "Search Volume 1" }));
+  await expect.element(page.getByText("Searching 49 stories")).toBeVisible();
+  await userEvent.click(levels().getByRole("button", { name: "Search V01S02" }));
+  await expect.element(page.getByText("Searching 1 story")).toBeVisible();
+  expect(scopes).toEqual([
+    { levelIds: [volumeOne?.id], itemIds: [] },
+    { levelIds: [], itemIds: [second?.id] },
+  ]);
 });
