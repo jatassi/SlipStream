@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -31,7 +30,7 @@ func NewEnum[V Values](value string) Enum[V] {
 }
 
 func (e Enum[V]) MarshalJSON() ([]byte, error) {
-	b, err := json.Marshal(e.value)
+	b, err := marshal(e.value)
 	if err != nil {
 		return nil, fmt.Errorf("api: encode a %s: %w", reflect.TypeFor[V](), err)
 	}

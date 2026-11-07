@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -19,7 +18,7 @@ func BareString(s string) Bare { return Bare{value: s} }
 func BareStrings(ss []string) Bare { return Bare{value: append([]string{}, ss...)} }
 
 func (b Bare) MarshalJSON() ([]byte, error) {
-	out, err := json.Marshal(b.value)
+	out, err := marshal(b.value)
 	if err != nil {
 		return nil, fmt.Errorf("api: encode %T: %w", b.value, err)
 	}

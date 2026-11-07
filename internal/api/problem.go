@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -203,14 +202,14 @@ type Problem struct {
 // carries.
 func (p *Problem) MarshalJSON() ([]byte, error) {
 	type plain Problem
-	own, err := json.Marshal((*plain)(p))
+	own, err := marshal((*plain)(p))
 	if err != nil {
 		return nil, fmt.Errorf("api: encode the %s problem: %w", p.Code, err)
 	}
 	if p.member == "" {
 		return own, nil
 	}
-	carried, err := json.Marshal(p.carried)
+	carried, err := marshal(p.carried)
 	if err != nil {
 		return nil, fmt.Errorf("api: encode the %s problem's %s: %w", p.Code, p.member, err)
 	}
@@ -262,7 +261,7 @@ func newError(status int, _ string, errs ...error) huma.StatusError {
 }
 
 func writeProblem(w http.ResponseWriter, p *Problem) {
-	body, err := json.Marshal(p)
+	body, err := marshal(p)
 	if err != nil {
 		panic(fmt.Sprintf("api: marshal a problem: %v", err))
 	}
