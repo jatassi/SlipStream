@@ -11,11 +11,15 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/deluge"
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/qbittorrent"
+	"github.com/jatassi/slipstream/fakes/rtorrent"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/transmission"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 )
 
 const importDelay = 5 * time.Minute
@@ -26,26 +30,58 @@ func TestTransmission(t *testing.T) {
 	}
 }
 
+func TestQBittorrent(t *testing.T) {
+	for _, v := range qbittorrent.Versions {
+		t.Run(v, func(t *testing.T) { clientSuite(t, qbittorrent.Fake, v) })
+	}
+}
+
+func TestDeluge(t *testing.T) {
+	for _, v := range deluge.Versions {
+		t.Run(v, func(t *testing.T) { clientSuite(t, deluge.Fake, v) })
+	}
+}
+
+func TestRTorrent(t *testing.T) {
+	for _, v := range rtorrent.Versions {
+		t.Run(v, func(t *testing.T) { clientSuite(t, rtorrent.Fake, v) })
+	}
+}
+
+type scenarioTest struct {
+	name string
+	test func(suite, *testing.T)
+}
+
 // clientSuite runs the spec's Testing Decisions for one kind at one
-// version, each in a Fake world over net.Pipe under synctest, on the
-// external-clients Scenario with the client of spec's kind in place of its
-// Transmission.
-func clientSuite(t *testing.T, spec fake.Spec, version string) {
+// version, and the kind's own tests, each in a Fake world over net.Pipe
+// under synctest, on the external-clients Scenario with the client of
+// spec's kind in place of its Transmission.
+func clientSuite(t *testing.T, spec fake.Spec, version string, own ...scenarioTest) {
 	c := suite{kind: spec.Name, version: version}
-	for _, sc := range []struct {
-		name string
-		test func(*testing.T)
-	}{
-		{"tests, imports and shares a pause", c.testsImportsAndSharesAPause},
-		{"imports through a Client folder after the Import delay", c.importsThroughAClientFolderAfterTheDelay},
-	} {
-		t.Run(sc.name, func(t *testing.T) { synctest.Test(t, sc.test) })
+	for _, sc := range append([]scenarioTest{
+		{"tests, imports, shares a pause and removes with its files", suite.testsImportsSharesAPauseAndRemoves},
+		{"imports through a Client folder after the Import delay", suite.importsThroughAClientFolderAfterTheDelay},
+	}, own...) {
+		t.Run(sc.name, func(t *testing.T) { synctest.Test(t, func(t *testing.T) { sc.test(c, t) }) })
 	}
 }
 
 type suite struct{ kind, version string }
 
-// launch launches the world with the suite's client, after edit.
+// foreignFolders is the client's own name for its download folder, unlike
+// its Node's, by kind: rTorrent runs on Unix only.
+var foreignFolders = map[string]string{"rtorrent": "/srv/torrents"}
+
+func (c suite) foreignFolder() string {
+	if f, ok := foreignFolders[c.kind]; ok {
+		return f
+	}
+	return `D:\Torrents`
+}
+
+// launch launches the world with the suite's client, after edit. A kind
+// that takes no username signs in with the password alone.
 func (c suite) launch(t *testing.T, edit func(*scenario.DownloadClient)) (*sim.World, *clientRig) {
 	t.Helper()
 	s, err := scenario.Load("external-clients")
@@ -54,20 +90,24 @@ func (c suite) launch(t *testing.T, edit func(*scenario.DownloadClient)) (*sim.W
 	}
 	dc := &s.Nodes[0].DownloadClients[0]
 	dc.Kind, dc.Version = c.kind, c.version
+	if clients.Kind(c.kind).Facts().SignIn.Username == clients.NotTaken {
+		dc.Username = ""
+	}
 	edit(dc)
 	w := sim.Launch(t, s, sim.WithWalk())
 	return w, &clientRig{t: t, w: w, kind: c.kind, client: *dc}
 }
 
-// testsImportsAndSharesAPause adds and Tests the client as the world did,
-// sees a wrong password and a folder on a library root fail the Test,
-// imports a Grab from it, then reads a pause made in the client and
-// resumes it through SlipStream.
-func (c suite) testsImportsAndSharesAPause(t *testing.T) {
+// testsImportsSharesAPauseAndRemoves adds and Tests the client as the
+// world did, sees a wrong password and a folder on a library root fail
+// the Test, imports a Grab from it, reads a pause made in the client and
+// resumes it through SlipStream, then removes it with its files, which
+// leaves the imported hard link.
+func (c suite) testsImportsSharesAPauseAndRemoves(t *testing.T) {
 	w, r := c.launch(t, func(*scenario.DownloadClient) {})
 	time.Sleep(time.Minute)
 	saved := r.saved()
-	if saved.Reach != "responding" || !strings.HasPrefix(saved.ProductVersion, c.version+".") {
+	if saved.Reach != "responding" || (saved.ProductVersion != c.version && !strings.HasPrefix(saved.ProductVersion, c.version+".")) {
 		t.Fatalf("the added client reads %s at %q, want responding at %s", saved.Reach, saved.ProductVersion, c.version)
 	}
 	passed := decode[struct {
@@ -77,8 +117,13 @@ func (c suite) testsImportsAndSharesAPause(t *testing.T) {
 	if passed.Product != saved.Name || passed.Folder != w.ClientFolder("home", c.kind) {
 		t.Fatalf("the Test passed for %s with %s, want %s with %s", passed.Product, passed.Folder, saved.Name, w.ClientFolder("home", c.kind))
 	}
-	r.expectFailed("a wrong password", r.draft(func(d map[string]any) { d["password"] = "not-" + r.client.Password }),
-		saved.Name+" rejected the username or password. Check them and test again.", "username", "password")
+	if r.client.Username == "" {
+		r.expectFailed("a wrong password", r.draft(func(d map[string]any) { d["password"] = "not-" + r.client.Password }),
+			saved.Name+" rejected the password. Check it and test again.", "password")
+	} else {
+		r.expectFailed("a wrong password", r.draft(func(d map[string]any) { d["password"] = "not-" + r.client.Password }),
+			saved.Name+" rejected the username or password. Check them and test again.", "username", "password")
+	}
 	root := filepath.Join(w.Manifest().MediaDir, "movies")
 	r.expectFailed("a folder inside a library root", r.draft(func(d map[string]any) {
 		d["clientFolders"] = []map[string]string{{"client": r.client.Folder, "node": root}}
@@ -96,21 +141,29 @@ func (c suite) testsImportsAndSharesAPause(t *testing.T) {
 	if row.State != "paused" {
 		t.Fatalf("a minute after the pause the Torrent reads %s, want paused", row.State)
 	}
-	r.act("resume", row.ID)
+	r.act(`{"action":"resume","ids":["` + row.ID + `"]}`)
 	eventually(t, "the Torrent seeds again", func() bool { return r.torrent().State == "seeding" })
 	time.Sleep(time.Minute)
 	if got := r.torrent(); got.State != "seeding" || got.Pending != "" {
 		t.Fatalf("a minute after the resume the Torrent reads %s with %q pending, want seeding", got.State, got.Pending)
 	}
+
+	r.act(`{"action":"remove","ids":["` + row.ID + `"],"deleteFiles":true}`)
+	eventually(t, "the Torrent is gone", func() bool { return r.torrent().ID == "" })
+	eventually(t, "its files are gone from the client's folder", func() bool { return r.downloaded() == nil })
+	if _, err := os.Stat(filepath.Join(w.Manifest().MediaDir, filepath.FromSlash(placed))); err != nil {
+		t.Fatalf("after the remove the imported file: %v, want it kept", err)
+	}
 }
 
+
 // importsThroughAClientFolderAfterTheDelay sets grabsTo through the API
-// on a client that calls its folder D:\Torrents, and sees the Grab's
+// on a client that names its folder unlike its Node, and sees the Grab's
 // Torrent in the client, held through the Import delay, then imported as a
 // hard link found through the Client folder.
 func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	w, r := c.launch(t, func(dc *scenario.DownloadClient) {
-		dc.Folder, dc.GrabsTo, dc.ImportDelay = `D:\Torrents`, false, importDelay
+		dc.Folder, dc.GrabsTo, dc.ImportDelay = c.foreignFolder(), false, importDelay
 	})
 	saved := r.saved()
 	r.grabsTo(saved.ID)
@@ -250,17 +303,18 @@ func (r *clientRig) torrent() torrentRow {
 	return rows[0]
 }
 
-func (r *clientRig) act(action, id string) {
+func (r *clientRig) act(body string) {
 	r.t.Helper()
-	reply := r.w.API().Admin("home", http.MethodPost, "/api/v1/torrents/actions", `{"action":"`+action+`","ids":["`+id+`"]}`)
+	reply := r.w.API().Admin("home", http.MethodPost, "/api/v1/torrents/actions", body)
 	if reply.Status != http.StatusOK {
-		r.t.Fatalf("actOnTorrents %s = %d %s, want 200", action, reply.Status, reply.Body)
+		r.t.Fatalf("actOnTorrents %s = %d %s, want 200", body, reply.Status, reply.Body)
 	}
 }
 
-// expectLinked checks the placed file is the client's download, hard
-// linked rather than copied.
-func (r *clientRig) expectLinked() {
+
+// downloaded is the client's download of the release, nil when its folder
+// holds none.
+func (r *clientRig) downloaded() os.FileInfo {
 	r.t.Helper()
 	var downloaded os.FileInfo
 	err := filepath.WalkDir(r.w.ClientFolder("home", r.kind), func(path string, d os.DirEntry, err error) error {
@@ -269,8 +323,19 @@ func (r *clientRig) expectLinked() {
 		}
 		return err //nolint:wrapcheck // the test reports it as is
 	})
-	if err != nil || downloaded == nil {
-		r.t.Fatalf("the client's folder holds no %s.mkv: %v", release, err)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return downloaded
+}
+
+// expectLinked checks the placed file is the client's download, hard
+// linked rather than copied.
+func (r *clientRig) expectLinked() {
+	r.t.Helper()
+	downloaded := r.downloaded()
+	if downloaded == nil {
+		r.t.Fatalf("the client's folder holds no %s.mkv", release)
 	}
 	linked, err := os.Stat(filepath.Join(r.w.Manifest().MediaDir, filepath.FromSlash(placed)))
 	if err != nil {
