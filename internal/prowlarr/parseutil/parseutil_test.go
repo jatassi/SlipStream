@@ -1,4 +1,4 @@
-package cardigann
+package parseutil
 
 import "testing"
 
@@ -22,16 +22,16 @@ func TestCoerceLong(t *testing.T) {
 		{in: "99999999999999999999", wantErr: true},
 	}
 	for _, tt := range tests {
-		got, err := coerceLong(tt.in)
+		got, err := CoerceLong(tt.in)
 		if (err != nil) != tt.wantErr || got != tt.want {
-			t.Errorf("coerceLong(%q) = %d, %v; want %d, error %v", tt.in, got, err, tt.want, tt.wantErr)
+			t.Errorf("CoerceLong(%q) = %d, %v; want %d, error %v", tt.in, got, err, tt.want, tt.wantErr)
 		}
 	}
-	if _, err := coerceInt("3000000000"); err == nil {
-		t.Error("coerceInt(3000000000): want an error")
+	if _, err := CoerceInt("3000000000"); err == nil {
+		t.Error("CoerceInt(3000000000): want an error")
 	}
-	if got, err := coerceInt("2,000"); err != nil || got != 2000 {
-		t.Errorf("coerceInt(2,000) = %d, %v", got, err)
+	if got, err := CoerceInt("2,000"); err != nil || got != 2000 {
+		t.Errorf("CoerceInt(2,000) = %d, %v", got, err)
 	}
 }
 
@@ -49,20 +49,20 @@ func TestCoerceDouble(t *testing.T) {
 		{".5", 0.5},
 	}
 	for _, tt := range tests {
-		got, err := coerceDouble(tt.in)
+		got, err := CoerceDouble(tt.in)
 		if err != nil || got != tt.want {
-			t.Errorf("coerceDouble(%q) = %v, %v; want %v", tt.in, got, err, tt.want)
+			t.Errorf("CoerceDouble(%q) = %v, %v; want %v", tt.in, got, err, tt.want)
 		}
 	}
-	if _, err := coerceDouble("."); err == nil {
-		t.Error(`coerceDouble("."): want an error`)
+	if _, err := CoerceDouble("."); err == nil {
+		t.Error(`CoerceDouble("."): want an error`)
 	}
-	if got, _ := coerceFloat("0.1"); got != float64(float32(0.1)) {
-		t.Errorf("coerceFloat(0.1) = %v, want float32 precision", got)
+	if got, _ := CoerceFloat("0.1"); got != float32(0.1) {
+		t.Errorf("CoerceFloat(0.1) = %v, want float32 precision", got)
 	}
 }
 
-func TestParseSize(t *testing.T) {
+func TestGetBytes(t *testing.T) {
 	tests := []struct {
 		in   string
 		want int64
@@ -78,14 +78,14 @@ func TestParseSize(t *testing.T) {
 		{"3.7 Go", 3},
 	}
 	for _, tt := range tests {
-		got, err := parseSize(tt.in)
+		got, err := GetBytes(tt.in)
 		if err != nil || got != tt.want {
-			t.Errorf("parseSize(%q) = %d, %v; want %d", tt.in, got, err, tt.want)
+			t.Errorf("GetBytes(%q) = %d, %v; want %d", tt.in, got, err, tt.want)
 		}
 	}
 }
 
-func TestLongFromString(t *testing.T) {
+func TestGetLongFromString(t *testing.T) {
 	tests := []struct {
 		in     string
 		want   int64
@@ -97,9 +97,9 @@ func TestLongFromString(t *testing.T) {
 		{"  ", 0, false},
 	}
 	for _, tt := range tests {
-		got, ok, err := longFromString(tt.in)
+		got, ok, err := GetLongFromString(tt.in)
 		if err != nil || got != tt.want || ok != tt.wantOK {
-			t.Errorf("longFromString(%q) = %d, %v, %v; want %d, %v", tt.in, got, ok, err, tt.want, tt.wantOK)
+			t.Errorf("GetLongFromString(%q) = %d, %v, %v; want %d, %v", tt.in, got, ok, err, tt.want, tt.wantOK)
 		}
 	}
 }

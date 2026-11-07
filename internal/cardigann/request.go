@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 )
 
 // Search is a search's Exchange: one request per search path whose
@@ -101,7 +103,7 @@ func (x *Search) request(p *searchPathBlock) (Request, bool, error) {
 		}
 		sc[".Categories"] = listValue(both)
 	}
-	path, err := p.Path.Eval(sc, urlEncodeUTF8)
+	path, err := p.Path.Eval(sc, encoding.URLEncode)
 	if err != nil {
 		return Request{}, false, err
 	}
@@ -116,12 +118,12 @@ func (x *Search) request(p *searchPathBlock) (Request, bool, error) {
 	req := Request{Method: http.MethodGet, Header: http.Header{}, FollowRedirects: p.FollowRedirect, Purpose: ForSearch}
 	if strings.EqualFold(p.Method, methodPost) {
 		req.Method = http.MethodPost
-		req.Body = []byte(x.d.charset.QueryString(pairs, "&"))
+		req.Body = []byte(queryString(x.d.charset, pairs, "&"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	target := u.String()
 	if req.Method == http.MethodGet && len(pairs) > 0 {
-		target += "?" + x.d.charset.QueryString(pairs, "&")
+		target += "?" + queryString(x.d.charset, pairs, "&")
 	}
 	if req.Method == http.MethodGet && slices.Contains(x.gets, target) {
 		return Request{}, false, nil
@@ -154,7 +156,7 @@ func (x *Search) inputs(p *searchPathBlock) ([]pair, error) {
 	for _, inputs := range lists {
 		for _, in := range inputs {
 			if in.Key == "$raw" {
-				raw, err := in.Value.Eval(x.env.Scope, urlEncodeUTF8)
+				raw, err := in.Value.Eval(x.env.Scope, encoding.URLEncode)
 				if err != nil {
 					return nil, err
 				}

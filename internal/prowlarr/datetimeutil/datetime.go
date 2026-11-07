@@ -1,21 +1,125 @@
-package cardigann
+// Ported from Prowlarr's src/NzbDrone.Core/Parser/DateTimeUtil.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
+package datetimeutil
 
 import (
+	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// parseExact is .NET's DateTime.TryParseExact with the invariant culture
-// and DateTimeStyles.None over a custom format such as
-// "yyyy-MM-dd HH:mm:ss zzz". A date with an offset is moved into the
-// clock's zone; one without is read as the clock's local time. A part the
-// format omits takes today's date.
-func parseExact(s, format string, clock Clock) (time.Time, bool) {
+// DateTimeStyles is .NET's DateTimeStyles as the sites pass it to
+// DateTime.Parse and DateTime.ParseExact. None reads a date without an
+// offset as the clock's local time.
+type DateTimeStyles int
+
+const (
+	None DateTimeStyles = 0
+	// AdjustToUniversal returns the time in UTC.
+	AdjustToUniversal DateTimeStyles = 1 << iota
+	// AssumeUniversal reads a date without an offset as UTC.
+	AssumeUniversal
+)
+
+// ParseExact is .NET's DateTime.ParseExact with the invariant culture
+// over a custom format such as "yyyy-MM-dd HH:mm:ss zzz". A date with an
+// offset is that instant; one without is read in the zone style names. A
+// part the format omits takes today's date. The result is in the clock's
+// zone, or UTC under AdjustToUniversal.
+func ParseExact(s, format string, style DateTimeStyles, clock Clock) (time.Time, error) {
+	t, ok := TryParseExact(s, format, style, clock)
+	if !ok {
+		return time.Time{}, fmt.Errorf("%q doesn't match the date format %q", s, format)
+	}
+	return t, nil
+}
+
+// TryParseExact is DateTime.TryParseExact: ParseExact, reporting false
+// where ParseExact fails.
+func TryParseExact(s, format string, style DateTimeStyles, clock Clock) (time.Time, bool) {
 	p := exactParser{in: s, format: format, r: newDateResult()}
 	if !p.run() || p.pos != len(p.in) {
 		return time.Time{}, false
 	}
-	return p.r.resolve(clock)
+	return p.r.resolve(style, clock)
+}
+
+// Parse is .NET's DateTime.Parse with the invariant culture over the forms
+// the sites send: ISO 8601 with a 'T' or a space, optional seconds,
+// fraction and offset (Z, GMT, UTC, +hh, +hhmm or +hh:mm), the invariant
+// MM/dd/yyyy with an optional time and AM or PM, and RFC 1123. Other forms
+// DateTime.Parse would read are an error.
+func Parse(s string, style DateTimeStyles, clock Clock) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if m := isoDate.FindStringSubmatch(s); m != nil {
+		if t, ok := parsed(m[1], m[2], m[3], m[4], m[5], m[6], m[7], "", m[8], style, clock); ok {
+			return t, nil
+		}
+	}
+	if m := usDate.FindStringSubmatch(s); m != nil {
+		if t, ok := parsed(m[3], m[1], m[2], m[4], m[5], m[6], "", m[7], "", style, clock); ok {
+			return t, nil
+		}
+	}
+	if t, ok := TryParseExact(s, "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'", style|AssumeUniversal, clock); ok {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("%q isn't a date", s)
+}
+
+var (
+	isoDate = regexp.MustCompile(`^(\d{4})-(\d{1,2})-(\d{1,2})(?:(?:T|\s+)(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,7}))?)?)?\s*(Z|GMT|UTC|[+-]\d{1,2}(?::?\d{2})?)?$`)
+	usDate  = regexp.MustCompile(`^(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([AaPp][Mm]))?)?$`)
+)
+
+func parsed(year, month, day, hour, minute, second, fraction, mark, zone string, style DateTimeStyles, clock Clock) (time.Time, bool) {
+	r := newDateResult()
+	r.year, r.month, r.day = atoi(year), atoi(month), atoi(day)
+	r.hour, r.minute, r.second = atoi(hour), atoi(minute), atoi(second)
+	if fraction != "" {
+		r.nanos = atoi((fraction + "000000000")[:9])
+	}
+	if mark != "" {
+		r.hour12, r.mark = true, strings.ToUpper(mark)[0]
+	}
+	if zone != "" {
+		off, ok := zoneOffset(zone)
+		if !ok {
+			return time.Time{}, false
+		}
+		r.offset = &off
+	}
+	return r.resolve(style, clock)
+}
+
+func atoi(s string) int {
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+// zoneOffset is seconds east of UTC for Z, GMT, UTC, +hh, +hhmm or +hh:mm.
+func zoneOffset(z string) (int, bool) {
+	if z == "Z" || z == "GMT" || z == "UTC" {
+		return 0, true
+	}
+	sign := 1
+	if z[0] == '-' {
+		sign = -1
+	}
+	digits := strings.ReplaceAll(z[1:], ":", "")
+	hours, minutes := digits, ""
+	if len(digits) > 2 {
+		hours, minutes = digits[:len(digits)-2], digits[len(digits)-2:]
+	}
+	h, m := atoi(hours), atoi(minutes)
+	if h > 14 || m > 59 {
+		return 0, false
+	}
+	return sign * (h*3600 + m*60), true
 }
 
 type dateResult struct {
@@ -297,8 +401,8 @@ func (p *exactParser) parseK() bool {
 
 // resolve fills the parts the format omitted from today, applies AM and
 // PM, checks the date and the day of the week, and places the time.
-func (r *dateResult) resolve(clock Clock) (time.Time, bool) {
-	now := clock.local()
+func (r *dateResult) resolve(style DateTimeStyles, clock Clock) (time.Time, bool) {
+	now := clock.Local()
 	switch {
 	case r.year < 0 && r.month < 0 && r.day < 0:
 		r.year, r.month, r.day = now.Year(), int(now.Month()), now.Day()
@@ -325,12 +429,26 @@ func (r *dateResult) resolve(clock Clock) (time.Time, bool) {
 	if r.weekday >= 0 && int(wall.Weekday()) != r.weekday {
 		return time.Time{}, false
 	}
-	if r.offset != nil {
-		return wall.Add(-time.Duration(*r.offset) * time.Second).In(clock.Location), true
-	}
-	return inZone(wall, clock.Location), true
+	return place(wall, r.offset, style, clock), true
 }
 
+// place reads wall's clock reading at offset seconds east of UTC, or,
+// without one, in the zone style names.
+func place(wall time.Time, offset *int, style DateTimeStyles, clock Clock) time.Time {
+	var t time.Time
+	switch {
+	case offset != nil:
+		t = wall.Add(-time.Duration(*offset) * time.Second)
+	case style&AssumeUniversal != 0:
+		t = wall
+	default:
+		t = inZone(wall, clock.Location)
+	}
+	if style&AdjustToUniversal != 0 {
+		return t.UTC()
+	}
+	return t.In(clock.Location)
+}
 func (r *dateResult) applyMark() bool {
 	if r.hour12 {
 		if r.hour > 12 {
@@ -377,3 +495,5 @@ var (
 	dayNames   = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
 	dayAbbr    = []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
 )
+
+func isASCIIDigit(r rune) bool { return r >= '0' && r <= '9' }

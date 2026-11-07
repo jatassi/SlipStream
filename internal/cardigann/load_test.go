@@ -149,7 +149,7 @@ func TestLoadModel(t *testing.T) {
 	if len(def.Search.Paths) != 2 || def.Search.Paths[0].QuerySeparator != "&" || !def.Search.Paths[0].InheritInputs {
 		t.Errorf("paths = %+v", def.Search.Paths)
 	}
-	size, err := def.Search.Fields[3].Value.Filters.Apply(textValue("12"), testEnv(t))
+	size, err := def.Search.Fields[3].Value.Filters.Apply(textValue("12"), testEnv())
 	if err != nil || size.String() != "12 GB" {
 		t.Errorf("size filters = %q, %v", size.String(), err)
 	}
