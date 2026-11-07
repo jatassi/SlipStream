@@ -4,7 +4,7 @@ import type { DownloadclientsNewClientKind } from "./downloadclientsNewClientKin
 
 export interface DownloadclientsNewClient {
   /**
-   * The client's whole address, such as http://192.168.1.20:9091/transmission/rpc; with no path it takes the kind's usual one
+   * The client's whole address, such as http://localhost:9091/transmission/rpc; with no path it takes the kind's usual one
    * @minLength 1
    * @maxLength 2048
    */

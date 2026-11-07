@@ -1079,7 +1079,7 @@
         "additionalProperties": false,
         "properties": {
           "address": {
-            "description": "The client's whole address, such as http://192.168.1.20:9091/transmission/rpc; with no path it takes the kind's usual one",
+            "description": "The client's whole address, such as http://localhost:9091/transmission/rpc; with no path it takes the kind's usual one",
             "maxLength": 2048,
             "minLength": 1,
             "type": "string"

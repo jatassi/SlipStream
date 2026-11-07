@@ -661,7 +661,7 @@ export const DownloadclientsNewClient = zod.object({
     .min(1)
     .max(downloadclientsNewClientAddressMax)
     .describe(
-      "The client's whole address, such as http://192.168.1.20:9091/transmission/rpc; with no path it takes the kind's usual one",
+      "The client's whole address, such as http://localhost:9091/transmission/rpc; with no path it takes the kind's usual one",
     ),
   apiKey: zod
     .string()

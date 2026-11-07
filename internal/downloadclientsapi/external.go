@@ -86,7 +86,7 @@ type newClient struct {
 	NodeID        string         `json:"nodeId" format:"uuid" doc:"A Node that holds Downloading"`
 	Kind          string         `json:"kind" enum:"qbittorrent,transmission,deluge,rtorrent"`
 	Name          string         `json:"name,omitempty" maxLength:"100" doc:"Absent for the kind's name, such as Transmission"`
-	Address       string         `json:"address" minLength:"1" maxLength:"2048" doc:"The client's whole address, such as http://192.168.1.20:9091/transmission/rpc; with no path it takes the kind's usual one"`
+	Address       string         `json:"address" minLength:"1" maxLength:"2048" doc:"The client's whole address, such as http://localhost:9091/transmission/rpc; with no path it takes the kind's usual one"`
 	Username      string         `json:"username,omitempty" maxLength:"256"`
 	Password      string         `json:"password,omitempty" maxLength:"1024" doc:"Write-only"`
 	APIKey        string         `json:"apiKey,omitempty" maxLength:"1024" doc:"qBittorrent 5.2 and later. Write-only"`
@@ -494,52 +494,4 @@ func (h handlers) deleteClient(ctx context.Context, _ identity.Admin, in *client
 		return nil, nerr
 	}
 	return nil, answer(err, names, "")
-}
-
-func externalRoutes(o *api.Owner, h handlers) {
-	tested := []*api.Code{clientTestFailed.Code, clientUnavailable, clientFieldRefused, nodeNotDownloading, settingapi.ErrOutOfRange}
-	api.Register(o, api.Admin, api.Op{
-		ID:      "createDownloadClient",
-		Method:  http.MethodPost,
-		Path:    "/external-download-clients",
-		Summary: "Add an external Download Client once its Test passed on its Node",
-		Status:  http.StatusCreated,
-		Errors:  append([]*api.Code{clientNameTaken, clientAddressTaken}, tested...),
-	}, h.createClient)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "updateDownloadClient",
-		Method:  http.MethodPatch,
-		Path:    "/external-download-clients/{id}",
-		Summary: "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders",
-		Status:  http.StatusOK,
-		Errors:  append([]*api.Code{clientNotFound, clientNameTaken, clientAddressTaken, clientInUse, clientHasTorrents}, tested...),
-	}, h.editClient)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "deleteDownloadClient",
-		Method:  http.MethodDelete,
-		Path:    "/external-download-clients/{id}",
-		Summary: "Delete an external Download Client that holds no torrents SlipStream tracks",
-		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{clientNotFound, clientInUse, clientHasTorrents},
-	}, h.deleteClient)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "testDownloadClientDraft",
-		Method:  http.MethodPost,
-		Path:    "/external-download-clients/test",
-		Summary: "Test an external Download Client from its Node without saving it",
-		Status:  http.StatusOK,
-		Errors:  tested,
-	}, h.testDraft)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "testDownloadClient",
-		Method:  http.MethodPost,
-		Path:    "/external-download-clients/{id}/test",
-		Summary: "Test a saved external Download Client with unsaved changes, using its saved secrets where the changes leave them",
-		Status:  http.StatusOK,
-		Errors:  append([]*api.Code{clientNotFound}, tested...),
-	}, h.testSaved)
 }

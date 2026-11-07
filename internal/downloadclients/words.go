@@ -153,7 +153,7 @@ func Refused(r *RefusedError, kind clients.Kind) string {
 	case errors.Is(r.Err, clients.ErrAddressScheme):
 		return "Start the address with http:// or https://."
 	case errors.Is(r.Err, clients.ErrAddressNotURL):
-		return "Write the address as a URL, such as http://192.168.1.20:9091."
+		return "Write the address as a URL, such as http://localhost:9091."
 	case errors.Is(r.Err, clients.ErrAddressHost):
 		return "Add the host name or IP address of the computer " + name + " runs on."
 	case errors.Is(r.Err, clients.ErrAddressPort):

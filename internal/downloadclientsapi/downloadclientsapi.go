@@ -430,5 +430,49 @@ func Routes(r *api.Router, clients Clients) {
 		Errors:  []*api.Code{nodeNotFound, settingapi.ErrOutOfRange, clientNotFound, clientFieldRefused},
 	}, h.setSettings)
 
-	externalRoutes(o, h)
+	tested := []*api.Code{clientTestFailed.Code, clientUnavailable, clientFieldRefused, nodeNotDownloading, settingapi.ErrOutOfRange}
+	api.Register(o, api.Admin, api.Op{
+		ID:      "createDownloadClient",
+		Method:  http.MethodPost,
+		Path:    "/external-download-clients",
+		Summary: "Add an external Download Client once its Test passed on its Node",
+		Status:  http.StatusCreated,
+		Errors:  append([]*api.Code{clientNameTaken, clientAddressTaken}, tested...),
+	}, h.createClient)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateDownloadClient",
+		Method:  http.MethodPatch,
+		Path:    "/external-download-clients/{id}",
+		Summary: "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders",
+		Status:  http.StatusOK,
+		Errors:  append([]*api.Code{clientNotFound, clientNameTaken, clientAddressTaken, clientInUse, clientHasTorrents}, tested...),
+	}, h.editClient)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteDownloadClient",
+		Method:  http.MethodDelete,
+		Path:    "/external-download-clients/{id}",
+		Summary: "Delete an external Download Client that holds no torrents SlipStream tracks",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{clientNotFound, clientInUse, clientHasTorrents},
+	}, h.deleteClient)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "testDownloadClientDraft",
+		Method:  http.MethodPost,
+		Path:    "/external-download-clients/test",
+		Summary: "Test an external Download Client from its Node without saving it",
+		Status:  http.StatusOK,
+		Errors:  tested,
+	}, h.testDraft)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "testDownloadClient",
+		Method:  http.MethodPost,
+		Path:    "/external-download-clients/{id}/test",
+		Summary: "Test a saved external Download Client with unsaved changes, using its saved secrets where the changes leave them",
+		Status:  http.StatusOK,
+		Errors:  append([]*api.Code{clientNotFound}, tested...),
+	}, h.testSaved)
 }
