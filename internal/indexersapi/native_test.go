@@ -134,7 +134,7 @@ func TestANativeIndexerIsAddedFromItsPortAndShownWithIt(t *testing.T) {
 			`"searches":{"count":150,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},`+
 			`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},`+
 			`"sentence":"Lantern is working.","fix":null,"signsIn":false,"trackerIds":["id3"],"waits":null,"session":null,"feedHost":null,"definition":null,`+
-			`"port":{"id":"lantern","name":"Lantern","synced":"T","baseAddress":"https://lantern.test/","values":{"codecs":"1,5"}},`+
+			`"port":{"id":"lantern","name":"Lantern","synced":"T","baseAddress":"https://lantern.test/","values":{"codecs":"1,5"},"sealed":["passkey"]},`+
 			`"searchModes":[{"mode":"search","params":["q"]}],"notes":[],"revision":1,"createdAt":"T"}`)
 	if j := s.native.last(); j.Port != "lantern" || j.Settings["passkey"] != "pk1" {
 		t.Errorf("the Test ran %+v", j)
@@ -171,6 +171,9 @@ func TestATwoFactorCodeGoesWithTheTestsAndTheEdit(t *testing.T) {
 	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", body+`,"code":"123456"}`)
 	if code != http.StatusCreated {
 		t.Fatalf("createIndexer with the code = %d %s", code, reply)
+	}
+	if !strings.Contains(reply, `"values":{"username":"ada"},"sealed":["password"]`) {
+		t.Errorf("createIndexer answered %s, want the password sealed and set and the empty authenticator key not", reply)
 	}
 	id := ownertest.FirstID(reply)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/"+id+"/test", `{"code":"654321"}`, http.StatusOK, `{"searchModes":[{"mode":"search","params":["q"]}],"items":0,"sources":[]}`)

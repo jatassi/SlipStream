@@ -2533,6 +2533,9 @@ export const IndexersPin = zod.object({
     .datetime({ offset: true })
     .describe("When SlipStream downloaded the pinned version"),
   id: zod.string(),
+  sealed: zod
+    .array(zod.string())
+    .describe("The names of the sealed settings that hold a value, in order"),
   values: zod
     .record(zod.string(), zod.string())
     .describe("The settings saved in plain, by name. Sealed settings are never returned"),
@@ -2563,6 +2566,9 @@ export const IndexersPortPin = zod.object({
   baseAddress: zod.string(),
   id: zod.string(),
   name: zod.string().describe("The site's name"),
+  sealed: zod
+    .array(zod.string())
+    .describe("The names of the sealed settings that hold a value, in order"),
   synced: zod.iso
     .datetime({ offset: true })
     .nullable()

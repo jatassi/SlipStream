@@ -5,6 +5,7 @@ import { Skeleton } from "../ui/skeleton";
 import { type SettingsForm, useSettingsForm } from "./definition-form";
 import { type EditForm, useEditForm } from "./edit-form";
 import { EditSettings } from "./edit-settings";
+import { pinOf } from "./edit-values";
 import { CodeField } from "./fields/captcha";
 import { LimitField } from "./fields/limit-field";
 
@@ -61,7 +62,9 @@ function EditFields({
           {(field) => <field.TextField label="Name" autoComplete="off" />}
         </form.AppField>
         <Secrets form={form} indexer={indexer} />
-        {settings !== undefined && <EditSettings form={form} settings={settings} />}
+        {settings !== undefined && (
+          <EditSettings form={form} settings={settings} sealed={pinOf(indexer)?.sealed ?? []} />
+        )}
         <form.AppField name="priority">
           {(field) => (
             <field.TextField

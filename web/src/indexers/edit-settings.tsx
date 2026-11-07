@@ -5,9 +5,17 @@ import { SettingFields } from "./fields/definition-field";
 
 /**
  * A catalog or native Indexer's address and settings, drawn as Add Indexer
- * draws them, with each sealed one Saved until replaced.
+ * draws them, with each sealed one that holds a value Saved until replaced.
  */
-export function EditSettings({ form, settings }: { form: EditForm; settings: SettingsForm }) {
+export function EditSettings({
+  form,
+  settings,
+  sealed,
+}: {
+  form: EditForm;
+  settings: SettingsForm;
+  sealed: readonly string[];
+}) {
   const { links, fields, entry } = settings.form;
   const ported = settings.kind === "native";
   return (
@@ -21,7 +29,7 @@ export function EditSettings({ form, settings }: { form: EditForm; settings: Set
           typeable={ported}
         />
       )}
-      <SettingFields form={form} fields={{ values: "values" }} settings={fields} saved />
+      <SettingFields form={form} fields={{ values: "values" }} settings={fields} saved={sealed} />
       <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
         Saving a new address or setting tests the Indexer first.
       </p>

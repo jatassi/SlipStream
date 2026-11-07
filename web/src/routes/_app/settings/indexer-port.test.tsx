@@ -107,7 +107,7 @@ test("a Test that meets a sign-in needing a code opens the code step at phone wi
   expect(tests(server)).toEqual([{}, { code: "111222" }]);
 });
 
-test("Edit draws a ported site's address and settings, sealed ones Saved with Replace", async () => {
+test("Edit draws a ported site's address and settings, sealed ones that hold a value Saved with Replace", async () => {
   const server = indexersServer({ indexers: ported });
   renderApp({ path: pageOf(norbitsId), handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "Edit" }));
@@ -123,9 +123,8 @@ test("Edit draws a ported site's address and settings, sealed ones Saved with Re
   await expect
     .element(dialog().getByRole("group", { name: "Password" }).getByText("Saved"))
     .toBeVisible();
-  await expect
-    .element(dialog().getByRole("group", { name: "Authenticator key" }).getByText("Saved"))
-    .toBeVisible();
+  await expect.element(dialog().getByLabelText("Authenticator key")).toHaveValue("");
+  expect(dialog().getByRole("button", { name: "Replace Authenticator key" }).query()).toBeNull();
   await userEvent.click(dialog().getByRole("button", { name: "Save" }));
   expect(server.writes).toEqual([]);
 });
@@ -182,6 +181,7 @@ const pinned: IndexersIndexer = {
     fetchedAt: "2026-10-03T09:00:00Z",
     baseAddress: "https://larkspur.example/",
     values: { username: "orchard", sort: "added" },
+    sealed: ["password"],
   },
 };
 

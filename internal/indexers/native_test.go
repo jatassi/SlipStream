@@ -559,6 +559,9 @@ func TestANativeIndexersEditTestsTheChangedSettingsFirstAndKeepsASealedOneSentEm
 	if len(w.node.jobs) != jobs+1 || j.Address != address || !reflect.DeepEqual(j.Settings, map[string]string{"passkey": "pk1", "pages": "3", "codecs": "5"}) {
 		t.Errorf("the edit's Test ran %+v", j)
 	}
+	if got := w.view(w.x, v.ID).Sealed; !reflect.DeepEqual(got, []string{"passkey"}) {
+		t.Errorf("the sealed settings set are %v, want the kept passkey", got)
+	}
 
 	w.node.answering(stopping(searching.AccountRefused, ""))
 	if _, err := w.x.Update(t.Context(), identity.Admin{}, v.ID, indexers.Edit{Values: map[string]string{"passkey": "pk2"}}, indexers.Typed{}); !errors.As(err, new(*indexers.TestFailedError)) {

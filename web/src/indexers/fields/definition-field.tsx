@@ -95,11 +95,7 @@ const TextSetting = withFieldGroup({
       <group.AppField name="value">
         {(bound) =>
           field.sealed || field.type === "password" ? (
-            <bound.SecretField
-              label={field.label}
-              saved={saved && field.sealed}
-              description={description(field)}
-            />
+            <bound.SecretField label={field.label} saved={saved} description={description(field)} />
           ) : (
             <bound.TextField
               label={field.label}
@@ -222,13 +218,14 @@ const drawnBy = {
 
 /**
  * A definition's settings in its order, each drawn by its type. A sealed
- * setting is typed like a password, since it is never shown again, and once
- * saved it reads Saved with Replace. The captcha has its own step, and the
- * FlareSolverr hint is the form's SolverHint, so neither is drawn here.
+ * setting is typed like a password, since it is never shown again, and one
+ * named in saved, which holds a value, reads Saved with Replace. The captcha
+ * has its own step, and the FlareSolverr hint is the form's SolverHint, so
+ * neither is drawn here.
  */
 export const SettingFields = withFieldGroup({
   defaultValues: { values: [] as string[] },
-  props: { settings: [] as readonly IndexersDefinitionField[], saved: false },
+  props: { settings: [] as readonly IndexersDefinitionField[], saved: [] as readonly string[] },
   render: function Settings({ group, settings, saved }) {
     return settings.map((field, index) => {
       const Control = drawnBy[field.type];
@@ -244,7 +241,7 @@ export const SettingFields = withFieldGroup({
           form={group}
           fields={{ value: `values[${index}]` }}
           field={field}
-          saved={saved}
+          saved={field.sealed && saved.includes(field.name)}
         />
       );
     });

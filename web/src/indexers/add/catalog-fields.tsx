@@ -124,7 +124,7 @@ export function CatalogFields({
         form={form}
         fields={{ values: "values" }}
         settings={definition.fields}
-        saved={false}
+        saved={[]}
       />
       {definition.cookie && (
         <CookieFields form={form} name={name} userAgent={userAgentHelp(definition)} />

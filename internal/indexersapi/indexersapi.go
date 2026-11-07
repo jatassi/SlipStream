@@ -163,6 +163,7 @@ type pin struct {
 	FetchedAt   time.Time         `json:"fetchedAt" doc:"When SlipStream downloaded the pinned version"`
 	BaseAddress string            `json:"baseAddress"`
 	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
+	Sealed      []string          `json:"sealed" nullable:"false" doc:"The names of the sealed settings that hold a value, in order"`
 }
 
 type portPin struct {
@@ -171,6 +172,7 @@ type portPin struct {
 	Synced      *time.Time        `json:"synced" doc:"When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site"`
 	BaseAddress string            `json:"baseAddress"`
 	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
+	Sealed      []string          `json:"sealed" nullable:"false" doc:"The names of the sealed settings that hold a value, in order"`
 }
 
 type session struct {
@@ -271,11 +273,11 @@ func indexerOf(v indexers.View) indexer {
 	case indexers.Definition:
 		values := map[string]string{}
 		maps.Copy(values, s.Plain)
-		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, FetchedAt: s.Fetched, BaseAddress: s.BaseAddress, Values: values})
+		out.Definition = api.Some(pin{ID: s.ID, Version: s.SHA, FetchedAt: s.Fetched, BaseAddress: s.BaseAddress, Values: values, Sealed: append([]string{}, v.Sealed...)})
 	case indexers.Port:
 		values := map[string]string{}
 		maps.Copy(values, s.Plain)
-		out.Port = api.Some(portPin{ID: string(s.ID), Name: s.Site(), Synced: when(s.Entry.Upstream.Date), BaseAddress: s.Address, Values: values})
+		out.Port = api.Some(portPin{ID: string(s.ID), Name: s.Site(), Synced: when(s.Entry.Upstream.Date), BaseAddress: s.Address, Values: values, Sealed: append([]string{}, v.Sealed...)})
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))

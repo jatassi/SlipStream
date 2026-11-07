@@ -178,6 +178,7 @@ const norbitsPort: IndexersPortPin = {
   synced,
   baseAddress: "https://norbits.net/",
   values: { username: "ada" },
+  sealed: ["password"],
 };
 
 /** A NorBits Indexer stopped because its sign-in needs a two-factor code. */
@@ -220,6 +221,7 @@ const iptorrentsPort: IndexersPortPin = {
   synced,
   baseAddress: "https://iptorrents.example/",
   values: {},
+  sealed: [],
 };
 
 /** An IPTorrents Indexer on a typed address, since IPTorrents moved off its known ones. */
@@ -239,4 +241,5 @@ export const portPinOf = (form: PortForm, baseAddress: string): IndexersPortPin 
   synced,
   baseAddress,
   values: {},
+  sealed: [],
 });

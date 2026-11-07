@@ -75,6 +75,7 @@ export const torrentLeech = indexer({
     fetchedAt: "2026-10-03T09:00:00Z",
     baseAddress: "https://www.torrentleech.org/",
     values: { username: "orchard" },
+    sealed: ["password"],
   },
   session: {
     nodeId: seedboxId,

@@ -75,7 +75,7 @@ export const editSchema = z.object({
 export type EditValues = z.input<typeof editSchema>;
 
 /** The pin a catalog or native Indexer's settings and address are saved on. */
-const pinOf = (indexer: IndexersIndexer) => indexer.definition ?? indexer.port;
+export const pinOf = (indexer: IndexersIndexer) => indexer.definition ?? indexer.port;
 
 /**
  * The settings as saved: each plain one's value, or its default when it
