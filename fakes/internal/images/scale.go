@@ -12,8 +12,9 @@ import (
 )
 
 // Scale is a recorded image at a TMDB size: wN is N wide and hN is N
-// high, keeping the aspect ratio. An SVG, the original, or an image no
-// larger than size is the recorded bytes.
+// high, keeping the aspect ratio, scaled up when the stored copy is
+// smaller, as image.tmdb.org does. An SVG, the original, or an image
+// already at size is the recorded bytes.
 func Scale(f Format, stored []byte, size string) ([]byte, error) {
 	if f == SVG || size == "original" {
 		return stored, nil
@@ -28,7 +29,7 @@ func Scale(f Format, stored []byte, size string) ([]byte, error) {
 	if size[0] == 'h' {
 		width, height = b.Dx()*n/b.Dy(), n
 	}
-	if width >= b.Dx() || height >= b.Dy() {
+	if width == b.Dx() && height == b.Dy() {
 		return stored, nil
 	}
 	dst := image.NewNRGBA(image.Rect(0, 0, max(width, 1), max(height, 1)))

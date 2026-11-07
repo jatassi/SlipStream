@@ -68,17 +68,15 @@ func inBothTiersWith(t *testing.T, store artwork.Store, test func(*testing.T, fa
 	})
 }
 
-func TestStoredImagesAnswerTheirBytesAndNeverScaleUp(t *testing.T) {
+func TestStoredImagesAnswerTheirBytesAtOriginal(t *testing.T) {
 	store, files := storeOf(t)
 	inBothTiersWith(t, store, func(t *testing.T, f faketest.Served) {
 		for path, want := range map[string][]byte{
 			"/original/st0redP0ster.jpg": files.poster,
-			"/w500/st0redP0ster.jpg":     files.poster,
-			"/h632/st0redP0ster.jpg":     files.poster,
 			"/original/st0redL0go.png":   files.logo,
 		} {
 			if r := get(t, f, path); r.status != "200 OK" || !bytes.Equal(r.body, want) {
-				t.Errorf("GET %s = %s with %d bytes; want the %d stored bytes, never scaled up", path, r.status, len(r.body), len(want))
+				t.Errorf("GET %s = %s with %d bytes; want the %d stored bytes", path, r.status, len(r.body), len(want))
 			}
 		}
 		for _, path := range []string{"/w92/st0redL0go.svg", "/original/st0redL0go.svg"} {
@@ -93,7 +91,7 @@ func TestStoredImagesAnswerTheirBytesAndNeverScaleUp(t *testing.T) {
 	})
 }
 
-func TestStoredImagesScaleDownToTheSizeAsked(t *testing.T) {
+func TestStoredImagesScaleToTheSizeAsked(t *testing.T) {
 	store, _ := storeOf(t)
 	inBothTiersWith(t, store, func(t *testing.T, f faketest.Served) {
 		for path, want := range map[string]struct {
@@ -103,6 +101,8 @@ func TestStoredImagesScaleDownToTheSizeAsked(t *testing.T) {
 			"/w185/st0redP0ster.jpg": {185, 277, "jpeg", "image/jpeg"},
 			"/w92/st0redP0ster.jpg":  {92, 138, "jpeg", "image/jpeg"},
 			"/w185/st0redL0go.png":   {185, 74, "png", "image/png"},
+			"/w500/st0redP0ster.jpg": {500, 750, "jpeg", "image/jpeg"},
+			"/h632/st0redL0go.png":   {1580, 632, "png", "image/png"},
 		} {
 			r := get(t, f, path)
 			width, height, format := size(t, r.body)

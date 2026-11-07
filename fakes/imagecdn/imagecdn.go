@@ -1,6 +1,6 @@
 // Package imagecdn is fake-image-cdn: TMDB's image host and TVDB's
 // artwork host. Each answers a file in the artwork store with its recorded
-// bytes, TMDB's scaled down to the size asked and TVDB's _t thumbnail to
+// bytes, TMDB's scaled to the size asked and TVDB's _t thumbnail to
 // half its width, and any other image file name with a generated image:
 // TMDB's at any size it offers, TVDB's as an original or its thumbnail.
 package imagecdn
