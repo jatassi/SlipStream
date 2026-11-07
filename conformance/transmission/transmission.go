@@ -6,7 +6,6 @@ package transmission
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/conformance/internal/torrentfile"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/torrent/clients/transmission"
@@ -44,7 +44,7 @@ func Run(t *testing.T, tgt Target) {
 	r := run{t: t, tgt: tgt, label: label}
 	r.c = r.open(tgt.Password)
 	r.signIn()
-	meta, hash, name := Torrent(t)
+	meta, hash, name := torrentfile.New(t)
 	r.hash = hash
 	t.Cleanup(func() { _ = r.open(tgt.Password).Remove(context.WithoutCancel(t.Context()), hash, true) })
 	r.add(meta, name)
@@ -113,11 +113,11 @@ func (r run) add(meta []byte, name string) {
 		r.t.Errorf("adding the torrent again: %v, want the duplicate ignored", err)
 	}
 	s, ok := r.poll()
-	if !ok || s.Name != name || s.Label != r.label.String() || s.Folder != r.tgt.Folder || s.Run != clients.Paused || s.Finished || s.Size != size || s.Done != 0 {
+	if !ok || s.Name != name || s.Label != r.label.String() || s.Folder != r.tgt.Folder || s.Run != clients.Paused || s.Finished || s.Size != torrentfile.Size || s.Done != 0 {
 		r.t.Errorf("after a paused add: %+v, %v, want %s paused in %s labeled %s with nothing done", s, ok, name, r.tgt.Folder, r.label)
 	}
 	files, err := r.c.Files(ctx, r.hash)
-	if err != nil || !slices.Equal(files, []clients.File{{Index: 0, Path: name, Size: size}}) {
+	if err != nil || !slices.Equal(files, []clients.File{{Index: 0, Path: name, Size: torrentfile.Size}}) {
 		r.t.Errorf("Files = %+v, %v, want the one file", files, err)
 	}
 }
@@ -146,28 +146,4 @@ func (r run) remove() {
 	if s, ok := r.poll(); ok {
 		r.t.Errorf("after Remove the target lists %+v", s)
 	}
-}
-
-const size = 3 << 18
-
-// Torrent is a private torrent of one file no target holds, its info
-// hash and its file's name. Its data never needs to arrive.
-func Torrent(t testing.TB) (metainfo []byte, hash bencode.InfoHash, name string) {
-	t.Helper()
-	pieceLength := int64(1 << 18)
-	pieces := make([]byte, 20*((size+pieceLength-1)/pieceLength))
-	_, _ = rand.Read(pieces)
-	name = "slipstream-conformance-" + rand.Text()[:8] + ".mkv"
-	meta, err := bencode.Encode(map[string]any{
-		"announce": "http://tracker.invalid/announce",
-		"info":     map[string]any{"length": int64(size), "name": name, "piece length": pieceLength, "pieces": pieces, "private": 1},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := bencode.DecodeMetainfo(meta)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return meta, m.InfoHash, name
 }
