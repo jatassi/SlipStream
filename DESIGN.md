@@ -540,6 +540,12 @@ The row of links under a page's title that moves between the page's sections, su
 - **Desktop:** Links are 36px tall in Body at 500, 24px apart, on a hairline that runs the row's width, with 24px below the row. A link is `ink-3`, turning `ink-1` on hover. The current link is `ink-1` with a 2px `glow` underline.
 - **Phone:** No row. The page lists its sections as Touch rows with a chevron, and each section is a pushed page whose back link names the nav destination ("Nodes").
 
+### Settings column
+
+Settings has too many sections for one row of page tabs. Its sections sit in groups ([docs/settings-groups.md](docs/settings-groups.md)).
+- **Desktop:** A column about 200px wide on the left of the page, sticky under the top bar, as a `nav` landmark named "Settings". Each group's label is Meta in `ink-3` above its links. A link is styled like a sidebar nav item, 32px tall, `ink-2` until hovered (`fill`), and `selected` with `ink-1` at 500 when current. A Health dot sits at a link's right.
+- **Phone:** The Settings page lists one group of Touch rows per group, each under its label. Each section is a pushed page whose back link reads "Settings".
+
 ### Switch
 
 A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. The track is `hsl(var(--h) 20% 90% / .22)` off and `hsl(var(--h) 62% 46%)` on. The track fades over 250ms and the knob slides over 280ms. The whole labelled capsule is the switch target, and a sheet row with a switch is one target.

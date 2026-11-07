@@ -1,45 +1,55 @@
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
 
-test("Settings moves between its sections by tabs on desktop and pushed pages on phone", async ({
+const groups = [
+  ["Library", ["Content Types", "Library roots", "Metadata"]],
+  ["Files to keep", ["Targets", "Profiles", "Editions"]],
+  ["Search and download", ["Download Clients"]],
+  ["Access", ["Address", "Sign-in", "API key"]],
+  ["System", ["Nodes", "Email"]],
+] as const;
+
+test("Settings lists its sections by group, in a nav on desktop and pushed pages on phone", async ({
   adminPage: page,
 }) => {
   await navigate(page, "Settings");
-  const sections = [
-    "Address",
-    "Email",
-    "Sign-in",
-    "Nodes",
-    "Download Clients",
-    "API key",
-    "Content Types",
-    "Library roots",
-    "Metadata",
-    "Targets",
-    "Profiles",
-    "Editions",
-  ];
   if (isPhone(page)) {
-    const list = page.getByRole("list", { name: "Settings" });
-    await expect(list.getByRole("link")).toHaveText(sections);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText(
+      groups.map(([group]) => group),
+    );
+    await Promise.all(
+      groups.map(([group, sections]) =>
+        expect(page.getByRole("list", { name: group }).getByRole("link")).toHaveText(sections),
+      ),
+    );
     await expectAccessible(page);
-    await list.getByRole("link", { name: "Address" }).click();
+    await page.getByRole("list", { name: "Access" }).getByRole("link", { name: "Address" }).click();
     await expect(page).toHaveURL(/\/settings\/address$/u);
     await expect(page.getByRole("textbox", { name: "Address", exact: true })).toBeVisible();
     await expectAccessible(page);
     await page.getByRole("banner").getByRole("link", { name: "Settings" }).click();
     await expect(page).toHaveURL(/\/settings$/u);
-    await expect(list).toBeVisible();
+    await expect(page.getByRole("list", { name: "Access" })).toBeVisible();
     return;
   }
-  await expect(page).toHaveURL(/\/settings\/address$/u);
-  const tabs = page.getByRole("navigation", { name: "Settings" });
-  await expect(tabs.getByRole("link")).toHaveText(sections);
-  await expect(tabs.getByRole("link", { name: "Address" })).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(/\/settings\/content-types$/u);
+  const nav = page.getByRole("navigation", { name: "Settings" });
+  await expect(nav.getByRole("list")).toHaveCount(groups.length);
+  await Promise.all(
+    groups.map(async ([group, sections], index) => {
+      const list = nav.getByRole("list").nth(index);
+      await expect(list).toHaveAccessibleName(group);
+      await expect(list.getByRole("link")).toHaveText(sections);
+    }),
+  );
+  await expect(nav.getByRole("link", { name: "Content Types" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   await expectAccessible(page);
-  await tabs.getByRole("link", { name: "Email" }).click();
+  await nav.getByRole("link", { name: "Email" }).click();
   await expect(page).toHaveURL(/\/settings\/email$/u);
-  await expect(tabs.getByRole("link", { name: "Email" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Email" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("textbox", { name: "Server", exact: true })).toBeVisible();
   await expectAccessible(page);
 });
