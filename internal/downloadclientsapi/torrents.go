@@ -53,6 +53,8 @@ type TorrentRow struct {
 	Fault       *fault       `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
 	LastKnown   *time.Time   `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the row is stale for lastKnownCause"`
 	Stale       string       `json:"lastKnownCause,omitempty" enum:"node,client,off" doc:"Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off"`
+	ImportAt    *time.Time   `json:"importAt,omitempty" doc:"When a finished external torrent imports, set while its client's Import delay runs"`
+	AtLimit     bool         `json:"stoppedAtLimit,omitempty" doc:"Its external client stopped it at its seeding limit"`
 	AddedAt     time.Time    `json:"addedAt"`
 }
 
@@ -94,7 +96,7 @@ func rowOf(r downloadclients.Row) TorrentRow {
 		Severity: severityWords[r.Severity], Tabs: []string{}, Pending: pendingWords[r.Pending],
 		Size: r.Size, Done: r.Done, Uploaded: r.Totals.Uploaded, Ratio: downloadclients.Ratio(r.Totals, r.Size),
 		Seeding: int64(r.Totals.Seeding / time.Second), Error: r.Error, LastKnown: when(r.LastKnown), Stale: string(r.LastKnownCause), AddedAt: r.AddedAt,
-		DeleteFiles: r.DeleteFiles,
+		DeleteFiles: r.DeleteFiles, ImportAt: when(r.ImportAt), AtLimit: r.StoppedAtLimit,
 	}
 	for _, t := range downloadclients.Tabs {
 		if r.Tabs&t != 0 {

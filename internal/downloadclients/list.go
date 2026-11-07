@@ -66,6 +66,12 @@ type Row struct {
 	// is stale for LastKnownCause.
 	LastKnown      time.Time
 	LastKnownCause StaleCause
+	// ImportAt is when a finished external torrent imports, set while its
+	// client's Import delay runs.
+	ImportAt time.Time
+	// StoppedAtLimit is an external torrent its client stopped at its
+	// seeding limit.
+	StoppedAtLimit bool
 
 	report *Report
 }
@@ -265,7 +271,7 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	if rep == nil {
 		return row, nil
 	}
-	row.Hold, row.Until = rep.Hold, rep.Until
+	row.Hold, row.Until, row.ImportAt, row.StoppedAtLimit = rep.Hold, rep.Until, rep.ImportAt, rep.StoppedAtLimit
 	if rep.Engine == EngineFailed || rep.Hold == HoldClientError {
 		row.Error = rep.Error
 	}

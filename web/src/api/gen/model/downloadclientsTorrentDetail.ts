@@ -56,6 +56,8 @@ export interface DownloadclientsTorrentDetail {
   /** Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error */
   hold?: DownloadclientsTorrentDetailHold;
   id: string;
+  /** When a finished external torrent imports, set while its client's Import delay runs */
+  importAt?: string;
   /** The v1 info hash in hex */
   infoHash: string;
   /** When its Node last reported it, set while the row is stale for lastKnownCause */
@@ -101,6 +103,8 @@ export interface DownloadclientsTorrentDetail {
    */
   size: number;
   state: DownloadclientsTorrentDetailState;
+  /** Its external client stopped it at its seeding limit */
+  stoppedAtLimit?: boolean;
   /** The Torrents view's tabs it shows under */
   tabs: DownloadclientsTorrentDetailTabsItem[];
   /** Absent when its metainfo names no announce URL */

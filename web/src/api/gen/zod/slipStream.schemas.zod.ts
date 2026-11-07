@@ -1052,6 +1052,10 @@ export const DownloadclientsTorrentDetail = zod.object({
       "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
     ),
   id: zod.uuid(),
+  importAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When a finished external torrent imports, set while its client's Import delay runs"),
   infoHash: zod.string().describe("The v1 info hash in hex"),
   lastKnown: zod.iso
     .datetime({ offset: true })
@@ -1131,6 +1135,10 @@ export const DownloadclientsTorrentDetail = zod.object({
     "downloading",
     "seeding",
   ]),
+  stoppedAtLimit: zod
+    .boolean()
+    .exactOptional()
+    .describe("Its external client stopped it at its seeding limit"),
   tabs: zod
     .array(zod.enum(["downloading", "seeding", "problems", "all"]))
     .describe("The Torrents view's tabs it shows under"),
@@ -1225,6 +1233,10 @@ export const DownloadclientsTorrentRow = zod.object({
       "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
     ),
   id: zod.uuid(),
+  importAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When a finished external torrent imports, set while its client's Import delay runs"),
   lastKnown: zod.iso
     .datetime({ offset: true })
     .exactOptional()
@@ -1292,6 +1304,10 @@ export const DownloadclientsTorrentRow = zod.object({
     "downloading",
     "seeding",
   ]),
+  stoppedAtLimit: zod
+    .boolean()
+    .exactOptional()
+    .describe("Its external client stopped it at its seeding limit"),
   tabs: zod
     .array(zod.enum(["downloading", "seeding", "problems", "all"]))
     .describe("The Torrents view's tabs it shows under"),

@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
@@ -263,8 +264,20 @@ func TestAStopAtTheSeedingLimitIsNoPause(t *testing.T) {
 	if w := s.wantedInIntent(t, id); w != dlv1.Wanted_WANTED_STARTED {
 		t.Errorf("stopped at Transmission's seeding limit, the intent wants %s, want started", w)
 	}
-	if row := s.row(t, id); row.State != dc.StatePaused || row.Pending != "" {
-		t.Errorf("stopped at Transmission's seeding limit, the row reads %s with %q pending, want paused with nothing pending", row.State, row.Pending)
+	if row := s.row(t, id); row.State != dc.StatePaused || row.Pending != "" || !row.StoppedAtLimit {
+		t.Errorf("stopped at Transmission's seeding limit, the row reads %s with %q pending, stopped at the limit %t, want paused with nothing pending, stopped at the limit", row.State, row.Pending, row.StoppedAtLimit)
+	}
+}
+
+func TestAFinishedTorrentSaysWhenItImports(t *testing.T) {
+	s := newMediaServer(t)
+	id := s.send(t, "Orchard")
+	at := time.Date(2026, 11, 7, 14, 32, 0, 0, time.UTC)
+	s.report(t, s.node, s.torrent(t, &dlv1.TorrentReport{
+		Id: id.Bytes(), Engine: dlv1.EngineState_ENGINE_STATE_SEEDING, Complete: true, Run: dlv1.Wanted_WANTED_STARTED, ImportAtUnixMs: at.UnixMilli(),
+	}))
+	if row := s.row(t, id); !row.ImportAt.Equal(at) {
+		t.Errorf("waiting out Transmission's Import delay, the row imports at %v, want %v", row.ImportAt, at)
 	}
 }
 

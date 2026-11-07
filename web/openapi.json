@@ -1668,6 +1668,11 @@
             "format": "uuid",
             "type": "string"
           },
+          "importAt": {
+            "description": "When a finished external torrent imports, set while its client's Import delay runs",
+            "format": "date-time",
+            "type": "string"
+          },
           "infoHash": {
             "description": "The v1 info hash in hex",
             "type": "string"
@@ -1788,6 +1793,10 @@
               "seeding"
             ],
             "type": "string"
+          },
+          "stoppedAtLimit": {
+            "description": "Its external client stopped it at its seeding limit",
+            "type": "boolean"
           },
           "tabs": {
             "description": "The Torrents view's tabs it shows under",
@@ -1999,6 +2008,11 @@
             "format": "uuid",
             "type": "string"
           },
+          "importAt": {
+            "description": "When a finished external torrent imports, set while its client's Import delay runs",
+            "format": "date-time",
+            "type": "string"
+          },
           "lastKnown": {
             "description": "When its Node last reported it, set while the row is stale for lastKnownCause",
             "format": "date-time",
@@ -2098,6 +2112,10 @@
               "seeding"
             ],
             "type": "string"
+          },
+          "stoppedAtLimit": {
+            "description": "Its external client stopped it at its seeding limit",
+            "type": "boolean"
           },
           "tabs": {
             "description": "The Torrents view's tabs it shows under",

@@ -1392,6 +1392,9 @@ export const getListTorrentsResponseMock = (
       : {}),
     id: faker.string.uuid(),
     ...(faker.datatype.boolean()
+      ? { importAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { lastKnown: faker.date.past().toISOString().slice(0, 19) + "Z" }
       : {}),
     ...(faker.datatype.boolean()
@@ -1442,6 +1445,7 @@ export const getListTorrentsResponseMock = (
       "downloading",
       "seeding",
     ] as const),
+    ...(faker.datatype.boolean() ? { stoppedAtLimit: faker.datatype.boolean() } : {}),
     tabs: faker.helpers.arrayElements(["downloading", "seeding", "problems", "all"] as const),
     ...(faker.datatype.boolean()
       ? {
@@ -1604,6 +1608,9 @@ export const getGetTorrentResponseMock = (
       }
     : {}),
   id: faker.string.uuid(),
+  ...(faker.datatype.boolean()
+    ? { importAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
   infoHash: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean()
     ? { lastKnown: faker.date.past().toISOString().slice(0, 19) + "Z" }
@@ -1662,6 +1669,7 @@ export const getGetTorrentResponseMock = (
     "downloading",
     "seeding",
   ] as const),
+  ...(faker.datatype.boolean() ? { stoppedAtLimit: faker.datatype.boolean() } : {}),
   tabs: faker.helpers.arrayElements(["downloading", "seeding", "problems", "all"] as const),
   ...(faker.datatype.boolean()
     ? {
