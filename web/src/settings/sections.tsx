@@ -15,10 +15,11 @@ import {
 import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/works";
 import { ensureQuery, freshQuery } from "../api/query-client";
 import { downloadClientsSection } from "../download-clients/section";
+import { indexersSection } from "../indexers/section";
 import { libraryRootsSection } from "../roots/section";
 import { EditionsSection } from "../targets/editions-section";
-import { ProfilesSection } from "../targets/profiles-section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
+import { ProfilesSection } from "../targets/profiles-section";
 import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
@@ -116,7 +117,11 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
     label: "Files to keep",
     sections: [targetsSection, profilesSection, editionsSection],
   },
-  { id: "search-download", label: "Search and download", sections: [downloadClientsSection] },
+  {
+    id: "search-download",
+    label: "Search and download",
+    sections: [indexersSection, downloadClientsSection],
+  },
   { id: "access", label: "Access", sections: [addressSection, signInSection, apiKeySection] },
   { id: "system", label: "System", sections: [nodesSection, emailSection] },
 ];

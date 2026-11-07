@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/challengesolver"
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -692,17 +693,23 @@ func (r *Run) seedAccounts(ctx context.Context, _ *unwind) error {
 }
 
 // seedLibrary creates the Scenario's library on the Controller, its roots'
-// folders under the media dir and its Indexers at the site fronts of the
-// Node that holds Searching, which searches from them.
+// folders under the media dir and its Indexers on the site fakes, which
+// each Node reaches at its own front.
 func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 	if r.scenario.Library == nil {
 		return nil
 	}
 	sites := map[string]fake.Address{}
 	for _, f := range r.fakes {
-		sites[f.spec.Name], _ = r.table.Find(fault.Target(f.spec.Name), r.scenario.Searching())
+		sites[f.spec.Name] = f.at
 	}
-	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), sites); err != nil {
+	solvers := map[string]string{}
+	for _, n := range r.scenario.Nodes {
+		if at, ok := r.table.Find(fault.Target(challengesolver.Fake.Name), n.Name); ok {
+			solvers[n.Name] = challengesolver.Fake.URL(at)
+		}
+	}
+	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), sites, solvers); err != nil {
 		return err
 	}
 	r.log.Info("library seeded")

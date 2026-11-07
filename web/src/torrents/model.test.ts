@@ -96,14 +96,14 @@ test.each<
 });
 
 test.each([
-  [undefined, { host: "No tracker", status: "" }],
+  [undefined, { host: "No announce URL", status: "" }],
   [
     { host: "beacon.example", status: "working" } as const,
     { host: "beacon.example", status: "Working" },
   ],
   [
     { host: "", status: "not_contacted" } as const,
-    { host: "Its tracker", status: "Not contacted yet" },
+    { host: "Its announce URL", status: "Not contacted yet" },
   ],
   [
     {
@@ -134,7 +134,7 @@ test("rates, a pace only while downloading, and seed words", () => {
   );
 });
 
-test("a filter matches the tab, the Node, the Content Type and the Work or release name", () => {
+test("a filter matches the tab, the Node, the Content Type and the Work or Release name", () => {
   const row = torrent({
     state: "downloading",
     tabs: ["downloading", "all"],

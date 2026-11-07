@@ -62,9 +62,17 @@ type Spec struct {
 	Cues []CueSpec
 	// Entered reads the addresses of the fake an Admin typed into
 	// SlipStream, through get, a GET of an API path on the Controller that
-	// answers the body of a 200. doctor checks each is the fake's front for
-	// the Node that dials it. nil is a fake no Admin types.
+	// answers the body of a 200. doctor checks each reaches the fake's
+	// front for the Node that dials it, directly or through that Node's
+	// endpoints.searching. nil is a fake no Admin types.
 	Entered func(get func(path string) ([]byte, error)) ([]Entered, error)
+}
+
+// LeafNames are the names on the run-CA leaf of the fake named name:
+// 127.0.0.1, its domain <name>.fake.localhost, and every host under that
+// domain, where a fake hosting several sites serves each.
+func LeafNames(name string) []string {
+	return []string{"127.0.0.1", name + ".fake.localhost", "*." + name + ".fake.localhost"}
 }
 
 func (s Spec) URL(at Address) string {
@@ -135,8 +143,8 @@ type Env struct {
 	Fronts Fronts
 	// Files is the run dir a capture's files land under.
 	Files string
-	// Leaf serves a run-CA certificate for 127.0.0.1 and
-	// <name>.fake.localhost, for an OwnTLS fake, and is nil otherwise.
+	// Leaf serves a run-CA certificate for LeafNames, for an OwnTLS fake,
+	// and is nil otherwise.
 	Leaf *tls.Config
 
 	captures []CaptureSpec

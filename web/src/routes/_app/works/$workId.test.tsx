@@ -13,7 +13,7 @@ import { liveServer } from "../../../test/live-server";
 import { renderApp } from "../../../test/render-app";
 import { listOf, torrent } from "../../../test/torrents";
 import { failedCells, filled, filledTwice, upgradable } from "../../../test/work-cells";
-import { grabbed, searching, unavailable, workServer } from "../../../test/work-server";
+import { grabbed, searching, workServer } from "../../../test/work-server";
 
 const cutRow = () =>
   page.getByRole("table", { name: "Editions and Targets" }).getByRole("row", { name: /^Any cut/u });
@@ -42,10 +42,10 @@ test("the Work page shows its facts, its cells and one column per Target", async
     .element(page.getByText("No files yet. A Grab that imports puts its file here."))
     .toBeVisible();
   await expect
-    .element(page.getByText("No searches yet. Search looks for a release on every Indexer."))
+    .element(page.getByText("No searches yet. Search looks for a Release on every Indexer."))
     .toBeVisible();
   await expect
-    .element(page.getByText("No Grabs yet. A search that finds a release grabs it."))
+    .element(page.getByText("No Grabs yet. A search that finds a Release grabs it."))
     .toBeVisible();
 });
 
@@ -115,10 +115,16 @@ test("Search starts a search and says so, and the run and its Grab show without 
 
   server.searchRuns(searching);
   const searches = page.getByRole("list", { name: "Searches" });
-  await expect.element(searches).toMatchTextContent(/^Searching/u);
+  await expect
+    .element(searches)
+    .toMatchTextContent(/^SearchingFixture MirrorSearchingFixture SiteSearchingOct 12/u);
 
   server.searchRuns(grabbed);
-  await expect.element(searches).toMatchTextContent(/^Grabbed a release2 releases found/u);
+  await expect
+    .element(searches)
+    .toMatchTextContent(
+      /^Grabbed a Release2 Releases foundFixture MirrorFound 2 ReleasesFixture SiteFound 2 ReleasesOct 12/u,
+    );
 
   server.grabMoves(downloading);
   const grabs = page.getByRole("table", { name: "Grabs" });
@@ -136,29 +142,6 @@ test("Search starts a search and says so, and the run and its Grab show without 
   server.grabMoves(imported, filled);
   await expect.element(grabs).toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLImported");
   await expect.element(cutRow()).toMatchTextContent(/Met/u);
-});
-
-test("a search its Indexer couldn't answer says what the Indexer waits for, until it stops waiting", async () => {
-  const server = workServer();
-  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  server.searchRuns(unavailable);
-  const searches = page.getByRole("list", { name: "Searches" });
-  await expect.element(searches).toMatchTextContent(/^The Indexer didn't respondOct 12/u);
-
-  const since = new Date();
-  since.setHours(21, 31, 0, 0);
-  server.indexerWaits({ standing: "offline", since: since.toISOString() });
-  await expect
-    .element(searches)
-    .toMatchTextContent(/^The Indexer didn't respondWaiting for seedbox · offline since 21:31/u);
-
-  server.indexerWaits({ standing: "reconnecting", since: since.toISOString() });
-  await expect
-    .element(searches)
-    .toMatchTextContent(/^The Indexer didn't respondWaiting for seedbox · reconnectingOct 12/u);
-
-  server.indexerWaits(null);
-  await expect.element(searches).toMatchTextContent(/^The Indexer didn't respondOct 12/u);
 });
 
 test("Search shows it is busy while its request is pending", async () => {

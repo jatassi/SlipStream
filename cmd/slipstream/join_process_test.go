@@ -34,6 +34,7 @@ func listenersOn(addr, name string) []string {
 		"SLIPSTREAM_HTTP_LISTEN=" + addr + ":0",
 		"SLIPSTREAM_LINK_LISTEN=" + addr + ":0",
 		"SLIPSTREAM_NAME=" + name,
+		noCatalog,
 	}
 }
 

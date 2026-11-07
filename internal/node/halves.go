@@ -41,6 +41,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -97,7 +98,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	client := n.httpClient()
+	client := n.httpClient(n.env.Net.DialContext)
 	holder := n.openHolder(client)
 	opened := n.openLibraries()
 	var (
@@ -195,7 +196,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
+	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
@@ -263,14 +264,30 @@ func (n *Node) startController(ctx context.Context) error {
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
+	var scheduler *tasks.Scheduler
 	registry := indexers.New(indexers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
 		Roster:  side,
-		Searching: func(node role.NodeID) searchv1connect.SearchingServiceHandler {
-			return searchv1connect.SearchingService.On(cluster, node)
+		Searching: func(node role.NodeID) searching.Remote {
+			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
-		Changed: indexers.ChangedEvent.Bind(n.hub),
+		Types:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
+		Works:     tree,
+		Changed:   indexers.ChangedEvent.Bind(n.hub),
+		Status:    indexers.StatusChangedEvent.Bind(n.hub),
+		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),
+		Trackers:  indexers.TrackersEvent.Bind(n.hub),
+		Settings:  indexers.SettingsChangedEvent.Bind(n.hub),
+		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker},
+		HTTP:      client,
+		Endpoints: n.cfg.Endpoints.Indexers,
+		CatalogNext: func(ctx context.Context) (time.Time, error) {
+			return scheduler.Next(ctx, indexers.CatalogRefreshTaskID)
+		},
+		Timings: n.cfg.Timings.Indexers,
+		Zone:    n.zone(),
+		Log:     n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
 		Library: lib.db,
@@ -320,6 +337,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Targets:   goals,
 		Files:     shelf,
 		Indexers:  registry,
+		Sealer:    lib.sealer,
 		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
 		Roster:    side,
 		Downloads: clients,
@@ -339,7 +357,7 @@ func (n *Node) startController(ctx context.Context) error {
 	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
-	scheduler, err := tasks.Open(ctx, tasks.Config{
+	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
 			Library:  lib.db,
@@ -348,6 +366,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
+			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -356,7 +375,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}), n.env.Test.tasks(started)...),
+		}), append(registry.Tasks(), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -387,6 +406,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.setHalf(h)
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("roots", homes.Run)
+	n.claimed.Go("indexers", registry.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("transfers", copies.Run)
@@ -432,11 +452,18 @@ func (n *Node) zone() *time.Location {
 	return n.env.Zone
 }
 
-// httpClient is the half's client for every host the Node reaches, dialing
-// through the Node's network and trusting the OS roots.
-func (n *Node) httpClient() *http.Client {
+// searchingService is the Searching service a half mounts, reaching each
+// site through endpoints.searching ahead of the Node's network.
+func (n *Node) searchingService() *searching.Service {
+	client := n.httpClient(n.cfg.Endpoints.Searching.Dial(n.env.Net.DialContext))
+	return searching.New(searching.Config{HTTP: client, Timings: n.cfg.Timings.Searching, Log: n.rootLog.With("subsystem", "searching")})
+}
+
+// httpClient is a half's client for the hosts the Node reaches, dialing
+// with dial and trusting the OS roots.
+func (n *Node) httpClient(dial searching.DialFunc) *http.Client {
 	transport := &http.Transport{
-		DialContext:         n.env.Net.DialContext,
+		DialContext:         dial,
 		ForceAttemptHTTP2:   true,
 		TLSHandshakeTimeout: 10 * time.Second,
 		IdleConnTimeout:     90 * time.Second,
@@ -492,9 +519,8 @@ func (n *Node) startWorker(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	client := n.httpClient()
-	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
-	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
+	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(n.httpClient(n.env.Net.DialContext))))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)

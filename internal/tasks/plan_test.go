@@ -26,6 +26,11 @@ var (
 	updateCheck  = Task{ID: "update-check", Name: "Update check", Cadence: Every{Interval: everyEight, AtStart: true}}
 	backup       = Task{ID: "backup", Name: "Backup", Cadence: InWindow{Days: daily}}
 	housekeeping = Task{ID: "housekeeping", Name: "Housekeeping", Cadence: InWindow{Days: daily}, Overdue: Wait}
+
+	// catalogRefresh is shaped as the Indexer catalog refresh: daily, no
+	// faster than hourly, and at each start.
+	hourlyToWeekly = setting.Duration{Key: "tasks.catalog.cadence", Label: "Catalog", Default: day, Min: time.Hour, Max: 7 * day, Step: time.Hour}
+	catalogRefresh = Task{ID: "indexer-catalog-refresh", Name: "Indexer catalog refresh", Cadence: Every{Interval: hourlyToWeekly, AtStart: true}}
 )
 
 func baseKnobs(started string) knobs {
@@ -208,6 +213,30 @@ func TestPlan(t *testing.T) {
 			knobs:  baseKnobs("2026-10-16T01:00:00Z"),
 			states: []state{{task: updateCheck, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), atStart: true}},
 			want:   Plan{Open: []Opening{{"update-check", BySchedule}}, Next: map[TaskID]time.Time{}},
+		},
+		{
+			name:   "a daily AtStart task opens at a fresh install's first start under Wait",
+			now:    "2026-10-16T01:00:00Z",
+			knobs:  waitGlobally,
+			states: []state{{task: catalogRefresh, firstSeen: at("2026-10-16T01:00:00Z"), atStart: true}},
+			want:   Plan{Open: []Opening{{"indexer-catalog-refresh", BySchedule}}, Next: map[TaskID]time.Time{}},
+		},
+		{
+			name:   "a daily AtStart task that ran an hour ago opens again at a restart",
+			now:    "2026-10-16T01:00:00Z",
+			knobs:  baseKnobs("2026-10-16T01:00:00Z"),
+			states: []state{{task: catalogRefresh, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), lastEnded: at("2026-10-16T00:01:00Z"), atStart: true}},
+			want:   Plan{Open: []Opening{{"indexer-catalog-refresh", BySchedule}}, Next: map[TaskID]time.Time{}},
+		},
+		{
+			name:   "a daily AtStart task waits a day after its start run",
+			now:    "2026-10-16T01:00:00Z",
+			knobs:  baseKnobs("2026-10-16T01:00:00Z"),
+			states: []state{{task: catalogRefresh, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T01:00:00Z"), lastEnded: at("2026-10-16T01:00:00Z")}},
+			want: Plan{
+				Next: map[TaskID]time.Time{"indexer-catalog-refresh": at("2026-10-17T01:00:00Z")},
+				Wake: at("2026-10-17T01:00:00Z"),
+			},
 		},
 		{
 			name:   "a unit due on return opens a returned run",

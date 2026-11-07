@@ -3,9 +3,9 @@ import { HttpResponse, http, sse } from "msw";
 import type {
   FilesCellList,
   GrabsGrab,
+  GrabsSearch,
+  GrabsSearchIndexer,
   GrabsSearchList,
-  IndexersIndexer,
-  IndexersWaiting,
   TargetsWants,
   WorksWorkView,
 } from "../api/gen/model";
@@ -17,7 +17,6 @@ import {
   getListGrabsMockHandler,
   getListSearchesMockHandler,
 } from "../api/gen/query/grabs/grabs.msw";
-import { getListIndexersMockHandler } from "../api/gen/query/indexers/indexers.msw";
 import {
   getListRootsMockHandler,
   getListVolumesMockHandler,
@@ -27,11 +26,11 @@ import {
   getGetWorkMockHandler,
   getListContentTypesMockHandler,
 } from "../api/gen/query/works/works.msw";
-import { downloading, grabId, imported } from "./grabs";
+import { grabId, imported, indexerId } from "./grabs";
 import type { LiveMap } from "./handlers";
-// oxlint-disable-next-line import/max-dependencies -- the Work page reads every section's queries, the Nodes', Targets' and roots' included
 import { cinema, orchard, orchardId, orchardItemId } from "./library";
-import { home, nodesAre, seedbox, seedboxId } from "./nodes";
+// oxlint-disable-next-line import/max-dependencies -- the Work page reads every section's queries, the Nodes', Targets' and roots' included
+import { home, nodesAre, seedbox } from "./nodes";
 import { profileHandlers, ultra } from "./profiles";
 import { filmsRoot, mediaVolumes } from "./roots";
 import { targetHandlers } from "./targets";
@@ -45,35 +44,107 @@ const otherWork: GrabsGrab = {
 };
 
 const searchId = "2b4d6f8a-0c2e-4a6c-8e0a-2c4e6a8c0e2a";
+const mirrorId = "8a0c2e4f-6b8d-4f0a-9c2e-4f6a8b0d2e4f";
+
+const run: Pick<GrabsSearch, "id" | "itemId" | "startedAt" | "refused" | "notes"> = {
+  id: searchId,
+  itemId: orchardItemId,
+  startedAt: "2026-10-12T09:00:58Z",
+  refused: [],
+  notes: [],
+};
+
+const line = (
+  name: string,
+  id: string | null,
+  sentence: string,
+  outcome: GrabsSearchIndexer["outcome"],
+  releases = 0,
+): GrabsSearchIndexer => ({
+  indexerId: id,
+  name,
+  outcome,
+  releases,
+  sentence,
+});
+
 export const searching: GrabsSearchList = {
   searches: [
     {
-      id: searchId,
-      itemId: orchardItemId,
-      indexerId: downloading.indexerId,
-      startedAt: "2026-10-12T09:00:58Z",
+      ...run,
+      indexers: [
+        line("Fixture Mirror", mirrorId, "Searching", null),
+        line("Fixture Site", indexerId, "Searching", null),
+      ],
       finishedAt: null,
       outcome: null,
       candidates: 0,
-      refused: [],
       grabId: null,
-      notes: [],
     },
   ],
 };
 export const grabbed: GrabsSearchList = {
   searches: [
     {
-      id: searchId,
-      itemId: orchardItemId,
-      indexerId: downloading.indexerId,
-      startedAt: "2026-10-12T09:00:58Z",
+      ...run,
+      indexers: [
+        line("Fixture Mirror", mirrorId, "Found 2 Releases", "found", 2),
+        line("Fixture Site", indexerId, "Found 2 Releases", "found", 2),
+      ],
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "grabbed",
       candidates: 2,
-      refused: [],
       grabId,
-      notes: [],
+    },
+  ],
+};
+
+/** A run whose every line ended another way, with the server's sentences. */
+export const everyOutcome: GrabsSearchList = {
+  searches: [
+    {
+      ...run,
+      indexers: [
+        line("Alder", "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d", "Found 1 Release", "found", 1),
+        line("Birch", "1b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e", "No Releases", "no_releases"),
+        line(
+          "Cedar",
+          "2c3d4e5f-6a7b-4c8d-8e9f-1a2b3c4d5e6f",
+          "Limit reached until 14:05",
+          "limited",
+        ),
+        line(
+          "Dune",
+          "3d4e5f6a-7b8c-4d9e-9f0a-2b3c4d5e6f7a",
+          "Limit reached until 15:00",
+          "limit_reached",
+        ),
+        line("Elm", "4e5f6a7b-8c9d-4e0f-8a1b-3c4d5e6f7a8b", "Waiting for seedbox", "waiting"),
+        line(
+          "Fir",
+          "5f6a7b8c-9d0e-4f1a-9b2c-4d5e6f7a8b9c",
+          "Isn't responding. SlipStream retries at 14:20.",
+          "failing",
+        ),
+        line(
+          "Gale",
+          "6a7b8c9d-0e1f-4a2b-8c3d-5e6f7a8b9c0d",
+          "Stopped because the username or password was rejected.",
+          "stopped",
+        ),
+        line(
+          "Hazel",
+          "7b8c9d0e-1f2a-4b3c-9d4e-6f7a8b9c0d1e",
+          "Skipped because it has no movie categories",
+          "no_categories",
+        ),
+        line("Ivy", "8c9d0e1f-2a3b-4c4d-8e5f-7a8b9c0d1e2f", "Didn't finish in time", "late"),
+        line("Juniper", null, "Deleted since this search", "removed"),
+      ],
+      finishedAt: "2026-10-12T09:01:00Z",
+      outcome: "nothing_acceptable",
+      candidates: 1,
+      grabId: null,
     },
   ],
 };
@@ -90,35 +161,6 @@ export const fromUltra: TargetsWants = {
   profileName: ultra.name,
   editions: ultra.editions,
   from: "profile",
-};
-
-export const unavailable: GrabsSearchList = {
-  searches: [
-    {
-      id: searchId,
-      itemId: orchardItemId,
-      indexerId: downloading.indexerId,
-      startedAt: "2026-10-12T09:00:58Z",
-      finishedAt: "2026-10-12T09:01:00Z",
-      outcome: "indexer_unavailable",
-      candidates: 0,
-      refused: [],
-      grabId: null,
-      notes: [],
-    },
-  ],
-};
-
-const fixtureSite: IndexersIndexer = {
-  id: downloading.indexerId,
-  name: "Fixture Site",
-  protocol: "torznab",
-  url: "http://indexer.test",
-  homeNodeId: seedboxId,
-  apiKeySet: true,
-  searchModes: [],
-  waiting: null,
-  createdAt: "2026-10-12T09:00:00Z",
 };
 
 const fixedHandlers = () => [
@@ -148,7 +190,6 @@ export function workServer() {
   let cells = missing;
   let searches: GrabsSearchList = { searches: [] };
   let grabs: GrabsGrab[] = [otherWork];
-  let indexer = fixtureSite;
   const searched: string[] = [];
   const { handler, send } = liveStream();
   const handlers = [
@@ -157,7 +198,6 @@ export function workServer() {
     getListWorkFilesMockHandler(() => filesOf(cells)),
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
-    getListIndexersMockHandler(() => ({ indexers: [indexer] })),
     http.post("*/api/v1/works/:workId/search", ({ params }) => {
       searched.push(String(params["workId"]));
       return HttpResponse.json({ searchIds: [searchId] }, { status: 202 });
@@ -177,10 +217,6 @@ export function workServer() {
         event: "grabs.search-changed",
         data: { searchId, workId: orchardId },
       });
-    },
-    indexerWaits(waiting: IndexersWaiting | null) {
-      indexer = { ...indexer, waiting };
-      send({ event: "nodes.changed", data: { nodeId: seedboxId } });
     },
     grabMoves(next: GrabsGrab, nextCells = cells) {
       grabs = [next, otherWork];

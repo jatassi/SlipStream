@@ -48,6 +48,11 @@ func NewCarrying[T any](status int, name, title, member string) Carrying[T] {
 // With answers c with v as its member.
 func (c Carrying[T]) With(v T) error { return &explained{code: c.Code, carried: v} }
 
+// Explained answers c with detail, and v as its member.
+func (c Carrying[T]) Explained(detail string, v T) error {
+	return &explained{code: c.Code, detail: detail, carried: v}
+}
+
 func (c *Code) Error() string { return c.name }
 
 // ServeHTTP answers c as the problem, for a handler that is no operation.

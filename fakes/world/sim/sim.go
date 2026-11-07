@@ -73,6 +73,7 @@ type World struct {
 	nodes    []*Node
 	claims   setup.Claims
 	walk     *walk
+	fakes    *servers
 	cues     atomic.Int64
 }
 
@@ -117,8 +118,10 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	}
 	t.Cleanup(w.stop)
 	endpoints := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
+	w.fakes = startServers(t)
+	w.fakes.catalog(t, s, local, &endpoints)
 	if w.opts.walk {
-		w.walk = startWalk(t, s, local, w.opts.listed, &endpoints)
+		w.walk = startWalk(t, s, local, w.fakes, w.opts.listed, &endpoints)
 	}
 	listen := listenKeys(t)
 	for i, spec := range s.Nodes {
@@ -186,9 +189,7 @@ func (w *World) stop() {
 			n.Stop()
 		}
 	}
-	if w.walk != nil {
-		w.walk.stop(w.t)
-	}
+	w.fakes.stop(w.t)
 	if w.t.Failed() {
 		for _, n := range w.nodes {
 			n.logTail()

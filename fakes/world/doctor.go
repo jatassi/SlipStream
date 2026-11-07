@@ -29,6 +29,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/worktree"
 )
 
@@ -528,19 +530,50 @@ func (d *doctor) enteredPointAtFakes(c *CheckResult) {
 }
 
 // checkEntered checks the URL an Admin entered as what, which the Node
-// with id dials, is the fake target's front for that Node.
+// with id dials, reaches the fake target's front for that Node.
 func (d *doctor) checkEntered(c *CheckResult, target, what, rawURL, id string) {
 	i := slices.IndexFunc(d.m.Nodes, func(n Node) bool { return n.NodeID == id })
 	if i < 0 {
 		fail(c, "%s %s is dialed from %s, no Node of the run", what, rawURL, id)
 		return
 	}
-	name := d.m.Nodes[i].Name
-	j := slices.IndexFunc(d.m.Fronts, func(f Front) bool { return f.Target == target && f.Node == name })
-	u, err := url.Parse(rawURL)
-	if j < 0 || err != nil || u.Host != d.m.Fronts[j].Address {
-		fail(c, "%s %s is not %s's front for %s", what, rawURL, target, name)
+	n := d.m.Nodes[i]
+	sites, err := siteAddresses(n)
+	if err != nil {
+		fail(c, "node %s: %v", n.Name, err)
+		return
 	}
+	j := slices.IndexFunc(d.m.Fronts, func(f Front) bool { return f.Target == target && f.Node == n.Name })
+	u, err := url.Parse(rawURL)
+	if j < 0 || err != nil {
+		fail(c, "%s %s is not %s's front for %s", what, rawURL, target, n.Name)
+		return
+	}
+	dialed := u.Host
+	if at, ok := sites.Address(u.Hostname()); ok {
+		dialed = at.String()
+	}
+	if dialed != d.m.Fronts[j].Address {
+		fail(c, "%s %s is not %s's front for %s", what, rawURL, target, n.Name)
+	}
+}
+
+// siteAddresses is the endpoints.searching block of the Node n, from its
+// overrides.
+func siteAddresses(n Node) (searching.Endpoints, error) {
+	var e searching.Endpoints
+	i := slices.IndexFunc(n.Overrides, func(k node.Key) bool { return k.Key == "endpoints.searching.sites" })
+	if i < 0 {
+		return e, nil
+	}
+	for item := range strings.SplitSeq(n.Overrides[i].Value, ",") {
+		var a searching.SiteAddress
+		if err := a.UnmarshalText([]byte(item)); err != nil {
+			return e, fmt.Errorf("endpoints.searching.sites %q: %w", item, err)
+		}
+		e.Sites = append(e.Sites, a)
+	}
+	return e, nil
 }
 
 func (d *doctor) apiKeyWorks(c *CheckResult) {

@@ -15,6 +15,7 @@ import type {
 } from "../api/gen/model";
 import { UpdateHealthSettingsBody, UpdateHealthVolumeBody } from "../api/gen/zod/health/health.zod";
 import { globalLevels } from "./health-levels";
+import { larkspurId } from "./indexers";
 import { seedboxId } from "./nodes";
 
 // 06:00 UTC is a morning or an evening everywhere, so an item a few minutes
@@ -64,6 +65,23 @@ export const awayNode: HealthItem = {
   action: { kind: "link", href: `/nodes/${seedboxId}`, label: "Open seedbox" },
 };
 
+/** Larkspur stopped for its password, linking to Allow failover on its page. */
+export const stoppedIndexer: HealthItem = {
+  key: `stopped.${larkspurId}`,
+  subject: "Larkspur",
+  level: "fail",
+  text: "Larkspur rejected the username or password. Update them on the Indexer and test it.",
+  since: minutesAgo(20),
+  changedAt: minutesAgo(20),
+  unsure: false,
+  detail: [{ label: "Stopped since", at: minutesAgo(20) }],
+  action: {
+    kind: "link",
+    href: `/settings/indexers/${larkspurId}#allow-failover`,
+    label: "Open Larkspur",
+  },
+};
+
 export const failedTask: HealthItem = {
   key: "housekeeping",
   subject: "Housekeeping",
@@ -91,19 +109,22 @@ const category = (
   items: HealthItem[],
 ): HealthCategory => ({ id, label, phrase, canCheck, level: worst(items), items });
 
-/** A report in registry order: Storage, Nodes, then Scheduled tasks. */
+/** A report in registry order: Storage, Nodes, Indexers, then Scheduled tasks. */
 export function reportOf({
   storage = [],
   nodes = [],
+  indexers = [],
   tasks = [],
 }: {
   storage?: HealthItem[];
   nodes?: HealthItem[];
+  indexers?: HealthItem[];
   tasks?: HealthItem[];
 } = {}): HealthReport {
   const categories = [
     category("storage", "Storage", "storage", true, storage),
     category("nodes", "Nodes", "Nodes", true, nodes),
+    category("indexers", "Indexers", "Indexers", false, indexers),
     category("scheduled-tasks", "Scheduled tasks", "scheduled tasks", false, tasks),
   ];
   const all = categories.flatMap((shown) =>

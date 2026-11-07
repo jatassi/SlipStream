@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -28,11 +29,18 @@ type GrabsGrab struct {
 	Edition           targets.Edition
 	Source            string
 	IndexerID         indexers.ID
+	TrackerID         indexers.TrackerID
 	NodeID            role.NodeID
 	ReleaseTitle      string
 	ReleaseSize       int64
-	ReleaseLink       string
+	ReleaseLinkSealed secret.Sealed
+	ReleaseMagnet     *string
 	ReleaseInfoHash   []byte
+	FetchQueryID      indexers.QueryID
+	MinRatio          *float64
+	MinSeedSeconds    *int64
+	DownloadFactor    *float64
+	UploadFactor      *float64
 	Stage             Stage
 	TorrentID         downloadclients.ID
 	FileIndex         *int64
@@ -56,17 +64,40 @@ type GrabsRefusal struct {
 	Reasons  string
 }
 
+type GrabsRelease struct {
+	SearchID   SearchID
+	Position   int64
+	IndexerID  indexers.ID
+	Release    string
+	LinkSealed secret.Sealed
+}
+
 type GrabsSearch struct {
 	ID         SearchID
 	WorkID     works.WorkID
 	ItemID     works.ItemID
-	IndexerID  indexers.ID
 	StartedAt  storage.Time
 	FinishedAt storage.Time
 	Outcome    *Outcome
 	Candidates int64
 	GrabID     GrabID
 	Notes      *string
+}
+
+type GrabsSearchIndexer struct {
+	SearchID    SearchID
+	Position    int64
+	IndexerID   indexers.ID
+	IndexerName string
+	QueryID     indexers.QueryID
+	Outcome     *indexers.OutcomeKind
+	Releases    *int64
+	UntilAt     storage.Time
+	SinceAt     storage.Time
+	NodeID      role.NodeID
+	Lapsed      *bool
+	Cause       *indexers.Cause
+	Text        *string
 }
 
 type GrabsStage struct {

@@ -49,10 +49,10 @@ func TestRegisteredPanicsUnlessTheCategoriesAreIDs(t *testing.T) {
 	}
 	cases := map[string][]Category{
 		"one missing":    {cat(StorageID), cat(NodesID), cat(ScheduledTasksID)},
-		"one unknown":    {cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(ScheduledTasksID), cat("backups")},
-		"out of order":   {cat(StorageID), cat(DownloadClientsID), cat(NodesID), cat(ScheduledTasksID)},
-		"listed twice":   {cat(StorageID), cat(NodesID), cat(NodesID), cat(DownloadClientsID), cat(ScheduledTasksID)},
-		"with no answer": {cat(StorageID), cat(NodesID), cat(DownloadClientsID), {About: About{ID: ScheduledTasksID, Label: "S", Phrase: "s"}}},
+		"one unknown":    {cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(IndexersID), cat(ScheduledTasksID), cat("backups")},
+		"out of order":   {cat(StorageID), cat(DownloadClientsID), cat(NodesID), cat(IndexersID), cat(ScheduledTasksID)},
+		"listed twice":   {cat(StorageID), cat(NodesID), cat(NodesID), cat(DownloadClientsID), cat(IndexersID), cat(ScheduledTasksID)},
+		"with no answer": {cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(IndexersID), {About: About{ID: ScheduledTasksID, Label: "S", Phrase: "s"}}},
 	}
 	for name, all := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -64,5 +64,5 @@ func TestRegisteredPanicsUnlessTheCategoriesAreIDs(t *testing.T) {
 			registered(all)
 		})
 	}
-	registered([]Category{cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(ScheduledTasksID)})
+	registered([]Category{cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(IndexersID), cat(ScheduledTasksID)})
 }

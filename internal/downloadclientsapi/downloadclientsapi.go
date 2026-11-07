@@ -197,7 +197,7 @@ type diskGuard struct {
 
 type clientFacts struct {
 	Libtorrent   string     `json:"libtorrent" doc:"libtorrent's version"`
-	PeerIDPrefix string     `json:"peerIdPrefix" doc:"The peer ID prefix it announces, which a tracker's allow list names"`
+	PeerIDPrefix string     `json:"peerIdPrefix" doc:"The peer ID prefix it announces, which a Tracker's allow list names"`
 	UserAgent    string     `json:"userAgent" doc:"The user agent it announces"`
 	Listen       string     `json:"listen" doc:"The listen address and port it is set to"`
 	Bound        string     `json:"bound,omitempty" doc:"The address and port it listens on, absent while it has no listener"`
@@ -343,7 +343,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "getTorrent",
 		Method:  http.MethodGet,
 		Path:    "/torrents/{id}",
-		Summary: "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
+		Summary: "Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{torrentNotFound},
 	}, h.getTorrent)

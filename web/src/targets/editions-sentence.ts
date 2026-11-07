@@ -21,7 +21,7 @@ export function editionsSentence(list: EditionList): EditionsSentence {
   if (others.length === list.cuts.length) {
     const them = others.length === 1 ? "it" : "them";
     return {
-      text: `Every Item wants ${listed(others)} outright, even where no release of ${them} has been seen. A release that names no cut is Standard, which this list doesn't want.`,
+      text: `Every Item wants ${listed(others)} outright, even where no Release of ${them} has been seen. A Release that names no cut is Standard, which this list doesn't want.`,
       warning: true,
     };
   }
@@ -29,7 +29,7 @@ export function editionsSentence(list: EditionList): EditionsSentence {
     return { text: "Every Item always wants Standard.", warning: false };
   }
   return {
-    text: `Every Item always wants Standard. It wants ${listed(others)} only once a release or file of that cut has been seen for it.`,
+    text: `Every Item always wants Standard. It wants ${listed(others)} only once a Release or file of that cut has been seen for it.`,
     warning: false,
   };
 }

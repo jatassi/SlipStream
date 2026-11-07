@@ -4,7 +4,7 @@ import { isPhone, navigate } from "./shell.ts";
 const groups = [
   ["Library", ["Content Types", "Library roots", "Metadata"]],
   ["Files to keep", ["Targets", "Profiles", "Editions"]],
-  ["Search and download", ["Download Clients"]],
+  ["Search and download", ["Indexers", "Download Clients"]],
   ["Access", ["Address", "Sign-in", "API key"]],
   ["System", ["Nodes", "Email"]],
 ] as const;

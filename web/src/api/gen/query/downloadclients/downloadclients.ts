@@ -930,7 +930,7 @@ export const getGetTorrentUrl = (id: string) => {
 };
 
 /**
- * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds
+ * @summary Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds
  */
 export const getTorrent = async (
   id: string,
@@ -1021,7 +1021,7 @@ export function useGetTorrentSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds
+ * @summary Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds
  */
 
 export function useGetTorrentSuspense<

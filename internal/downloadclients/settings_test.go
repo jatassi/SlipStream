@@ -9,6 +9,7 @@ import (
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -24,7 +25,7 @@ type library = *storage.DB[storage.Library]
 
 func open(t *testing.T) library {
 	t.Helper()
-	return storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), dc.Schema())
+	return storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), dc.Schema(), indexers.Schema())
 }
 
 func addNode(t *testing.T, lib library, name string) role.NodeID {

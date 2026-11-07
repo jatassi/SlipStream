@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -23,6 +24,8 @@ type Want struct {
 	Metainfo    bencode.Metainfo
 	Raw         []byte
 	ContentType works.TypeID
+	// Tracker is the Tracker the Grab's Release reached, zero for none.
+	Tracker indexers.TrackerID
 	// WrittenOff reports whether the Admin wrote off what a Node holds
 	// for Downloading, so its Torrents take no new Grab.
 	WrittenOff func(role.NodeID) bool
@@ -46,7 +49,7 @@ func Attach(ctx context.Context, tx *storage.Tx[file], want Want, now storage.Ti
 	for i, t := range held {
 		switch {
 		case t.NodeID == want.Node && t.RemovedAt.IsZero():
-			return t.ID, t.NodeID, nil
+			return t.ID, t.NodeID, reached(ctx, q, t.ID, want)
 		case t.NodeID == want.Node:
 			removing = true
 		case t.RemovedAt.IsZero() && !want.WrittenOff(t.NodeID) && elsewhere == nil:
@@ -55,7 +58,7 @@ func Attach(ctx context.Context, tx *storage.Tx[file], want Want, now storage.Ti
 	}
 	switch {
 	case elsewhere != nil:
-		return elsewhere.ID, elsewhere.NodeID, nil
+		return elsewhere.ID, elsewhere.NodeID, reached(ctx, q, elsewhere.ID, want)
 	case removing:
 		return ID{}, role.NodeID{}, ErrRemoving
 	}
@@ -63,9 +66,20 @@ func Attach(ctx context.Context, tx *storage.Tx[file], want Want, now storage.Ti
 	return id, want.Node, insert(ctx, q, id, want, now)
 }
 
+// reached sets a reused Torrent's Tracker to want's while it has none.
+func reached(ctx context.Context, q *db.Queries, id ID, want Want) error {
+	return q.SetTrackerIfNone(ctx, db.SetTrackerIfNoneParams{TrackerID: trackerOf(want), ID: id})
+}
+
+// RepointTracker is downloadclients' indexers.Repoint: every Torrent of
+// from moves to into.
+func RepointTracker(ctx context.Context, tx *storage.Tx[storage.Library], from, into indexers.TrackerID) error {
+	return db.New(tx).RepointTracker(ctx, db.RepointTrackerParams{IntoID: &into, FromID: &from})
+}
+
 func insert(ctx context.Context, q *db.Queries, id ID, want Want, now storage.Time) error {
 	m := want.Metainfo
-	trackers, err := json.Marshal(hostsOf(m.Trackers()))
+	trackers, err := json.Marshal(HostsOf(m.Trackers()))
 	if err != nil {
 		return fmt.Errorf("encode the trackers: %w", err)
 	}
@@ -86,15 +100,22 @@ func insert(ctx context.Context, q *db.Queries, id ID, want Want, now storage.Ti
 	}
 	return q.InsertTorrent(ctx, db.InsertTorrentParams{
 		ID: id, NodeID: want.Node, InfoHash: m.InfoHash[:], Metainfo: want.Raw, Name: m.Info.Name, Size: size,
-		Private: private, Trackers: string(trackers), ContentType: want.ContentType, AddedOrder: order, AddedAt: now,
+		Private: private, Trackers: string(trackers), ContentType: want.ContentType, TrackerID: trackerOf(want), AddedOrder: order, AddedAt: now,
 		Uploaded: totals.Uploaded, Downloaded: totals.Downloaded, ActiveSeconds: totals.ActiveSeconds,
 		SeedingSeconds: totals.SeedingSeconds, TotalsAt: totals.TotalsAt,
 	})
 }
 
-// hostsOf is each tracker URL's host, index for index, "" for one that
+func trackerOf(want Want) *indexers.TrackerID {
+	if want.Tracker.IsZero() {
+		return nil
+	}
+	return &want.Tracker
+}
+
+// HostsOf is each tracker URL's host, index for index, "" for one that
 // doesn't parse.
-func hostsOf(urls []string) []string {
+func HostsOf(urls []string) []string {
 	out := make([]string, len(urls))
 	for i, s := range urls {
 		if u, err := url.Parse(s); err == nil {

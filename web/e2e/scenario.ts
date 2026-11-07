@@ -10,4 +10,6 @@ export type Scenario =
   | "scale"
   | "torrents"
   | "cgnat-home"
+  | "catalog-sites"
+  | "indexers"
   | "seedbox-nas";

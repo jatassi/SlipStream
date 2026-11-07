@@ -3,8 +3,11 @@ package site_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -20,12 +23,16 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 const (
@@ -49,14 +56,15 @@ var listing = []site.Release{
 func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", Seed: "site-test"} }
 
 func spec(rels []site.Release) fake.Spec {
-	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-		return fake.HTTP(env, site.Routes(site.APIKey(s), rels, func(string) (string, error) { return announce, nil })), nil
+	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, Endpoints: site.Fake.Endpoints, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+		return fake.HTTP(env, site.Routes(s, rels, func(string) (string, error) { return announce, nil })), nil
 	}}
 }
 
+// get fetches path from the Torznab site.
 func get(t *testing.T, f faketest.Served, path string) string {
 	t.Helper()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL(path), http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, site.Origin(f.Address, site.Torznab)+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +116,7 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 	s := scenarioWithSeed()
 	key := site.APIKey(s)
 	check := func(t *testing.T, f faketest.Served) {
-		origin := f.Address.URL("")
+		origin := site.Origin(f.Address, site.Torznab)
 		api := site.TorznabPath + "/api?apikey=" + key
 		for _, e := range []struct{ path, want string }{
 			{api + "&t=movie&tmdbid=9000001", feed(item(origin, listing[0]), item(origin, listing[1]))},
@@ -117,7 +125,13 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 			{api + "&t=search&q=quiet+ORCHARD+2021", feed(item(origin, listing[0]), item(origin, listing[1]))},
 			{api + "&t=search&q=orchard+1080p", feed(item(origin, listing[0]), item(origin, listing[2]))},
 			{api + "&t=search&q=orch", feed()},
+			{api + "&t=search&q=orchard&offset=1&limit=1", feed(item(origin, listing[1]))},
+			{api + "&t=search&q=orchard&cat=5000", feed()},
+			{api + "&t=search&q=orchard&cat=5000,2040&offset=2", feed(item(origin, listing[2]))},
 			{api + "&t=tvsearch&q=orchard", errorDoc("202", "No such function")},
+			{site.TorznabPath + "/api?apikey=" + site.PlayKey(910) + "&t=caps", errorDoc("910", "API Disabled")},
+			{site.TorznabPath + "/api?apikey=" + site.PlayKey(500) + "&t=search", errorDoc("500", "Request limit reached")},
+			{site.TorznabPath + "/api?apikey=" + site.PlayKey(429) + "&t=search", "429 Too Many Requests Too Many Requests\n"},
 			{site.TorznabPath + "/api?apikey=wrong&t=caps", errorDoc("100", "Invalid API Key")},
 			{site.TorznabPath + "/api?t=caps", errorDoc("100", "Invalid API Key")},
 			{"/download/" + hash1080 + ".torrent", "200 OK " + rewritten},
@@ -141,84 +155,208 @@ func TestTheAPIKeyFollowsTheSeed(t *testing.T) {
 	}
 }
 
-type alone struct{ self role.NodeID }
+type discard[T any] struct{}
 
-func (a alone) Self() role.NodeID { return a.self }
+func (discard[T]) Publish(context.Context, T) {}
 
-func (a alone) Pick(role.Name, role.NodeID) (role.NodeID, bool) { return a.self, true }
-
-func (a alone) Route(role.Name, role.NodeID) (role.NodeID, error) { return a.self, nil }
-
-func (alone) Away(role.Name, role.NodeID) (nodes.Absence, bool) { return nodes.Absence{}, false }
-
-type discard struct{}
-
-func (discard) Publish(context.Context, indexers.Changed) {}
-
-func TestTheSearchingServiceReadsTheSite(t *testing.T) {
+// created is the site served in f as an Indexer created on one Node that
+// spaces nothing.
+func created(t *testing.T) (faketest.Served, *indexers.Indexers, *storage.DB[storage.Library], indexers.Indexer) {
+	t.Helper()
 	s := scenarioWithSeed()
 	f := faketest.Loopback(t, spec(listing), s)
-	home := indexers.NewHome(f.Client, indexers.Timings{Request: 5 * time.Second})
+	timings := searching.DefaultTimings()
+	timings.Floor = 0
+	home := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
+	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), indexers.Schema())
+	self := role.NodeID{UUID: storage.NewUUID()}
+	if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return nodestest.Insert(ctx, tx, self, "home")
+	}); err != nil {
+		t.Fatal(err)
+	}
 	x := indexers.New(indexers.Config{
-		Library:   storagetest.Library(t, indexers.Schema()),
+		Library:   lib,
 		Sealer:    secrettest.Sealer(t),
-		Roster:    alone{role.NodeID{UUID: storage.NewUUID()}},
-		Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return home },
-		Changed:   discard{},
+		Roster:    indexerstest.Alone(self),
+		Searching: func(role.NodeID) searching.Remote { return home },
+		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}},
+		Changed:   discard[indexers.Changed]{},
+		Status:    discard[indexers.StatusChanged]{},
+		Trackers:  discard[indexers.TrackerChanged]{},
+		Timings:   indexers.DefaultTimings(),
+		Log:       slog.New(slog.DiscardHandler),
 	})
-	idx, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", URL: site.URL(f.Address), APIKey: site.APIKey(s)})
+	v, err := x.Create(t.Context(), identity.Admin{}, indexers.Draft{Name: "Fixture Site", Address: site.URL(f.Address), APIKey: site.APIKey(s), On: true, AutoSearch: true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return f, x, lib, v.Indexer
+}
+
+// search plans one Movies search and asks its one line, the Indexer.
+func search(t *testing.T, x *indexers.Indexers, lib *storage.DB[storage.Library], terms indexers.Terms) indexers.Answer {
+	t.Helper()
+	var lines []indexers.Line
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		lines, err = x.Plan(ctx, tx, indexerstest.Type)
+		return err
+	})
+	if err != nil || len(lines) != 1 || lines[0].Skipped != nil {
+		t.Fatalf("Plan = %+v, %v; want the Indexer asked", lines, err)
+	}
+	answers, err := x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: lines})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return answers[0]
+}
+
+// fetch takes r, offering link, and fetches it.
+func fetch(t *testing.T, x *indexers.Indexers, lib *storage.DB[storage.Library], r indexers.Release, link searching.Link) (indexers.Got, error) {
+	t.Helper()
+	var ticket indexers.Ticket
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		ticket, err = x.Take(ctx, tx, r)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return x.Fetch(t.Context(), ticket, link)
+}
+
+func TestTheSearchingServiceReadsTheSite(t *testing.T) {
+	_, x, lib, idx := created(t)
 	if got, want := idx.Caps.Modes["movie"], []string{"q", "tmdbid", "imdbid"}; strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("movie caps = %v, want %v", got, want)
 	}
 
-	items, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
-	if err != nil {
-		t.Fatal(err)
+	a := search(t, x, lib, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
+	if a.Outcome.Kind != indexers.Found {
+		t.Fatalf("Search = %+v; want found", a.Outcome)
 	}
+	found := a.Releases
 	var got []string
-	for _, it := range items {
-		got = append(got, it.Title+" "+it.InfoHash+" "+itoa(it.Seeders)+" "+it.IDs["tmdbid"]+" "+it.IDs["imdbid"])
+	for _, r := range found {
+		got = append(got, r.Title+" "+r.InfoHash.String()+" "+strconv.Itoa(r.Seeders)+" "+r.IDs["tmdbid"]+" "+r.IDs["imdbid"])
 	}
 	want := []string{
 		"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW " + hash1080 + " 12 9000001 tt9000001",
 		"The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW " + hash720 + " 40 9000001 tt9000001",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("items =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+		t.Fatalf("releases =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	fetched, err := x.Fetch(t.Context(), idx, items[0].Link)
+	fetched, err := fetch(t, x, lib, found[0], found[0].Link)
 	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten {
 		t.Fatalf("Fetch = %+v, %v, want the .torrent %q", fetched, err, rewritten)
 	}
-	magnets, err := x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}})
-	if err != nil || len(magnets) != 2 {
-		t.Fatalf("Search for the magnet releases = %+v, %v; want two items", magnets, err)
+	magnets := search(t, x, lib, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}}).Releases
+	if len(magnets) != 2 {
+		t.Fatalf("Search for the magnet releases = %+v; want two", magnets)
 	}
 	for i, want := range []string{strings.Repeat("e", 40), strings.Repeat("f", 40)} {
-		fetched, err := x.Fetch(t.Context(), idx, magnets[i].Link)
+		fetched, err := fetch(t, x, lib, magnets[i], magnets[i].Offered())
 		got, ok := fetched.(indexers.Magnet)
 		if err != nil || !ok || got.Link.InfoHash.String() != want || len(got.Link.Trackers) != 1 || got.Link.Trackers[0] != announce {
-			t.Errorf("Fetch of %s at %s = %+v, %v; want the magnet link of %s announcing to %s", magnets[i].Title, magnets[i].Link, fetched, err, want, announce)
+			t.Errorf("Fetch of %s = %+v, %v; want the magnet link of %s announcing to %s", magnets[i].Title, fetched, err, want, announce)
 		}
 	}
-	_, err = x.Fetch(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
-	var unavailable *indexers.UnavailableError
-	if !errors.As(err, &unavailable) || unavailable.Wait || err.Error() != "the Indexer is unavailable: the torrent's URL is not on the Indexer's host" {
-		t.Fatalf("an off-host Fetch = %v, want an unavailable error that does not wait", err)
+}
+
+func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
+	f, x, lib, idx := created(t)
+	r := indexers.Release{Indexer: idx.ID}
+	var asked string
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.String()
+		_, _ = w.Write([]byte(rewritten))
+	}))
+	t.Cleanup(elsewhere.Close)
+	fetched, err := fetch(t, x, lib, r, searching.LinkOf(elsewhere.URL+"/a.torrent?id=1"))
+	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten || asked != "/a.torrent?id=1" {
+		t.Fatalf("a Fetch from another host = %+v, %v after asking for %s; want the .torrent asked for without the key", fetched, err, asked)
 	}
-	_, err = x.Fetch(t.Context(), idx, f.Address.URL("/download/"+strings.Repeat("d", 40)+".torrent"))
-	if err == nil || err.Error() != "the Indexer is unavailable: the Indexer responded with status 404" {
-		t.Fatalf("a missing torrent = %v", err)
+	_, err = fetch(t, x, lib, r, searching.LinkOf(site.Origin(f.Address, site.Torznab)+"/download/"+strings.Repeat("d", 40)+".torrent"))
+	if wait, ok := errors.AsType[*indexers.WaitError](err); !ok || wait.Outcome.Kind != indexers.IsFailing {
+		t.Fatalf("a missing torrent = %v, want a wait while the Indexer fails", err)
 	}
 
-	_, err = x.SetAPIKey(t.Context(), identity.Admin{}, idx.ID, "wrong")
-	var refused *indexers.RefusedError
-	if !errors.As(err, &refused) || err.Error() != "the Indexer refused: error 100: Invalid API Key" {
-		t.Fatalf("a wrong key = %v, want refused 100", err)
+	wrong := "wrong"
+	_, err = x.Update(t.Context(), identity.Admin{}, idx.ID, indexers.Edit{APIKey: &wrong}, nil)
+	var failed *indexers.TestFailedError
+	want := "Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."
+	if !errors.As(err, &failed) || failed.Outcome.Cause != searching.AccountRefused || failed.Sentence != want {
+		t.Fatalf("a wrong key = %v, want account_refused with %q", err, want)
+	}
+}
+
+// job runs call on the site at f as a Torznab Indexer with key, on a Node
+// that spaces nothing.
+func job(t *testing.T, f faketest.Served, key string, call searching.Call) searching.Answer {
+	t.Helper()
+	timings := searching.DefaultTimings()
+	timings.Floor = 0
+	node := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
+	poll, err := node.Run(t.Context(), searching.Job{
+		ID: storage.NewUUID().String(), Indexer: "fixture", Kind: searching.Torznab, Address: site.URL(f.Address), APIKey: key, Call: call,
+	})
+	if err != nil || poll.Answer == nil {
+		t.Fatalf("Run = %+v, %v; want an answer within the hold", poll, err)
+	}
+	return *poll.Answer
+}
+
+func TestEachTorznabPlayLandsInItsOutcome(t *testing.T) {
+	f := faketest.Loopback(t, spec(listing), scenarioWithSeed())
+	search := searching.SearchCall{Query: searching.Query{Mode: "search", Text: "orchard"}}
+	for _, tc := range []struct {
+		code int
+		want string
+	}{
+		{101, "*searching.Stopped the Indexer refused the account: Account suspended"},
+		{910, "*searching.Stopped the Indexer refused the account: API Disabled"},
+		{203, "*searching.Stopped the Indexer rejected the request: Function not available"},
+		{500, "*searching.Limited the Indexer limited requests"},
+		{429, "*searching.Limited the Indexer limited requests for 2s"},
+		{300, "*searching.Failing the Indexer responded with error 300: No such item"},
+	} {
+		got := job(t, f, site.PlayKey(tc.code), search).Outcome
+		if s := fmt.Sprintf("%T %v", got, got); s != tc.want {
+			t.Errorf("a search refused with %d = %s, want %s", tc.code, s, tc.want)
+		}
+	}
+}
+
+func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
+	s := scenarioWithSeed()
+	many := make([]site.Release, 250)
+	for i := range many {
+		many[i] = site.Release{
+			Name: fmt.Sprintf("Orchard.Part.%03d.1080p.WEB-DL", i), Size: 1000, InfoHash: fmt.Sprintf("%040x", i+1), TMDBID: 9000001, IMDbID: "tt9000001",
+			Seeders: 7, Leechers: 3, Grabs: 40, Freeleech: i == 0, Torrent: []byte(torrent),
+		}
+	}
+	f := faketest.Loopback(t, spec(many), s)
+	a := job(t, f, site.APIKey(s), searching.SearchCall{Query: searching.Query{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001"}}})
+	if a.Outcome != nil || len(a.Releases) != len(many) || a.Started.IsZero() {
+		t.Fatalf("a search over three pages = %d Releases, %v, started %v; want %d, ok, started", len(a.Releases), a.Outcome, a.Started, len(many))
+	}
+	for i, r := range a.Releases {
+		if r.Title != many[i].Name {
+			t.Fatalf("Release %d is %s, want %s in the site's order", i, r.Title, many[i].Name)
+		}
+	}
+	got := a.Releases[0]
+	want := fmt.Sprintf("%s 1000 2026-06-01T12:00:00Z 7/3/40 %s %v %v map[imdbid:tt9000001 tmdbid:9000001] {0 1} {1 48h0m0s} %s",
+		many[0].Name, many[0].InfoHash, []int{2000}, true, "https://"+site.Host("torznab")+"/details/"+many[0].InfoHash)
+	if s := fmt.Sprintf("%s %d %s %d/%d/%d %s %v %v %v %v %v %s", got.Title, got.Size, got.Published.Format(time.RFC3339), got.Seeders, got.Leechers, got.Grabs,
+		got.InfoHash, got.Categories, got.Magnet.IsZero(), got.IDs, got.Factors, got.Floor, got.Details); s != want {
+		t.Fatalf("the first Release =\n%s\nwant\n%s", s, want)
 	}
 }
 
@@ -262,7 +400,7 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
 	}
 	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
-	origin := f.Address.URL("")
+	origin := site.Origin(f.Address, site.Torznab)
 	harbor := "magnet:?xt=urn:btih:" + bencode.InfoHash{1}.String() + "&amp;dn=Harbor.Lights&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
 	meadow := "magnet:?xt=urn:btih:" + bencode.InfoHash{2}.String() + "&amp;dn=Salt.Meadow"
 	orchard := "magnet:?xt=urn:btih:" + bencode.InfoHash{3}.String() + "&amp;dn=Quiet.Orchard&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
@@ -283,7 +421,7 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 
 	noFollow := *f.Client
 	noFollow.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL("/download/"+bencode.InfoHash{3}.String()+".torrent"), http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, site.Origin(f.Address, site.Torznab)+"/download/"+bencode.InfoHash{3}.String()+".torrent", http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}

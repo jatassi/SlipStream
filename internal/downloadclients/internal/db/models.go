@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -59,6 +60,7 @@ type DownloadclientsTorrent struct {
 	CompletedAt    storage.Time
 	Fault          *string
 	FaultAt        storage.Time
+	TrackerID      *indexers.TrackerID
 }
 
 type DownloadclientsVolume struct {

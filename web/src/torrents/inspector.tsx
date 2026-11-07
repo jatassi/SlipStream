@@ -21,7 +21,7 @@ function Content({ row, names }: { row: Row; names: Names }) {
         <p className="text-sentence text-ink-1">{inspectorSentence(row, live, { node, clock })}</p>
         {row.fault !== undefined && (
           <p className="mt-3 flex flex-wrap items-center gap-2">
-            <SignalChip kind="fail">Bad release</SignalChip>
+            <SignalChip kind="fail">Bad Release</SignalChip>
             {row.fault.sentence}
           </p>
         )}

@@ -129,11 +129,14 @@ func (l *library) onDisk(t *testing.T) map[string]string {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
+		content := string(data)
 		if err != nil {
-			return err //nolint:wrapcheck // the test reports it as is
+			// Windows refuses to open a file another process is removing, so
+			// a read that races the sweep shows as content no test wants.
+			content = "unreadable: " + err.Error()
 		}
 		rel, err := filepath.Rel(l.root.Path, p)
-		out[filepath.ToSlash(rel)] = string(data)
+		out[filepath.ToSlash(rel)] = content
 		return err //nolint:wrapcheck // the test reports it as is
 	})
 	if err != nil {

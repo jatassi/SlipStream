@@ -29,7 +29,7 @@ export function ActivityBody({
           </Button>
         }
       >
-        Nothing is downloading. Open a Work and choose Search to find a release for it.
+        Nothing is downloading. Open a Work and choose Search to find a Release for it.
       </Empty>
     );
   }
