@@ -54,7 +54,6 @@ func (p Preset) NeedsFacts() bool {
 // ApplyPreset writes it over whole Works without reading their trees.
 func (p Preset) setBased() bool { return p == PresetAll || p == PresetNone }
 
-// Choice is a monitoring choice for a Work.
 type Choice struct {
 	Preset Preset
 	// Asides, when set, adds every aside Item to the set and becomes the

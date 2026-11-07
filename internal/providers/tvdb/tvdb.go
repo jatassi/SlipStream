@@ -143,7 +143,6 @@ const (
 	Upcoming   Status = "upcoming"
 )
 
-// Found is one search result.
 type Found struct {
 	ID SeriesID
 	// Name is in the Ask's language when TVDB has it, else English.
@@ -287,8 +286,7 @@ func (c *Client) Episodes(ctx context.Context, ask metadata.Ask, id SeriesID, o 
 
 type Updates struct {
 	Series []SeriesID
-	// Pages is how many pages the list holds.
-	Pages int
+	Pages  int
 }
 
 // Updates is page (from 1) of /updates?since=&type=series: every series

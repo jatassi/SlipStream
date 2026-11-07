@@ -108,8 +108,7 @@ type Series struct {
 
 func (*Series) Describe() works.Description { return Description }
 
-// SearchTerms answers no Terms, so no episode is searched, until S26
-// (Indexers and Trackers) gives the type its terms.
+// SearchTerms answers no Terms, so no episode is searched.
 func (*Series) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
 }
