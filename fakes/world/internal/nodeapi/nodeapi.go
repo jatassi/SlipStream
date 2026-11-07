@@ -216,6 +216,8 @@ type NewIndexer struct {
 	Name          string            `json:"name"`
 	HomeNodeID    string            `json:"homeNodeId,omitempty"`
 	Definition    string            `json:"definition,omitempty"`
+	Port          string            `json:"port,omitempty"`
+	BaseAddress   string            `json:"baseAddress,omitempty"`
 	Values        map[string]string `json:"values,omitempty"`
 	Address       string            `json:"address,omitempty"`
 	APIKey        string            `json:"apiKey,omitempty"`
