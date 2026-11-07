@@ -2,6 +2,7 @@ package tmdb_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -269,6 +270,25 @@ func rich(s scenario.Scenario) scenario.Scenario {
 		Crew: []scenario.TMDBCrew{{ID: 91002, Name: "Osei Brandt", Department: "Directing", Job: "Director"}},
 	}
 	m.Trailer = "qOrchard01"
+	return withSeries(s)
+}
+
+// withSeries adds a series TMDB and fake-tvdb share and one only TMDB
+// lists, both under ids TMDB's movies also use.
+func withSeries(s scenario.Scenario) scenario.Scenario {
+	s.TVDB = &scenario.TVDB{Series: []scenario.TVDBSeries{{ID: 70001, Name: "The Lantern Keepers", Status: "continuing", IMDb: "tt9100001", TMDB: 9000001}}}
+	s.TMDB.Series = []scenario.TMDBSeries{
+		{
+			ID: 9000001, TVDB: 70001, Name: "The Lantern Keepers", Overview: "Two keepers tend a lighthouse.", FirstAired: "2022-03-04",
+			Network:        &scenario.TMDBNamed{ID: 93001, Name: "Harbor One"},
+			Creators:       []scenario.TMDBCast{{ID: 91003, Name: "Ines Calder"}},
+			Credits:        scenario.TMDBCredits{Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Venn", Character: "Ada"}}},
+			Certifications: []scenario.TMDBCertification{{Country: "US", Rating: "TV-14"}, {Country: "DE", Rating: "12"}},
+			Trailer:        "qLantern01",
+			VoteAverage:    8.1, VoteCount: 640,
+		},
+		{ID: 9000002, Name: "Harbor Lights", FirstAired: "2019-09-01"},
+	}
 	return s
 }
 
@@ -278,6 +298,7 @@ func TestTheFakeConforms(t *testing.T) {
 			Endpoints: provider.Endpoints{API: endpoint.MustParseURL(f.Address.URL("/3")), Images: endpoint.MustParseURL(f.Address.URL("/t/p"))},
 			Client:    f.Client,
 			Known:     conformance.Known{ID: 9000001, Title: "The Quiet Orchard", IMDbID: "tt9000001", Year: 2021},
+			Series:    conformance.KnownSeries{ID: 9000001, Name: "The Lantern Keepers", TVDB: 70001, IMDbID: "tt9100001"},
 			Lines:     lines,
 			Timings:   provider.DefaultTimings(),
 		})
@@ -340,5 +361,73 @@ func TestGeneratedMoviesAnswerSearchRecordsAndImages(t *testing.T) {
 			{"/3/movie/50000031", notFound},
 			{"/3/movie/50000000", notFound},
 		})
+	})
+}
+
+func TestTheFakeAnswersSeriesAsTMDBDoes(t *testing.T) {
+	keepers := `{"adult":false,"backdrop_path":"/1br8ytjh0xf69.jpg","id":9000001,"name":"The Lantern Keepers","original_language":"en","original_name":"The Lantern Keepers","overview":"Two keepers tend a lighthouse.","poster_path":"/1bqzjqqxiosfc.jpg",%s"first_air_date":"2022-03-04","vote_average":8.1,"vote_count":640}`
+	harbor := `{"adult":false,"backdrop_path":"/3mata3eqz6uy6.jpg","id":9000002,"name":"Harbor Lights","original_language":"en","original_name":"Harbor Lights","overview":"","poster_path":"/3mb2p67ahfhp3.jpg","first_air_date":"2019-09-01","vote_average":0,"vote_count":0}`
+	empty := `[],"person_results":[],"tv_results":[],"tv_episode_results":[],"tv_season_results":[]}` + "\n"
+	inBothTiers(t, withSeries(load(t, "single-machine")), func(t *testing.T, f faketest.Served) {
+		check(t, f, []exchange{
+			{"/3/search/tv?query=lantern", `200 OK {"page":1,"results":[` + fmt.Sprintf(keepers, "") + `],"total_pages":1,"total_results":1}` + "\n"},
+			{"/3/search/tv?query=harbor", `200 OK {"page":1,"results":[` + harbor + `],"total_pages":1,"total_results":1}` + "\n"},
+			{"/3/search/movie?query=lantern", none},
+			{"/3/tv/9000001/external_ids", `200 OK {"id":9000001,"imdb_id":"tt9100001","tvdb_id":70001}` + "\n"},
+			{"/3/tv/9000002/external_ids", `200 OK {"id":9000002,"imdb_id":null,"tvdb_id":null}` + "\n"},
+			{"/3/find/70001?external_source=tvdb_id", `200 OK {"movie_results":[],"person_results":[],"tv_results":[` + fmt.Sprintf(keepers, `"media_type":"tv",`) + `],"tv_episode_results":[],"tv_season_results":[]}` + "\n"},
+			{"/3/find/70002?external_source=tvdb_id", `200 OK {"movie_results":` + empty},
+			{"/3/find/70001?external_source=imdb_id", `200 OK {"movie_results":` + empty},
+			{"/3/tv/9000003", notFound},
+			{"/3/tv/9000003/external_ids", notFound},
+		})
+		var record struct {
+			Name      string `json:"name"`
+			CreatedBy []struct {
+				Name string `json:"name"`
+			} `json:"created_by"`
+			Networks []struct {
+				Name     string `json:"name"`
+				LogoPath string `json:"logo_path"`
+			} `json:"networks"`
+			Seasons        []struct{} `json:"seasons"`
+			ContentRatings struct {
+				Results []struct {
+					Country string `json:"iso_3166_1"`
+					Rating  string `json:"rating"`
+				} `json:"results"`
+			} `json:"content_ratings"`
+			ExternalIDs struct {
+				TVDB int64 `json:"tvdb_id"`
+			} `json:"external_ids"`
+		}
+		body := get(t, f, "/3/tv/9000001?append_to_response=content_ratings,external_ids")
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(body, "200 OK ")), &record); err != nil {
+			t.Fatalf("GET /3/tv/9000001 = %s: %v", body, err)
+		}
+		if record.Name != "The Lantern Keepers" || len(record.CreatedBy) != 1 || len(record.Networks) != 1 || record.Networks[0].LogoPath == "" ||
+			record.Seasons != nil || len(record.ContentRatings.Results) != 2 || record.ContentRatings.Results[0].Rating != "TV-14" || record.ExternalIDs.TVDB != 70001 {
+			t.Errorf("GET /3/tv/9000001 = %s, want the series with no seasons", body)
+		}
+	})
+}
+
+func TestSeriesCuesChangeTheSeriesListOnly(t *testing.T) {
+	inBothTiers(t, withSeries(load(t, "single-machine")), func(t *testing.T, f faketest.Served) {
+		today := time.Now().UTC().Format(time.DateOnly)
+		f.Cue(t, tmdb.SeriesChange.Name, tmdb.Series{ID: 9000002})
+		f.Cue(t, tmdb.SeriesDelete.Name, tmdb.Series{ID: 9000001})
+		check(t, f, []exchange{
+			{"/3/tv/changes?start_date=" + today, `200 OK {"results":[{"id":9000002,"adult":false,"softcore":false},{"id":9000001,"adult":false,"softcore":false}],"page":1,"total_pages":1,"total_results":2}` + "\n"},
+			{"/3/movie/changes?start_date=" + today, `200 OK {"results":[],"page":1,"total_pages":0,"total_results":0}` + "\n"},
+			{"/3/tv/9000001", notFound},
+			{"/3/find/70001?external_source=tvdb_id", `200 OK {"movie_results":[],"person_results":[],"tv_results":[],"tv_episode_results":[],"tv_season_results":[]}` + "\n"},
+		})
+		if got := get(t, f, "/3/tv/9000002"); !strings.Contains(got, `"overview":"Revision 1."`) {
+			t.Errorf("the changed series is %s", got)
+		}
+		if got := get(t, f, "/3/movie/9000001"); !strings.Contains(got, "200 OK") {
+			t.Errorf("the movie sharing the deleted series' id = %s, want 200", got)
+		}
 	})
 }

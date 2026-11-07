@@ -34,12 +34,11 @@ type OMDbSeason struct {
 }
 
 // OMDbEpisode is one episode's IMDb rating; a rating left out is one IMDb
-// has none of.
+// has none of. OMDb's season answer carries no votes.
 type OMDbEpisode struct {
 	Episode int      `jsonschema:"required,minimum=1"              yaml:"episode"`
 	IMDbID  string   `jsonschema:"required,pattern=^tt[0-9]{7\\,}$" yaml:"imdb_id"`
 	Rating  *float64 `jsonschema:"minimum=0,maximum=10"            yaml:"rating,omitempty"`
-	Votes   *int64   `jsonschema:"minimum=0"                       yaml:"votes,omitempty"`
 }
 
 func (o OMDb) check(add func(format string, args ...any)) {

@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -147,6 +148,46 @@ func TestOMDbCapLimitsUntilUTCMidnightWithoutSending(t *testing.T) {
 		time.Sleep(time.Second)
 		if _, err := c.Title(t.Context(), keyed, "tt9000001"); err != nil || sent.sent.Load() != before+1 {
 			t.Errorf("Title at midnight = %v after %d more requests, want the ratings in one", err, sent.sent.Load()-before)
+		}
+	})
+}
+
+var keepers = scenario.OMDbTitle{IMDbID: "tt9100001", Type: "series", IMDbRating: ptr(8.1), IMDbVotes: ptr(int64(4200)), Seasons: []scenario.OMDbSeason{
+	{Number: 1, Episodes: []scenario.OMDbEpisode{{Episode: 1, IMDbID: "tt9100011", Rating: ptr(8.0)}, {Episode: 2, IMDbID: "tt9100012"}, {Episode: 3, IMDbID: "tt9100013", Rating: ptr(7.3)}}},
+	{Number: 3, Episodes: []scenario.OMDbEpisode{{Episode: 1, IMDbID: "tt9100031", Rating: ptr(9.1)}}},
+}}
+
+func TestSeasonReadsEachRatedEpisodeOnIMDbsScale(t *testing.T) {
+	inEachTier(t, withTitles(t, keepers), func(t *testing.T, c *omdb.Client, _ faketest.Served) {
+		got, err := c.Season(t.Context(), keyed, "tt9100001", 1)
+		want := []omdb.EpisodeRating{
+			{Episode: 1, IMDbID: "tt9100011", Rating: works.Rating{Source: "imdb", Value: 8}},
+			{Episode: 3, IMDbID: "tt9100013", Rating: works.Rating{Source: "imdb", Value: 7.3}},
+		}
+		if err != nil || !reflect.DeepEqual(got, want) {
+			t.Errorf("Season(1) = %+v, %v; want %+v", got, err, want)
+		}
+		title, err := c.Title(t.Context(), keyed, "tt9100001")
+		if want := (omdb.Title{Ratings: []works.Rating{{Source: "imdb", Value: 8.1, Votes: ptr(int64(4200))}}}); err != nil || !reflect.DeepEqual(title, want) {
+			t.Errorf("Title of the series = %+v, %v; want %+v", title, err, want)
+		}
+	})
+}
+
+func TestOMDbSeasonNotFoundIsNotFound(t *testing.T) {
+	inEachTier(t, withTitles(t, keepers, orchard), func(t *testing.T, c *omdb.Client, _ faketest.Served) {
+		for _, call := range []struct {
+			id     string
+			season int
+		}{{"tt9100001", 2}, {"tt9100001", 0}, {"tt9000001", 1}, {"tt9999999", 1}} {
+			_, err := c.Season(t.Context(), keyed, call.id, call.season)
+			want := "GET " + call.id + " season " + strconv.Itoa(call.season) + ": OMDb: has no such record"
+			if err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) || errors.Is(err, works.ErrUnavailable) {
+				t.Errorf("Season(%s, %d) = %v, want %s and not unavailable", call.id, call.season, err, want)
+			}
+		}
+		if got, err := c.Season(t.Context(), keyed, "tt9100001", 3); err != nil || len(got) != 1 {
+			t.Errorf("Season(3) after the misses = %+v, %v; want its one episode", got, err)
 		}
 	})
 }
