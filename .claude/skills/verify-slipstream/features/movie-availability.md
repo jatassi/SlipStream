@@ -29,7 +29,7 @@ Steps:
 - **Add The Quiet Orchard and read its availability.** The Item's `availability` is the US digital date.
 
   ```sh
-  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","monitor":true}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","preset":"all"}' '{nodes.home.url}/api/v1/works'
   $FW exec $RUN --proof movie-availability/availability-on-the-work -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works/<id from the add>'
   ```
 

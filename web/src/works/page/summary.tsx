@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { FilesSummary } from "../../api/gen/model";
+import type { FilesSummary, WorksContentTypeItems } from "../../api/gen/model";
 import { Chip } from "../../ui/chip";
 import { LiveChip } from "../../ui/live-chip";
 import { MetPill } from "../../ui/met-pill";
@@ -14,9 +14,15 @@ const pillLooks: { readonly [T in PillTone]: (words: string) => ReactNode } = {
   live: (words) => <LiveChip>{words}</LiveChip>,
 };
 
-/** What the Work's cells add up to, as pills, then the rest in tertiary text. */
-export function Summary({ summary }: { summary: FilesSummary }) {
-  const { pills, rest } = pillsOf(summary);
+/** What the Work's cells, or many Items, add up to, as pills, then the rest in tertiary text. */
+export function Summary({
+  summary,
+  holds,
+}: {
+  summary: FilesSummary;
+  holds: WorksContentTypeItems;
+}) {
+  const { pills, rest } = pillsOf(summary, holds);
   if (pills.length === 0) {
     return null;
   }

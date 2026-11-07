@@ -90,7 +90,7 @@ func (s shelf) Search(_ context.Context, ask metadata.Ask, query string) ([]work
 	return []works.Candidate{{Key: "k1", Label: query}}, s.fail
 }
 
-func (s shelf) Fetch(_ context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+func (s shelf) Fetch(_ context.Context, ask metadata.Ask, key works.Key, _ []byte) (works.Fetched, error) {
 	s.h.add(s.node+" fetch "+string(key), ask)
 	if s.fail != nil {
 		return works.Fetched{}, s.fail
@@ -155,9 +155,9 @@ func TestEveryCallLeavesFromTheHolderPickChose(t *testing.T) {
 			if want := []string{c.want + " search attic", c.want + " fetch k1"}; !slices.Equal(h.calls, want) {
 				t.Fatalf("calls = %v, want %v", h.calls, want)
 			}
-			for i, a := range h.asks {
-				if a.Language != "en-US" || a.Region != "US" || a.Ratings != (i == 1) {
-					t.Errorf("call %d carried %+v, want en-US and US, ratings only on the add", i, a)
+			for i, want := range []metadata.Ratings{metadata.RatingsNone, metadata.RatingsWork} {
+				if a := h.asks[i]; a.Language != "en-US" || a.Region != "US" || a.Ratings != want {
+					t.Errorf("call %d carried %+v, want en-US and US, the Work's ratings only on the add", i, a)
 				}
 			}
 		})
@@ -258,7 +258,7 @@ func (twice) Search(context.Context, metadata.Ask, string) ([]works.Candidate, e
 
 func (twice) Sources() []artwork.Source { return nil }
 
-func (s twice) Fetch(ctx context.Context, ask metadata.Ask, _ works.Key) (works.Fetched, error) {
+func (s twice) Fetch(ctx context.Context, ask metadata.Ask, _ works.Key, _ []byte) (works.Fetched, error) {
 	var v struct{}
 	for range 2 {
 		if err := s.line.Get(ctx, ask, metadata.Request{URL: s.base}, &v); err != nil {

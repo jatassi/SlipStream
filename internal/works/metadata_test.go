@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -197,7 +198,7 @@ func TestARatingOrArtworkTheTypeCantHaveIsInvalid(t *testing.T) {
 	}
 }
 
-func TestSetMonitoredPublishesChanged(t *testing.T) {
+func TestSetMonitoredTurnsALevelsAndNamedItemsAndPublishesOnce(t *testing.T) {
 	h := newHarness(t)
 	h.fx.Put("w1", shelf())
 	h.fx.Put("w2", shelf())
@@ -212,33 +213,50 @@ func TestSetMonitoredPublishesChanged(t *testing.T) {
 	h.changed.take()
 	monitored := func(tree works.Tree) string { return monitoredKeys(t, h, tree.ID) }
 	published := func() []string { return publishedIDs(t, h) }
-	both := []string{a.ID.String(), b.ID.String()}
-	slices.Sort(both)
+	set := func(part works.Within, on bool) int {
+		t.Helper()
+		n, err := h.works.SetMonitored(t.Context(), admin, a.ID, part, on)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
 
-	items := []works.ItemID{a.Items[0].ID, a.Items[1].ID, b.Items[2].ID}
-	if err := h.works.SetMonitored(t.Context(), admin, items, true); err != nil {
-		t.Fatal(err)
+	winter := works.Within{Levels: []works.LevelID{a.Levels[0].ID}, Items: []works.ItemID{a.Items[2].ID}}
+	if n := set(winter, true); n != 3 {
+		t.Fatalf("monitoring b1 and c3 moved %d Items, want 3", n)
 	}
-	if got := published(); !reflect.DeepEqual(got, both) {
-		t.Fatalf("monitoring Items of two Works published %v, want one works.changed naming %v", got, both)
+	if got := published(); !reflect.DeepEqual(got, []string{a.ID.String()}) {
+		t.Fatalf("monitoring b1 and c3 published %v, want one works.changed naming %s", got, a.ID)
 	}
-	if ga, gb := monitored(a), monitored(b); ga != "c1 c2" || gb != "c3" {
-		t.Fatalf("monitored = %q and %q, want c1 c2 and c3", ga, gb)
+	if ga, gb := monitored(a), monitored(b); ga != "c1 c2 c3" || gb != "" {
+		t.Fatalf("monitored = %q and %q, want c1 c2 c3 and none", ga, gb)
 	}
-	if err := h.works.SetMonitored(t.Context(), admin, items, true); err != nil {
-		t.Fatal(err)
+	if n := set(winter, true); n != 0 {
+		t.Fatalf("monitoring them again moved %d Items", n)
 	}
 	if got := published(); len(got) != 0 {
 		t.Fatalf("monitoring Items already monitored published %v", got)
 	}
-	if err := h.works.SetMonitored(t.Context(), admin, []works.ItemID{b.Items[2].ID, b.Items[0].ID}, false); err != nil {
-		t.Fatal(err)
+	if n := set(works.Within{Items: []works.ItemID{a.Items[0].ID}}, false); n != 1 {
+		t.Fatalf("unmonitoring c1 moved %d Items, want 1", n)
 	}
-	if got := published(); !reflect.DeepEqual(got, []string{b.ID.String()}) {
-		t.Fatalf("unmonitoring one Work's Item published %v, want one works.changed for %s", got, b.ID)
+	if ga := monitored(a); ga != "c2 c3" {
+		t.Fatalf("monitored = %q, want c2 c3", ga)
 	}
-	if ga, gb := monitored(a), monitored(b); ga != "c1 c2" || gb != "" {
-		t.Fatalf("monitored = %q and %q, want c1 c2 and none", ga, gb)
+	published()
+
+	for _, part := range []works.Within{{Levels: []works.LevelID{b.Levels[0].ID}}, {Items: []works.ItemID{a.Items[0].ID, b.Items[0].ID}}} {
+		_, err := h.works.SetMonitored(t.Context(), admin, a.ID, part, false)
+		if !errors.Is(err, works.ErrNotInWork) {
+			t.Fatalf("setting %+v of w1 = %v, want ErrNotInWork", part, err)
+		}
+	}
+	if ga := monitored(a); ga != "c2 c3" || len(published()) != 0 {
+		t.Fatalf("a refused change left monitored = %q, want c2 c3 and nothing published", ga)
+	}
+	if _, err := h.works.SetMonitored(t.Context(), admin, works.WorkID{UUID: storage.NewUUID()}, winter, true); !errors.Is(err, works.ErrNoWork) {
+		t.Fatalf("setting a Work nobody has = %v, want ErrNoWork", err)
 	}
 }
 

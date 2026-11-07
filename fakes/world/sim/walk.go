@@ -15,10 +15,12 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/tmdb"
+	"github.com/jatassi/slipstream/fakes/tvdb"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/contenttypes/movie"
+	"github.com/jatassi/slipstream/internal/contenttypes/series"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
@@ -32,13 +34,13 @@ import (
 const PayloadSize = 4*transfers.ChunkSize + transfers.ChunkSize/2
 
 // WithWalk runs the skeleton's walk on a Scenario with releases and a
-// library: every Node registers the movie type, fake-tmdb, fake-omdb and
-// fixture-site serve on the network at 127.0.0.1, each Node's engine
-// finishes a seeded release at once with its Payload, its swarm sends a
-// public seeded release's metadata to a magnet link that reaches it
-// through the World's tracker or DHT, each Node probes a release's file
-// at its video's size, and the library is seeded once the Nodes are set
-// up.
+// library: every Node registers the movie and series types, fake-tmdb,
+// fake-tvdb, fake-omdb and fixture-site serve on the network at
+// 127.0.0.1, each Node's engine finishes a seeded release at once with its
+// Payload, its swarm sends a public seeded release's metadata to a magnet
+// link that reaches it through the World's tracker or DHT, each Node
+// probes a release's file at its video's size, and the library is seeded
+// once the Nodes are set up.
 func WithWalk() Option { return func(o *options) { o.walk = true } }
 
 // Listed edits each release fixture-site lists.
@@ -80,10 +82,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		hashes:   map[string]bencode.InfoHash{},
 		probes:   map[string]media.Probe{},
 	}
-	imdb := map[int64]string{}
-	for _, m := range s.TMDB.Movies {
-		imdb[m.ID] = m.IMDbID
-	}
+	imdb := imdbIDs(s)
 	announce := "https://127.0.0.1/announce/" + releases.Passkey(s)
 	w.announce = announce
 	var listing []site.Release
@@ -112,7 +111,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 			size = int64(r.AdvertisedSize)
 		}
 		item := site.Release{
-			Name: r.Name, Size: size, InfoHash: hash.String(), TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: meta,
+			Name: r.Name, Size: size, InfoHash: hash.String(), TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: meta,
 			Link: r.Link, Trackerless: r.Trackerless,
 		}
 		if listed != nil {
@@ -123,19 +122,28 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
 	faults := fault.NewPlan([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, nil)
 	w.faults = faults
-	movies, err := tmdb.Fake.New(s, fake.NewEnv(s, tmdb.Fake, log, faults, nil))
-	if err != nil {
-		t.Fatal(err)
+	for _, spec := range []fake.Spec{tmdb.Fake, omdb.Fake, tvdb.Fake} {
+		server, err := spec.New(s, fake.NewEnv(s, spec, log, faults, nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+		spec.Endpoints(endpoints, fakes.serve(t, local, server))
 	}
-	tmdb.Fake.Endpoints(endpoints, fakes.serve(t, local, movies))
-	ratings, err := omdb.Fake.New(s, fake.NewEnv(s, omdb.Fake, log, faults, nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	omdb.Fake.Endpoints(endpoints, fakes.serve(t, local, ratings))
 	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(string) (string, error) { return announce, nil })))
 	site.Fake.Endpoints(endpoints, w.site)
 	return w
+}
+
+// imdbIDs is the IMDb id of each movie the Scenario's TMDB lists, by its
+// TMDB id.
+func imdbIDs(s scenario.Scenario) map[int64]string {
+	ids := map[int64]string{}
+	if s.TMDB != nil {
+		for _, m := range s.TMDB.Movies {
+			ids[m.ID] = m.IMDbID
+		}
+	}
+	return ids
 }
 
 // Faults is the Plan the walk's fakes read. A rule's Target names the fake,
@@ -161,7 +169,7 @@ func (w *walk) seed(world *World, ready []node.Ready) {
 }
 
 func (w *walk) env(n *Node, e *node.Env) {
-	e.Types = contenttype.NewSet(movie.Def)
+	e.Types = contenttype.NewSet(movie.Def, series.Def)
 	e.Engine = func(cfg engine.Config) (engine.Engine, error) {
 		swarm := enginetest.NewWorld()
 		swarm.Tracker(w.announce, enginetest.TrackerRules{Interval: 30 * time.Minute})

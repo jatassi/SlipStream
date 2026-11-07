@@ -135,7 +135,15 @@ func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 		if err != nil {
 			return nil, fmt.Errorf("open the %s key: %w", row.Provider, err)
 		}
-		m.yours[ProviderID(row.Provider)] = yourKey{key: string(key), setAt: row.SetAt.Time()}
+		yours := yourKey{key: string(key), setAt: row.SetAt.Time()}
+		if row.PinSealed != nil {
+			pin, err := cfg.Sealer.Open(*row.PinSealed, pinColumn.Row(row.Provider))
+			if err != nil {
+				return nil, fmt.Errorf("open the %s PIN: %w", row.Provider, err)
+			}
+			yours.pin = string(pin)
+		}
+		m.yours[ProviderID(row.Provider)] = yours
 	}
 	return m, nil
 }
@@ -146,7 +154,7 @@ var _ works.Source = (*Metadata)(nil)
 // preview does.
 func (m *Metadata) Search(ctx context.Context, t works.TypeID, query string) ([]works.Candidate, error) {
 	res, err := send(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.SearchResponse, error) {
-		return s.Search(ctx, &metadatav1.SearchRequest{Ask: m.ask(false, false), ContentType: string(t), Query: query})
+		return s.Search(ctx, &metadatav1.SearchRequest{Ask: m.ask(false, RatingsNone), ContentType: string(t), Query: query})
 	})
 	if err != nil {
 		return nil, err
@@ -157,12 +165,19 @@ func (m *Metadata) Search(ctx context.Context, t works.TypeID, query string) ([]
 	return works.DecodeCandidates(res.GetCandidates())
 }
 
-// Fetch reads the ratings providers on an add, and on a refresh once the
-// ratings setting's time has passed since they last answered.
+// Fetch reads the Work's own ratings on an add, and every rating on a
+// refresh once the ratings setting's time has passed since they last
+// answered.
 func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f works.Fetching) (works.Fetched, error) {
-	ratings := f.Purpose == works.ForAdd || f.Purpose == works.ForRefresh && m.ratingsDue(f.RatingsReadAt)
+	ratings := RatingsNone
+	switch {
+	case f.Purpose == works.ForAdd:
+		ratings = RatingsWork
+	case f.Purpose == works.ForRefresh && m.ratingsDue(f.RatingsReadAt):
+		ratings = RatingsAll
+	}
 	res, err := send(ctx, m, f.Via, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.FetchResponse, error) {
-		return s.Fetch(ctx, &metadatav1.FetchRequest{Ask: m.ask(f.Purpose == works.ForRefresh, ratings), ContentType: string(t), Key: string(key)})
+		return s.Fetch(ctx, &metadatav1.FetchRequest{Ask: m.ask(f.Purpose == works.ForRefresh, ratings), ContentType: string(t), Key: string(key), Options: f.Options})
 	})
 	if err != nil {
 		return works.Fetched{}, err
@@ -178,7 +193,7 @@ func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f w
 // holder reads, is ErrNoChanges.
 func (m *Metadata) Changes(ctx context.Context, t works.TypeID, since time.Time) ([]works.Key, error) {
 	res, err := send(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.ChangesResponse, error) {
-		return s.Changes(ctx, &metadatav1.ChangesRequest{Ask: m.ask(true, false), ContentType: string(t), SinceUnixMicro: since.UnixMicro()})
+		return s.Changes(ctx, &metadatav1.ChangesRequest{Ask: m.ask(true, RatingsNone), ContentType: string(t), SinceUnixMicro: since.UnixMicro()})
 	})
 	if err != nil {
 		return nil, err
@@ -198,15 +213,16 @@ func (m *Metadata) ratingsDue(readAt storage.Time) bool {
 }
 
 // ask is an Ask with the settings, keys and cache generation in effect:
-// fresh bypasses the holders' caches, ratings calls the ratings providers.
-func (m *Metadata) ask(fresh, ratings bool) *metadatav1.Ask {
-	keys := m.inEffect()
+// fresh bypasses the holders' caches, ratings is what the ratings
+// providers are asked for.
+func (m *Metadata) ask(fresh bool, ratings Ratings) *metadatav1.Ask {
+	keys, pins := m.inEffect()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s := m.settings
 	return askToWire(Ask{
 		Language: LanguageChoice.Value(s.Language), Region: RegionChoice.Value(s.Region), Ratings: ratings,
-		keys: keys, fresh: fresh, cacheFor: CacheFor.Value(s.CacheForSeconds), generation: m.generation,
+		keys: keys, pins: pins, fresh: fresh, cacheFor: CacheFor.Value(s.CacheForSeconds), generation: m.generation,
 	})
 }
 

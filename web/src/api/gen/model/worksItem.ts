@@ -6,8 +6,10 @@ import type { WorksRating } from "./worksRating.ts";
 export interface WorksItem {
   /** By kind */
   artwork: WorksArt[];
+  /** It sits in an aside level */
+  aside: boolean;
   /** The day the Item counts as released and the rule that chose it; null while no date is known */
-  availability: WorksAvailability;
+  availability: WorksAvailability | null;
   fields: WorksFieldValue[];
   id: string;
   key: string;

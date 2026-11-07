@@ -176,7 +176,7 @@ func (a *Availability) release(ctx context.Context, last, today time.Time, ws []
 	return nil
 }
 
-// arrivals is every monitored Item whose availability date its
+// arrivals is every monitored, live Item whose availability date its
 // Content Type knows, in the library's Work order.
 func (a *Availability) arrivals(ctx context.Context) ([]arrival, error) {
 	var out []arrival
@@ -199,7 +199,7 @@ func (a *Availability) arrivals(ctx context.Context) ([]arrival, error) {
 		}
 		for _, w := range all {
 			for _, it := range items[w.ID] {
-				if from, known := timings[it.ID].From(); known && it.Monitored {
+				if from, known := timings[it.ID].From(); known && it.Counts() {
 					out = append(out, arrival{work: w.ID, item: it.ID, from: from})
 				}
 			}
@@ -212,7 +212,7 @@ func (a *Availability) arrivals(ctx context.Context) ([]arrival, error) {
 func (a *Availability) timings(ctx context.Context, r storage.Reader[storage.Library], all []works.Summary, items map[works.WorkID][]works.Item) (map[works.ItemID]targets.Timing, error) {
 	watched := map[works.TypeID][]works.WorkID{}
 	for _, w := range all {
-		if slices.ContainsFunc(items[w.ID], monitored) {
+		if slices.ContainsFunc(items[w.ID], works.Item.Counts) {
 			watched[w.ContentType] = append(watched[w.ContentType], w.ID)
 		}
 	}
@@ -226,5 +226,3 @@ func (a *Availability) timings(ctx context.Context, r storage.Reader[storage.Lib
 	}
 	return out, nil
 }
-
-func monitored(it works.Item) bool { return it.Monitored }

@@ -13,7 +13,7 @@ import (
 func TestTheLibraryIsGzippedForAClientThatAcceptsIt(t *testing.T) {
 	s := serve(t)
 	s.fx.Put("w1", record())
-	if code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":false}`); code != http.StatusOK {
+	if code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","preset":"none"}`); code != http.StatusOK {
 		t.Fatalf("addWork = %d %s", code, body)
 	}
 	_, plain := s.call(t, http.MethodGet, "/api/v1/library", "")

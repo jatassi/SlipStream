@@ -18,6 +18,8 @@ const (
 	// Limited; status shows it apart.
 	Capped
 	Unreachable
+	// PinRefused is a login the provider refused for its PIN, not its key.
+	PinRefused
 )
 
 // Outcome is one provider call's result as a holder reports it.

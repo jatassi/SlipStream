@@ -5,6 +5,7 @@ One Work on one scroll. The hero sets the Work's backdrop behind its poster, its
 ## Sub-features
 
 - `work-hero` The Salt Road's page on `movies` shows the backdrop, the poster and the title treatment as an image inside the `h1` named `The Salt Road`, the facts line `2022 · Movie · 1h 52m · PG-13 · Drama, Adventure` with its first rating, `IMDb 7.1`, the `Cells` pills, and the overview clamped to three lines with `More` (P-045).
+- `work-hero-steady` while the title treatment is still loading, its place in the hero already has its full height, so `More actions for <title>` is at the same spot before and after the image arrives.
 - `work-needs-you` a Work with no library root reads `No library root for this Work` with `Open Library roots` under `Needs you`; a failed download reads one compact failure card named for the cell that failed, with `Search again`, and the pills read `failed`.
 - `work-matrix` the table `Editions and Targets` has one column per Target of the Work's Profile with its sourcing, `Downloaded`, and one row per wanted Edition reading where its list comes from, `From Profile <name>` or `Set for this Work`; each cell has its state chip and, while it lacks a file, `Search for <Target>, <Edition>`. On phone it is one card per Edition (P-208).
 - `work-editions` `Editions` (desktop) or `Edit Editions` (phone, in the actions sheet) opens `Editions of <title>` with the heading `Editions from Profile <name>`; `Choose cuts` and `Add cut` make `Editions set for this Work`, and `Save` opens the Impact `Save the Editions of <title>`. Saving toasts `Saved the Editions of <title>.`, the rows read `Set for this Work`, and a cut no release has shown yet sits in its own row reading `Not seen yet. It's wanted once a release of it is found.`
@@ -13,6 +14,7 @@ One Work on one scroll. The hero sets the Work's backdrop behind its poster, its
 - `work-edit` `Edit…` opens `Edit <title>` with `Profile` and `Library root`; a new Profile saves through the Impact `Give <title> the Profile <name>` and toasts `Changed the Profile of <title>.` (P-047).
 - `work-refresh` `Refresh metadata` toasts `Refreshed the metadata of <title>.` and the page shows the new record; once TMDB drops the Work it toasts `TMDB no longer lists <title>, so it wasn't refreshed.`, the hero reads `Gone from TMDB`, `Refresh metadata is unavailable` and `TMDB no longer lists this movie. SlipStream keeps it as it is.` with `Delete`, the record stays, and `Refresh metadata` in the menu is disabled (P-047).
 - `work-delete` `Delete…`, or the gone-upstream warning's `Delete`, opens `Delete <title>?`; deleting toasts once, `Deleted <title> and its files.`, or `Deleted <title>.` for a Work with no files, and the page goes back to its Library. A Work deleted elsewhere while its page is open toasts `<title> was deleted.` and leaves the same way (P-047).
+- `work-page-many-items` a Work of a Content Type with many Items shows its levels and Items between Needs you and Files in place of the Edition by Target matrix, and its hero's Monitored switch becomes a Monitoring button; [series-work-page.md](series-work-page.md) and [series-monitoring.md](series-monitoring.md) drive them on `series`.
 
 ## How to get to it (user POV)
 
@@ -30,10 +32,17 @@ Preconditions:
 
 Steps:
 
-- **Add The Salt Road and open it.** Set `W` to the reply's `work.id`.
+- **Add The Salt Road and open it.** Set `W` to the reply's `work.id`. The page is first opened on phone with image-cdn slowed, because the title treatment is fetched on the first view and not when the Work is added. The first `run-code` reads `loading: true` and the box of `More actions` while the treatment is held. The second reads its box once the treatment has loaded, and the two boxes are equal.
 
   ```sh
-  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","monitor":true}' '{nodes.home.url}/api/v1/works'
+  $FW fault set $RUN cdn-slow image-cdn latency=3s
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","preset":"all"}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto "{nodes.home.browserUrl}/works/$W"
+  $FW exec $RUN --proof work-page/work-hero-steady -- $PW cli -s={runId}-admin-phone run-code 'async page => { const more = page.getByRole("button", { name: "More actions for The Salt Road" }); await more.waitFor({ timeout: 10000 }); const loading = await page.locator("header :is(h1, p) > img").evaluate((img) => !img.complete || img.naturalWidth === 0); return { loading, box: await more.boundingBox() }; }'
+  $FW exec $RUN --proof work-page/work-hero-steady -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/work-page/work-hero-steady/loading.png
+  $FW fault clear $RUN cdn-slow
+  $FW exec $RUN --proof work-page/work-hero-steady -- $PW cli -s={runId}-admin-phone run-code 'async page => { await page.waitForFunction(() => { const img = document.querySelector("header :is(h1, p) > img"); return img !== null && img.complete && img.naturalWidth > 0; }, undefined, { timeout: 30000 }); return { loading: false, box: await page.getByRole("button", { name: "More actions for The Salt Road" }).boundingBox() }; }'
+  $FW exec $RUN --proof work-page/work-hero-steady -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/work-page/work-hero-steady/loaded.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$W"
   $FW exec $RUN --proof work-page/work-hero -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/work-page/work-hero/desktop.aria.yml
   $FW exec $RUN --proof work-page/work-hero -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/work-page/work-hero/desktop.png

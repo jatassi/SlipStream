@@ -150,7 +150,7 @@ func TestParseFetchedPlacesEveryNode(t *testing.T) {
 
 func TestParseFetchedRefusesATreeThatBreaksARule(t *testing.T) {
 	two := Description{
-		Name: "Series", Work: Noun{"Series", "Series"},
+		Name: "Shows", Work: Noun{"Show", "Shows"},
 		Levels: []Noun{{"Season", "Seasons"}, {"Part", "Parts"}}, Item: Noun{"Episode", "Episodes"},
 	}
 	cases := []struct {

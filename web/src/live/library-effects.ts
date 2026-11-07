@@ -19,7 +19,9 @@ const everyIndexersGrabs = everyPath(/^\/api\/v1\/indexers\/[^/]+\/grabs$/u);
 /**
  * The library's events: Works, their files, Grabs and searches. A row of
  * the Library is read again only for the Works an event names. A fetch or
- * a search also moves the Diagram's machines.
+ * a search also moves the Diagram's machines. A Grab's progress tick
+ * leaves the cells alone, since a downloading cell reads its progress
+ * from the Grab.
  */
 export const libraryEffects = {
   "works.changed": ({ workIds }, { queryClient, refresh }) => {
@@ -57,7 +59,9 @@ export const libraryEffects = {
     refresh({ queryKey: getListGrabsQueryKey() });
     refresh({ queryKey: getGetGrabQueryKey(grabId) });
     refresh(everyIndexersGrabs);
-    refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
+    if (!progress) {
+      refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
+    }
     refresh({ queryKey: getGetCountsQueryKey() });
   },
   "grabs.search-changed": (data, { refresh }) => {

@@ -199,14 +199,14 @@ func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentTyp
 
 // AddWork adds the Work of contentType whose catalog key is key, or gets
 // the one already added.
-func AddWork(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, key string, monitor bool) error {
+func AddWork(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, key, preset string) error {
 	return call(ctx, c, request{
 		what: "add " + contentType + " " + key, method: http.MethodPost, url: baseURL + "/api/v1/works",
 		header: apiKeyHeader(apiKey), body: struct {
 			ContentType string `json:"contentType"`
 			Key         string `json:"key"`
-			Monitor     bool   `json:"monitor"`
-		}{contentType, key, monitor}, want: http.StatusOK,
+			Preset      string `json:"preset,omitempty"`
+		}{contentType, key, preset}, want: http.StatusOK,
 	}, nil)
 }
 
@@ -568,6 +568,18 @@ func SetStorageLevels(ctx context.Context, c *http.Client, baseURL, apiKey strin
 			ErrorBelow amount `json:"errorBelow"`
 		}{amount{int64(l.WarnBelow), "bytes"}, amount{int64(l.ErrorBelow), "bytes"}}, want: http.StatusOK,
 	}, &settings)
+}
+
+// SetMetadataKey saves key as the Admin's key for provider, which a holder
+// tests first.
+func SetMetadataKey(ctx context.Context, c *http.Client, baseURL, apiKey, provider, key string) error {
+	var status struct{}
+	return call(ctx, c, request{
+		what: "set the " + provider + " key", method: http.MethodPut, url: baseURL + "/api/v1/metadata/providers/" + provider + "/key",
+		header: apiKeyHeader(apiKey), body: struct {
+			Key string `json:"key"`
+		}{key}, want: http.StatusOK,
+	}, &status)
 }
 
 // SetChallengeSolver sets the Challenge solver of the Node with id to

@@ -3,10 +3,13 @@ import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactNode } from "react";
 
 import type {
+  FilesItemStatus,
+  WorksAvailability,
   WorksContentType,
   WorksFieldSpec,
-  WorksFieldValue,
+  WorksItem,
   WorksPerson,
+  WorksRating,
   WorksWebLink,
   WorksWorkView,
 } from "../../api/gen/model";
@@ -15,38 +18,27 @@ import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { Icon } from "../../ui/icon";
 import { Section } from "../../ui/section";
+import { type Placed, codeOf, placedOf } from "../fields-by-tier";
+// oxlint-disable-next-line import/max-dependencies -- About shows every place a type puts a field, with its art and links
 import { aboutText, dayWords, ratingValue } from "./fields-format";
 
-type Placed = {
-  readonly spec: WorksFieldSpec;
-  readonly value: WorksFieldValue;
-};
+type Holder = Pick<WorksWorkView, "fields" | "artwork">;
+
+/** The Work's values of the fields its type shows in a place, in declared order. */
+export const placed = (type: WorksContentType, work: WorksWorkView, place: Place) =>
+  placedOf(type, "work", work.fields, place);
 
 type Place = WorksFieldSpec["in"][number];
 
-/** The Work's values of the fields its type shows in a place, in declared order. */
-export function placed(
-  type: WorksContentType,
-  work: WorksWorkView,
-  place: Place,
-): readonly Placed[] {
-  return type.fields
-    .filter((spec) => spec.tier === "work" && spec.in.includes(place))
-    .flatMap((spec) => {
-      const value = work.fields.find((field) => field.key === spec.key);
-      return value === undefined ? [] : [{ spec, value }];
-    });
-}
-
-const textOf = (work: WorksWorkView, key: string | null): string | undefined => {
-  const value = work.fields.find((field) => field.key === key);
+const textOf = (holder: Holder, key: string | null): string | undefined => {
+  const value = holder.fields.find((field) => field.key === key);
   return value?.kind === "text" ? value.text : undefined;
 };
 
 /** "R (United States)" with its `With` field, and the `Art` kind's image beside it. */
-function AboutValue({ work, item: { spec, value } }: { work: WorksWorkView; item: Placed }) {
-  const bracket = textOf(work, spec.with);
-  const art = work.artwork.find(({ kind }) => kind === spec.art);
+function AboutValue({ holder, item: { spec, value } }: { holder: Holder; item: Placed }) {
+  const bracket = textOf(holder, spec.with);
+  const art = holder.artwork.find(({ kind }) => kind === spec.art);
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       {art !== undefined && (
@@ -62,14 +54,15 @@ function AboutValue({ work, item: { spec, value } }: { work: WorksWorkView; item
   );
 }
 
-function KeyValues({ work, items }: { work: WorksWorkView; items: readonly Placed[] }) {
+/** Fields as labels and values, a Work's or an Item's. */
+export function KeyValues({ holder, items }: { holder: Holder; items: readonly Placed[] }) {
   return (
     <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2">
       {items.map((item) => (
         <div key={item.spec.key} className="contents">
           <dt className="text-ink-3">{item.spec.label}</dt>
           <dd className="text-ink-1">
-            <AboutValue work={work} item={item} />
+            <AboutValue holder={holder} item={item} />
           </dd>
         </div>
       ))}
@@ -127,10 +120,10 @@ function Credits({ items }: { items: readonly Placed[] }) {
 
 const votesOf = (votes: number) => `${votes.toLocaleString()} ${votes === 1 ? "vote" : "votes"}`;
 
-function Ratings({ work }: { work: WorksWorkView }) {
+export function Ratings({ ratings }: { ratings: readonly WorksRating[] }) {
   return (
     <ul aria-label="Ratings" className="flex flex-col gap-1.5">
-      {work.ratings.map((rating) => (
+      {ratings.map((rating) => (
         <li key={rating.source} className="flex flex-wrap items-baseline gap-x-2">
           <span className="font-semibold text-ink-1">{rating.label}</span>
           <Data className="text-ink-1">{ratingValue(rating)}</Data>
@@ -178,24 +171,75 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** "Counts as out on April 16, 2021, Digital release in United States" for a one-Item Work. */
-function availabilityOf(type: WorksContentType, work: WorksWorkView): string | undefined {
-  const [item] = work.items;
-  if (type.items === "many" || item === undefined) {
-    return undefined;
-  }
-  const { date, basis } = item.availability;
+/** "Counts as out on April 16, 2021, Digital release in United States." */
+function countsAsOut({ date, basis }: WorksAvailability): string {
   return basis === ""
     ? `Counts as out on ${dayWords(date)}.`
     : `Counts as out on ${dayWords(date)}, ${basis}.`;
 }
 
+type Dated = { readonly item: WorksItem; readonly date: string };
+
+// The next Item to come out and the latest out, of the main run, by the server's release states.
+function nextAndLatest(
+  work: WorksWorkView,
+  statuses: readonly FilesItemStatus[],
+): { next: Dated | undefined; latest: Dated | undefined } {
+  const status = new Map(statuses.map((s) => [s.itemId, s.status]));
+  const dated = work.items.flatMap((item) =>
+    item.withdrawnAt === null && !item.aside && item.availability !== null
+      ? [{ item, date: item.availability.date }]
+      : [],
+  );
+  const unreleased = (at: Dated) => status.get(at.item.id) === "unreleased";
+  const out = dated.filter((at) => !unreleased(at) && status.get(at.item.id) !== null);
+  return {
+    next: dated.filter((at) => unreleased(at)).toSorted((a, b) => a.date.localeCompare(b.date))[0],
+    latest: out.toSorted((a, b) => b.date.localeCompare(a.date))[0],
+  };
+}
+
+/**
+ * A one-Item Work's day it counts as out, or for many Items the next
+ * Item to come out and the latest one out.
+ */
+function availabilityOf(
+  type: WorksContentType,
+  work: WorksWorkView,
+  statuses: readonly FilesItemStatus[],
+): string[] {
+  if (type.items === "one") {
+    const availability = work.items[0]?.availability;
+    return availability === undefined || availability === null ? [] : [countsAsOut(availability)];
+  }
+  const { next, latest } = nextAndLatest(work, statuses);
+  const noun = type.item.one.toLowerCase();
+  return [
+    ...(latest === undefined
+      ? []
+      : [
+          `The latest ${noun}, ${codeOf(type, latest.item)}, counted as out on ${dayWords(latest.date)}.`,
+        ]),
+    ...(next === undefined
+      ? []
+      : [`The next ${noun}, ${codeOf(type, next.item)}, counts as out on ${dayWords(next.date)}.`]),
+  ];
+}
+
 /** About the Work: its tagline and what its type places there, its credits, ratings and links, then Details. */
-export function About({ type, work }: { type: WorksContentType; work: WorksWorkView }) {
+export function About({
+  type,
+  work,
+  statuses,
+}: {
+  type: WorksContentType;
+  work: WorksWorkView;
+  statuses: readonly FilesItemStatus[];
+}) {
   const tagline = placed(type, work, "tagline").at(0);
   const credits = placed(type, work, "credits");
   const details = placed(type, work, "details");
-  const availability = availabilityOf(type, work);
+  const availability = availabilityOf(type, work, statuses);
   const record = `${type.source} lists this ${type.work.one.toLowerCase()} as ${work.key}.`;
   return (
     <Section title="About">
@@ -203,12 +247,16 @@ export function About({ type, work }: { type: WorksContentType; work: WorksWorkV
         {tagline !== undefined && (
           <p className="text-card-title text-ink-1">{aboutText(tagline.value)}</p>
         )}
-        <KeyValues work={work} items={placed(type, work, "about")} />
-        {availability !== undefined && <p className="text-ink-2">{availability}</p>}
+        <KeyValues holder={work} items={placed(type, work, "about")} />
+        {availability.map((line) => (
+          <p key={line} className="text-ink-2">
+            {line}
+          </p>
+        ))}
         {credits.length > 0 && <Credits items={credits} />}
         {work.ratings.length > 0 && (
           <Part title="Ratings">
-            <Ratings work={work} />
+            <Ratings ratings={work.ratings} />
           </Part>
         )}
         {work.links.length > 0 && (
@@ -220,7 +268,7 @@ export function About({ type, work }: { type: WorksContentType; work: WorksWorkV
           <p className="text-ink-2">{record}</p>
         ) : (
           <Details summary={record}>
-            <KeyValues work={work} items={details} />
+            <KeyValues holder={work} items={details} />
           </Details>
         )}
       </div>

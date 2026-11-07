@@ -54,7 +54,10 @@ export function PosterArt({ url }: { url: string | undefined }) {
   );
 }
 
-/** The title treatment as the h1's image, the label its accessible name; the label in text without one. */
+/**
+ * The title treatment as the h1's image, the label its accessible name; the label in text without one.
+ * The image holds its full height before it loads, so the actions under it stay where a tap lands.
+ */
 export function TitleHeading({
   label,
   treatment,
@@ -78,7 +81,7 @@ export function TitleHeading({
       <img
         src={`${treatment}?size=medium`}
         alt=""
-        className="max-h-28 max-w-[min(420px,100%)] object-contain object-left"
+        className="block h-28 w-auto max-w-[min(420px,100%)] object-contain object-left-bottom"
         onError={() => {
           setFailed(treatment);
         }}
