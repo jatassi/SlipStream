@@ -106,13 +106,36 @@ test("a multiselect with every choice cleared is sent empty, so the site's defau
   const server = addIndexerServer();
   renderApp({ path: formOf("hdbits"), handlers: server.handlers });
   const codecs = page.getByRole("group", { name: "Codecs" });
+  await userEvent.fill(page.getByRole("textbox", { name: "Username" }), "ada");
+  await userEvent.fill(page.getByLabelText("Passkey", { exact: true }), "pk-1");
   await userEvent.click(codecs.getByRole("checkbox", { name: "H.264" }));
   await userEvent.click(codecs.getByRole("checkbox", { name: "HEVC" }));
   await userEvent.click(save());
   await added("HDBits");
   expect(posted(server.writes)).toEqual([
-    expect.objectContaining({ values: { codecs: "", freeleechOnly: "false" } }),
+    expect.objectContaining({
+      values: { username: "ada", passkey: "pk-1", codecs: "", freeleechOnly: "false" },
+    }),
   ]);
+});
+
+test("a ported site's credentials are required, and Save names each one left empty", async () => {
+  const server = addIndexerServer();
+  renderApp({ path: formOf("hdbits"), handlers: server.handlers });
+  const [username, passkey] = [
+    page.getByRole("textbox", { name: "Username" }),
+    page.getByLabelText("Passkey", { exact: true }),
+  ];
+  await expect.element(username).toHaveAttribute("aria-required", "true");
+  await expect.element(passkey).toHaveAttribute("aria-required", "true");
+  await userEvent.click(save());
+  await expect.element(page.getByText("Username is required.")).toBeVisible();
+  await expect.element(page.getByText("Passkey is required.")).toBeVisible();
+  expect(posted(server.writes)).toEqual([]);
+  await userEvent.fill(username, "ada");
+  await userEvent.fill(passkey, "pk-1");
+  await userEvent.click(save());
+  await added("HDBits");
 });
 
 test("a site that moved takes a typed address, checked before the Test", async () => {

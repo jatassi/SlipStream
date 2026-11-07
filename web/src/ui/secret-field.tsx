@@ -18,6 +18,7 @@ type Props = {
   /** What of the saved secret may be shown, such as a feed's host. */
   shown?: string | undefined;
   type?: "password" | "url";
+  required?: boolean;
   description?: string | undefined;
 };
 
@@ -56,7 +57,14 @@ function Saved({
  * input. The field's value stays "" unless a new secret is typed, so a save
  * sends only a replaced one.
  */
-export function SecretField({ label, saved, shown, type = "password", description }: Props) {
+export function SecretField({
+  label,
+  saved,
+  shown,
+  type = "password",
+  required = false,
+  description,
+}: Props) {
   const field = useFieldContext<string>();
   const [replacing, setReplacing] = useState(!saved);
   const input = useRef<HTMLInputElement>(null);
@@ -79,6 +87,7 @@ export function SecretField({ label, saved, shown, type = "password", descriptio
         <Input
           ref={input}
           type={type}
+          aria-required={required}
           autoComplete="new-password"
           spellCheck={false}
           value={field.state.value}

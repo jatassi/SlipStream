@@ -55,6 +55,10 @@ export function rangeWords({ min, max }: IndexersDefinitionField): string | unde
 const outside = (field: IndexersDefinitionField, number: number) =>
   (field.min !== null && number < field.min) || (field.max !== null && number > field.max);
 
+/** A required setting left empty, which a saved sealed one isn't: its empty value keeps it. */
+export const requiredError = (field: IndexersDefinitionField, saved: boolean, value: string) =>
+  field.required && !saved && value === "" ? `${field.label} is required.` : undefined;
+
 /** Why a number field's value doesn't fit it, checked before the Test; empty takes the default. */
 export function numberError(field: IndexersDefinitionField, value: string): string | undefined {
   const text = value.trim();

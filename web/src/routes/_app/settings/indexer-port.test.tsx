@@ -129,6 +129,24 @@ test("Edit draws a ported site's address and settings, sealed ones that hold a v
   expect(server.writes).toEqual([]);
 });
 
+test("Edit refuses a ported site's username cleared, and keeps a saved password left as it is", async () => {
+  const server = indexersServer({ indexers: ported });
+  renderApp({ path: pageOf(norbitsId), handlers: server.handlers });
+  await userEvent.click(page.getByRole("button", { name: "Edit" }));
+  await userEvent.clear(dialog().getByRole("textbox", { name: "Username" }));
+  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+  await expect.element(dialog().getByText("Username is required.")).toBeVisible();
+  expect(dialog().getByText("Password is required.").query()).toBeNull();
+  expect(server.writes).toEqual([]);
+  await userEvent.click(dialog().getByRole("button", { name: "Replace Password" }));
+  await userEvent.fill(dialog().getByRole("textbox", { name: "Username" }), "sam");
+  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+  expect(dialog().getByText("Password is required.").query()).toBeNull();
+  await expect.poll(() => server.writes.map((write) => write.body)).toEqual([
+    expect.objectContaining({ values: { username: "sam" } }),
+  ]);
+});
+
 test("Edit switches a ported site's mirror and replaces a sealed setting, tested before it saves", async () => {
   const failTest =
     "NorBits rejected the username or password. Update them on the Indexer and test it.";

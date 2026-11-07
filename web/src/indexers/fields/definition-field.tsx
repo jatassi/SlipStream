@@ -5,7 +5,7 @@ import { Checkbox } from "../../ui/checkbox";
 import { withFieldGroup } from "../../ui/form";
 import { Select } from "../../ui/select";
 import { ChoiceSet } from "../add/families-field";
-import { chosenOf, numberError, rangeWords } from "./settings";
+import { chosenOf, numberError, rangeWords, requiredError } from "./settings";
 
 /**
  * An info field's text as the definition's authors wrote it, which may be
@@ -93,15 +93,24 @@ const TextSetting = withFieldGroup({
   props: one,
   render: function Text({ group, field, saved }) {
     return (
-      <group.AppField name="value">
+      <group.AppField
+        name="value"
+        validators={{ onSubmit: ({ value }) => requiredError(field, saved, value) }}
+      >
         {(bound) =>
           field.sealed || field.type === "password" ? (
-            <bound.SecretField label={field.label} saved={saved} description={description(field)} />
+            <bound.SecretField
+              label={field.label}
+              saved={saved}
+              required={field.required}
+              description={description(field)}
+            />
           ) : (
             <bound.TextField
               label={field.label}
               autoComplete="off"
               spellCheck={false}
+              aria-required={field.required}
               description={description(field)}
             />
           )
