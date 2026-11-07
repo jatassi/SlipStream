@@ -32,6 +32,15 @@ type Summary struct {
 	GoneUpstreamAt storage.Time
 	// RatingsReadAt is when the ratings providers last answered.
 	RatingsReadAt storage.Time
+	// MonitorNew: an Item a refresh adds arrives monitored, unless it sits
+	// in an aside level and MonitorAsides is off.
+	MonitorNew bool
+	// MonitorAsides: the Items of aside levels are part of the Work's
+	// monitoring choice.
+	MonitorAsides bool
+	// LevelFolders: new files sit in a folder per level. Unread for a type
+	// with no levels.
+	LevelFolders bool
 }
 
 // StoredRating is a Rating as the library holds it.
@@ -65,7 +74,10 @@ type Level struct {
 	Label       string
 	Position    int
 	WithdrawnAt storage.Time
+	Aside       bool
 	Fields      []FieldValue
+	// Artwork is keyed by the artwork.Kind's key.
+	Artwork map[string]artwork.Ref
 }
 
 type Item struct {
@@ -77,10 +89,19 @@ type Item struct {
 	Position    int
 	WithdrawnAt storage.Time
 	Monitored   bool
-	Fields      []FieldValue
-	Ratings     []StoredRating
-	Artwork     map[string]artwork.Ref
+	// Aside is whether it sits in an aside level.
+	Aside   bool
+	Fields  []FieldValue
+	Ratings []StoredRating
+	Artwork map[string]artwork.Ref
 }
+
+// Live reports whether its source still lists it.
+func (it Item) Live() bool { return it.WithdrawnAt.IsZero() }
+
+// Counts reports whether it counts toward its Work's status, tallies,
+// Needs you, availability and Wants: monitored and live.
+func (it Item) Counts() bool { return it.Monitored && it.Live() }
 
 // Types lists every registered Content Type in id order, off ones
 // included.
@@ -185,12 +206,15 @@ func (w *Works) Search(ctx context.Context, _ identity.Admin, t TypeID, query st
 
 const maxCandidates = 25
 
-// Adding is how Add creates a Work: its Items monitored when Monitor is
-// set, and Also, when set, run in the same Write once the Work exists, so
-// another owner's rows for it commit or roll back with it.
+// Adding is how Add creates a Work. Monitor is its monitor_new, so its
+// Items arrive monitored as the insert rule says, asides left out.
+// LevelFolders is its level_folders. Also, when set, runs in the same
+// Write once the Work exists, so another owner's rows for it commit or
+// roll back with it.
 type Adding struct {
-	Monitor bool
-	Also    func(ctx context.Context, tx *storage.Tx[file], w Summary) error
+	Monitor      bool
+	LevelFolders bool
+	Also         func(ctx context.Context, tx *storage.Tx[file], w Summary) error
 }
 
 // Add puts the Work t's source knows by key in the library with its whole
@@ -232,14 +256,14 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 			return err
 		}
 		created = true
-		return insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel}, p, a)
+		return insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel, MonitorNew: a.Monitor, LevelFolders: a.LevelFolders}, p, a)
 	})
 	if err != nil {
 		return Tree{}, false, err
 	}
 	if created {
 		w.cfg.Changed.Publish(ctx, ChangedOf(id))
-		if wants := prefetches(reg.desc, p.Artwork); len(wants) > 0 {
+		if wants := prefetches(reg.desc, p); len(wants) > 0 {
 			w.cfg.Artwork.Prefetch(wants)
 		}
 	}
@@ -247,16 +271,22 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 	return tree, created, err
 }
 
-// prefetches are the images of as whose kind d prefetches, at its size.
-func prefetches(d Description, as []Art) []artwork.Want {
+// prefetches are the images of p whose kind d prefetches, at its size.
+func prefetches(d Description, p parsed) []artwork.Want {
 	var wants []artwork.Want
-	for _, a := range as {
-		i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == (a.Item != "") })
-		if size := d.Artwork[i].Prefetch; size != "" {
+	for _, a := range p.Artwork {
+		if size := kindOf(d, p.tierOf(a), a.Kind).Prefetch; size != "" {
 			wants = append(wants, artwork.Want{Ref: a.Ref, Size: size})
 		}
 	}
 	return wants
+}
+
+// kindOf is d's artwork kind key at tier t, which validate and the parser
+// guarantee exists.
+func kindOf(d Description, t Tier, key string) artwork.Kind {
+	i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Key == key && k.Tier == t })
+	return d.Artwork[i]
 }
 
 var errPreview = errors.New("works: a preview rolls back")
@@ -297,7 +327,7 @@ func (w *Works) Preview(ctx context.Context, _ identity.Admin, t TypeID, key Key
 		case !errors.Is(err, storage.ErrNoRows):
 			return err
 		default:
-			err = insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel}, p, Adding{})
+			err = insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel, LevelFolders: true}, p, Adding{})
 			if err != nil {
 				return err
 			}
@@ -321,17 +351,12 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 	q := db.New(tx)
 	w.AddedAt = storage.Now()
 	w.RefreshedAt = w.AddedAt
-	work := db.InsertWorkParams{ID: w.ID, ContentType: w.ContentType, Key: w.Key, Label: w.Label, SortLabel: w.SortLabel, AddedAt: w.AddedAt, RefreshedAt: w.RefreshedAt}
+	work := db.InsertWorkParams{ID: w.ID, ContentType: w.ContentType, Key: w.Key, Label: w.Label, SortLabel: w.SortLabel, AddedAt: w.AddedAt, RefreshedAt: w.RefreshedAt, MonitorNew: w.MonitorNew, LevelFolders: w.LevelFolders}
 	if err := q.InsertWork(ctx, work); err != nil {
 		return err
 	}
 	if _, err := converge(ctx, tx, reg.catalog, w.ID, p, w.AddedAt); err != nil {
 		return err
-	}
-	if a.Monitor {
-		if err := q.MonitorItems(ctx, w.ID); err != nil {
-			return err
-		}
 	}
 	if a.Also == nil {
 		return nil
@@ -378,7 +403,11 @@ func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) (bool, 
 		return false, err
 	}
 	reg := w.types[row.ContentType]
-	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, Fetching{Purpose: ForRefresh, RatingsReadAt: row.RatingsReadAt, Via: via})
+	opts, err := reg.catalog.FetchOptions(ctx, w.cfg.Library, id)
+	if err != nil {
+		return false, fmt.Errorf("content type %s: fetch options of work %s: %w", row.ContentType, id, err)
+	}
+	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, Fetching{Purpose: ForRefresh, RatingsReadAt: row.RatingsReadAt, Via: via, Options: opts})
 	if errors.Is(err, ErrNotFound) {
 		return w.goneUpstream(ctx, id)
 	}
@@ -483,7 +512,7 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 	if err != nil {
 		return false, err
 	}
-	at, moved, err := writeNodes(ctx, q, id, p, now)
+	at, moved, err := writeNodes(ctx, q, Summary(row), p, now)
 	if err != nil {
 		return false, err
 	}
@@ -496,7 +525,7 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 	if err != nil {
 		return false, err
 	}
-	drawn, err := writeArtwork(ctx, q, id, at.Items, p.Artwork)
+	drawn, err := writeArtwork(ctx, q, at, p.Artwork)
 	if err != nil {
 		return false, err
 	}
@@ -511,10 +540,11 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 	return relabeled || !row.GoneUpstreamAt.IsZero() || moved || rated || drawn || own, nil
 }
 
-// writeNodes merges p's levels and Items over Work id's, clears its
+// writeNodes merges p's levels and Items over Work w's, clears its
 // gone-upstream mark, and reports where each node sits and whether any
-// level or Item moved.
-func writeNodes(ctx context.Context, q *db.Queries, id WorkID, p parsed, now storage.Time) (Placed, bool, error) {
+// level or Item moved. A new Item arrives monitored as w's rule says.
+func writeNodes(ctx context.Context, q *db.Queries, w Summary, p parsed, now storage.Time) (Placed, bool, error) {
+	id := w.ID
 	stored, levelIDs, itemIDs, err := storedNodes(ctx, q, id)
 	if err != nil {
 		return Placed{}, false, err
@@ -527,9 +557,9 @@ func writeNodes(ctx context.Context, q *db.Queries, id WorkID, p parsed, now sto
 		l := c.Node
 		if c.Insert {
 			levelIDs[l.Key] = LevelID{UUID: storage.NewUUID()}
-			err = q.InsertLevel(ctx, db.InsertLevelParams{ID: levelIDs[l.Key], WorkID: id, ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Key: l.Key, Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt})
+			err = q.InsertLevel(ctx, db.InsertLevelParams{ID: levelIDs[l.Key], WorkID: id, ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Key: l.Key, Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside})
 		} else {
-			err = q.UpdateLevel(ctx, db.UpdateLevelParams{ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, ID: levelIDs[l.Key]})
+			err = q.UpdateLevel(ctx, db.UpdateLevelParams{ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside, ID: levelIDs[l.Key]})
 		}
 		if err != nil {
 			return Placed{}, false, err
@@ -539,9 +569,10 @@ func writeNodes(ctx context.Context, q *db.Queries, id WorkID, p parsed, now sto
 		it := c.Node
 		if c.Insert {
 			itemIDs[it.Key] = ItemID{UUID: storage.NewUUID()}
-			err = q.InsertItem(ctx, db.InsertItemParams{ID: itemIDs[it.Key], WorkID: id, LevelID: levelIDs[it.Parent], Key: it.Key, Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt})
+			monitored := w.MonitorNew && (!it.Aside || w.MonitorAsides)
+			err = q.InsertItem(ctx, db.InsertItemParams{ID: itemIDs[it.Key], WorkID: id, LevelID: levelIDs[it.Parent], Key: it.Key, Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt, Aside: it.Aside, Monitored: monitored})
 		} else {
-			err = q.UpdateItem(ctx, db.UpdateItemParams{LevelID: levelIDs[it.Parent], Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt, ID: itemIDs[it.Key]})
+			err = q.UpdateItem(ctx, db.UpdateItemParams{LevelID: levelIDs[it.Parent], Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt, Aside: it.Aside, ID: itemIDs[it.Key]})
 		}
 		if err != nil {
 			return Placed{}, false, err
@@ -572,12 +603,12 @@ func storedNodes(ctx context.Context, q *db.Queries, id WorkID) (stored nodes, l
 		levelIDs[l.Key], levelKeys[l.ID] = l.ID, l.Key
 	}
 	for _, l := range levels {
-		stored.Levels = append(stored.Levels, level{node: node{Key: l.Key, Parent: levelKeys[l.ParentID], Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt}, Depth: int(l.Depth)})
+		stored.Levels = append(stored.Levels, level{node: node{Key: l.Key, Parent: levelKeys[l.ParentID], Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside}, Depth: int(l.Depth)})
 	}
 	itemIDs = map[Key]ItemID{}
 	for _, it := range items {
 		itemIDs[it.Key] = it.ID
-		stored.Items = append(stored.Items, node{Key: it.Key, Parent: levelKeys[it.LevelID], Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt})
+		stored.Items = append(stored.Items, node{Key: it.Key, Parent: levelKeys[it.LevelID], Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Aside: it.Aside})
 	}
 	return stored, levelIDs, itemIDs, nil
 }
@@ -614,27 +645,29 @@ func writeRatings(ctx context.Context, q *db.Queries, id WorkID, itemIDs map[Key
 
 func samePtr[T comparable](a, b *T) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
 
-func writeArtwork(ctx context.Context, q *db.Queries, id WorkID, itemIDs map[Key]ItemID, as []Art) (changed bool, err error) {
+func writeArtwork(ctx context.Context, q *db.Queries, at Placed, as []Art) (changed bool, err error) {
 	type slot struct {
-		item ItemID
-		kind string
+		level LevelID
+		item  ItemID
+		kind  string
 	}
+	id := at.Work
 	rows, err := q.ListArtwork(ctx, id)
 	if err != nil {
 		return false, err
 	}
 	held := map[slot]db.WorksArtwork{}
 	for _, r := range rows {
-		held[slot{r.ItemID, r.Kind}] = r
+		held[slot{r.LevelID, r.ItemID, r.Kind}] = r
 	}
 	for _, a := range as {
-		item := itemIDs[a.Item]
-		old, ok := held[slot{item, a.Kind}]
+		level, item := at.Levels[a.Level], at.Items[a.Item]
+		old, ok := held[slot{level, item, a.Kind}]
 		switch {
 		case !ok:
-			err = q.InsertArtwork(ctx, db.InsertArtworkParams{WorkID: id, ItemID: item, Kind: a.Kind, Source: string(a.Ref.Source), Path: a.Ref.Path})
+			err = q.InsertArtwork(ctx, db.InsertArtworkParams{WorkID: id, LevelID: level, ItemID: item, Kind: a.Kind, Source: string(a.Ref.Source), Path: a.Ref.Path})
 		case old.Source != string(a.Ref.Source) || old.Path != a.Ref.Path:
-			err = q.UpdateArtwork(ctx, db.UpdateArtworkParams{Source: string(a.Ref.Source), Path: a.Ref.Path, WorkID: id, ItemID: item, Kind: a.Kind})
+			err = q.UpdateArtwork(ctx, db.UpdateArtworkParams{Source: string(a.Ref.Source), Path: a.Ref.Path, WorkID: id, LevelID: level, ItemID: item, Kind: a.Kind})
 		default:
 			continue
 		}
@@ -700,6 +733,10 @@ func (t *Tree) attach(d Description, ratings []db.WorksRating, art []db.WorksArt
 	for i, it := range t.Items {
 		at[it.ID] = i
 	}
+	levelAt := map[LevelID]int{}
+	for i, l := range t.Levels {
+		levelAt[l.ID] = i
+	}
 	for _, r := range ratings {
 		v := StoredRating{Source: RatingSource(r.Source), Value: r.Value, Votes: r.Votes, FetchedAt: r.FetchedAt}
 		if r.ItemID.IsZero() {
@@ -710,22 +747,19 @@ func (t *Tree) attach(d Description, ratings []db.WorksRating, art []db.WorksArt
 		it.Ratings = append(it.Ratings, v)
 	}
 	for _, a := range art {
-		owner := &t.Artwork
-		if !a.ItemID.IsZero() {
-			owner = &t.Items[at[a.ItemID]].Artwork
+		owner, tier := &t.Artwork, TierWork
+		switch {
+		case !a.ItemID.IsZero():
+			owner, tier = &t.Items[at[a.ItemID]].Artwork, TierItem
+		case !a.LevelID.IsZero():
+			l := &t.Levels[levelAt[a.LevelID]]
+			owner, tier = &l.Artwork, TierLevel(l.Depth)
 		}
 		if *owner == nil {
 			*owner = map[string]artwork.Ref{}
 		}
-		(*owner)[a.Kind] = refOf(d, a)
+		(*owner)[a.Kind] = artwork.Ref{Source: artwork.SourceID(a.Source), Shape: kindOf(d, tier, a.Kind).Shape, Path: a.Path}
 	}
-}
-
-// refOf is a stored artwork row as a reference, shaped as its kind is.
-func refOf(d Description, a db.WorksArtwork) artwork.Ref {
-	item := !a.ItemID.IsZero()
-	i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == item })
-	return artwork.Ref{Source: artwork.SourceID(a.Source), Shape: d.Artwork[i].Shape, Path: a.Path}
 }
 
 func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []db.WorksItem, fs FieldSet) (Tree, error) {
@@ -740,7 +774,7 @@ func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []
 		if err != nil {
 			return Tree{}, fmt.Errorf("level %s: %w", l.Key, err)
 		}
-		t.Levels = append(t.Levels, Level{ID: l.ID, ParentID: l.ParentID, Depth: int(l.Depth), Key: l.Key, Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Fields: values})
+		t.Levels = append(t.Levels, Level{ID: l.ID, ParentID: l.ParentID, Depth: int(l.Depth), Key: l.Key, Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside, Fields: values})
 	}
 	held := map[ItemID]bool{}
 	for _, it := range items {
@@ -749,7 +783,9 @@ func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []
 		if err != nil {
 			return Tree{}, fmt.Errorf("item %s: %w", it.Key, err)
 		}
-		t.Items = append(t.Items, Item{ID: it.ID, LevelID: it.LevelID, Key: it.Key, Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Monitored: it.Monitored, Fields: values})
+		item := bare(it)
+		item.Fields = values
+		t.Items = append(t.Items, item)
 	}
 	for id := range fs.Levels {
 		if _, ok := rank[id]; !ok {

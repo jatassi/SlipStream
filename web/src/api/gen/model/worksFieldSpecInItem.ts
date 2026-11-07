@@ -4,4 +4,5 @@ export type WorksFieldSpecInItem =
   | "overview"
   | "about"
   | "credits"
-  | "details";
+  | "details"
+  | "code";

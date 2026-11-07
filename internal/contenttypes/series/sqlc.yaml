@@ -1,0 +1,39 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: series_season.level_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: LevelID
+          - column: series_episode.item_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: ItemID
+          - column: series_season.tvdb_season_id
+            go_type:
+              type: SeasonID
+          - column: series_episode.tvdb_episode_id
+            go_type:
+              type: EpisodeID
+          - column: series_series.tvdb_id
+            go_type:
+              type: TVDBID
+          - column: series_series.tmdb_id
+            go_type:
+              type: TMDBID
+              pointer: true
+          - column: series_settings.id
+            go_type:
+              type: Singleton

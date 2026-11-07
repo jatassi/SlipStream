@@ -4764,6 +4764,11 @@
             "maxLength": 256,
             "minLength": 1,
             "type": "string"
+          },
+          "pin": {
+            "description": "A subscriber PIN to send beside the key, for a provider that takes one; left out, none",
+            "maxLength": 256,
+            "type": "string"
           }
         },
         "required": [
@@ -4817,6 +4822,10 @@
           "label": {
             "type": "string"
           },
+          "pinSet": {
+            "description": "The Admin's key in use carries a PIN",
+            "type": "boolean"
+          },
           "state": {
             "description": "From the latest outcome of a call or test, unused until one",
             "enum": [
@@ -4832,6 +4841,10 @@
           "summary": {
             "description": "How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details",
             "type": "string"
+          },
+          "takesPin": {
+            "description": "Set key offers a subscriber PIN beside the key",
+            "type": "boolean"
           },
           "until": {
             "description": "When a rate limited provider, or one out of its daily allowance, takes calls again",
@@ -4851,6 +4864,8 @@
           "until",
           "keySetAt",
           "keyPage",
+          "takesPin",
+          "pinSet",
           "attribution",
           "details"
         ],
@@ -11291,6 +11306,12 @@
       "WorksArtworkKind": {
         "additionalProperties": false,
         "properties": {
+          "depth": {
+            "description": "The level's depth, 1 for the outermost; present only on tier level",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
           "key": {
             "type": "string"
           },
@@ -11310,6 +11331,7 @@
           "tier": {
             "enum": [
               "work",
+              "level",
               "item"
             ],
             "type": "string"
@@ -11373,6 +11395,10 @@
               "null"
             ]
           },
+          "unlisted": {
+            "description": "Another source found it and the Content Type's source doesn't list it, so it can't be added",
+            "type": "boolean"
+          },
           "workId": {
             "description": "The Work, once it is in the library",
             "format": "uuid",
@@ -11389,7 +11415,8 @@
           "overview",
           "fields",
           "posterUrl",
-          "workId"
+          "workId",
+          "unlisted"
         ],
         "type": "object"
       },
@@ -11436,6 +11463,21 @@
               "$ref": "#/components/schemas/WorksArtworkKind"
             },
             "type": "array"
+          },
+          "aside": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksNoun"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the type calls its outermost levels outside a Work's main run, such as Specials; null when it marks none"
+          },
+          "availability": {
+            "description": "The label of the Library's availability column and sort, such as Next airing; empty reads Available",
+            "type": "string"
           },
           "enabled": {
             "type": "boolean"
@@ -11506,13 +11548,15 @@
           "enabled",
           "work",
           "levels",
+          "aside",
           "item",
           "fields",
           "artwork",
           "source",
           "items",
           "art",
-          "ratings"
+          "ratings",
+          "availability"
         ],
         "type": "object"
       },
@@ -11762,7 +11806,7 @@
             "type": "integer"
           },
           "in": {
-            "description": "Every place the Work page shows it",
+            "description": "Every place the Work page shows it. Code is the short identifier the many-Items layout shows before an Item's label",
             "items": {
               "enum": [
                 "facts",
@@ -11770,7 +11814,8 @@
                 "overview",
                 "about",
                 "credits",
-                "details"
+                "details",
+                "code"
               ],
               "type": "string"
             },
@@ -11873,8 +11918,19 @@
             },
             "type": "array"
           },
+          "aside": {
+            "description": "It sits in an aside level",
+            "type": "boolean"
+          },
           "availability": {
-            "$ref": "#/components/schemas/WorksAvailability",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksAvailability"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "The day the Item counts as released and the rule that chose it; null while no date is known"
           },
           "fields": {
@@ -11933,6 +11989,7 @@
           "position",
           "withdrawnAt",
           "monitored",
+          "aside",
           "fields",
           "ratings",
           "artwork",
@@ -11943,6 +12000,17 @@
       "WorksLevel": {
         "additionalProperties": false,
         "properties": {
+          "artwork": {
+            "description": "By kind",
+            "items": {
+              "$ref": "#/components/schemas/WorksArt"
+            },
+            "type": "array"
+          },
+          "aside": {
+            "description": "An outermost level outside the Work's main run, such as Specials",
+            "type": "boolean"
+          },
           "depth": {
             "format": "int64",
             "minimum": 1,
@@ -11994,7 +12062,9 @@
           "label",
           "position",
           "withdrawnAt",
-          "fields"
+          "aside",
+          "fields",
+          "artwork"
         ],
         "type": "object"
       },
@@ -12262,6 +12332,174 @@
         ],
         "type": "object"
       },
+      "WorksMonitoringChange": {
+        "additionalProperties": false,
+        "properties": {
+          "includeAsides": {
+            "description": "Monitor the aside Items the preset picks, and new ones when it monitors new Items",
+            "type": "boolean"
+          },
+          "monitorNew": {
+            "description": "Whether to monitor Items a refresh adds; left out, the preset decides",
+            "type": "boolean"
+          },
+          "preset": {
+            "enum": [
+              "all",
+              "future",
+              "missing",
+              "existing",
+              "first",
+              "latest",
+              "none"
+            ],
+            "type": "string"
+          },
+          "preview": {
+            "description": "Answer what the change would move and write nothing",
+            "type": "boolean"
+          },
+          "workIds": {
+            "description": "A repeated id counts once",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds",
+          "preset",
+          "includeAsides",
+          "preview"
+        ],
+        "type": "object"
+      },
+      "WorksMonitoringDoneOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksPresetCounts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What each preset would monitor of the Work; null unless a preview"
+          },
+          "outcome": {
+            "enum": [
+              "done"
+            ],
+            "type": "string"
+          },
+          "start": {
+            "description": "Items the change starts monitoring",
+            "format": "int64",
+            "type": "integer"
+          },
+          "stop": {
+            "description": "Items the change stops monitoring",
+            "format": "int64",
+            "type": "integer"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "outcome",
+          "start",
+          "stop",
+          "counts"
+        ],
+        "type": "object"
+      },
+      "WorksMonitoringList": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "description": "One per Work, in request order",
+            "items": {
+              "$ref": "#/components/schemas/WorksMonitoringOutcome"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "outcomes"
+        ],
+        "type": "object"
+      },
+      "WorksMonitoringOutcome": {
+        "discriminator": {
+          "mapping": {
+            "done": "#/components/schemas/WorksMonitoringDoneOutcome",
+            "failed": "#/components/schemas/WorksFailedOutcome",
+            "skipped": "#/components/schemas/WorksMonitoringSkippedOutcome"
+          },
+          "propertyName": "outcome"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/WorksMonitoringDoneOutcome"
+          },
+          {
+            "$ref": "#/components/schemas/WorksMonitoringSkippedOutcome"
+          },
+          {
+            "$ref": "#/components/schemas/WorksFailedOutcome"
+          }
+        ]
+      },
+      "WorksMonitoringSkippedOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksPresetCounts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What each preset would monitor of the Work; null unless a preview"
+          },
+          "outcome": {
+            "enum": [
+              "skipped"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the change left the Work as it was",
+            "enum": [
+              "already",
+              "work_not_found"
+            ],
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "outcome",
+          "reason",
+          "counts"
+        ],
+        "type": "object"
+      },
       "WorksNewWork": {
         "additionalProperties": false,
         "properties": {
@@ -12269,15 +12507,32 @@
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
           },
+          "includeAsides": {
+            "description": "Add every Item of the aside levels, such as Specials, to what the preset monitors, now and as new ones arrive; left out, the type's add default",
+            "type": "boolean"
+          },
           "key": {
             "description": "The Work's key at its metadata source",
             "maxLength": 200,
             "minLength": 1,
             "type": "string"
           },
-          "monitor": {
-            "description": "Monitor a new Work's Items; left out, the type's add default. Adding a Work already in the library changes nothing",
+          "levelFolders": {
+            "description": "Put a new Work's files in a folder per level; left out, the type's add default. Unread for a Content Type with no levels",
             "type": "boolean"
+          },
+          "preset": {
+            "description": "The monitoring preset a new Work's Items follow; left out, the type's add default. Adding a Work already in the library changes nothing",
+            "enum": [
+              "all",
+              "future",
+              "missing",
+              "existing",
+              "first",
+              "latest",
+              "none"
+            ],
+            "type": "string"
           },
           "profileId": {
             "description": "The Profile of the Content Type a new Work wants from; left out, the type's default",
@@ -12337,6 +12592,54 @@
           "key",
           "kind",
           "number"
+        ],
+        "type": "object"
+      },
+      "WorksOptionsChange": {
+        "additionalProperties": false,
+        "properties": {
+          "levelFolders": {
+            "description": "Whether the Work's files go in a folder per level; left out, it keeps its own",
+            "type": "boolean"
+          },
+          "preview": {
+            "description": "Answer what the change would withdraw and write nothing",
+            "type": "boolean"
+          },
+          "type": {
+            "additionalProperties": {},
+            "description": "The Content Type's own options to change, by key",
+            "type": "object"
+          }
+        },
+        "required": [
+          "preview"
+        ],
+        "type": "object"
+      },
+      "WorksOptionsChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "levelFolders": {
+            "type": "boolean"
+          },
+          "options": {
+            "description": "The Content Type's own options for the Work",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          },
+          "withdraws": {
+            "description": "Live Items the change withdraws: the source doesn't list them under the new options, and they keep their files",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "levelFolders",
+          "options",
+          "withdraws"
         ],
         "type": "object"
       },
@@ -12454,6 +12757,60 @@
         ],
         "type": "object"
       },
+      "WorksPresetCount": {
+        "additionalProperties": false,
+        "properties": {
+          "monitors": {
+            "description": "Live Items the preset monitors, asides left out",
+            "format": "int64",
+            "type": "integer"
+          },
+          "monitorsNew": {
+            "description": "Whether the preset monitors Items a refresh adds",
+            "type": "boolean"
+          },
+          "preset": {
+            "enum": [
+              "all",
+              "future",
+              "missing",
+              "existing",
+              "first",
+              "latest",
+              "none"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset",
+          "monitors",
+          "monitorsNew"
+        ],
+        "type": "object"
+      },
+      "WorksPresetCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "asides": {
+            "description": "Items in aside levels, which Include adds to a preset",
+            "format": "int64",
+            "type": "integer"
+          },
+          "choices": {
+            "description": "One per preset, in the order the presets show",
+            "items": {
+              "$ref": "#/components/schemas/WorksPresetCount"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "asides",
+          "choices"
+        ],
+        "type": "object"
+      },
       "WorksPreviewed": {
         "additionalProperties": false,
         "properties": {
@@ -12461,13 +12818,25 @@
             "description": "Whether the Work is in the library; while it isn't, the ids in work name nothing",
             "type": "boolean"
           },
+          "presets": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksPresetCounts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What each monitoring preset would monitor of the Work; null while it is in the library"
+          },
           "work": {
             "$ref": "#/components/schemas/WorksTree"
           }
         },
         "required": [
           "inLibrary",
-          "work"
+          "work",
+          "presets"
         ],
         "type": "object"
       },
@@ -12914,6 +13283,38 @@
         ],
         "type": "object"
       },
+      "WorksWorkMonitored": {
+        "additionalProperties": false,
+        "properties": {
+          "itemIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "type": "array"
+          },
+          "levelIds": {
+            "description": "Each level stands for every Item under it",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "type": "array"
+          },
+          "on": {
+            "description": "Monitor the levels and Items, or stop",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "levelIds",
+          "itemIds",
+          "on"
+        ],
+        "type": "object"
+      },
       "WorksWorkProfile": {
         "additionalProperties": false,
         "properties": {
@@ -13004,6 +13405,10 @@
           "label": {
             "type": "string"
           },
+          "levelFolders": {
+            "description": "New files sit in a folder per level; unread for a Content Type with no levels",
+            "type": "boolean"
+          },
           "levels": {
             "description": "By depth, then their parent's order, live before withdrawn, then position",
             "items": {
@@ -13015,6 +13420,21 @@
             "description": "Pages about the Work on other sites, in its Content Type's order",
             "items": {
               "$ref": "#/components/schemas/WorksWebLink"
+            },
+            "type": "array"
+          },
+          "monitorAsides": {
+            "description": "The Items of aside levels are part of the Work's monitoring choice",
+            "type": "boolean"
+          },
+          "monitorNew": {
+            "description": "Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off",
+            "type": "boolean"
+          },
+          "options": {
+            "description": "The Content Type's own options for the Work, in Edit's order; empty when it has none",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
             },
             "type": "array"
           },
@@ -13052,6 +13472,10 @@
           "links",
           "profile",
           "root",
+          "monitorNew",
+          "monitorAsides",
+          "levelFolders",
+          "options",
           "fields",
           "ratings",
           "artwork",
@@ -16138,7 +16562,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "not_on_source"
                           ],
                           "type": "string"
                         }
@@ -24139,7 +24564,8 @@
                         "code": {
                           "enum": [
                             "invalid",
-                            "metadata_key_refused"
+                            "metadata_key_refused",
+                            "metadata_pin_refused"
                           ],
                           "type": "string"
                         }
@@ -42375,6 +42801,7 @@
                         "code": {
                           "enum": [
                             "invalid",
+                            "not_on_source",
                             "profile_not_found",
                             "profile_wrong_type",
                             "root_wrong_type"
@@ -42792,6 +43219,175 @@
           }
         ],
         "summary": "Monitor every Item of each Work, or none, with an outcome per Work",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/monitoring": {
+      "put": {
+        "operationId": "setWorksMonitoring",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksMonitoringChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksMonitoringList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Apply a monitoring preset to each Work, or preview what it would move, with an outcome per Work",
         "tags": [
           "works"
         ],
@@ -43783,7 +44379,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Work's tree with each node's fields, its links, Profile and root",
+        "summary": "Get a Work's tree with each node's fields, its links, Profile, root and options",
         "tags": [
           "works"
         ],
@@ -44176,6 +44772,439 @@
         "summary": "List a Work's library files with the cells each fills, and the folder they sit in",
         "tags": [
           "files"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/monitored": {
+      "put": {
+        "operationId": "setWorkMonitored",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksWorkMonitored"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Monitor some of a Work's levels and Items, or stop",
+        "tags": [
+          "works"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/options": {
+      "put": {
+        "operationId": "setWorkOptions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorksOptionsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorksOptionsChanged"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "order_unavailable",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "metadata_invalid",
+                            "metadata_refused",
+                            "metadata_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change a Work's options, or preview how many Items the change would withdraw",
+        "tags": [
+          "works"
         ],
         "x-slipstream-access": "admin"
       }

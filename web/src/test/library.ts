@@ -9,6 +9,7 @@ export const cinema: WorksContentType = {
   work: { one: "Film", many: "Films" },
   item: { one: "Film", many: "Films" },
   levels: [],
+  aside: null,
   fields: [
     {
       key: "year",
@@ -46,6 +47,7 @@ export const cinema: WorksContentType = {
   items: "one",
   art: { poster: null, backdrop: null, title: null },
   ratings: [],
+  availability: "",
 };
 
 export const orchardId = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";
@@ -77,6 +79,7 @@ export const orchard: WorksWorkView = {
       position: 1,
       withdrawnAt: null,
       monitored: true,
+      aside: false,
       fields: [],
       ratings: [],
       artwork: [],
@@ -86,6 +89,10 @@ export const orchard: WorksWorkView = {
   links: [],
   profile: { id: "0199e1f2-7a3b-7c4d-8e5f-000000000001", name: "Films" },
   root: null,
+  monitorNew: false,
+  monitorAsides: false,
+  levelFolders: true,
+  options: [],
 };
 
 export const orchardRow: WorksLibraryRow = {

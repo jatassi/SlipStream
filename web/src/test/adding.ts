@@ -34,6 +34,7 @@ export const quietOrchard: WorksCandidate = {
   fields: [{ key: "year", kind: "number", number: 2021 }],
   posterUrl: null,
   workId: null,
+  unlisted: false,
 };
 
 export const orchardHarvest: WorksCandidate = {
@@ -44,11 +45,21 @@ export const orchardHarvest: WorksCandidate = {
   fields: [{ key: "year", kind: "number", number: 2019 }],
   posterUrl: null,
   workId: harvestId,
+  unlisted: false,
 };
 
-const { links: _links, profile: _profile, root: _root, ...tree } = orchard;
+const {
+  links: _links,
+  profile: _profile,
+  root: _root,
+  monitorNew: _monitorNew,
+  monitorAsides: _monitorAsides,
+  levelFolders: _levelFolders,
+  options: _options,
+  ...tree
+} = orchard;
 
-export const orchardPreview: WorksPreviewed = { inLibrary: false, work: tree };
+export const orchardPreview: WorksPreviewed = { inLibrary: false, work: tree, presets: null };
 
 /** A second cinema root, on a volume the Node hasn't reported. */
 export const shelfRoot: RootsRoot = {

@@ -73,6 +73,8 @@ var (
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
 	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused SlipStream's key")
+	notOnSource         = api.NewCode(http.StatusUnprocessableEntity, "not_on_source", "The metadata source doesn't list this record")
+	orderUnavailable    = api.NewCode(http.StatusUnprocessableEntity, "order_unavailable", "The metadata source doesn't list this Work in that order")
 	profileNotFound     = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
 	profileWrongType    = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
@@ -93,6 +95,8 @@ var codes = []struct {
 	{works.ErrUnavailable, metadataUnavailable},
 	{works.ErrInvalid, metadataInvalid},
 	{works.ErrRefused, metadataRefused},
+	{works.ErrNotOnSource, notOnSource},
+	{works.ErrOrderUnavailable, orderUnavailable},
 	{targets.ErrNoProfile, profileNotFound},
 	{targets.ErrProfileWrongType, profileWrongType},
 	{roots.ErrNotFound, rootNotFound},
@@ -218,7 +222,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/content-types/{contentType}/catalog/{key}",
 		Summary: "Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused},
+		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused, notOnSource},
 	}, h.previewCatalogRecord)
 
 	api.Register(o, api.Admin, api.Op{
@@ -227,7 +231,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works",
 		Summary: "Add a Work by its key with its whole tree, or get the Work already added",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, profileNotFound, profileWrongType, rootNotFound, rootWrongType, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused},
+		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, profileNotFound, profileWrongType, rootNotFound, rootWrongType, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused, notOnSource},
 	}, h.addWork)
 
 	api.Register(o, api.Admin, api.Op{
@@ -253,8 +257,9 @@ func Routes(r *api.Router, shelf Shelf) {
 		ID:      "getWork",
 		Method:  http.MethodGet,
 		Path:    "/works/{workId}",
-		Summary: "Get a Work's tree with each node's fields, its links, Profile and root",
+		Summary: "Get a Work's tree with each node's fields, its links, Profile, root and options",
 		Status:  http.StatusOK,
+		Gzip:    true,
 		Errors:  []*api.Code{workNotFound},
 	}, h.getWork)
 
@@ -265,6 +270,32 @@ func Routes(r *api.Router, shelf Shelf) {
 		Summary: "Monitor every Item of each Work, or none, with an outcome per Work",
 		Status:  http.StatusOK,
 	}, h.setWorksMonitored)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setWorksMonitoring",
+		Method:  http.MethodPut,
+		Path:    "/works/monitoring",
+		Summary: "Apply a monitoring preset to each Work, or preview what it would move, with an outcome per Work",
+		Status:  http.StatusOK,
+	}, h.setWorksMonitoring)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setWorkMonitored",
+		Method:  http.MethodPut,
+		Path:    "/works/{workId}/monitored",
+		Summary: "Monitor some of a Work's levels and Items, or stop",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{workNotFound},
+	}, h.setWorkMonitored)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setWorkOptions",
+		Method:  http.MethodPut,
+		Path:    "/works/{workId}/options",
+		Summary: "Change a Work's options, or preview how many Items the change would withdraw",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, orderUnavailable, settingapi.ErrOutOfRange, settingapi.ErrUnknown, metadataUnavailable, metadataInvalid, metadataRefused},
+	}, h.setWorkOptions)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "setWorksProfile",

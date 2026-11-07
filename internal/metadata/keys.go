@@ -63,20 +63,34 @@ var (
 	// ErrKeyRefused is a key the provider refused when tested; nothing was
 	// stored.
 	ErrKeyRefused = errors.New("the provider refused the key")
+	// ErrPinRefused is a PIN the provider refused beside a key it takes;
+	// nothing was stored.
+	ErrPinRefused = errors.New("the provider refused the PIN")
 )
 
 var keyColumn = secret.NewColumn("metadata_key.api_key_sealed")
 
-// SetKey tests key on a holder and keeps it, sealed, only when the provider
+// NewKey is what Set key sends: the Admin's key, and the PIN beside it,
+// empty for none.
+type NewKey struct {
+	Key string
+	Pin string
+}
+
+// SetKey tests k on a holder and keeps it, sealed, only when the provider
 // takes it: a *works.SourceError wrapping ErrKeyRefused when it refuses the
 // key, and wrapping works.ErrUnavailable when the test couldn't tell.
 // Nothing untested is stored. It answers the provider's status with the
 // key in use.
-func (m *Metadata) SetKey(ctx context.Context, _ identity.Admin, p ProviderID, key string) (ProviderStatus, error) {
+func (m *Metadata) SetKey(ctx context.Context, _ identity.Admin, p ProviderID, k NewKey) (ProviderStatus, error) {
 	label, ok := m.label(p)
 	if !ok {
 		return ProviderStatus{}, ErrNoProvider
 	}
+	if k.Pin != "" {
+		return ProviderStatus{}, errors.New("not implemented")
+	}
+	key := k.Key
 	test := &metadatav1.TestRequest{Ask: askToWire(Ask{keys: map[ProviderID]string{p: key}, fresh: true, generation: m.cacheGeneration()}), Provider: string(p)}
 	res, node, err := call(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.TestResponse, error) {
 		return s.Test(ctx, test)

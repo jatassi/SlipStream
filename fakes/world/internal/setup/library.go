@@ -129,7 +129,7 @@ func Works(ctx context.Context, c *http.Client, s scenario.Scenario, ready []nod
 		added++
 		wg.Go(func() {
 			defer func() { <-slots }()
-			if err := nodeapi.AddWork(ctx, c, controller, claims.APIKey, w.ContentType, strconv.FormatInt(m.ID, 10), w.Monitor); err != nil {
+			if err := nodeapi.AddWork(ctx, c, controller, claims.APIKey, w.ContentType, strconv.FormatInt(m.ID, 10), w.Preset); err != nil {
 				cancel(err)
 			}
 		})

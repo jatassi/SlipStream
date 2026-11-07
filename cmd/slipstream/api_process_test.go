@@ -169,7 +169,7 @@ func TestTheReleaseBinaryListsTheMovieType(t *testing.T) {
 	}
 	r := call(t, ready, http.MethodGet, "/api/v1/content-types", "", map[string]string{"Cookie": "slipstream_session=" + session})
 	expectReply(t, r, http.StatusOK, `{"contentTypes":[`+
-		`{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},"fields":[`+
+		`{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"aside":null,"item":{"one":"Movie","many":"Movies"},"fields":[`+
 		`{"key":"english_title","label":"English title","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},`+
 		`{"key":"original_title","label":"Original title","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},`+
 		`{"key":"original_language","label":"Original language","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},`+
@@ -190,7 +190,7 @@ func TestTheReleaseBinaryListsTheMovieType(t *testing.T) {
 		`{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},`+
 		`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},`+
 		`{"key":"awards","label":"Awards","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],`+
-		`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"]}]}`+"\n")
+		`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"],"availability":""}]}`+"\n")
 }
 
 func binaryIsStamped(t *testing.T) bool {

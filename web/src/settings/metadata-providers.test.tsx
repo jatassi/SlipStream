@@ -16,6 +16,8 @@ const tmdb: MetadataProvider = {
   until: null,
   keySetAt: null,
   keyPage: "https://www.tmdb.invalid/settings/api",
+  takesPin: false,
+  pinSet: false,
   attribution: {
     text: "This product uses the TMDB API but is not endorsed or certified by TMDB",
     logo: "tmdb",

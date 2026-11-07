@@ -26,7 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
-const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},"fields":[` +
+const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"aside":null,"item":{"one":"Movie","many":"Movies"},"fields":[` +
 	`{"key":"english_title","label":"English title","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"original_title","label":"Original title","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"original_language","label":"Original language","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
@@ -47,7 +47,7 @@ const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"w
 	`{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"awards","label":"Awards","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
-	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"]}`
+	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"],"availability":""}`
 
 // artworkURL is an artwork URL, whose token each install signs with its
 // own key.
@@ -65,10 +65,10 @@ func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 
 	worldtest.Expect(t, "searchCatalog for quiet orchard", artworkMasked(a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", "")), worldtest.Reply{
 		Status: 200,
-		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","original":"","overview":"","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":"ART","workId":null}]}` + "\n",
+		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","original":"","overview":"","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":"ART","workId":null,"unlisted":false}]}` + "\n",
 	})
 
-	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`), &added{})
+	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)
@@ -144,7 +144,7 @@ func moviesAlone(t *testing.T) *world.Run {
 
 func addSaltRoad(t *testing.T, a *worldtest.API) movieView {
 	t.Helper()
-	got := decode(t, "addWork The Salt Road", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+saltRoad+`","monitor":true}`), &struct {
+	got := decode(t, "addWork The Salt Road", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+saltRoad+`","preset":"all"}`), &struct {
 		Created bool      `json:"created"`
 		Work    movieView `json:"work"`
 	}{})
@@ -195,7 +195,7 @@ func TestAMovieIsAddedWithItsWholeRecordFromThePreviewsOneFetch(t *testing.T) {
 
 	worldtest.Expect(t, "searchCatalog for salt road", artworkMasked(a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=salt+road", "")), worldtest.Reply{
 		Status: 200,
-		Body:   `{"candidates":[{"key":"9000005","label":"The Salt Road","original":"La Route du Sel","overview":"Two sisters walk the salt road.","fields":[{"key":"year","kind":"number","number":2022}],"posterUrl":"ART","workId":null}]}` + "\n",
+		Body:   `{"candidates":[{"key":"9000005","label":"The Salt Road","original":"La Route du Sel","overview":"Two sisters walk the salt road.","fields":[{"key":"year","kind":"number","number":2022}],"posterUrl":"ART","workId":null,"unlisted":false}]}` + "\n",
 	})
 
 	preview := decode(t, "previewCatalogRecord", a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog/"+saltRoad, ""), &struct {

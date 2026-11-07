@@ -29,8 +29,8 @@ Preconditions:
 - The Quiet Orchard and The Salt Road added, The Salt Road unmonitored:
 
   ```sh
-  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","monitor":true}' '{nodes.home.url}/api/v1/works'
-  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","monitor":false}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","preset":"all"}' '{nodes.home.url}/api/v1/works'
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","preset":"none"}' '{nodes.home.url}/api/v1/works'
   ```
 
 - The browser tier proves the same paths in `web/e2e/library.spec.ts`, and the component tests in `web/src/routes/_app/library/*.test.tsx` and `web/src/library/*.test.ts`. `web/e2e/library-scale.spec.ts` measures 20,000 Works on `scale`.

@@ -70,7 +70,7 @@ func Held(ctx context.Context, r storage.Reader[file]) ([]TypeID, error) {
 }
 
 func bare(it db.WorksItem) Item {
-	return Item{ID: it.ID, LevelID: it.LevelID, Key: it.Key, Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Monitored: it.Monitored}
+	return Item{ID: it.ID, LevelID: it.LevelID, Key: it.Key, Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Monitored: it.Monitored, Aside: it.Aside}
 }
 
 // SummaryOf reads Work id's summary inside a caller's read, ErrNoWork

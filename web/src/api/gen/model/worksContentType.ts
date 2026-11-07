@@ -9,6 +9,10 @@ export interface WorksContentType {
   art: WorksArtRoles;
   /** The kinds of image its Works and Items carry */
   artwork: WorksArtworkKind[];
+  /** What the type calls its outermost levels outside a Work's main run, such as Specials; null when it marks none */
+  aside: WorksNoun | null;
+  /** The label of the Library's availability column and sort, such as Next airing; empty reads Available */
+  availability: string;
   enabled: boolean;
   fields: WorksFieldSpec[];
   icon: WorksContentTypeIcon;

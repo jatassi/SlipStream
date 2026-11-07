@@ -14,12 +14,15 @@ import (
 // default. Remember makes each given choice the default in the add's
 // Write.
 type Adding struct {
-	Type     works.TypeID
-	Key      works.Key
-	Profile  *targets.ProfileID
-	Root     *roots.ID
-	Monitor  *bool
-	Remember bool
+	Type    works.TypeID
+	Key     works.Key
+	Profile *targets.ProfileID
+	Root    *roots.ID
+	// Monitor is the new Work's monitoring choice.
+	Monitor *works.Choice
+	// LevelFolders is the new Work's level_folders.
+	LevelFolders *bool
+	Remember     bool
 }
 
 // Added is the Work an add made or found. Created is false when it was
@@ -43,9 +46,17 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 	if err != nil {
 		return Added{}, err
 	}
+	if a.Remember && a.LevelFolders != nil {
+		return Added{}, errNotImplemented
+	}
+	folders := true
+	if a.LevelFolders != nil {
+		folders = *a.LevelFolders
+	}
 	var moved remembered
 	tree, created, err := l.cfg.Works.Add(ctx, by, a.Type, a.Key, works.Adding{
-		Monitor: monitor,
+		Monitor:      monitor,
+		LevelFolders: folders,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
 			if err := targets.Assign(ctx, tx, w, a.Profile); err != nil {
 				return err
@@ -57,7 +68,7 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 				return nil
 			}
 			var err error
-			moved, err = remember(ctx, tx, a)
+			moved, err = remember(ctx, tx, a, monitor)
 			return err
 		},
 	})
@@ -71,9 +82,19 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 	return Added{Tree: tree, Created: created}, nil
 }
 
+// monitor is whether a new Work's Items are all monitored: a's All or
+// None, else the type's add default.
 func (l *Library) monitor(ctx context.Context, a Adding) (bool, error) {
-	if a.Monitor != nil {
-		return *a.Monitor, nil
+	if c := a.Monitor; c != nil {
+		switch {
+		case c.Asides != nil && *c.Asides, c.New != nil:
+			return false, errNotImplemented
+		case c.Preset == works.PresetAll:
+			return true, nil
+		case c.Preset == works.PresetNone:
+			return false, nil
+		}
+		return false, errNotImplemented
 	}
 	var on bool
 	err := l.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
@@ -86,7 +107,7 @@ func (l *Library) monitor(ctx context.Context, a Adding) (bool, error) {
 
 // remember makes each choice a gives its type's default in tx, through
 // the paths Make default takes.
-func remember(ctx context.Context, tx *storage.Tx[storage.Library], a Adding) (remembered, error) {
+func remember(ctx context.Context, tx *storage.Tx[storage.Library], a Adding, monitor bool) (remembered, error) {
 	var moved remembered
 	var err error
 	if a.Profile != nil {
@@ -100,7 +121,7 @@ func remember(ctx context.Context, tx *storage.Tx[storage.Library], a Adding) (r
 		}
 	}
 	if a.Monitor != nil {
-		if _, err = works.SetAddMonitorIn(ctx, tx, a.Type, *a.Monitor); err != nil {
+		if _, err = works.SetAddMonitorIn(ctx, tx, a.Type, monitor); err != nil {
 			return remembered{}, err
 		}
 	}

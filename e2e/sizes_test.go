@@ -19,7 +19,7 @@ func sized(t *testing.T, key, profile, target string) (w walked, id string) {
 	t.Helper()
 	run := worldtest.Launch(t, "sizes")
 	w = walked{run: run, m: run.Manifest(), a: api(t, run)}
-	body := `{"contentType":"movie","key":"` + key + `","monitor":true,"profileId":"` + w.named(t, "/api/v1/profiles", "profiles", profile) + `"}`
+	body := `{"contentType":"movie","key":"` + key + `","preset":"all","profileId":"` + w.named(t, "/api/v1/profiles", "profiles", profile) + `"}`
 	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", body), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {

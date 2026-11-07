@@ -18,16 +18,18 @@ const (
 	marrowBay = "a1000000-0000-4000-8000-000000000002"
 )
 
-const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"item":{"one":"Track","many":"Tracks"},"fields":[` +
+const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"aside":null,"item":{"one":"Track","many":"Tracks"},"fields":[` +
 	`{"key":"country","label":"Country","tier":"work","kind":"text","in":["facts","about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
+	`{"key":"track","label":"Track","tier":"item","kind":"number","in":["code"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"disc","label":"Disc","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"length","label":"Length","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
-	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}],"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[]}`
+	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"},{"key":"cover","label":"Cover","tier":"level","depth":1,"shape":"cover"}],` +
+	`"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[],"availability":""}`
 
 func searchLanterns(workID string) worldtest.Reply {
-	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `}]}` + "\n"}
+	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `,"unlisted":false}]}` + "\n"}
 }
 
 func problem(status int, code, title string) worldtest.Reply {
@@ -150,7 +152,7 @@ func TestMusic(t *testing.T) {
 	worldtest.Expect(t, "searchCatalog for The Lanterns", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns("null"))
 
 	stream := worldtest.NewMessages(t, run.Manifest(), world.AdminIdentity)
-	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","monitor":false}`), &added{})
+	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","preset":"none"}`), &added{})
 	var ids []string
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
@@ -159,16 +161,16 @@ func TestMusic(t *testing.T) {
 	checkOutline(t, "the added tree", tr, &ids, strings.Join([]string{
 		"#1 music The Lanterns (Lanterns, The) " + lanterns + " [country=GB]",
 		"  #2 1 Harbor Lights [released=2001-03-12 kind=Album]",
-		"    #3 1 Tidewater [disc=1 length=205000ms]",
-		"    #4 2 Paper Boats [disc=1 length=242000ms]",
-		"    #5 3 Low Bridge [disc=1 length=178000ms]",
+		"    #3 1 Tidewater [track=1 disc=1 length=205000ms]",
+		"    #4 2 Paper Boats [track=2 disc=1 length=242000ms]",
+		"    #5 3 Low Bridge [track=3 disc=1 length=178000ms]",
 		"  #6 2 Night Ferry [released=2003 kind=EP]",
-		"    #7 1 Night Ferry [disc=1 length=190000ms]",
-		"    #8 2 Signal Fires [disc=1 length=224000ms]",
+		"    #7 1 Night Ferry [track=1 disc=1 length=190000ms]",
+		"    #8 2 Signal Fires [track=2 disc=1 length=224000ms]",
 	}, "\n"))
 	event(t, stream, "works.changed", `{"workIds":["`+tr.ID+`"]}`)
 
-	again := decode(t, "addWork again", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","monitor":false}`), &added{})
+	again := decode(t, "addWork again", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","preset":"none"}`), &added{})
 	if again.Created || string(again.Work) != string(first.Work) {
 		t.Fatalf("addWork again created %t with work\n%s\nwant false with\n%s", again.Created, again.Work, first.Work)
 	}
@@ -184,20 +186,20 @@ func TestMusic(t *testing.T) {
 	checkOutline(t, "the refreshed tree", *decode(t, "getWork after refreshWorks", refreshed, &tree{}), &ids, strings.Join([]string{
 		"#1 music The Lanterns (Lanterns, The) " + lanterns + " [country=GB]",
 		"  #2 1 Harbor Lights [released=2001-03-12 kind=Album]",
-		"    #3 1 Tidewater [disc=1 length=205000ms]",
-		"    #4 2 Paper Ships [disc=1 length=242000ms]",
-		"    #9 3 Lantern Song [disc=1 length=301000ms]",
-		"    #5 3 Low Bridge [disc=1 length=178000ms] withdrawn",
+		"    #3 1 Tidewater [track=1 disc=1 length=205000ms]",
+		"    #4 2 Paper Ships [track=2 disc=1 length=242000ms]",
+		"    #9 3 Lantern Song [track=3 disc=1 length=301000ms]",
+		"    #5 3 Low Bridge [track=3 disc=1 length=178000ms] withdrawn",
 		"  #6 2 Night Ferry [released=2003 kind=EP]",
-		"    #7 1 Night Ferry [disc=1 length=190000ms]",
-		"    #8 2 Signal Fires [disc=1 length=224000ms]",
+		"    #7 1 Night Ferry [track=1 disc=1 length=190000ms]",
+		"    #8 2 Signal Fires [track=2 disc=1 length=224000ms]",
 	}, "\n"))
 	twice := refresh()
 	if twice.Status != http.StatusOK || refreshedAt.ReplaceAllString(twice.Body, "") != refreshedAt.ReplaceAllString(refreshed.Body, "") {
 		t.Fatalf("getWork after a second refreshWorks = %d\n%s\nwant the first's body apart from refreshedAt\n%s", twice.Status, twice.Body, refreshed.Body)
 	}
 
-	addBay := `{"contentType":"music","key":"` + marrowBay + `","monitor":false}`
+	addBay := `{"contentType":"music","key":"` + marrowBay + `","preset":"none"}`
 	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't respond. Try again later.", "MusicBrainz: responded with 503 Service Unavailable"))
 	bay := decode(t, "addWork for Marrow Bay again", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), &added{})
 	var bayTree tree
@@ -207,7 +209,7 @@ func TestMusic(t *testing.T) {
 	checkOutline(t, "Marrow Bay's tree", bayTree, &ids, strings.Join([]string{
 		"#10 music Marrow Bay (Marrow Bay) " + marrowBay + " [country=NZ]",
 		"  #11 1 Saltgrass [released=2019-11 kind=Album]",
-		"    #12 1 Saltgrass [disc=1]",
+		"    #12 1 Saltgrass [track=1 disc=1]",
 	}, "\n"))
 	worldtest.Expect(t, "addWork for an unknown MBID", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"ffffffff-0000-4000-8000-000000000000"}`),
 		problem(404, "metadata_not_found", "The metadata source has no record with that key"))

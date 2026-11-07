@@ -25,7 +25,7 @@ test("a Work with files stays in its library root, and Delete takes its files fr
   world,
 }) => {
   await imported(world);
-  await add(world, "9000005", true);
+  await add(world, "9000005", "all");
   await rootAt(world, "archive");
   const media = join(world.manifest.scratchDir, "media");
   expect(await videosUnder(media)).toHaveLength(1);

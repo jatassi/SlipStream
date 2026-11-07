@@ -34,4 +34,4 @@ library:
       tiers: [[bluray-720p], [webdl-720p, webrip-720p, hdtv-720p]]
       cutoff: bluray-720p
   profiles: [{name: Films, content_type: movie, targets: [2160p, 1080p, 720p], default: true}]
-  works: {content_type: movie, monitor: true}
+  works: {content_type: movie, preset: all}

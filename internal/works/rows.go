@@ -187,7 +187,7 @@ func convert[F, T any](rows []F, to func(F) T) []T {
 }
 
 func posterShape(d Description) artwork.Shape {
-	i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return !k.Item && k.Key == d.Art.Poster })
+	i := slices.IndexFunc(d.Artwork, func(k artwork.Kind) bool { return k.Tier == TierWork && k.Key == d.Art.Poster })
 	return d.Artwork[i].Shape
 }
 

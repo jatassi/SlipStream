@@ -43,7 +43,7 @@ func (q *Queries) EnableType(ctx context.Context, contentType TypeID) (int64, er
 }
 
 const getItem = `-- name: GetItem :one
-SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item WHERE id = ?1
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored, aside FROM works_item WHERE id = ?1
 `
 
 func (q *Queries) GetItem(ctx context.Context, id ItemID) (WorksItem, error) {
@@ -58,12 +58,13 @@ func (q *Queries) GetItem(ctx context.Context, id ItemID) (WorksItem, error) {
 		&i.Position,
 		&i.WithdrawnAt,
 		&i.Monitored,
+		&i.Aside,
 	)
 	return i, err
 }
 
 const getWork = `-- name: GetWork :one
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE id = ?1
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE id = ?1
 `
 
 func (q *Queries) GetWork(ctx context.Context, id WorkID) (WorksWork, error) {
@@ -79,12 +80,15 @@ func (q *Queries) GetWork(ctx context.Context, id WorkID) (WorksWork, error) {
 		&i.RefreshedAt,
 		&i.GoneUpstreamAt,
 		&i.RatingsReadAt,
+		&i.MonitorNew,
+		&i.MonitorAsides,
+		&i.LevelFolders,
 	)
 	return i, err
 }
 
 const getWorkByKey = `-- name: GetWorkByKey :one
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE content_type = ?1 AND key = ?2
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE content_type = ?1 AND key = ?2
 `
 
 type GetWorkByKeyParams struct {
@@ -105,6 +109,9 @@ func (q *Queries) GetWorkByKey(ctx context.Context, arg GetWorkByKeyParams) (Wor
 		&i.RefreshedAt,
 		&i.GoneUpstreamAt,
 		&i.RatingsReadAt,
+		&i.MonitorNew,
+		&i.MonitorAsides,
+		&i.LevelFolders,
 	)
 	return i, err
 }
@@ -148,21 +155,23 @@ func (q *Queries) HoldsType(ctx context.Context, contentType TypeID) (bool, erro
 }
 
 const insertArtwork = `-- name: InsertArtwork :exec
-INSERT INTO works_artwork (work_id, item_id, kind, source, path)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO works_artwork (work_id, level_id, item_id, kind, source, path)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 `
 
 type InsertArtworkParams struct {
-	WorkID WorkID
-	ItemID ItemID
-	Kind   string
-	Source string
-	Path   string
+	WorkID  WorkID
+	LevelID LevelID
+	ItemID  ItemID
+	Kind    string
+	Source  string
+	Path    string
 }
 
 func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) error {
 	_, err := q.db.ExecContext(ctx, insertArtwork,
 		arg.WorkID,
+		arg.LevelID,
 		arg.ItemID,
 		arg.Kind,
 		arg.Source,
@@ -172,8 +181,9 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) er
 }
 
 const insertItem = `-- name: InsertItem :exec
-INSERT INTO works_item (id, work_id, level_id, key, label, position, withdrawn_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+INSERT INTO works_item (id, work_id, level_id, key, label, position, withdrawn_at, aside, monitored)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9)
 `
 
 type InsertItemParams struct {
@@ -184,6 +194,8 @@ type InsertItemParams struct {
 	Label       string
 	Position    int64
 	WithdrawnAt storage.Time
+	Aside       bool
+	Monitored   bool
 }
 
 func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) error {
@@ -195,13 +207,16 @@ func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) error {
 		arg.Label,
 		arg.Position,
 		arg.WithdrawnAt,
+		arg.Aside,
+		arg.Monitored,
 	)
 	return err
 }
 
 const insertLevel = `-- name: InsertLevel :exec
-INSERT INTO works_level (id, work_id, parent_id, depth, key, label, position, withdrawn_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+INSERT INTO works_level (id, work_id, parent_id, depth, key, label, position, withdrawn_at, aside)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+    ?9)
 `
 
 type InsertLevelParams struct {
@@ -213,6 +228,7 @@ type InsertLevelParams struct {
 	Label       string
 	Position    int64
 	WithdrawnAt storage.Time
+	Aside       bool
 }
 
 func (q *Queries) InsertLevel(ctx context.Context, arg InsertLevelParams) error {
@@ -225,6 +241,7 @@ func (q *Queries) InsertLevel(ctx context.Context, arg InsertLevelParams) error 
 		arg.Label,
 		arg.Position,
 		arg.WithdrawnAt,
+		arg.Aside,
 	)
 	return err
 }
@@ -258,18 +275,21 @@ func (q *Queries) InsertRating(ctx context.Context, arg InsertRatingParams) erro
 }
 
 const insertWork = `-- name: InsertWork :exec
-INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, monitor_new, level_folders)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9)
 `
 
 type InsertWorkParams struct {
-	ID          WorkID
-	ContentType TypeID
-	Key         Key
-	Label       string
-	SortLabel   string
-	AddedAt     storage.Time
-	RefreshedAt storage.Time
+	ID           WorkID
+	ContentType  TypeID
+	Key          Key
+	Label        string
+	SortLabel    string
+	AddedAt      storage.Time
+	RefreshedAt  storage.Time
+	MonitorNew   bool
+	LevelFolders bool
 }
 
 func (q *Queries) InsertWork(ctx context.Context, arg InsertWorkParams) error {
@@ -281,6 +301,8 @@ func (q *Queries) InsertWork(ctx context.Context, arg InsertWorkParams) error {
 		arg.SortLabel,
 		arg.AddedAt,
 		arg.RefreshedAt,
+		arg.MonitorNew,
+		arg.LevelFolders,
 	)
 	return err
 }
@@ -297,7 +319,7 @@ func (q *Queries) IsDisabled(ctx context.Context, contentType TypeID) (bool, err
 }
 
 const listArtwork = `-- name: ListArtwork :many
-SELECT work_id, item_id, kind, source, path FROM works_artwork WHERE work_id = ?1 ORDER BY item_id, kind
+SELECT work_id, item_id, kind, source, path, level_id FROM works_artwork WHERE work_id = ?1 ORDER BY level_id, item_id, kind
 `
 
 func (q *Queries) ListArtwork(ctx context.Context, workID WorkID) ([]WorksArtwork, error) {
@@ -315,6 +337,7 @@ func (q *Queries) ListArtwork(ctx context.Context, workID WorkID) ([]WorksArtwor
 			&i.Kind,
 			&i.Source,
 			&i.Path,
+			&i.LevelID,
 		); err != nil {
 			return nil, err
 		}
@@ -357,7 +380,7 @@ func (q *Queries) ListDisabledTypes(ctx context.Context) ([]TypeID, error) {
 }
 
 const listItems = `-- name: ListItems :many
-SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item WHERE work_id = ?1 ORDER BY withdrawn_at IS NOT NULL, position, id
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored, aside FROM works_item WHERE work_id = ?1 ORDER BY withdrawn_at IS NOT NULL, position, id
 `
 
 func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, error) {
@@ -378,6 +401,7 @@ func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, er
 			&i.Position,
 			&i.WithdrawnAt,
 			&i.Monitored,
+			&i.Aside,
 		); err != nil {
 			return nil, err
 		}
@@ -393,7 +417,7 @@ func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, er
 }
 
 const listItemsOfWorks = `-- name: ListItemsOfWorks :many
-SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id, withdrawn_at IS NOT NULL, position, id
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored, aside FROM works_item WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id, withdrawn_at IS NOT NULL, position, id
 `
 
 func (q *Queries) ListItemsOfWorks(ctx context.Context, workIds []WorkID) ([]WorksItem, error) {
@@ -424,6 +448,7 @@ func (q *Queries) ListItemsOfWorks(ctx context.Context, workIds []WorkID) ([]Wor
 			&i.Position,
 			&i.WithdrawnAt,
 			&i.Monitored,
+			&i.Aside,
 		); err != nil {
 			return nil, err
 		}
@@ -439,7 +464,7 @@ func (q *Queries) ListItemsOfWorks(ctx context.Context, workIds []WorkID) ([]Wor
 }
 
 const listLevels = `-- name: ListLevels :many
-SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level WHERE work_id = ?1 ORDER BY depth, withdrawn_at IS NOT NULL, position, id
+SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at, aside FROM works_level WHERE work_id = ?1 ORDER BY depth, withdrawn_at IS NOT NULL, position, id
 `
 
 func (q *Queries) ListLevels(ctx context.Context, workID WorkID) ([]WorksLevel, error) {
@@ -460,6 +485,7 @@ func (q *Queries) ListLevels(ctx context.Context, workID WorkID) ([]WorksLevel, 
 			&i.Label,
 			&i.Position,
 			&i.WithdrawnAt,
+			&i.Aside,
 		); err != nil {
 			return nil, err
 		}
@@ -510,7 +536,7 @@ func (q *Queries) ListRatings(ctx context.Context, workID WorkID) ([]WorksRating
 }
 
 const listWorks = `-- name: ListWorks :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work ORDER BY sort_label, id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work ORDER BY sort_label, id
 `
 
 func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
@@ -532,6 +558,9 @@ func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
 			&i.RefreshedAt,
 			&i.GoneUpstreamAt,
 			&i.RatingsReadAt,
+			&i.MonitorNew,
+			&i.MonitorAsides,
+			&i.LevelFolders,
 		); err != nil {
 			return nil, err
 		}
@@ -547,7 +576,7 @@ func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
 }
 
 const listWorksOfType = `-- name: ListWorksOfType :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE content_type = ?1 ORDER BY sort_label, id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE content_type = ?1 ORDER BY sort_label, id
 `
 
 func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]WorksWork, error) {
@@ -569,6 +598,9 @@ func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]Wo
 			&i.RefreshedAt,
 			&i.GoneUpstreamAt,
 			&i.RatingsReadAt,
+			&i.MonitorNew,
+			&i.MonitorAsides,
+			&i.LevelFolders,
 		); err != nil {
 			return nil, err
 		}
@@ -597,12 +629,17 @@ func (q *Queries) MarkGoneUpstream(ctx context.Context, arg MarkGoneUpstreamPara
 	return err
 }
 
-const monitorItems = `-- name: MonitorItems :exec
-UPDATE works_item SET monitored = 1 WHERE work_id = ?1
+const setLevelFolders = `-- name: SetLevelFolders :exec
+UPDATE works_work SET level_folders = ?1 WHERE id = ?2
 `
 
-func (q *Queries) MonitorItems(ctx context.Context, workID WorkID) error {
-	_, err := q.db.ExecContext(ctx, monitorItems, workID)
+type SetLevelFoldersParams struct {
+	LevelFolders bool
+	ID           WorkID
+}
+
+func (q *Queries) SetLevelFolders(ctx context.Context, arg SetLevelFoldersParams) error {
+	_, err := q.db.ExecContext(ctx, setLevelFolders, arg.LevelFolders, arg.ID)
 	return err
 }
 
@@ -645,17 +682,33 @@ func (q *Queries) SetRatingsRead(ctx context.Context, arg SetRatingsReadParams) 
 	return err
 }
 
+const setWorkRule = `-- name: SetWorkRule :exec
+UPDATE works_work SET monitor_new = ?1, monitor_asides = ?2 WHERE id = ?3
+`
+
+type SetWorkRuleParams struct {
+	MonitorNew    bool
+	MonitorAsides bool
+	ID            WorkID
+}
+
+func (q *Queries) SetWorkRule(ctx context.Context, arg SetWorkRuleParams) error {
+	_, err := q.db.ExecContext(ctx, setWorkRule, arg.MonitorNew, arg.MonitorAsides, arg.ID)
+	return err
+}
+
 const updateArtwork = `-- name: UpdateArtwork :exec
 UPDATE works_artwork SET source = ?1, path = ?2
-WHERE work_id = ?3 AND item_id IS ?4 AND kind = ?5
+WHERE work_id = ?3 AND level_id IS ?4 AND item_id IS ?5 AND kind = ?6
 `
 
 type UpdateArtworkParams struct {
-	Source string
-	Path   string
-	WorkID WorkID
-	ItemID ItemID
-	Kind   string
+	Source  string
+	Path    string
+	WorkID  WorkID
+	LevelID LevelID
+	ItemID  ItemID
+	Kind    string
 }
 
 func (q *Queries) UpdateArtwork(ctx context.Context, arg UpdateArtworkParams) error {
@@ -663,6 +716,7 @@ func (q *Queries) UpdateArtwork(ctx context.Context, arg UpdateArtworkParams) er
 		arg.Source,
 		arg.Path,
 		arg.WorkID,
+		arg.LevelID,
 		arg.ItemID,
 		arg.Kind,
 	)
@@ -671,8 +725,8 @@ func (q *Queries) UpdateArtwork(ctx context.Context, arg UpdateArtworkParams) er
 
 const updateItem = `-- name: UpdateItem :exec
 UPDATE works_item SET level_id = ?1, label = ?2, position = ?3,
-    withdrawn_at = ?4
-WHERE id = ?5
+    withdrawn_at = ?4, aside = ?5
+WHERE id = ?6
 `
 
 type UpdateItemParams struct {
@@ -680,6 +734,7 @@ type UpdateItemParams struct {
 	Label       string
 	Position    int64
 	WithdrawnAt storage.Time
+	Aside       bool
 	ID          ItemID
 }
 
@@ -689,6 +744,7 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) error {
 		arg.Label,
 		arg.Position,
 		arg.WithdrawnAt,
+		arg.Aside,
 		arg.ID,
 	)
 	return err
@@ -696,8 +752,8 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) error {
 
 const updateLevel = `-- name: UpdateLevel :exec
 UPDATE works_level SET parent_id = ?1, depth = ?2, label = ?3,
-    position = ?4, withdrawn_at = ?5
-WHERE id = ?6
+    position = ?4, withdrawn_at = ?5, aside = ?6
+WHERE id = ?7
 `
 
 type UpdateLevelParams struct {
@@ -706,6 +762,7 @@ type UpdateLevelParams struct {
 	Label       string
 	Position    int64
 	WithdrawnAt storage.Time
+	Aside       bool
 	ID          LevelID
 }
 
@@ -716,6 +773,7 @@ func (q *Queries) UpdateLevel(ctx context.Context, arg UpdateLevelParams) error 
 		arg.Label,
 		arg.Position,
 		arg.WithdrawnAt,
+		arg.Aside,
 		arg.ID,
 	)
 	return err

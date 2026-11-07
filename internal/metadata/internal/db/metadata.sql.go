@@ -100,7 +100,7 @@ func (q *Queries) ListDue(ctx context.Context) ([]MetadataDue, error) {
 }
 
 const listKeys = `-- name: ListKeys :many
-SELECT provider, api_key_sealed, set_at FROM metadata_key ORDER BY provider
+SELECT provider, api_key_sealed, set_at, pin_sealed FROM metadata_key ORDER BY provider
 `
 
 func (q *Queries) ListKeys(ctx context.Context) ([]MetadataKey, error) {
@@ -112,7 +112,12 @@ func (q *Queries) ListKeys(ctx context.Context) ([]MetadataKey, error) {
 	var items []MetadataKey
 	for rows.Next() {
 		var i MetadataKey
-		if err := rows.Scan(&i.Provider, &i.ApiKeySealed, &i.SetAt); err != nil {
+		if err := rows.Scan(
+			&i.Provider,
+			&i.ApiKeySealed,
+			&i.SetAt,
+			&i.PinSealed,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -173,19 +178,26 @@ func (q *Queries) MarkDue(ctx context.Context, arg MarkDueParams) error {
 }
 
 const putKey = `-- name: PutKey :exec
-INSERT INTO metadata_key (provider, api_key_sealed, set_at)
-VALUES (?1, ?2, ?3)
-ON CONFLICT (provider) DO UPDATE SET api_key_sealed = excluded.api_key_sealed, set_at = excluded.set_at
+INSERT INTO metadata_key (provider, api_key_sealed, pin_sealed, set_at)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT (provider) DO UPDATE SET api_key_sealed = excluded.api_key_sealed, pin_sealed = excluded.pin_sealed,
+    set_at = excluded.set_at
 `
 
 type PutKeyParams struct {
 	Provider     string
 	ApiKeySealed secret.Sealed
+	PinSealed    *secret.Sealed
 	SetAt        storage.Time
 }
 
 func (q *Queries) PutKey(ctx context.Context, arg PutKeyParams) error {
-	_, err := q.db.ExecContext(ctx, putKey, arg.Provider, arg.ApiKeySealed, arg.SetAt)
+	_, err := q.db.ExecContext(ctx, putKey,
+		arg.Provider,
+		arg.ApiKeySealed,
+		arg.PinSealed,
+		arg.SetAt,
+	)
 	return err
 }
 

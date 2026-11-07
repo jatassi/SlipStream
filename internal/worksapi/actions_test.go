@@ -261,7 +261,7 @@ func (s *shelves) add(t *testing.T, typ works.TypeID, key string, root *roots.Ro
 	if profile != nil {
 		body += `,"profileId":"` + profile.String() + `"`
 	}
-	code, reply := s.Call(t, http.MethodPost, "/api/v1/works", body+`,"monitor":false}`)
+	code, reply := s.Call(t, http.MethodPost, "/api/v1/works", body+`,"preset":"none"}`)
 	if code != http.StatusOK {
 		t.Fatalf("addWork %s = %d %s", key, code, reply)
 	}

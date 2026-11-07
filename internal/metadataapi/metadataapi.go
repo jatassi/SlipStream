@@ -46,6 +46,7 @@ func scheduler(r Registry) *tasks.Scheduler {
 var (
 	providerNotFound    = api.NewCode(http.StatusNotFound, "metadata_provider_not_found", "No metadata provider has that id")
 	keyRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_key_refused", "The metadata provider refused that key, so SlipStream didn't save it")
+	pinRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_pin_refused", "The metadata provider refused that PIN, so SlipStream didn't save it")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
@@ -60,6 +61,8 @@ func answer(err error) error {
 		return providerNotFound
 	case isSource && errors.Is(err, metadata.ErrKeyRefused):
 		return keyRefused.Because(se.Source + " " + se.Words)
+	case isSource && errors.Is(err, metadata.ErrPinRefused):
+		return pinRefused.Because(se.Source + " " + se.Words)
 	case isSource && errors.Is(err, works.ErrUnavailable):
 		return metadataUnavailable.Because(se.Error())
 	case errors.Is(err, works.ErrNoType):
@@ -97,6 +100,8 @@ type provider struct {
 	Until       api.Nullable[time.Time]   `json:"until" doc:"When a rate limited provider, or one out of its daily allowance, takes calls again"`
 	KeySetAt    api.Nullable[time.Time]   `json:"keySetAt" doc:"When the Admin set the key in use; null unless it is theirs"`
 	KeyPage     string                    `json:"keyPage" format:"uri" doc:"Where an Admin gets a key, opened in the browser"`
+	TakesPin    bool                      `json:"takesPin" doc:"Set key offers a subscriber PIN beside the key"`
+	PinSet      bool                      `json:"pinSet" doc:"The Admin's key in use carries a PIN"`
 	Attribution api.Nullable[attribution] `json:"attribution" doc:"What the provider's terms require SlipStream to show; null when they require nothing"`
 	Details     details                   `json:"details"`
 }
@@ -124,7 +129,10 @@ type reach struct {
 }
 
 func providerOf(s metadata.ProviderStatus) provider {
-	out := provider{ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], KeyPage: s.KeyPage, State: states[s.State], Details: details{Nodes: []reach{}}}
+	out := provider{
+		ID: string(s.Provider), Label: s.Label, Summary: s.Summary, Key: keys[s.Key], KeyPage: s.KeyPage, TakesPin: s.TakesPin, PinSet: s.PinSet,
+		State: states[s.State], Details: details{Nodes: []reach{}},
+	}
 	if !s.KeySetAt.IsZero() {
 		out.KeySetAt = api.Some(s.KeySetAt)
 	}
@@ -160,6 +168,7 @@ type providerInput struct {
 
 type newKey struct {
 	Key string `json:"key" minLength:"1" maxLength:"256"`
+	Pin string `json:"pin,omitempty" maxLength:"256" doc:"A subscriber PIN to send beside the key, for a provider that takes one; left out, none"`
 }
 
 type keyInput struct {
@@ -214,7 +223,7 @@ func Routes(r *api.Router, registry Registry) {
 		Path:    "/metadata/providers/{provider}/key",
 		Summary: "Use your own key for a provider, once the provider takes it on a test call",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{providerNotFound, keyRefused, metadataUnavailable},
+		Errors:  []*api.Code{providerNotFound, keyRefused, pinRefused, metadataUnavailable},
 	}, h.setKey)
 
 	api.Register(o, api.Admin, api.Op{
@@ -299,7 +308,7 @@ func (h handlers) listProviders(ctx context.Context, by identity.Admin, _ *struc
 }
 
 func (h handlers) setKey(ctx context.Context, by identity.Admin, in *keyInput) (*providerOutput, error) {
-	s, err := open(h.registry).SetKey(ctx, by, metadata.ProviderID(in.Provider), in.Body.Key)
+	s, err := open(h.registry).SetKey(ctx, by, metadata.ProviderID(in.Provider), metadata.NewKey{Key: in.Body.Key, Pin: in.Body.Pin})
 	if err != nil {
 		return nil, answer(err)
 	}

@@ -23,8 +23,8 @@ test("an Admin monitors, refreshes and changes the Profile of two picked Works t
 }, testInfo) => {
   await rootAt(world, "movies");
   const uhd = await makeUHD(world);
-  await add(world, "9000001", false);
-  await add(world, "9000005", false);
+  await add(world, "9000001", "none");
+  await add(world, "9000005", "none");
 
   await page.goto("/library/movie");
   await pick(page, orchard, saltRoad);
@@ -63,8 +63,8 @@ test("an Admin moves two Works without files to another library root, then delet
 }) => {
   await rootAt(world, "movies");
   const archive = await rootAt(world, "archive");
-  await add(world, "9000001", true);
-  await add(world, "9000005", true);
+  await add(world, "9000001", "all");
+  await add(world, "9000005", "all");
 
   await page.goto("/library/movie");
   await pick(page, orchard, saltRoad);
@@ -118,8 +118,8 @@ test("the picked bar stays in view without moving the grid", async ({
   world,
 }, testInfo) => {
   await rootAt(world, "movies");
-  await add(world, "9000001", false);
-  await add(world, "9000005", false);
+  await add(world, "9000001", "none");
+  await add(world, "9000005", "none");
 
   await page.goto("/library/movie");
   const before = await documentTop(page, orchard);
