@@ -430,7 +430,7 @@ func Routes(r *api.Router, clients Clients) {
 		Errors:  []*api.Code{nodeNotFound, settingapi.ErrOutOfRange, clientNotFound, clientFieldRefused},
 	}, h.setSettings)
 
-	tested := []*api.Code{clientTestFailed.Code, clientUnavailable, clientFieldRefused, nodeNotDownloading, settingapi.ErrOutOfRange}
+	tested := []*api.Code{clientTestFailed.Code, clientChooseDaemon.Code, clientUnavailable, clientFieldRefused, nodeNotDownloading, settingapi.ErrOutOfRange}
 	api.Register(o, api.Admin, api.Op{
 		ID:      "createDownloadClient",
 		Method:  http.MethodPost,

@@ -375,3 +375,20 @@ func must[T any](v T, err error) T {
 	}
 	return v
 }
+
+func TestADelugeTestThatNeedsADaemonListsTheDaemons(t *testing.T) {
+	w := serveWorld(t)
+	deluge := `{"nodeId":"` + w.self.String() + `","kind":"deluge","address":"http://192.168.1.20:8112","password":"hunter2"}`
+	w.node.answer = &dlv1.TestClientResponse{Answer: &dlv1.TestClientResponse_Failed{Failed: &dlv1.Problem{
+		Cause: dlv1.Cause_CAUSE_DAEMON_NEEDED, Daemons: []*dlv1.Daemon{{Host: "127.0.0.1", Port: 58846}, {Host: "192.168.1.30", Port: 58846}},
+	}}}
+	w.o.Expect(t, http.MethodPost, "/api/v1/external-download-clients/test", deluge, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"download_client_choose_daemon","title":"Choose the daemon SlipStream uses",`+
+			`"detail":"Deluge's web UI lists more than one daemon. Choose the daemon SlipStream uses and test again.",`+
+			`"daemons":[{"host":"127.0.0.1","port":58846},{"host":"192.168.1.30","port":58846}]}`)
+
+	w.node.answer = failing(dlv1.Cause_CAUSE_WRONG_CREDENTIALS)
+	w.o.Expect(t, http.MethodPost, "/api/v1/external-download-clients/test", deluge, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"download_client_test_failed","title":"The Download Client's Test failed",`+
+			`"detail":"Deluge rejected the password. Check it and test again.","fields":["password"]}`)
+}

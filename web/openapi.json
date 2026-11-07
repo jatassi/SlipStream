@@ -22792,12 +22792,22 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_choose_daemon",
                             "download_client_field_refused",
                             "download_client_test_failed",
                             "invalid",
                             "setting_out_of_range"
                           ],
                           "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
                         },
                         "fields": {
                           "items": {
@@ -22999,12 +23009,22 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_choose_daemon",
                             "download_client_field_refused",
                             "download_client_test_failed",
                             "invalid",
                             "setting_out_of_range"
                           ],
                           "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
                         },
                         "fields": {
                           "items": {
@@ -23434,12 +23454,22 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_choose_daemon",
                             "download_client_field_refused",
                             "download_client_test_failed",
                             "invalid",
                             "setting_out_of_range"
                           ],
                           "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
                         },
                         "fields": {
                           "items": {
@@ -23676,12 +23706,22 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_choose_daemon",
                             "download_client_field_refused",
                             "download_client_test_failed",
                             "invalid",
                             "setting_out_of_range"
                           ],
                           "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
                         },
                         "fields": {
                           "items": {

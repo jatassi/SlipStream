@@ -204,6 +204,9 @@ type TestFailedError struct {
 	Problem clients.Problem
 	Subject Subject
 	Node    role.NodeID
+	// Daemons are the daemons Deluge's web UI lists, for a Test that
+	// failed choosing one.
+	Daemons []clients.Daemon
 }
 
 func (e *TestFailedError) Error() string { return "the Test failed: " + e.Problem.Error() }
@@ -533,7 +536,7 @@ func (c *Clients) test(ctx context.Context, e External, s clients.Secrets) (Test
 		if err != nil {
 			return TestReport{}, fmt.Errorf("test client %s: %w", e.ID, err)
 		}
-		return TestReport{}, &TestFailedError{Problem: p, Subject: e.Subject(), Node: e.Node}
+		return TestReport{}, &TestFailedError{Problem: p, Subject: e.Subject(), Node: e.Node, Daemons: daemonsFromWire(a.Failed.GetDaemons())}
 	case *dlv1.TestClientResponse_Passed:
 		return reportFromWire(a.Passed, e.Subject())
 	}
@@ -549,8 +552,14 @@ func reportFromWire(p *dlv1.Passed, s Subject) (TestReport, error) {
 		}
 		r.Warnings = append(r.Warnings, got)
 	}
-	for _, d := range p.GetDaemons() {
-		r.Daemons = append(r.Daemons, clients.Daemon{Host: d.GetHost(), Port: int(d.GetPort())})
-	}
+	r.Daemons = daemonsFromWire(p.GetDaemons())
 	return r, nil
+}
+
+func daemonsFromWire(daemons []*dlv1.Daemon) []clients.Daemon {
+	var out []clients.Daemon
+	for _, d := range daemons {
+		out = append(out, clients.Daemon{Host: d.GetHost(), Port: int(d.GetPort())})
+	}
+	return out
 }

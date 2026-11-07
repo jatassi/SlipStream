@@ -19,6 +19,7 @@ import (
 
 var (
 	clientTestFailed   = api.NewCarrying[[]string](http.StatusUnprocessableEntity, "download_client_test_failed", "The Download Client's Test failed", "fields")
+	clientChooseDaemon = api.NewCarrying[[]daemon](http.StatusUnprocessableEntity, "download_client_choose_daemon", "Choose the daemon SlipStream uses", "daemons")
 	clientUnavailable  = api.NewCode(http.StatusBadGateway, "download_client_unavailable", "The Test couldn't run")
 	clientInUse        = api.NewCode(http.StatusConflict, "download_client_in_use", "New Grabs go to this client")
 	clientHasTorrents  = api.NewCode(http.StatusConflict, "download_client_has_torrents", "This client holds torrents SlipStream tracks")
@@ -43,7 +44,11 @@ func answer(err error, names map[nodes.ID]nodes.Named, kind clients.Kind) error 
 	name := func(n role.NodeID) string { return names[n].Name }
 	switch {
 	case errors.As(err, &failed):
-		return clientTestFailed.Explained(downloadclients.Says(failed.Problem, failed.Subject, name(failed.Node)), fieldsOf(failed.Problem.Cause))
+		says := downloadclients.Says(failed.Problem, failed.Subject, name(failed.Node))
+		if c := failed.Problem.Cause; c == clients.DaemonNeeded || c == clients.WrongDaemon {
+			return clientChooseDaemon.Explained(says, daemonsOf(failed.Daemons))
+		}
+		return clientTestFailed.Explained(says, fieldsOf(failed.Problem.Cause, failed.Subject.Kind))
 	case errors.As(err, &away):
 		return clientUnavailable.Because(downloadclients.Unreached(name(away.Node)))
 	case errors.As(err, &inUse):
@@ -64,10 +69,21 @@ func answer(err error, names map[nodes.ID]nodes.Named, kind clients.Kind) error 
 	return settingapi.Refused(err)
 }
 
-func fieldsOf(c clients.Cause) []string {
+// fieldsOf is the fields c names that kind takes.
+func fieldsOf(c clients.Cause, kind clients.Kind) []string {
 	out := []string{}
 	for _, f := range c.Fields() {
-		out = append(out, string(f))
+		if f != clients.FieldUsername || kind.Facts().SignIn.Username != clients.NotTaken {
+			out = append(out, string(f))
+		}
+	}
+	return out
+}
+
+func daemonsOf(ds []clients.Daemon) []daemon {
+	out := []daemon{}
+	for _, d := range ds {
+		out = append(out, daemon{Host: d.Host, Port: d.Port})
 	}
 	return out
 }
@@ -339,7 +355,7 @@ func clientOf(e downloadclients.ExternalCard, node string) externalClient {
 	if p := e.Poll; p != nil {
 		out.Since, out.ProductVersion = &p.Since, p.Version
 		if pr := p.Problem; pr != nil {
-			out.Problem = api.Some(pollProblem{Cause: string(pr.Cause), Sentence: downloadclients.Says(*pr, e.Subject(), node), Fields: fieldsOf(pr.Cause)})
+			out.Problem = api.Some(pollProblem{Cause: string(pr.Cause), Sentence: downloadclients.Says(*pr, e.Subject(), node), Fields: fieldsOf(pr.Cause, e.Kind)})
 		}
 	}
 	for _, a := range e.Kind.Facts().Acts {
@@ -357,13 +373,11 @@ type testReport struct {
 }
 
 func reportOf(r downloadclients.TestReport) testReport {
-	out := testReport{Product: r.Product, Version: r.Version, Folder: r.NodeFolder, Warnings: []string{}, Daemons: []daemon{}}
+	out := testReport{Product: r.Product, Version: r.Version, Folder: r.NodeFolder, Warnings: []string{}}
 	for _, w := range r.Warnings {
 		out.Warnings = append(out.Warnings, downloadclients.Warns(w, r.Subject))
 	}
-	for _, d := range r.Daemons {
-		out.Daemons = append(out.Daemons, daemon{Host: d.Host, Port: d.Port})
-	}
+	out.Daemons = daemonsOf(r.Daemons)
 	return out
 }
 
