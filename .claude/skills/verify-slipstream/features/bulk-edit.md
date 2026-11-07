@@ -59,6 +59,14 @@ Steps:
   $FW exec $RUN --proof bulk-edit/bulk-presets -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library'
   ```
 
+  Turn one Work's Item back on by its id: the answer is 204 and its row reads `"monitored":"all"`. Another Work's id answers 422 at `body.itemIds[0]`, `The Work has no Item with that id.`
+
+  ```sh
+  W=$(echo $IDS | jq -r '.[0]')
+  ITEM=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W" | jq -r '.items[0].id')
+  $FW exec $RUN --proof bulk-edit/bulk-presets -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"itemIds\":[\"$ITEM\"],\"levelIds\":[],\"on\":true}" "{nodes.home.url}/api/v1/works/$W/monitored"
+  ```
+
   Choose `Monitor` again before the next step, so both Works read monitored.
 
 - **Hidden by the search.** Fill `Search Movies` with `salt`; the bar adds `· 1 hidden by filters`. Empty the box again.
