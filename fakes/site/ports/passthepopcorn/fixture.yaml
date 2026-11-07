@@ -54,6 +54,11 @@ cases:
     exchanges:
       - request: {path: /torrents.php}
         response: {status: 429, headers: {Retry-After: "120"}}
+  - name: nottv
+    call: {search: {mode: search, text: Juniper Falls S01E02}}
+    exchanges:
+      - request: {path: /torrents.php, query: {searchstr: Juniper Falls S01E02}}
+        response: {status: 429, headers: {Content-Type: text/plain}, body: nottv.txt}
   - name: notjson
     call: {recent: {}}
     exchanges:

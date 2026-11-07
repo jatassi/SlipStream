@@ -23,10 +23,14 @@ func parseResponse(ix *indexer, indexerResponse *port.IndexerResponse) ([]port.T
 	var torrentInfos []port.TorrentInfo
 
 	if indexerResponse.StatusCode != http.StatusOK {
-		switch indexerResponse.StatusCode {
-		case http.StatusForbidden:
+		switch {
+		case indexerResponse.StatusCode == http.StatusForbidden:
 			return nil, port.RequestLimitReached("the query limit")
-		case http.StatusUnauthorized:
+		case indexerResponse.StatusCode == http.StatusTooManyRequests && strings.Contains(indexerResponse.Content, "We are not a TV indexer"):
+			return nil, port.IndexerError("the site responded that it has no TV search")
+		case indexerResponse.StatusCode == http.StatusTooManyRequests:
+			return nil, port.RequestLimitReached("the request limit")
+		case indexerResponse.StatusCode == http.StatusUnauthorized:
 			return nil, port.IndexerAuthError("")
 		}
 		return nil, port.IndexerError("the Indexer responded with status %d", indexerResponse.StatusCode)

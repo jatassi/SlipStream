@@ -1,7 +1,6 @@
 {
   "outcome": {
-    "kind": "limited",
-    "retryAfter": "2m0s"
+    "kind": "limited"
   },
   "sessionChanged": false
 }

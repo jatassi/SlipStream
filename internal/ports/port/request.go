@@ -218,6 +218,7 @@ type Request struct {
 	json     []byte
 	err      error
 	noFollow bool
+	suppress []int
 }
 
 func Get(u *url.URL) *Request { return newRequest(http.MethodGet, u) }
@@ -260,6 +261,14 @@ func (r *Request) SetJSON(v any) *Request {
 // NoRedirect is AllowAutoRedirect = false: the response is the redirect.
 func (r *Request) NoRedirect() *Request {
 	r.noFollow = true
+	return r
+}
+
+// SuppressHTTPErrorStatusCodes is SuppressHttpErrorStatusCodes: a 429 or
+// 5xx with one of codes reaches the parser in place of the Node's limited
+// or failing.
+func (r *Request) SuppressHTTPErrorStatusCodes(codes ...int) *Request {
+	r.suppress = codes
 	return r
 }
 

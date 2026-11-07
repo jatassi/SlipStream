@@ -5,6 +5,7 @@
 package passthepopcorn
 
 import (
+	"net/http"
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/ports/port"
@@ -26,8 +27,7 @@ func getBasicSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (po
 }
 
 // SlipStream: the ApiUser and ApiKey headers come from getDownloadRequest,
-// which the framework runs on every request. A 429 never reaches the
-// parser, because the Node reads it as a limit first.
+// which the framework runs on every request.
 func getRequest(ix *indexer, searchTerm string, searchCriteria port.SearchCriteria) *port.Request {
 	r := port.Get(ix.URL("torrents.php")).
 		AddQueryParam("action", "advanced").
@@ -58,5 +58,5 @@ func getRequest(ix *indexer, searchTerm string, searchCriteria port.SearchCriter
 		r.AddQueryParam("page", strconv.Itoa(page))
 	}
 
-	return r.Accept("application/json")
+	return r.Accept("application/json").SuppressHTTPErrorStatusCodes(http.StatusTooManyRequests)
 }

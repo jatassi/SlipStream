@@ -520,7 +520,7 @@ func (j *job[S]) request(r *Request, credentials bool) (*http.Request, searching
 	if err != nil {
 		return nil, searching.Send{}, &searching.Failing{Err: fmt.Errorf("build the request: %w", searching.WithoutURL(err))}
 	}
-	o := searching.Send{Purpose: j.purpose, NoFollow: r.noFollow, Rotates: j.t.login.rotates}
+	o := searching.Send{Purpose: j.purpose, NoFollow: r.noFollow, Rotates: j.t.login.rotates, Suppress: r.suppress}
 	if on {
 		req.Header = r.Header.Clone()
 		o.Hosts = j.hosts

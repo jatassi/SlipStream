@@ -91,6 +91,9 @@ type Send struct {
 	// Rotates reports the cookies a response sets as a newly earned
 	// session, which the Answer carries.
 	Rotates bool
+	// Suppress are the statuses among 429 and 5xx that Do returns for the
+	// driver to read, as Prowlarr's SuppressHttpErrorStatusCodes.
+	Suppress []int
 }
 
 func (o Send) redirect(req *http.Request, via []*http.Request) error {
@@ -105,9 +108,10 @@ func (o Send) redirect(req *http.Request, via []*http.Request) error {
 // User-Agent. A cookie a response sets joins the session. It waits for
 // the host's turn before the request and before each redirect it
 // follows, caps the body, follows at most 10 redirects, stopping at one
-// to a magnet link, and turns a browser challenge into *Stopped, a
-// 429 into *Limited and a 5xx, a timeout or a connection failure into
-// *Failing. It returns any other response for the driver to read.
+// to a magnet link, and turns a browser challenge into *Stopped, a 429
+// into *Limited and a 5xx, a timeout or a connection failure into
+// *Failing, unless o suppresses the status. It returns any other response
+// for the driver to read.
 // Credentials go only where the driver puts them, and neither its errors
 // nor its log lines carry the URL.
 func (s *Site) Do(ctx context.Context, req *http.Request, o Send) (*Response, error) {
@@ -202,6 +206,7 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) 
 		return nil, &Failing{Err: fmt.Errorf("the Indexer's response is over %d bytes", p.limit())}
 	case challenged(res, body):
 		return nil, errChallenged
+	case slices.Contains(o.Suppress, res.StatusCode):
 	case res.StatusCode == http.StatusTooManyRequests:
 		return nil, &Limited{RetryAfter: retryAfter(res.Header.Get("Retry-After"), time.Now())}
 	case res.StatusCode >= http.StatusInternalServerError:
