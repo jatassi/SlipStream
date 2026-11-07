@@ -147,7 +147,7 @@ func TestMusic(t *testing.T) {
 	a := api(t, run)
 	session := a.SignIn("home")
 
-	worldtest.Expect(t, "listContentTypes", a.Signed("home", session, http.MethodGet, "/api/v1/content-types", ""), worldtest.Reply{Status: 200, Body: `{"contentTypes":[` + movieType + `,` + musicType + `]}` + "\n"})
+	worldtest.Expect(t, "listContentTypes", a.Signed("home", session, http.MethodGet, "/api/v1/content-types", ""), worldtest.Reply{Status: 200, Body: `{"contentTypes":[` + movieType + `,` + musicType + `,` + seriesType + `]}` + "\n"})
 
 	worldtest.Expect(t, "searchCatalog for The Lanterns", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns("null"))
 
