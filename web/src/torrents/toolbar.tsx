@@ -1,5 +1,6 @@
 import { FilterHorizontalIcon } from "@hugeicons/core-free-icons";
 
+import { useListDownloadClientsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
@@ -8,7 +9,7 @@ import { Segmented } from "../ui/segmented";
 import { Select, type SelectOption } from "../ui/select";
 import { Sheet } from "../ui/sheet";
 import { useShell } from "../ui/shell-context";
-import { type Row, type Tab, tabLabels, tabOrder } from "./model";
+import { type Row, type Tab, builtInClient, clientOf, tabLabels, tabOrder } from "./model";
 
 const every = "";
 
@@ -20,12 +21,14 @@ export type ToolbarProps = {
   readonly rows: readonly Row[];
   readonly node: string | undefined;
   readonly type: string | undefined;
+  readonly client: string | undefined;
   readonly q: string;
   readonly onQChange: (q: string) => void;
   readonly onChange: (change: {
     tab?: Tab;
     node?: string | undefined;
     type?: string | undefined;
+    client?: string | undefined;
   }) => void;
 };
 
@@ -48,8 +51,16 @@ function choicesOf(
   return named.filter(({ id }) => held.has(id) || id === picked);
 }
 
-function useChoices({ rows, node, type }: ToolbarProps) {
+function useChoices({ rows, node, type, client }: ToolbarProps) {
+  const { cards } = useListDownloadClientsSuspense().data;
+  const clients = [
+    { id: builtInClient, name: "Built-in client" },
+    ...cards.flatMap((card) =>
+      card.externals.map(({ id, name }) => ({ id, name: `${name} on ${card.nodeName}` })),
+    ),
+  ];
   return {
+    clients: choicesOf(rows, clientOf, clients, client),
     nodes: choicesOf(rows, (row) => row.nodeId, useListNodesSuspense().data.nodes, node),
     types: choicesOf(
       rows,
@@ -66,8 +77,10 @@ const shows = (choices: readonly Choice[], picked: string | undefined): boolean 
 function Filters({
   nodes,
   types,
+  clients,
   node,
   type,
+  client,
   onChange,
 }: ToolbarProps & ReturnType<typeof useChoices>) {
   return (
@@ -89,6 +102,16 @@ function Filters({
           value={type ?? every}
           onValueChange={(value) => {
             onChange({ type: chosen(value) });
+          }}
+        />
+      )}
+      {shows(clients, client) && (
+        <Select
+          label="Client"
+          options={optionsOf(clients, "Every client")}
+          value={client ?? every}
+          onValueChange={(value) => {
+            onChange({ client: chosen(value) });
           }}
         />
       )}
@@ -126,7 +149,10 @@ export function Toolbar(props: ToolbarProps) {
     />
   );
   if (shell === "phone") {
-    const filtering = shows(choices.nodes, props.node) || shows(choices.types, props.type);
+    const filtering =
+      shows(choices.nodes, props.node) ||
+      shows(choices.types, props.type) ||
+      shows(choices.clients, props.client);
     return (
       <div className="mb-4 flex flex-col gap-3">
         {tabs}

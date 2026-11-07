@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { DownloadclientsKind as Kind } from "../api/gen/model";
-import { Button } from "../ui/button";
+import { Button, type ButtonLook } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { Switch } from "../ui/switch";
 import { ClientDetails } from "./client-details";
@@ -119,12 +119,17 @@ function ClientSheet({
 }
 
 /** A button that opens the client sheet, labelled for what it opens on. */
-export function ClientSheetButton({ label, ...props }: Omit<Props, "onDone"> & { label: string }) {
+export function ClientSheetButton({
+  label,
+  look = "default",
+  ...props
+}: Omit<Props, "onDone"> & { label: string; look?: ButtonLook }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
         size="small"
+        look={look}
         onClick={() => {
           setOpen(true);
         }}

@@ -16,6 +16,7 @@ import {
   getListLibraryMockHandler,
 } from "../api/gen/query/works/works.msw";
 import { artworkHandlers, artworkUrl } from "./ambient/fixtures";
+import { downloadClients } from "./download-clients";
 import { cinema, libraryRow, orchardId, orchardRow } from "./library";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "./nodes";
 import { targetHandlers } from "./targets";
@@ -154,12 +155,14 @@ function detailHandler(
 }
 
 /**
- * The Controller's Torrents and what the view reads beside them. `rows` is
- * what GET /torrents answers from now on; `asked` records each ids splice.
+ * The Controller's Torrents and what the view reads beside them, the
+ * Download Clients list among them. `rows` is what GET /torrents answers
+ * from now on; `asked` records each ids splice.
  */
 export function torrentsServer(
   initial: readonly Row[],
   details: (row: Row) => DownloadclientsTorrentDetail = (row) => detailOf(row),
+  clients: ReturnType<typeof downloadClients> = downloadClients(),
 ) {
   let rows = [...initial];
   const asked: string[][] = [];
@@ -186,6 +189,7 @@ export function torrentsServer(
         ],
       }),
       ...targetHandlers(),
+      ...clients.handlers,
     ],
     asked,
     become(next: readonly Row[]) {

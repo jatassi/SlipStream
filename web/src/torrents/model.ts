@@ -36,12 +36,19 @@ export const stateWords: { readonly [S in State]: string } = {
   seeding: "Seeding",
 };
 
+/** The client filter's value for every Node's built-in client; an external client goes by its id. */
+export const builtInClient = "built-in";
+
 export type TorrentsFilter = {
   readonly tab: Tab;
   readonly node?: string | undefined;
   readonly type?: string | undefined;
+  readonly client?: string | undefined;
   readonly q: string;
 };
+
+/** The client a row's client filter matches: its external client's id, else the built-in one. */
+export const clientOf = (row: Row): string => row.clientId ?? builtInClient;
 
 export function matches(row: Row, filter: TorrentsFilter, work: string | undefined): boolean {
   const q = filter.q.trim().toLowerCase();
@@ -49,6 +56,7 @@ export function matches(row: Row, filter: TorrentsFilter, work: string | undefin
     row.tabs.includes(filter.tab) &&
     (filter.node === undefined || row.nodeId === filter.node) &&
     (filter.type === undefined || row.contentType === filter.type) &&
+    (filter.client === undefined || clientOf(row) === filter.client) &&
     (q === "" || row.name.toLowerCase().includes(q) || (work?.toLowerCase().includes(q) ?? false))
   );
 }
