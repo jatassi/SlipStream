@@ -1,0 +1,65 @@
+{
+  "releases": [
+    {
+      "title": "Cedar.Hollow.S10E17.1080p.WEB-DL.DD5.1.H.264-ECI",
+      "size": 1718009717,
+      "published": "2015-04-04T20:30:46Z",
+      "seeders": 46,
+      "leechers": 1,
+      "grabs": 49,
+      "link": "https://hdbits.fixture-site.fake.localhost/download.php?id=257142\u0026passkey=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "categories": [
+        5000,
+        100002
+      ],
+      "ids": {
+        "imdbid": "tt0078901",
+        "tvdbid": "78901"
+      },
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://hdbits.fixture-site.fake.localhost/details.php?id=257142",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    },
+    {
+      "title": "Harbor.Lights.2012.S04E18.1080p.WEB-DL.DD5.1.H.264-ECI",
+      "size": 1789106197,
+      "published": "2015-04-04T20:25:28Z",
+      "seeders": 18,
+      "leechers": 0,
+      "grabs": 19,
+      "link": "https://hdbits.fixture-site.fake.localhost/download.php?id=257140\u0026passkey=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "f3d82ea776451f96507397646f0e0f626997da6a",
+      "categories": [
+        5000,
+        100002
+      ],
+      "ids": {
+        "imdbid": "tt0078901",
+        "tvdbid": "248841"
+      },
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://hdbits.fixture-site.fake.localhost/details.php?id=257140",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}
