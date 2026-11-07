@@ -70,6 +70,7 @@ Steps:
   ```sh
   $FW fault set $RUN tvdb-search tvdb status=500 --route search
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=series&query=lights'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Results" }).getByText("Harbor Lights").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof add-a-series/series-fallback -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-series/series-fallback/results.aria.yml
   $FW fault clear $RUN tvdb-search
   ```
@@ -79,5 +80,6 @@ Steps:
 - The sentence's root is the run's scratch path, so match it by its `tv` ending, never in full.
 - The preset list is a Select: its options exist only while it is open, and `Escape` closes it without picking.
 - The fallback resolves each TMDB result through TMDB's `external_ids`; the series Scenario's TMDB lists only `Harbor Lights` among series, so a fallback search for another title lists nothing.
+- TVDB's failed search takes its three tries before TMDB answers, so wait for the result before the snapshot.
 - SlipStream keeps a search's answer for a while, so a query already searched before the fault reads TVDB's cached results. Search a query the run hasn't searched yet.
 - On phone, the empty TV library holds two `Add a Series` buttons, the large title's and the empty state's.
