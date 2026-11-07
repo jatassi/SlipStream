@@ -4674,11 +4674,14 @@
         "additionalProperties": false,
         "properties": {
           "logo": {
-            "description": "The logo the web app bundles to show beside it",
+            "description": "The logo the web app bundles to show beside it; null when it bundles none, so the text shows alone",
             "enum": [
               "tmdb"
             ],
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "text": {
             "description": "The sentence to show, word for word",
