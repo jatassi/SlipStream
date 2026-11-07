@@ -69,7 +69,7 @@ type ItemFacts struct {
 type Facts map[ItemID]ItemFacts
 
 // Monitors is the set c monitors among t's live Items, under facts. Pure.
-func Monitors(t Tree, facts Facts, c Choice) map[ItemID]bool {
+func Monitors(_ Tree, _ Facts, _ Choice) map[ItemID]bool {
 	panic("works: Monitors is not implemented")
 }
 
@@ -87,7 +87,7 @@ type PresetCounts struct {
 }
 
 // CountPresets is Monitors' size for each Preset. Pure.
-func CountPresets(t Tree, facts Facts) PresetCounts {
+func CountPresets(_ Tree, _ Facts) PresetCounts {
 	panic("works: CountPresets is not implemented")
 }
 
@@ -108,7 +108,7 @@ func (d Delta) Zero() bool { return d == Delta{} }
 // after commit, or rolls back for a preview. Applying it twice changes
 // nothing the second time. A Work ws names that doesn't exist is absent
 // from the answer.
-func (w *Works) ApplyPreset(ctx context.Context, tx *storage.Tx[file], ws Among[WorkID], c Choice, facts map[WorkID]Facts) (map[WorkID]Delta, error) {
+func (w *Works) ApplyPreset(_ context.Context, _ *storage.Tx[file], _ Among[WorkID], _ Choice, _ map[WorkID]Facts) (map[WorkID]Delta, error) {
 	return nil, errors.New("not implemented")
 }
 

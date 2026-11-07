@@ -303,10 +303,14 @@ func validateRatings(sources []RatingSource) error {
 }
 
 // validatePlaces holds every field to a place that takes it: tagline and
-// overview take one text field each, code one Item-tier text or number
-// field, credits take people only and facts take no people.
+// overview take one text field each per tier, code one Item-tier text or
+// number field, credits take people only and facts take no people.
 func validatePlaces(fields []FieldSpec) error {
-	held := map[Place]string{}
+	type slot struct {
+		tier  Tier
+		place Place
+	}
+	held := map[slot]string{}
 	for _, f := range fields {
 		if len(f.In) == 0 {
 			return fmt.Errorf("field %s is in no place", f.Key)
@@ -324,15 +328,15 @@ func validatePlaces(fields []FieldSpec) error {
 				return fmt.Errorf("field %s is %s, and code takes text or a number", f.Key, f.Kind)
 			case single && p != PlaceCode && f.Kind != KindText:
 				return fmt.Errorf("field %s is %s, and %s takes text only", f.Key, f.Kind, p)
-			case single && held[p] != "":
-				return fmt.Errorf("fields %s and %s are both in %s, which takes one", held[p], f.Key, p)
+			case single && held[slot{f.Tier, p}] != "":
+				return fmt.Errorf("fields %s and %s are both in %s at %s, which takes one", held[slot{f.Tier, p}], f.Key, p, f.Tier)
 			case p == PlaceCredits && f.Kind != KindPeople:
 				return fmt.Errorf("field %s is %s, and credits takes people only", f.Key, f.Kind)
 			case p == PlaceFacts && f.Kind == KindPeople:
 				return fmt.Errorf("field %s is people, which facts doesn't take", f.Key)
 			}
 			if single {
-				held[p] = f.Key
+				held[slot{f.Tier, p}] = f.Key
 			}
 		}
 	}

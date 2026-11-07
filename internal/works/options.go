@@ -35,7 +35,7 @@ type OptionsChange struct {
 // preview rolls the Write back. Unchanged options change nothing and
 // fetch nothing. ErrNoWork, ErrOrderUnavailable, *setting.RangeError, and
 // the fetch's source errors.
-func (w *Works) SetOptions(ctx context.Context, by identity.Admin, id WorkID, o Optioning, preview bool) (OptionsChange, error) {
+func (w *Works) SetOptions(_ context.Context, _ identity.Admin, _ WorkID, _ Optioning, _ bool) (OptionsChange, error) {
 	return OptionsChange{}, errors.New("not implemented")
 }
 

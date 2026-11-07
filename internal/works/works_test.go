@@ -694,7 +694,7 @@ func TestOpenPanicsOnADescriptionThatBreaksARule(t *testing.T) {
 		"works: content type fixture: field tags is texts, and tagline takes text only": bad(func(d *works.Description) {
 			d.Fields[4].In = []works.Place{works.PlaceTagline}
 		}),
-		"works: content type fixture: fields origin and blurb are both in overview, which takes one": bad(func(d *works.Description) {
+		"works: content type fixture: fields origin and blurb are both in overview at the Work, which takes one": bad(func(d *works.Description) {
 			d.Fields[0].In = []works.Place{works.PlaceOverview}
 			d.Fields = append(d.Fields, works.FieldSpec{Key: "blurb", Label: "Blurb", Kind: works.KindText, In: []works.Place{works.PlaceOverview}})
 		}),

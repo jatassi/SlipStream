@@ -121,7 +121,7 @@ func (p *parser) entries(parentName string, parent Key, depth int, aside bool, e
 
 // owner names the node level or item keys, the Work when both are empty,
 // and the tier it sits at.
-func (p *parser) owner(work string, level, item Key) (string, Tier, error) {
+func (p *parser) owner(work string, level, item Key) (node string, tier Tier, err error) {
 	switch {
 	case level != "" && item != "":
 		return "", 0, invalid("%s: it names both level %s and %s %s for one value", work, level, strings.ToLower(p.d.Item.One), item)
