@@ -1,0 +1,164 @@
+{
+  "releases": [
+    {
+      "title": "[SubsPlease] Harbor Lights - 03 (480p)",
+      "size": 367001600,
+      "published": "2026-06-07T15:31:06Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:74ad5fe9fb96bbb8ee019fc2b8fde35afb31dc12\u0026dn=%5BSubsPlease%5D+Harbor+Lights+-+03+%28480p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "74ad5fe9fb96bbb8ee019fc2b8fde35afb31dc12",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/harbor-lights/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] Harbor Lights - 03 (720p)",
+      "size": 734003200,
+      "published": "2026-06-07T15:31:06Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:a7db97d0529a1bb047d4572995dccfeb00ea72da\u0026dn=%5BSubsPlease%5D+Harbor+Lights+-+03+%28720p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce\u0026xl=734003200",
+      "infoHash": "a7db97d0529a1bb047d4572995dccfeb00ea72da",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/harbor-lights/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] Harbor Lights - 03 (1080p)",
+      "size": 1503238553,
+      "published": "2026-06-07T15:31:06Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:e0c1a76a892944e7c3f3a23b2ef7b26fb810ebca\u0026dn=%5BSubsPlease%5D+Harbor+Lights+-+03+%281080p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce\u0026xl=1503238553",
+      "infoHash": "e0c1a76a892944e7c3f3a23b2ef7b26fb810ebca",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/harbor-lights/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] Salt Meadow - Movie (480p)",
+      "size": 367001600,
+      "published": "2026-06-06T12:02:44Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:780aff056eeab19dc0d00552a861f46dcf181178\u0026dn=%5BSubsPlease%5D+Salt+Meadow+-+Movie+%28480p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "780aff056eeab19dc0d00552a861f46dcf181178",
+      "categories": [
+        5070,
+        2020
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/salt-meadow/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] Salt Meadow - Movie (720p)",
+      "size": 734003200,
+      "published": "2026-06-06T12:02:44Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:4cbc920c946954a0891a9dd9fb2168ea320fb498\u0026dn=%5BSubsPlease%5D+Salt+Meadow+-+Movie+%28720p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "4cbc920c946954a0891a9dd9fb2168ea320fb498",
+      "categories": [
+        5070,
+        2020
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/salt-meadow/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] Salt Meadow - Movie (1080p)",
+      "size": 1395864371,
+      "published": "2026-06-06T12:02:44Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:85bd06b7131bf4ef56cf51c348f2f2ca679852ca\u0026dn=%5BSubsPlease%5D+Salt+Meadow+-+Movie+%281080p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "85bd06b7131bf4ef56cf51c348f2f2ca679852ca",
+      "categories": [
+        5070,
+        2020
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/salt-meadow/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

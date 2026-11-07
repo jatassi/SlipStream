@@ -18,6 +18,7 @@ import (
 // years.
 var searches = map[port.ID]searching.Query{
 	"knaben":      {Mode: "movie", Text: "Big Buck Bunny"},
+	"subsplease":  {Mode: "search", Text: "One Piece"},
 	"torrentscsv": {Mode: "search", Text: "Ubuntu"},
 }
 
