@@ -1,0 +1,65 @@
+source: synthetic
+settings:
+  freeLeechOnly: "false"
+session:
+  cookie: "uid={{uid}}; pass={{pass}}"
+  pasted: true
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /t.json
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}", Accept: "application/rss+xml, text/rss+xml, application/xml, text/xml"}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /t.json}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /t.json}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /t.json}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /t.json}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {test: {}}
+    session: {cookie: "uid={{uid}}; pass={{wrongPass}}", pasted: true}
+    exchanges:
+      - request: {path: /t.json, headers: {Cookie: "uid={{uid}}; pass={{wrongPass}}"}}
+        response: {status: 302, headers: {Location: "/login.php?returnto=%2Ft.json"}}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html}, body: login.html}
+  - name: loggedout
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    session: {cookie: "uid={{uid}}; pass={{expiredPass}}", pasted: true}
+    exchanges:
+      - request: {path: /t.json, headers: {Cookie: "uid={{uid}}; pass={{expiredPass}}"}}
+        response: {status: 302, headers: {Location: "/login.php?returnto=%2Ft.json"}}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html}, body: login.html}
+  - name: unauthorized
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /t.json}
+        response: {status: 401}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /t.json}
+        response: {status: 429, headers: {Retry-After: "120"}}
+  - name: grab
+    call: {fetch: /download.php/1001/1001.torrent}
+    exchanges:
+      - request: {path: /download.php/1001/1001.torrent, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

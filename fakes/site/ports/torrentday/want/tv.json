@@ -1,0 +1,32 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.S02E03.1080p.WEB-DL.H264-FKW",
+      "size": 1610612736,
+      "published": "2025-06-04T01:20:00Z",
+      "seeders": 40,
+      "leechers": 2,
+      "grabs": 80,
+      "link": "https://torrentday.fixture-site.fake.localhost/download.php/2001/2001.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040,
+        100007
+      ],
+      "ids": {
+        "imdbid": "tt0000002"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://torrentday.fixture-site.fake.localhost/details.php?id=2001",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}
