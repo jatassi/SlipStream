@@ -31,7 +31,7 @@ test("a client that holds no torrents SlipStream tracks deletes at once and leav
   expect(clients.writes).toEqual([{ path: attic.id, body: null }]);
 });
 
-test("deleting a client that holds torrents says how many stay in it, and a refusal shows its sentence", async () => {
+test("deleting a client that holds torrents says how many stay in it, stops tracking them, and a refusal shows its sentence", async () => {
   const clients = downloadClients({ cards: [withExternals(homeCard, attic)] });
   clients.state.answers.remove = () =>
     refusal(409, {
@@ -48,7 +48,8 @@ test("deleting a client that holds torrents says how many stay in it, and a refu
       ),
     )
     .toBeVisible();
-  await userEvent.click(confirm().getByRole("button", { name: "Delete" }));
+  await userEvent.click(confirm().getByRole("button", { name: "Stop tracking and delete" }));
+  expect(clients.writes).toEqual([{ path: `${attic.id}?stopTracking=true`, body: null }]);
   await expect
     .element(
       confirm().getByText(

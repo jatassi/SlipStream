@@ -223,7 +223,7 @@ export const externalHandlers = (answers: () => Answers, record: Recorder) => [
     ),
   ),
   http.delete(`${external}/:id`, async ({ request, params }) => {
-    await record(request, String(params["id"]));
+    await record(request, `${String(params["id"])}${new URL(request.url).search}`);
     return answers().remove();
   }),
 ];

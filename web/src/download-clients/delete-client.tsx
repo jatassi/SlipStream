@@ -32,13 +32,13 @@ function DeleteClientDialog({
   return (
     <ConfirmDialog
       title={`Delete ${client.name}?`}
-      confirmLabel="Delete"
+      confirmLabel={client.torrents === 0 ? "Delete" : "Stop tracking and delete"}
       look="fail"
       open={open}
       onOpenChange={onOpenChange}
       onConfirm={async () => {
         try {
-          await deleteDownloadClient(client.id);
+          await deleteDownloadClient(client.id, client.torrents === 0 ? {} : { stopTracking: true });
         } catch (error) {
           throw new Error(sentenceOf(error), { cause: error });
         }
