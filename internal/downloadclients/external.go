@@ -76,15 +76,25 @@ const (
 // ReachOf derives a client's reach from the record and the link, in that order: off,
 // Node offline, then the poll.
 func ReachOf(e External, inStep bool) ClientReach {
+	var state *clients.PollState
+	if e.Poll != nil {
+		state = &e.Poll.State
+	}
+	return reachOf(e.On, inStep, state)
+}
+
+// reachOf is ReachOf for a client on or off, whose Node is in step or
+// not, at its last poll's state, nil before its first.
+func reachOf(on, inStep bool, state *clients.PollState) ClientReach {
 	switch {
-	case !e.On:
+	case !on:
 		return ReachOff
 	case !inStep:
 		return ReachNodeOffline
-	case e.Poll == nil:
+	case state == nil:
 		return ReachUnchecked
 	}
-	return ClientReach(e.Poll.State)
+	return ClientReach(*state)
 }
 
 var (

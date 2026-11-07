@@ -32,7 +32,10 @@ type Row struct {
 	Client *ClientRef
 	// Attached is an external torrent that was in its client before
 	// SlipStream attached to it.
-	Attached    bool
+	Attached bool
+	// DeleteFiles is a remove that may delete its download copy: false
+	// for one that parts at once, attached or in an off client.
+	DeleteFiles bool
 	Name        string
 	Size        int64
 	ContentType works.TypeID
@@ -245,7 +248,8 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 		ID: h.ID, Node: h.NodeID, Name: h.Name, Size: h.Size, ContentType: h.ContentType, AddedAt: h.AddedAt.Time(),
 		Uses: uses, State: state, Severity: SeverityOf(facts, state), Tabs: TabsOf(facts, state),
 		Client: refOf(h.ClientID, h.ClientKind, h.ClientName), Attached: h.Attached != nil && *h.Attached,
-		Done: rep.done(h.Size), Tracker: cellOf(hosts, rep), report: rep,
+		DeleteFiles: removalOf(h.ClientID, h.Attached, h.ClientOn) == removedByNode,
+		Done:        rep.done(h.Size), Tracker: cellOf(hosts, rep), report: rep,
 		Totals: Totals{
 			Uploaded: h.Uploaded, Downloaded: h.Downloaded,
 			Active: time.Duration(h.ActiveSeconds) * time.Second, Seeding: time.Duration(h.SeedingSeconds) * time.Second,

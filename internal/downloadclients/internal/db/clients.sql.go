@@ -356,6 +356,33 @@ func (q *Queries) ListNodeClients(ctx context.Context, nodeID role.NodeID) ([]Do
 	return items, nil
 }
 
+const listTracked = `-- name: ListTracked :many
+SELECT id FROM downloadclients_torrent WHERE client_id = ?1 AND parted_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListTracked(ctx context.Context, clientID *ClientID) ([]TorrentID, error) {
+	rows, err := q.db.QueryContext(ctx, listTracked, clientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TorrentID
+	for rows.Next() {
+		var id TorrentID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const nameTaken = `-- name: NameTaken :one
 SELECT CAST(EXISTS (
     SELECT 1 FROM downloadclients_client
@@ -412,6 +439,28 @@ func (q *Queries) SetPoll(ctx context.Context, arg SetPollParams) (int64, error)
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const stopTracking = `-- name: StopTracking :exec
+UPDATE downloadclients_torrent SET
+    removed_at = coalesce(removed_at, ?1),
+    removed_reason = 'client_deleted',
+    parted_at = ?1,
+    freed = NULL
+WHERE client_id = ?2 AND parted_at IS NULL
+`
+
+type StopTrackingParams struct {
+	At       storage.Time
+	ClientID *ClientID
+}
+
+// Deleting a client with Stop tracking parts every Torrent it holds at
+// once and leaves each in the client, a Removing one too, whose removal
+// the client never confirmed.
+func (q *Queries) StopTracking(ctx context.Context, arg StopTrackingParams) error {
+	_, err := q.db.ExecContext(ctx, stopTracking, arg.At, arg.ClientID)
+	return err
 }
 
 const updateClient = `-- name: UpdateClient :execrows

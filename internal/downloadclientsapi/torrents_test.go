@@ -144,12 +144,12 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 			`"byTab":[{"tab":"downloading","torrents":1},{"tab":"seeding","torrents":0},{"tab":"problems","torrents":1},{"tab":"all","torrents":2}],` +
 			`"byNode":[{"nodeId":"` + node + `","torrents":2}]}}`
 	}
-	orchardRow := `{"id":"id1","nodeId":"id2","name":"Orchard","contentType":"fixture","workId":"id3","edition":"any","quality":"webdl-1080p",` +
+	orchardRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Orchard","contentType":"fixture","workId":"id3","edition":"any","quality":"webdl-1080p",` +
 		`"state":"queued","hold":"slot","queuePosition":1,"severity":"none","tabs":["downloading","all"],"size":1000,"done":250,"uploaded":0,` +
 		`"ratio":0,"seedingSeconds":0,"tracker":{"host":"beacon.test","status":"not_contacted"},"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?tab=downloading", "", http.StatusOK, `{"rows":[`+orchardRow+`],`+counts("id2"))
 
-	harborRow := `{"id":"id1","nodeId":"id2","name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
+	harborRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"tracker":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"addedAt":"T"}`
@@ -181,7 +181,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	w.uses[harbor] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: works.WorkID{UUID: storage.NewUUID()}, Item: item, Release: "Harbor.2019.720p.HDTV", Stage: downloadclients.UseImported, File: &file}}
 
 	_, reply := w.o.Call(t, http.MethodGet, "/api/v1/torrents/"+harbor.String(), "")
-	want := `{"id":"id1","nodeId":"id2","name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
+	want := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"tracker":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"addedAt":"T",` +

@@ -12,6 +12,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -93,8 +94,14 @@ const (
 	// RefusedNotStalled is mark-failed on a Torrent that isn't stalled.
 	RefusedNotStalled RefusalCode = "not_stalled"
 	// RefusedOffline is announce or recheck on a Torrent whose Node is out
-	// of step, or whose external client isn't answering its Node.
+	// of step.
 	RefusedOffline RefusalCode = "offline"
+	// RefusedClientAway is announce or recheck on a Torrent whose external
+	// client isn't responding to its Node.
+	RefusedClientAway RefusalCode = "client_away"
+	// RefusedClientOff is announce or recheck on a Torrent whose external
+	// client is off, so its Node doesn't check it.
+	RefusedClientOff RefusalCode = "client_off"
 	// RefusedWindow is an announce some tracker would reject until
 	// AcceptsAt.
 	RefusedWindow RefusalCode = "window"
@@ -110,6 +117,9 @@ type Refusal struct {
 	Work works.WorkID
 	// AcceptsAt is when an announce would be accepted, for RefusedWindow.
 	AcceptsAt time.Time
+	// Client and Node name the external client and its Node, for
+	// RefusedClientAway and RefusedClientOff.
+	Client, Node string
 }
 
 // Preview is what a remove or a recheck would do.
@@ -227,7 +237,8 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 		if err != nil {
 			return nil, nil, err
 		}
-		plan.preview.Frees, plan.preview.Linked = c.frees(ctx, plan.nodes, plan.ids)
+		nodes, ids := plan.deleting()
+		plan.preview.Frees, plan.preview.Linked = c.frees(ctx, nodes, ids)
 		return plan.results, plan.preview, nil
 	}
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -237,8 +248,7 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 		}
 		now := storage.Now()
 		for _, id := range plan.ids {
-			err := db.New(tx).Remove(ctx, db.RemoveParams{RemovedAt: now, RemovedReason: new(string(reason)), DeleteFiles: boolInt(deleteFiles), ID: id})
-			if err != nil {
+			if err := removeIn(ctx, db.New(tx), plan.rows[id], reason, deleteFiles, now); err != nil {
 				return err
 			}
 		}
@@ -251,13 +261,64 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 	return plan.results, nil, nil
 }
 
+// removalWay is how a Torrent's removal is carried out.
+type removalWay uint8
+
+const (
+	// removedByNode puts it in its Node's discards: the Node removes it
+	// from its client, with its files when asked, and parts it once done.
+	// For an external client that isn't responding, that waits until the
+	// client responds again.
+	removedByNode removalWay = iota + 1
+	// partedAtOnce parts it in the same Write and leaves its client and
+	// its files as they are.
+	partedAtOnce
+)
+
+// removalOf is how removing a Torrent of client, which SlipStream
+// attached to when attached says so, goes while the client is on or off.
+// The built-in client and a torrent SlipStream added to an on client go
+// through the Node, responding or not. An attached torrent only stops
+// being tracked, and an off client isn't checked, so both part at once.
+func removalOf(client *ClientID, attached *bool, on bool) removalWay {
+	switch {
+	case client == nil:
+		return removedByNode
+	case attached != nil && *attached, !on:
+		return partedAtOnce
+	}
+	return removedByNode
+}
+
+// removeIn removes row's Torrent for reason in q's Write, as removalOf
+// says.
+func removeIn(ctx context.Context, q *db.Queries, row db.ListActedRow, reason RemoveReason, deleteFiles bool, now storage.Time) error {
+	if removalOf(row.ClientID, row.Attached, row.ClientOn) == partedAtOnce {
+		return q.RemoveParted(ctx, db.RemovePartedParams{At: now, RemovedReason: new(string(reason)), ID: row.ID})
+	}
+	return q.Remove(ctx, db.RemoveParams{RemovedAt: now, RemovedReason: new(string(reason)), DeleteFiles: boolInt(deleteFiles), ID: row.ID})
+}
+
 // removal is what a remove does: its answer for each Torrent, the
 // Torrents it removes with their Nodes, and what that cancels.
 type removal struct {
 	results []Result
 	ids     []ID
 	nodes   []role.NodeID
+	rows    acted
 	preview *Preview
+}
+
+// deleting is the Torrents of p whose Node removes them, with their
+// Nodes: the ones whose files a remove may delete.
+func (p removal) deleting() (nodes []role.NodeID, ids []ID) {
+	for i, id := range p.ids {
+		row := p.rows[id]
+		if removalOf(row.ClientID, row.Attached, row.ClientOn) == removedByNode {
+			nodes, ids = append(nodes, p.nodes[i]), append(ids, id)
+		}
+	}
+	return nodes, ids
 }
 
 func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], a Action) (removal, error) {
@@ -266,6 +327,7 @@ func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], a Act
 	if err != nil {
 		return removal{}, err
 	}
+	plan.rows = rows
 	uses, err := c.cfg.Uses.Of(ctx, r, a.IDs)
 	if err != nil {
 		return removal{}, err
@@ -388,12 +450,34 @@ func (c *Clients) live(ctx context.Context, ids []ID) (results []Result, live []
 	return results, live, nodes, err
 }
 
-// ask has each Torrent's Node announce or recheck it. A Node out of step,
-// or that can't be reached, refuses its Torrents as offline.
+// ask has each Torrent's Node announce or recheck it. A Torrent whose
+// external client is off, or away, is refused without a call,
+// and so is one whose Node is out of step or can't be reached.
 func (c *Clients) ask(ctx context.Context, a Action) ([]Result, *Preview, error) {
-	results, live, nodes, err := c.live(ctx, a.IDs)
+	var rows acted
+	var names map[role.NodeID]string
+	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		if rows, err = readActed(ctx, r, a.IDs); err != nil {
+			return err
+		}
+		names, err = namesIn(ctx, r)
+		return err
+	})
 	if err != nil {
 		return nil, nil, err
+	}
+	results := make([]Result, len(a.IDs))
+	var live []ID
+	var nodes []role.NodeID
+	for i, id := range a.IDs {
+		results[i] = Result{ID: id, Refusal: rows.refusal(id)}
+		if results[i].Refusal == nil {
+			results[i].Refusal = rows.askRefusal(id, c.reachOf(rows[id]), names)
+		}
+		if results[i].Refusal == nil {
+			live, nodes = append(live, id), append(nodes, rows[id].NodeID)
+		}
 	}
 	act := dlv1.Act_ACT_ANNOUNCE
 	if a.Kind == Recheck {
@@ -404,11 +488,41 @@ func (c *Clients) ask(ctx context.Context, a Action) ([]Result, *Preview, error)
 		maps.Copy(answers, c.askOn(ctx, node, act, of))
 	}
 	for i, r := range results {
-		if r.Refusal == nil {
-			results[i].Refusal = answers[r.ID]
+		if r.Refusal != nil {
+			continue
+		}
+		results[i].Refusal = answers[r.ID]
+		if f := results[i].Refusal; f != nil && f.Code == RefusedClientAway {
+			f.Client, f.Node = rows[r.ID].ClientName, names[rows[r.ID].NodeID]
 		}
 	}
 	return results, nil, nil
+}
+
+// reachOf is row's external client's reach now, "" for the built-in
+// client.
+func (c *Clients) reachOf(row db.ListActedRow) ClientReach {
+	if row.ClientID == nil {
+		return ""
+	}
+	var state *clients.PollState
+	if row.PollState != nil {
+		state = new(clients.PollState(*row.PollState))
+	}
+	return reachOf(row.ClientOn, c.cfg.Roster.InStep(row.NodeID), state)
+}
+
+// askRefusal is why id's Node can't be asked to announce or recheck it
+// while its client is at reach: the client is off, or away.
+func (a acted) askRefusal(id ID, reach ClientReach, names map[role.NodeID]string) *Refusal {
+	row := a[id]
+	switch {
+	case reach == ReachOff:
+		return &Refusal{Code: RefusedClientOff, Client: row.ClientName, Node: names[row.NodeID]}
+	case reach.Away():
+		return &Refusal{Code: RefusedClientAway, Client: row.ClientName, Node: names[row.NodeID]}
+	}
+	return nil
 }
 
 func (c *Clients) askOn(ctx context.Context, node role.NodeID, act dlv1.Act, ids []ID) map[ID]*Refusal {
@@ -445,7 +559,7 @@ func refusalFromWire(r *dlv1.ActResult) *Refusal {
 	case dlv1.Refusal_REFUSAL_FAILED:
 		return &Refusal{Code: RefusedFailed}
 	case dlv1.Refusal_REFUSAL_CLIENT_AWAY:
-		return &Refusal{Code: RefusedOffline}
+		return &Refusal{Code: RefusedClientAway}
 	case dlv1.Refusal_REFUSAL_NOT_HELD:
 		return &Refusal{Code: RefusedNotFound}
 	}

@@ -130,6 +130,22 @@ func HasTorrents(name string, count int, moving bool) string {
 	return held + " Stop tracking them to delete it."
 }
 
+// Importing is the sentence of a refusal to delete client name while a
+// Grab imports from it.
+func Importing(name string) string {
+	return "A Grab is importing from " + name + ". Delete it once the import finishes."
+}
+
+// InClient is the sentence of a refusal to send a torrent to another
+// client on node once client already has it, "" for node's built-in
+// client.
+func InClient(client, node string) string {
+	if client == "" {
+		client = node + "'s built-in client"
+	}
+	return client + " already has this torrent. Send it to a client on another Node, or remove it in Activity."
+}
+
 // AddressTaken is the sentence of a refusal of an address client name on
 // node already uses.
 func AddressTaken(name, node string) string {

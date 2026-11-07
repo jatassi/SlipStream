@@ -281,6 +281,62 @@ func TestDeleteRefusesAClientWithTorrents(t *testing.T) {
 	}
 }
 
+// TestDeleteWithStopTrackingLeavesTheTorrentsInTheClient deletes
+// Transmission with Stop tracking: its torrents read gone with it, and
+// home's intent neither lists nor discards them, so Transmission keeps
+// them and their files.
+func TestDeleteWithStopTrackingLeavesTheTorrentsInTheClient(t *testing.T) {
+	w := serveWorld(t)
+	c := w.add(t, transmissionOn(w.self))
+	id := downloadclients.ClientID{UUID: must(storage.ParseUUID(c.ID))}
+	orchard := w.holdIn(t, "Orchard", downloadclients.Target{Node: w.self, Client: &id}, nil)
+	harbor := w.holdIn(t, "Harbor", downloadclients.Target{Node: w.self, Client: &id}, nil)
+
+	if status, reply := w.o.Call(t, http.MethodDelete, "/api/v1/external-download-clients/"+c.ID+"?stopTracking=true", ""); status != http.StatusNoContent {
+		t.Fatalf("deleting Transmission with Stop tracking = %d %s, want 204", status, reply)
+	}
+	if got := w.externals(t, w.self); len(got) != 0 {
+		t.Errorf("after the delete home's card lists %+v, want no client", got)
+	}
+	var outcomes map[downloadclients.ID]downloadclients.Attached
+	var intent *dlv1.Intent
+	err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		if outcomes, err = downloadclients.Outcomes(ctx, r, []downloadclients.ID{orchard, harbor}); err != nil {
+			return err
+		}
+		intent, err = downloadclients.Intent(ctx, r, w.self)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone := downloadclients.Gone{Reason: downloadclients.ClientDeleted, Client: "Transmission"}
+	for _, torrent := range []downloadclients.ID{orchard, harbor} {
+		if got := outcomes[torrent].Outcome; got != gone {
+			t.Errorf("torrent %s reads %+v, want %+v", torrent, got, gone)
+		}
+	}
+	if len(intent.GetTorrents()) != 0 || len(intent.GetDiscards()) != 0 {
+		t.Errorf("home's intent lists %v and discards %v, want neither torrent", intent.GetTorrents(), intent.GetDiscards())
+	}
+}
+
+func TestDeleteIsRefusedWhileAGrabImportsFromTheClient(t *testing.T) {
+	w := serveWorld(t)
+	c := w.add(t, transmissionOn(w.self))
+	id := downloadclients.ClientID{UUID: must(storage.ParseUUID(c.ID))}
+	orchard := w.holdIn(t, "Orchard", downloadclients.Target{Node: w.self, Client: &id}, nil)
+	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Release: orchardRelease, Stage: downloadclients.UseImporting}}
+
+	w.o.Expect(t, http.MethodDelete, "/api/v1/external-download-clients/"+c.ID+"?stopTracking=true", "", http.StatusConflict,
+		`{"status":409,"code":"download_client_importing","title":"A Grab is importing from this client",`+
+			`"detail":"A Grab is importing from Transmission. Delete it once the import finishes."}`)
+	if got := w.externals(t, w.self); len(got) != 1 || got[0].Torrents != 1 {
+		t.Errorf("after the refusal the card lists %+v, want Transmission with its torrent", got)
+	}
+}
+
 func TestClientsAreRefusedAtTheBoundary(t *testing.T) {
 	w := serveWorld(t)
 	w.add(t, transmissionOn(w.self))

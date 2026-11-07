@@ -28,6 +28,7 @@ var (
 	clientNotFound     = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientFieldRefused = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
 	nodeNotDownloading = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't hold Downloading")
+	clientImporting    = api.NewCode(http.StatusConflict, "download_client_importing", "A Grab is importing from this client")
 )
 
 // answer is err as the problem an Admin reads, naming clients and Nodes
@@ -38,6 +39,7 @@ func answer(err error, names map[nodes.ID]nodes.Named, kind clients.Kind) error 
 		away    *downloadclients.UnavailableError
 		inUse   *downloadclients.InUseError
 		held    *downloadclients.HasTorrentsError
+		imports *downloadclients.ImportingError
 		taken   *downloadclients.AddressTakenError
 		refused *downloadclients.RefusedError
 	)
@@ -55,6 +57,8 @@ func answer(err error, names map[nodes.ID]nodes.Named, kind clients.Kind) error 
 		return clientInUse.Because(downloadclients.InUse(name(inUse.Node)))
 	case errors.As(err, &held):
 		return clientHasTorrents.Because(downloadclients.HasTorrents(held.Name, held.Count, held.Moving))
+	case errors.As(err, &imports):
+		return clientImporting.Because(downloadclients.Importing(imports.Name))
 	case errors.As(err, &taken):
 		return clientAddressTaken.Because(downloadclients.AddressTaken(taken.Name, name(taken.Node)))
 	case errors.As(err, &refused):
@@ -384,10 +388,6 @@ func reportOf(r downloadclients.TestReport) testReport {
 
 type newClientInput struct{ Body newClient }
 
-type clientInput struct {
-	ID string `path:"id" format:"uuid"`
-}
-
 type editClientInput struct {
 	ID   string `path:"id" format:"uuid"`
 	Body clientEdit
@@ -498,9 +498,14 @@ func (h handlers) testSaved(ctx context.Context, _ identity.Admin, in *testClien
 	return &testOutput{Body: reportOf(r)}, nil
 }
 
-func (h handlers) deleteClient(ctx context.Context, _ identity.Admin, in *clientInput) (*struct{}, error) {
+type deleteClientInput struct {
+	ID           string `path:"id" format:"uuid"`
+	StopTracking bool   `query:"stopTracking" doc:"Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail"`
+}
+
+func (h handlers) deleteClient(ctx context.Context, _ identity.Admin, in *deleteClientInput) (*struct{}, error) {
 	dc, roster := open(h.clients)
-	err := dc.DeleteClient(ctx, clientID(in.ID))
+	err := dc.DeleteClient(ctx, clientID(in.ID), in.StopTracking)
 	if err == nil {
 		return nil, nil
 	}

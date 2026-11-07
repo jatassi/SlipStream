@@ -30,6 +30,7 @@ type TorrentRow struct {
 	ClientName  string       `json:"clientName,omitempty" doc:"Its external client's name"`
 	ClientKind  string       `json:"clientKind,omitempty" enum:"qbittorrent,transmission,deluge,rtorrent" doc:"Its external client's kind"`
 	Attached    bool         `json:"attached,omitempty" doc:"It was in its external client before SlipStream attached to it, so removing it only stops tracking it"`
+	DeleteFiles bool         `json:"deleteFiles" doc:"A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client"`
 	Name        string       `json:"name" doc:"The release's name in its metainfo, shown for a Torrent whose Work was deleted"`
 	ContentType string       `json:"contentType" doc:"The Content Type it was first grabbed for"`
 	WorkID      *string      `json:"workId,omitempty" format:"uuid" doc:"Its newest Grab's Work, absent once no Grab is left"`
@@ -93,6 +94,7 @@ func rowOf(r downloadclients.Row) TorrentRow {
 		Severity: severityWords[r.Severity], Tabs: []string{}, Pending: pendingWords[r.Pending],
 		Size: r.Size, Done: r.Done, Uploaded: r.Totals.Uploaded, Ratio: downloadclients.Ratio(r.Totals, r.Size),
 		Seeding: int64(r.Totals.Seeding / time.Second), Error: r.Error, LastKnown: when(r.LastKnown), Stale: string(r.LastKnownCause), AddedAt: r.AddedAt,
+		DeleteFiles: r.DeleteFiles,
 	}
 	for _, t := range downloadclients.Tabs {
 		if r.Tabs&t != 0 {
@@ -356,9 +358,11 @@ type actResult struct {
 }
 
 type refusal struct {
-	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,window,not_running,failed"`
+	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,client_away,client_off,window,not_running,failed"`
 	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it"`
 	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every announce URL accepts an announce"`
+	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name"`
+	Node      string     `json:"node,omitempty" doc:"client_away and client_off: the name of the external client's Node"`
 }
 
 type preview struct {
@@ -397,7 +401,7 @@ func (h handlers) actOnTorrents(ctx context.Context, _ identity.Admin, in *actIn
 	for i, r := range results {
 		out.Results[i] = actResult{ID: r.ID.String(), Done: r.Refusal == nil}
 		if f := r.Refusal; f != nil {
-			out.Results[i].Refusal = &refusal{Code: string(f.Code), AcceptsAt: when(f.AcceptsAt)}
+			out.Results[i].Refusal = &refusal{Code: string(f.Code), AcceptsAt: when(f.AcceptsAt), Client: f.Client, Node: f.Node}
 			if !f.Work.IsZero() {
 				out.Results[i].Refusal.WorkID = new(f.Work.String())
 			}

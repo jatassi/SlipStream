@@ -453,9 +453,9 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "deleteDownloadClient",
 		Method:  http.MethodDelete,
 		Path:    "/external-download-clients/{id}",
-		Summary: "Delete an external Download Client that holds no torrents SlipStream tracks",
+		Summary: "Delete an external Download Client, and with stopTracking stop tracking the torrents it holds",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{clientNotFound, clientInUse, clientHasTorrents},
+		Errors:  []*api.Code{clientNotFound, clientInUse, clientHasTorrents, clientImporting},
 	}, h.deleteClient)
 
 	api.Register(o, api.Admin, api.Op{

@@ -44,6 +44,20 @@ SELECT * FROM downloadclients_client WHERE deleted_at IS NULL ORDER BY name, id;
 -- The Torrents a client holds until their Node parts from them.
 SELECT count(*) FROM downloadclients_torrent WHERE client_id = sqlc.arg(client_id) AND parted_at IS NULL;
 
+-- name: ListTracked :many
+SELECT id FROM downloadclients_torrent WHERE client_id = sqlc.arg(client_id) AND parted_at IS NULL ORDER BY id;
+
+-- name: StopTracking :exec
+-- Deleting a client with Stop tracking parts every Torrent it holds at
+-- once and leaves each in the client, a Removing one too, whose removal
+-- the client never confirmed.
+UPDATE downloadclients_torrent SET
+    removed_at = coalesce(removed_at, sqlc.arg(at)),
+    removed_reason = 'client_deleted',
+    parted_at = sqlc.arg(at),
+    freed = NULL
+WHERE client_id = sqlc.arg(client_id) AND parted_at IS NULL;
+
 -- name: CountLiveByClient :many
 SELECT client_id, count(*) AS torrents FROM downloadclients_torrent
 WHERE client_id IS NOT NULL AND removed_at IS NULL

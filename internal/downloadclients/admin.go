@@ -474,10 +474,15 @@ func (c *Clients) TestSaved(ctx context.Context, id ClientID, ed Edit) (TestRepo
 
 // DeleteClient soft-deletes client id with its secrets nulled in one
 // Write, and touches its Node. The client its Node's new Grabs go to is
-// *InUseError, and one that holds Torrents SlipStream tracks is
-// *HasTorrentsError.
-func (c *Clients) DeleteClient(ctx context.Context, id ClientID) error {
-	var node role.NodeID
+// *InUseError, and one a Grab is importing from is *ImportingError. One
+// that holds Torrents SlipStream tracks is *HasTorrentsError unless
+// stopTracking, which parts each of them client_deleted in the same Write
+// and leaves them in the client.
+func (c *Clients) DeleteClient(ctx context.Context, id ClientID, stopTracking bool) error {
+	var (
+		node   role.NodeID
+		parted []ID
+	)
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		e, err := ExternalOf(ctx, tx, id)
 		if err != nil {
@@ -487,16 +492,50 @@ func (c *Clients) DeleteClient(ctx context.Context, id ClientID) error {
 		if err := notGrabsTo(ctx, tx, id); err != nil {
 			return err
 		}
-		if err := untracked(ctx, tx, e, false); err != nil {
+		q := db.New(tx)
+		if parted, err = q.ListTracked(ctx, &id); err != nil {
 			return err
 		}
-		_, err = db.New(tx).DeleteClient(ctx, db.DeleteClientParams{DeletedAt: storage.Now(), ID: id})
+		if err := c.notImporting(ctx, tx, e, parted); err != nil {
+			return err
+		}
+		now := storage.Now()
+		if !stopTracking {
+			if err := untracked(ctx, tx, e, false); err != nil {
+				return err
+			}
+		} else if err := q.StopTracking(ctx, db.StopTrackingParams{At: now, ClientID: &id}); err != nil {
+			return err
+		}
+		_, err = q.DeleteClient(ctx, db.DeleteClientParams{DeletedAt: now, ID: id})
 		return err
 	})
 	if err != nil {
 		return err
 	}
 	c.saveDone(id, node)
+	c.committed(nil, parted)
+	return nil
+}
+
+// ImportingError refuses deleting client Name while a Grab imports from
+// one of its Torrents.
+type ImportingError struct{ Name string }
+
+func (e *ImportingError) Error() string { return "a Grab is importing from " + e.Name }
+
+// notImporting is *ImportingError while a Grab imports from any of ids,
+// e's Torrents.
+func (c *Clients) notImporting(ctx context.Context, r storage.Reader[file], e External, ids []ID) error {
+	uses, err := c.cfg.Uses.Of(ctx, r, ids)
+	if err != nil {
+		return err
+	}
+	for _, us := range uses {
+		if slices.ContainsFunc(us, func(u Use) bool { return u.Stage == UseImporting }) {
+			return &ImportingError{Name: e.Name}
+		}
+	}
 	return nil
 }
 
