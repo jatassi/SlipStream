@@ -21,7 +21,7 @@ var simpsons = conformance.Known{ID: 71663, Name: "The Simpsons"}
 func TestTVDBConforms(t *testing.T) {
 	key := os.Getenv("TEST_ONLINE_TVDB_KEY")
 	if key == "" {
-		t.Skip("TEST_ONLINE_TVDB_KEY is not set")
+		t.Fatal("TEST_ONLINE_TVDB_KEY is not set")
 	}
 	var bodies []shape.Body
 	tgt := conformance.Target{Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute}, Key: key, Refused: "0", Known: simpsons, Lines: lines, Timings: provider.DefaultTimings()}
