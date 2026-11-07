@@ -54,7 +54,7 @@ test("the sheet counts the volumes and stories and what each preset monitors", a
   await expect.element(sheet().getByText("Harbor Press · 24 volumes · 1176 stories")).toBeVisible();
   await expect
     .element(sentence())
-    .toHaveTextContent(says("monitoring all 1176 stories and new ones as they air"));
+    .toHaveTextContent(says("monitoring all 1176 stories and new ones as they come out"));
   await expect.element(extras()).not.toBeChecked();
   await expect.element(folders()).toBeChecked();
 
@@ -80,7 +80,7 @@ test("each preset says what it monitors now and whether it monitors new stories"
   await pick("Future");
   await expect
     .element(sentence())
-    .toHaveTextContent(says("monitoring only new stories as they air"));
+    .toHaveTextContent(says("monitoring only new stories as they come out"));
   await pick("None");
   await expect.element(sentence()).toHaveTextContent(says("monitoring no stories"));
 });
@@ -92,7 +92,7 @@ test("Include extras adds the extras to every preset's count", async () => {
   await userEvent.click(extras());
   await expect
     .element(sentence())
-    .toHaveTextContent(says("monitoring all 1200 stories and new ones as they air"));
+    .toHaveTextContent(says("monitoring all 1200 stories and new ones as they come out"));
   await pick("First volume");
   await expect.element(sentence()).toHaveTextContent(says("monitoring 73 stories and no new ones"));
   await expect.element(presetPicker()).toHaveTextContent("First volume · 73 stories");

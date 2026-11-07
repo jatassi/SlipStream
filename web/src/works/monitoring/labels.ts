@@ -28,9 +28,13 @@ export const presetLabels: { readonly [P in Preset]: (type: WorksContentType) =>
   none: () => "None",
 };
 
-const isPreset = (key: string): key is Preset => Object.hasOwn(presetLabels, key);
+export const isPreset = (key: string): key is Preset => Object.hasOwn(presetLabels, key);
 
 export const presets: readonly Preset[] = Object.keys(presetLabels).filter((key) => isPreset(key));
+
+/** The type's verb for an Item coming out, such as air. */
+export const releaseVerb = (type: Pick<WorksContentType, "releases">): string =>
+  type.releases === "" ? "come out" : type.releases;
 
 export const includeLabel = (aside: Noun): string => `Include ${lowered(aside).many}`;
 

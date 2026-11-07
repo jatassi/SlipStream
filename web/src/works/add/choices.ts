@@ -3,22 +3,8 @@ import type {
   SettingField,
   TargetsProfile,
   WorksContentType,
-  WorksNewWorkPreset,
 } from "../../api/gen/model";
-
-export type Preset = WorksNewWorkPreset;
-
-const presets: { readonly [P in Preset]: true } = {
-  all: true,
-  future: true,
-  missing: true,
-  existing: true,
-  first: true,
-  latest: true,
-  none: true,
-};
-
-const isPreset = (value: string): value is Preset => Object.hasOwn(presets, value);
+import { type Preset, isPreset } from "../monitoring/labels";
 
 export type PresetOption = { readonly preset: Preset; readonly label: string };
 

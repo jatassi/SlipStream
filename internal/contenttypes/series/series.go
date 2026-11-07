@@ -39,6 +39,7 @@ var Description = works.Description{
 	Item:         works.Noun{One: "Episode", Many: "Episodes"},
 	Items:        works.ItemsMany,
 	Availability: "Next airing",
+	Releases:     "air",
 	Fields: []works.FieldSpec{
 		{Key: "years", Label: "Years", Kind: works.KindText, In: in(works.PlaceFacts)},
 		{Key: "year", Label: "First aired year", Kind: works.KindNumber, In: in(works.PlaceDetails), List: works.ListColumn | works.ListSort | works.ListFilter},

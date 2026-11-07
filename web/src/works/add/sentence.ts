@@ -5,9 +5,10 @@ import type {
   WorksFieldValue,
   WorksPresetCounts,
 } from "../../api/gen/model";
-import { type Noun, countWords } from "../../format";
+import { countWords } from "../../format";
 import { yearOf } from "../fields";
-import type { AddChoices, MonitorControl, Preset } from "./choices";
+import { type Preset, lowered, releaseVerb } from "../monitoring/labels";
+import type { AddChoices, MonitorControl } from "./choices";
 
 const targetNoun = { one: "Target", many: "Targets" } as const;
 
@@ -24,11 +25,6 @@ function wanting(profile: TargetsProfile): string {
     ? `wanting nothing, because ${profile.name} has no Targets`
     : `wanting ${possessive(profile.name)} ${countWords(profile.targets.length, targetNoun)}`;
 }
-
-export const lowered = ({ one, many }: Noun): Noun => ({
-  one: one.toLowerCase(),
-  many: many.toLowerCase(),
-});
 
 function countOf(counts: WorksPresetCounts, preset: Preset) {
   const choice = counts.choices.find((each) => each.preset === preset);
@@ -54,14 +50,15 @@ function monitoringWords(
 ): string {
   const items = lowered(type.item);
   const { monitors, monitorsNew } = monitoringOf(counts, choices);
+  const asThey = `as they ${releaseVerb(type)}`;
   if (monitors === 0) {
     return monitorsNew
-      ? `monitoring only new ${items.many} as they air`
+      ? `monitoring only new ${items.many} ${asThey}`
       : `monitoring no ${items.many}`;
   }
   const every = monitoringOf(counts, { ...choices, preset: "all" }).monitors;
   const all = monitors === every && monitors > 1 ? "all " : "";
-  return `monitoring ${all}${countWords(monitors, items)} and ${monitorsNew ? "new ones as they air" : "no new ones"}`;
+  return `monitoring ${all}${countWords(monitors, items)} and ${monitorsNew ? `new ones ${asThey}` : "no new ones"}`;
 }
 
 /** The monitoring clause, or none while a choice has no counts because the Work is in the library. */

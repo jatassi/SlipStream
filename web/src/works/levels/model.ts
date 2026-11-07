@@ -228,7 +228,7 @@ function levelView(
     tally: tallyOf(counting, read),
     monitor: monitorOf(live),
     opens: counted.some(({ state }) => !settled(state)),
-    entries: foldsOf(context.type.item, views(live)),
+    entries: foldsOf(context.type, views(live)),
     gone: views(gone),
   };
   levelViews.set(level, { inputs, view });

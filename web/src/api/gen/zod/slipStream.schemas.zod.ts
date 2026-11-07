@@ -5639,6 +5639,11 @@ export const WorksContentType = zod.object({
     .describe(
       "The ratings sources its Works show, in order. The first a Work holds is its hero rating",
     ),
+  releases: zod
+    .string()
+    .describe(
+      "The verb for unreleased Items coming out, as in Episodes 4 to 7 air 12 October; empty reads come out",
+    ),
   source: zod.string().describe("Its metadata source's name, such as TMDB"),
   work: WorksNoun,
 });

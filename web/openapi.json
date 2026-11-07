@@ -11537,6 +11537,10 @@
             },
             "type": "array"
           },
+          "releases": {
+            "description": "The verb for unreleased Items coming out, as in Episodes 4 to 7 air 12 October; empty reads come out",
+            "type": "string"
+          },
           "source": {
             "description": "Its metadata source's name, such as TMDB",
             "type": "string"
@@ -11560,7 +11564,8 @@
           "items",
           "art",
           "ratings",
-          "availability"
+          "availability",
+          "releases"
         ],
         "type": "object"
       },

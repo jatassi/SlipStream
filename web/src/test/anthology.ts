@@ -69,6 +69,7 @@ export const anthologies: WorksContentType = {
   art: { poster: "cover", backdrop: null, title: null },
   ratings: [],
   availability: "Next issue",
+  releases: "",
 };
 
 export const anthologyId = "6a8c0e2a-4c6e-4a8c-9e0a-2c4e6a8c0e2b";

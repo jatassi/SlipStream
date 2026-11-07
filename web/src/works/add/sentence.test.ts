@@ -92,11 +92,11 @@ const shelfChoices = startChoices({
 });
 
 test.each([
-  ["all", false, "monitoring all 1176 stories and new ones as they air"],
-  ["all", true, "monitoring all 1200 stories and new ones as they air"],
+  ["all", false, "monitoring all 1176 stories and new ones as they come out"],
+  ["all", true, "monitoring all 1200 stories and new ones as they come out"],
   ["first", false, "monitoring 49 stories and no new ones"],
   ["first", true, "monitoring 73 stories and no new ones"],
-  ["future", false, "monitoring only new stories as they air"],
+  ["future", false, "monitoring only new stories as they come out"],
   ["none", false, "monitoring no stories"],
 ] as const)("the %s preset, extras included %s, says %s", (preset, asides, monitoring) => {
   expect(addSentence(shelf, { ...shelfChoices, preset, asides }, anthology)).toBe(

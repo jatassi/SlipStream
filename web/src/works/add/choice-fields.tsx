@@ -8,6 +8,7 @@ import type {
 import { freeOf } from "../../roots/root-columns";
 import { Select } from "../../ui/select";
 import { Switch } from "../../ui/switch";
+import { includeLabel } from "../monitoring/labels";
 import { ProfilePicker } from "../profile-picker";
 import type { AddChoices, MonitorControl } from "./choices";
 import { PresetChoice } from "./preset-choice";
@@ -108,7 +109,7 @@ function asideLabel(type: WorksContentType): string {
   if (type.aside === null) {
     throw new Error(`${type.id} has an add.asides setting and no aside`);
   }
-  return `Include ${type.aside.many.toLowerCase()}`;
+  return includeLabel(type.aside);
 }
 
 function levelFoldersLabel(type: WorksContentType): string {

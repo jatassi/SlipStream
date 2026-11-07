@@ -47,7 +47,7 @@ const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"w
 	`{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"awards","label":"Awards","tier":"work","kind":"text","in":["about"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
-	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"],"availability":""}`
+	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}],"source":"TMDB","items":"one","art":{"poster":"poster","backdrop":"backdrop","title":"title_treatment"},"ratings":["imdb","tmdb","rottentomatoes","metacritic"],"availability":"","releases":""}`
 
 // artworkURL is an artwork URL, whose token each install signs with its
 // own key.

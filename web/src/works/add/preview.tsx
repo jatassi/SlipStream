@@ -3,7 +3,7 @@ import { countWords } from "../../format";
 import { useAmbient } from "../../shell/ambient/use-ambient";
 import { Poster } from "../../ui/poster";
 import { factTexts } from "../page/facts";
-import { lowered } from "./sentence";
+import { lowered } from "../monitoring/labels";
 
 const neutral = { kind: "neutral" } as const;
 

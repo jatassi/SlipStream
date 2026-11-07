@@ -26,6 +26,8 @@ export interface WorksContentType {
   name: string;
   /** The ratings sources its Works show, in order. The first a Work holds is its hero rating */
   ratings: string[];
+  /** The verb for unreleased Items coming out, as in Episodes 4 to 7 air 12 October; empty reads come out */
+  releases: string;
   /** Its metadata source's name, such as TMDB */
   source: string;
   work: WorksNoun;

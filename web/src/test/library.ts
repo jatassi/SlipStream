@@ -48,6 +48,7 @@ export const cinema: WorksContentType = {
   art: { poster: null, backdrop: null, title: null },
   ratings: [],
   availability: "",
+  releases: "",
 };
 
 export const orchardId = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";

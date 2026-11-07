@@ -63,6 +63,7 @@ type contentType struct {
 	Art          artRoles           `json:"art"`
 	Ratings      []string           `json:"ratings" nullable:"false" doc:"The ratings sources its Works show, in order. The first a Work holds is its hero rating"`
 	Availability string             `json:"availability" doc:"The label of the Library's availability column and sort, such as Next airing; empty reads Available"`
+	Releases     string             `json:"releases" doc:"The verb for unreleased Items coming out, as in Episodes 4 to 7 air 12 October; empty reads come out"`
 }
 
 func contentTypeOf(t works.ContentType) contentType {
@@ -70,7 +71,8 @@ func contentTypeOf(t works.ContentType) contentType {
 		ID: string(t.ID), Name: t.Name, Icon: t.Icon.String(), Enabled: t.Enabled,
 		Work: noun(t.Work), Item: noun(t.Item), Levels: []noun{}, Fields: []fieldSpec{}, Artwork: []artworkKind{},
 		Source: t.Source, Items: t.Items.String(), Ratings: []string{}, Availability: t.Availability,
-		Art: artRoles{Poster: stringOrNull(t.Art.Poster), Backdrop: stringOrNull(t.Art.Backdrop), Title: stringOrNull(t.Art.Title)},
+		Releases: t.Releases,
+		Art:      artRoles{Poster: stringOrNull(t.Art.Poster), Backdrop: stringOrNull(t.Art.Backdrop), Title: stringOrNull(t.Art.Title)},
 	}
 	for _, r := range t.Ratings {
 		out.Ratings = append(out.Ratings, string(r))

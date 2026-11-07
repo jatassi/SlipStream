@@ -26,7 +26,7 @@ const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,"wo
 	`{"key":"disc","label":"Disc","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"length","label":"Length","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
 	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"},{"key":"cover","label":"Cover","tier":"level","depth":1,"shape":"cover"}],` +
-	`"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[],"availability":""}`
+	`"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[],"availability":"","releases":""}`
 
 func searchLanterns(workID string) worldtest.Reply {
 	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `,"unlisted":false}]}` + "\n"}
