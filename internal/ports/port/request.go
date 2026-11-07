@@ -1,3 +1,7 @@
+// Ported from Prowlarr's src/NzbDrone.Common/Http/HttpRequestBuilder.cs, src/NzbDrone.Common/Http/HttpResponse.cs, src/NzbDrone.Common/Http/HttpUri.cs, src/NzbDrone.Core/IndexerSearch/Definitions/BasicSearchCriteria.cs, src/NzbDrone.Core/IndexerSearch/Definitions/MovieSearchCriteria.cs, src/NzbDrone.Core/IndexerSearch/Definitions/SearchCriteriaBase.cs, src/NzbDrone.Core/IndexerSearch/Definitions/TvSearchCriteria.cs, src/NzbDrone.Core/Indexers/HttpIndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerPageableRequest.cs, src/NzbDrone.Core/Indexers/IndexerPageableRequestChain.cs, src/NzbDrone.Core/Indexers/IndexerRequest.cs, src/NzbDrone.Core/Indexers/IndexerResponse.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
 package port
 
 import (

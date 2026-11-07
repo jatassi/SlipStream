@@ -1,3 +1,7 @@
+// Ported from Prowlarr's src/NzbDrone.Core/Indexers/HttpIndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerBase.cs, src/NzbDrone.Core/Indexers/TorrentIndexerBase.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
 package port
 
 import (

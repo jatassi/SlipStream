@@ -1,3 +1,7 @@
+// Ported from Prowlarr's src/NzbDrone.Common/Http/TooManyRequestsException.cs, src/NzbDrone.Core/Exceptions/ReleaseUnavailableException.cs, src/NzbDrone.Core/Indexers/Exceptions/IndexerAuthException.cs, src/NzbDrone.Core/Indexers/Exceptions/IndexerException.cs, src/NzbDrone.Core/Indexers/Exceptions/RequestLimitReachedException.cs, src/NzbDrone.Core/Indexers/IndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerFlag.cs, src/NzbDrone.Core/Parser/Model/ReleaseInfo.cs, src/NzbDrone.Core/Parser/Model/TorrentInfo.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
 package port
 
 import (

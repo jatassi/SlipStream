@@ -1,3 +1,7 @@
+// Ported from Prowlarr's src/NzbDrone.Core/Indexers/CategoryMapping.cs, src/NzbDrone.Core/Indexers/HttpIndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerBase.cs, src/NzbDrone.Core/Indexers/IndexerBaseSettings.cs, src/NzbDrone.Core/Indexers/IndexerCapabilities.cs, src/NzbDrone.Core/Indexers/IndexerCapabilitiesCategories.cs, src/NzbDrone.Core/Indexers/IndexerPrivacy.cs
+// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
+
 // Package port is the kit every ported site is written against, and the
 // framework that runs it: SlipStream's HttpIndexerBase. A port is Go
 // shaped like its Prowlarr C# file, so an upstream diff ports line by
