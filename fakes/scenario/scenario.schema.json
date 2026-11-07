@@ -1424,10 +1424,6 @@
                             "type": "number",
                             "maximum": 10,
                             "minimum": 0
-                          },
-                          "votes": {
-                            "type": "integer",
-                            "minimum": 0
                           }
                         },
                         "additionalProperties": false,
