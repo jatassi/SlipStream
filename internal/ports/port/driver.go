@@ -432,7 +432,7 @@ func (j *job[S]) send(r *Request) (*IndexerResponse, error) {
 	}
 	seen := j.site.Held()
 	res, err := j.do(r)
-	if err != nil || f.loggedOut == nil || !f.loggedOut(res) {
+	if err != nil || f.loggedOut == nil || j.got(res) || !f.loggedOut(res) {
 		return res, err
 	}
 	if f.signIn == nil {
@@ -445,6 +445,22 @@ func (j *job[S]) send(r *Request) (*IndexerResponse, error) {
 		return res, err
 	}
 	return nil, &searching.Failing{Err: errors.New("the site signed SlipStream out again right after it signed in")}
+}
+
+// got is a download's response that holds what it went for: a .torrent,
+// or a redirect the Site didn't follow, to a magnet link or off the
+// Indexer's hosts. A content check such as a missing logout.php link
+// would read either as logged out. Prowlarr reads no download as logged
+// out at all.
+func (j *job[S]) got(res *IndexerResponse) bool {
+	if j.purpose != searching.Download {
+		return false
+	}
+	if res.HasHTTPRedirect {
+		return true
+	}
+	_, err := bencode.Decode(res.Body)
+	return err == nil
 }
 
 func (j *job[S]) do(r *Request) (*IndexerResponse, error) {

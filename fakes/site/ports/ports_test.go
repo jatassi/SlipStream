@@ -156,6 +156,9 @@ func golden(t *testing.T, f Fixture, name string, w Want) {
 	got = append(got, '\n')
 	if *update {
 		path := filepath.Join(string(f.Port), "want", name+".json")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(path, got, 0o644); err != nil {
 			t.Fatal(err)
 		}

@@ -641,6 +641,38 @@ func TestARefusedTokenSignsInAgainInsideAFetch(t *testing.T) {
 	})
 }
 
+func TestAFetchedTorrentOrMagnetNeverReadsAsLoggedOut(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := Define(lantern("lantern"), Impl[account]{
+			Login: FormLogin[account]{
+				DoLogin:            func(*SignIn[account]) error { return IndexerAuthError("signed in") },
+				CheckIfLoginNeeded: func(r *IndexerResponse) bool { return !strings.Contains(r.Content, "logout.php") },
+			},
+			Movie: browse[account], Basic: browse[account], Parse: parseListing[account],
+		})
+		magnetLink := "magnet:?xt=urn:btih:" + strings.Repeat("ab", 20)
+		w := &world{hosts: map[string]http.HandlerFunc{"lantern.test": func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/dl/2" {
+				http.Redirect(w, r, magnetLink, http.StatusFound)
+				return
+			}
+			_, _ = w.Write([]byte("d4:infod4:name1:aee"))
+		}}}
+		n := node(w, p)
+		a := run(t, n, searching.Job{Port: "lantern", Settings: samAndPW, Session: heldUID("u1"), Call: searching.FetchCall{Link: searching.LinkOf("https://lantern.test/dl/1")}})
+		if got, ok := a.Got.(searching.Torrent); !ok || string(got.Raw) != "d4:infod4:name1:aee" {
+			t.Errorf("a fetch of a .torrent with no logout.php in it = %+v, %s; want the .torrent", a.Got, result(a))
+		}
+		a = run(t, n, searching.Job{Port: "lantern", Settings: samAndPW, Session: heldUID("u1"), Call: searching.FetchCall{Link: searching.LinkOf("https://lantern.test/dl/2")}})
+		if got, ok := a.Got.(searching.Magnet); !ok || got.Link.Reveal() != magnetLink {
+			t.Errorf("a fetch redirected to a magnet link = %+v, %s; want the magnet link", a.Got, result(a))
+		}
+		if want := []string{"GET lantern.test/dl/1", "GET lantern.test/dl/2"}; !slices.Equal(w.requests(), want) {
+			t.Errorf("requests = %v, want %v and no sign-in", w.requests(), want)
+		}
+	})
+}
+
 func TestDeriveRunsOncePerRevisionOnANode(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		passkeys := 0
