@@ -56,12 +56,15 @@ var (
 	// season or episode, an episode alone, or a resolution.
 	marker = regexp.MustCompile(`(?i)^\(?((19|20)\d\d)\)?$|^s\d{1,3}(e\d{1,4})*$|^e\d{1,4}$|^\d{3,4}[pi]$`)
 	tagged = regexp.MustCompile(`^\[[^\]]*\]`)
+	// animeEpisode follows a lone dash in an anime release's name, as in
+	// "[SubsPlease] Harbor Lights - 03 (1080p)".
+	animeEpisode = regexp.MustCompile(`(?i)^(\d{1,4}(v\d)?|movie)$`)
 )
 
 // Stem is title's words before its year, season or resolution, joined by
 // spaces: "The.Quiet.Orchard.2021.1080p" and "The Quiet Orchard (2021)"
-// are both "The Quiet Orchard". A leading [tag] is dropped, and so is a
-// leading "Artist - ", as Gazelle's music titles carry it.
+// are both "The Quiet Orchard", and so is the anime episode "[SubsPlease]
+// The Quiet Orchard - 01 (1080p)". A leading [tag] is dropped.
 func Stem(title string) string {
 	title = strings.TrimSpace(tagged.ReplaceAllString(strings.TrimSpace(title), ""))
 	words := separators.Split(title, -1)
@@ -69,11 +72,13 @@ func Stem(title string) string {
 	if i < 0 {
 		i = len(words)
 	}
-	stem := strings.Join(words[:i], " ")
-	if _, album, ok := strings.Cut(stem, " - "); ok {
-		return album
+	for j := range i {
+		if words[j] == "-" && j+1 < len(words) && animeEpisode.MatchString(words[j+1]) {
+			i = j
+			break
+		}
 	}
-	return stem
+	return strings.Join(words[:i], " ")
 }
 
 const minted = 4096

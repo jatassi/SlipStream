@@ -141,10 +141,13 @@ func TestTheRewriteTurnsARecordingIntoWhatScrubPasses(t *testing.T) {
 
 func TestAnEpisodeAloneEndsATitlesStem(t *testing.T) {
 	for title, want := range map[string]string{
-		"Harbor.Lights.E05.1080p.WEB-DL": "Harbor Lights",
-		"Harbor Lights E1234 720p":       "Harbor Lights",
-		"Harbor.Lights.S02E05.1080p":     "Harbor Lights",
-		"Evermore.1080p":                 "Evermore",
+		"Harbor.Lights.E05.1080p.WEB-DL":          "Harbor Lights",
+		"Harbor Lights E1234 720p":                "Harbor Lights",
+		"Harbor.Lights.S02E05.1080p":              "Harbor Lights",
+		"Evermore.1080p":                          "Evermore",
+		"[SubsPlease] Harbor Lights - 03 (1080p)": "Harbor Lights",
+		"[SubsPlease] Salt Meadow - Movie (720p)": "Salt Meadow",
+		"Harbor Lights - Second Tide 2021":        "Harbor Lights - Second Tide",
 	} {
 		if got := Stem(title); got != want {
 			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
