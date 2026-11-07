@@ -276,8 +276,8 @@ func (r refresh) units(ctx context.Context, rd storage.Reader[storage.Library]) 
 	return out, nil
 }
 
-// tiersOf notes which of type t's Works ids have an Item not out by now,
-// and which can still gain Items.
+// tiersOf notes which of type t's Works ids are unreleased by now, and
+// which can still gain Items.
 func (r refresh) tiersOf(ctx context.Context, rd storage.Reader[storage.Library], t works.TypeID, ids []works.WorkID, now time.Time, unreleased, growing map[works.WorkID]bool) error {
 	items, err := works.ItemsOf(ctx, rd, works.Only(ids))
 	if err != nil {
@@ -288,9 +288,7 @@ func (r refresh) tiersOf(ctx context.Context, rd storage.Reader[storage.Library]
 		return fmt.Errorf("read the %s timings: %w", t, err)
 	}
 	for w, its := range items {
-		unreleased[w] = slices.ContainsFunc(its, func(it works.Item) bool {
-			return it.WithdrawnAt.IsZero() && !timings[it.ID].ReleasedBy(now)
-		})
+		unreleased[w] = unreleasedBy(its, timings, now)
 	}
 	grows, err := r.cfg.Types[t].Growing(ctx, rd, ids)
 	if err != nil {
@@ -300,6 +298,28 @@ func (r refresh) tiersOf(ctx context.Context, rd storage.Reader[storage.Library]
 		growing[w] = on
 	}
 	return nil
+}
+
+// unreleasedBy reports whether a Work of items is unreleased by now: a
+// counted Item with a date isn't out, or none is out and one has no date.
+func unreleasedBy(items []works.Item, timings map[works.ItemID]targets.Timing, now time.Time) bool {
+	out, dateless := false, false
+	for _, it := range items {
+		if !it.Counts() {
+			continue
+		}
+		t := timings[it.ID]
+		_, known := t.From()
+		switch {
+		case !known:
+			dateless = true
+		case !t.ReleasedBy(now):
+			return true
+		default:
+			out = true
+		}
+	}
+	return dateless && !out
 }
 
 func (m *Metadata) tiers() tiers {

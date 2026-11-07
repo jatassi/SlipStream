@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/release"
@@ -17,18 +18,20 @@ type Counts [Met + 1]int
 // Rollup is what one Work's cells and files add up to. The Library's row
 // and the Work page read the same one.
 type Rollup struct {
-	// Status is the first State any of the Work's Items holds, in the
-	// glossary's order, zero for a Work with no cell.
+	// Status is the first State any of the Work's counted Items holds, in
+	// the glossary's order, zero while none holds a cell.
 	Status State
-	// Cells counts the cells the Work wants by State: each Edition it
-	// wants at each Target of each Item. A listed cut not seen for an Item
-	// makes no cell, so it never counts.
+	// Cells counts the cells of the Work's counted Items by State: each
+	// Edition it wants at each Target of each. A listed cut not seen for
+	// an Item makes no cell, so it never counts.
 	Cells Counts
 	// Failed counts the wanted cells whose download failed, which the
 	// Library's Failed chip shows.
 	Failed int
-	Items  int
-	// ByItem counts Items by status. An Item with no cell isn't counted.
+	// Items counts the Work's counted Items.
+	Items int
+	// ByItem counts counted Items by status. An Item with no cell isn't
+	// counted.
 	ByItem Counts
 	Needs  []Need
 	// Files, Kept and Bytes count the Work's library files, Kept files
@@ -36,8 +39,9 @@ type Rollup struct {
 	Files, Kept int
 	Bytes       int64
 	// Available is the one Item's availability date, or for many Items the
-	// earliest not yet out, else the latest out. It is unknown while no
-	// Item has a date.
+	// earliest not yet out, else the latest out, read over the counted
+	// Items, or over the live ones while none counts. It is unknown while
+	// none of those has a date.
 	Available release.Fact[works.Date]
 	Profile   targets.ProfileID
 	// Root is zero while the Work has none.
@@ -62,11 +66,19 @@ func (f *Files) Rollups(ctx context.Context, r storage.Reader[file], ws []works.
 
 func rollup(w world, cs []Cell) Rollup {
 	out := Rollup{
-		Items: len(w.tree.Items), Needs: needs(w.tree.Items, cs, w.grabs, !w.root.IsZero()),
+		Needs:     needs(w.tree.Items, cs, w.grabs, !w.root.IsZero()),
 		Available: available(w.tree.Items, w.timing, w.today), Profile: w.goals.Profile.ID, Root: w.root,
+	}
+	for _, it := range w.tree.Items {
+		if it.Counts() {
+			out.Items++
+		}
 	}
 	of := map[works.ItemID]State{}
 	for _, c := range cs {
+		if !c.Item.Counts() {
+			continue
+		}
 		out.Cells[c.State]++
 		if c.State == Failed && c.Wanted() {
 			out.Failed++
@@ -92,9 +104,16 @@ func rollup(w world, cs []Cell) Rollup {
 }
 
 func available(items []works.Item, timing map[works.ItemID]targets.Timing, today time.Time) release.Fact[works.Date] {
+	read := works.Item.Live
+	if slices.ContainsFunc(items, works.Item.Counts) {
+		read = works.Item.Counts
+	}
 	var next, last release.Fact[works.Date]
 	var nextFrom, lastFrom time.Time
 	for _, it := range items {
+		if !read(it) {
+			continue
+		}
 		t := timing[it.ID]
 		from, known := t.From()
 		switch {

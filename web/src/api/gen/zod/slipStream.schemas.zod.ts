@@ -1184,13 +1184,20 @@ export type FilesStateCountsOutput = zod.output<typeof FilesStateCounts>;
 export const filesSummaryItemsMin = 0;
 
 export const FilesSummary = zod.object({
-  cells: FilesStateCounts.describe("Its cells by state"),
-  itemStatus: FilesStateCounts.describe("Its Items by status; an Item with no cell isn't counted"),
-  items: zod.int().min(filesSummaryItemsMin),
+  cells: FilesStateCounts.describe("Its monitored Items' cells by state"),
+  itemStatus: FilesStateCounts.describe(
+    "Its monitored Items by status; an Item with no cell isn't counted",
+  ),
+  items: zod
+    .int()
+    .min(filesSummaryItemsMin)
+    .describe(
+      "Its monitored Items that its source still lists, the only Items the status and counts read",
+    ),
   status: zod
     .union([FilesState, zod.null()])
     .describe(
-      "The first status its Items hold, in the glossary's order; null for a Work with no cell",
+      "The first status its monitored Items hold, in the glossary's order; null while none holds a cell",
     ),
 });
 
@@ -5796,13 +5803,13 @@ export const WorksLibraryRow = zod.object({
     .regex(worksLibraryRowAvailableOnRegExp)
     .nullable()
     .describe(
-      "Its one Item's availability date, or for many Items the earliest not yet out, else the latest out; null while no Item has a date",
+      "Its one Item's availability date, or for many Items the earliest not yet out, else the latest out, read over its monitored Items, or over every Item while none is monitored; null while none of those has a date",
     ),
   bytes: zod
     .int()
     .min(worksLibraryRowBytesMin)
     .describe("The size of its library files, Kept files included"),
-  cells: FilesStateCounts.describe("Its cells by state"),
+  cells: FilesStateCounts.describe("Its monitored Items' cells by state"),
   contentType: zod.string().regex(worksLibraryRowContentTypeRegExp),
   failed: zod
     .int()
@@ -5816,12 +5823,21 @@ export const WorksLibraryRow = zod.object({
       "When the metadata source last reported that it no longer has this Work; null while it has it",
     ),
   id: zod.uuid(),
-  itemStatus: FilesStateCounts.describe("Its Items by status; an Item with no cell isn't counted"),
-  items: zod.int().min(worksLibraryRowItemsMin),
+  itemStatus: FilesStateCounts.describe(
+    "Its monitored Items by status; an Item with no cell isn't counted",
+  ),
+  items: zod
+    .int()
+    .min(worksLibraryRowItemsMin)
+    .describe(
+      "Its monitored Items that its source still lists, the only Items the status and counts read",
+    ),
   kept: zod.int().min(worksLibraryRowKeptMin).describe("Its Kept files"),
   key: zod.string(),
   label: zod.string(),
-  monitored: zod.enum(["all", "some", "none"]).describe("How many of its Items are monitored"),
+  monitored: zod
+    .enum(["all", "some", "none"])
+    .describe("How many of the Items its source still lists are monitored"),
   needsYou: zod.int().min(worksLibraryRowNeedsYouMin).describe("The entries of its Needs you"),
   posterUrl: zod
     .string()
@@ -5839,7 +5855,7 @@ export const WorksLibraryRow = zod.object({
   status: zod
     .union([FilesState, zod.null()])
     .describe(
-      "The first status its Items hold, in the glossary's order; null for a Work with no cell",
+      "The first status its monitored Items hold, in the glossary's order; null while none holds a cell",
     ),
   values: zod
     .record(zod.string(), Bare)
