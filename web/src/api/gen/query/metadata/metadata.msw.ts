@@ -40,7 +40,7 @@ export const getListMetadataProvidersResponseMock = (
     () => ({
       attribution: faker.helpers.arrayElement([
         {
-          logo: faker.helpers.arrayElement(["tmdb"] as const),
+          logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
           text: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         null,
@@ -95,7 +95,7 @@ export const getClearMetadataKeyResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.helpers.arrayElement(["tmdb"] as const),
+      logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -145,7 +145,7 @@ export const getSetMetadataKeyResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.helpers.arrayElement(["tmdb"] as const),
+      logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,
@@ -195,7 +195,7 @@ export const getTestMetadataProviderResponseMock = (
 ): MetadataProvider => ({
   attribution: faker.helpers.arrayElement([
     {
-      logo: faker.helpers.arrayElement(["tmdb"] as const),
+      logo: faker.helpers.arrayElement([faker.helpers.arrayElement(["tmdb"] as const), null]),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     null,

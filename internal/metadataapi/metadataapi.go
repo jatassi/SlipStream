@@ -110,8 +110,8 @@ type provider struct {
 }
 
 type attribution struct {
-	Text string `json:"text" doc:"The sentence to show, word for word"`
-	Logo string `json:"logo" enum:"tmdb" doc:"The logo the web app bundles to show beside it"`
+	Text string               `json:"text" doc:"The sentence to show, word for word"`
+	Logo api.Nullable[string] `json:"logo" enum:"tmdb" doc:"The logo the web app bundles to show beside it; null when it bundles none, so the text shows alone"`
 }
 
 type details struct {
@@ -140,7 +140,11 @@ func providerOf(s metadata.ProviderStatus) provider {
 		out.KeySetAt = api.Some(s.KeySetAt)
 	}
 	if a := s.Attribution; a != nil {
-		out.Attribution = api.Some(attribution{Text: a.Text, Logo: a.Logo})
+		credit := attribution{Text: a.Text}
+		if a.Logo != "" {
+			credit.Logo = api.Some(a.Logo)
+		}
+		out.Attribution = api.Some(credit)
 	}
 	if !s.Until.IsZero() {
 		out.Until = api.Some(s.Until)

@@ -57,6 +57,7 @@ export function useBulkActions(
   const open = (kind: BulkDialogKind) => () => {
     onDialog(kind);
   };
+  const manyItems = picked.length > 0 && picked.every(({ type }) => type.items === "many");
   return [
     {
       ...plain,
@@ -72,6 +73,9 @@ export function useBulkActions(
       busy: running === "monitor",
       onSelect: on({ kind: "monitor", on: false }),
     },
+    ...(manyItems
+      ? [{ ...plain, label: "Set monitoring…", oneTypeOnly: true, onSelect: open("monitoring") }]
+      : []),
     { ...plain, label: "Change Profile…", oneTypeOnly: true, onSelect: open("profile") },
     { ...plain, label: "Set library root…", oneTypeOnly: true, onSelect: open("root") },
     {

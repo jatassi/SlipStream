@@ -2425,7 +2425,12 @@ export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
 
 export const MetadataAttribution = zod.object({
-  logo: zod.enum(["tmdb"]).describe("The logo the web app bundles to show beside it"),
+  logo: zod
+    .union([zod.literal("tmdb"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "The logo the web app bundles to show beside it; null when it bundles none, so the text shows alone",
+    ),
   text: zod.string().describe("The sentence to show, word for word"),
 });
 
