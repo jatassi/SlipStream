@@ -78,7 +78,7 @@ type APIUserFields struct {
 
 // PIDField is the Avistaz family's third sign-in field.
 type PIDField struct {
-	PID string `port:"pid,signin" label:"PID"`
+	PID string `port:"pid,signin" label:"PID" help:"Find your PID on your My Account or My Profile page."`
 }
 
 // PINField is PreToMe's third sign-in field.
