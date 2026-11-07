@@ -249,5 +249,6 @@ func (r *Run) endpoints(name string) (node.EndpointsBlock, error) {
 // Work's links, which no fake serves, under .invalid. The end-to-end suite
 // asserts each href and never follows it.
 var browserOnly = map[string]map[string]string{
-	"movie": {"imdb": "https://www.imdb.invalid", "tmdb_site": "https://www.tmdb.invalid", "trakt": "https://trakt.invalid", "youtube": "https://www.youtube.invalid"},
+	"movie":  {"imdb": "https://www.imdb.invalid", "tmdb_site": "https://www.tmdb.invalid", "trakt": "https://trakt.invalid", "youtube": "https://www.youtube.invalid"},
+	"series": {"imdb": "https://www.imdb.invalid", "tmdb_site": "https://www.tmdb.invalid", "tvdb_site": "https://thetvdb.invalid", "trakt": "https://trakt.invalid", "youtube": "https://www.youtube.invalid"},
 }
