@@ -48,10 +48,12 @@ Steps:
   $FW exec $RUN --proof library-roots/roots-add-browser -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"{nodes.seedbox.nodeId}\",\"roles\":[\"searching\",\"downloading\",\"storage\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
   ```
 
-- **Browse seedbox.** Choose `Add a library root`, pick `seedbox` in `Node` and choose `Browse`. Type seedbox's data dir into `Filter, or go to a path` and press Enter: the footer reads `Can't use this folder because it's inside SlipStream's data folder.` and `Use seedbox` is disabled.
+- **Browse seedbox.** Choose `Add a library root`, which opens on TV while TV has no root, pick `Movies` in `Content Type` and `seedbox` in `Node` and choose `Browse`. Type seedbox's data dir into `Filter, or go to a path` and press Enter: the footer reads `Can't use this folder because it's inside SlipStream's data folder.` and `Use seedbox` is disabled.
 
   ```sh
   $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Add a library root" })'
+  $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("combobox", { name: "Content Type" })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("option", { name: "Movies" })'
   $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("combobox", { name: "Node" })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("option", { name: "seedbox" })'
   $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("button", { name: "Browse" })'
@@ -92,7 +94,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
-  $FW exec $RUN -- $PW cli $S click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity" })'
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("table", { name: "Grabs" }).getByText("Imported").waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof library-roots/roots-import-worker -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-import-worker/activity.png
@@ -104,7 +106,7 @@ Steps:
 - **Move a Work with files.** Move The Quiet Orchard into `{mediaDir}/movies` over the API. Its file sits in `worker-movies`, so it answers `skipped` with `work_has_files`, and an id no Work has answers `failed` with `work_not_found`. Nothing moves, so the roots read as before.
 
   ```sh
-  ORCHARD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[0].id')
+  ORCHARD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -r '.rows[0].id')
   MOVIES=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots' | jq -r '.roots[] | select(.path | endswith("/movies")) | .id')
   $FW exec $RUN --proof library-roots/roots-move-works -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"workIds\":[\"$ORCHARD\",\"01a00000-0000-7000-8000-000000000000\"],\"rootId\":\"$MOVIES\"}" '{nodes.home.url}/api/v1/works/root'
   $FW exec $RUN --proof library-roots/roots-move-works -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
@@ -146,7 +148,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByText(/^Storage · Draining, 1 root \(.+\) stays$/).waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-write-off -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-write-off/draining.png
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"roles":["storage"]}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/write-offs'
-  WORK=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[0].id')
+  WORK=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -r '.rows[0].id')
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/cells"
   $FW exec $RUN --proof library-roots/roots-write-off -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/search"

@@ -78,10 +78,10 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```
 
-- **Read the Targets.** The `Movies` and `TV` rows' sentences start `Grabs`. `Details` opens the Profile, qualities, cutoff and sizes, and `Edit` opens the Target editor in a dialog.
+- **Read the Targets.** The `Movies` and `TV` rows' sentences start `Grabs`. `Details` under TV opens the Profile, qualities, cutoff and sizes, and `Edit` opens the Target editor in a dialog.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Details" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Details" }).last()'
   $FW exec $RUN --proof first-run/first-setup-targets -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/first-run/first-setup-targets/details.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```

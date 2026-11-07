@@ -224,7 +224,7 @@ Steps:
   $FW fault set $RUN swarm-hold seeders@seedbox throttle=16KiB/s
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("link", { name: "The Quiet Orchard" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity 1 live" }).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-phone run-code 'async page => { await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Activity 1" }).waitFor({ timeout: 15000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/counts'
