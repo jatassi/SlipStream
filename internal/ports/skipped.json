@@ -1,0 +1,119 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "sites": [
+    {
+      "name": "Animedia",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Animedia.cs",
+      "why": "dead",
+      "reason": "Prowlarr marks it obsolete because the site is unusable."
+    },
+    {
+      "name": "BinSearch",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/BinSearch.cs",
+      "why": "usenet",
+      "reason": "It's a usenet indexer, and Prowlarr marks it obsolete because the site shut down."
+    },
+    {
+      "name": "CGPeers",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/CGPeers.cs",
+      "why": "obsolete",
+      "reason": "Prowlarr moved it to a Cardigann definition, which the catalog serves."
+    },
+    {
+      "name": "Cardigann",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Cardigann/",
+      "why": "generic",
+      "reason": "It runs the catalog's YAML definitions, which SlipStream's Cardigann runner ports."
+    },
+    {
+      "name": "FunFile",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/FunFile.cs",
+      "why": "obsolete",
+      "reason": "Prowlarr moved it to a Cardigann definition, which the catalog serves."
+    },
+    {
+      "name": "HDSpace",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/HDSpace.cs",
+      "why": "obsolete",
+      "reason": "Prowlarr moved it to a Cardigann definition, which the catalog serves."
+    },
+    {
+      "name": "Headphones",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Headphones/",
+      "why": "usenet",
+      "reason": "It's a usenet indexer."
+    },
+    {
+      "name": "Newznab",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Newznab/",
+      "why": "usenet",
+      "reason": "It's the generic usenet API."
+    },
+    {
+      "name": "NzbIndex",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/NzbIndex.cs",
+      "why": "usenet",
+      "reason": "It's a usenet indexer."
+    },
+    {
+      "name": "PornoLab",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/PornoLab.cs",
+      "why": "obsolete",
+      "reason": "Prowlarr moved it to a Cardigann definition, which the catalog serves."
+    },
+    {
+      "name": "Rarbg",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Rarbg/",
+      "why": "dead",
+      "reason": "Prowlarr marks it obsolete because the site shut down on 2023-05-31."
+    },
+    {
+      "name": "SceneTime",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/SceneTime.cs",
+      "why": "obsolete",
+      "reason": "Prowlarr moved it to a Cardigann definition, which the catalog serves."
+    },
+    {
+      "name": "Shizaproject",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Shizaproject.cs",
+      "why": "dead",
+      "reason": "Prowlarr marks it obsolete because the site has no new releases."
+    },
+    {
+      "name": "TorrentPotato",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/TorrentPotato/",
+      "why": "generic",
+      "reason": "It's a generic API for many sites."
+    },
+    {
+      "name": "TorrentRssIndexer",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/TorrentRss/",
+      "why": "generic",
+      "reason": "It reads any RSS feed, which SlipStream's RSS kind covers."
+    },
+    {
+      "name": "Torznab",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Torznab/",
+      "why": "generic",
+      "reason": "It's the generic Torznab API, which SlipStream's Torznab kind covers."
+    },
+    {
+      "name": "Unit3dBase",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/UNIT3D/",
+      "why": "unused",
+      "reason": "No live Prowlarr site builds on this base."
+    },
+    {
+      "name": "Xthor",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/Xthor/",
+      "why": "obsolete",
+      "reason": "Prowlarr moved it to a Cardigann definition, which the catalog serves."
+    },
+    {
+      "name": "ZonaQ",
+      "path": "src/NzbDrone.Core/Indexers/Definitions/ZonaQ.cs",
+      "why": "dead",
+      "reason": "Prowlarr marks it obsolete because the site doesn't allow automation."
+    }
+  ]
+}
