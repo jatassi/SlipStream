@@ -80,7 +80,7 @@ function TrackerLine({ tracker, clock }: { tracker: DownloadclientsTrackerDetail
   );
 }
 
-export function Trackers({
+export function AnnounceUrls({
   detail,
   node,
   clock,
@@ -92,12 +92,12 @@ export function Trackers({
   const waits =
     detail.announceAt !== undefined && Date.parse(detail.announceAt) > clock.now.getTime();
   return (
-    <InspectorSection title="Trackers">
+    <InspectorSection title="Announce URLs">
       {!detail.live && (
         <p className="mb-2 text-ink-3">{`${node} isn't responding, so these are from its last report.`}</p>
       )}
       {detail.trackers.length === 0 ? (
-        <p className="text-ink-3">Its metainfo names no tracker.</p>
+        <p className="text-ink-3">Its metainfo names no announce URL.</p>
       ) : (
         <ul>
           {detail.trackers.map((tracker) => (
@@ -107,8 +107,8 @@ export function Trackers({
       )}
       {waits && detail.announceAt !== undefined && (
         <p className="mt-2 text-ink-3">
-          Announce now is offered from {sinceWords(detail.announceAt, clock)}, when every tracker
-          accepts one.
+          Announce now is offered from {sinceWords(detail.announceAt, clock)}, when every announce
+          URL accepts one.
         </p>
       )}
     </InspectorSection>

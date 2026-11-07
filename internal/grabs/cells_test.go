@@ -19,21 +19,20 @@ import (
 
 func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
-	work, item, indexer := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	work, item := storage.NewUUID(), storage.NewUUID()
 	home, away := storage.NewUUID(), storage.NewUUID()
 	hd, uhd, sd := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
 	fetching, waiting, failed := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
-	const grab = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link,
-		stage, failure_code, created_at, updated_at) VALUES (?, ?, ?, 'any', 'search', ?, ?, 'Orchard.WEB-DL', 1, 'https://site.test/dl', ?, ?, ?, ?)`
+	const grab = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id, release_title, release_size, release_magnet,
+		stage, failure_code, created_at, updated_at) VALUES (?, ?, ?, 'any', 'search', ?, 'Orchard.WEB-DL', 1, 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', ?, ?, ?, ?)`
 	run(t, lib,
 		sql(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0), (?, randomblob(32), 'seedbox', 0)`, home, away),
-		sql(`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, home),
 		sql(`INSERT INTO targets_target (id, name, created_at) VALUES (?, 'HD', 0), (?, '2160p', 0), (?, 'SD', 0)`, hd, uhd, sd),
 		sql(`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, work),
 		sql(`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'i1', 'Orchard', 1)`, item, work),
-		sql(grab, fetching, work, item, indexer, home, "fetching", nil, 1, 1),
-		sql(grab, waiting, work, item, indexer, away, "fetching", nil, 2, 2),
-		sql(grab, failed, work, item, indexer, away, "failed", "fetch_failed", 3, 3),
+		sql(grab, fetching, work, item, home, "fetching", nil, 1, 1),
+		sql(grab, waiting, work, item, away, "fetching", nil, 2, 2),
+		sql(grab, failed, work, item, away, "failed", "fetch_failed", 3, 3),
 		sql(`INSERT INTO grabs_target VALUES (?, 0, ?), (?, 0, ?), (?, 0, ?)`, fetching, hd, waiting, uhd, failed, sd),
 	)
 	inStep := func(n role.NodeID) bool { return n.UUID == home }

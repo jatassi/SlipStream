@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -59,6 +60,8 @@ type EndpointsBlock struct {
 	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
+	Indexers     indexers.Endpoints   `yaml:"indexers"`
+	Searching    searching.Endpoints  `yaml:"searching"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
 
@@ -137,6 +140,7 @@ type TimingsBlock struct {
 	Nodes       nodes.Timings       `yaml:"nodes"`
 	Works       works.Timings       `yaml:"works"`
 	Indexers    indexers.Timings    `yaml:"indexers"`
+	Searching   searching.Timings   `yaml:"searching"`
 	Transfers   transfers.Timings   `yaml:"transfers"`
 	Grabs       grabs.Timings       `yaml:"grabs"`
 	Files       files.Timings       `yaml:"files"`
@@ -178,6 +182,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			TMDB:         tmdb.DefaultEndpoints(),
 			OMDb:         omdb.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
+			Indexers:     indexers.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
 		},
 		Link: link.Settings{
@@ -205,6 +210,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Nodes:       nodes.DefaultTimings(),
 			Works:       works.DefaultTimings(),
 			Indexers:    indexers.DefaultTimings(),
+			Searching:   searching.DefaultTimings(),
 			Transfers:   transfers.DefaultTimings(),
 			Grabs:       grabs.DefaultTimings(),
 			Files:       files.DefaultTimings(),
@@ -250,8 +256,9 @@ func loadConfig(fsys fs.FS, environ []string, types contenttype.Set, kind instal
 }
 
 // CheckConfig holds the rules no leaf type carries: the Node settings
-// table's ranges, and a web or torrent port the Node binds for something
-// else.
+// table's ranges, a web or torrent port the Node binds for something
+// else, and a Run call's hold shorter than a job's deadline, since the
+// Controller learns when a job started only from a poll's answer.
 func (c *Config) CheckConfig(fail func(key string, err error)) {
 	if len(c.Link.Advertise) > 0 {
 		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
@@ -264,6 +271,9 @@ func (c *Config) CheckConfig(fail func(key string, err error)) {
 		}
 	}
 	c.portsUsed(fail)
+	if hold, job := c.Timings.Searching.Hold, c.Timings.Indexers.Job; hold >= job {
+		fail("timings.searching.hold", fmt.Errorf("%s isn't shorter than timings.indexers.job, %s, so a job's first poll can outlast its deadline", hold, job))
+	}
 }
 
 // PortUsedError is http.listen's port configured for another of the

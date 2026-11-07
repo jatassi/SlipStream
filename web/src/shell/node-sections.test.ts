@@ -20,10 +20,28 @@ test("a Node without Downloading has no Torrent client section", () => {
     "overview",
     "roles",
     "web",
+    "searching",
     "logs",
     "log-settings",
   ]);
 });
+
+test("a Node without Searching has no Searching section", () => {
+  expect(ids({ ...home, roles: [{ role: "storage", state: "holding" }] })).toEqual([
+    "overview",
+    "roles",
+    "web",
+    "logs",
+    "log-settings",
+  ]);
+});
+
+test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] as const)(
+  "a Node %s Searching has the Searching section",
+  (state) => {
+    expect(ids({ ...home, roles: [{ role: "searching", state }] })).toContain("searching");
+  },
+);
 
 test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] as const)(
   "a Node %s Downloading has the Torrent client section after Web and API",
@@ -33,18 +51,20 @@ test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] a
       "roles",
       "web",
       "torrent-client",
+      "searching",
       "logs",
       "log-settings",
     ]);
   },
 );
 
-test("with more than one Node, each Node has Transfers after Torrent client", () => {
+test("with more than one Node, each Node has Transfers after Torrent client and Searching", () => {
   expect(ids(home, [home, seedbox])).toEqual([
     "overview",
     "roles",
     "web",
     "torrent-client",
+    "searching",
     "transfers",
     "logs",
     "log-settings",

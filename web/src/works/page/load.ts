@@ -20,7 +20,7 @@ import {
   getListContentTypesSuspenseQueryOptions,
 } from "../../api/gen/query/works/works";
 import { ensureQuery } from "../../api/query-client";
-import { loadWorkGrabs } from "../../grabs/waiting";
+import { loadWorkGrabs } from "../../grabs/work-sections";
 import type { Crumb } from "../../shell/titles";
 import { libraryTrail } from "../fields";
 

@@ -9,9 +9,9 @@ import {
   getListSessionsQueryKey,
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
-import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
 import { downloadEffects } from "./download-effects";
+import { indexerEffects } from "./indexer-effects";
 import { libraryEffects } from "./library-effects";
 import { everyPath } from "./refresh";
 import { systemEffects } from "./system-effects";
@@ -25,6 +25,7 @@ export const effects = {
   ...systemEffects,
   ...libraryEffects,
   ...downloadEffects,
+  ...indexerEffects,
   ...targetsEffects,
   "identity.sessions-changed": (data, { refresh }) => {
     refresh({ queryKey: getGetSessionQueryKey() });
@@ -50,9 +51,6 @@ export const effects = {
   "identity.links-changed": (_data, { refresh }) => {
     refresh({ queryKey: getListSignupLinksQueryKey() });
     refresh(everySignupLink);
-  },
-  "indexers.changed": (_data, { refresh }) => {
-    refresh({ queryKey: getListIndexersQueryKey() });
   },
   "metadata.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListMetadataProvidersQueryKey() });

@@ -50,6 +50,10 @@ export const seedbox: NodesNode = {
 
 export const nodesAre = (...nodes: NodesNode[]) => getListNodesMockHandler({ nodes });
 
+/** The Nodes list as read from nodes at each request. */
+export const nodesFrom = (nodes: () => NodesNode[]) =>
+  getListNodesMockHandler(() => ({ nodes: nodes() }));
+
 function topologyNodeOf(node: NodesNode): NodesTopologyNode {
   const { standing } = node;
   const away = standing !== "in-step";

@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -24,24 +25,23 @@ func navAlert(t *testing.T, a *worldtest.API) string {
 	return *c.Alerts.Nodes
 }
 
-// indexerWaits is how the one Indexer's home Node stands while its calls
-// wait for it, or "none".
+// indexerWaits is why the one Indexer's searches wait, or "none".
 func indexerWaits(t *testing.T, a *worldtest.API) string {
 	t.Helper()
 	list := decode[struct {
 		Indexers []struct {
-			Waiting *struct {
-				Standing string `json:"standing"`
-			} `json:"waiting"`
+			Waits *struct {
+				Kind string `json:"kind"`
+			} `json:"waits"`
 		} `json:"indexers"`
 	}](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers
 	if len(list) != 1 {
 		t.Fatalf("listIndexers lists %d Indexers, want 1", len(list))
 	}
-	if list[0].Waiting == nil {
+	if list[0].Waits == nil {
 		return "none"
 	}
-	return list[0].Waiting.Standing
+	return list[0].Waits.Kind
 }
 
 // searched presses Search on work and waits for the run's outcome.
@@ -58,14 +58,22 @@ func searched(t *testing.T, a *worldtest.API, work string) string {
 	eventually(t, "the search finishes", func() bool {
 		runs := decode[struct {
 			Searches []struct {
-				ID      string  `json:"id"`
-				Outcome *string `json:"outcome"`
+				ID       string  `json:"id"`
+				Outcome  *string `json:"outcome"`
+				Indexers []struct {
+					Outcome *string `json:"outcome"`
+				} `json:"indexers"`
 			} `json:"searches"`
 		}](t, "listSearches", a.Admin("home", http.MethodGet, "/api/v1/works/"+work+"/searches", "")).Searches
 		for _, r := range runs {
-			if r.ID == run && r.Outcome != nil {
-				outcome = *r.Outcome
+			if r.ID != run || r.Outcome == nil {
+				continue
 			}
+			var lines []string
+			for _, l := range r.Indexers {
+				lines = append(lines, *l.Outcome)
+			}
+			outcome = *r.Outcome + " (" + strings.Join(lines, ", ") + ")"
 		}
 		return outcome != ""
 	})
@@ -87,8 +95,8 @@ func grabsOn(t *testing.T, a *worldtest.API) []grabView {
 	}](t, "listGrabs", a.Admin("home", http.MethodGet, "/api/v1/grabs", "")).Grabs
 }
 
-// view is how seedbox stands in Searching, the nav alert, and how the
-// Indexer waits for seedbox.
+// view is how seedbox stands in Searching, the nav alert, and why the
+// Indexer's searches wait.
 type view struct{ searching, alert, waits string }
 
 func expectStanding(t *testing.T, a *worldtest.API, when string, want view) {
@@ -109,7 +117,7 @@ func expectSearch(t *testing.T, a *worldtest.API, work, when, want string) {
 // TestAnOfflineSeedboxsSearchesWaitThenGoHome stops seedbox, which holds
 // Searching and Downloading and is the Indexer's home, with the offline
 // grace at its 1 min floor. Within the grace the Indexer waits for it and a
-// search finishes indexer_unavailable; past the grace home covers
+// search finds nothing while the Indexer's line waits; past the grace home covers
 // Searching, so a search grabs through home while the Grab waits for a
 // Node that downloads. Once seedbox is back and settled, the Grab is
 // fetched and downloaded on seedbox and the nav alert clears.
@@ -131,20 +139,21 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 
 		w.Node("seedbox").Stop()
 		synctest.Wait()
-		expectStanding(t, a, "just stopped", view{"away", "none", "reconnecting"})
-		expectSearch(t, a, work, "within the grace", "indexer_unavailable")
+		left := time.Now()
+		expectStanding(t, a, "just stopped", view{"away", "none", "waiting"})
+		expectSearch(t, a, work, "within the grace", "nothing_acceptable (waiting)")
 		seen, err := time.Parse(time.RFC3339Nano, seedbox(t, a).Link.Since)
 		if err != nil {
 			t.Fatal(err)
 		}
-		time.Sleep(time.Until(seen.Add(blip)))
+		time.Sleep(time.Until(left.Add(blip)))
 		synctest.Wait()
-		expectStanding(t, a, "past the blip", view{"away", "warn", "offline"})
+		expectStanding(t, a, "past the blip", view{"away", "warn", "waiting"})
 
 		time.Sleep(time.Until(seen.Add(time.Minute)))
 		synctest.Wait()
 		expectStanding(t, a, "past the grace", view{"lapsed", "fail", "none"})
-		expectSearch(t, a, work, "past the grace, through home", "grabbed")
+		expectSearch(t, a, work, "past the grace, through home", "grabbed (found)")
 		time.Sleep(time.Minute)
 		synctest.Wait()
 		if gs := grabsOn(t, a); len(gs) != 1 || gs[0].Stage != "fetching" || gs[0].FetchNodeID != "" {

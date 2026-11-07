@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller that searches catalog Indexers on
+  fixture-site's sites. Setup adds Quarry, which signs in with an API key;
+  an Admin adds Larkspur, whose sign-in shows a captcha.
+seed: catalog-sites
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+  - name: The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 40
+    seeded: false
+    advertised_size: 4.4GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Quarry, kind: catalog, site: quarry}]

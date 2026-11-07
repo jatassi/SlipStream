@@ -110,7 +110,7 @@ func (u Unresolved) Words(wait time.Duration) string {
 	var msg string
 	switch u.Reason {
 	case NoPeerSource:
-		return "The magnet link names no tracker, and DHT is off on the Node that downloads it"
+		return "The magnet link names no announce URL, and DHT is off on the Node that downloads it"
 	case EngineError:
 		return "The metadata search failed with a torrent engine error: " + u.Error
 	case InfoTooLarge:
@@ -125,7 +125,7 @@ func (u Unresolved) Words(wait time.Duration) string {
 		msg += fmt.Sprintf(", and at most %d peers connected at once", u.MostPeers)
 	}
 	if u.TrackerMessage != "" {
-		msg += ". The tracker responded: " + u.TrackerMessage
+		msg += ". An announce URL responded: " + u.TrackerMessage
 	}
 	return msg
 }

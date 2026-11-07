@@ -254,7 +254,7 @@ _Avoid_: Downloader, torrent app
 
 **Tracker**:
 A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
-_Avoid_: Site, indexer (for the seeding side)
+_Avoid_: Site, indexer (for the seeding side), tracker (for an announce URL)
 
 **Seeding goal**:
 What the built-in client seeds a torrent to: a ratio, a time, how they combine (Whichever first, Both or Forever) and what happens when met. A default goal applies unless a Tracker has its own, and the Tracker's seeding rule is a floor under both. External clients keep their own rules.
@@ -265,8 +265,16 @@ Stopping or removing a torrent before its Tracker's seeding rule is met. Each se
 _Avoid_: H&R, HnR
 
 **Indexer**:
-One configured way to search one or more Trackers, such as a catalog definition, a ported site indexer, a Torznab feed or an RSS feed. Each Indexer searches from one home Node.
+One configured way to search one or more Trackers, such as a catalog definition, a ported site indexer, a Torznab feed or an RSS feed. Each Indexer searches from one home Node. An Indexer that signs in to its site holds a login session and doesn't fail over unless the Admin allows it.
 _Avoid_: Tracker (for the search side), provider, source
+
+**Indexer catalog**:
+The list of site definitions the Controller downloads at runtime, from Prowlarr's catalog unless the Admin changes the address.
+_Avoid_: Definitions repo, indexer list
+
+**Definition**:
+One catalog or custom file describing how to sign in to, search and download from one site.
+_Avoid_: Cardigann file, indexer YAML
 
 **Home Node**:
 The one Searching Node an Indexer runs every query, login, RSS fetch, Test and .torrent fetch from. It defaults to the Controller when the Controller holds Searching, and otherwise to the first Searching Node. The Controller still decides every Grab and keeps the Indexer's cookies, limits and health.

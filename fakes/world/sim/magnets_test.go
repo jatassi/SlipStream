@@ -118,7 +118,7 @@ func TestATrackerlessMagnetLinkWithTheDHTOffFailsAtOnce(t *testing.T) {
 		start := time.Now()
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
-		expectFailed(t, g, "fetching", "no_peer_source", "The magnet link names no tracker, and DHT is off on the Node that downloads it")
+		expectFailed(t, g, "fetching", "no_peer_source", "The magnet link names no announce URL, and DHT is off on the Node that downloads it")
 		if took := time.Since(start); took > time.Minute || n.Load() != 0 || !slices.Equal(g.stages(), []string{"fetching", "failed"}) {
 			t.Fatalf("the Grab failed after %s and %d searches through %v, want at once with none", took, n.Load(), g.stages())
 		}

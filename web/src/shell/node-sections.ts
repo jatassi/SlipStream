@@ -3,6 +3,7 @@ import {
   Download04Icon,
   Globe02Icon,
   InformationCircleIcon,
+  Search01Icon,
   Layers01Icon,
   Settings02Icon,
   TextAlignLeftIcon,
@@ -45,6 +46,13 @@ export const nodeSections = [
     icon: Download04Icon,
     to: "/nodes/$nodeId/torrent-client",
     shows: standsIn("downloading"),
+  },
+  {
+    id: "searching",
+    label: "Searching",
+    icon: Search01Icon,
+    to: "/nodes/$nodeId/searching",
+    shows: standsIn("searching"),
   },
   {
     id: "transfers",

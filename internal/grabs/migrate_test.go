@@ -2,21 +2,13 @@ package grabs_test
 
 import (
 	"context"
-	"log/slog"
 	"path/filepath"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
-	"github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/indexers"
-	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/roots"
-	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -30,17 +22,7 @@ func (discard[T]) Publish(context.Context, T) {}
 func TestTheFetchNodeIsTheHomeNodeOfEachFetchedGrab(t *testing.T) {
 	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	open := func(g storage.Schema[storage.Library]) *storage.DB[storage.Library] {
-		t.Helper()
-		schemas := []storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-			roots.Schema(), indexers.Schema(), downloadclients.Schema(), g, files.Schema()}
-		lib, err := storage.OpenLibrary(ctx, path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return lib
-	}
-	old := open(grabs.Schema().Through(3))
+	old := openBefore(t, path, grabs.Schema().Through(3))
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: old, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -79,7 +61,7 @@ func TestTheFetchNodeIsTheHomeNodeOfEachFetchedGrab(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := open(grabs.Schema())
+	lib := openAt(t, path)
 	t.Cleanup(func() { _ = lib.Close() })
 	for id, want := range map[storage.UUID]*storage.UUID{fetched: &home, fetching: nil} {
 		var got *storage.UUID

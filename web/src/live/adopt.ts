@@ -8,6 +8,13 @@ import type {
   HealthSettings,
   HealthVolume,
   HealthVolumeList,
+  IndexersChallengeSolver,
+  IndexersIndexer,
+  IndexersIndexerCatalog,
+  IndexersIndexerList,
+  IndexersSettings,
+  IndexersTracker,
+  IndexersTrackerList,
   RootsRootSettings,
   SystemNodeConfig,
   TasksOverview,
@@ -25,6 +32,15 @@ import {
   getGetSystemHealthQueryKey,
   getListHealthVolumesQueryKey,
 } from "../api/gen/query/health/health";
+import {
+  getGetChallengeSolverQueryKey,
+  getGetIndexerCatalogQueryKey,
+  getGetIndexerQueryKey,
+  getGetIndexerSettingsQueryKey,
+  getGetTrackerQueryKey,
+  getListIndexersQueryKey,
+  getListTrackersQueryKey,
+} from "../api/gen/query/indexers/indexers";
 import { getGetRootSettingsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
 import { getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
@@ -55,6 +71,14 @@ export function adoptClientSettings(
   settings: DownloadclientsSettings,
 ) {
   queryClient.setQueryData(getGetDownloadClientSettingsQueryKey(nodeId), settings);
+}
+
+export function adoptChallengeSolver(
+  queryClient: QueryClient,
+  nodeId: string,
+  solver: IndexersChallengeSolver,
+) {
+  queryClient.setQueryData(getGetChallengeSolverQueryKey(nodeId), solver);
 }
 
 export function adoptTransferSettings(
@@ -118,6 +142,54 @@ export function adoptContentType(queryClient: QueryClient, saved: WorksContentTy
     (list: WorksContentTypeList | undefined) =>
       list && {
         contentTypes: list.contentTypes.map((type) => (type.id === saved.id ? saved : type)),
+      },
+  );
+}
+
+export function adoptIndexer(queryClient: QueryClient, saved: IndexersIndexer) {
+  queryClient.setQueryData(getGetIndexerQueryKey(saved.id), saved);
+  queryClient.setQueryData<IndexersIndexerList>(
+    getListIndexersQueryKey(),
+    (list) =>
+      list && { indexers: list.indexers.map((shown) => (shown.id === saved.id ? saved : shown)) },
+  );
+}
+
+export function dropIndexer(queryClient: QueryClient, id: string) {
+  queryClient.setQueryData<IndexersIndexerList>(
+    getListIndexersQueryKey(),
+    (list) => list && { indexers: list.indexers.filter((shown) => shown.id !== id) },
+  );
+}
+
+export function adoptCatalog(queryClient: QueryClient, catalog: IndexersIndexerCatalog) {
+  queryClient.setQueryData(getGetIndexerCatalogQueryKey(), catalog);
+}
+
+export function adoptIndexerSettings(queryClient: QueryClient, settings: IndexersSettings) {
+  queryClient.setQueryData(getGetIndexerSettingsQueryKey(), settings);
+}
+
+export function adoptTracker(queryClient: QueryClient, saved: IndexersTracker) {
+  queryClient.setQueryData(getGetTrackerQueryKey(saved.id), saved);
+  queryClient.setQueryData<IndexersTrackerList>(
+    getListTrackersQueryKey(),
+    (list) =>
+      list && { trackers: list.trackers.map((shown) => (shown.id === saved.id ? saved : shown)) },
+  );
+}
+
+/** from is gone, and kept now lists from's Indexers. */
+export function adoptMerge(queryClient: QueryClient, from: string, kept: IndexersTracker) {
+  queryClient.removeQueries({ queryKey: getGetTrackerQueryKey(from), exact: true });
+  queryClient.setQueryData(getGetTrackerQueryKey(kept.id), kept);
+  queryClient.setQueryData<IndexersTrackerList>(
+    getListTrackersQueryKey(),
+    (list) =>
+      list && {
+        trackers: list.trackers
+          .filter((shown) => shown.id !== from)
+          .map((shown) => (shown.id === kept.id ? kept : shown)),
       },
   );
 }

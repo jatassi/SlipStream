@@ -1,5 +1,6 @@
 import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
+import type { GrabsFetchWait } from "./grabsFetchWait.ts";
 import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
 import type { GrabsMetadataSearch } from "./grabsMetadataSearch.ts";
@@ -16,10 +17,16 @@ export interface GrabsGrab {
    * @nullable
    */
   fetchNodeId: string | null;
+  /** Why fetching the .torrent waits on its Indexer, absent unless it does */
+  fetchWait?: GrabsFetchWait;
   /** Each stage it entered, when it last entered it, oldest first */
   history: GrabsEntered[];
   id: string;
-  indexerId: string;
+  /**
+   * The Indexer it was grabbed from, null once the Indexer is deleted
+   * @nullable
+   */
+  indexerId: string | null;
   /**
    * The v1 info hash in hex, null until the .torrent is fetched
    * @nullable
@@ -45,5 +52,10 @@ export interface GrabsGrab {
    * @nullable
    */
   torrentId: string | null;
+  /**
+   * The Tracker its Release reached, null for a Grab older than Trackers
+   * @nullable
+   */
+  trackerId: string | null;
   workId: string;
 }

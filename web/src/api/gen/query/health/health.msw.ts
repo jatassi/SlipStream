@@ -21,6 +21,7 @@ export const getGetSystemHealthResponseMock = (
         "storage",
         "nodes",
         "download-clients",
+        "indexers",
         "scheduled-tasks",
       ] as const),
       items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -79,6 +80,7 @@ export const getGetSystemHealthResponseMock = (
         "storage",
         "nodes",
         "download-clients",
+        "indexers",
         "scheduled-tasks",
       ] as const),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -101,6 +103,7 @@ export const getCheckSystemHealthResponseMock = (
           "storage",
           "nodes",
           "download-clients",
+          "indexers",
           "scheduled-tasks",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -159,6 +162,7 @@ export const getCheckSystemHealthResponseMock = (
           "storage",
           "nodes",
           "download-clients",
+          "indexers",
           "scheduled-tasks",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -541,6 +545,7 @@ export const getCheckHealthCategoryResponseMock = (
           "storage",
           "nodes",
           "download-clients",
+          "indexers",
           "scheduled-tasks",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -599,6 +604,7 @@ export const getCheckHealthCategoryResponseMock = (
           "storage",
           "nodes",
           "download-clients",
+          "indexers",
           "scheduled-tasks",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -633,6 +639,7 @@ export const getCheckHealthItemResponseMock = (
           "storage",
           "nodes",
           "download-clients",
+          "indexers",
           "scheduled-tasks",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -691,6 +698,7 @@ export const getCheckHealthItemResponseMock = (
           "storage",
           "nodes",
           "download-clients",
+          "indexers",
           "scheduled-tasks",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),

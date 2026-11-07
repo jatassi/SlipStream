@@ -47,16 +47,25 @@ func audit[F storage.File](t testing.TB, name string, schemas []storage.Schema[F
 		t.Errorf("open empty %s: %v", name, err)
 		return
 	}
+	var ahead []forward
 	for i, s := range schemas {
 		after, err := catalog(t.Context(), path, schemas[:i+1], open, discard)
 		if err != nil {
 			t.Errorf("%s: %v", s.Set(), err)
 			return
 		}
-		for _, f := range findings(s.Set(), sets[:i], before, after) {
+		out, fks := findings(s.Set(), sets[:i], sets[i+1:], before, after)
+		for _, f := range out {
 			t.Error(f)
 		}
+		ahead = append(ahead, fks...)
 		before = after
+	}
+	created := byKey(before)
+	for _, fk := range ahead {
+		if _, ok := created["table "+strings.ToLower(fk.parent)]; !ok {
+			t.Errorf("%s: foreign key %s.%s targets %s, which no set creates", fk.set, fk.table, fk.column, fk.parent)
+		}
 	}
 	var log bytes.Buffer
 	again, err := catalog(t.Context(), path, schemas, open, slog.New(slog.NewTextHandler(&log, nil)))
@@ -84,13 +93,21 @@ func catalog[F storage.File](ctx context.Context, path string, schemas []storage
 type step struct {
 	set    string
 	known  []string
+	later  []string
 	before map[string]storage.Object
 	after  map[string]storage.Object
 	out    []string
+	ahead  []forward
 }
 
-func findings(set string, earlier []string, before, after storage.Catalog) []string {
-	s := &step{set: set, known: append(slices.Clone(earlier), set), before: byKey(before), after: byKey(after)}
+// forward is a foreign key into a table of a set the list runs later,
+// which must exist once every set ran.
+type forward struct {
+	set, table, column, parent string
+}
+
+func findings(set string, earlier, later []string, before, after storage.Catalog) ([]string, []forward) {
+	s := &step{set: set, known: append(slices.Clone(earlier), set), later: later, before: byKey(before), after: byKey(after)}
 	for _, o := range before.Objects {
 		s.checkKept(o)
 	}
@@ -101,7 +118,7 @@ func findings(set string, earlier []string, before, after storage.Catalog) []str
 		}
 		s.checkOwn(o)
 	}
-	return s.out
+	return s.out, s.ahead
 }
 
 func (s *step) report(format string, args ...any) {
@@ -155,6 +172,11 @@ func (s *step) checkTable(o storage.Object) {
 	for _, fk := range o.ForeignKeys {
 		_, exists := s.after["table "+strings.ToLower(fk.ParentTable)]
 		switch owner := s.owner(fk.ParentTable); {
+		case !exists && slices.Contains(s.later, storage.SetPrefix(fk.ParentTable)):
+			s.ahead = append(s.ahead, forward{set: s.set, table: o.Name, column: fk.Column, parent: fk.ParentTable})
+			if fk.To != "id" {
+				s.report("foreign key %s.%s targets %s.%s; a foreign key into another set targets id", o.Name, fk.Column, fk.ParentTable, fk.To)
+			}
 		case !exists || owner == "":
 			s.report("foreign key %s.%s targets %s, which no earlier set creates", o.Name, fk.Column, fk.ParentTable)
 		case owner != s.set && fk.To != "id":

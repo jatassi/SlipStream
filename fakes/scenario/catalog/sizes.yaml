@@ -86,4 +86,4 @@ library:
   profiles:
     - {name: Films, content_type: movie, targets: [Sized], default: true}
     - {name: Encodes, content_type: movie, targets: [Encoded]}
-  indexers: [{name: Fixture Site, site: fixture-site}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

@@ -1,0 +1,92 @@
+package searching
+
+import (
+	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/jatassi/slipstream/internal/bencode"
+)
+
+func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
+	earned := time.UnixMilli(1_780_000_000_000).UTC()
+	session := &Session{
+		Cookies:   []Cookie{{Name: "uid", Value: "7", Domain: "site.test", Path: "/", Expires: earned.Add(time.Hour), Secure: true, HostOnly: true}},
+		UserAgent: "Mozilla/5.0", Pasted: true, Earned: earned,
+	}
+	job := Job{
+		ID: "j", Indexer: "i", Revision: 3, Kind: Torznab, Address: "https://site.test/torznab", Settings: map[string]string{"username": "u"},
+		APIKey: "k", Session: session, Categories: []int{2000, 2040},
+		Call: SearchCall{Query: Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1"}, Text: "Lantern", Season: 2, Episode: "5"}},
+	}
+	got, site, err := decodeJob(encodeJob(job))
+	if err != nil || !reflect.DeepEqual(got, job) || site.Address.Host != "site.test" || site.APIKey != "k" {
+		t.Fatalf("the job came across as %+v, %+v, %v; want %+v", got, site, err, job)
+	}
+
+	feed := Job{
+		ID: "f", Indexer: "b", Revision: 1, Kind: RSS, Address: "https://brook.test/rss?passkey=p", Session: session,
+		RSS: RSSReading{Link: "torrent", SizeFromDescription: true, SeedersFromDescription: true, AllowNoSize: true}, Call: RecentCall{},
+	}
+	if got, site, err := decodeJob(encodeJob(feed)); err != nil || !reflect.DeepEqual(got, feed) || site.RSS != feed.RSS {
+		t.Fatalf("the RSS job came across as %+v, %+v, %v; want %+v", got, site, err, feed)
+	}
+
+	for _, call := range []Call{TestCall{Captcha: &CaptchaAnswer{PreLogin: []byte(`{"Action":"x"}`), Text: "x7k2"}}, CaptchaCall{}} {
+		catalog := Job{
+			ID: "c", Indexer: "l", Revision: 2, Kind: Catalog, Address: "https://larkspur.test/", Definition: &Definition{YAML: []byte("id: larkspur"), SHA: "abc"},
+			Settings: map[string]string{"username": "u", "password": "p"}, Call: call,
+		}
+		if got, _, err := decodeJob(encodeJob(catalog)); err != nil || !reflect.DeepEqual(got, catalog) {
+			t.Fatalf("the catalog job came across as %+v, %v; want %+v", got, err, catalog)
+		}
+	}
+	captcha := Answer{Captcha: &Captcha{Image: []byte("png"), ContentType: "image/png", PreLogin: []byte("state")}}
+	if back, err := decodeAnswer(encodeAnswer(captcha)); err != nil || !reflect.DeepEqual(back.Captcha, captcha.Captcha) {
+		t.Fatalf("a captcha came across as %+v, %v; want %+v", back.Captcha, err, captcha.Captcha)
+	}
+
+	hash := bencode.InfoHash{1, 2, 3}
+	answer := Answer{
+		Started: earned, Outcome: &Stopped{Cause: RequestRejected, Text: "Function not available", SolverTried: true}, Session: session,
+		Releases: []Release{{
+			Title: "Lantern.S02E05", Size: 1 << 30, Published: earned, Seeders: 9, Leechers: 1, Grabs: 40,
+			Link: LinkOf("https://site.test/dl/1"), Magnet: LinkOf("magnet:?xt=urn:btih:0102030000000000000000000000000000000000"), InfoHash: &hash,
+			Categories: []int{5040}, IDs: map[string]string{"tvdbid": "1"}, Factors: Factors{Download: 0, Upload: 2},
+			Floor: Floor{MinRatio: 1, MinSeed: 48 * time.Hour}, Details: "https://site.test/t/1",
+			Source: &Source{ID: "12", Name: "Larkspur", Privacy: "private", Origin: "prowlarr"},
+		}},
+	}
+	back, err := decodeAnswer(encodeAnswer(answer))
+	if err != nil || !same(back, answer) {
+		t.Fatalf("the answer came across as %+v, %v; want %+v", back, err, answer)
+	}
+	for _, outcome := range []error{nil, &Limited{RetryAfter: 2 * time.Second}} {
+		a := Answer{Outcome: outcome, Report: &Report{Capabilities: Capabilities{Modes: map[string][]string{"search": {"q"}}, Categories: []int{2000}}, Items: 3, Sources: []string{"Larkspur"}}}
+		if back, err := decodeAnswer(encodeAnswer(a)); err != nil || !same(back, a) {
+			t.Fatalf("a Test's answer came across as %+v, %v; want %+v", back, err, a)
+		}
+	}
+	none := Capabilities{Modes: map[string][]string{}}
+	for _, r := range []*Report{{Capabilities: none, Items: 2, RSS: &RSSReading{Link: "enclosure", SeedersFromDescription: true}}, {Capabilities: none, Refusal: RSSRepeatedGUID}} {
+		a := Answer{Report: r}
+		if back, err := decodeAnswer(encodeAnswer(a)); err != nil || !same(back, a) {
+			t.Fatalf("an RSS Test's answer came across as %+v, %v; want %+v", back.Report, err, r)
+		}
+	}
+}
+
+// same compares two answers field by field, and their outcomes by value.
+func same(a, b Answer) bool {
+	return a.Started.Equal(b.Started) && outcomeValue(a.Outcome) == outcomeValue(b.Outcome) &&
+		reflect.DeepEqual(a.Session, b.Session) && reflect.DeepEqual(a.Releases, b.Releases) &&
+		reflect.DeepEqual(a.Got, b.Got) && reflect.DeepEqual(a.Report, b.Report)
+}
+
+func outcomeValue(err error) string {
+	if err == nil {
+		return "ok"
+	}
+	return fmt.Sprintf("%#v", reflect.ValueOf(err).Elem().Interface())
+}

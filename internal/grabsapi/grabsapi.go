@@ -1,6 +1,6 @@
 // Package grabsapi is the search and Grab operations: start a Work's
-// search, list its search runs, and list and read Grabs with their live
-// progress.
+// search, list its search runs, list an Indexer's Grabs, and list and read
+// Grabs with their live progress.
 package grabsapi
 
 import (
@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -38,6 +39,7 @@ var (
 	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "The Work's library root is on a Node that takes no new files now")
 	notSearchable   = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
+	indexerNotFound = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )
 
 func answer(err error) error {
@@ -54,6 +56,8 @@ func answer(err error) error {
 		return notSearchable
 	case errors.Is(err, grabs.ErrNoGrab):
 		return grabNotFound
+	case errors.Is(err, indexers.ErrNoIndexer):
+		return indexerNotFound
 	}
 	if e, ok := errors.AsType[*grabs.RootUnreachableError](err); ok {
 		return rootUnreachable.Because(e.Why)
@@ -95,17 +99,25 @@ type refusal struct {
 	Reasons []reason `json:"reasons" nullable:"false" doc:"Each open cell's Target's failures and notes, in Profile order"`
 }
 
+type searchIndexer struct {
+	IndexerID *string `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
+	Name      string  `json:"name" doc:"The Indexer's name when the run started"`
+	Outcome   *string `json:"outcome" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed" doc:"Null while its search runs"`
+	Releases  int     `json:"releases" minimum:"0" doc:"The Releases it found"`
+	Sentence  string  `json:"sentence" doc:"The outcome in words, such as Limit reached until 14:05"`
+}
+
 type search struct {
-	ID         string     `json:"id" format:"uuid"`
-	ItemID     string     `json:"itemId" format:"uuid"`
-	IndexerID  string     `json:"indexerId" format:"uuid"`
-	StartedAt  time.Time  `json:"startedAt"`
-	FinishedAt *time.Time `json:"finishedAt" doc:"Null while the run searches"`
-	Outcome    *string    `json:"outcome" enum:"grabbed,nothing_acceptable,indexer_unavailable,indexer_refused" doc:"Null while the run searches"`
-	Candidates int        `json:"candidates" minimum:"0" doc:"The releases in the Indexer's response"`
-	Refused    []refusal  `json:"refused" nullable:"false" doc:"The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused"`
-	GrabID     *string    `json:"grabId" format:"uuid" doc:"The Grab the run made, null when none"`
-	Notes      []reason   `json:"notes" nullable:"false" doc:"The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for"`
+	ID         string          `json:"id" format:"uuid"`
+	ItemID     string          `json:"itemId" format:"uuid"`
+	StartedAt  time.Time       `json:"startedAt"`
+	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
+	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
+	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable" doc:"Null while the run searches"`
+	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
+	Refused    []refusal       `json:"refused" nullable:"false" doc:"The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused"`
+	GrabID     *string         `json:"grabId" format:"uuid" doc:"The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none"`
+	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
 }
 
 type searchList struct {
@@ -116,8 +128,15 @@ type searchListOutput struct{ Body searchList }
 
 func searchOf(s grabs.Search) search {
 	out := search{
-		ID: s.ID.String(), ItemID: s.ItemID.String(), IndexerID: s.Indexer.String(), StartedAt: s.Started, Candidates: s.Candidates,
+		ID: s.ID.String(), ItemID: s.ItemID.String(), StartedAt: s.Started, Indexers: []searchIndexer{}, Candidates: s.Candidates,
 		Refused: []refusal{}, Notes: reasonsOf(s.Notes),
+	}
+	for _, l := range s.Indexers {
+		w := searchIndexer{IndexerID: idOrNil(l.Indexer.UUID), Name: l.Name, Sentence: l.Line}
+		if l.Outcome != nil {
+			w.Outcome, w.Releases = new(string(l.Outcome.Kind)), l.Outcome.Releases
+		}
+		out.Indexers = append(out.Indexers, w)
 	}
 	for _, r := range s.Refused {
 		out.Refused = append(out.Refused, refusal{Title: r.Title, Reasons: reasonsOf(r.Reasons)})
@@ -133,9 +152,16 @@ func searchOf(s grabs.Search) search {
 	return out
 }
 
+func idOrNil(id storage.UUID) *string {
+	if id.IsZero() {
+		return nil
+	}
+	return new(id.String())
+}
+
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
+	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
 	Message string `json:"message"`
 }
 
@@ -154,6 +180,11 @@ type metadataSearch struct {
 	EndsAt time.Time `json:"endsAt" doc:"When the Grab fails unless a peer has sent the metadata"`
 }
 
+type fetchWait struct {
+	Sentence string     `json:"sentence" doc:"Why the fetch waits, such as Waiting to fetch the .torrent from TorrentLeech. SlipStream retries at 14:20."`
+	Until    *time.Time `json:"until" doc:"When SlipStream retries; null while it waits for the Indexer's home Node"`
+}
+
 type grab struct {
 	ID           string          `json:"id" format:"uuid"`
 	WorkID       string          `json:"workId" format:"uuid"`
@@ -163,7 +194,8 @@ type grab struct {
 	ReleaseTitle string          `json:"releaseTitle"`
 	Quality      string          `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
 	ReleaseSize  int64           `json:"releaseSize" minimum:"0"`
-	IndexerID    string          `json:"indexerId" format:"uuid"`
+	IndexerID    *string         `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
+	TrackerID    *string         `json:"trackerId" format:"uuid" doc:"The Tracker its Release reached, null for a Grab older than Trackers"`
 	NodeID       string          `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
 	FetchNodeID  *string         `json:"fetchNodeId" format:"uuid" doc:"The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did"`
 	TorrentID    *string         `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
@@ -173,14 +205,15 @@ type grab struct {
 	History      []entered       `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
 	Progress     *progress       `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
+	FetchWait    *fetchWait      `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
 	CreatedAt    time.Time       `json:"createdAt"`
 }
 
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: v.Release.Indexer.String(), NodeID: v.Node.String(),
-		Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
+		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
 	}
 	if !v.FetchNode.IsZero() {
 		id := v.FetchNode.String()
@@ -208,6 +241,12 @@ func grabOf(v grabs.View) grab {
 	if v.Metadata != nil {
 		out.Metadata = &metadataSearch{Peers: v.Metadata.Peers, EndsAt: v.Metadata.EndsAt}
 	}
+	if w := v.FetchWait; w != nil {
+		out.FetchWait = &fetchWait{Sentence: w.Sentence}
+		if !w.Outcome.Until.IsZero() {
+			out.FetchWait.Until = &w.Outcome.Until
+		}
+	}
 	return out
 }
 
@@ -216,6 +255,20 @@ type grabList struct {
 }
 
 type grabListOutput struct{ Body grabList }
+
+const indexerGrabsPage = 50
+
+type indexerGrabList struct {
+	Grabs      []grab `json:"grabs" nullable:"false" doc:"Newest first"`
+	NextOffset *int   `json:"nextOffset" doc:"The offset of the next page; null on the last"`
+}
+
+type indexerGrabsInput struct {
+	ID     string `path:"id" format:"uuid"`
+	Offset int    `query:"offset" minimum:"0" doc:"How many of the newest to skip"`
+}
+
+type indexerGrabsOutput struct{ Body indexerGrabList }
 
 type grabInput struct {
 	GrabID string `path:"grabId" format:"uuid"`
@@ -258,6 +311,14 @@ func Routes(r *api.Router, p Pipeline) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{grabNotFound},
 	}, h.getGrab)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listIndexerGrabs",
+		Method:  http.MethodGet,
+		Path:    "/indexers/{id}/grabs",
+		Summary: "List the Grabs taken from an Indexer, 50 at a time",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{indexerNotFound},
+	}, h.listIndexerGrabs)
 }
 
 type handlers struct{ p Pipeline }
@@ -316,4 +377,23 @@ func (h handlers) getGrab(ctx context.Context, by identity.Admin, in *grabInput)
 		return nil, answer(err)
 	}
 	return &grabOutput{Body: grabOf(v)}, nil
+}
+
+func (h handlers) listIndexerGrabs(ctx context.Context, by identity.Admin, in *indexerGrabsInput) (*indexerGrabsOutput, error) {
+	u, err := storage.ParseUUID(in.ID)
+	if err != nil {
+		return nil, indexerNotFound
+	}
+	views, err := open(h.p).OfIndexer(ctx, by, indexers.ID{UUID: u}, indexers.Page{Offset: in.Offset, Limit: indexerGrabsPage + 1})
+	if err != nil {
+		return nil, answer(err)
+	}
+	out := indexerGrabList{Grabs: []grab{}}
+	if len(views) > indexerGrabsPage {
+		views, out.NextOffset = views[:indexerGrabsPage], new(in.Offset+indexerGrabsPage)
+	}
+	for _, v := range views {
+		out.Grabs = append(out.Grabs, grabOf(v))
+	}
+	return &indexerGrabsOutput{Body: out}, nil
 }

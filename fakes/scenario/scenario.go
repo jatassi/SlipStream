@@ -81,6 +81,9 @@ type Node struct {
 	Setup Setup  `yaml:"setup"`
 	// Roles are the Roles the world assigns a controller or join Node.
 	Roles []role.Name `jsonschema:"uniqueItems=true" yaml:"roles,omitempty"`
+	// ChallengeSolver has the world set the Node's Challenge solver to its
+	// fake-challenge-solver front before it adds the library's Indexers.
+	ChallengeSolver bool `yaml:"challenge_solver,omitempty"`
 }
 
 const MaxNodes = 31
@@ -176,14 +179,8 @@ func (s Scenario) Validate() error {
 		}
 		s.Library.check(add)
 		s.checkRootNodes(add)
+		s.checkHomes(add)
 		s.checkWorks(add)
-		switch holders := s.searching(); {
-		case len(s.Library.Indexers) == 0:
-		case len(holders) == 0:
-			add("library has indexers, and no node holds searching")
-		case len(holders) > 1:
-			add("library has indexers, and nodes %s all hold searching; exactly one does", strings.Join(holders, ", "))
-		}
 	}
 	checkFaults(add, s.Faults)
 	if problems != nil {
@@ -271,6 +268,9 @@ func (n Node) checkRoles(add func(format string, args ...any)) {
 	if n.Setup == SetupNone && len(n.Roles) > 0 {
 		add("node %s has roles, but only controller and join nodes hold Roles", n.Name)
 	}
+	if n.ChallengeSolver && !n.searches() {
+		add("node %s has a challenge solver, but doesn't hold searching", n.Name)
+	}
 	for i, r := range n.Roles {
 		if _, err := role.ParseName(string(r)); err != nil {
 			add("node %s role %s", n.Name, err)
@@ -337,14 +337,31 @@ func (s Scenario) document() *yaml.Node {
 	return &doc
 }
 
-// Searching is the Node that holds Searching, whose front the world enters
-// as each Indexer's URL. Validate makes it exactly one when the library has
-// Indexers.
-func (s Scenario) Searching() string {
-	if holders := s.searching(); len(holders) == 1 {
-		return holders[0]
+// checkHomes refuses a library with Indexers and no Node that holds
+// Searching, and one where several do unless every Indexer names its home.
+// A home holds Searching.
+func (s Scenario) checkHomes(add func(format string, args ...any)) {
+	holders := s.searching()
+	if len(s.Library.Indexers) > 0 && len(holders) == 0 {
+		add("library has indexers, and no node holds searching")
+		return
 	}
-	return ""
+	for _, ix := range s.Library.Indexers {
+		switch {
+		case ix.Home != "" && !slices.Contains(holders, ix.Home):
+			add("library indexer %s's home %s doesn't hold searching", ix.Name, ix.Home)
+		case ix.Home == "" && len(holders) > 1:
+			add("library indexer %s names no home, and nodes %s all hold searching", ix.Name, strings.Join(holders, ", "))
+		}
+	}
+}
+
+// Home is the Node Indexer ix searches from.
+func (s Scenario) Home(ix LibraryIndexer) string {
+	if ix.Home != "" {
+		return ix.Home
+	}
+	return s.searching()[0]
 }
 
 // searching names each Node that holds Searching once set up: a join or
@@ -353,11 +370,23 @@ func (s Scenario) Searching() string {
 func (s Scenario) searching() []string {
 	var holders []string
 	for _, n := range s.Nodes {
-		if (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching)) {
+		if n.searches() {
 			holders = append(holders, n.Name)
 		}
 	}
 	return holders
+}
+
+// searches reports whether n holds Searching once set up: a join or
+// controller Node listing it, and a controller Node that lists no Roles.
+func (n Node) searches() bool {
+	return (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching))
+}
+
+// Solving is whether the Node named name has a Challenge solver once set
+// up.
+func (s Scenario) Solving(name string) bool {
+	return slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Name == name && n.ChallengeSolver })
 }
 
 func (s Scenario) RootNode(r LibraryRoot) string {

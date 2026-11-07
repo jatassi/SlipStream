@@ -39,7 +39,7 @@ func movieLibrary() *Library {
 	return &Library{
 		StorageLevels: &LibraryLevels{},
 		Roots:         []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
-		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
+		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Kind: "torznab", Site: "torznab"}},
 	}
 }
 
@@ -87,7 +87,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (cgnat-home, first-run, home, low-space, magnets, movies, music, scale, seedbox-nas, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, first-run, home, indexers, low-space, magnets, movies, music, scale, seedbox-nas, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
@@ -211,6 +211,11 @@ func TestParseRefuses(t *testing.T) {
 			"roles on an Unclaimed node",
 			"seed: x\nnodes: [{name: home, setup: none, roles: [searching]}]\n",
 			"scenario x: node home has roles, but only controller and join nodes hold Roles",
+		},
+		{
+			"a challenge solver on a node outside searching",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: home, setup: controller, roles: [storage], challenge_solver: true}]\n",
+			"scenario x: node home has a challenge solver, but doesn't hold searching",
 		},
 		{
 			"a role twice",
@@ -356,7 +361,8 @@ library:
       folder: movies
   indexers:
     - name: Fixture Site
-      site: fixture-site
+      kind: torznab
+      site: torznab
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)

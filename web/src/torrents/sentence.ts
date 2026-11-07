@@ -34,8 +34,8 @@ function heldSentence(row: Row, { node, clock }: Place): string {
   switch (row.hold) {
     case "window":
       return row.until === undefined
-        ? "Waiting for its tracker to accept an announce again."
-        : `Waiting for its tracker. It resumes at ${sinceWords(row.until, clock)}, when every tracker accepts an announce again.`;
+        ? "Waiting until its announce URLs accept an announce again."
+        : `Waiting for an announce. It resumes at ${sinceWords(row.until, clock)}, when every announce URL accepts one again.`;
     case "disk_full":
       return `Paused because ${node} ran out of disk space. It resumes once there is space.`;
     case "slot":
@@ -62,7 +62,7 @@ function trackerSentence(row: Row, { clock }: Place): string {
   const { host } = trackerLine(row.tracker, clock);
   const tracker = row.tracker;
   if (tracker?.status === "unregistered") {
-    return `${host} reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another release.`;
+    return `${host} reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another Release.`;
   }
   const said =
     tracker?.message === undefined
@@ -110,8 +110,8 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
   switch (row.state) {
     case "failed":
       return row.error === undefined
-        ? "The torrent client stopped it. Remove it, then search for another release."
-        : `The torrent client stopped it with the error "${row.error}". Remove it, then search for another release.`;
+        ? "The torrent client stopped it. Remove it, then search for another Release."
+        : `The torrent client stopped it with the error "${row.error}". Remove it, then search for another Release.`;
     case "tracker-error":
       return trackerSentence(row, place);
     case "checking":
@@ -125,7 +125,7 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
     case "paused":
       return heldSentence(row, place);
     case "stalled":
-      return "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this release, mark it failed.";
+      return "Stalled. No data has arrived for a while, so it no longer holds a download slot. To stop using this Release, mark it failed.";
     case "downloading":
     case "seeding":
       return movingSentence(row, live);

@@ -482,8 +482,8 @@ func TestATransferResumes(t *testing.T) {
 }
 
 // TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing stalls
-// seedbox, the Indexer's home Node, before the search: the run ends
-// indexer_unavailable and makes no Grab.
+// seedbox, the Indexer's home Node, before the search: the Indexer's line
+// waits for seedbox, and the run finds nothing and makes no Grab.
 func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk())
@@ -494,18 +494,22 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 		time.Sleep(time.Minute)
 		var searches struct {
 			Searches []struct {
-				ID, IndexerID, StartedAt string
-				FinishedAt               *string
+				ID, StartedAt string
+				FinishedAt    *string
+				Indexers      []struct {
+					IndexerID string `json:"indexerId"`
+				} `json:"indexers"`
 			} `json:"searches"`
 		}
 		reply := w.API().Admin("home", http.MethodGet, "/api/v1/works/"+work+"/searches", "")
-		if err := json.Unmarshal([]byte(reply.Body), &searches); err != nil || len(searches.Searches) != 1 || searches.Searches[0].FinishedAt == nil {
+		if err := json.Unmarshal([]byte(reply.Body), &searches); err != nil || len(searches.Searches) != 1 || searches.Searches[0].FinishedAt == nil || len(searches.Searches[0].Indexers) != 1 {
 			t.Fatalf("listSearches = %s, want one finished run", reply.Body)
 		}
 		s := searches.Searches[0]
 		worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + run + `","itemId":"` + itemOf(t, w, work) +
-			`","indexerId":"` + s.IndexerID + `","startedAt":"` + s.StartedAt + `","finishedAt":"` + *s.FinishedAt +
-			`","outcome":"indexer_unavailable","candidates":0,"refused":[],"grabId":null,"notes":[]}]}` + "\n"})
+			`","startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID +
+			`","name":"Fixture Site","outcome":"waiting","releases":0,"sentence":"Waiting for seedbox"}],"finishedAt":"` + *s.FinishedAt +
+			`","outcome":"nothing_acceptable","candidates":0,"refused":[],"grabId":null,"notes":[]}]}` + "\n"})
 		if gs := grabsListed(t, w); len(gs) != 0 {
 			t.Fatalf("listGrabs = %+v, want none", gs)
 		}
@@ -574,10 +578,10 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	})
 }
 
-// TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts cuts seedbox,
-// the one Node that holds Searching, off: before the offline grace no Node
-// may search, so createIndexer answers 409.
-func TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts(t *testing.T) {
+// TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest cuts seedbox, the
+// one Node that holds Searching and so the default home, off: before the
+// offline grace the Test waits for it, so createIndexer answers 502.
+func TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Library.Indexers = nil
@@ -588,9 +592,9 @@ func TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts(t *testing.T) {
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
 		worldtest.Expect(t, "createIndexer", w.API().Admin("home", http.MethodPost, "/api/v1/indexers",
-			`{"name":"Fixture Site","url":"http://127.0.0.1:1/torznab","apiKey":"key"}`), worldtest.Reply{
-			Status: http.StatusConflict,
-			Body:   `{"status":409,"code":"no_searching_node","title":"No Node holds Searching. Give one the Searching Role first."}` + "\n",
+			`{"kind":"torznab","name":"Fixture Site","address":"http://127.0.0.1:1/torznab","apiKey":"key"}`), worldtest.Reply{
+			Status: http.StatusBadGateway,
+			Body:   `{"status":502,"code":"indexer_unavailable","title":"The Test couldn't run","detail":"seedbox has been offline since 00:00. Test again once it's back."}` + "\n",
 		})
 	})
 }

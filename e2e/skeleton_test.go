@@ -29,6 +29,7 @@ const (
 type grabView struct {
 	ID          string  `json:"id"`
 	ReleaseSize int64   `json:"releaseSize"`
+	IndexerID   *string `json:"indexerId"`
 	NodeID      string  `json:"nodeId"`
 	FetchNodeID *string `json:"fetchNodeId"`
 	InfoHash    string  `json:"infoHash"`
@@ -99,18 +100,21 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 	var list struct {
 		Searches []struct {
 			ItemID     string `json:"itemId"`
-			IndexerID  string `json:"indexerId"`
 			StartedAt  string `json:"startedAt"`
 			FinishedAt string `json:"finishedAt"`
+			Indexers   []struct {
+				IndexerID string `json:"indexerId"`
+			} `json:"indexers"`
 		} `json:"searches"`
 	}
 	decode(t, "listSearches", reply, &list)
-	if len(list.Searches) != 1 {
-		t.Fatalf("listSearches = %s, want one search", reply.Body)
+	if len(list.Searches) != 1 || len(list.Searches[0].Indexers) != 1 {
+		t.Fatalf("listSearches = %s, want one search of one Indexer", reply.Body)
 	}
 	r := list.Searches[0]
 	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemId":"` + r.ItemID +
-		`","indexerId":"` + r.IndexerID + `","startedAt":"` + r.StartedAt + `","finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
+		`","startedAt":"` + r.StartedAt + `","indexers":[{"indexerId":"` + r.Indexers[0].IndexerID +
+		`","name":"Fixture Site","outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
 		`"refused":[],"grabId":"` + w.grab.ID + `","notes":[]}]}` + "\n"})
 }
 

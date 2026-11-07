@@ -6,6 +6,8 @@ export const loaderTitle: unique symbol = Symbol("the loader's title");
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
     title?: string | typeof loaderTitle;
+    /** The pages above a titled page that the route tree doesn't nest it under, as a loader's `trail`. */
+    trail?: readonly Crumb[];
     /** The route is one view of its layout's page, such as Activity's Torrents, so a phone keeps it a top-level page. */
     view?: true;
   }
@@ -26,7 +28,7 @@ function crumbsOf(match: AnyRouteMatch): readonly Crumb[] {
   const pathname = placeOf(match.pathname);
   const { title } = match.staticData;
   if (title !== loaderTitle) {
-    return title === undefined ? [] : [{ title, pathname }];
+    return title === undefined ? [] : [...(match.staticData.trail ?? []), { title, pathname }];
   }
   const data: unknown = match.loaderData;
   return isTitled(data) ? [...(data.trail ?? []), { title: data.title, pathname }] : [];

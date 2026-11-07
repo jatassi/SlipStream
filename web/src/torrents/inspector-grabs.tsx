@@ -72,7 +72,7 @@ export function Machinery({
           ],
           ["Added", sinceWords(detail.addedAt, clock)],
           ["Piece size", <Data key="p">{bytes(detail.pieceSize)}</Data>],
-          ["Private", detail.private ? "Yes, peers come only from its tracker" : "No"],
+          ["Private", detail.private ? "Yes, peers come only from its announce URLs" : "No"],
           [
             "Content Type",
             types.find((type) => type.id === detail.contentType)?.name ?? detail.contentType,

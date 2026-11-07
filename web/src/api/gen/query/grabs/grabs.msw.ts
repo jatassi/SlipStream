@@ -3,7 +3,13 @@ import { faker } from "@faker-js/faker";
 import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
-import type { GrabsGrab, GrabsGrabList, GrabsSearchList, GrabsSearchStarted } from "../../model";
+import type {
+  GrabsGrab,
+  GrabsGrabList,
+  GrabsIndexerGrabList,
+  GrabsSearchList,
+  GrabsSearchStarted,
+} from "../../model";
 
 export const getListGrabsResponseMock = (
   overrideResponse: Partial<Extract<GrabsGrabList, object>> = {},
@@ -16,6 +22,9 @@ export const getListGrabsResponseMock = (
           failure: {
             code: faker.helpers.arrayElement([
               "indexer_unavailable",
+              "indexer_removed",
+              "indexer_stopped",
+              "home_offline",
               "torrent_unreachable",
               "magnet_invalid",
               "no_metadata",
@@ -46,6 +55,17 @@ export const getListGrabsResponseMock = (
         }
       : {}),
     fetchNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    ...(faker.datatype.boolean()
+      ? {
+          fetchWait: {
+            sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            until: faker.helpers.arrayElement([
+              faker.date.past().toISOString().slice(0, 19) + "Z",
+              null,
+            ]),
+          },
+        }
+      : {}),
     history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         at: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -61,7 +81,7 @@ export const getListGrabsResponseMock = (
       }),
     ),
     id: faker.string.uuid(),
-    indexerId: faker.string.uuid(),
+    indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     infoHash: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
@@ -118,6 +138,7 @@ export const getListGrabsResponseMock = (
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
     torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     workId: faker.string.uuid(),
   })),
   ...overrideResponse,
@@ -133,6 +154,9 @@ export const getGetGrabResponseMock = (
         failure: {
           code: faker.helpers.arrayElement([
             "indexer_unavailable",
+            "indexer_removed",
+            "indexer_stopped",
+            "home_offline",
             "torrent_unreachable",
             "magnet_invalid",
             "no_metadata",
@@ -163,6 +187,17 @@ export const getGetGrabResponseMock = (
       }
     : {}),
   fetchNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  ...(faker.datatype.boolean()
+    ? {
+        fetchWait: {
+          sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          until: faker.helpers.arrayElement([
+            faker.date.past().toISOString().slice(0, 19) + "Z",
+            null,
+          ]),
+        },
+      }
+    : {}),
   history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -178,7 +213,7 @@ export const getGetGrabResponseMock = (
     }),
   ),
   id: faker.string.uuid(),
-  indexerId: faker.string.uuid(),
+  indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   infoHash: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -235,7 +270,142 @@ export const getGetGrabResponseMock = (
     () => faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
   torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   workId: faker.string.uuid(),
+  ...overrideResponse,
+});
+
+export const getListIndexerGrabsResponseMock = (
+  overrideResponse: Partial<Extract<GrabsIndexerGrabList, object>> = {},
+): GrabsIndexerGrabList => ({
+  grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? {
+          failure: {
+            code: faker.helpers.arrayElement([
+              "indexer_unavailable",
+              "indexer_removed",
+              "indexer_stopped",
+              "home_offline",
+              "torrent_unreachable",
+              "magnet_invalid",
+              "no_metadata",
+              "no_peer_source",
+              "torrent_invalid",
+              "infohash_mismatch",
+              "torrent_v2_only",
+              "no_download_client",
+              "download_failed",
+              "removed",
+              "no_video_file",
+              "probe_failed",
+              "fills_nothing",
+              "transfer_failed",
+              "import_failed",
+              "node_written_off",
+              "root_changed",
+            ] as const),
+            message: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            stage: faker.helpers.arrayElement([
+              "fetching",
+              "downloading",
+              "probing",
+              "transferring",
+              "importing",
+            ] as const),
+          },
+        }
+      : {}),
+    fetchNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    ...(faker.datatype.boolean()
+      ? {
+          fetchWait: {
+            sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            until: faker.helpers.arrayElement([
+              faker.date.past().toISOString().slice(0, 19) + "Z",
+              null,
+            ]),
+          },
+        }
+      : {}),
+    history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        at: faker.date.past().toISOString().slice(0, 19) + "Z",
+        stage: faker.helpers.arrayElement([
+          "fetching",
+          "downloading",
+          "probing",
+          "transferring",
+          "importing",
+          "imported",
+          "failed",
+        ] as const),
+      }),
+    ),
+    id: faker.string.uuid(),
+    indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    infoHash: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    itemId: faker.string.uuid(),
+    ...(faker.datatype.boolean()
+      ? {
+          metadata: {
+            endsAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+            peers: faker.number.int({ min: 0 }),
+          },
+        }
+      : {}),
+    nodeId: faker.string.uuid(),
+    ...(faker.datatype.boolean()
+      ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? {
+          quality: faker.helpers.arrayElement([
+            "sdtv",
+            "dvd",
+            "webrip-480p",
+            "hdtv-720p",
+            "webrip-720p",
+            "webdl-720p",
+            "bluray-720p",
+            "hdtv-1080p",
+            "webrip-1080p",
+            "webdl-1080p",
+            "bluray-1080p",
+            "remux-1080p",
+            "hdtv-2160p",
+            "webrip-2160p",
+            "webdl-2160p",
+            "bluray-2160p",
+            "remux-2160p",
+            "cam",
+          ] as const),
+        }
+      : {}),
+    releaseSize: faker.number.int({ min: 0 }),
+    releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    stage: faker.helpers.arrayElement([
+      "fetching",
+      "downloading",
+      "probing",
+      "transferring",
+      "importing",
+      "imported",
+      "failed",
+    ] as const),
+    targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    workId: faker.string.uuid(),
+  })),
+  nextOffset: faker.helpers.arrayElement([faker.number.int(), null]),
   ...overrideResponse,
 });
 
@@ -260,7 +430,29 @@ export const getListSearchesResponseMock = (
       ]),
       grabId: faker.helpers.arrayElement([faker.string.uuid(), null]),
       id: faker.string.uuid(),
-      indexerId: faker.string.uuid(),
+      indexers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          outcome: faker.helpers.arrayElement([
+            faker.helpers.arrayElement([
+              "found",
+              "no_releases",
+              "limited",
+              "failing",
+              "stopped",
+              "waiting",
+              "late",
+              "limit_reached",
+              "no_categories",
+              "removed",
+            ] as const),
+            null,
+          ]),
+          releases: faker.number.int({ min: 0 }),
+          sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
       itemId: faker.string.uuid(),
       notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -292,12 +484,7 @@ export const getListSearchesResponseMock = (
         }),
       ),
       outcome: faker.helpers.arrayElement([
-        faker.helpers.arrayElement([
-          "grabbed",
-          "nothing_acceptable",
-          "indexer_unavailable",
-          "indexer_refused",
-        ] as const),
+        faker.helpers.arrayElement(["grabbed", "nothing_acceptable"] as const),
         null,
       ]),
       refused: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -387,6 +574,30 @@ export const getGetGrabMockHandler = (
   );
 };
 
+export const getListIndexerGrabsMockHandler = (
+  overrideResponse?:
+    | GrabsIndexerGrabList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<GrabsIndexerGrabList> | GrabsIndexerGrabList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/indexers/:id/grabs",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListIndexerGrabsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getSearchWorkMockHandler = (
   overrideResponse?:
     | GrabsSearchStarted
@@ -437,6 +648,7 @@ export const getListSearchesMockHandler = (
 export const getGrabsMock = () => [
   getListGrabsMockHandler(),
   getGetGrabMockHandler(),
+  getListIndexerGrabsMockHandler(),
   getSearchWorkMockHandler(),
   getListSearchesMockHandler(),
 ];

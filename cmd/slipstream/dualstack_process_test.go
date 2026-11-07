@@ -46,6 +46,7 @@ func TestALinkOnTheUnspecifiedIPv6AddressServesIPv4(t *testing.T) {
 		"SLIPSTREAM_HTTP_LISTEN=127.0.0.2:0",
 		"SLIPSTREAM_LINK_LISTEN=[::]:0",
 		"SLIPSTREAM_NAME=home",
+		noCatalog,
 	})
 	bound := h.ready.Listeners.Link
 	t.Logf("home's link listener reports %s", bound)
