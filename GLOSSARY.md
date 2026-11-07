@@ -68,6 +68,18 @@ _Avoid_: Available (for an Item or cell), complete
 The list of what only a person can resolve, such as failed cells, upgrades available, Not found cells, pending and Delayed Requests, and jobs left waiting, each with its cause and recovery.
 _Avoid_: Alerts, attention, inbox
 
+**Monitoring preset**:
+A rule that sets which of a Work's Items are monitored, from level order, the aside mark, each Item's availability date and whether a file fills any of its cells: All, Future, Missing, Existing, First (level), Latest (level) or None. Each also sets Monitor new Items, and Include adds the Items of aside levels, such as Specials, to any of them. The add, the Work page and bulk edit apply the same presets, and bulk Monitor and Unmonitor are All and None.
+_Avoid_: Monitor mode, monitor option, preset (alone, which reads as a Target's tiers)
+
+**Monitor new Items**:
+A Work's switch for whether Items its metadata source adds later arrive monitored. An Item in an aside level arrives monitored only when the Work also includes its asides. A preset sets it, and an Admin can change it on its own. Its label uses the Item noun, such as "Monitor new episodes".
+_Avoid_: Monitor future, auto-monitor
+
+**Aside**:
+A code word for an outermost level outside a Work's main run, such as season 0. Copy never says it: it says the Content Type's noun for it, such as Specials.
+_Avoid_: Extras, special (as the generic term)
+
 **Profile**:
 The ordered Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default list of Editions wanted, which a Work can replace with its own list, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
 _Avoid_: Rendition profile, quality profile, slot

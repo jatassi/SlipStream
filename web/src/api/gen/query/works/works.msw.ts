@@ -2225,7 +2225,7 @@ export const getSetWorksMonitoringResponseWorksMonitoringSkippedOutcomeMock = (
       null,
     ]),
     outcome: faker.helpers.arrayElement(["skipped"] as const),
-    reason: faker.helpers.arrayElement(["already", "work_not_found"] as const),
+    reason: faker.helpers.arrayElement(["already"] as const),
     workId: faker.string.uuid(),
   },
   ...overrideResponse,

@@ -15,26 +15,20 @@ import (
 // refreshing is how many Works a Refresh fetches at once.
 const refreshing = 4
 
-// Monitor turns every Item of each of ws on or off in one Write. Turning
-// it on searches nothing.
+// Monitor is SetMonitoring with All when on, each Work keeping its own
+// asides, and with None and asides off when not, so bulk edit means the
+// same for every Content Type.
 func (l *Library) Monitor(ctx context.Context, by identity.Admin, ws []works.WorkID, on bool) ([]Outcome, error) {
-	ids := distinct(ws)
-	known, changed, err := l.cfg.Works.MonitorWorks(ctx, by, ids, on)
-	if err != nil {
-		return nil, err
+	c := works.Choice{Preset: works.PresetAll}
+	if !on {
+		c = works.Choice{Preset: works.PresetNone, Asides: new(false)}
 	}
-	out := make([]Outcome, len(ids))
-	for i, id := range ids {
-		switch {
-		case !known[id]:
-			out[i] = failed(id, works.ErrNoWork)
-		case changed[id]:
-			out[i] = done(id)
-		default:
-			out[i] = skipped(id, ErrAlready)
-		}
+	os, err := l.SetMonitoring(ctx, by, ws, c, false)
+	out := make([]Outcome, len(os))
+	for i, o := range os {
+		out[i] = o.Outcome
 	}
-	return out, nil
+	return out, err
 }
 
 // SetProfile gives each of ws Profile p through one Impact across all of

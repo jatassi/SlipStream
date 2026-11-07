@@ -280,7 +280,10 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"aside":false,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}],"artwork":[]}],` +
 		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"aside":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],"availability":{"date":"2000-01-01","basis":""}}]}`
 	code, body := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
-	if want := `{"inLibrary":false,"work":` + tree + `,"presets":null}` + "\n"; code != http.StatusOK || masked(body) != want {
+	presets := `{"asides":0,"choices":[{"preset":"all","monitors":1,"monitorsNew":true},{"preset":"future","monitors":0,"monitorsNew":true},` +
+		`{"preset":"missing","monitors":1,"monitorsNew":true},{"preset":"existing","monitors":0,"monitorsNew":false},{"preset":"first","monitors":1,"monitorsNew":false},` +
+		`{"preset":"latest","monitors":1,"monitorsNew":true},{"preset":"none","monitors":0,"monitorsNew":false}]}`
+	if want := `{"inLibrary":false,"work":` + tree + `,"presets":` + presets + `}` + "\n"; code != http.StatusOK || masked(body) != want {
 		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
 	expect(t, s, http.MethodGet, "/api/v1/library", "", 200, `{"rows":[]}`)
@@ -432,7 +435,7 @@ func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 		return `{"settings":[` + monitor + fmt.Sprintf(`,{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,`+
 			`"kind":"count","value":%d,"running":%d,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`, isDefault, depth, depth)
 	}
-	on, off := addMonitorField(true, true), addMonitorField(false, false)
+	on, off := addFields("all", true), addFields("none", false)
 	path := "/api/v1/content-types/fixture/settings"
 	expect(t, s, http.MethodGet, path, "", 200, settings(on, 3, true))
 	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.depth":5}}`, 200, settings(on, 5, false))
@@ -440,18 +443,29 @@ func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 and 9 boxes."}`)
 	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.width":2}}`, 422,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
-	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.width":2}}`, 422,
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":"none","fixture.width":2}}`, 422,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":"some"}}`, 422,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"some is not one of the 7 choices for Things to monitor."}`)
 	expect(t, s, http.MethodGet, path, "", 200, settings(on, 5, false))
-	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":false,"fixture.depth":null}}`, 200, settings(off, 3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":"none","fixture.depth":null}}`, 200, settings(off, 3, true))
 	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.monitor":null}}`, 200, settings(on, 3, true))
+	both := strings.Replace(strings.Replace(on, `"Include spare boxes","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":false,"running":false`,
+		`"Include spare boxes","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"switch","value":true,"running":true`, 1),
+		`"Box folders","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true`,
+		`"Box folders","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"switch","value":false,"running":false`, 1)
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.asides":true,"fixture.add.levelFolders":false}}`, 200, settings(both, 3, true))
 	expect(t, s, http.MethodGet, "/api/v1/content-types/ghost/settings", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodPatch, "/api/v1/content-types/ghost/settings", `{"values":{}}`, 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 }
 
-// addMonitorField is fixture.add.monitor on the wire.
-func addMonitorField(value, isDefault bool) string {
-	return fmt.Sprintf(`{"key":"fixture.add.monitor","label":"New shelves are monitored","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"switch","value":%t,"running":%t,"default":true}`, isDefault, value, value)
+// addFields is the fixture type's core add settings on the wire, monitor
+// its add.monitor and Include and level folders at their defaults.
+func addFields(monitor string, isDefault bool) string {
+	return fmt.Sprintf(`{"key":"fixture.add.monitor","label":"Things to monitor","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"choice","value":%q,"running":%q,"default":"all",`+
+		`"options":[{"value":"all","label":"All"},{"value":"future","label":"Future"},{"value":"missing","label":"Missing"},{"value":"existing","label":"Existing"},{"value":"first","label":"First box"},{"value":"latest","label":"Latest box"},{"value":"none","label":"None"}]},`+
+		`{"key":"fixture.add.asides","label":"Include spare boxes","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":false,"running":false,"default":false},`+
+		`{"key":"fixture.add.levelFolders","label":"Box folders","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true}`, isDefault, monitor, monitor)
 }
 
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {

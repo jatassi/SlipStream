@@ -240,3 +240,77 @@ func turnOffAndOn(t *testing.T) {
 	event(t, stream, "works.content-types-changed", `{"contentType":"music"}`)
 	worldtest.Expect(t, "searchCatalog once on again", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns("null"))
 }
+
+// monitoredTracks is the labels of tr's monitored Items, in tree order.
+func monitoredTracks(tr tree) string {
+	var on []string
+	for _, it := range tr.Items {
+		if it.Monitored {
+			on = append(on, it.Label)
+		}
+	}
+	return strings.Join(on, ", ")
+}
+
+func TestMusicPresets(t *testing.T) {
+	t.Parallel()
+	run := worldtest.LaunchE2E(t, "music")
+	a := api(t, run)
+
+	var preview struct {
+		Presets json.RawMessage `json:"presets"`
+	}
+	decode(t, "previewCatalogRecord", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog/"+lanterns, ""), &preview)
+	if want := `{"asides":0,"choices":[{"preset":"all","monitors":5,"monitorsNew":true},{"preset":"future","monitors":0,"monitorsNew":true},` +
+		`{"preset":"missing","monitors":5,"monitorsNew":true},{"preset":"existing","monitors":0,"monitorsNew":false},{"preset":"first","monitors":3,"monitorsNew":false},` +
+		`{"preset":"latest","monitors":2,"monitorsNew":true},{"preset":"none","monitors":0,"monitorsNew":false}]}`; string(preview.Presets) != want {
+		t.Fatalf("the preview's presets are %s, want %s", preview.Presets, want)
+	}
+
+	// The add's fetch is the fake's second, which renames Paper Boats and
+	// replaces Low Bridge with Lantern Song.
+	first := decode(t, "addWork with First", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`","preset":"first"}`), &added{})
+	var tr tree
+	if err := json.Unmarshal(first.Work, &tr); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitoredTracks(tr); got != "Tidewater, Paper Ships, Lantern Song" {
+		t.Fatalf("First monitors %s, want Harbor Lights' tracks", got)
+	}
+
+	latest := `{"workIds":["` + tr.ID + `"],"preset":"latest","includeAsides":false`
+	worldtest.Expect(t, "a preview of Latest", a.Admin("home", http.MethodPut, "/api/v1/works/monitoring", latest+`,"preview":true}`), worldtest.Reply{Status: 200,
+		Body: `{"outcomes":[{"workId":"` + tr.ID + `","outcome":"done","start":2,"stop":3,"counts":` + string(preview.Presets) + `}]}` + "\n"})
+	worldtest.Expect(t, "applying Latest", a.Admin("home", http.MethodPut, "/api/v1/works/monitoring", latest+`,"preview":false}`), worldtest.Reply{Status: 200,
+		Body: `{"outcomes":[{"workId":"` + tr.ID + `","outcome":"done","start":2,"stop":3,"counts":null}]}` + "\n"})
+
+	harbor := tr.Levels[0].ID
+	worldtest.Expect(t, "monitoring Harbor Lights", a.Admin("home", http.MethodPut, "/api/v1/works/"+tr.ID+"/monitored", `{"levelIds":["`+harbor+`"],"itemIds":[],"on":true}`), worldtest.Reply{Status: 204})
+	decode(t, "getWork", a.Admin("home", http.MethodGet, "/api/v1/works/"+tr.ID, ""), &tr)
+	if got := monitoredTracks(tr); got != "Tidewater, Paper Ships, Lantern Song, Night Ferry, Signal Fires" {
+		t.Fatalf("after monitoring Harbor Lights, %s are monitored, want every track", got)
+	}
+
+	var settings struct {
+		Settings []struct {
+			Key     string `json:"key"`
+			Label   string `json:"label"`
+			Kind    string `json:"kind"`
+			Options []struct {
+				Label string `json:"label"`
+			} `json:"options"`
+		} `json:"settings"`
+	}
+	decode(t, "getContentTypeSettings", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/settings", ""), &settings)
+	monitor := settings.Settings[0]
+	var labels []string
+	for _, o := range monitor.Options {
+		labels = append(labels, o.Label)
+	}
+	if got := monitor.Key + " " + monitor.Kind + " " + monitor.Label + ": " + strings.Join(labels, ", "); got != "music.add.monitor choice Tracks to monitor: All, Future, Missing, Existing, First album, Latest album, None" {
+		t.Fatalf("music's first setting is %s", got)
+	}
+	if keys := []string{settings.Settings[1].Key}; keys[0] != "music.add.levelFolders" {
+		t.Fatalf("music's second setting is %s, want its level folders and no Include, since music names no aside", keys[0])
+	}
+}

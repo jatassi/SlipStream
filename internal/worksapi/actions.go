@@ -20,7 +20,7 @@ type monitoredInput struct {
 
 type monitoredChange struct {
 	WorkIDs []string `json:"workIds" format:"uuid" minItems:"1" maxItems:"20000" nullable:"false" doc:"A repeated id counts once"`
-	On      bool     `json:"on" doc:"Monitor every Item of each Work, or none"`
+	On      bool     `json:"on" doc:"Apply the All preset to each Work, keeping its own aside choice, or None with asides off"`
 }
 
 type profileInput struct {

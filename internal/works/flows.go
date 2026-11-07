@@ -444,28 +444,6 @@ func (w *Works) goneUpstream(ctx context.Context, id WorkID) (bool, error) {
 	return marked, ErrGoneUpstream
 }
 
-// SetMonitored monitors or unmonitors items, publishing one works.changed
-// naming each Work whose Items it changed. An id no Item has changes
-// nothing.
-func (w *Works) SetMonitored(ctx context.Context, _ identity.Admin, items []ItemID, on bool) error {
-	var touched []WorkID
-	err := w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		var err error
-		if touched, err = q.WorksToMonitor(ctx, db.WorksToMonitorParams{ItemIds: items, Monitored: on}); err != nil {
-			return err
-		}
-		return q.SetMonitored(ctx, db.SetMonitoredParams{Monitored: on, ItemIds: items})
-	})
-	if err != nil {
-		return err
-	}
-	if len(touched) > 0 {
-		w.cfg.Changed.Publish(ctx, ChangedOf(touched...))
-	}
-	return nil
-}
-
 func (w *Works) open(ctx context.Context, t TypeID) (registered, error) {
 	reg, ok := w.types[t]
 	if !ok {

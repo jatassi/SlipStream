@@ -22,9 +22,6 @@ type Shelf interface {
 	// Minter signs the artwork URLs the answers carry, false unless the
 	// Node is a Controller.
 	Minter() (artwork.Minter, bool)
-	// Targets answers each Item's availability, false unless the Node is a
-	// Controller.
-	Targets() (*targets.Targets, bool)
 	// Library composes the Library's reads and actions, false unless the
 	// Node is a Controller.
 	Library() (*library.Library, bool)
@@ -44,14 +41,6 @@ func minter(s Shelf) artwork.Minter {
 		panic("worksapi: an operation ran on a Node that is no Controller")
 	}
 	return m
-}
-
-func goals(s Shelf) *targets.Targets {
-	t, ok := s.Targets()
-	if !ok {
-		panic("worksapi: an operation ran on a Node that is no Controller")
-	}
-	return t
 }
 
 func composer(s Shelf) *library.Library {

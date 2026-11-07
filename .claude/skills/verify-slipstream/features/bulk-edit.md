@@ -5,7 +5,8 @@ An Admin picks Works in the Library, by each poster's or row's checkbox, by a cl
 ## Sub-features
 
 - `bulk-pick` the checkbox on a poster or row, a click while picking, Shift for a range and `Select all` pick Works; the bar reads `2 Movies picked` and `· 1 hidden by filters` when a filter hides a pick, `Done` ends picking, and an action acts on hidden picks too (P-039).
-- `bulk-monitor` `Monitor` and `Unmonitor` answer per Work, such as `Monitored The Salt Road. The Quiet Orchard was already monitored.`, and `PUT /api/v1/works/monitored` stores it; a poster goes quiet when nothing of it is monitored (P-039, P-242).
+- `bulk-monitor` `Monitor` and `Unmonitor` answer per Work, such as `Monitored The Salt Road. The Quiet Orchard was already monitored.`, and `PUT /api/v1/works/monitored` stores it; a poster goes quiet when nothing of it is monitored (P-039, P-242). `Monitor` applies the All preset and keeps each Work's Include, and `Unmonitor` applies None and turns Include off, for every Content Type, so a Work of many Items reads All or None after it.
+- `bulk-presets` `PUT /api/v1/works/monitoring` applies one Monitoring preset to many Works; with `"preview": true` it answers per Work how many Items start and stop being monitored and what each preset would monitor, and stores nothing. `PUT /api/v1/works/{workId}/monitored` turns named levels and Items on or off and answers 204. None of them searches (P-051).
 - `bulk-profile` `Change Profile…` picks a Profile, `Next` opens one Impact for every pick, and saving answers `Changed the Profile of …` (P-039).
 - `bulk-root` `Set library root…` moves the picks without files, and a Work with files stays, as the dialog and the toast say: `The Quiet Orchard has files, so it stays in its library root. Moving a Work that has files isn't supported yet.`
 - `bulk-refresh` `Refresh metadata` refreshes every pick and toasts per Work (P-038).
@@ -14,7 +15,7 @@ An Admin picks Works in the Library, by each poster's or row's checkbox, by a cl
 ## How to get to it (user POV)
 
 - Desktop and phone shells: the Library at `/library` or `/library/movie`; the checkbox on each poster shows on hover, on focus and while picking, and on each table row always.
-- API: `PUT /api/v1/works/monitored`, `PUT /api/v1/works/profile` (with `preview`), `PUT /api/v1/works/root`, `POST /api/v1/works/refresh`, `POST /api/v1/works/delete` (with `preview`), each taking `{"workIds": [...]}`.
+- API: `PUT /api/v1/works/monitored`, `PUT /api/v1/works/monitoring` (with `preview`), `PUT /api/v1/works/{workId}/monitored`, `PUT /api/v1/works/profile` (with `preview`), `PUT /api/v1/works/root`, `POST /api/v1/works/refresh`, `POST /api/v1/works/delete` (with `preview`), each taking `{"workIds": [...]}`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -48,6 +49,25 @@ Steps:
   $FW exec $RUN --proof bulk-edit/bulk-monitor -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("Monitored The Salt Road. The Quiet Orchard was already monitored.").waitFor({ timeout: 10000 }); }'
   $FW exec $RUN --proof bulk-edit/bulk-monitor -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library'
   ```
+
+- **Presets over the API.** With both Works picked and monitored, preview `first`, then apply `none`. The preview answers `"start":0,"stop":0` and `counts` for each Work and leaves them monitored. Applying `none` answers `done` with `"stop":1` per Work, and the Library rows read `"monitored":"none"`. A movie has one Item, so a many-Items Work is proved in the e2e tier's `TestMusicPresets` and `internal/worksapi`'s preset tests.
+
+  ```sh
+  IDS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -c '[.rows[].id]')
+  $FW exec $RUN --proof bulk-edit/bulk-presets -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"workIds\":$IDS,\"preset\":\"first\",\"includeAsides\":false,\"preview\":true}" '{nodes.home.url}/api/v1/works/monitoring'
+  $FW exec $RUN --proof bulk-edit/bulk-presets -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"workIds\":$IDS,\"preset\":\"none\",\"includeAsides\":false,\"preview\":false}" '{nodes.home.url}/api/v1/works/monitoring'
+  $FW exec $RUN --proof bulk-edit/bulk-presets -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library'
+  ```
+
+  Turn one Work's Item back on by its id: the answer is 204 and its row reads `"monitored":"all"`. Another Work's id answers 422 at `body.itemIds[0]`, `The Work has no Item with that id.`
+
+  ```sh
+  W=$(echo $IDS | jq -r '.[0]')
+  ITEM=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W" | jq -r '.items[0].id')
+  $FW exec $RUN --proof bulk-edit/bulk-presets -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"itemIds\":[\"$ITEM\"],\"levelIds\":[],\"on\":true}" "{nodes.home.url}/api/v1/works/$W/monitored"
+  ```
+
+  Choose `Monitor` again before the next step, so both Works read monitored.
 
 - **Hidden by the search.** Fill `Search Movies` with `salt`; the bar adds `· 1 hidden by filters`. Empty the box again.
 
