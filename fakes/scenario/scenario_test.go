@@ -194,6 +194,20 @@ func TestParseRefuses(t *testing.T) {
 				"scenario x: tmdb movie 0 released \"2021-02-30\" is not YYYY-MM-DD",
 		},
 		{
+			"tmdb recorded artwork",
+			"seed: x\nnodes: [{name: home, setup: none}]\ntmdb:\n  movies:\n    - id: 1\n      imdb_id: tt0000001\n      title: A\n      runtime: 90m\n" +
+				"      images:\n        - {shape: poster, path: /n0tSt0red.jpg, width: 500, height: 750}\n        - {shape: logo, path: /a_b.png}\n" +
+				"        - {shape: backdrop, path: /n0tSt0red.png, width: 1280}\n        - {shape: backdrop, width: 1280, height: 720}\n" +
+				"      credits:\n        cast: [{id: 2, name: B, profile: /n0tSt0red.jpg}]\n        crew: [{id: 3, name: C, department: Directing, job: Director, profile: n0Slash.jpg}]\n",
+			"scenario x: tmdb movie 1 image /n0tSt0red.jpg is not in fakes/internal/artwork/files\n" +
+				"scenario x: tmdb movie 1 image \"/a_b.png\" is not a TMDB file path such as /abc123.jpg\n" +
+				"scenario x: tmdb movie 1 image /n0tSt0red.png has width 1280 and height 0; set both or neither\n" +
+				"scenario x: tmdb movie 1 image /n0tSt0red.png is not in fakes/internal/artwork/files\n" +
+				"scenario x: tmdb movie 1 backdrop image has a size and no path\n" +
+				"scenario x: tmdb movie 1 profile /n0tSt0red.jpg is not in fakes/internal/artwork/files\n" +
+				"scenario x: tmdb movie 1 profile \"n0Slash.jpg\" is not a TMDB file path such as /abc123.jpg",
+		},
+		{
 			"roles on an Unclaimed node",
 			"seed: x\nnodes: [{name: home, setup: none, roles: [searching]}]\n",
 			"scenario x: node home has roles, but only controller and join nodes hold Roles",
