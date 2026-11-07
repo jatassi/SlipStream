@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -52,7 +53,21 @@ type Set struct {
 // NewSet makes fronts that play plan's faults and hand each record to
 // record.
 func NewSet(plan *fault.Plan, record func(events.Record), log *slog.Logger) *Set {
-	return &Set{plan: plan, record: record, log: log}
+	s := &Set{plan: plan, record: record, log: log}
+	plan.OnChange(s.follow)
+	return s
+}
+
+// follow has each served front follow the Plan's refuse rules.
+func (s *Set) follow() {
+	s.mu.Lock()
+	fronts := slices.Clone(s.fronts)
+	s.mu.Unlock()
+	for _, f := range fronts {
+		f.mu.Lock()
+		f.followLocked()
+		f.mu.Unlock()
+	}
 }
 
 // Handler takes each connection a front accepts, wrapped in its faults.
@@ -94,14 +109,14 @@ func (f *Front) Addr() netip.AddrPort { return f.addr }
 func (f *Front) Fault() fault.Front { return f.front }
 
 // Serve hands each connection to h from now on, and follows the Plan's
-// refuse rules: a front a rule refuses stops listening, and binds the same
-// port again once the rule clears.
+// refuse rules: a front a rule refuses stops listening before the rule's
+// Set returns, and binds the same port again before its Clear returns.
 func (f *Front) Serve(h Handler) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.handle = h
 	f.acceptLocked(f.l)
-	f.wg.Go(f.follow)
+	f.followLocked()
 }
 
 func (f *Front) acceptLocked(l net.Listener) {
@@ -122,33 +137,25 @@ func (f *Front) acceptLocked(l net.Listener) {
 	})
 }
 
-// follow closes and binds the listener as refuse rules come and go.
-func (f *Front) follow() {
-	for {
-		refused, changed := f.set.plan.Refused(f.front)
-		f.mu.Lock()
-		switch {
-		case f.closed:
-			f.mu.Unlock()
-			return
-		case refused && f.l != nil:
-			_ = f.l.Close()
-			f.l = nil
-		case !refused && f.l == nil:
-			l, err := new(net.ListenConfig).Listen(context.Background(), "tcp", f.addr.String())
-			if err != nil {
-				f.set.log.Error("front could not bind its port again", "target", string(f.front.Target), "origin", f.front.Origin, "addr", f.addr.String(), "err", err.Error())
-			} else {
-				f.l = l
-				f.acceptLocked(l)
-			}
-		}
-		f.mu.Unlock()
-		select {
-		case <-changed:
-		case <-f.ctx.Done():
+// followLocked closes or binds the listener of a served front to match the
+// refuse rules.
+func (f *Front) followLocked() {
+	if f.closed || f.handle == nil {
+		return
+	}
+	refused := f.set.plan.Refused(f.front)
+	switch {
+	case refused && f.l != nil:
+		_ = f.l.Close()
+		f.l = nil
+	case !refused && f.l == nil:
+		l, err := new(net.ListenConfig).Listen(context.Background(), "tcp", f.addr.String())
+		if err != nil {
+			f.set.log.Error("front could not bind its port again", "target", string(f.front.Target), "origin", f.front.Origin, "addr", f.addr.String(), "err", err.Error())
 			return
 		}
+		f.l = l
+		f.acceptLocked(l)
 	}
 }
 
