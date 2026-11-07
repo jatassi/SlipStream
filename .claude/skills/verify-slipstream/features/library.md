@@ -12,6 +12,7 @@ The Library shows every Work of a Content Type, or of every one on `/library`, a
 - `library-remembered` a changed view goes into the address (`view=table&sort=added`), and opening `/library/movie` with no view in the address redirects to the last one used for that Library in that browser, keeping `q=`.
 - `library-status` a poster or row shows its status in words and an icon, `Failed <n>` in red when a wanted cell failed, `Not monitored` alone and a quieter poster when nothing is monitored, since the status counts only monitored Items its source still lists, and for a Work of many Items a tally such as `12 of 40 met` (P-030, P-040).
 - `library-keyboard` one Work takes Tab; the arrow keys move between posters, up and down keeping the column across section headings, Home and End go to the first and last, Enter opens the Work and Space picks it.
+- `library-type-switch` with two or more types on, a `Content Types` switch beside the title links `All` and each enabled type by its name in sidebar order to `/library` and `/library/<id>`, marks the one shown, and each segment opens on the view its own Library last used; with one type on there is no switch. A type's availability column and sort take its own word, such as `Next airing`, and `All` reads `Available`.
 - `library-live` a Work added, changed or deleted through the API appears, changes or leaves without a reload (P-242).
 
 ## How to get to it (user POV)
@@ -100,6 +101,22 @@ Steps:
   $FW exec $RUN --proof library/library-keyboard -- $PW cli -s={runId}-admin-desktop run-code 'async page => page.evaluate(() => document.activeElement?.textContent)'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Space
   $FW exec $RUN --proof library/library-keyboard -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/library/library-keyboard/picked.aria.yml
+  ```
+
+- **Type switch.** This one needs two types on: a fresh `music` run on `dist/slipstream-e2e`, which registers music beside movies (doctor's build check names the e2e main, which is expected), with The Lanterns added (`{"contentType":"music","key":"a1000000-0000-4000-8000-000000000001","preset":"all"}`). On `/library` the switch reads `All`, `Movies`, `Music`. Choose `Table`, then `Music`: the Music Library opens on its own grid, its poster reading `Missing · 0 of 5 met`. Choose `All`: the address comes back as `/library?view=table`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
+  $FW exec $RUN --proof library/library-type-switch -- $PW cli -s={runId}-admin-desktop run-code 'async page => page.getByRole("navigation", { name: "Content Types" }).ariaSnapshot()'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Library options" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitemcheckbox", { name: "Table" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Content Types" }).getByRole("link", { name: "Music" })'
+  $FW exec $RUN --proof library/library-type-switch -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/library/library-type-switch/music-grid.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Content Types" }).getByRole("link", { name: "All" })'
+  $FW exec $RUN --proof library/library-type-switch -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table").waitFor(); return page.url(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto '{nodes.home.browserUrl}/library/movie'
+  $FW exec $RUN --proof library/library-type-switch -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/library/library-type-switch/phone.png
   ```
 
 - **Live.** With the page open, monitor The Salt Road through the API. Its poster loses `Not monitored` without a reload.

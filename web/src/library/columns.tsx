@@ -9,6 +9,7 @@ import {
   type ArrangeContext,
   type ColumnKey,
   type CoreColumn,
+  availabilityOf,
   columnKeys,
   isFieldKey,
   keyOfField,
@@ -97,7 +98,11 @@ const numeric = new Set(["number", "duration"]);
 /** The columns a table can show, in the order they stand: the core ones, then each listed field. */
 export function columnsFor(types: readonly WorksContentType[]): readonly ColumnDef[] {
   const fields = new Map(sharedFields(types, "column").map((field) => [field.key, field]));
+  const available = availabilityOf(types);
   return columnKeys(types).flatMap((key): ColumnDef[] => {
+    if (key === "available" && available !== undefined) {
+      return [{ key, ...coreColumns.available, header: available }];
+    }
     if (!isFieldKey(key)) {
       return [{ key, ...coreColumns[key] }];
     }
