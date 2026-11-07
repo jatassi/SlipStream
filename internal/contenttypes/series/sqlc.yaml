@@ -21,6 +21,12 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/works
               type: ItemID
+          - column: series_season.tvdb_season_id
+            go_type:
+              type: SeasonID
+          - column: series_episode.tvdb_episode_id
+            go_type:
+              type: EpisodeID
           - column: series_series.tvdb_id
             go_type:
               type: TVDBID

@@ -36,23 +36,11 @@ type Endpoints struct {
 	KeyPage endpoint.URL `yaml:"key_page"`
 }
 
-func DefaultEndpoints() Endpoints {
-	return Endpoints{
-		API:     endpoint.MustParseURL("https://api4.thetvdb.com/v4"),
-		Artwork: endpoint.MustParseURL("https://artworks.thetvdb.com"),
-		KeyPage: endpoint.MustParseURL("https://thetvdb.com/api-information"),
-	}
-}
-
-// Timings are TVDB's protocol facts: Rate requests a second per holder, up
-// to Burst at once.
+// Timings are TVDB's protocol facts: one request every Interval per
+// holder, up to Burst at once.
 type Timings struct {
-	Rate  float64 `yaml:"rate"`
-	Burst int     `yaml:"burst"`
-}
-
-func DefaultTimings() Timings {
-	return Timings{Rate: 10, Burst: 5}
+	Interval time.Duration `yaml:"interval"`
+	Burst    int           `yaml:"burst"`
 }
 
 type Client struct {
@@ -73,7 +61,7 @@ func (c *Client) Provider() metadata.Provider {
 	return metadata.Provider{
 		ID:      ID,
 		Label:   label,
-		Rate:    rate.Limit(c.timings.Rate),
+		Rate:    rate.Every(c.timings.Interval),
 		Burst:   c.timings.Burst,
 		KeyPage: c.endpoints.KeyPage.String(),
 		Auth: &metadata.Auth{
@@ -124,7 +112,7 @@ func (artSource) URL(artwork.Shape, string, artwork.Size) (*url.URL, error) {
 }
 
 func (a artSource) Rate() (perSecond float64, burst int) {
-	return a.c.timings.Rate, a.c.timings.Burst
+	return float64(time.Second) / float64(a.c.timings.Interval), a.c.timings.Burst
 }
 
 type (

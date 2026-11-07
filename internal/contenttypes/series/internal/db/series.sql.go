@@ -278,7 +278,7 @@ ON CONFLICT (item_id) DO UPDATE SET tvdb_episode_id = excluded.tvdb_episode_id,
 type UpsertEpisodeParams struct {
 	ItemID         works.ItemID
 	WorkID         works.WorkID
-	TvdbEpisodeID  int64
+	TvdbEpisodeID  EpisodeID
 	SeasonNumber   int64
 	EpisodeNumber  int64
 	AbsoluteNumber *int64
@@ -319,7 +319,7 @@ ON CONFLICT (level_id) DO UPDATE SET tvdb_season_id = excluded.tvdb_season_id, n
 type UpsertSeasonParams struct {
 	LevelID      works.LevelID
 	WorkID       works.WorkID
-	TvdbSeasonID int64
+	TvdbSeasonID SeasonID
 	Number       int64
 	EpisodeOrder string
 	Name         *string

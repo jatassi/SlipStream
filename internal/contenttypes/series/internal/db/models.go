@@ -11,7 +11,7 @@ import (
 type SeriesEpisode struct {
 	ItemID         works.ItemID
 	WorkID         works.WorkID
-	TvdbEpisodeID  int64
+	TvdbEpisodeID  EpisodeID
 	SeasonNumber   int64
 	EpisodeNumber  int64
 	AbsoluteNumber *int64
@@ -26,7 +26,7 @@ type SeriesEpisode struct {
 type SeriesSeason struct {
 	LevelID      works.LevelID
 	WorkID       works.WorkID
-	TvdbSeasonID int64
+	TvdbSeasonID SeasonID
 	Number       int64
 	EpisodeOrder string
 	Name         *string
