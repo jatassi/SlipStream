@@ -145,7 +145,6 @@ type pin struct {
 	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
 }
 
-// portPin is a native Indexer's port.
 type portPin struct {
 	ID          string            `json:"id"`
 	Synced      time.Time         `json:"synced" doc:"When the Prowlarr commit the port was synced to was made"`

@@ -8,9 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/searching"
 )
 
-// The framework. Nothing here is exported: a port can't reach the loop,
-// the session or the Site, so it can't get them wrong.
-
 // driver is searching.Driver for kind native. It dispatches by site.Port.
 type driver struct{ r Registry }
 
