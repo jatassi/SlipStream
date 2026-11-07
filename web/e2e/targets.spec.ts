@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, openSettingsSection } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
+import { screenshotWholePage } from "./whole-page.ts";
 
 async function openTargets(page: Page) {
   await openSettingsSection(page, "Targets");
@@ -92,7 +93,7 @@ test("a Target built from a preset says what its order means as the cutoff moves
       .getByText("Bluray-720p ranks above HDTV-720p."),
   ).toBeVisible();
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("editor.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("editor.png"));
 
   await page.getByRole("button", { name: "Create Target" }).click();
   await expect(page).toHaveURL(/\/settings\/targets$/u);
@@ -103,5 +104,5 @@ test("a Target built from a preset says what its order means as the cutoff moves
   await expect(row).toContainText("HDTV-720p to Remux-1080p");
   await expect(row).toContainText("HDTV-1080p");
   await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("list.png"), fullPage: true });
+  await screenshotWholePage(page, testInfo.outputPath("list.png"));
 });

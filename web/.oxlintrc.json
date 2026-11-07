@@ -661,6 +661,26 @@
       }
     },
     {
+      "files": ["e2e/**"],
+      "rules": {
+        "slipstream/no-restricted-syntax": [
+          "error",
+          {
+            "selector": "Literal[value=/\\[(#|rgba?\\(|hsla?\\()/]",
+            "message": "use a DESIGN.md token class"
+          },
+          {
+            "selector": "TemplateElement[value.raw=/\\[(#|rgba?\\(|hsla?\\()/]",
+            "message": "use a DESIGN.md token class"
+          },
+          {
+            "selector": "Property[key.name='fullPage']",
+            "message": "Chromium's fullPage capture can remount the page in the phone shell. Use screenshotWholePage from e2e/whole-page.ts."
+          }
+        ]
+      }
+    },
+    {
       "files": ["e2e/fixtures.ts"],
       "rules": {
         "no-restricted-properties": "off"
