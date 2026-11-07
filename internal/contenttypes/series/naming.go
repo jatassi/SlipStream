@@ -10,13 +10,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// The folder templates of a season and of the specials. naming.Templates
-// has no level folders yet, so DefaultTemplates can't carry them.
-const (
-	SeasonFolder   = "Season {season:00}"
-	SpecialsFolder = "Specials"
-)
-
 // NamingTokens name an episode's files after its series' English title and
 // first aired year, its numbers in the series' order and its title.
 func (*Series) NamingTokens(ctx context.Context, r storage.Reader[file], item works.ItemID) (map[string]string, error) {
@@ -53,6 +46,8 @@ func (*Series) NamingTokens(ctx context.Context, r storage.Reader[file], item wo
 func (*Series) DefaultTemplates() naming.Templates {
 	return naming.Templates{
 		Folder: "{Series Title} ({year})",
+		Levels: []string{"Season {season:00}"},
+		Aside:  "Specials",
 		File:   "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Edition} {Target}",
 	}
 }
