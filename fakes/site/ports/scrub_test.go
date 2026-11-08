@@ -71,6 +71,20 @@ func TestScrubPassesASubmitButtonNamedLogin(t *testing.T) {
 	}
 }
 
+func TestScrubPassesAnUpstreamConstantOnly(t *testing.T) {
+	for path, refused := range map[string]bool{
+		"/api_9djWe8Tb2NE3p6opyqnh/v1/browse.php": false,
+		"/api_9djWe8Tb2NE3p6opyqnX/v1/browse.php": true,
+	} {
+		f := cleanFixture(t)
+		f.Cases[0].Exchanges[0].Request.Path = path
+		found := Scrub(f)
+		if got := slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "is shaped like a key") }); got != refused {
+			t.Errorf("Scrub of path %q = %q, want refused %v", path, found, refused)
+		}
+	}
+}
+
 // cleanFixture is testport's fixture, which Scrub passes, with maps the
 // cases above write to.
 func cleanFixture(t *testing.T) Fixture {
