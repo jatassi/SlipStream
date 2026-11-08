@@ -142,11 +142,11 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 	if err != nil {
 		return nil, err
 	}
-	size, linked, err := s.place(ctx, root, Payload{InfoHash: h, FileIndex: int(req.GetFileIndex())}, to)
+	info, linked, err := s.place(ctx, root, Payload{InfoHash: h, FileIndex: int(req.GetFileIndex())}, to)
 	if err != nil {
 		return nil, wireError(err)
 	}
-	return &storagev1.PlaceResponse{Size: size, Linked: linked}, nil
+	return &storagev1.PlaceResponse{Size: info.Size(), Linked: linked, Identity: identityOf(info)}, nil
 }
 
 func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev1.MoveResponse, error) {
@@ -162,11 +162,11 @@ func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev
 	if err != nil {
 		return nil, err
 	}
-	size, err := s.move(ctx, root, from, to)
+	info, err := s.move(ctx, root, from, to)
 	if err != nil {
 		return nil, wireError(err)
 	}
-	return &storagev1.MoveResponse{Size: size}, nil
+	return &storagev1.MoveResponse{Size: info.Size(), Identity: identityOf(info)}, nil
 }
 
 func (s *Store) Remove(ctx context.Context, req *storagev1.RemoveRequest) (*storagev1.RemoveResponse, error) {
@@ -198,6 +198,11 @@ func (s *Store) List(ctx context.Context, req *storagev1.ListRequest) (*storagev
 		return nil, wireError(err)
 	}
 	return &storagev1.ListResponse{Names: names}, nil
+}
+
+// identityOf is what a scan compares of info besides its size.
+func identityOf(info Info) *storagev1.Identity {
+	return &storagev1.Identity{ModifiedUnixMs: info.ModTime().UnixMilli(), FileId: info.FileID(), VolumeId: info.Volume()}
 }
 
 func rootID(b []byte) (storage.UUID, error) {
@@ -556,33 +561,33 @@ func (s *Store) sized(ctx context.Context, dir string, rel Rel, size int64) (Mis
 	return 0, nil
 }
 
-func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel) (size int64, linked bool, err error) {
+func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel) (placed Info, linked bool, err error) {
 	dir, err := s.resolve(ctx, root, true)
 	if err != nil {
-		return 0, false, err
+		return nil, false, err
 	}
 	from, err := s.cfg.Payloads.Path(p.InfoHash, p.FileIndex)
 	if err != nil {
-		return 0, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		return nil, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
 	}
-	size, linked, err = placer{s.cfg.Disk, s.host.Style, dir}.place(ctx, from, to)
+	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir}.place(ctx, from, to)
 	if err != nil {
-		return 0, false, s.refused(ctx, dir, err)
+		return nil, false, s.refused(ctx, dir, err)
 	}
 	s.resample(root)
-	return size, linked, nil
+	return placed, linked, nil
 }
 
-func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel) (int64, error) {
+func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel) (Info, error) {
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	size, err := placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
+	moved, err := placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
 	if err != nil {
-		return 0, s.refused(ctx, dir, err)
+		return nil, s.refused(ctx, dir, err)
 	}
-	return size, nil
+	return moved, nil
 }
 
 // refused is a failed write into a root's folder dir as its caller reads

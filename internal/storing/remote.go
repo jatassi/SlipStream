@@ -2,6 +2,7 @@ package storing
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -138,26 +139,40 @@ func (r Remote) Verify(ctx context.Context, node role.NodeID, path string, files
 	return missing, nil
 }
 
-// Place puts payload p at to under the root, answering the file's size.
-// Another file there is ErrOccupied.
-func (r Remote) Place(ctx context.Context, at At, p Payload, to Rel) (int64, error) {
+// Placed is a file the Node put in a root, and what a scan compares of it.
+type Placed struct {
+	Size   int64
+	Linked bool
+	Seen   Seen
+}
+
+// Place puts payload p at to under the root. Another file there is
+// ErrOccupied.
+func (r Remote) Place(ctx context.Context, at At, p Payload, to Rel) (Placed, error) {
 	res, err := r(at.Node).Place(ctx, &storagev1.PlaceRequest{
 		RootId: at.Root.Bytes(), InfoHash: p.InfoHash[:], FileIndex: int64(p.FileIndex), To: to.String(),
 	})
 	if err != nil {
-		return 0, occupied(err)
+		return Placed{}, occupied(err)
 	}
-	return res.GetSize(), nil
+	return Placed{Size: res.GetSize(), Linked: res.GetLinked(), Seen: seenOf(res.GetIdentity())}, nil
 }
 
-// Move renames from to to within the root, answering the file's size.
-// Another file at to is ErrOccupied.
-func (r Remote) Move(ctx context.Context, at At, from, to Rel) (int64, error) {
+// Move renames from to to within the root. Another file at to is
+// ErrOccupied.
+func (r Remote) Move(ctx context.Context, at At, from, to Rel) (Placed, error) {
 	res, err := r(at.Node).Move(ctx, &storagev1.MoveRequest{RootId: at.Root.Bytes(), From: from.String(), To: to.String()})
 	if err != nil {
-		return 0, occupied(err)
+		return Placed{}, occupied(err)
 	}
-	return res.GetSize(), nil
+	return Placed{Size: res.GetSize(), Seen: seenOf(res.GetIdentity())}, nil
+}
+
+func seenOf(id *storagev1.Identity) Seen {
+	return Seen{
+		Modified: time.UnixMilli(id.GetModifiedUnixMs()),
+		ID:       FileID{Volume: id.GetVolumeId(), File: hex.EncodeToString(id.GetFileId())},
+	}
 }
 
 // Remove removes rel from the root; a file already gone wraps

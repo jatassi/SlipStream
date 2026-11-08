@@ -166,8 +166,8 @@ type Roots interface {
 	Reachable(ctx context.Context, r storage.Reader[file], root roots.Root) error
 	// Watch is closed at the next change of a root's report.
 	Watch() <-chan struct{}
-	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Payload) (int64, error)
-	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error)
+	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Payload) (storing.Placed, error)
+	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error)
 }
 
 type Config struct {

@@ -561,9 +561,9 @@ func TestPlaceConvergesOnRepeat(t *testing.T) {
 			p.disk.noLinks = !links
 			to := mustRel(t, HoldingDir+"/0190.mkv")
 			for range 2 {
-				size, err := p.remote.Place(t.Context(), p.at, p.payload(), to)
-				if err != nil || size != 4 {
-					t.Fatalf("links %v: Place = %d, %v; want 4 bytes", links, size, err)
+				placed, err := p.remote.Place(t.Context(), p.at, p.payload(), to)
+				if err != nil || placed.Size != 4 || placed.Linked != links {
+					t.Fatalf("links %v: Place = %+v, %v; want 4 bytes", links, placed, err)
 				}
 			}
 			placed := filepath.Join(p.folder, HoldingDir, "0190.mkv")
@@ -587,7 +587,8 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)
 		holding := mustRel(t, HoldingDir+"/0190.mkv")
-		if _, err := p.remote.Place(t.Context(), p.at, p.payload(), holding); err != nil {
+		placed, err := p.remote.Place(t.Context(), p.at, p.payload(), holding)
+		if err != nil {
 			t.Fatal(err)
 		}
 		names, err := p.remote.List(t.Context(), p.at, Holding)
@@ -599,8 +600,8 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 		}
 		final := mustRel(t, "Heat (1995)/Heat (1995).mkv")
 		for range 2 {
-			if size, err := p.remote.Move(t.Context(), p.at, holding, final); err != nil || size != 4 {
-				t.Fatalf("Move = %d, %v; want 4 bytes", size, err)
+			if moved, err := p.remote.Move(t.Context(), p.at, holding, final); err != nil || moved.Size != 4 || moved.Seen.ID.IsZero() || !moved.Seen.Same(placed.Seen) {
+				t.Fatalf("Move = %+v, %v; want the placed file %+v, 4 bytes", moved, err, placed)
 			}
 		}
 		if err := p.remote.Remove(t.Context(), p.at, final); err != nil {

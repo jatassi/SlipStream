@@ -272,6 +272,7 @@ message PlaceRequest {
 message PlaceResponse {
   int64 size = 1;
   bool linked = 2;
+  Identity identity = 3;
 }
 
 message MoveRequest {
@@ -282,6 +283,17 @@ message MoveRequest {
 
 message MoveResponse {
   int64 size = 1;
+  Identity identity = 2;
+}
+
+// Identity is what a walk reads of a file besides its size, so a placed
+// file records what the next scan compares.
+message Identity {
+  int64 modified_unix_ms = 1;
+  // file_id is empty where the volume keeps no ids across mounts.
+  bytes file_id = 2;
+  // volume_id names the volume file_id is unique on. It is not Volume.id.
+  string volume_id = 3;
 }
 
 message RemoveRequest {
