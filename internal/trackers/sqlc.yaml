@@ -1,0 +1,77 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: trackers_window.quiet_since
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.tracker_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: TrackerID
+          - column: "*.into_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: TrackerID
+          - column: "*.from_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: TrackerID
+          - column: trackers_goal_run.torrent_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/downloadclients
+              type: ID
+          - column: trackers_settings.id
+            go_type:
+              type: Singleton
+          - column: "*.*ratio_centi"
+            go_type:
+              type: int64
+              pointer: true
+          - column: "*.*seed_seconds"
+            go_type:
+              type: int64
+              pointer: true
+          - column: "*.*_seconds"
+            go_type:
+              type: int64
+              pointer: true
+          - column: "*.owed_bytes"
+            go_type:
+              type: int64
+              pointer: true
+          - column: trackers_window.rule_clears
+            go_type:
+              type: string
+              pointer: true
+          - column: trackers_window.owed_clears
+            go_type:
+              type: string
+              pointer: true
+          - column: trackers_goal.action
+            go_type:
+              type: string
+              pointer: true
+          - column: trackers_settings.goal_combine
+            go_type:
+              type: string
+              pointer: true
+          - column: trackers_settings.goal_action
+            go_type:
+              type: string
+              pointer: true
+          - column: trackers_goal_run.kept
+            go_type:
+              type: string
+              pointer: true

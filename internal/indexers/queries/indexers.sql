@@ -190,7 +190,7 @@ SELECT * FROM indexers_settings;
 UPDATE indexers_settings SET long_backoff_seconds = sqlc.narg(long_backoff_seconds);
 
 -- name: ListTrackers :many
-SELECT * FROM indexers_tracker ORDER BY name;
+SELECT * FROM indexers_tracker ORDER BY name COLLATE NOCASE, id;
 
 -- name: ListReach :many
 SELECT indexers_reach.indexer_id, indexers_reach.tracker_id

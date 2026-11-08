@@ -1063,7 +1063,7 @@ func (q *Queries) ListTrackerKeys(ctx context.Context) ([]IndexersTrackerKey, er
 }
 
 const listTrackers = `-- name: ListTrackers :many
-SELECT id, name, privacy, created_at FROM indexers_tracker ORDER BY name
+SELECT id, name, privacy, created_at FROM indexers_tracker ORDER BY name COLLATE NOCASE, id
 `
 
 func (q *Queries) ListTrackers(ctx context.Context) ([]IndexersTracker, error) {

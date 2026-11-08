@@ -29,6 +29,7 @@ type state struct {
 	lastEnded time.Time
 	open      bool
 	cut       bool
+	soon      bool
 	atStart   bool
 	returned  bool
 }
@@ -109,7 +110,7 @@ func (k knobs) decide(now time.Time, s state) (trigger Trigger, next time.Time, 
 	switch {
 	case s.cut:
 		return ByCatchUp, now, nil
-	case s.atStart:
+	case s.atStart || s.soon:
 		return BySchedule, now, nil
 	}
 	interval := s.task.Setting().Value(s.every)

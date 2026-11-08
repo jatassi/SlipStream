@@ -1,7 +1,7 @@
 import { GitMergeIcon, MoreHorizontalIcon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
-import type { IndexersTracker } from "../api/gen/model";
+import type { TrackersTracker } from "../api/gen/model";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { MergeTrackerDialog } from "./merge-tracker";
@@ -14,8 +14,8 @@ export function TrackerMenu({
   tracker,
   others,
 }: {
-  tracker: IndexersTracker;
-  others: readonly IndexersTracker[];
+  tracker: TrackersTracker;
+  others: readonly TrackersTracker[];
 }) {
   const [acting, setActing] = useState<Acting>();
   const act = (next: Acting) => () => {

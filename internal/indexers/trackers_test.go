@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -149,5 +150,15 @@ func TestARenameAndAMergeSurviveTheNextTake(t *testing.T) {
 	}
 	if got := p.trackerNames(); !slices.Equal(got, []string{"Alder Site"}) {
 		t.Fatalf("the Trackers are %q, want only Alder Site", got)
+	}
+}
+
+func TestTrackersSortByNameIgnoringCase(t *testing.T) {
+	p := plannedWith(t, "Prowlarr")
+	for i, name := range []string{"blutopia", "Cathode-Ray", "Aither"} {
+		p.reached("Prowlarr", sourced(strconv.Itoa(i), name, "private", "prowlarr"))
+	}
+	if got, want := p.trackerNames(), []string{"Aither", "blutopia", "Cathode-Ray"}; !slices.Equal(got, want) {
+		t.Fatalf("Trackers = %q, want %q", got, want)
 	}
 }

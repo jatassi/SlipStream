@@ -48,6 +48,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -75,6 +76,7 @@ type half struct {
 	works    *works.Works
 	metadata *metadata.Metadata
 	indexers *indexers.Indexers
+	trackers *trackers.Trackers
 	targets  *targets.Targets
 	roots    *roots.Roots
 	files    *files.Files
@@ -266,6 +268,12 @@ func (n *Node) startController(ctx context.Context) error {
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
 	var scheduler *tasks.Scheduler
+	seeding := trackers.New(trackers.Config{
+		Library: lib.db,
+		Grabs:   grabs.TrackerFacts{},
+		Soon:    func() { scheduler.Soon(trackers.TaskID) },
+		Changed: trackers.SeedingChangedEvent.Bind(n.hub),
+	})
 	registry := indexers.New(indexers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -280,7 +288,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),
 		Trackers:  indexers.TrackersEvent.Bind(n.hub),
 		Settings:  indexers.SettingsChangedEvent.Bind(n.hub),
-		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker},
+		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
 		HTTP:      client,
 		Endpoints: n.cfg.Endpoints.Indexers,
 		CatalogNext: func(ctx context.Context) (time.Time, error) {
@@ -390,6 +398,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	h := &half{
 		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, metadata: meta, indexers: registry,
+		trackers:  seeding,
 		targets:   goals,
 		roots:     homes,
 		files:     shelf,

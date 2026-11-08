@@ -2,9 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { sentenceOf } from "../api/errors";
-import type { IndexersTracker } from "../api/gen/model";
-import { mergeTracker } from "../api/gen/query/indexers/indexers";
-import { adoptMerge } from "../live/adopt";
+import type { TrackersTracker } from "../api/gen/model";
+import { mergeTracker } from "../api/gen/query/trackers/trackers";
+import { adoptMerge } from "../live/adopt-trackers";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { Select } from "../ui/select";
 import { toast } from "../ui/toast";
@@ -24,8 +24,8 @@ export function MergeTrackerDialog({
   others,
   onClose,
 }: {
-  tracker: IndexersTracker;
-  others: readonly IndexersTracker[];
+  tracker: TrackersTracker;
+  others: readonly TrackersTracker[];
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
