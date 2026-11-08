@@ -105,14 +105,18 @@ type reason struct {
 	Soft      bool   `json:"soft" doc:"Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note."`
 }
 
+func reasonOf(r grabs.Reason) reason {
+	w := reason{Code: string(r.Code), Attribute: string(r.Attribute), Value: r.Value, Soft: r.Code.Soft()}
+	if !r.Target.IsZero() {
+		w.TargetID = r.Target.String()
+	}
+	return w
+}
+
 func reasonsOf(rs []grabs.Reason) []reason {
 	out := []reason{}
 	for _, r := range rs {
-		w := reason{Code: string(r.Code), Attribute: string(r.Attribute), Value: r.Value, Soft: r.Code.Soft()}
-		if !r.Target.IsZero() {
-			w.TargetID = r.Target.String()
-		}
-		out = append(out, w)
+		out = append(out, reasonOf(r))
 	}
 	return out
 }
@@ -163,7 +167,7 @@ type listedRelease struct {
 	Covers   []string             `json:"covers" format:"uuid" nullable:"false" doc:"The Items of the Work it holds"`
 	Scores   []targetScore        `json:"scores" nullable:"false" doc:"Its score at each Target it was judged at, in Profile order"`
 	Formats  []string             `json:"formatIds" format:"uuid" nullable:"false" doc:"The Custom Formats it matched of those the Work's Targets score, as the run saw them"`
-	Reasons  []reason             `json:"reasons" nullable:"false" doc:"Its own refusals, then each cell's failures and notes, in Profile order"`
+	Reasons  []wordedReason       `json:"reasons" nullable:"false" doc:"Its own refusals, then each cell's failures and notes, in Profile order"`
 	LostAt   api.Nullable[lostAt] `json:"lostAt" doc:"Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"`
 }
 
@@ -180,7 +184,7 @@ type searchInput struct {
 func releaseOf(l grabs.Listed) listedRelease {
 	out := listedRelease{
 		Position: l.Position, Title: l.Title, Words: l.Words, Indexer: idOrNil(l.Indexer.UUID), Name: l.IndexerName, Size: l.Size,
-		Seeders: l.Seeders, Outcome: string(l.Outcome), Covers: []string{}, Scores: []targetScore{}, Formats: []string{}, Reasons: reasonsOf(l.Reasons),
+		Seeders: l.Seeders, Outcome: string(l.Outcome), Covers: []string{}, Scores: []targetScore{}, Formats: []string{}, Reasons: WordedOf(l.Reasons),
 	}
 	if l.Rank > 0 {
 		out.Rank = new(l.Rank)

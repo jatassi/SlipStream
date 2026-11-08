@@ -329,9 +329,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	scored := `"covers":["` + item + `"],"scores":[{"targetId":"` + hd.ID.String() + `","score":0}],"formatIds":[],`
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[`+
 		`{"position":0,"title":"The.Attic.1080p.WEB","words":"WEBDL-1080p · 4.0 KB",`+attic+`"size":4096,"seeders":5,"outcome":"grabbed","rank":1,"copyOf":null,`+
-		scored+`"reasons":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}],"lostAt":null},`+
+		scored+`"reasons":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false,`+
+		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}],"lostAt":null},`+
 		`{"position":1,"title":"The.Attic.720p.WEB","words":"WEBDL-720p · 2.0 KB",`+attic+`"size":2048,"seeders":50,"outcome":"refused","rank":null,"copyOf":null,`+
-		scored+`"reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false}],"lostAt":null}]}`)
+		scored+`"reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false,"words":"HD doesn't accept WEBDL-720p."}],"lostAt":null}]}`)
 	reached, err := f.xs.Trackers(ctx, admin)
 	if err != nil || len(reached) != 1 || reached[0].Name != "Fixture Site" {
 		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", reached, err)
@@ -613,10 +614,11 @@ func TestARefusalSaysWhetherAManualSearchCanGrabPastIt(t *testing.T) {
 			refused = append(refused, r.Title+" "+string(r.Reasons))
 		}
 	}
-	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true},` +
-		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false}]`
+	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true,"words":"Title doesn't match: Another.Film.1080p.WEB."},` +
+		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false,` +
+		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}]`
 	if !slices.Equal(refused, []string{want}) {
-		t.Fatalf("the run refused %q, want another film's release as a soft wrong_title, judged at the cell: %s", refused, want)
+		t.Fatalf("the run refused %q, want another film's release as a soft wrong_title in words, judged at the cell: %s", refused, want)
 	}
 }
 

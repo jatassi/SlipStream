@@ -7,10 +7,7 @@ import {
   getListGrabsSuspenseQueryOptions,
   getListSearchReleasesSuspenseQueryOptions,
 } from "../api/gen/query/grabs/grabs";
-import {
-  getListQualitiesSuspenseQueryOptions,
-  getListTargetsSuspenseQueryOptions,
-} from "../api/gen/query/targets/targets";
+import { getListTargetsSuspenseQueryOptions } from "../api/gen/query/targets/targets";
 import { Details } from "../ui/details";
 import { Skeleton } from "../ui/skeleton";
 import { ReleaseLine, type RunNames } from "./release-line";
@@ -32,25 +29,21 @@ function useRunNames(search: GrabsSearch) {
     listed: getListSearchReleasesSuspenseQueryOptions(search.id),
     formats: getListCustomFormatsSuspenseQueryOptions(),
     targets: getListTargetsSuspenseQueryOptions(),
-    qualities: getListQualitiesSuspenseQueryOptions(),
     grabs: getListGrabsSuspenseQueryOptions(),
   };
   usePrefetchQuery(queries.formats);
   usePrefetchQuery(queries.targets);
-  usePrefetchQuery(queries.qualities);
   usePrefetchQuery(queries.grabs);
   const listed = useSuspenseQuery(queries.listed).data;
   const formats = useSuspenseQuery(queries.formats).data;
   const targets = useSuspenseQuery(queries.targets).data;
-  const qualities = useSuspenseQuery(queries.qualities).data;
   const grabs = useSuspenseQuery(queries.grabs).data;
-  const targetsById = new Map(targets.targets.map((target) => [target.id, target]));
+  const targetsById = new Map(targets.targets.map(({ id, name }) => [id, name]));
   const grab = grabs.grabs.find(({ id }) => id === search.grabId);
   const names: RunNames = {
     targets: targetsById,
-    qualities: new Map(qualities.qualities.map(({ key, name }) => [key, name])),
     formats: new Map(formats.formats.map(({ id, name }) => [id, name])),
-    grabbedFor: (grab?.targetIds ?? []).flatMap((id) => targetsById.get(id)?.name ?? []),
+    grabbedFor: (grab?.targetIds ?? []).flatMap((id) => targetsById.get(id) ?? []),
     indexerAt: new Map(listed.releases.map((release) => [release.position, release.indexerName])),
   };
   return { releases: byOutcome(listed.releases), names };

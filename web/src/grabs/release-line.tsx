@@ -1,15 +1,19 @@
 import { Link } from "@tanstack/react-router";
 
-import type { GrabsListedRelease, GrabsListedReleaseOutcome } from "../api/gen/model";
+import type {
+  GrabsListedRelease,
+  GrabsListedReleaseOutcome,
+  GrabsWordedReason,
+} from "../api/gen/model";
 import { countWords } from "../format";
 import { Data } from "../ui/data";
 import { type Reference, lostAtSentence } from "./lost-at-sentence";
-import { type ReasonNames, reasonWords, refusalWords } from "./reason-words";
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
 
 /** What a run's Release lines read beyond each Release. */
-export type RunNames = ReasonNames & {
+export type RunNames = {
+  readonly targets: ReadonlyMap<string, string>;
   readonly formats: ReadonlyMap<string, string>;
   /** The Targets the run's Grab was grabbed for, by name. */
   readonly grabbedFor: readonly string[];
@@ -25,10 +29,25 @@ const lost = (release: GrabsListedRelease, names: RunNames, reference: Reference
     : lostAtSentence(
         release.lostAt,
         reference,
-        release.lostAt.targetId === null
-          ? undefined
-          : names.targets.get(release.lostAt.targetId)?.name,
+        release.lostAt.targetId === null ? undefined : names.targets.get(release.lostAt.targetId),
       );
+
+/** A note, such as size_not_checked, says something about a Release without refusing it. */
+const isNote = (reason: GrabsWordedReason): boolean => reason.code === "size_not_checked";
+
+/**
+ * What a refused Release's reasons add up to: a hard refusal keeps every
+ * search from grabbing it, and soft ones keep only an automatic search.
+ */
+function refusalWords(reasons: readonly GrabsWordedReason[]): string {
+  if (reasons.some((reason) => !reason.soft && !isNote(reason))) {
+    return "No search can grab it.";
+  }
+  if (reasons.some((reason) => reason.soft)) {
+    return "An automatic search skips it. A Manual search can grab it.";
+  }
+  return "No Target this search was for can take it.";
+}
 
 const outcomes: Record<
   GrabsListedReleaseOutcome,
@@ -60,8 +79,7 @@ function scoreWords(release: GrabsListedRelease, names: RunNames): string | unde
   }
   const matched = release.formatIds.map((id) => names.formats.get(id) ?? "a deleted Custom Format");
   const scores = release.scores.map(
-    ({ targetId, score }) =>
-      `${score} at ${names.targets.get(targetId)?.name ?? "a deleted Target"}`,
+    ({ targetId, score }) => `${score} at ${names.targets.get(targetId) ?? "a deleted Target"}`,
   );
   return `Matches ${list.format(matched)}.${scores.length === 0 ? "" : ` Scores ${list.format(scores)}.`}`;
 }
@@ -90,7 +108,7 @@ export function ReleaseLine({ release, names }: { release: GrabsListedRelease; n
         <ul aria-label="Reasons" className="flex list-disc flex-col gap-0.5 pl-5 text-ink-2">
           {release.reasons.map((reason, at) => (
             // oxlint-disable-next-line react/no-array-index-key -- a reason has no id, and the list never reorders
-            <li key={at}>{reasonWords(reason, names)}</li>
+            <li key={at}>{reason.words}</li>
           ))}
         </ul>
       )}

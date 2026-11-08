@@ -79,17 +79,12 @@ type explained struct {
 	Conditions []evaluated `json:"conditions" nullable:"false"`
 }
 
-type triedReason struct {
-	grabsapi.Reason
-	Words string `json:"words" doc:"The reason as a sentence"`
-}
-
 type triedTarget struct {
-	TargetID  string        `json:"targetId" format:"uuid"`
-	Name      string        `json:"name"`
-	Score     int           `json:"score"`
-	WouldFill bool          `json:"wouldFill" doc:"An automatic search would grab it for this Target"`
-	Reasons   []triedReason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at"`
+	TargetID  string                  `json:"targetId" format:"uuid"`
+	Name      string                  `json:"name"`
+	Score     int                     `json:"score"`
+	WouldFill bool                    `json:"wouldFill" doc:"An automatic search would grab it for this Target"`
+	Reasons   []grabsapi.WordedReason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at"`
 }
 
 type parsed struct {
@@ -181,11 +176,7 @@ func parsedOf(t grabs.Tried, d *formats.Format) parsed {
 		out.Formats[i] = x
 	}
 	for i, tt := range t.Targets {
-		x := triedTarget{TargetID: tt.Target.ID.String(), Name: tt.Target.Name, Score: tt.Score, WouldFill: tt.WouldFill, Reasons: make([]triedReason, len(tt.Reasons))}
-		for j, r := range grabsapi.ReasonsOf(tt.Reasons) {
-			x.Reasons[j] = triedReason{Reason: r, Words: grabs.ReasonWords(tt.Reasons[j], tt.Target, t.Read.Facts)}
-		}
-		out.Targets[i] = x
+		out.Targets[i] = triedTarget{TargetID: tt.Target.ID.String(), Name: tt.Target.Name, Score: tt.Score, WouldFill: tt.WouldFill, Reasons: grabsapi.WordedOf(tt.Reasons)}
 	}
 	return out
 }

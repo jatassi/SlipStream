@@ -209,7 +209,8 @@ func releaseRow(run SearchID, r row) (db.InsertReleaseParams, error) {
 
 // Listed is one Release a run listed, as its row keeps it. Rank is 0 for
 // a Release grabbable at no cell and CopyOf -1 for one that is no copy.
-// Words is its facts in words, read again from its title.
+// Words is its facts in words, read again from its title, and its
+// reasons' words are written from that read.
 type Listed struct {
 	Position    int
 	Title       string
@@ -224,7 +225,7 @@ type Listed struct {
 	Covers      []works.ItemID
 	Scores      []TargetScore
 	Formats     []formats.ID
-	Reasons     []Reason
+	Reasons     []Worded
 	LostAt      *Loss
 }
 
@@ -233,9 +234,17 @@ var ErrNoSearch = errors.New("no search run has that id")
 // Releases is run's Releases, ranked first in rank order, then the rest
 // by position. A run keeps them while it is its Item's latest finished
 // run, or its Grab still fetches, and lists none after.
-func (gr *Grabs) Releases(ctx context.Context, _ identity.Admin, run SearchID) ([]Listed, error) {
+func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) ([]Listed, error) {
+	all, err := gr.cfg.Targets.ListTargets(ctx, by)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[targets.TargetID]*targets.Target, len(all))
+	for i := range all {
+		byID[all[i].ID] = &all[i]
+	}
 	var out []Listed
-	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		q := db.New(r)
 		s, err := q.GetSearch(ctx, run)
 		if errors.Is(err, storage.ErrNoRows) {
@@ -258,7 +267,7 @@ func (gr *Grabs) Releases(ctx context.Context, _ identity.Admin, run SearchID) (
 			return err
 		}
 		for _, row := range rows {
-			l, err := releaseOf(row)
+			l, reasons, err := releaseOf(row)
 			if err != nil {
 				return fmt.Errorf("search %s: Release %d: %w", run, row.Position, err)
 			}
@@ -267,6 +276,9 @@ func (gr *Grabs) Releases(ctx context.Context, _ identity.Admin, run SearchID) (
 				read.Facts.Size = release.Known(l.Size)
 			}
 			l.Words = release.Describe(read)
+			for _, r := range reasons {
+				l.Reasons = append(l.Reasons, Worded{Reason: r, Words: reasonWords(r, byID[r.Target], read.Facts)})
+			}
 			out = append(out, l)
 		}
 		return nil
@@ -274,7 +286,8 @@ func (gr *Grabs) Releases(ctx context.Context, _ identity.Admin, run SearchID) (
 	return out, err
 }
 
-func releaseOf(row db.GrabsRelease) (Listed, error) {
+// releaseOf is row as a Listed with no words, and its reasons.
+func releaseOf(row db.GrabsRelease) (Listed, []Reason, error) {
 	l := Listed{
 		Position: int(row.Position), Title: row.Title, Indexer: row.IndexerID, IndexerName: row.IndexerName, Size: row.Size,
 		Seeders: int(row.Seeders), Outcome: row.Outcome, CopyOf: -1,
@@ -288,9 +301,9 @@ func releaseOf(row db.GrabsRelease) (Listed, error) {
 	if row.LostStep != nil {
 		l.LostAt = &Loss{Step: *row.LostStep, Target: row.LostTargetID, Own: *row.LostOwn, Ref: *row.LostRef}
 	}
-	var err error
-	if l.Reasons, err = decodeReasons(row.Reasons); err != nil {
-		return l, err
+	reasons, err := decodeReasons(row.Reasons)
+	if err != nil {
+		return l, nil, err
 	}
 	var scores []storedScore
 	var fs, covers []string
@@ -299,29 +312,29 @@ func releaseOf(row db.GrabsRelease) (Listed, error) {
 		to   any
 	}{{row.Scores, &scores}, {row.Formats, &fs}, {row.Covers, &covers}} {
 		if err := json.Unmarshal([]byte(f.from), f.to); err != nil {
-			return l, fmt.Errorf("decode: %w", err)
+			return l, nil, fmt.Errorf("decode: %w", err)
 		}
 	}
 	for _, s := range scores {
 		u, err := storage.ParseUUID(s.TargetID)
 		if err != nil {
-			return l, err
+			return l, nil, err
 		}
 		l.Scores = append(l.Scores, TargetScore{Target: targets.TargetID{UUID: u}, Score: s.Score})
 	}
 	for _, s := range fs {
 		id, err := targets.ParseFormatID(s)
 		if err != nil {
-			return l, err
+			return l, nil, err
 		}
 		l.Formats = append(l.Formats, id)
 	}
 	for _, s := range covers {
 		u, err := storage.ParseUUID(s)
 		if err != nil {
-			return l, err
+			return l, nil, err
 		}
 		l.Covers = append(l.Covers, works.ItemID{UUID: u})
 	}
-	return l, nil
+	return l, reasons, nil
 }

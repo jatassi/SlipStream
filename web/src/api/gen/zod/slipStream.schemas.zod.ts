@@ -2251,7 +2251,7 @@ export const FormatsReadFacts = zod.object({
 export type FormatsReadFacts = zod.input<typeof FormatsReadFacts>;
 export type FormatsReadFactsOutput = zod.output<typeof FormatsReadFacts>;
 
-export const FormatsTriedReason = zod.object({
+export const GrabsWordedReason = zod.object({
   attribute: zod
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
     .exactOptional()
@@ -2295,13 +2295,13 @@ export const FormatsTriedReason = zod.object({
   words: zod.string().describe("The reason as a sentence"),
 });
 
-export type FormatsTriedReason = zod.input<typeof FormatsTriedReason>;
-export type FormatsTriedReasonOutput = zod.output<typeof FormatsTriedReason>;
+export type GrabsWordedReason = zod.input<typeof GrabsWordedReason>;
+export type GrabsWordedReasonOutput = zod.output<typeof GrabsWordedReason>;
 
 export const FormatsTriedTarget = zod.object({
   name: zod.string(),
   reasons: zod
-    .array(FormatsTriedReason)
+    .array(GrabsWordedReason)
     .describe(
       "The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at",
     ),
@@ -2689,52 +2689,6 @@ export const GrabsLostAt = zod.object({
 export type GrabsLostAt = zod.input<typeof GrabsLostAt>;
 export type GrabsLostAtOutput = zod.output<typeof GrabsLostAt>;
 
-export const GrabsReason = zod.object({
-  attribute: zod
-    .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
-    .exactOptional()
-    .describe("The attribute a failed filter rules on"),
-  code: zod
-    .enum([
-      "wrong_work",
-      "wrong_item",
-      "covers_more",
-      "wrong_title",
-      "cut_not_wanted",
-      "quality_not_in_target",
-      "filter",
-      "size_below",
-      "size_above",
-      "size_not_checked",
-      "score_below_minimum",
-      "not_an_upgrade",
-      "repack_other_group",
-    ])
-    .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
-    ),
-  soft: zod
-    .boolean()
-    .describe(
-      "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
-    ),
-  targetId: zod
-    .uuid()
-    .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
-  value: zod
-    .string()
-    .exactOptional()
-    .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
-    ),
-});
-
-export type GrabsReason = zod.input<typeof GrabsReason>;
-export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
-
 export const GrabsTargetScore = zod.object({
   score: zod.int(),
   targetId: zod.uuid(),
@@ -2789,7 +2743,7 @@ export const GrabsListedRelease = zod.object({
       "Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none",
     ),
   reasons: zod
-    .array(GrabsReason)
+    .array(GrabsWordedReason)
     .describe("Its own refusals, then each cell's failures and notes, in Profile order"),
   scores: zod
     .array(GrabsTargetScore)
@@ -2806,6 +2760,52 @@ export const GrabsListedRelease = zod.object({
 
 export type GrabsListedRelease = zod.input<typeof GrabsListedRelease>;
 export type GrabsListedReleaseOutput = zod.output<typeof GrabsListedRelease>;
+
+export const GrabsReason = zod.object({
+  attribute: zod
+    .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
+    .exactOptional()
+    .describe("The attribute a failed filter rules on"),
+  code: zod
+    .enum([
+      "wrong_work",
+      "wrong_item",
+      "covers_more",
+      "wrong_title",
+      "cut_not_wanted",
+      "quality_not_in_target",
+      "filter",
+      "size_below",
+      "size_above",
+      "size_not_checked",
+      "score_below_minimum",
+      "not_an_upgrade",
+      "repack_other_group",
+    ])
+    .describe(
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+    ),
+  soft: zod
+    .boolean()
+    .describe(
+      "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
+    ),
+  targetId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
+    ),
+  value: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+    ),
+});
+
+export type GrabsReason = zod.input<typeof GrabsReason>;
+export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
 
 export const GrabsReleaseList = zod.object({
   releases: zod

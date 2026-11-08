@@ -1,11 +1,11 @@
-import type { FormatsTriedReasonAttribute } from "./formatsTriedReasonAttribute.ts";
-import type { FormatsTriedReasonCode } from "./formatsTriedReasonCode.ts";
+import type { GrabsWordedReasonAttribute } from "./grabsWordedReasonAttribute.ts";
+import type { GrabsWordedReasonCode } from "./grabsWordedReasonCode.ts";
 
-export interface FormatsTriedReason {
+export interface GrabsWordedReason {
   /** The attribute a failed filter rules on */
-  attribute?: FormatsTriedReasonAttribute;
+  attribute?: GrabsWordedReasonAttribute;
   /** Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. */
-  code: FormatsTriedReasonCode;
+  code: GrabsWordedReasonCode;
   /** Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note. */
   soft: boolean;
   /** The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title */

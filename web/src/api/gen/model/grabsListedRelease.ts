@@ -1,7 +1,7 @@
 import type { GrabsListedReleaseOutcome } from "./grabsListedReleaseOutcome.ts";
 import type { GrabsLostAt } from "./grabsLostAt.ts";
-import type { GrabsReason } from "./grabsReason.ts";
 import type { GrabsTargetScore } from "./grabsTargetScore.ts";
+import type { GrabsWordedReason } from "./grabsWordedReason.ts";
 
 export interface GrabsListedRelease {
   /**
@@ -37,7 +37,7 @@ export interface GrabsListedRelease {
    */
   rank: number | null;
   /** Its own refusals, then each cell's failures and notes, in Profile order */
-  reasons: GrabsReason[];
+  reasons: GrabsWordedReason[];
   /** Its score at each Target it was judged at, in Profile order */
   scores: GrabsTargetScore[];
   /** @minimum 0 */
