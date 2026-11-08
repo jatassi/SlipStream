@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 )
 
 //go:embed upstream.json
@@ -310,41 +311,26 @@ type beyondHDResponse struct {
 }
 
 type beyondHDTorrent struct {
-	Name         string `json:"name"`
-	InfoHash     string `json:"info_hash"`
-	Category     string `json:"category"`
-	Type         string `json:"type"`
-	Size         int64  `json:"size"`
-	Grabs        int    `json:"times_completed"`
-	Seeders      int    `json:"seeders"`
-	Leechers     int    `json:"leechers"`
-	Audios       string `json:"audios"`
-	Subtitles    string `json:"subtitles"`
-	CreatedAt    string `json:"created_at"`
-	DownloadLink string `json:"download_url"`
-	InfoURL      string `json:"url"`
-	ImdbID       string `json:"imdb_id"`
-	TmdbID       string `json:"tmdb_id"`
-	Freeleech    stBool `json:"freeleech"`
-	Promo25      stBool `json:"promo25"`
-	Promo50      stBool `json:"promo50"`
-	Promo75      stBool `json:"promo75"`
-	Limited      stBool `json:"limited"`
-	Exclusive    stBool `json:"exclusive"`
-	Internal     stBool `json:"internal"`
-}
-
-// stBool is Prowlarr's STJson BooleanConverter: true, false, 1 or 0.
-type stBool bool
-
-func (b *stBool) UnmarshalJSON(raw []byte) error {
-	switch string(raw) {
-	case "true", "1":
-		*b = true
-	case "false", "0", "null":
-		*b = false
-	default:
-		return fmt.Errorf("%s isn't a boolean", raw)
-	}
-	return nil
+	Name         string             `json:"name"`
+	InfoHash     string             `json:"info_hash"`
+	Category     string             `json:"category"`
+	Type         string             `json:"type"`
+	Size         int64              `json:"size"`
+	Grabs        int                `json:"times_completed"`
+	Seeders      int                `json:"seeders"`
+	Leechers     int                `json:"leechers"`
+	Audios       string             `json:"audios"`
+	Subtitles    string             `json:"subtitles"`
+	CreatedAt    string             `json:"created_at"`
+	DownloadLink string             `json:"download_url"`
+	InfoURL      string             `json:"url"`
+	ImdbID       string             `json:"imdb_id"`
+	TmdbID       string             `json:"tmdb_id"`
+	Freeleech    serializer.STJBool `json:"freeleech"`
+	Promo25      serializer.STJBool `json:"promo25"`
+	Promo50      serializer.STJBool `json:"promo50"`
+	Promo75      serializer.STJBool `json:"promo75"`
+	Limited      serializer.STJBool `json:"limited"`
+	Exclusive    serializer.STJBool `json:"exclusive"`
+	Internal     serializer.STJBool `json:"internal"`
 }

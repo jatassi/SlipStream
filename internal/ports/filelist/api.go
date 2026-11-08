@@ -4,40 +4,25 @@
 
 package filelist
 
-import "fmt"
+import "github.com/jatassi/slipstream/internal/prowlarr/serializer"
 
 type fileListTorrent struct {
-	ID               uint   `json:"id"`
-	Name             string `json:"name"`
-	Size             int64  `json:"size"`
-	Leechers         int    `json:"leechers"`
-	Seeders          int    `json:"seeders"`
-	TimesCompleted   uint   `json:"times_completed"`
-	Files            uint   `json:"files"`
-	ImdbID           string `json:"imdb"`
-	Internal         stBool `json:"internal"`
-	FreeLeech        stBool `json:"freeleech"`
-	DoubleUp         stBool `json:"doubleup"`
-	UploadDate       string `json:"upload_date"`
-	Category         string `json:"category"`
-	SmallDescription string `json:"small_description"`
+	ID               uint               `json:"id"`
+	Name             string             `json:"name"`
+	Size             int64              `json:"size"`
+	Leechers         int                `json:"leechers"`
+	Seeders          int                `json:"seeders"`
+	TimesCompleted   uint               `json:"times_completed"`
+	Files            uint               `json:"files"`
+	ImdbID           string             `json:"imdb"`
+	Internal         serializer.STJBool `json:"internal"`
+	FreeLeech        serializer.STJBool `json:"freeleech"`
+	DoubleUp         serializer.STJBool `json:"doubleup"`
+	UploadDate       string             `json:"upload_date"`
+	Category         string             `json:"category"`
+	SmallDescription string             `json:"small_description"`
 }
 
 type fileListErrorResponse struct {
 	Error string `json:"error"`
-}
-
-// stBool is Prowlarr's STJson BooleanConverter: true, false, 1 or 0.
-type stBool bool
-
-func (b *stBool) UnmarshalJSON(raw []byte) error {
-	switch string(raw) {
-	case "true", "1":
-		*b = true
-	case "false", "0", "null":
-		*b = false
-	default:
-		return fmt.Errorf("%s isn't a boolean", raw)
-	}
-	return nil
 }

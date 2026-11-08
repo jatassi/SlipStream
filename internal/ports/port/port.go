@@ -54,6 +54,7 @@
 //	searchCriteria.IsRssSearch             q.IsRssSearch()
 //	searchCriteria.IsIdSearch              q.IsIDSearch()
 //	ParseUtil.X, DateTimeUtil.X, StringUtil.X   parseutil.X, datetimeutil.X, stringutil.X
+//	A response field Json or STJson fills    serializer.String, Int, Bool; serializer.STJInt, STJFloat, STJBool
 //	DateTime.Now, the host's zone         ix.Clock, as the clock argument of datetimeutil.X
 //	AngleSharp QuerySelector(All)          dom.Parse(...).QuerySelector(All)
 //	IndexerException                       port.IndexerError

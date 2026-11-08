@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
@@ -258,45 +259,28 @@ type nebulanceSettings struct {
 }
 
 type nebulanceResponse struct {
-	TotalResults stNumber               `json:"total_results"`
+	TotalResults serializer.STJInt      `json:"total_results"`
 	Items        []nebulanceTorrent     `json:"items"`
 	Error        *nebulanceErrorMessage `json:"error"`
 }
 
 type nebulanceTorrent struct {
-	ReleaseTitle   string    `json:"rls_name"`
-	Category       string    `json:"cat"`
-	Size           stNumber  `json:"size"`
-	Seed           stNumber  `json:"seed"`
-	Leech          stNumber  `json:"leech"`
-	Snatch         stNumber  `json:"snatch"`
-	DownloadLink   string    `json:"download"`
-	FileList       []string  `json:"file_list"`
-	GroupName      string    `json:"group_name"`
-	TorrentID      stNumber  `json:"group_id"`
-	ImdbID         string    `json:"imdb_id"`
-	TvMazeID       *stNumber `json:"tvmaze_id"`
-	PublishDateUtc string    `json:"rls_utc"`
-	Tags           []string  `json:"tags"`
+	ReleaseTitle   string             `json:"rls_name"`
+	Category       string             `json:"cat"`
+	Size           serializer.STJInt  `json:"size"`
+	Seed           serializer.STJInt  `json:"seed"`
+	Leech          serializer.STJInt  `json:"leech"`
+	Snatch         serializer.STJInt  `json:"snatch"`
+	DownloadLink   string             `json:"download"`
+	FileList       []string           `json:"file_list"`
+	GroupName      string             `json:"group_name"`
+	TorrentID      serializer.STJInt  `json:"group_id"`
+	ImdbID         string             `json:"imdb_id"`
+	TvMazeID       *serializer.STJInt `json:"tvmaze_id"`
+	PublishDateUtc string             `json:"rls_utc"`
+	Tags           []string           `json:"tags"`
 }
 
 type nebulanceErrorMessage struct {
 	Message string `json:"message"`
-}
-
-// stNumber is a number STJson reads with AllowReadingFromString: a JSON
-// number or a string of one.
-type stNumber int64
-
-func (n *stNumber) UnmarshalJSON(raw []byte) error {
-	s := strings.Trim(string(raw), `"`)
-	if s == "null" {
-		return nil
-	}
-	v, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return fmt.Errorf("%s isn't a whole number", raw)
-	}
-	*n = stNumber(v)
-	return nil
 }

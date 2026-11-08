@@ -4,11 +4,15 @@
 
 package broadcasthenet
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
+)
 
 // SlipStream: Torrents stays raw so the parser reads it in the site's
 // order, as C#'s Dictionary keeps it and a Go map doesn't.
 type broadcastheNetTorrents struct {
 	Torrents json.RawMessage
-	Results  looseInt
+	Results  serializer.Int
 }

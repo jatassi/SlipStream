@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 )
 
 type indexer = port.Indexer[hdBitsSettings]
@@ -65,7 +66,7 @@ func getTvSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (port.
 				season := searchCriteria.Season
 				query.TvdbInfo.Season = &season
 			}
-			query.TvdbInfo.Episode = looseString(searchCriteria.Episode)
+			query.TvdbInfo.Episode = serializer.String(searchCriteria.Episode)
 		}
 	}
 

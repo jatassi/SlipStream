@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
@@ -238,7 +239,7 @@ type greatPosterWallSettings struct {
 }
 
 type GreatPosterWallResponse struct {
-	Status   gazelle.String                      `json:"status"`
+	Status   serializer.String                   `json:"status"`
 	Response *GreatPosterWallResponseWithResults `json:"response"`
 }
 
@@ -249,65 +250,63 @@ type GreatPosterWallResponseWithResults struct {
 }
 
 // GreatPosterWallResult is a group of the browse response.
-// SlipStream: MaxSize is any JSON, as C#'s object. A gazelle.String
-// reads a number's text, as Newtonsoft fills a string.
+// SlipStream: MaxSize is any JSON, as C#'s object.
 type GreatPosterWallResult struct {
 	GroupID       int                      `json:"groupId"`
-	GroupName     gazelle.String           `json:"groupName"`
-	GroupSubName  gazelle.String           `json:"groupSubName"`
-	Cover         gazelle.String           `json:"cover"`
-	Tags          []gazelle.String         `json:"tags"`
+	GroupName     serializer.String        `json:"groupName"`
+	GroupSubName  serializer.String        `json:"groupSubName"`
+	Cover         serializer.String        `json:"cover"`
+	Tags          []serializer.String      `json:"tags"`
 	Bookmarked    bool                     `json:"bookmarked"`
 	GroupYear     int                      `json:"groupYear"`
-	ReleaseType   gazelle.String           `json:"releaseType"`
-	GroupTime     gazelle.String           `json:"groupTime"`
+	ReleaseType   serializer.String        `json:"releaseType"`
+	GroupTime     serializer.String        `json:"groupTime"`
 	MaxSize       json.RawMessage          `json:"maxSize"`
 	TotalSnatched int                      `json:"totalSnatched"`
 	TotalSeeders  int                      `json:"totalSeeders"`
 	TotalLeechers int                      `json:"totalLeechers"`
-	ImdbID        gazelle.String           `json:"imdbId"`
-	ImdbRating    gazelle.String           `json:"imdbRating"`
-	ImdbVote      gazelle.String           `json:"imdbVote"`
-	DoubanID      gazelle.String           `json:"doubanId"`
-	DoubanRating  gazelle.String           `json:"doubanRating"`
-	DoubanVote    gazelle.String           `json:"doubanVote"`
-	RtRating      gazelle.String           `json:"rtRating"`
-	Region        gazelle.String           `json:"region"`
+	ImdbID        serializer.String        `json:"imdbId"`
+	ImdbRating    serializer.String        `json:"imdbRating"`
+	ImdbVote      serializer.String        `json:"imdbVote"`
+	DoubanID      serializer.String        `json:"doubanId"`
+	DoubanRating  serializer.String        `json:"doubanRating"`
+	DoubanVote    serializer.String        `json:"doubanVote"`
+	RtRating      serializer.String        `json:"rtRating"`
+	Region        serializer.String        `json:"region"`
 	Torrents      []GreatPosterWallTorrent `json:"torrents"`
 }
 
 // GreatPosterWallTorrent is a group's torrent.
 // SlipStream: Time is the site's text, read as a wall time where the
-// parser uses it. A gazelle.String reads a number's text, as Newtonsoft
-// fills a string.
+// parser uses it.
 type GreatPosterWallTorrent struct {
-	TorrentID           int            `json:"torrentId"`
-	EditionID           int            `json:"editionId"`
-	RemasterYear        int            `json:"remasterYear"`
-	RemasterTitle       gazelle.String `json:"remasterTitle"`
-	RemasterCustomTitle gazelle.String `json:"remasterCustomTitle"`
-	Scene               bool           `json:"scene"`
-	Jinzhuan            bool           `json:"jinzhuan"`
-	FileCount           int            `json:"fileCount"`
-	Time                gazelle.String `json:"time"`
-	Size                int64          `json:"size"`
-	Snatches            int            `json:"snatches"`
-	Seeders             int            `json:"seeders"`
-	Leechers            int            `json:"leechers"`
-	IsFreeleech         bool           `json:"isFreeleech"`
-	IsNeutralLeech      bool           `json:"isNeutralLeech"`
-	FreeType            gazelle.String `json:"freeType"`
-	IsPersonalFreeleech bool           `json:"isPersonalFreeleech"`
-	CanUseToken         bool           `json:"canUseToken"`
-	HasSnatched         bool           `json:"hasSnatched"`
-	Resolution          gazelle.String `json:"resolution"`
-	Source              gazelle.String `json:"source"`
-	Codec               gazelle.String `json:"codec"`
-	Container           gazelle.String `json:"container"`
-	Processing          gazelle.String `json:"processing"`
-	ChineseDubbed       gazelle.String `json:"chineseDubbed"`
-	SpecialSub          gazelle.String `json:"specialSub"`
-	Subtitles           gazelle.String `json:"subtitles"`
-	FileName            gazelle.String `json:"fileName"`
-	ReleaseGroup        gazelle.String `json:"releaseGroup"`
+	TorrentID           int               `json:"torrentId"`
+	EditionID           int               `json:"editionId"`
+	RemasterYear        int               `json:"remasterYear"`
+	RemasterTitle       serializer.String `json:"remasterTitle"`
+	RemasterCustomTitle serializer.String `json:"remasterCustomTitle"`
+	Scene               bool              `json:"scene"`
+	Jinzhuan            bool              `json:"jinzhuan"`
+	FileCount           int               `json:"fileCount"`
+	Time                serializer.String `json:"time"`
+	Size                int64             `json:"size"`
+	Snatches            int               `json:"snatches"`
+	Seeders             int               `json:"seeders"`
+	Leechers            int               `json:"leechers"`
+	IsFreeleech         bool              `json:"isFreeleech"`
+	IsNeutralLeech      bool              `json:"isNeutralLeech"`
+	FreeType            serializer.String `json:"freeType"`
+	IsPersonalFreeleech bool              `json:"isPersonalFreeleech"`
+	CanUseToken         bool              `json:"canUseToken"`
+	HasSnatched         bool              `json:"hasSnatched"`
+	Resolution          serializer.String `json:"resolution"`
+	Source              serializer.String `json:"source"`
+	Codec               serializer.String `json:"codec"`
+	Container           serializer.String `json:"container"`
+	Processing          serializer.String `json:"processing"`
+	ChineseDubbed       serializer.String `json:"chineseDubbed"`
+	SpecialSub          serializer.String `json:"specialSub"`
+	Subtitles           serializer.String `json:"subtitles"`
+	FileName            serializer.String `json:"fileName"`
+	ReleaseGroup        serializer.String `json:"releaseGroup"`
 }

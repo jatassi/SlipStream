@@ -4,121 +4,97 @@
 
 package gazelle
 
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-)
-
-// String is a C# string property as Newtonsoft fills it: from a JSON
-// string, or from a number's text. Gazelle sites send size, seeders and
-// groupId as either.
-type String string
-
-func (s *String) UnmarshalJSON(b []byte) error {
-	switch {
-	case bytes.Equal(b, []byte("null")):
-	case bytes.HasPrefix(b, []byte(`"`)):
-		var v string
-		if err := json.Unmarshal(b, &v); err != nil {
-			return fmt.Errorf("read a JSON string: %w", err)
-		}
-		*s = String(v)
-	default:
-		*s = String(b)
-	}
-	return nil
-}
+import "github.com/jatassi/slipstream/internal/prowlarr/serializer"
 
 type GazelleArtist struct {
-	Name    String `json:"name"`
-	ID      String `json:"id"`
-	Aliasid String `json:"aliasid"`
+	Name    serializer.String `json:"name"`
+	ID      serializer.String `json:"id"`
+	Aliasid serializer.String `json:"aliasid"`
 }
 
 type GazelleTorrent struct {
-	TorrentID     int             `json:"torrentId"`
-	EditionID     int             `json:"editionId"`
-	Artists       []GazelleArtist `json:"artists"`
-	Remastered    bool            `json:"remastered"`
-	RemasterYear  String          `json:"remasterYear"`
-	RemasterTitle String          `json:"remasterTitle"`
-	ReleaseName   String          `json:"releaseName"`
-	Media         String          `json:"media"`
-	Encoding      String          `json:"encoding"`
-	Format        String          `json:"format"`
-	HasLog        bool            `json:"hasLog"`
-	LogScore      int             `json:"logScore"`
-	HasCue        bool            `json:"hasCue"`
-	Scene         bool            `json:"scene"`
-	VanityHouse   bool            `json:"vanityHouse"`
-	FileCount     int             `json:"fileCount"`
+	TorrentID     int               `json:"torrentId"`
+	EditionID     int               `json:"editionId"`
+	Artists       []GazelleArtist   `json:"artists"`
+	Remastered    bool              `json:"remastered"`
+	RemasterYear  serializer.String `json:"remasterYear"`
+	RemasterTitle serializer.String `json:"remasterTitle"`
+	ReleaseName   serializer.String `json:"releaseName"`
+	Media         serializer.String `json:"media"`
+	Encoding      serializer.String `json:"encoding"`
+	Format        serializer.String `json:"format"`
+	HasLog        bool              `json:"hasLog"`
+	LogScore      int               `json:"logScore"`
+	HasCue        bool              `json:"hasCue"`
+	Scene         bool              `json:"scene"`
+	VanityHouse   bool              `json:"vanityHouse"`
+	FileCount     int               `json:"fileCount"`
 	// SlipStream: Time is the site's text, read as UTC where the parser
 	// uses it, as Newtonsoft's DateTimeZoneHandling.Utc reads a DateTime.
-	Time                String `json:"time"`
-	Size                String `json:"size"`
-	Snatches            int    `json:"snatches"`
-	Seeders             String `json:"seeders"`
-	Leechers            String `json:"leechers"`
-	Category            String `json:"category"`
-	IsFreeLeech         bool   `json:"isFreeLeech"`
-	IsNeutralLeech      bool   `json:"isNeutralLeech"`
-	IsFreeload          bool   `json:"isFreeload"`
-	IsPersonalFreeLeech bool   `json:"isPersonalFreeLeech"`
-	CanUseToken         bool   `json:"canUseToken"`
+	Time                serializer.String `json:"time"`
+	Size                serializer.String `json:"size"`
+	Snatches            int               `json:"snatches"`
+	Seeders             serializer.String `json:"seeders"`
+	Leechers            serializer.String `json:"leechers"`
+	Category            serializer.String `json:"category"`
+	IsFreeLeech         bool              `json:"isFreeLeech"`
+	IsNeutralLeech      bool              `json:"isNeutralLeech"`
+	IsFreeload          bool              `json:"isFreeload"`
+	IsPersonalFreeLeech bool              `json:"isPersonalFreeLeech"`
+	CanUseToken         bool              `json:"canUseToken"`
 }
 
 type GazelleRelease struct {
-	GroupID             String           `json:"groupId"`
-	GroupName           String           `json:"groupName"`
-	TorrentID           int              `json:"torrentId"`
-	Size                String           `json:"size"`
-	FileCount           int              `json:"fileCount"`
-	Snatches            int              `json:"snatches"`
-	Seeders             String           `json:"seeders"`
-	Leechers            String           `json:"leechers"`
-	Category            String           `json:"category"`
-	Artist              String           `json:"artist"`
-	GroupYear           String           `json:"groupYear"`
-	Cover               String           `json:"cover"`
-	Tags                []String         `json:"tags"`
-	ReleaseType         String           `json:"releaseType"`
-	TotalLeechers       int              `json:"totalLeechers"`
-	TotalSeeders        int              `json:"totalSeeders"`
-	TotalSnatched       int              `json:"totalSnatched"`
-	MaxSize             int64            `json:"maxSize"`
-	GroupTime           String           `json:"groupTime"`
-	Torrents            []GazelleTorrent `json:"torrents"`
-	IsFreeLeech         bool             `json:"isFreeLeech"`
-	IsNeutralLeech      bool             `json:"isNeutralLeech"`
-	IsFreeload          bool             `json:"isFreeload"`
-	IsPersonalFreeLeech bool             `json:"isPersonalFreeLeech"`
-	CanUseToken         bool             `json:"canUseToken"`
+	GroupID             serializer.String   `json:"groupId"`
+	GroupName           serializer.String   `json:"groupName"`
+	TorrentID           int                 `json:"torrentId"`
+	Size                serializer.String   `json:"size"`
+	FileCount           int                 `json:"fileCount"`
+	Snatches            int                 `json:"snatches"`
+	Seeders             serializer.String   `json:"seeders"`
+	Leechers            serializer.String   `json:"leechers"`
+	Category            serializer.String   `json:"category"`
+	Artist              serializer.String   `json:"artist"`
+	GroupYear           serializer.String   `json:"groupYear"`
+	Cover               serializer.String   `json:"cover"`
+	Tags                []serializer.String `json:"tags"`
+	ReleaseType         serializer.String   `json:"releaseType"`
+	TotalLeechers       int                 `json:"totalLeechers"`
+	TotalSeeders        int                 `json:"totalSeeders"`
+	TotalSnatched       int                 `json:"totalSnatched"`
+	MaxSize             int64               `json:"maxSize"`
+	GroupTime           serializer.String   `json:"groupTime"`
+	Torrents            []GazelleTorrent    `json:"torrents"`
+	IsFreeLeech         bool                `json:"isFreeLeech"`
+	IsNeutralLeech      bool                `json:"isNeutralLeech"`
+	IsFreeload          bool                `json:"isFreeload"`
+	IsPersonalFreeLeech bool                `json:"isPersonalFreeLeech"`
+	CanUseToken         bool                `json:"canUseToken"`
 }
 
 type GazelleResponse struct {
-	Status   String                 `json:"status"`
+	Status   serializer.String      `json:"status"`
 	Response *GazelleBrowseResponse `json:"response"`
 }
 
 type GazelleBrowseResponse struct {
-	Results     []GazelleRelease `json:"results"`
-	CurrentPage String           `json:"currentPage"`
-	Pages       String           `json:"pages"`
+	Results     []GazelleRelease  `json:"results"`
+	CurrentPage serializer.String `json:"currentPage"`
+	Pages       serializer.String `json:"pages"`
 }
 
 type GazelleAuthResponse struct {
-	Status   String                `json:"status"`
+	Status   serializer.String     `json:"status"`
 	Response *GazelleIndexResponse `json:"response"`
 }
 
 type GazelleIndexResponse struct {
-	Username String `json:"username"`
-	ID       String `json:"id"`
-	Authkey  String `json:"authkey"`
-	Passkey  String `json:"passkey"`
+	Username serializer.String `json:"username"`
+	ID       serializer.String `json:"id"`
+	Authkey  serializer.String `json:"authkey"`
+	Passkey  serializer.String `json:"passkey"`
 }
 
 type GazelleErrorResponse struct {
-	Error String `json:"error"`
+	Error serializer.String `json:"error"`
 }

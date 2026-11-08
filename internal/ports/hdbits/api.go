@@ -6,7 +6,8 @@ package hdbits
 
 import (
 	"encoding/json"
-	"fmt"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 )
 
 // SlipStream: the json tags are what Prowlarr's ToJson writes, camelCase
@@ -35,26 +36,26 @@ type hdBitsResponse struct {
 }
 
 type torrentQueryResponse struct {
-	ID             looseString `json:"id"`
-	Hash           string      `json:"hash"`
-	Leechers       int         `json:"leechers"`
-	Seeders        int         `json:"seeders"`
-	Name           string      `json:"name"`
-	TimesCompleted uint        `json:"times_completed"`
-	Size           int64       `json:"size"`
-	UtAdded        int64       `json:"utadded"`
-	Added          string      `json:"added"`
-	Comments       uint        `json:"comments"`
-	NumFiles       uint        `json:"numfiles"`
-	FileName       string      `json:"filename"`
-	FreeLeech      string      `json:"freeleech"`
-	TypeCategory   int         `json:"type_category"`
-	TypeCodec      int         `json:"type_codec"`
-	TypeMedium     int         `json:"type_medium"`
-	TypeOrigin     int         `json:"type_origin"`
-	TypeExclusive  int         `json:"type_exclusive"`
-	ImdbInfo       *imdbInfo   `json:"imdb"`
-	TvdbInfo       *tvdbInfo   `json:"tvdb"`
+	ID             serializer.String `json:"id"`
+	Hash           string            `json:"hash"`
+	Leechers       int               `json:"leechers"`
+	Seeders        int               `json:"seeders"`
+	Name           string            `json:"name"`
+	TimesCompleted uint              `json:"times_completed"`
+	Size           int64             `json:"size"`
+	UtAdded        int64             `json:"utadded"`
+	Added          string            `json:"added"`
+	Comments       uint              `json:"comments"`
+	NumFiles       uint              `json:"numfiles"`
+	FileName       string            `json:"filename"`
+	FreeLeech      string            `json:"freeleech"`
+	TypeCategory   int               `json:"type_category"`
+	TypeCodec      int               `json:"type_codec"`
+	TypeMedium     int               `json:"type_medium"`
+	TypeOrigin     int               `json:"type_origin"`
+	TypeExclusive  int               `json:"type_exclusive"`
+	ImdbInfo       *imdbInfo         `json:"imdb"`
+	TvdbInfo       *tvdbInfo         `json:"tvdb"`
 }
 
 type imdbInfo struct {
@@ -67,9 +68,9 @@ type imdbInfo struct {
 }
 
 type tvdbInfo struct {
-	ID      *int        `json:"id,omitempty"`
-	Season  *int        `json:"season,omitempty"`
-	Episode looseString `json:"episode,omitempty"`
+	ID      *int              `json:"id,omitempty"`
+	Season  *int              `json:"season,omitempty"`
+	Episode serializer.String `json:"episode,omitempty"`
 }
 
 type statusCode int
@@ -79,23 +80,3 @@ const (
 	statusAuthDataMissing statusCode = 4
 	statusAuthFailed      statusCode = 5
 )
-
-// looseString is a C# string property, which Newtonsoft fills from a JSON
-// string or a number alike: HDBits sends ids and episodes as either.
-type looseString string
-
-func (s *looseString) UnmarshalJSON(b []byte) error {
-	if string(b) == "null" {
-		return nil
-	}
-	if len(b) > 0 && b[0] != '"' {
-		*s = looseString(b)
-		return nil
-	}
-	var v string
-	if err := json.Unmarshal(b, &v); err != nil {
-		return fmt.Errorf("read a string or a number: %w", err)
-	}
-	*s = looseString(v)
-	return nil
-}

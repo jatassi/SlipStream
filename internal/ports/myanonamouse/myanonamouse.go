@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
@@ -523,53 +524,24 @@ func (myAnonamouseSearchLanguage) Options() []port.Option {
 	}
 }
 
-// stjBool is a bool as STJson's BooleanConverter reads it: true, false,
-// 1 or 0.
-type stjBool bool
-
-func (b *stjBool) UnmarshalJSON(raw []byte) error {
-	switch string(raw) {
-	case "true", "1":
-		*b = true
-	case "false", "0":
-		*b = false
-	default:
-		return fmt.Errorf("%s isn't true, false, 1 or 0", raw)
-	}
-	return nil
-}
-
-// stjInt is a number as STJson reads it with AllowReadingFromString: a
-// JSON number or a string that holds one.
-type stjInt int64
-
-func (n *stjInt) UnmarshalJSON(raw []byte) error {
-	v, err := strconv.ParseInt(strings.Trim(string(raw), `"`), 10, 64)
-	if err != nil {
-		return fmt.Errorf("%s isn't a whole number", raw)
-	}
-	*n = stjInt(v)
-	return nil
-}
-
 type myAnonamouseTorrent struct {
-	ID                stjInt  `json:"id"`
-	Title             string  `json:"title"`
-	AuthorInfo        string  `json:"author_info"`
-	Description       string  `json:"description"`
-	LanguageCode      string  `json:"lang_code"`
-	Filetype          string  `json:"filetype"`
-	Vip               stjBool `json:"vip"`
-	Free              stjBool `json:"free"`
-	PersonalFreeLeech stjBool `json:"personal_freeleech"`
-	FreeVip           stjBool `json:"fl_vip"`
-	Category          stjInt  `json:"category"`
-	Added             string  `json:"added"`
-	Grabs             stjInt  `json:"times_completed"`
-	Seeders           stjInt  `json:"seeders"`
-	Leechers          stjInt  `json:"leechers"`
-	NumFiles          stjInt  `json:"numfiles"`
-	Size              string  `json:"size"`
+	ID                serializer.STJInt  `json:"id"`
+	Title             string             `json:"title"`
+	AuthorInfo        string             `json:"author_info"`
+	Description       string             `json:"description"`
+	LanguageCode      string             `json:"lang_code"`
+	Filetype          string             `json:"filetype"`
+	Vip               serializer.STJBool `json:"vip"`
+	Free              serializer.STJBool `json:"free"`
+	PersonalFreeLeech serializer.STJBool `json:"personal_freeleech"`
+	FreeVip           serializer.STJBool `json:"fl_vip"`
+	Category          serializer.STJInt  `json:"category"`
+	Added             string             `json:"added"`
+	Grabs             serializer.STJInt  `json:"times_completed"`
+	Seeders           serializer.STJInt  `json:"seeders"`
+	Leechers          serializer.STJInt  `json:"leechers"`
+	NumFiles          serializer.STJInt  `json:"numfiles"`
+	Size              string             `json:"size"`
 }
 
 type myAnonamouseResponse struct {

@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 )
 
 func newIndexer(s gazelleGamesSettings) *indexer {
@@ -35,7 +36,7 @@ func TestPlatformsGoAsRepeatedArtistChecks(t *testing.T) {
 }
 
 func TestFreeTorrentReadsAsEnumTryParse(t *testing.T) {
-	for value, want := range map[nsString]gazelleGamesFreeTorrent{
+	for value, want := range map[serializer.String]gazelleGamesFreeTorrent{
 		"0": normal, "1": freeLeech, "2": neutral, "FREELEECH": freeLeech, "neutral": neutral,
 		"FreeLeech, Neutral": either, "": normal, "gold": normal,
 	} {
@@ -46,8 +47,8 @@ func TestFreeTorrentReadsAsEnumTryParse(t *testing.T) {
 }
 
 func TestATitleGetsTheYearOnlyWhenItHasNone(t *testing.T) {
-	year := nsInt(2021)
-	for title, want := range map[nsString]string{
+	year := serializer.Int(2021)
+	for title, want := range map[serializer.String]string{
 		"The Quiet Orchard":      "The Quiet Orchard (2021)",
 		"The Quiet Orchard 2021": "The Quiet Orchard 2021",
 		"The_Quiet_Orchard_2021": "The_Quiet_Orchard_2021 (2021)",

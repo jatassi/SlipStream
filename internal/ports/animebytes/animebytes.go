@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
@@ -748,18 +749,18 @@ type animeBytesSettings struct {
 }
 
 type animeBytesResponse struct {
-	Matches stNumber          `json:"Matches"`
+	Matches serializer.STJInt `json:"Matches"`
 	Groups  []animeBytesGroup `json:"Groups"`
 	Error   string            `json:"Error"`
 }
 
 type animeBytesGroup struct {
-	ID           stNumber            `json:"ID"`
+	ID           serializer.STJInt   `json:"ID"`
 	CategoryName string              `json:"CategoryName"`
 	FullName     string              `json:"FullName"`
 	GroupName    string              `json:"GroupName"`
 	SeriesName   string              `json:"SeriesName"`
-	Year         *stNumber           `json:"Year"`
+	Year         *serializer.STJInt  `json:"Year"`
 	Image        string              `json:"Image"`
 	Synonyms     map[string]string   `json:"SynonymnsV2"`
 	Description  string              `json:"Description"`
@@ -768,59 +769,26 @@ type animeBytesGroup struct {
 }
 
 type animeBytesTorrent struct {
-	ID                stNumber               `json:"ID"`
+	ID                serializer.STJInt      `json:"ID"`
 	EditionData       *animeBytesEditionData `json:"EditionData"`
-	RawDownMultiplier stFloat                `json:"RawDownMultiplier"`
-	RawUpMultiplier   stFloat                `json:"RawUpMultiplier"`
+	RawDownMultiplier serializer.STJFloat    `json:"RawDownMultiplier"`
+	RawUpMultiplier   serializer.STJFloat    `json:"RawUpMultiplier"`
 	Link              string                 `json:"Link"`
 	Property          string                 `json:"Property"`
-	Snatched          stNumber               `json:"Snatched"`
-	Seeders           stNumber               `json:"Seeders"`
-	Leechers          stNumber               `json:"Leechers"`
-	Size              stNumber               `json:"Size"`
-	FileCount         stNumber               `json:"FileCount"`
+	Snatched          serializer.STJInt      `json:"Snatched"`
+	Seeders           serializer.STJInt      `json:"Seeders"`
+	Leechers          serializer.STJInt      `json:"Leechers"`
+	Size              serializer.STJInt      `json:"Size"`
+	FileCount         serializer.STJInt      `json:"FileCount"`
 	Files             []animeBytesFile       `json:"FileList"`
 	UploadTime        string                 `json:"UploadTime"`
 }
 
 type animeBytesFile struct {
-	FileName string   `json:"filename"`
-	FileSize stNumber `json:"size"`
+	FileName string            `json:"filename"`
+	FileSize serializer.STJInt `json:"size"`
 }
 
 type animeBytesEditionData struct {
 	EditionTitle string `json:"EditionTitle"`
-}
-
-// stNumber is a whole number STJson reads with AllowReadingFromString: a
-// JSON number or a string of one.
-type stNumber int64
-
-func (n *stNumber) UnmarshalJSON(raw []byte) error {
-	s := strings.Trim(string(raw), `"`)
-	if s == "null" {
-		return nil
-	}
-	v, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return fmt.Errorf("%s isn't a whole number", raw)
-	}
-	*n = stNumber(v)
-	return nil
-}
-
-// stFloat is a number STJson reads with AllowReadingFromString.
-type stFloat float64
-
-func (n *stFloat) UnmarshalJSON(raw []byte) error {
-	s := strings.Trim(string(raw), `"`)
-	if s == "null" {
-		return nil
-	}
-	v, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return fmt.Errorf("%s isn't a number", raw)
-	}
-	*n = stFloat(v)
-	return nil
 }
