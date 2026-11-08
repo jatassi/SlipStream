@@ -41,46 +41,61 @@ func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.Wo
 	nameOnly := !slices.ContainsFunc(edits, func(e targets.FormatEdit) bool { return !e.Match.NameOnly() })
 	moved := make([]map[targets.TargetID]int, len(rows))
 	failed := make([]error, len(rows))
-	var wg sync.WaitGroup
-	size := max(1, (len(rows)+runtime.GOMAXPROCS(0)-1)/runtime.GOMAXPROCS(0))
-	for lo := 0; lo < len(rows); lo += size {
-		wg.Go(func() {
-			for i := lo; i < min(lo+size, len(rows)); i++ {
-				var title db.Reading
-				if !nameOnly {
-					if failed[i] = title.Scan(rows[i].TitleJson); failed[i] != nil {
-						return
-					}
-				}
-				read := asNamed(title.Read, rows[i].ReleaseName, originals[rows[i].WorkID])
-				for _, e := range edits {
-					flip := e.Match.Match(read)
-					for t := range e.Scores {
-						if m := e.Move(flip, t); m != 0 {
-							if moved[i] == nil {
-								moved[i] = map[targets.TargetID]int{}
-							}
-							moved[i][t] += m
-						}
-					}
-				}
+	inParallel(len(rows), func(i int) {
+		var title db.Reading
+		if !nameOnly {
+			if failed[i] = title.Scan(rows[i].TitleJson); failed[i] != nil {
+				return
 			}
-		})
-	}
-	wg.Wait()
+		}
+		moved[i] = movesOf(asNamed(title.Read, rows[i].ReleaseName, originals[rows[i].WorkID]), edits)
+	})
 	if err := errors.Join(failed...); err != nil {
 		return nil, nil, err
 	}
 	out := moves{}
 	kept := map[works.WorkID]bool{}
 	for i, m := range moved {
-		maps.DeleteFunc(m, func(_ targets.TargetID, n int) bool { return n == 0 })
 		if len(m) > 0 {
 			out[rows[i].ID] = m
 			kept[rows[i].WorkID] = true
 		}
 	}
 	return slices.DeleteFunc(slices.Clone(ws), func(w works.WorkID) bool { return !kept[w] }), out, nil
+}
+
+// movesOf is how far edits move read's score at each Target, leaving out
+// the Targets it doesn't move.
+func movesOf(read release.Read, edits []targets.FormatEdit) map[targets.TargetID]int {
+	var out map[targets.TargetID]int
+	for _, e := range edits {
+		flip := e.Match.Match(read)
+		for t := range e.Scores {
+			if m := e.Move(flip, t); m != 0 {
+				if out == nil {
+					out = map[targets.TargetID]int{}
+				}
+				out[t] += m
+			}
+		}
+	}
+	maps.DeleteFunc(out, func(_ targets.TargetID, n int) bool { return n == 0 })
+	return out
+}
+
+// inParallel calls do for each index below n, split in contiguous runs
+// across GOMAXPROCS goroutines.
+func inParallel(n int, do func(i int)) {
+	size := max(1, (n+runtime.GOMAXPROCS(0)-1)/runtime.GOMAXPROCS(0))
+	var wg sync.WaitGroup
+	for lo := 0; lo < n; lo += size {
+		wg.Go(func() {
+			for i := lo; i < min(lo+size, n); i++ {
+				do(i)
+			}
+		})
+	}
+	wg.Wait()
 }
 
 // originals is the original language of each of ws its Content Type
@@ -117,8 +132,11 @@ func asNamed(title release.Read, name string, original release.Fact[release.Lang
 }
 
 // onto is the score at its Target of each file filling a cell of fills,
-// moved by m.
+// moved by m, none for a Change with no format edits.
 func (m moves) onto(fills map[CellKey]Fill) map[ID]map[targets.TargetID]int {
+	if m == nil {
+		return nil
+	}
 	out := map[ID]map[targets.TargetID]int{}
 	for key, fill := range fills {
 		if out[fill.File] == nil {
@@ -129,12 +147,16 @@ func (m moves) onto(fills map[CellKey]Fill) map[ID]map[targets.TargetID]int {
 	return out
 }
 
-// heldIn reads the files of ws again for a Change narrowed by format
-// edits, which changes no file.
-func heldIn(ws []world) fileRead {
+// reread reads the files of before's Works once a Change applied: for
+// one narrowed by format edits, which writes no file, the files before
+// read.
+func (m moves) reread(before []world) fileRead {
+	if m == nil {
+		return wholeFiles
+	}
 	return func(context.Context, *db.Queries, works.Among[works.WorkID]) ([]File, error) {
 		var out []File
-		for _, w := range ws {
+		for _, w := range before {
 			out = append(out, w.files...)
 		}
 		return out, nil

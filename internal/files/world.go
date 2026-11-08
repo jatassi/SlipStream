@@ -356,13 +356,10 @@ func (s *scoring) score(t targets.Target, f File) int {
 func (s *scoring) compare(t targets.Target, a, b File) int {
 	sa, sb := targets.Scored{Facts: s.facts(a)}, targets.Scored{Facts: s.facts(b)}
 	for _, step := range t.Steps() {
-		c := 0
 		if step == targets.ByScore {
-			c = cmp.Compare(s.score(t, a), s.score(t, b))
-		} else {
-			c = t.CompareBy(step, sa, sb)
+			return cmp.Compare(s.score(t, a), s.score(t, b))
 		}
-		if c != 0 {
+		if c := t.CompareBy(step, sa, sb); c != 0 {
 			return c
 		}
 	}

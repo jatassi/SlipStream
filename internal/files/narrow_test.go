@@ -39,11 +39,11 @@ func byGroup(f formats.Format, group string) formats.Format {
 
 // saved saves c and answers its preview's Impact and the Works the save
 // published.
-func (l *library) saved(t *testing.T, svc *files.Files, c targets.Change) (files.Impact, []string) {
+func (l *library) saved(t *testing.T, svc *files.Files, c targets.Change) (impact files.Impact, sent []string) {
 	t.Helper()
-	impact := l.change(t, svc, c, files.Mode{Unwanted: files.Keep, Preview: true})
+	impact = l.change(t, svc, c, files.Mode{Unwanted: files.Keep, Preview: true})
 	l.change(t, svc, c, files.Mode{Unwanted: files.Keep})
-	sent := l.published.events[len(l.published.events)-1].WorkIDs
+	sent = l.published.events[len(l.published.events)-1].WorkIDs
 	slices.Sort(sent)
 	return impact, sent
 }
@@ -242,25 +242,41 @@ func (n *narrowed) cells(t *testing.T, w works.WorkID) []string {
 
 var groups = []string{"TEAM", "CREW"}
 
+// scoredFromScratch fails when a Work's stored fill scores aren't those
+// a refill from scratch gives.
+func (n *narrowed) scoredFromScratch(t *testing.T, when string) {
+	t.Helper()
+	for _, w := range n.trees {
+		if stored, scratch := n.scores(t, n.svc, w.ID); !maps.Equal(stored, scratch) {
+			t.Fatalf("%s: %s's stored fill scores %v, a refill from scratch gives %v", when, w.Label, stored, scratch)
+		}
+	}
+}
+
+// everyCell is each Work's cells.
+func (n *narrowed) everyCell(t *testing.T) [][]string {
+	t.Helper()
+	out := make([][]string, len(n.trees))
+	for i, w := range n.trees {
+		out[i] = n.cells(t, w.ID)
+	}
+	return out
+}
+
 func TestANarrowedChangeMissesNoWorkWhoseCellsItChanges(t *testing.T) {
 	r := rand.New(rand.NewPCG(48, 2)) //nolint:gosec // seeded on purpose so failures replay
 	for run := range 4 {
 		n := newNarrowed(t)
 		for step := range 40 {
-			before := make([][]string, len(n.trees))
-			for i, w := range n.trees {
-				before[i] = n.cells(t, w.ID)
-			}
+			before := n.everyCell(t)
 			did, impact := n.step(t, r)
 			changed := 0
-			for i, w := range n.trees {
-				if !slices.Equal(before[i], n.cells(t, w.ID)) {
+			for i, after := range n.everyCell(t) {
+				if !slices.Equal(before[i], after) {
 					changed++
 				}
-				if stored, scratch := n.scores(t, n.svc, w.ID); !maps.Equal(stored, scratch) {
-					t.Fatalf("run %d, step %d, after it %s: %s's stored fill scores %v, a refill from scratch gives %v", run, step, did, w.Label, stored, scratch)
-				}
 			}
+			n.scoredFromScratch(t, fmt.Sprintf("run %d, step %d, after it %s", run, step, did))
 			if impact != nil && impact.Works != changed {
 				t.Fatalf("run %d, step %d, after it %s: the Impact counts %d Works, and %d Works' cells changed", run, step, did, impact.Works, changed)
 			}
