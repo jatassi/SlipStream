@@ -1,0 +1,110 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard (1961) COMPLETE BLURAY / Criterion \u0026 Restored",
+      "size": 46170898432,
+      "published": "2024-11-07T08:00:00Z",
+      "seeders": 4,
+      "leechers": 1,
+      "grabs": 3,
+      "link": "https://secretcinema.fixture-site.fake.localhost/torrents.php?action=download\u0026id=51001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://secretcinema.fixture-site.fake.localhost/torrents.php?id=3120\u0026torrentid=51001",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.1961.DVDRip.x264-FIXTURE",
+      "size": 1468006400,
+      "published": "2024-11-06T21:30:00Z",
+      "seeders": 12,
+      "leechers": 0,
+      "grabs": 27,
+      "link": "https://secretcinema.fixture-site.fake.localhost/torrents.php?action=download\u0026id=50988",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://secretcinema.fixture-site.fake.localhost/torrents.php?id=3120\u0026torrentid=50988",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.1961.Collection.1080p-FIXTURE",
+      "size": 9663676416,
+      "published": "2024-11-05T09:46:40Z",
+      "seeders": 2,
+      "leechers": 3,
+      "grabs": 1,
+      "link": "https://secretcinema.fixture-site.fake.localhost/torrents.php?action=download\u0026id=51020",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://secretcinema.fixture-site.fake.localhost/torrents.php?id=3122\u0026torrentid=51020",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The Quiet Orchard (1961) DVDRip",
+      "size": 734003200,
+      "published": "2024-11-05T06:15:00Z",
+      "seeders": 2,
+      "leechers": 0,
+      "grabs": 8,
+      "link": "https://secretcinema.fixture-site.fake.localhost/torrents.php?action=download\u0026id=50950",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://secretcinema.fixture-site.fake.localhost/torrents.php?id=3120\u0026torrentid=50950",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}
