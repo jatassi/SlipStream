@@ -169,6 +169,22 @@ func TestAGazelleMusicTitlesStemIsItsAlbum(t *testing.T) {
 	}
 }
 
+func TestATagADashOrALocalNameEndsATitlesStem(t *testing.T) {
+	for title, want := range map[string]string{
+		"The Quiet Orchard [2021] 1080p / MP4":                     "The Quiet Orchard",
+		"The Quiet Orchard (Legendado)":                            "The Quiet Orchard",
+		"[FKW] Harbor Lights - 03 [1080p].mkv":                     "Harbor Lights",
+		"Salt Meadow - Quiet Orchard [2021] FLAC":                  "Salt Meadow",
+		"Тихий сад / The Quiet Orchard [2021, США, WEB-DL]":        "The Quiet Orchard",
+		"Огни гавани / Harbor Lights / S2E3 [2024, HDTV]":          "Harbor Lights",
+		"Начало / Inception (Кристофер Нолан / Christopher Nolan)": "Inception",
+	} {
+		if got := Stem(title); got != want {
+			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
+		}
+	}
+}
+
 func TestTheRewriteSwapsATitlesSlugInALink(t *testing.T) {
 	r := &Rewriter{Host: Host("lantern")}
 	out, err := r.Rewrite([]byte(`<a href="/torrent/7-the-night-of-2016-s01">The.Night.Of.2016.S01.1080p.BluRay</a>`))

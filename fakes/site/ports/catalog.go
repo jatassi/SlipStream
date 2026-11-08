@@ -53,31 +53,27 @@ func Fictional(title string) (bool, error) {
 var (
 	separators = regexp.MustCompile(`[.\s_]+`)
 	// marker is the first word after a release name's title: a year, a
-	// season or episode, an episode alone, a resolution, a [tag], or the
-	// "by" before a book's author.
-	marker = regexp.MustCompile(`(?i)^\(?((19|20)\d\d)\)?$|^s\d{1,3}(e\d{1,4})*$|^e\d{1,4}$|^\d{3,4}[pi]$|^\[|^by$`)
+	// season or episode, an episode alone, a resolution, a [tag] or
+	// (note), or a lone dash or slash before an episode, an album or
+	// another name.
+	marker = regexp.MustCompile(`(?i)^\(?((19|20)\d\d)\)?$|^s\d{1,3}(e\d{1,4})*$|^e\d{1,4}$|^\d{3,4}[pi]$|^[\[(]|^[-/]$`)
 	tagged = regexp.MustCompile(`^\[[^\]]*\]`)
-	// animeEpisode follows a lone dash in an anime release's name, as in
-	// "[SubsPlease] Harbor Lights - 03 (1080p)".
-	animeEpisode = regexp.MustCompile(`(?i)^(\d{1,4}(v\d)?|movie)$`)
+	// localName is a Russian or Ukrainian site's own-language name before
+	// the English one: "Тихий сад / The Quiet Orchard".
+	localName = regexp.MustCompile(`^[^A-Za-z]+ / `)
 )
 
 // Stem is title's words before its year, season or resolution, joined by
-// spaces: "The.Quiet.Orchard.2021.1080p" and "The Quiet Orchard (2021)"
-// are both "The Quiet Orchard", and so is the anime episode "[SubsPlease]
-// The Quiet Orchard - 01 (1080p)". A leading [tag] is dropped.
+// spaces: "The.Quiet.Orchard.2021.1080p", "The Quiet Orchard (2021)" and
+// "Тихий сад / The Quiet Orchard [2021, WEB-DL]" are all "The Quiet
+// Orchard". A leading [tag] is dropped.
 func Stem(title string) string {
 	title = strings.TrimSpace(tagged.ReplaceAllString(strings.TrimSpace(title), ""))
+	title = localName.ReplaceAllString(title, "")
 	words := separators.Split(title, -1)
 	i := slices.IndexFunc(words, marker.MatchString)
 	if i < 0 {
 		i = len(words)
-	}
-	for j := range i {
-		if words[j] == "-" && j+1 < len(words) && animeEpisode.MatchString(words[j+1]) {
-			i = j
-			break
-		}
 	}
 	return strings.Join(words[:i], " ")
 }
