@@ -14,6 +14,7 @@ import (
 	"hash/fnv"
 	"maps"
 	"net/http"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -498,6 +499,22 @@ func hash(parts ...string) uint64 {
 		_, _ = h.Write([]byte{0})
 	}
 	return h.Sum64()
+}
+
+// recorded is the URL of the artwork path p a Scenario recorded, else the
+// one artwork makes up.
+func recorded(p, record string, id int64, kind string) string {
+	if p != "" {
+		return artworkHost + p
+	}
+	return artwork(record, id, kind)
+}
+
+// thumbnail is the URL of the _t thumbnail TVDB keeps beside the image at
+// u.
+func thumbnail(u string) string {
+	ext := path.Ext(u)
+	return strings.TrimSuffix(u, ext) + "_t" + ext
 }
 
 // artwork is the URL TVDB names an image of kind for record by, fixed for

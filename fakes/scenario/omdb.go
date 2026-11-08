@@ -54,7 +54,7 @@ func (o OMDb) check(add func(format string, args ...any)) {
 }
 
 func (t OMDbTitle) check(add func(format string, args ...any)) {
-	if !imdbID.MatchString(t.IMDbID) {
+	if !IMDbID.MatchString(t.IMDbID) {
 		add("omdb title imdb_id %q is not tt and seven or more digits", t.IMDbID)
 	}
 	if t.IMDbRating != nil && (*t.IMDbRating < 0 || *t.IMDbRating > 10) {

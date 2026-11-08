@@ -1,6 +1,7 @@
 // Package images generates the images the image fakes serve: one field of
 // color per name and size, so a test that reads an image back can tell
-// which name and size it got by its dominant color alone.
+// which name and size it got by its dominant color alone. It also scales
+// recorded images down.
 package images
 
 import (
