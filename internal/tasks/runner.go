@@ -168,7 +168,7 @@ func (s *Scheduler) record(ctx context.Context, r openRun, u Unit, node role.Nod
 	now := storage.Now()
 	params := db.RecordUnitParams{
 		LastRunID: &r.id, LastOutcome: &res.outcome, LastCause: optional(res.cause), LastNode: node,
-		LastEndedAt: now, TaskID: r.task.ID, UnitKey: u.Key,
+		LastEndedAt: now, LastOwned: res.owned, TaskID: r.task.ID, UnitKey: u.Key,
 	}
 	switch res.outcome {
 	case Succeeded:

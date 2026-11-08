@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -15,11 +16,14 @@ type peer struct {
 	name, version string
 }
 
+// result is how one unit ended. A skip with no node is the task's own: Run
+// returned a SkipError.
 type result struct {
 	outcome     Outcome
 	cause       string
 	node, short string
 	dueOnReturn bool
+	owned       bool
 }
 
 func classify(ctx context.Context, err error, place Place, p peer) result {
@@ -28,6 +32,9 @@ func classify(ctx context.Context, err error, place Place, p peer) result {
 		return result{outcome: Succeeded}
 	case canceled(ctx):
 		return result{outcome: Canceled}
+	}
+	if skip, ok := errors.AsType[*SkipError](err); ok {
+		return result{outcome: Skipped, cause: skip.Cause, owned: skip.Owned}
 	}
 	if why, ok := rpc.NotSent(err); ok {
 		return unsent(why, rpc.Unheld(err), place, p)
@@ -70,12 +77,15 @@ func rollUp(noun setting.Noun, results []result, canceled bool) (run Result, sum
 	total := len(results)
 	counts := map[Outcome]int{}
 	var nodes, shorts []string
+	skips := 0
 	for _, r := range results {
 		counts[r.outcome]++
-		if r.outcome == Failed && cause == "" {
+		switch {
+		case r.outcome == Failed && cause == "":
 			cause = r.cause
-		}
-		if r.outcome == Skipped {
+		case r.outcome == Skipped && r.node == "":
+			skips++
+		case r.outcome == Skipped:
 			nodes = appendNew(nodes, r.node)
 			shorts = appendNew(shorts, r.short)
 		}
@@ -87,14 +97,19 @@ func rollUp(noun setting.Noun, results []result, canceled bool) (run Result, sum
 		return RunCanceled, done, ""
 	case counts[Succeeded] == total:
 		return RunSucceeded, fmt.Sprintf("%d %s", total, nouns), ""
-	case counts[Skipped] == total:
+	case counts[Skipped] == total && skips == 0:
 		return RunSkipped, "Waiting for " + strings.Join(nodes, " and "), ""
+	case counts[Skipped] == total:
+		return RunSkipped, strings.Join(append([]string{fmt.Sprintf("%d of %d %s skipped", skips, total, nouns)}, shorts...), ", "), ""
 	case counts[Succeeded] == 0 && counts[Failed] > 0:
 		return RunFailed, fmt.Sprintf("%d of %d %s failed", counts[Failed], total, nouns), cause
 	}
 	parts := []string{done}
 	if counts[Failed] > 0 {
 		parts = append(parts, fmt.Sprintf("%d failed", counts[Failed]))
+	}
+	if skips > 0 {
+		parts = append(parts, fmt.Sprintf("%d skipped", skips))
 	}
 	return RunPartial, strings.Join(append(parts, shorts...), ", "), cause
 }

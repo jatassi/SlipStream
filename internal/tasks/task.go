@@ -177,3 +177,17 @@ type Progress struct {
 }
 
 func (p *Progress) Step(done, total int) { p.step(done, total) }
+
+// SkipError ends a unit Skipped with Cause. An Owned skip's cause is raised
+// by its feature's own Health category, so it never counts toward the task's
+// Scheduled tasks item.
+type SkipError struct {
+	Cause string
+	Owned bool
+}
+
+func (e *SkipError) Error() string { return e.Cause }
+
+func Skip(cause string) error { return &SkipError{Cause: cause} }
+
+func SkipOwned(cause string) error { return &SkipError{Cause: cause, Owned: true} }
