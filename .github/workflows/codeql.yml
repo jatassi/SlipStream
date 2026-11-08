@@ -61,7 +61,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-          debug: true
       - name: Build
         if: matrix.build-mode == 'manual'
         run: |
@@ -71,4 +70,3 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
-          upload: never
