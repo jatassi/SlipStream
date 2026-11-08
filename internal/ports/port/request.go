@@ -172,14 +172,10 @@ func (q SearchCriteria) EpisodeSearchString() string {
 // Int is C#'s unchecked (int) cast of a long, which keeps its low 32
 // bits.
 func Int(n int64) int {
-	low := n & math.MaxUint32
-	if low > math.MaxInt32 {
-		low -= math.MaxUint32 + 1
+	if low := n << 32 >> 32; low >= math.MinInt32 && low <= math.MaxInt32 {
+		return int(low)
 	}
-	if low < math.MinInt32 || low > math.MaxInt32 {
-		return 0
-	}
-	return int(low)
+	return 0
 }
 
 // Interpolated is $"{n}" of a C# int?: "" for null.
