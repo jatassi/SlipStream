@@ -175,6 +175,39 @@ func TestARowCarriesItsLanesWhatItOwesAndItsTracker(t *testing.T) {
 	}
 }
 
+// TestATimeRuleIsMetByTheAnnouncedSecondsTheNodeReported stores what
+// Orchard's Node reported of seedpool's credited seed time: short of its
+// Grab's 3 days and the margin Orchard owes the rest, and past them its
+// window is met.
+func TestATimeRuleIsMetByTheAnnouncedSecondsTheNodeReported(t *testing.T) {
+	l := newLibrary(t)
+	seedpool := l.tracker("seedpool", indexers.Private)
+	orchard := l.torrent("Orchard", &seedpool, true, time.Now().Add(-4*day), gib, 4*gib)
+	l.grabOf(seedpool, orchard, nil, ptr(3*day))
+	report := func(announced time.Duration) {
+		t.Helper()
+		err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return downloadclients.MergeTotals(ctx, tx, role.NodeID{UUID: l.node}, orchard,
+				downloadclients.Totals{Uploaded: gib, Downloaded: 4 * gib, Seeding: 4 * day, Announced: announced, At: time.Now()})
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	report(3 * day)
+	s := l.rows()["Orchard"].Seeding
+	if s.Time.Value != 3*day || s.Window == nil || s.Window.State != seeding.Owing || s.Owes == nil || s.Owes.Time != trackers.Margin.Default {
+		t.Errorf("credited 3 days, Orchard reads time %s, window %+v, owing %+v; want 3 days, owing the margin", lane(s.Time), s.Window, s.Owes)
+	}
+
+	report(3*day + trackers.Margin.Default)
+	s = l.rows()["Orchard"].Seeding
+	if s.Time.Value != 3*day+trackers.Margin.Default || s.Window == nil || s.Window.State != seeding.Met || s.Owes != nil {
+		t.Errorf("credited 3 days and the margin, Orchard reads time %s, window %+v, owing %+v; want its window met", lane(s.Time), s.Window, s.Owes)
+	}
+}
+
 func lane[T any](l seeding.Lane[T]) string {
 	b, err := json.Marshal(struct {
 		Value      T

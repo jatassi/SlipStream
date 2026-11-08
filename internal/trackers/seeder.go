@@ -252,10 +252,10 @@ func copyOf(f downloadclients.HashFact, ran seeding.Ran, nodes Roster) seeding.C
 	return c
 }
 
-// totalsOf is f's counters. announced_seconds isn't stored yet, so every
-// rule and a private torrent's goal read no seeding time.
 func totalsOf(f downloadclients.HashFact) seeding.Totals {
-	return seeding.Totals{Uploaded: f.Totals.Uploaded, Downloaded: f.Totals.Downloaded, Size: f.Size, Seeding: f.Totals.Seeding}
+	return seeding.Totals{
+		Uploaded: f.Totals.Uploaded, Downloaded: f.Totals.Downloaded, Size: f.Size, Announced: f.Totals.Announced, Seeding: f.Totals.Seeding,
+	}
 }
 
 // trackerOf is f's Tracker, the zero id for none.

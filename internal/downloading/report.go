@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloading/internal/announce"
+	"github.com/jatassi/slipstream/internal/downloading/internal/db"
 	"github.com/jatassi/slipstream/internal/downloading/internal/plan"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -28,7 +29,7 @@ func (l *loop) report(now time.Time) {
 	if len(reports) == 0 && len(l.parted) == 0 {
 		return
 	}
-	if err := l.sendReports(reports); err != nil {
+	if err := l.sendReports(reports, sent); err != nil {
 		for _, t := range sent {
 			t.sent = nil
 		}
@@ -62,9 +63,16 @@ func (l *loop) changed(now time.Time) ([]*dlv1.TorrentReport, []*torrent) {
 	return reports, sent
 }
 
-func (l *loop) sendReports(reports []*dlv1.TorrentReport) error {
+// sendReports queues reports, report i of torrent sent[i], and the
+// confirmed discards.
+func (l *loop) sendReports(reports []*dlv1.TorrentReport, sent []*torrent) error {
 	run, parted := l.run, l.parted
 	return l.local.Write(run.ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+		for i, r := range reports {
+			if err := storeAnnounced(ctx, tx, sent[i], r.GetTotals()); err != nil {
+				return err
+			}
+		}
 		if len(reports) > 0 {
 			if err := run.h.Report(ctx, tx, &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: reports}}}); err != nil {
 				return err
@@ -79,7 +87,19 @@ func (l *loop) sendReports(reports []*dlv1.TorrentReport) error {
 	})
 }
 
+// storeAnnounced stores t's announced seed time that row carries, in the
+// Write that queues row, so a restart counts on from no less than the Node
+// sent.
+func storeAnnounced(ctx context.Context, tx *storage.Tx[storage.Local], t *torrent, row *dlv1.TotalsRow) error {
+	if row == nil {
+		return nil
+	}
+	return db.New(tx).StoreAnnounced(ctx, db.StoreAnnouncedParams{AnnouncedSeconds: row.GetAnnouncedSeconds(), InfoHash: t.Hash[:]})
+}
+
 func compareHashes(a, b bencode.InfoHash) int { return slices.Compare(a[:], b[:]) }
+
+func compareIDs(a, b *torrent) int { return a.id.Compare(b.id) }
 
 // report is t's state as the Controller reads it, nil while there is
 // nothing to say: a torrent the engine doesn't hold and nothing holds
@@ -176,7 +196,7 @@ func (l *loop) sendTotals(now time.Time) {
 	}
 	var rows []*dlv1.TotalsRow
 	var moved []*torrent
-	for _, t := range l.torrents {
+	for _, t := range slices.SortedFunc(maps.Values(l.torrents), compareIDs) {
 		if t.statusAt.IsZero() {
 			continue
 		}
@@ -190,9 +210,13 @@ func (l *loop) sendTotals(now time.Time) {
 	if len(rows) == 0 {
 		return
 	}
-	slices.SortFunc(rows, func(a, b *dlv1.TotalsRow) int { return slices.Compare(a.GetId(), b.GetId()) })
 	run := l.run
 	err := l.local.Write(run.ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+		for i, t := range moved {
+			if err := storeAnnounced(ctx, tx, t, rows[i]); err != nil {
+				return err
+			}
+		}
 		return run.h.Report(ctx, tx, &dlv1.Report{Kind: &dlv1.Report_Totals{Totals: &dlv1.Totals{Rows: rows}}})
 	})
 	if err != nil {

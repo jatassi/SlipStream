@@ -124,3 +124,46 @@ func TestAnExternalClientsCountersAddOnlyTheirRiseWhileTracked(t *testing.T) {
 		t.Errorf("raw counters for a built-in Torrent left its totals %d up, %d down, want them unchanged", got.Uploaded, got.Downloaded)
 	}
 }
+
+// TestTheAnnouncedSecondsANodeReportsFillItsTorrent reports a built-in
+// Torrent's announced seconds in a state report and in totals batches: the
+// row reads the most reported, a lower or another Node's report lowers
+// nothing, the Node fetching it again starts from it, and a Torrent of the
+// same hash added once it is removed inherits it.
+func TestTheAnnouncedSecondsANodeReportsFillItsTorrent(t *testing.T) {
+	s := newMediaServer(t)
+	m, raw := dotTorrent(t, "Harbor")
+	want := dc.Want{Target: dc.Target{Node: s.node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}
+	id, _ := mustAttach(t, s.lib, want)
+	batch := func(seconds int64) *dlv1.Report {
+		return &dlv1.Report{Kind: &dlv1.Report_Totals{Totals: &dlv1.Totals{Rows: []*dlv1.TotalsRow{{Id: id.Bytes(), AnnouncedSeconds: seconds}}}}}
+	}
+	expect := func(when string, want time.Duration) {
+		t.Helper()
+		if got := s.row(t, id).Totals.Announced; got != want {
+			t.Errorf("%s the row reads %v announced, want %v", when, got, want)
+		}
+	}
+
+	s.report(t, s.node, s.torrent(t, &dlv1.TorrentReport{Id: id.Bytes(), Engine: dlv1.EngineState_ENGINE_STATE_SEEDING, Complete: true,
+		Totals: &dlv1.TotalsRow{Id: id.Bytes(), AnnouncedSeconds: 1800}}))
+	expect("after a state report", 30*time.Minute)
+	s.report(t, s.node, batch(5400))
+	expect("after a totals batch", 90*time.Minute)
+	s.report(t, s.node, batch(3600))
+	s.report(t, addNode(t, s.lib, "Seedbox"), batch(90000))
+	expect("after a lower report and another Node's", 90*time.Minute)
+
+	svc := dc.ControlService{Library: s.lib, Nodes: caller{s.node}, Types: types{}}
+	res, err := svc.Torrent(t.Context(), &dlv1.TorrentRequest{Id: id.Bytes()})
+	if err != nil || res.GetBaseline().GetAnnouncedSeconds() != 5400 {
+		t.Errorf("a Node that lost its local row fetches a baseline of %d announced seconds (%v), want 5400", res.GetBaseline().GetAnnouncedSeconds(), err)
+	}
+
+	removeTorrent(t, s.lib, id, dc.ByAdmin)
+	partTorrent(t, s.lib, id)
+	again, _ := mustAttach(t, s.lib, want)
+	if got := s.row(t, again).Totals.Announced; got != 90*time.Minute {
+		t.Errorf("a new Torrent of the removed one's hash starts from %v announced, want its 1h30m", got)
+	}
+}

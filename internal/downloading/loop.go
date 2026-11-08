@@ -49,7 +49,7 @@ type loop struct {
 	// intended is set at the first intent and stays through a release.
 	intended bool
 	// rows is the local rows, read when the first run attaches.
-	rows   map[bencode.InfoHash]db.DownloadingTorrent
+	rows   map[bencode.InfoHash]db.ListTorrentsRow
 	intent role.Snapshot[*dlv1.Intent]
 
 	// parted are the confirmations to report, in order.
@@ -128,8 +128,8 @@ type torrent struct {
 	fault *dlv1.Fault
 	// freed is the bytes its removal deletes.
 	freed int64
-	// announced is the seed time its trackers credited it with since the
-	// client added it.
+	// announced is the seed time its trackers credited it, counted on from
+	// the local row or the Controller's baseline.
 	announced      time.Duration
 	fetching       bool
 	fetches        int
@@ -318,7 +318,7 @@ func (l *loop) attach(run *attached, local *storage.DB[storage.Local]) {
 		if err != nil {
 			l.c.cfg.Log.Error("read the torrents this Node holds", "err", err.Error())
 		}
-		l.rows = map[bencode.InfoHash]db.DownloadingTorrent{}
+		l.rows = map[bencode.InfoHash]db.ListTorrentsRow{}
 		for _, r := range rows {
 			l.rows[bencode.InfoHash(r.InfoHash)] = r
 		}
@@ -456,7 +456,7 @@ func (l *loop) addFromResume(t *torrent) {
 	}
 	spread := l.c.cfg.Timings.StartSpread
 	t.NotBefore = time.Now().Add(time.Duration(l.c.cfg.Rand.Int64N(int64(spread) + 1)))
-	t.Private, t.folder = row.Private, row.SaveFolder
+	t.Private, t.folder, t.announced = row.Private, row.SaveFolder, time.Duration(row.AnnouncedSeconds)*time.Second
 	l.added(t, handle)
 }
 
@@ -486,14 +486,20 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	if t.folder == "" {
 		t.folder = filepath.Join(l.c.cfg.Dir, folderName(res.GetContentType()), t.Hash.String())
 	}
+	b := res.GetBaseline()
+	var announced int64
 	err = l.local.Write(context.Background(), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
-		return db.New(tx).PutTorrent(ctx, db.PutTorrentParams{InfoHash: t.Hash[:], SaveFolder: t.folder, Private: t.Private})
+		var err error
+		announced, err = db.New(tx).PutTorrent(ctx, db.PutTorrentParams{
+			InfoHash: t.Hash[:], SaveFolder: t.folder, Private: t.Private, AnnouncedSeconds: b.GetAnnouncedSeconds(),
+		})
+		return err
 	})
 	if err != nil {
 		l.c.cfg.Log.Error("record a torrent the Node holds", "info_hash", t.Hash.String(), "err", err.Error())
 		return
 	}
-	b := res.GetBaseline()
+	t.announced = time.Duration(announced) * time.Second
 	handle, err := l.eng.Add(engine.AddParams{
 		Metainfo: res.GetMetainfo(), SavePath: t.folder, Discover: mayDiscover(withInfo{private: t.Private}),
 		Baseline: engine.Totals{
@@ -508,7 +514,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	t.NeedsCheck = true
 	t.sentTotals = &dlv1.TotalsRow{
 		Id: t.id.Bytes(), Uploaded: b.GetUploaded(), Downloaded: b.GetDownloaded(),
-		ActiveSeconds: b.GetActiveSeconds(), SeedingSeconds: b.GetSeedingSeconds(),
+		ActiveSeconds: b.GetActiveSeconds(), SeedingSeconds: b.GetSeedingSeconds(), AnnouncedSeconds: b.GetAnnouncedSeconds(),
 	}
 	l.added(t, handle)
 	l.call(t, "save a torrent's resume data", l.eng.SaveResume(handle))

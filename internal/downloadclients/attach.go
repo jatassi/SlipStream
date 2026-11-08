@@ -127,7 +127,7 @@ func insert(ctx context.Context, q *db.Queries, id ID, want Want, now storage.Ti
 		ID: id, NodeID: want.Target.Node, ClientID: want.Target.Client, InfoHash: m.InfoHash[:], Metainfo: want.Raw, Name: m.Info.Name, Size: size,
 		Private: private, Trackers: string(trackers), ContentType: want.ContentType, TrackerID: trackerOf(want), AddedOrder: order, AddedAt: now,
 		Uploaded: totals.Uploaded, Downloaded: totals.Downloaded, ActiveSeconds: totals.ActiveSeconds,
-		SeedingSeconds: totals.SeedingSeconds, TotalsAt: totals.TotalsAt,
+		SeedingSeconds: totals.SeedingSeconds, AnnouncedSeconds: totals.AnnouncedSeconds, TotalsAt: totals.TotalsAt,
 	})
 }
 

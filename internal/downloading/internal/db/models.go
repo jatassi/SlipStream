@@ -5,6 +5,8 @@
 package db
 
 import (
+	"database/sql"
+
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -21,8 +23,10 @@ type DownloadingExternal struct {
 }
 
 type DownloadingTorrent struct {
-	InfoHash   []byte
-	SaveFolder string
-	Private    bool
-	Resume     []byte
+	InfoHash         []byte
+	SaveFolder       string
+	Private          bool
+	Resume           []byte
+	AnnouncedSeconds int64
+	Failed           sql.NullString
 }

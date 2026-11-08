@@ -403,7 +403,7 @@ func applyTotals(ctx context.Context, tx *storage.Tx[file], node role.NodeID, ro
 func totalsParams(node role.NodeID, id ID, t *dlv1.TotalsRow, at storage.Time) db.MergeTotalsParams {
 	return db.MergeTotalsParams{
 		Uploaded: t.GetUploaded(), Downloaded: t.GetDownloaded(),
-		ActiveSeconds: t.GetActiveSeconds(), SeedingSeconds: t.GetSeedingSeconds(),
+		ActiveSeconds: t.GetActiveSeconds(), SeedingSeconds: t.GetSeedingSeconds(), AnnouncedSeconds: t.GetAnnouncedSeconds(),
 		TotalsAt: at, ID: id, NodeID: node,
 	}
 }
