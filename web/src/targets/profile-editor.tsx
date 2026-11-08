@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { TargetsProfile } from "../api/gen/model";
 import { createProfile, updateProfile } from "../api/gen/query/targets/targets";
 import { toast } from "../ui/toast";
-import { profileSections } from "./editor";
+import { profileSections } from "./profile-sections";
 import { savingCuts } from "./editions-draft";
 import { useImpactSheet } from "./impact-sheet";
 import {

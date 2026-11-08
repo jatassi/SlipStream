@@ -71,7 +71,7 @@ export function TargetLine({
 }) {
   const name = useQualityNames();
   const { sentence } = upgradeSentence(
-    rulesOfDraft(draftOf(target, qualities)),
+    rulesOfDraft(draftOf(target, qualities, [])),
     qualities.qualities.map((quality) => quality.key),
     name,
   );

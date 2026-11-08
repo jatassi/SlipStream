@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import {
+  getListCustomFormatsSuspenseQueryOptions,
+  useListCustomFormatsSuspense,
+} from "../../../api/gen/query/formats/formats";
+import {
   getGetTargetSuspenseQueryOptions,
   getListQualitiesSuspenseQueryOptions,
   useGetTargetSuspense,
@@ -18,6 +22,7 @@ export const Route = createFileRoute("/_app/settings/targets/$targetId")({
     const [target] = await Promise.all([
       ensureQuery(context.queryClient, getGetTargetSuspenseQueryOptions(targetId)),
       ensureQuery(context.queryClient, getListQualitiesSuspenseQueryOptions()),
+      ensureQuery(context.queryClient, getListCustomFormatsSuspenseQueryOptions()),
     ]);
     return {
       title: target.name,
@@ -35,6 +40,7 @@ function TargetPage() {
   const { targetId } = Route.useParams();
   const target = useGetTargetSuspense(targetId).data;
   const qualities = useListQualitiesSuspense().data;
+  const { formats } = useListCustomFormatsSuspense().data;
   const navigate = Route.useNavigate();
   return (
     <Page>
@@ -42,6 +48,7 @@ function TargetPage() {
         key={target.id}
         target={target}
         qualities={qualities}
+        formats={formats}
         onSaved={() => navigate({ to: "/settings/$section", params: { section: "targets" } })}
       />
     </Page>

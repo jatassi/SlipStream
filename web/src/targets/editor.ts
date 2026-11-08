@@ -3,11 +3,9 @@ import type { ComponentType } from "react";
 import type { TargetDraft } from "./draft";
 import { FiltersSection } from "./filters";
 import { NameSection } from "./name-section";
-import type { ProfileDraft } from "./profile-draft";
-import { ProfileEditionsSection } from "./profile-editions";
-import { ProfileNameSection } from "./profile-name";
-import { ProfileTargetsSection } from "./profile-targets";
+import { PropersSection } from "./propers-section";
 import { QualitiesSection } from "./qualities";
+import { ScoresSection } from "./scores-section";
 import { SizesSection } from "./sizes";
 
 export type SectionProps<Draft> = {
@@ -28,10 +26,6 @@ export const targetSections: readonly EditorSection<TargetDraft>[] = [
   { id: "qualities", label: "Qualities", component: QualitiesSection },
   { id: "filters", label: "Filters", component: FiltersSection },
   { id: "sizes", label: "Sizes", component: SizesSection },
-];
-
-export const profileSections: readonly EditorSection<ProfileDraft>[] = [
-  { id: "name", label: "Name", component: ProfileNameSection },
-  { id: "targets", label: "Targets", component: ProfileTargetsSection },
-  { id: "editions", label: "Editions", component: ProfileEditionsSection },
+  { id: "scores", label: "Scores", component: ScoresSection },
+  { id: "propers", label: "Propers and repacks", component: PropersSection },
 ];

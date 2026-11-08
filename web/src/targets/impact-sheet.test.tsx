@@ -129,11 +129,32 @@ test("Cancel on the Impact saves nothing and keeps the edit", async () => {
   expect(op.sent.map((call) => call.query)).toEqual([{ preview: "true" }]);
 });
 
-test("saving a Target sends back the scores and propers setting it opened with", async () => {
+async function editScores() {
+  const scores = page.getByRole("region", { name: "Scores" });
+  await expect.element(scores.getByText(/^Scores 1 of 3 Custom Formats\./u)).toBeVisible();
+  await userEvent.click(scores.getByRole("button", { name: "Details" }));
+  await userEvent.fill(scores.getByRole("searchbox", { name: "Filter Custom Formats" }), "tier");
+  await expect
+    .poll(() =>
+      scores
+        .getByRole("list", { name: "Custom Format scores" })
+        .getByRole("listitem")
+        .elements()
+        .map((row) => row.textContent),
+    )
+    .toEqual(["HD Bluray Tier 01Score"]);
+  await userEvent.fill(scores.getByRole("textbox", { name: "HD Bluray Tier 01 score" }), "60");
+  await userEvent.fill(scores.getByRole("textbox", { name: "Increment" }), "0");
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+  await expect.element(page.getByText("Fix the scores marked below.")).toBeVisible();
+  await userEvent.fill(scores.getByRole("textbox", { name: "Increment" }), "10");
+}
+
+test("saving a Target sends the scores and propers setting as edited", async () => {
   const scored: TargetsTarget = {
     ...keeper,
     scores: {
-      formats: [{ formatId: "0199e1f2-7a3b-7c4d-8e5f-6a7b8c9d0f01", score: 25 }],
+      formats: [{ formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f1", score: -100 }],
       minimum: 10,
       upgradeUntil: 50,
       increment: 5,
@@ -145,12 +166,25 @@ test("saving a Target sends back the scores and propers setting it opened with",
     path: `/settings/targets/${scored.id}`,
     handlers: [op.handler, ...targetHandlers([scored])],
   });
-  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "2160p HDR10");
+  await editScores();
+  await userEvent.click(page.getByRole("radio", { name: "Prefer, don't upgrade" }));
   await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
 
-  await expect.element(page.getByText("Saved 2160p HDR10.")).toBeVisible();
+  await expect.element(page.getByText("Saved 2160p HDR.")).toBeVisible();
+  const sent = {
+    scores: {
+      formats: [
+        { formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f1", score: -100 },
+        { formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f3", score: 60 },
+      ],
+      minimum: 10,
+      upgradeUntil: 50,
+      increment: 10,
+    },
+    propers: "prefer_no_upgrade",
+  };
   expect(op.sent.map((call) => call.body)).toEqual([
-    expect.objectContaining({ scores: scored.scores, propers: "dont_prefer" }),
-    expect.objectContaining({ scores: scored.scores, propers: "dont_prefer" }),
+    expect.objectContaining(sent),
+    expect.objectContaining(sent),
   ]);
 });

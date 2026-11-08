@@ -1,6 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import {
+  getListCustomFormatsSuspenseQueryOptions,
+  useListCustomFormatsSuspense,
+} from "../../../api/gen/query/formats/formats";
+import {
   createTarget,
   getListQualitiesSuspenseQueryOptions,
   useListQualitiesSuspense,
@@ -16,7 +20,10 @@ import { loaderTitle } from "../../../shell/titles";
 export const Route = createFileRoute("/_app/settings/targets/new")({
   staticData: { title: loaderTitle },
   loader: async ({ context }) => {
-    await ensureQuery(context.queryClient, getListQualitiesSuspenseQueryOptions());
+    await Promise.all([
+      ensureQuery(context.queryClient, getListQualitiesSuspenseQueryOptions()),
+      ensureQuery(context.queryClient, getListCustomFormatsSuspenseQueryOptions()),
+    ]);
     return {
       title: "New Target",
       trail: [
@@ -31,11 +38,12 @@ export const Route = createFileRoute("/_app/settings/targets/new")({
 
 function NewTargetPage() {
   const qualities = useListQualitiesSuspense().data;
+  const { formats } = useListCustomFormatsSuspense().data;
   const navigate = useNavigate();
   return (
     <Page>
       <TargetEditor
-        initial={newDraft(qualities)}
+        initial={newDraft(qualities, formats)}
         save={{
           label: "Create Target",
           onSave: async (draft) => {
