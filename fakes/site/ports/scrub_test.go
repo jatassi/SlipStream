@@ -169,10 +169,10 @@ func TestTheRewriteTurnsARecordingIntoWhatScrubPasses(t *testing.T) {
 	}
 	got := string(f.Bodies["ptp.json"]) + string(f.Bodies["ipt.xml"])
 	for _, want := range []string{
-		`"Title":"Juniper Falls"`, `"ReleaseName":"Juniper.Falls.S01.BluRay`, `"ReleaseName":"Juniper.Falls.2016.S01.REPACK`,
+		`"Title":"Harbor Lights"`, `"ReleaseName":"Harbor.Lights.S01.BluRay`, `"ReleaseName":"Harbor.Lights.2016.S01.REPACK`,
 		`"InfoHash":"` + strings.ToUpper(Mint(0)) + `"`, `"Uploader":"fixture-user"`, `"AuthKey":"{{authKey}}"`, `https:\/\/lantern.fixture-site.fake.localhost\/c.jpg`,
 		`<title>Cedar Hollow S03E12 720p WEBRip h264-DRAWER</title>`, `/Cedar.Hollow.S03E12.720p.WEBRip.h264-DRAWER.torrent`,
-		"19:06:24", `<title>Harbor Lights S01E01 Part 1`,
+		"19:06:24", `<title>Ember Field S01E01 Part 1`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the rewrite holds no %s:\n%s", want, got)
