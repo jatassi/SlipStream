@@ -1,9 +1,9 @@
 import type { Page } from "@playwright/test";
 import { z } from "zod";
 
-import { node } from "../harness/manifest.ts";
 import { orchardCells } from "./cells.ts";
 import { type World, expect, test } from "./fixtures.ts";
+import { homeId, moviesRoot, rootsOf } from "./roots.ts";
 import { isPhone } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
 import {
@@ -19,9 +19,6 @@ import {
 test.use({ scenario: "home" });
 test.describe.configure({ timeout: 180_000 });
 
-const Roots = z.object({
-  roots: z.array(z.object({ path: z.string(), works: z.number() })),
-});
 const Volumes = z.object({
   nodes: z.array(
     z.object({ volumes: z.array(z.object({ name: z.string(), rootIds: z.array(z.string()) })) }),
@@ -31,32 +28,11 @@ const Settings = z.object({ sampleEvery: z.object({ value: z.number() }) });
 const Added = z.object({ work: z.object({ id: z.string() }) });
 const Cells = z.object({ cells: z.array(z.object({ state: z.string() })) });
 
-async function rootsOf(world: World) {
-  return Roots.parse((await world.api("GET", "/api/v1/roots")).body).roots;
-}
-
-async function moviesRoot(world: World) {
-  const [movies] = await rootsOf(world);
-  if (movies === undefined) {
-    throw new Error("the home Scenario has no Movies root");
-  }
-  const sep = movies.path.includes("\\") ? "\\" : "/";
-  return { ...movies, sep, media: movies.path.slice(0, movies.path.lastIndexOf(sep)) };
-}
-
 // A Place is named for its volume: "/" on Linux and macOS, "D:" or
 // "D: (Label)" on Windows. Its row reads the name, then the free space.
 function placeOf(path: string): RegExp {
   const drive = /^[A-Za-z]:/u.exec(path)?.[0];
   return drive === undefined ? /^\/\d/u : new RegExp(`^${drive}(?: \\(|\\d)`, "u");
-}
-
-function homeId(world: World): string {
-  const id = node(world.manifest, "home").nodeId;
-  if (id === undefined) {
-    throw new Error("the manifest has no id for home");
-  }
-  return id;
 }
 
 async function addOrchard(world: World): Promise<string> {
@@ -297,4 +273,28 @@ test("re-homing a root checks its files at the new place, and Save anyway forget
   );
   await expect(page.getByRole("button", { name: "Add a root for Movies" })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("Add a library root to hold Movies.");
+});
+
+test("home's root shows its last library scan, and Scan now scans it again", async ({
+  adminPage: page,
+  world,
+}) => {
+  const movies = await moviesRoot(world);
+  const lastScan = async () => (await moviesRoot(world)).scan.lastAt;
+  await expect
+    .poll(lastScan, { message: "home's first report of its new root scans it" })
+    .not.toBeNull();
+  const first = await lastScan();
+
+  await page.goto(`/settings/library-roots#root-${movies.id}`);
+  const row = rootRow(page, movies.path);
+  await expect(row).toHaveAttribute("id", `root-${movies.id}`);
+  await expect(row).toContainText(/Scanned (just now|\d+ minutes? ago)\. Nothing changed\./u);
+
+  await act(page, movies.path, "Scan now");
+  await expect(toasts(page)).toContainText(
+    "Library scan started for the Movies library root on home.",
+  );
+  await expect.poll(lastScan, { message: "Scan now scans the root again" }).not.toBe(first);
+  await expect(row).toContainText(/Scanned (just now|\d+ minutes? ago)\. Nothing changed\./u);
 });
