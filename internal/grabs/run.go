@@ -416,6 +416,13 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	var params db.AdvanceParams
 	var taken *Grab
 	var reran *Search
+	var re *redo
+	if _, drop := o.(dropped); drop && g.Stage == Fetching {
+		var err error
+		if re, err = gr.rerunOf(ctx, g); err != nil {
+			return err
+		}
+	}
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		o, err := confirm(ctx, tx, g, o)
 		if err != nil {
@@ -425,7 +432,7 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 		if err != nil || g.Stage != Fetching {
 			return err
 		}
-		taken, reran, err = gr.left(ctx, tx, g, o)
+		taken, reran, err = gr.left(ctx, tx, g, o, re)
 		return err
 	})
 	switch {

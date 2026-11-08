@@ -99,8 +99,16 @@ type lapsing struct{ lapsed atomic.Bool }
 func (*lapsing) Holds(role.Name, role.NodeID) bool { return true }
 func (l *lapsing) InStep(role.NodeID) bool         { return !l.lapsed.Load() }
 
-// site answers every search with a 1080p and a 720p release, and every
-// .torrent fetch with bytes that aren't bencode.
+// atticIDs are The Attic's ids, which its Releases carry.
+var atticIDs = map[string]string{"tmdbid": "1"}
+
+// atticTerms are The Attic's search terms, item its one Item.
+func atticTerms(item works.ItemID) indexers.Terms {
+	return indexers.Terms{Expect: indexers.Expect{Claim: release.Claim{IDs: atticIDs}, Covers: indexers.CoversOnly(item)}, Mode: "search", Query: "The Attic"}
+}
+
+// site answers every search with a 1080p and a 720p release of The Attic,
+// and every .torrent fetch with bytes that aren't bencode.
 type site struct{}
 
 func (site) ReachSolver(context.Context, searching.Solver) (int, error) {
@@ -112,8 +120,8 @@ func (site) Run(_ context.Context, job searching.Job) (searching.Poll, error) {
 	switch job.Call.(type) {
 	case searching.SearchCall:
 		a.Releases = []searching.Release{
-			{Title: "The.Attic.1080p.WEB", Size: 4096, Link: searching.LinkOf("https://site.test/dl/1"), Seeders: 5},
-			{Title: "The.Attic.720p.WEB", Size: 2048, Link: searching.LinkOf("https://site.test/dl/2"), Seeders: 50},
+			{Title: "The.Attic.1080p.WEB", Size: 4096, Link: searching.LinkOf("https://site.test/dl/1"), Seeders: 5, IDs: atticIDs},
+			{Title: "The.Attic.720p.WEB", Size: 2048, Link: searching.LinkOf("https://site.test/dl/2"), Seeders: 50, IDs: atticIDs},
 		}
 	case searching.FetchCall:
 		a.Got = searching.Torrent{Raw: []byte("not bencode")}
@@ -266,7 +274,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"not_searchable","title":"The Work's Content Type can't be searched"}`)
-	f.terms.t = indexers.Terms{Expect: indexers.Expect{Covers: indexers.CoversOnly(f.tree.Items[0].ID)}, Mode: "search", Query: "The Attic"}
+	f.terms.t = atticTerms(f.tree.Items[0].ID)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_indexer","title":"No Indexer is set up"}`)
 
@@ -362,9 +370,10 @@ func (f *atticFixture) failed(t *testing.T, n int) map[string]failedGrab {
 	}
 }
 
-// mirrors answers each Indexer's search with its own 1080p Release, a
-// fetch from stopped with a refused account, and any other fetch with
-// bytes that aren't bencode.
+// mirrors answers each Indexer's search with its own 1080p Release, which
+// carries The Attic's ids when its title names The Attic, a fetch from
+// stopped with a refused account, and any other fetch with bytes that
+// aren't bencode.
 type mirrors struct {
 	titles  map[string]string
 	stopped string
@@ -378,7 +387,11 @@ func (m mirrors) Run(_ context.Context, job searching.Job) (searching.Poll, erro
 	var a searching.Answer
 	switch job.Call.(type) {
 	case searching.SearchCall:
-		a.Releases = []searching.Release{{Title: m.titles[job.Indexer], Size: 4096, Link: searching.LinkOf("https://site.test/dl/" + job.Indexer), Seeders: 5}}
+		r := searching.Release{Title: m.titles[job.Indexer], Size: 4096, Link: searching.LinkOf("https://site.test/dl/" + job.Indexer), Seeders: 5}
+		if strings.HasPrefix(r.Title, "The.Attic.") {
+			r.IDs = atticIDs
+		}
+		a.Releases = []searching.Release{r}
 	case searching.FetchCall:
 		if job.Indexer == m.stopped {
 			a.Outcome = &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}
@@ -400,7 +413,7 @@ func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit ind
 		m.stopped = better.String()
 	}
 	f = searchable(t, m)
-	f.terms.t = indexers.Terms{Expect: indexers.Expect{Covers: indexers.CoversOnly(f.tree.Items[0].ID)}, Mode: "search", Query: "The Attic"}
+	f.terms.t = atticTerms(f.tree.Items[0].ID)
 	err := f.lib.Write(f.ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := nodestest.Insert(ctx, tx, f.home, "home"); err != nil {
 			return err
