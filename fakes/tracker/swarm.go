@@ -24,7 +24,8 @@ type peer struct {
 }
 
 // accept applies the accepted announce a, from origin at now, to the
-// swarm and to a site account's history of the torrent.
+// swarm and to a site account's history of the torrent. A BEP 15
+// announce carries no passkey, so it keeps no history.
 func (s *server) accept(a Announce, hash bencode.InfoHash, origin string, now time.Time) {
 	key := peerKey{a.Passkey, hash, a.PeerID}
 	p, known := s.peers[key]
@@ -46,7 +47,7 @@ func (s *server) accept(a Announce, hash bencode.InfoHash, origin string, now ti
 	if event == "completed" {
 		s.completed[hash]++
 	}
-	if account := s.accounts[a.Passkey]; account != releases.Seeders {
+	if account, ok := s.accounts[a.Passkey]; ok && account != releases.Seeders {
 		s.upsert(historyKey{account, hash}, origin, p, up, down, now)
 	}
 }

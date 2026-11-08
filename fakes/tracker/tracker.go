@@ -78,6 +78,9 @@ var Seeding = fake.CaptureSpec{Name: "seeding", Kind: "tracker.seeding"}
 // {"release": "<name>"}.
 var Unregister = fake.CueSpec{Name: "tracker-unregister"}
 
+// sharedSwarm is the key of fake-tracker's swarm in its run's Shared.
+const sharedSwarm = "tracker"
+
 var Fake = fake.Spec{
 	Name:      "tracker",
 	TLS:       fake.FrontTLS,
@@ -196,6 +199,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	if err := fake.OnCue(env, Unregister.Name, srv.unregister); err != nil {
 		return nil, err
 	}
+	env.Shared.Put(sharedSwarm, srv)
 	return serving{Server: fake.HTTP(env, fake.Routes{
 		"announce": {Pattern: "GET /announce/{passkey}", Handler: srv.announce},
 	}), srv: srv}, nil
@@ -287,15 +291,13 @@ func (s *server) announce(w http.ResponseWriter, r *http.Request) {
 // judge is the rule a breaks and the failure reason the tracker answers,
 // both empty when it accepts a.
 func (s *server) judge(a Announce, hash bencode.InfoHash, peerID string, now time.Time) (rule, failure string) {
-	t, known := s.torrents[hash]
-	_, account := s.accounts[a.Passkey]
-	switch {
-	case !account:
+	if _, account := s.accounts[a.Passkey]; !account {
 		return RulePasskey, FailurePasskey
-	case !known:
-		return RuleTorrent, FailureTorrent
-	case t.unregistered:
-		return RuleUnregistered, FailureUnregistered
+	}
+	if rule, failure := s.judgeTorrent(hash); rule != "" {
+		return rule, failure
+	}
+	switch {
 	case s.allowPeerIDs != nil && !slices.ContainsFunc(s.allowPeerIDs, func(p string) bool { return strings.HasPrefix(peerID, p) }):
 		return RulePeerID, FailurePeerID
 	case s.windows != nil:
@@ -303,6 +305,19 @@ func (s *server) judge(a Announce, hash bencode.InfoHash, peerID string, now tim
 		copy(id[:], peerID)
 		broke, reason := s.windows.Admit(a.Passkey, hash, id, a.Event, now)
 		return string(broke), reason
+	}
+	return "", ""
+}
+
+// judgeTorrent is the rule an announce of hash breaks whatever account
+// sends it, and the failure reason the tracker answers.
+func (s *server) judgeTorrent(hash bencode.InfoHash) (rule, failure string) {
+	t, known := s.torrents[hash]
+	switch {
+	case !known:
+		return RuleTorrent, FailureTorrent
+	case t.unregistered:
+		return RuleUnregistered, FailureUnregistered
 	}
 	return "", ""
 }

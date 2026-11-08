@@ -388,9 +388,10 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 }
 
 func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
+	shared := fake.NewShared()
 	for _, f := range r.fakes {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
-		f.env.Releases, f.env.Fronts, f.env.Files = r.releases, r.table, r.runDir
+		f.env.Releases, f.env.Fronts, f.env.Files, f.env.Shared = r.releases, r.table, r.runDir, shared
 		if f.spec.TLS == fake.OwnTLS {
 			leaf, err := r.leaf(f.spec.Name)
 			if err != nil {
