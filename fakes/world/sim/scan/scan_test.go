@@ -383,6 +383,7 @@ func TestAFirstScanAddsTheWorksItIsSureOfAndAnUnchangedRootReadsNothing(t *testi
 // with one untagged folder named "Title (Year)" holding its episodes
 // flat: a scan adds the series TVDB lists as first aired that year.
 func TestAFlatSeriesFolderNamedByTitleAndYearIsAdded(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, func(sc *scenario.Scenario) {
 			sc.Library.Roots = append(sc.Library.Roots, scenario.LibraryRoot{ContentType: "series", Folder: "tv"})
