@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
+	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -1033,5 +1034,62 @@ func TestAChangedFileIsCountedOnTheScanLine(t *testing.T) {
 		if got := line(); got != "Nothing changed." {
 			t.Fatalf("the next scan's line reads %q, want Nothing changed.", got)
 		}
+	})
+}
+
+// TestARootAddedInFirstSetupScansTheMediaOnIt claims a fresh Controller
+// and, with first setup still open, turns movies on and adds a movies root
+// as its media and roots steps do, through createRoot like Settings, over
+// a folder already holding a tagged movie: the root's first Ready report
+// starts Library scan, which adds the movie filled by its file.
+func TestARootAddedInFirstSetupScansTheMediaOnIt(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		sc, err := scenario.Load("first-run")
+		if err != nil {
+			t.Fatal(err)
+		}
+		sc.TMDB = &scenario.TMDB{Movies: films[:1]}
+		dir := t.TempDir()
+		p := &prober{dir: dir, of: mediatest.Prober{Of: map[string]media.Record{}, Fail: map[string]string{}}}
+		w := sim.Launch(t, sc, sim.WithMetadata(), sim.Edit(func(_ string, e *node.Env) {
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			p.walk = e.Media
+			e.Media = p
+		}))
+		s := &shelf{t: t, w: w, dir: dir, probes: p}
+		s.put(fileOf(films[0]), 4096, hd)
+
+		a := w.API()
+		if r := a.Setup("home", w.Node("home").Ready().SetupCode, http.MethodPost, "/api/v1/setup/controller", `{"email":"ada@example.test","displayName":"Ada Okafor","pin":"2468"}`); r.Status != http.StatusCreated {
+			t.Fatalf("claimController = %d %s, want 201", r.Status, r.Body)
+		}
+		session := a.SignInAs("home", "ada@example.test", "2468")
+		as := func(method, path, body string) worldtest.Reply { return a.Signed("home", session, method, path, body) }
+		if r := as(http.MethodPut, "/api/v1/content-types/movie/enabled", `{"enabled":true}`); r.Status != http.StatusOK {
+			t.Fatalf("setContentTypeEnabled = %d %s, want 200", r.Status, r.Body)
+		}
+		nodes := simtest.Decode[struct{ Nodes []struct{ ID string } }](t, "listNodes", as(http.MethodGet, "/api/v1/nodes", "")).Nodes
+		body := fmt.Sprintf(`{"contentType":"movie","nodeId":%q,"path":%q}`, nodes[0].ID, dir)
+		if r := as(http.MethodPost, "/api/v1/roots", body); r.Status != http.StatusCreated {
+			t.Fatalf("createRoot = %d %s, want 201", r.Status, r.Body)
+		}
+
+		type row struct{ ID, Label string }
+		var rows []row
+		simtest.Eventually(t, "Library scan adds the movie on the new root", func() bool {
+			rows = simtest.Decode[struct{ Rows []row }](t, "listLibrary", as(http.MethodGet, "/api/v1/library?contentType=movie", "")).Rows
+			return len(rows) == 1 && rows[0].Label == films[0].Title
+		})
+		type cell struct{ File *struct{ Path string } }
+		cells := simtest.Decode[struct{ Cells []cell }](t, "getWorkCells", as(http.MethodGet, "/api/v1/works/"+rows[0].ID+"/cells", "")).Cells
+		if len(cells) != 1 || cells[0].File == nil || cells[0].File.Path != fileOf(films[0]) {
+			t.Fatalf("%s's cells are %+v, want one filled by %s", films[0].Title, cells, fileOf(films[0]))
+		}
+		if open := simtest.Decode[struct{ Open bool }](t, "getFirstRun", as(http.MethodGet, "/api/v1/first-run", "")).Open; !open {
+			t.Fatal("first setup reads finished, want it still open while the root scans")
+		}
+		s.expectReads("the first scan of the new root", fileOf(films[0]))
 	})
 }
