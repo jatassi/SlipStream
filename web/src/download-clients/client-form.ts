@@ -183,14 +183,43 @@ export function refusalOf(error: unknown): SubmitErrors {
 
 export type TestResult =
   | { readonly passed: true; readonly report: TestReport }
-  | { readonly passed: false; readonly sentence: string };
+  | { readonly passed: false; readonly sentence: string; readonly daemons: readonly Daemon[] };
 
-/** What a refused save or Test shows: a failed Test's sentence on the result line with the fields it names marked, or else the refusal. */
+const Listed = z.object({
+  daemons: z.array(z.object({ host: z.string(), port: z.number() })).nullish(),
+});
+
+/**
+ * What a refused save or Test shows: a failed Test's sentence on the result
+ * line with the fields it names marked, Deluge's daemons to choose from when
+ * its web UI lists more than one, or else the refusal.
+ */
 export function answerOf(error: unknown): { result?: TestResult; errors: SubmitErrors } {
+  if (isProblem(error, "download_client_choose_daemon")) {
+    return {
+      result: {
+        passed: false,
+        sentence: sentenceOf(error),
+        daemons: Listed.parse(error.body).daemons ?? [],
+      },
+      errors: { fields: {} },
+    };
+  }
   return isProblem(error, "download_client_test_failed")
-    ? { result: { passed: false, sentence: sentenceOf(error) }, errors: markedOf(error) }
+    ? {
+        result: { passed: false, sentence: sentenceOf(error), daemons: [] },
+        errors: markedOf(error),
+      }
     : { errors: refusalOf(error) };
 }
+
+/** The daemons the last Test listed, passed or not. */
+export const daemonsOf = (result: TestResult | undefined): readonly Daemon[] => {
+  if (result === undefined) {
+    return [];
+  }
+  return result.passed ? result.report.daemons : result.daemons;
+};
 
 const underDetails = new Set(["label", "folder", "clientFolders", "daemon"]);
 

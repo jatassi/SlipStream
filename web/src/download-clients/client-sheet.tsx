@@ -6,7 +6,7 @@ import { Dialog } from "../ui/dialog";
 import { Switch } from "../ui/switch";
 import { ClientDetails } from "./client-details";
 import { LeadFields, type NodeChoice } from "./client-fields";
-import { kindOf } from "./client-form";
+import { daemonsOf, kindOf } from "./client-form";
 import { TestLine } from "./test-line";
 import { type ClientSheetState, type Opened, useClientSheet } from "./use-client-sheet";
 
@@ -52,7 +52,7 @@ function Fields({
               kind={kind}
               node={node}
               saved={saved}
-              daemons={result?.passed === true ? result.report.daemons : []}
+              daemons={daemonsOf(result)}
               open={sheet.detailsOpen}
               onOpenChange={sheet.setDetailsOpen}
             />

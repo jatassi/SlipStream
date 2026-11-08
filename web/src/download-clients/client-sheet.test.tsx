@@ -1,8 +1,9 @@
+import { HttpResponse } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { downloadClients, homeCard } from "../test/download-clients";
-import { attic, refusal, withExternals } from "../test/external-clients";
+import { attic, passed, refusal, withExternals } from "../test/external-clients";
 import { homeId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 
@@ -180,4 +181,55 @@ test("a Test that can't run keeps the form and says why above Save", async () =>
   await expect
     .element(adding().getByRole("textbox", { name: "Address" }))
     .toHaveValue("http://192.168.1.20:8080");
+});
+
+const daemons = [
+  { host: "127.0.0.1", port: 58846 },
+  { host: "192.168.1.30", port: 58846 },
+];
+const chooseDaemon =
+  "Deluge's web UI lists more than one daemon. Choose the daemon SlipStream uses and test again.";
+
+async function addDeluge() {
+  await openAdd();
+  await pick("Client", "Deluge");
+  await userEvent.fill(
+    adding().getByRole("textbox", { name: "Address" }),
+    "http://192.168.1.20:8112/json",
+  );
+  await userEvent.fill(adding().getByLabelText("Password"), "deluge");
+}
+
+test("a Deluge whose web UI lists more than one daemon offers them and tests again with the one chosen", async () => {
+  const clients = downloadClients();
+  clients.state.answers.test = () =>
+    refusal(422, {
+      code: "download_client_choose_daemon",
+      title: "Choose the daemon SlipStream uses",
+      detail: chooseDaemon,
+      daemons,
+    });
+  renderApp({ path, handlers: clients.handlers });
+  await addDeluge();
+  await userEvent.click(adding().getByRole("button", { name: "Test" }));
+  await expect.element(adding().getByText(chooseDaemon)).toBeVisible();
+  await expect.element(adding().getByRole("combobox", { name: "Daemon" })).toBeVisible();
+
+  clients.state.answers.test = () =>
+    HttpResponse.json({ ...passed, product: "Deluge", version: "2.1.1", daemons });
+  await pick("Daemon", "192.168.1.30:58846");
+  await userEvent.click(adding().getByRole("button", { name: "Test" }));
+  await expect
+    .element(adding().getByText("The Test passed. home reached Deluge 2.1.1."))
+    .toBeVisible();
+  expect(clients.writes.at(-1)).toEqual({
+    path: "test",
+    body: expect.objectContaining({
+      kind: "deluge",
+      daemon: { host: "192.168.1.30", port: 58846 },
+    }) as unknown,
+  });
+  await expect
+    .element(adding().getByRole("combobox", { name: "Daemon" }))
+    .toHaveTextContent("192.168.1.30:58846");
 });

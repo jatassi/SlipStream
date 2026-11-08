@@ -18,6 +18,7 @@ import {
   type ClientValues,
   type TestResult,
   answerOf,
+  daemonsOf,
   draftOf,
   editOf,
   kindOf,
@@ -56,7 +57,7 @@ const testOf = (saved: External | undefined, value: ClientValues, kind: Kind) =>
  * The client sheet's form. Test runs the draft on its Node, a saved client's
  * with its saved secrets. Save creates or edits, which tests on the Node
  * first. A failed Test shows its sentence and marks the fields it names,
- * opening Details when one sits there.
+ * opening Details when one sits there or when it lists daemons to choose.
  */
 export function useClientSheet(opened: Opened, kinds: readonly Kind[], onDone: () => void) {
   const queryClient = useQueryClient();
@@ -89,7 +90,7 @@ export function useClientSheet(opened: Opened, kinds: readonly Kind[], onDone: (
     const answer = answerOf(error);
     setResult(answer.result);
     form.setErrorMap({ onSubmit: answer.errors });
-    if (namesDetails(answer.errors)) {
+    if (namesDetails(answer.errors) || daemonsOf(answer.result).length > 0) {
       setDetailsOpen(true);
     }
   }
