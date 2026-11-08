@@ -76,7 +76,7 @@ type walk struct {
 	// metadata to a magnet link.
 	served []bencode.Metainfo
 	hashes map[string]bencode.InfoHash
-	probes map[string]media.Probe
+	probes map[string]media.Record
 	// clients is where each Node reaches the fake Download Client of each
 	// kind, and the folder that client downloads into, by Node then kind.
 	clients map[string]map[string]clientAt
@@ -94,7 +94,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		mediaDir: filepath.Join(base, "media"),
 		payloads: map[bencode.InfoHash][]byte{},
 		hashes:   map[string]bencode.InfoHash{},
-		probes:   map[string]media.Probe{},
+		probes:   map[string]media.Record{},
 		clients:  map[string]map[string]clientAt{},
 		envs:     map[string]fake.Env{},
 	}
@@ -125,8 +125,8 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 			}
 			w.served = append(w.served, m)
 		}
-		w.probes[r.Name+".mkv"] = media.Probe{
-			Duration: time.Duration(r.Video.Seconds) * time.Second, Container: "matroska", Codec: "h264", Width: r.Video.Width, Height: r.Video.Height,
+		w.probes[r.Name+".mkv"] = media.Record{
+			Container: "matroska,webm", Duration: time.Duration(r.Video.Seconds) * time.Second, Video: media.Video{Codec: "h264", Width: r.Video.Width, Height: r.Video.Height},
 		}
 		size := int64(PayloadSize)
 		if r.AdvertisedSize > 0 {

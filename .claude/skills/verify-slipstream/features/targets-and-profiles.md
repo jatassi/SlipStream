@@ -38,7 +38,7 @@ Preconditions:
 - Three runs, each launched as in the skill's Launch with its own `RUN`, doctor passing, and `{runId}-admin-desktop` signed in:
   - `home`, fresh, for the starter set. The rest of `home`'s features run on it after.
   - `targets`, fresh, for everything from the add sheet to the Impact. Its movies want `1080p` and `HD`, a second Target of the same qualities, through the default Profile `Films`. fixture-site lists a 1080p WEB-DL, and holds back a 1080p Bluray, an Extended WEB-DL and a Superfan WEB-DL until `fixture-site-list` lists each.
-  - `sizes`, fresh, whose `Films` wants `Sized` (WEBDL-1080p at 20 to 100 MiB per minute, TrueHD only, no 2.0 channels) and whose `Encodes` wants `Encoded` (WEBDL-1080p, not x264).
+  - `sizes`, fresh, whose `Films` wants `Sized` (WEBDL-1080p at 20 to 100 MiB per minute) and whose `Encodes` wants `Encoded` (WEBDL-1080p, not x264).
 - The Editions steps need a fresh `targets` run of their own, since they list Superfan in `Films` before the Work is added.
 
 Steps on `home`:
@@ -364,6 +364,6 @@ Steps on a second fresh `targets` run:
   - When two files of a Work would take one name as an import commits, the Grab retries instead of failing.
   - A save refused with 409 `impact_changed` carries no Impact. The web app previews again to show the new one.
   - A Grab under Any cut that is still downloading when the Work's list switches to named cuts leaves the new cell reading `Missing` until it imports.
-  - Nothing reads HDR, the audio codec, channels or audio languages from a title or a probe yet, so a filter on them passes every release and file. Only the video codec is judged, at the probe, which is why `Sized`'s TrueHD rule lets every `sizes` release through.
+  - No title reads HDR, the audio codec, channels or audio languages yet, so a filter on them passes every release at search. A Grab's probe reads them, so the same filter judges the downloaded file, and a file it refuses fails `fills_nothing`.
   - The `fills_nothing` message doesn't name the filter that refused the file.
   - A film title that holds a cut's words, such as Uncut Gems or The Final Cut, reads as that cut.

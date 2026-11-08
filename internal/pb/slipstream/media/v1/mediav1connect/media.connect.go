@@ -43,8 +43,8 @@ var (
 
 // MediaServiceClient is a client for the slipstream.media.v1.MediaService service.
 type MediaServiceClient interface {
-	// Probe reads a downloaded torrent file's container and first video
-	// stream with the bundled ffprobe.
+	// Probe reads a downloaded torrent file's media record with the bundled
+	// ffprobe.
 	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 
@@ -56,8 +56,8 @@ func NewMediaServiceClient(client *connect.Client) MediaServiceClient {
 
 // MediaServiceHandler is an implementation of the slipstream.media.v1.MediaService service.
 type MediaServiceHandler interface {
-	// Probe reads a downloaded torrent file's container and first video
-	// stream with the bundled ffprobe.
+	// Probe reads a downloaded torrent file's media record with the bundled
+	// ffprobe.
 	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 

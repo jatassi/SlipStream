@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -41,7 +42,7 @@ func (s *server) file(t *testing.T, work, root, dir, rel string, size int) {
 		}
 		_, err = files.Add(ctx, tx, files.File{
 			WorkID: w, ItemID: items[w][0].ID, Cut: release.Standard, RootID: roots.ID{UUID: must(storage.ParseUUID(root))},
-			Path: rel, Size: int64(size), Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p,
+			Path: rel, Size: int64(size), Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, nil)
 		return err
 	})

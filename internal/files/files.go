@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -31,10 +32,7 @@ var schemaFiles embed.FS
 
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("files", schemaFiles) }
 
-type (
-	ID    = db.FileID
-	Probe = db.Probe
-)
+type ID = db.FileID
 
 // File is one library file of an Item. Path is where it belongs under its
 // root, '/' separated; until the disk queue moves it there, its bytes sit
@@ -49,11 +47,11 @@ type File struct {
 	RootID roots.ID
 	Path   string
 	Size   int64
-	Probe  Probe
+	Media  media.Record
 	// GrabID is the Grab that brought it, zero for none.
 	GrabID storage.UUID
 	// Quality is release.File's over its Grab's release title, or its own
-	// name, and its probe.
+	// name, and its media record.
 	Quality release.Quality
 	// Label is the Target name its {Target} renders, before any suffix.
 	Label string
@@ -65,9 +63,20 @@ type File struct {
 func (f File) Kept() bool { return f.Extra > 0 }
 
 // Facts is what f's row knows about it, for Judge: its quality, cut and
-// size, and the video codec its probe read.
+// size, and what its media record reads.
 func (f File) Facts() release.Facts {
-	return release.Facts{Quality: release.Known(f.Quality), Cut: f.Cut, Video: release.VideoCodecOf(f.Probe.Codec), Size: release.Known(f.Size)}
+	p := f.Media.Probed()
+	return release.Facts{
+		Quality: release.Known(f.Quality), Cut: f.Cut, HDR: p.HDR, Video: p.Video, Audio: p.Audio, Channels: p.Channels, Languages: p.Languages,
+		Size: release.Known(f.Size),
+	}
+}
+
+func fileOf(row db.FilesFile) File {
+	return File{
+		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Path: row.Path, Size: row.Size, Media: row.Probe,
+		GrabID: row.GrabID, Quality: row.Quality, Label: row.Label, Extra: row.Extra,
+	}
 }
 
 type Changed struct {
@@ -107,7 +116,7 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 
 func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	return q.InsertFile(ctx, db.InsertFileParams{
-		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Probe,
+		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
 		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra,
 	})
 }

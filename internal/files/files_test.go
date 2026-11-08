@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
@@ -166,7 +167,7 @@ func (l *library) place(t testing.TB, item works.ItemID, work works.WorkID, path
 	t.Helper()
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
+			WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
 		}, fills)
 		return err
 	})
@@ -180,7 +181,7 @@ func lines(cells []files.Cell) string {
 	for _, c := range cells {
 		fmt.Fprintf(&b, "%s %s %s %s wanted=%t", c.Item.Label, c.Edition, c.Target.Name, c.State, c.Wanted())
 		if c.File != nil {
-			fmt.Fprintf(&b, " %s %s %dx%d", c.File.Path, c.File.Quality, c.File.Probe.Width, c.File.Probe.Height)
+			fmt.Fprintf(&b, " %s %s %dx%d", c.File.Path, c.File.Quality, c.File.Media.Width, c.File.Media.Height)
 		}
 		b.WriteString("\n")
 	}

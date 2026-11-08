@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -70,7 +71,7 @@ func BenchmarkPlacingOneFileInALongWork(b *testing.B) {
 	svc := l.files(files.NoGrabs{})
 	in := files.Incoming{
 		WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID,
-		Holding: files.HoldingOf(storage.NewUUID(), ".mkv"), Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.Bluray1080p,
+		Holding: files.HoldingOf(storage.NewUUID(), ".mkv"), Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.Bluray1080p,
 	}
 	b.Run("Place", func(b *testing.B) {
 		for b.Loop() {

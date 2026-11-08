@@ -549,7 +549,7 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var asked atomic.Bool
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
-			e.Media = mediatest.Prober{Of: map[string]media.Probe{release + ".mkv": {Container: "matroska", Codec: "h264", Width: 640, Height: 480}}}
+			e.Media = mediatest.Prober{Of: map[string]media.Record{release + ".mkv": {Container: "matroska,webm", Video: media.Video{Codec: "h264", Width: 640, Height: 480}}}}
 			e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) { asked.Store(true) }
 		}))
 		search(t, w, addOrchard(t, w))

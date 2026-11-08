@@ -15,6 +15,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -43,11 +44,11 @@ func (l *library) put(t *testing.T, p, content string) {
 // file commits.
 func (l *library) download(t *testing.T, svc *files.Files, tree works.Tree, item int, q release.Quality, content string) files.File {
 	t.Helper()
-	return l.downloadProbed(t, svc, tree, item, q, content, files.Probe{Width: 1920, Height: 1080})
+	return l.downloadProbed(t, svc, tree, item, q, content, media.Record{Video: media.Video{Width: 1920, Height: 1080}})
 }
 
 // downloadProbed is download of a file whose probe read probe.
-func (l *library) downloadProbed(t *testing.T, svc *files.Files, tree works.Tree, item int, q release.Quality, content string, probe files.Probe) files.File {
+func (l *library) downloadProbed(t *testing.T, svc *files.Files, tree works.Tree, item int, q release.Quality, content string, probe media.Record) files.File {
 	t.Helper()
 	grab := storage.NewUUID()
 	holding := files.HoldingOf(grab, ".mkv")
@@ -57,7 +58,7 @@ func (l *library) downloadProbed(t *testing.T, svc *files.Files, tree works.Tree
 		var err error
 		f, _, err = svc.Import(ctx, tx, files.Incoming{
 			WorkID: tree.ID, ItemID: tree.Items[item].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-			Size: int64(len(content)), Probe: probe, Quality: q,
+			Size: int64(len(content)), Media: probe, Quality: q,
 		})
 		return err
 	})
@@ -246,7 +247,7 @@ func TestAFilePlannedIntoARootItsWorkLeftIsRefused(t *testing.T) {
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, _, err := svc.Import(ctx, tx, files.Incoming{
 			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: other.ID, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
-			Size: 5, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p,
+			Size: 5, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		})
 		return err
 	})
