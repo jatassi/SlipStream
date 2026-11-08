@@ -99,11 +99,16 @@ func onController(key tasks.UnitKey) tasks.Unit {
 
 func serve(t *testing.T, catalog ...tasks.Task) *ownertest.Owner {
 	t.Helper()
+	return serveIn(t, time.UTC, catalog...)
+}
+
+func serveIn(t *testing.T, zone *time.Location, catalog ...tasks.Task) *ownertest.Owner {
+	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), tasks.Schema())
 	hub := live.NewHub(nil)
 	t.Cleanup(hub.Close)
 	s, err := tasks.Open(t.Context(), tasks.Config{
-		Library: lib, Catalog: catalog, Roster: roster{}, Zone: time.UTC, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Library: lib, Catalog: catalog, Roster: roster{}, Zone: zone, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Hub: hub, Changed: discard[tasks.Changed]{}, Progressed: discard[tasks.Progressed]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
@@ -119,7 +124,7 @@ func serve(t *testing.T, catalog ...tasks.Task) *ownertest.Owner {
 		cancel()
 		<-done
 	})
-	return ownertest.Serve(t, lib, func(r *api.Router) { tasksapi.Routes(r, clock{s}) })
+	return ownertest.ServeIn(t, lib, zone, func(r *api.Router) { tasksapi.Routes(r, clock{s}) })
 }
 
 const overdueOptions = `"options":[{"value":"catch-up","label":"Catch up"},{"value":"wait","label":"Wait"}]`
@@ -137,13 +142,23 @@ const (
 	available = `{"available":true}`
 )
 
+func TestARunningTaskSaysSinceWhenInTheNodesZone(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		o := serveIn(t, time.FixedZone("UTC-5", -5*60*60), task("tidy", onController("a")))
+		synctest.Wait()
+		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusAccepted, `{"runId":1}`)
+		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusConflict,
+			`{"status":409,"code":"task_running","title":"The task has a run open","detail":"The task has been running since 19:00."}`)
+	})
+}
+
 func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		o := serve(t, task("tidy", onController("a"), onController("b")))
 		synctest.Wait()
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusAccepted, `{"runId":1}`)
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusConflict,
-			`{"status":409,"code":"task_running","title":"The task has a run open","detail":"The task has been running since 2000-01-01T00:00:00Z"}`)
+			`{"status":409,"code":"task_running","title":"The task has a run open","detail":"The task has been running since 00:00."}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/runs/open", "", http.StatusOK,
 			`{"headerDelaySeconds":5,"runs":[{"runId":1,"taskId":"tidy","name":"Tidy","noun":{"one":"step","many":"steps"},"trigger":"run-now","startedAt":"T","nodes":["home"],"done":0,"total":2}]}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+
@@ -219,7 +234,7 @@ func TestTheTasksPageListsShownTasksAndWhatWaits(t *testing.T) {
 		o := serve(t, task("tidy", onController("a")), task("hidden"), far)
 		synctest.Wait()
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/far/runs", "", http.StatusConflict,
-			`{"status":409,"code":"task_waiting","title":"Every unit waits for a Node that can't start work","detail":"Every unit waits for seedbox, offline since 2026-10-16T21:31:00Z"}`)
+			`{"status":409,"code":"task_waiting","title":"Every unit waits for a Node that can't start work","detail":"Every unit waits for seedbox, offline since 16 Oct 2026, 21:31."}`)
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/hidden/runs", "", http.StatusNotFound,
 			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/hidden", "", http.StatusNotFound,

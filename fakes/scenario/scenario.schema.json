@@ -1131,6 +1131,10 @@
                   },
                   "name": {
                     "type": "string"
+                  },
+                  "logo": {
+                    "type": "string",
+                    "pattern": "^/[A-Za-z0-9]+\\.(jpg|png|svg)$"
                   }
                 },
                 "additionalProperties": false,
@@ -1362,12 +1366,40 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "overview": {
+                "type": "string"
+              },
+              "genres": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "original_language": {
+                "type": "string",
+                "pattern": "^[a-z]{3}$"
+              },
+              "original_country": {
+                "type": "string",
+                "pattern": "^[a-z]{3}$"
+              },
+              "image": {
+                "type": "string",
+                "pattern": "^/banners/([A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\\.(jpg|jpeg|png)$"
+              },
               "seasons": {
                 "items": {
                   "properties": {
                     "number": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "image": {
+                      "type": "string",
+                      "pattern": "^/banners/([A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\\.(jpg|jpeg|png)$"
                     },
                     "episodes": {
                       "items": {
@@ -1390,6 +1422,13 @@
                           "runtime": {
                             "type": "integer",
                             "minimum": 0
+                          },
+                          "overview": {
+                            "type": "string"
+                          },
+                          "image": {
+                            "type": "string",
+                            "pattern": "^/banners/([A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\\.(jpg|jpeg|png)$"
                           }
                         },
                         "additionalProperties": false,

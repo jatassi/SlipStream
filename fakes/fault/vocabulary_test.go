@@ -351,18 +351,13 @@ func TestTLSCountsHandshakes(t *testing.T) {
 func TestRefusedHoldsAFrontUntilCleared(t *testing.T) {
 	p := fault.NewPlan(fronts, nil)
 	arm(t, p, fault.Rule{ID: "down", Target: "tmdb", Origin: "home", Fault: fault.Refuse{}})
-	refused, changed := p.Refused(tmdbFront)
-	other, _ := p.Refused(tmdbBox)
-	if !refused || other {
+	if refused, other := p.Refused(tmdbFront), p.Refused(tmdbBox); !refused || other {
 		t.Fatalf("Refused = %t at home and %t at seedbox, want only home", refused, other)
 	}
+	var seen []bool
+	p.OnChange(func() { seen = append(seen, p.Refused(tmdbFront)) })
 	p.Clear("down")
-	select {
-	case <-changed:
-	default:
-		t.Fatal("clearing the rule did not signal the change")
-	}
-	if refused, _ := p.Refused(tmdbFront); refused {
-		t.Fatal("the front stays refused after the clear")
+	if !slices.Equal(seen, []bool{false}) {
+		t.Fatalf("OnChange saw home refused %v during the clear, want once, no longer refused", seen)
 	}
 }

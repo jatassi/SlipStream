@@ -45,7 +45,7 @@ type Nullable[T any] struct{ value *T }
 func Some[T any](v T) Nullable[T] { return Nullable[T]{value: &v} }
 
 func (n Nullable[T]) MarshalJSON() ([]byte, error) {
-	b, err := json.Marshal(n.value)
+	b, err := marshal(n.value)
 	if err != nil {
 		return nil, fmt.Errorf("api: encode %T: %w", n.value, err)
 	}

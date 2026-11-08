@@ -1,24 +1,20 @@
 // Package imagecdn is fake-image-cdn: TMDB's image host and TVDB's
-// artwork host. TMDB's answers a file in the artwork store with its
-// recorded bytes, scaled down to the size asked, and any other image file
-// name at any size TMDB offers with a generated image. TVDB's answers any
-// artwork path as an original or its _t thumbnail.
+// artwork host. Each answers a file in the artwork store with its recorded
+// bytes, TMDB's scaled to the size asked and TVDB's _t thumbnail to
+// half its width, and any other image file name with a generated image:
+// TMDB's at any size it offers, TVDB's as an original or its thumbnail.
 package imagecdn
 
 import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/jpeg"
-	"image/png"
 	"net/http"
 	"path"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
-
-	"golang.org/x/image/draw"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/artwork"
@@ -53,7 +49,7 @@ func serve(store artwork.Store, env fake.Env) fake.Server {
 	srv := &server{store: store, scaled: map[sized][]byte{}}
 	return fake.HTTP(env, fake.Routes{
 		"image":     {Pattern: "GET " + Root + "/{size}/{file}", Handler: srv.image},
-		"artwork":   {Pattern: "GET " + ArtworkRoot + "/{path...}", Handler: serveArtwork},
+		"artwork":   {Pattern: "GET " + ArtworkRoot + "/{path...}", Handler: srv.artwork},
 		"not-found": {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
 	})
 }
@@ -86,7 +82,11 @@ func (s *server) image(w http.ResponseWriter, r *http.Request) {
 		images.Serve(w, f, "/"+file, size, width, height)
 		return
 	}
-	body, err := s.resized(sized{"/" + file, size}, f, stored)
+	s.send(w, sized{"/" + file, size}, f, stored)
+}
+
+func (s *server) send(w http.ResponseWriter, at sized, f images.Format, stored []byte) {
+	body, err := s.resized(at, f, stored)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,46 +103,12 @@ func (s *server) resized(at sized, f images.Format, stored []byte) ([]byte, erro
 	if body, ok := s.scaled[at]; ok {
 		return body, nil
 	}
-	body, err := scale(f, stored, at.size)
+	body, err := images.Scale(f, stored, at.size)
 	if err != nil {
 		return nil, fmt.Errorf("scale %s to %s: %w", at.path, at.size, err)
 	}
 	s.scaled[at] = body
 	return body, nil
-}
-
-// scale is stored at size: wN is N wide and hN is N high, keeping the
-// aspect ratio. An SVG, the original, or an image no larger than size is
-// the stored bytes.
-func scale(f images.Format, stored []byte, size string) ([]byte, error) {
-	if f == images.SVG || size == "original" {
-		return stored, nil
-	}
-	src, _, err := image.Decode(bytes.NewReader(stored))
-	if err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
-	}
-	n, _ := strconv.Atoi(size[1:])
-	b := src.Bounds()
-	width, height := n, b.Dy()*n/b.Dx()
-	if size[0] == 'h' {
-		width, height = b.Dx()*n/b.Dy(), n
-	}
-	if width >= b.Dx() || height >= b.Dy() {
-		return stored, nil
-	}
-	dst := image.NewNRGBA(image.Rect(0, 0, max(width, 1), max(height, 1)))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), src, b, draw.Src, nil)
-	var out bytes.Buffer
-	if f == images.PNG {
-		err = png.Encode(&out, dst)
-	} else {
-		err = jpeg.Encode(&out, dst, &jpeg.Options{Quality: 85})
-	}
-	if err != nil {
-		return nil, fmt.Errorf("encode: %w", err)
-	}
-	return out.Bytes(), nil
 }
 
 // dimensions are a size's pixels at a poster's 2:3: wN is N wide, hN is N
@@ -164,14 +130,32 @@ func dimensions(size string) (width, height int, ok bool) {
 // ArtworkRoot is the path TVDB's artwork host serves under.
 const ArtworkRoot = "/banners"
 
-// serveArtwork answers a TVDB artwork path at its kind's shape: a poster
-// at 2:3, a clear logo at 2.58:1, anything else at 16:9, and a _t
-// thumbnail at a third of the original's width.
-func serveArtwork(w http.ResponseWriter, r *http.Request) {
+// artwork answers a TVDB artwork path from the store: the stored file as
+// it is, and its _t thumbnail at half its width. Any other path is
+// generated at its kind's shape: a poster at 2:3, a clear logo at 2.58:1,
+// anything else at 16:9, and a _t thumbnail at a third of the original's
+// width.
+func (s *server) artwork(w http.ResponseWriter, r *http.Request) {
 	p := r.PathValue("path")
 	f, ok := images.FormatOf(p)
 	if !ok {
 		notFound(w)
+		return
+	}
+	at := ArtworkRoot + "/" + p
+	ext := path.Ext(at)
+	original, thumbnail := strings.CutSuffix(strings.TrimSuffix(at, ext), "_t")
+	if stored, ok := s.store.Lookup(at); ok {
+		s.send(w, sized{at, "original"}, f, stored)
+		return
+	}
+	if stored, ok := s.store.Lookup(original + ext); thumbnail && ok {
+		c, _, err := image.DecodeConfig(bytes.NewReader(stored))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("decode %s: %v", original+ext, err), http.StatusInternalServerError)
+			return
+		}
+		s.send(w, sized{original + ext, "w" + strconv.Itoa(c.Width/2)}, f, stored)
 		return
 	}
 	width, height := 1920, 1080
@@ -182,10 +166,10 @@ func serveArtwork(w http.ResponseWriter, r *http.Request) {
 		width, height = 800, 310
 	}
 	size := "original"
-	if base := strings.TrimSuffix(p, path.Ext(p)); strings.HasSuffix(base, "_t") {
+	if thumbnail {
 		size, width, height = "thumbnail", width/3, height/3
 	}
-	images.Serve(w, f, ArtworkRoot+"/"+p, size, width, height)
+	images.Serve(w, f, at, size, width, height)
 }
 
 func notFound(w http.ResponseWriter) { html(w, http.StatusNotFound, "<h1>File Not Found</h1>") }

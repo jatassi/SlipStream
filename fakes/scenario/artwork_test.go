@@ -17,14 +17,64 @@ import (
 func TestARecordedImageInTheStoreValidates(t *testing.T) {
 	stored := artworkStore
 	t.Cleanup(func() { artworkStore = stored })
-	artworkStore = artwork.New(fstest.MapFS{"st0red.jpg": {Data: []byte("x")}, "pers0n.jpg": {Data: []byte("y")}})
+	artworkStore = artwork.New(fstest.MapFS{
+		"st0red.jpg": {Data: []byte("x")}, "pers0n.jpg": {Data: []byte("y")},
+		"tvdb/v4/series/7/posters/p.jpg": {Data: []byte("z")}, "tvdb/v4/season/8/posters/s.png": {Data: []byte("z")}, "tvdb/episodes/7/9.jpg": {Data: []byte("z")},
+	})
 	s := Scenario{Name: "x", Seed: "x", Nodes: []Node{{Name: "home"}}, TMDB: &TMDB{Movies: []TMDBMovie{{
 		ID: 1, IMDbID: "tt0000001", Title: "A", Runtime: 90 * time.Minute,
 		Images:  []TMDBImage{{Shape: "poster", Path: "/st0red.jpg", Width: 500, Height: 750}, {Shape: "logo", Path: "/st0red.jpg"}},
 		Credits: TMDBCredits{Cast: []TMDBCast{{ID: 2, Name: "B", Profile: "/pers0n.jpg"}}, Crew: []TMDBCrew{{ID: 3, Name: "C", Department: "Directing", Job: "Director", Profile: "/pers0n.jpg"}}},
+	}}, Series: []TMDBSeries{{
+		ID: 4, TVDB: 7, Name: "A", Images: []TMDBImage{{Shape: "poster", Path: "/st0red.jpg", Width: 500, Height: 750}},
+		Creators: []TMDBCast{{ID: 5, Name: "D", Profile: "/pers0n.jpg"}}, Credits: TMDBCredits{Cast: []TMDBCast{{ID: 2, Name: "B", Profile: "/pers0n.jpg"}}},
+		Network: &TMDBNetwork{ID: 6, Name: "E", Logo: "/st0red.jpg"},
+	}}}, TVDB: &TVDB{Series: []TVDBSeries{{
+		ID: 7, Name: "A", Status: "ended", Image: "/banners/v4/series/7/posters/p.jpg",
+		Seasons: []TVDBSeason{{Number: 1, Image: "/banners/v4/season/8/posters/s.png", Episodes: []TVDBEpisode{{ID: 9, Number: 1, Name: "B", Image: "/banners/episodes/7/9.jpg"}}}},
 	}}}}
 	if err := s.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestARecordedTMDBSeriesImageOutsideTheStoreFails(t *testing.T) {
+	stored := artworkStore
+	t.Cleanup(func() { artworkStore = stored })
+	artworkStore = artwork.New(fstest.MapFS{})
+	s := Scenario{Name: "x", Seed: "x", Nodes: []Node{{Name: "home"}}, TMDB: &TMDB{Series: []TMDBSeries{{
+		ID: 4, Name: "A", Images: []TMDBImage{{Shape: "poster", Path: "/p0ster.jpg", Width: 500, Height: 750}},
+		Creators: []TMDBCast{{ID: 5, Name: "D", Profile: "/sub/dir.jpg"}}, Network: &TMDBNetwork{ID: 6, Name: "E", Logo: "/l0go.png"},
+	}}}}
+	err := s.Validate()
+	for _, want := range []string{
+		"tmdb series 4 image /p0ster.jpg is not in fakes/internal/artwork/files",
+		`tmdb series 4 profile "/sub/dir.jpg" is not a TMDB file path`,
+		"tmdb series 4 network logo /l0go.png is not in fakes/internal/artwork/files",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Validate = %v; want it to hold %q", err, want)
+		}
+	}
+}
+
+func TestARecordedTVDBImageOutsideTheStoreFails(t *testing.T) {
+	stored := artworkStore
+	t.Cleanup(func() { artworkStore = stored })
+	artworkStore = artwork.New(fstest.MapFS{})
+	s := Scenario{Name: "x", Seed: "x", Nodes: []Node{{Name: "home"}}, TVDB: &TVDB{Series: []TVDBSeries{{
+		ID: 7, Name: "A", Status: "ended", Image: "/banners/v4/series/7/posters/p.jpg",
+		Seasons: []TVDBSeason{{Number: 1, Image: "https://artworks.thetvdb.com/banners/s.jpg", Episodes: []TVDBEpisode{{ID: 9, Number: 1, Name: "B", Image: "/banners/../9.jpg"}}}},
+	}}}}
+	err := s.Validate()
+	for _, want := range []string{
+		"tvdb series 7 image /banners/v4/series/7/posters/p.jpg is not in fakes/internal/artwork/files/tvdb",
+		`tvdb series 7 season 1 image "https://artworks.thetvdb.com/banners/s.jpg" is not a TVDB artwork path`,
+		`tvdb series 7 episode 9 image "/banners/../9.jpg" is not a TVDB artwork path`,
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Validate = %v; want it to hold %q", err, want)
+		}
 	}
 }
 
@@ -37,20 +87,51 @@ func named(t *testing.T) []string {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if s.TVDB != nil {
+			for _, series := range s.TVDB.Series {
+				out = append(out, tvdbNamed(series)...)
+			}
+		}
 		if s.TMDB == nil {
 			continue
 		}
 		for _, m := range s.TMDB.Movies {
-			for _, im := range m.Images {
-				out = append(out, im.Path)
-			}
-			for _, c := range m.Credits.Cast {
+			out = append(out, tmdbNamed(m.Images, m.Credits)...)
+		}
+		for _, series := range s.TMDB.Series {
+			out = append(out, tmdbNamed(series.Images, series.Credits)...)
+			for _, c := range series.Creators {
 				out = append(out, c.Profile)
 			}
-			for _, c := range m.Credits.Crew {
-				out = append(out, c.Profile)
+			if series.Network != nil {
+				out = append(out, series.Network.Logo)
 			}
 		}
+	}
+	return out
+}
+
+func tvdbNamed(series TVDBSeries) []string {
+	out := []string{series.Image}
+	for _, season := range series.Seasons {
+		out = append(out, season.Image)
+		for _, e := range season.Episodes {
+			out = append(out, e.Image)
+		}
+	}
+	return out
+}
+
+func tmdbNamed(ims []TMDBImage, credits TMDBCredits) []string {
+	var out []string
+	for _, im := range ims {
+		out = append(out, im.Path)
+	}
+	for _, c := range credits.Cast {
+		out = append(out, c.Profile)
+	}
+	for _, c := range credits.Crew {
+		out = append(out, c.Profile)
 	}
 	return out
 }
@@ -61,14 +142,14 @@ func TestEveryStoredImageIsUsed(t *testing.T) {
 	used := named(t)
 	for _, p := range artwork.Embedded.Paths() {
 		if !slices.Contains(used, p) {
-			t.Errorf("fakes/internal/artwork/files%s is in no catalog Scenario; delete it", p)
+			t.Errorf("the store's %s is in no catalog Scenario; delete it", p)
 		}
 		data, _ := artwork.Embedded.Lookup(p)
 		if strings.HasSuffix(p, ".svg") {
 			continue
 		}
-		if _, _, err := image.DecodeConfig(bytes.NewReader(data)); !ArtworkFile.MatchString(p) || err != nil {
-			t.Errorf("fakes/internal/artwork/files%s is not a JPEG or PNG named as TMDB names files: %v", p, err)
+		if _, _, err := image.DecodeConfig(bytes.NewReader(data)); !ArtworkFile.MatchString(p) && !TVDBArtworkFile.MatchString(p) || err != nil {
+			t.Errorf("the store's %s is not a JPEG or PNG named as TMDB or TVDB names files: %v", p, err)
 		}
 	}
 }

@@ -5,7 +5,7 @@ import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
-import { type ServerOptions, defineConfig } from "vite";
+import { type Plugin, type ServerOptions, defineConfig, normalizePath } from "vite";
 
 const cacheGroups = {
   react: ["node_modules/react", "node_modules/react-dom", "node_modules/scheduler"],
@@ -19,7 +19,6 @@ const cacheGroups = {
   tanstack: ["node_modules/@tanstack"],
   vendor: ["node_modules"],
   api: ["src/api/gen"],
-  nodes: ["src/diagram", "vendor/anatomy", "src/routes/_app/nodes"],
 };
 
 function underAny(dirs: readonly string[]): RegExp {
@@ -47,12 +46,33 @@ const compileComponentsAndHooks = {
   rolldown: { ...reactCompiler.rolldown, filter: { code: /<\/|\/>|\buse[A-Z0-9]/u } },
 };
 
+const localPath = (path: string) => normalizePath(fileURLToPath(new URL(path, import.meta.url)));
+
+// The code splitter imports lazyRouteComponent into each route file from
+// @tanstack/react-router.
+function routeChunks(): Plugin {
+  const routes = localPath("src/routes/");
+  const routerPackage = localPath("src/app/router-package.ts");
+  return {
+    name: "slipstream:route-chunks",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (source === "@tanstack/react-router" && importer?.startsWith(routes) === true) {
+        return routerPackage;
+      }
+      return null;
+    },
+  };
+}
+
 export default defineConfig(({ command, mode }) => ({
   plugins: [
-    // One bundle: a route whose code loads lazily can't open while the Node is
-    // down, so the shell couldn't show the outage, and WebKit keeps the failed
-    // import after the Node returns.
-    tanstackRouter({ target: "react", autoCodeSplitting: false }),
+    tanstackRouter({
+      target: "react",
+      autoCodeSplitting: true,
+      codeSplittingOptions: { defaultBehavior: [["component"]] },
+    }),
+    routeChunks(),
     react(),
     // Vendored code runs as upstream wrote and tested it, not recompiled.
     babel({
@@ -74,10 +94,13 @@ export default defineConfig(({ command, mode }) => ({
       output: {
         strictExecutionOrder: true,
         codeSplitting: {
-          groups: Object.entries(cacheGroups).map(([name, dirs]) => ({
-            name,
-            test: underAny(dirs),
-          })),
+          groups: [
+            ...Object.entries(cacheGroups).map(([name, dirs]) => ({
+              name,
+              test: underAny(dirs),
+            })),
+            { name: "app", tags: ["$initial"] },
+          ],
         },
       },
     },

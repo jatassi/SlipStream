@@ -1,5 +1,10 @@
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, type RouterHistory, createBrowserHistory } from "@tanstack/react-router";
+import {
+  type AnyRoute,
+  RouterProvider,
+  type RouterHistory,
+  createBrowserHistory,
+} from "@tanstack/react-router";
 import { z } from "zod";
 
 import { LiveSessionEnded } from "./api/gen/zod/slipStream.schemas.zod";
@@ -56,6 +61,20 @@ async function regate({ queryClient, router }: Parts) {
   await queryClient.resetQueries();
 }
 
+// Under the dev server Vite serves every module as its own file.
+function prefetchPages(router: Parts["router"]): () => void {
+  if (!import.meta.env.PROD) {
+    return () => {};
+  }
+  const stop = router.subscribe("onResolved", () => {
+    stop();
+    const routes: readonly AnyRoute[] = Object.values(router.routesById);
+    const loads = routes.flatMap((route) => route.options.component?.preload?.() ?? []);
+    void Promise.allSettled(loads).then(() => performance.mark("pages-prefetched"));
+  });
+  return stop;
+}
+
 export function createApp(history: RouterHistory = createBrowserHistory()) {
   const channel = new BroadcastChannel("slipstream-session");
   const transitions = routeTransitions(history);
@@ -71,6 +90,7 @@ export function createApp(history: RouterHistory = createBrowserHistory()) {
   });
   const router = createAppRouter({ queryClient, live, endSession }, history, transitions.types);
   const parts: Parts = { queryClient, router, live };
+  const stopPrefetch = prefetchPages(router);
 
   function endSession(reason: SessionEndReason) {
     if (end(parts, reason)) {
@@ -93,6 +113,7 @@ export function createApp(history: RouterHistory = createBrowserHistory()) {
     endSession,
     dispose: () => {
       live.stop();
+      stopPrefetch();
       channel.close();
       transitions.dispose();
     },

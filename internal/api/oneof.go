@@ -57,7 +57,7 @@ func (o *OneOf[V]) UnmarshalJSON(b []byte) error {
 }
 
 func (o OneOf[V]) MarshalJSON() ([]byte, error) {
-	b, err := json.Marshal(o.value)
+	b, err := marshal(o.value)
 	if err != nil {
 		return nil, fmt.Errorf("api: encode %T: %w", o.value, err)
 	}
