@@ -138,6 +138,18 @@ func TestAnEpisodeAloneEndsATitlesStem(t *testing.T) {
 	}
 }
 
+func TestAGazelleMusicTitlesStemIsItsAlbum(t *testing.T) {
+	for title, want := range map[string]string{
+		"Juniper & Vale - The Quiet Orchard (2021) [EP] [FLAC Lossless / WEB]": "The Quiet Orchard",
+		"The Lantern Choir - Cedar Hollow (1969) [Album] [MP3 V2 (VBR) / BD]":  "Cedar Hollow",
+		"Harbor.Lights.2020.1080p.WEB-DL-GROUP":                                "Harbor Lights",
+	} {
+		if got := Stem(title); got != want {
+			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
+		}
+	}
+}
+
 func TestTheRewriteSwapsATitlesSlugInALink(t *testing.T) {
 	r := &Rewriter{Host: Host("lantern")}
 	out, err := r.Rewrite([]byte(`<a href="/torrent/7-the-night-of-2016-s01">The.Night.Of.2016.S01.1080p.BluRay</a>`))

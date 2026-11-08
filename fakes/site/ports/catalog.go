@@ -60,7 +60,8 @@ var (
 
 // Stem is title's words before its year, season or resolution, joined by
 // spaces: "The.Quiet.Orchard.2021.1080p" and "The Quiet Orchard (2021)"
-// are both "The Quiet Orchard". A leading [tag] is dropped.
+// are both "The Quiet Orchard". A leading [tag] is dropped, and so is a
+// leading "Artist - ", as Gazelle's music titles carry it.
 func Stem(title string) string {
 	title = strings.TrimSpace(tagged.ReplaceAllString(strings.TrimSpace(title), ""))
 	words := separators.Split(title, -1)
@@ -68,7 +69,11 @@ func Stem(title string) string {
 	if i < 0 {
 		i = len(words)
 	}
-	return strings.Join(words[:i], " ")
+	stem := strings.Join(words[:i], " ")
+	if _, album, ok := strings.Cut(stem, " - "); ok {
+		return album
+	}
+	return stem
 }
 
 const minted = 4096
