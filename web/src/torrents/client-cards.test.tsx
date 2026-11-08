@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { downloadClients, homeCard } from "../test/download-clients";
@@ -19,6 +19,14 @@ const stale = torrent({
   lastKnownCause: "client",
 });
 const builtIn = torrent({ state: "downloading", tabs: ["downloading", "all"] });
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-07T15:00:00Z") });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const card = () => page.getByRole("region", { name: "Transmission on home" });
 const table = () => page.getByRole("table", { name: "Torrents" });
