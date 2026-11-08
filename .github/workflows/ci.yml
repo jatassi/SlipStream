@@ -65,6 +65,9 @@ jobs:
       online: ${{ steps.scope.outputs.online }}
       link: ${{ steps.scope.outputs.link }}
       timings: ${{ steps.timings.outputs.cache-matched-key && 'split-timings' || '' }}
+      record-timings: >-
+        ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' &&
+          inputs.tier == 'all' && inputs.targets == '' && inputs.filter == '' && inputs.repeat == 1)) }}
       image: ${{ steps.tag.outputs.image }}
       image-tags: ${{ steps.tag.outputs.image-tags }}
       version: ${{ steps.tag.outputs.version }}
@@ -168,6 +171,7 @@ jobs:
       browser: ${{ toJSON(matrix.browser) }}
       package: ${{ needs.plan.outputs.package }}
       timings: ${{ needs.plan.outputs.timings }}
+      record-timings: ${{ needs.plan.outputs.record-timings }}
       filter: ${{ inputs.filter }}
       repeat: ${{ inputs.repeat || '1' }}
     secrets:
@@ -326,7 +330,7 @@ jobs:
       - name: Run Go test shard
         run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json"
       - name: Upload this shard's test timings
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && needs.plan.outputs.record-timings == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: timings-${{ matrix.target }}-go-${{ matrix.shard }}
@@ -437,12 +441,12 @@ jobs:
           path: .verify/diagram
           if-no-files-found: ignore
 
-  # Main's go, e2e and browser shards each upload the timings of what they
-  # ran, and the next run's shards split their tiers by them.
+  # A push to main runs no tests, so main's nightly run records the timings
+  # the next runs' go, e2e and browser shards split their tiers by.
   timings:
     name: Save test timings
-    needs: [go, target]
-    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.go.result != 'skipped' }}
+    needs: [plan, go, target]
+    if: ${{ !cancelled() && needs.plan.outputs.record-timings == 'true' && needs.go.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
