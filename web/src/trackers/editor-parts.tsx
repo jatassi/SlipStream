@@ -42,7 +42,7 @@ export function Choice<V extends string>({
   onValueChange: (value: V) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col items-start gap-1.5">
       <span
         aria-hidden="true"
         className="text-body font-semibold text-ink-2 in-data-[density=touch]:text-body-touch"

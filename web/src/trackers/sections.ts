@@ -19,7 +19,7 @@ const atRisk = (tracker: TrackersTrackerItem): AlertTone | undefined =>
 
 /** A private Tracker with no rule never ends its torrents' seeding. */
 export const wantsRule = (tracker: TrackersTrackerItem): boolean =>
-  tracker.privacy !== "public" && tracker.rule === null;
+  (tracker.privacy === "private" || tracker.privacy === "semi-private") && tracker.rule === null;
 
 /**
  * A Tracker page's sections, in order. They draw the desktop page tabs and

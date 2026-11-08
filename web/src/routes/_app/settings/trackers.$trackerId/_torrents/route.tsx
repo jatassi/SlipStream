@@ -37,7 +37,11 @@ function TrackerTorrents() {
       selected={selected}
       scope={{
         keep: (row) => row.tracker?.id === trackerId,
-        empty: <Empty>SlipStream has no torrents from {tracker.name}.</Empty>,
+        empty: (
+          <Empty>
+            {tracker.name}&apos;s torrents show here once SlipStream grabs a Release from it.
+          </Empty>
+        ),
       }}
       onSearchChange={(change) => {
         void navigate({ to: ".", search: (prev) => ({ ...prev, ...change }), replace: true });
