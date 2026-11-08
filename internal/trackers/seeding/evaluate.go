@@ -211,7 +211,13 @@ func Evaluate(h Hash) Verdict {
 		}
 	}
 	if f, ok := h.Goal.(Finite); ok {
-		v.Ratio.Goal, v.Time.Goal = &f.Ratio, &f.Seed
+		ratio, seed := f.Parts()
+		if ratio > 0 {
+			v.Ratio.Goal = &ratio
+		}
+		if seed > 0 {
+			v.Time.Goal = &seed
+		}
 	}
 	if owing {
 		v.Risk = riskOf(h.Copies)
@@ -271,7 +277,7 @@ func intent(g Goal, c Copy) (Action, Why) {
 		return "", AlreadyRan
 	}
 	if f, ok := g.(Finite); ok {
-		return f.Then, ""
+		return f.then, ""
 	}
 	return "", SeedsForever
 }

@@ -111,3 +111,21 @@ func TestAHighRatioOwesWithoutOverflow(t *testing.T) {
 		t.Errorf("owes = %+v, %v, want the most bytes there are", o, met)
 	}
 }
+
+func TestAGoalCountsAPart(t *testing.T) {
+	if _, err := NewFinite(Both, 0, 0, Pause); !errors.Is(err, ErrGoal) {
+		t.Fatalf("a goal with no ratio and no seeding time = %v, want ErrGoal", err)
+	}
+	for _, parts := range []struct {
+		ratio Ratio
+		seed  time.Duration
+	}{{150, 0}, {0, day}, {150, day}} {
+		g, err := NewFinite(First, parts.ratio, parts.seed, Remove)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r, s := g.Parts(); r != parts.ratio || s != parts.seed {
+			t.Fatalf("a goal built from %v and %v has parts %v and %v", parts.ratio, parts.seed, r, s)
+		}
+	}
+}

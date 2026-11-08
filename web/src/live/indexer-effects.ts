@@ -4,9 +4,13 @@ import {
   getGetIndexerSettingsQueryKey,
   getListIndexerQueriesQueryKey,
   getListIndexersQueryKey,
+} from "../api/gen/query/indexers/indexers";
+import {
+  getGetDefaultGoalQueryKey,
+  getGetSeedingSettingsQueryKey,
   getGetTrackerQueryKey,
   getListTrackersQueryKey,
-} from "../api/gen/query/indexers/indexers";
+} from "../api/gen/query/trackers/trackers";
 import { everyPath } from "./refresh";
 import type { LiveEffects } from "./types";
 
@@ -37,6 +41,15 @@ export const indexerEffects = {
     refresh({ queryKey: getListIndexersQueryKey() });
     refresh(everyIndexer);
   },
+  "trackers.seeding-changed": (data, { refresh }) => {
+    refresh({ queryKey: getListTrackersQueryKey() });
+    if (data.trackerId === null) {
+      refresh({ queryKey: getGetDefaultGoalQueryKey() });
+      refresh({ queryKey: getGetSeedingSettingsQueryKey() });
+      return;
+    }
+    refresh({ queryKey: getGetTrackerQueryKey(data.trackerId) });
+  },
 } satisfies Pick<
   LiveEffects,
   | "indexers.changed"
@@ -44,4 +57,5 @@ export const indexerEffects = {
   | "indexers.catalog-changed"
   | "indexers.settings-changed"
   | "trackers.changed"
+  | "trackers.seeding-changed"
 >;

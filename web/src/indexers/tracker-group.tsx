@@ -1,6 +1,10 @@
 import { type ReactNode, useId } from "react";
 
-import type { IndexersIndexer, IndexersTracker, NodesNode } from "../api/gen/model";
+import type { IndexersIndexer, TrackersTracker, NodesNode } from "../api/gen/model";
+import {
+  getListTrackersSuspenseQueryOptions,
+  useListTrackersSuspense,
+} from "../api/gen/query/trackers/trackers";
 import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
@@ -10,7 +14,7 @@ import { TrackerMenu } from "./tracker-menu";
 
 export type Group = {
   /** Null gathers the Indexers that reach no Tracker yet. */
-  readonly tracker: IndexersTracker | null;
+  readonly tracker: TrackersTracker | null;
   readonly indexers: readonly IndexersIndexer[];
 };
 
@@ -20,7 +24,7 @@ export type Group = {
  */
 export function groupsOf(
   indexers: readonly IndexersIndexer[],
-  trackers: readonly IndexersTracker[],
+  trackers: readonly TrackersTracker[],
 ): Group[] {
   const reaching = trackers.map((tracker) => ({
     tracker,
@@ -29,6 +33,15 @@ export function groupsOf(
   const listed = new Set(trackers.flatMap((tracker) => tracker.indexerIds));
   const none = indexers.filter((indexer) => !listed.has(indexer.id));
   return none.length === 0 ? reaching : [...reaching, { tracker: null, indexers: none }];
+}
+
+/** The Trackers the groups read, for the section's loader. */
+export const trackersQuery = getListTrackersSuspenseQueryOptions;
+
+/** The Indexers grouped by the Trackers they reach, and every Tracker. */
+export function useTrackerGroups(indexers: readonly IndexersIndexer[]) {
+  const { trackers } = useListTrackersSuspense().data;
+  return { trackers, groups: groupsOf(indexers, trackers) };
 }
 
 function Rows({
@@ -53,7 +66,7 @@ function Rows({
   );
 }
 
-const privacyWords = ({ name, privacy }: IndexersTracker): string =>
+const privacyWords = ({ name, privacy }: TrackersTracker): string =>
   privacy === "unknown"
     ? `Its first torrent shows whether ${name} is private.`
     : `${name} is ${privacy}.`;
@@ -72,7 +85,7 @@ const lines = (values: readonly string[]): ReactNode =>
     </span>
   );
 
-function TrackerMachinery({ tracker, reached }: { tracker: IndexersTracker; reached: boolean }) {
+function TrackerMachinery({ tracker, reached }: { tracker: TrackersTracker; reached: boolean }) {
   return (
     <Details
       summary={<span className="text-ink-2">{reached ? privacyWords(tracker) : unreached}</span>}
@@ -120,7 +133,7 @@ export function TrackerGroup({
   nodes,
 }: {
   group: Group;
-  trackers: readonly IndexersTracker[];
+  trackers: readonly TrackersTracker[];
   nodes: readonly NodesNode[];
 }) {
   const titleId = useId();

@@ -16,12 +16,16 @@ var (
 	opened = now.Add(-20 * day)
 
 	tenDays     = TimeRule{Seed: 10 * day}
-	defaultGoal = Finite{Combine: First, Ratio: 200, Seed: 14 * day, Then: RemoveDelete}
+	defaultGoal = MustFinite(First, 200, 14*day, RemoveDelete)
 
 	// owed is a quarter of the way to ratio 1 with six days credited.
 	owed = Totals{Uploaded: gib, Downloaded: 4 * gib, Size: 4 * gib, Announced: 6 * day, Seeding: 6 * day}
 	// past is past the rule and the default goal.
 	past = Totals{Uploaded: 9 * gib, Downloaded: 4 * gib, Size: 4 * gib, Announced: 15 * day, Seeding: 15 * day}
+	// pastRatio is past the default goal's ratio and short of its time.
+	pastRatio = Totals{Uploaded: 9 * gib, Downloaded: 4 * gib, Size: 4 * gib, Announced: 11 * day}
+	// pastTime is past the default goal's time and short of its ratio.
+	pastTime = Totals{Uploaded: gib, Downloaded: 4 * gib, Size: 4 * gib, Announced: 15 * day}
 )
 
 func seeder(t Totals, change ...func(*Copy)) Copy {
@@ -86,9 +90,12 @@ func withGrabs(g Grabs) func(*Copy) {
 	return func(c *Copy) { c.Grabs = g }
 }
 
-func pause() Finite  { g := defaultGoal; g.Then = Pause; return g }
-func remove() Finite { g := defaultGoal; g.Then = Remove; return g }
-func both() Finite   { g := defaultGoal; g.Combine = Both; return g }
+func pause() Finite  { g := defaultGoal; g.then = Pause; return g }
+func remove() Finite { g := defaultGoal; g.then = Remove; return g }
+func both() Finite   { g := defaultGoal; g.combine = Both; return g }
+
+func ratioOnly(c Combine) Finite { return MustFinite(c, 200, 0, RemoveDelete) }
+func timeOnly(c Combine) Finite  { return MustFinite(c, 0, 14*day, RemoveDelete) }
 
 type outcome struct {
 	Window  *Window
@@ -190,14 +197,38 @@ func TestEvaluate(t *testing.T) {
 			hash(private(tenDays), met(), seeder(past)),
 			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: RemoveDelete}}}},
 		{"whichever first meets on time alone",
-			hash(private(tenDays), met(), seeder(Totals{Uploaded: gib, Downloaded: 4 * gib, Size: 4 * gib, Announced: 15 * day})),
+			hash(private(tenDays), met(), seeder(pastTime)),
 			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: RemoveDelete}}}},
 		{"both waits for its ratio",
-			withGoal(both(), hash(private(tenDays), met(), seeder(Totals{Uploaded: gib, Downloaded: 4 * gib, Size: 4 * gib, Announced: 15 * day}))),
+			withGoal(both(), hash(private(tenDays), met(), seeder(pastTime))),
 			outcome{Window: met(), Risk: Safe, Plans: waits(NotMet)}},
 		{"both meets on both parts",
 			withGoal(both(), hash(private(tenDays), met(), seeder(past))),
 			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: RemoveDelete}}}},
+		{"a ratio-only whichever first meets on its ratio",
+			withGoal(ratioOnly(First), hash(private(tenDays), met(), seeder(pastRatio))),
+			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: RemoveDelete}}}},
+		{"a ratio-only whichever first doesn't count time",
+			withGoal(ratioOnly(First), hash(private(tenDays), met(), seeder(pastTime))),
+			outcome{Window: met(), Risk: Safe, Plans: waits(NotMet)}},
+		{"a ratio-only both meets on its ratio",
+			withGoal(ratioOnly(Both), hash(private(tenDays), met(), seeder(pastRatio))),
+			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: RemoveDelete}}}},
+		{"a ratio-only both doesn't count time",
+			withGoal(ratioOnly(Both), hash(private(tenDays), met(), seeder(pastTime))),
+			outcome{Window: met(), Risk: Safe, Plans: waits(NotMet)}},
+		{"a time-only whichever first meets on its time",
+			withGoal(timeOnly(First), hash(private(tenDays), met(), seeder(pastTime))),
+			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: RemoveDelete}}}},
+		{"a time-only whichever first doesn't count ratio",
+			withGoal(timeOnly(First), hash(private(tenDays), met(), seeder(pastRatio))),
+			outcome{Window: met(), Risk: Safe, Plans: waits(NotMet)}},
+		{"a time-only both meets on its time",
+			withGoal(timeOnly(Both), hash(private(tenDays), met(), seeder(pastTime))),
+			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: RemoveDelete}}}},
+		{"a time-only both doesn't count ratio",
+			withGoal(timeOnly(Both), hash(private(tenDays), met(), seeder(pastRatio))),
+			outcome{Window: met(), Risk: Safe, Plans: waits(NotMet)}},
 		{"a pause goal pauses",
 			withGoal(pause(), hash(private(tenDays), met(), seeder(past))),
 			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: []Plan{Act{Do: Pause}}}},
@@ -383,6 +414,14 @@ func TestLanes(t *testing.T) {
 			withGoal(Forever{}, hash(private(tenDays), owing(tenDays), seeder(owed))),
 			Lane[Ratio]{Value: 25},
 			Lane[time.Duration]{Value: 6 * day, Rule: duration(10*day + margin)}},
+		{"a ratio-only goal marks no goal on the time lane",
+			withGoal(ratioOnly(First), hash(private(tenDays), owing(tenDays), seeder(owed))),
+			Lane[Ratio]{Value: 25, Goal: ratio(200)},
+			Lane[time.Duration]{Value: 6 * day, Rule: duration(10*day + margin)}},
+		{"a time-only goal marks no goal on the ratio lane",
+			withGoal(timeOnly(Both), hash(private(tenDays), owing(tenDays), seeder(owed))),
+			Lane[Ratio]{Value: 25},
+			Lane[time.Duration]{Value: 6 * day, Rule: duration(10*day + margin), Goal: duration(14 * day)}},
 		{"a torrent that came complete from another client reads its ratio against its size",
 			hash(Public{}, nil, seeder(Totals{Uploaded: 6 * gib, Size: 4 * gib})),
 			Lane[Ratio]{Value: 150, Goal: ratio(200)},

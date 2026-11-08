@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type {
   IndexersIndexer,
   IndexersLimitUse,
-  IndexersTracker,
+  TrackersTracker,
   NodesNode,
 } from "../api/gen/model";
 import { KeyValues } from "../routes/_app/nodes/-facts";
@@ -30,7 +30,7 @@ function LimitUse({ label, limit }: { label: string; limit: IndexersLimitUse }) 
   );
 }
 
-function trackerWords(indexer: IndexersIndexer, trackers: readonly IndexersTracker[]): string {
+function trackerWords(indexer: IndexersIndexer, trackers: readonly TrackersTracker[]): string {
   const names = trackers
     .filter((tracker) => indexer.trackerIds.includes(tracker.id))
     .map((tracker) => tracker.name);
@@ -53,7 +53,7 @@ export function IndexerFacts({
 }: {
   indexer: IndexersIndexer;
   nodes: readonly NodesNode[];
-  trackers: readonly IndexersTracker[];
+  trackers: readonly TrackersTracker[];
 }) {
   const switches: SwitchName[] = indexer.signsIn
     ? ["on", "automaticSearch", "rss", "allowFailover"]
