@@ -1,0 +1,110 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "bb_session={{bbSession}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /forum/tracker.php
+          headers: {Cookie: "bb_session={{bbSession}}", Accept: text/html}
+          query: {nm: The%Quiet%Orchard}
+          noQuery: [f]
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /forum/tracker.php
+          query: {nm: "Harbor%Lights ТВ | Сезон: 2"}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /forum/tracker.php, query: {nm: Juniper%Falls}}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: empty.html
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /forum/tracker.php, query: {nm: ""}}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: recent.html
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /forum/login.php
+          headers:
+            Content-Type: application/x-www-form-urlencoded
+            Referer: "https://rutracker.fixture-site.fake.localhost/forum/login.php"
+          form: {login_username: fixture-user, login_password: "{{password}}", login: Login, redirect: index.php}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: loginfailed.html
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /forum/tracker.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "bb_session={{expiredSession}}"}
+    exchanges:
+      - request:
+          path: /forum/tracker.php
+          headers: {Cookie: "bb_session={{expiredSession}}"}
+        response:
+          status: 302
+          headers: {Location: "/forum/login.php?redirect=tracker.php"}
+      - request:
+          method: POST
+          path: /forum/login.php
+          form: {login_username: fixture-user, login_password: "{{password}}", login: Login}
+        response:
+          status: 302
+          headers:
+            Location: /forum/index.php
+            Set-Cookie: "bb_session={{bbSession}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/forum/"
+      - request: {path: /forum/index.php, headers: {Cookie: "bb_session={{bbSession}}"}}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: index.html
+      - request:
+          path: /forum/tracker.php
+          headers: {Cookie: "bb_session={{bbSession}}"}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: recent.html
+  - name: grab
+    call: {fetch: "/forum/dl.php?t=1001"}
+    exchanges:
+      - request: {path: /forum/dl.php, headers: {Cookie: "bb_session={{bbSession}}"}, query: {t: "1001"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
+  - name: magnetsearch
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    settings: {useMagnetLinks: "true"}
+    exchanges:
+      - request: {path: /forum/tracker.php, query: {nm: The%Quiet%Orchard}}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: search.html
+  - name: magnetgrab
+    call: {fetch: "/forum/viewtopic.php?t=1001"}
+    settings: {useMagnetLinks: "true"}
+    exchanges:
+      - request: {path: /forum/viewtopic.php, headers: {Cookie: "bb_session={{bbSession}}", Accept: text/html}, query: {t: "1001"}}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: topic.html

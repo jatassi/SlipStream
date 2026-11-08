@@ -1,0 +1,89 @@
+# The Recent body is Prowlarr's SecretCinema recentfeed.json, scrubbed, which its fixture reads
+# as three movie releases with the first one, the 2160p, published at 17:37:29 UTC. The rest is
+# synthetic, written from GazelleBase, GazelleRequestGenerator and SecretCinemaParser: a movie
+# search sends the IMDb id as cataloguenumber, and its rows reach each movie title branch (a
+# release name with a year, one without, a BDMV remaster, an SD row and a group without torrents).
+# The music title is the package's test, since an Artist - Group (Year) title can't be one of the
+# release catalog's titles. Times are the site's +02:00. The site declares no TV search, so a TV
+# search sends no request.
+source: prowlarr
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session: {cookie: "session={{session}}"}
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}", Accept: application/json}
+          query: {action: browse, order_by: time, order_way: desc, searchstr: The Quiet Orchard, cataloguenumber: tt0000001}
+          noQuery: [page, freetorrent, taglist]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, searchstr: Juniper Falls}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, order_by: time, order_way: desc}
+          noQuery: [searchstr]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /login.php
+          headers: {Accept: application/json, Referer: "https://secretcinema.fixture-site.fake.localhost/login.php"}
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /ajax.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "session={{expiredSession}}"}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{expiredSession}}"}
+        response:
+          status: 302
+          headers: {Location: login.php}
+      - request:
+          method: POST
+          path: /login.php
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response:
+          status: 302
+          headers:
+            Location: index.php
+            Set-Cookie: "session={{session}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/; secure; HttpOnly"
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: browse}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges: []
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=51001"}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: download, id: "51001"}
+          noQuery: [usetoken]
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

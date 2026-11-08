@@ -1,0 +1,1 @@
+{"html":"<form method=\"post\" action=\"/checkpoint/\"><input type=\"hidden\" name=\"a\" value=\"{{token}}\" /><input type=\"password\" name=\"pwd\" /><input type=\"submit\" value=\"Sign in\" /></form>"}

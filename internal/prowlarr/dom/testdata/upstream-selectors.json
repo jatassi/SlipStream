@@ -1,0 +1,1132 @@
+[
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 205,
+    "selector": "div#content table \u003e tbody \u003e tr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 208,
+    "selector": "a[href^=\"/dl/\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 209,
+    "selector": "td:nth-child(3) a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 211,
+    "selector": "td:nth-child(3) span"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 212,
+    "selector": "td:nth-child(1) img"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 219,
+    "selector": "td:nth-child(1) a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 223,
+    "selector": "td:nth-child(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 224,
+    "selector": "td:nth-child(10)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 226,
+    "selector": "td:nth-child(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 233,
+    "selector": "a[href^=\"magnet:?\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 238,
+    "selector": "td:nth-child(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidex.cs",
+    "line": 239,
+    "selector": "td:nth-child(11)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 82,
+    "selector": "#content .berror .berror_c"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 287,
+    "selector": "#news-title"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 327,
+    "selector": ".list.down \u003e .li_swing_m"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 336,
+    "selector": ".list.down \u003e .li_distribute_m"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 345,
+    "selector": ".list.down \u003e .li_download_m"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 354,
+    "selector": ".story_inf \u003e li:nth-child(2)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 404,
+    "selector": ".list.down \u003e .red"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 441,
+    "selector": "#tabs .torrent_c \u003e div"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Anidub.cs",
+    "line": 473,
+    "selector": ".searchitem \u003e h3 \u003e a[href], #dle-content \u003e .story \u003e .story_h \u003e .lcol \u003e h2 \u003e a[href]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 59,
+    "selector": ".download_link"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 86,
+    "selector": "input[name=\"loginKey\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 106,
+    "selector": "#loginError, .error"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 251,
+    "selector": ".torrents tr.torrent, .torrents tr.torrent_alt"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 256,
+    "selector": "span.freeleech"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 264,
+    "selector": "a.title, a.alt_title"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 329,
+    "selector": "span.tags"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 333,
+    "selector": ".peers a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 335,
+    "selector": ".peers"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 338,
+    "selector": ".peers a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 339,
+    "selector": ".peers a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 344,
+    "selector": ".size"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 348,
+    "selector": ".added"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BakaBT.cs",
+    "line": 394,
+    "selector": "td.category span"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BitHDTV.cs",
+    "line": 189,
+    "selector": "#needseed"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BitHDTV.cs",
+    "line": 194,
+    "selector": "table[align=center] + br + table \u003e tbody"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BitHDTV.cs",
+    "line": 205,
+    "selector": "a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/BitHDTV.cs",
+    "line": 221,
+    "selector": "a[href^=\"download.php\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 79,
+    "selector": "div \u003e font[color=\"#FF0000\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 261,
+    "selector": "table.navus tr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 265,
+    "selector": "table.mainblockcontenttt tr:has(td.mainblockcontent)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 268,
+    "selector": "a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 278,
+    "selector": "span"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 319,
+    "selector": "img[src$=\"no_ratio.png\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 324,
+    "selector": "img[src$=\"free.png\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 328,
+    "selector": "img[src$=\"50.png\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 332,
+    "selector": "img[src$=\"25.png\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 336,
+    "selector": "img[src$=\"75.png\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 341,
+    "selector": "a[href*=\"www.imdb.com/title/\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/HDTorrents.cs",
+    "line": 345,
+    "selector": "img[src$=\"internal.png\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/IPTorrents.cs",
+    "line": 335,
+    "selector": "table[id=\"torrents\"] \u003e thead \u003e tr \u003e th"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/IPTorrents.cs",
+    "line": 339,
+    "selector": "table[id=\"torrents\"] \u003e tbody \u003e tr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/IPTorrents.cs",
+    "line": 342,
+    "selector": "a.hv"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/IPTorrents.cs",
+    "line": 353,
+    "selector": "a[href^=\"/download.php/\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/IPTorrents.cs",
+    "line": 356,
+    "selector": "div.sub"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/IPTorrents.cs",
+    "line": 361,
+    "selector": "td:nth-of-type(1) a[href^=\"?\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/IPTorrents.cs",
+    "line": 405,
+    "selector": "span.free"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 276,
+    "selector": "table#sortabletable \u003e tbody \u003e tr:has(a[href*=\"details.php?id=\"])"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 281,
+    "selector": "img[title^=\"Free Torrent\"], img[title^=\"Sitewide Free Torrent\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 285,
+    "selector": "img[title^=\"Silver Torrent\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 297,
+    "selector": "div \u003e a[href*=\"details.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 300,
+    "selector": ".tooltip-content \u003e div:nth-of-type(1)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 302,
+    "selector": ".tooltip-content \u003e div:nth-of-type(2)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 305,
+    "selector": "a[href*=\"download.php\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 307,
+    "selector": "td:nth-of-type(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 308,
+    "selector": "td:nth-of-type(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 310,
+    "selector": "td:nth-of-type(1) a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 323,
+    "selector": "td:nth-of-type(5)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 324,
+    "selector": "td:nth-child(6)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 326,
+    "selector": "img[title^=\"x2 Torrent\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/ImmortalSeed.cs",
+    "line": 331,
+    "selector": "td:nth-of-type(2) \u003e div:last-child"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 81,
+    "selector": "#loginform \u003e .warning"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 243,
+    "selector": "table#torrent_table \u003e tbody \u003e tr.group:has(strong \u003e a[href*=\"torrents.php?id=\"])"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 246,
+    "selector": "strong \u003e a[href*=\"torrents.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 249,
+    "selector": "strong \u003e a[href*=\"artist.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 257,
+    "selector": "strong \u003e a[href*=\"torrents.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 259,
+    "selector": "td:nth-child(4) \u003e strong"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 262,
+    "selector": "div.tags"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 263,
+    "selector": ".thumbnail"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 271,
+    "selector": "table#torrent_table \u003e tbody \u003e tr.group_torrent.groupid_1:has(a[href*=\"torrents.php?id=\"])"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 274,
+    "selector": "a[href^=\"torrents.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 277,
+    "selector": "a[href^=\"torrents.php?action=download\u0026id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 280,
+    "selector": "td:nth-child(6)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 292,
+    "selector": "td:nth-child(4)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 293,
+    "selector": "td:nth-child(2)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 294,
+    "selector": "td:nth-child(5)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 296,
+    "selector": "td:nth-child(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 307,
+    "selector": "td:nth-child(3) \u003e span[title]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 312,
+    "selector": "td:nth-child(3)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 315,
+    "selector": "a[href^=\"torrents.php?id=\"] strong"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Libble.cs",
+    "line": 336,
+    "selector": "td.cats_col div.cat_icon"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 264,
+    "selector": "#torrentTable \u003e tbody \u003e tr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 268,
+    "selector": "td:nth-of-type(2) \u003e a[href*=\"download.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 269,
+    "selector": "td:nth-of-type(2) \u003e a[href*=\"details.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 274,
+    "selector": "td:nth-of-type(1) a[href*=\"main_cat[]\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 277,
+    "selector": "td:nth-of-type(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 278,
+    "selector": "td:nth-of-type(10)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 287,
+    "selector": "td:nth-of-type(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 288,
+    "selector": "td:nth-of-type(3) \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 289,
+    "selector": "td:nth-of-type(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 292,
+    "selector": "td:nth-of-type(5)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 299,
+    "selector": "span.genres"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 307,
+    "selector": "a[href*=\"imdb.com/title/tt\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 310,
+    "selector": "img[title=\"100% freeleech\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 314,
+    "selector": "img[title=\"Halfleech\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/NorBits.cs",
+    "line": 318,
+    "selector": "img[title=\"90% Freeleech\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 177,
+    "selector": "div.browsePoster"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 180,
+    "selector": "strong:has(a[title=\"View Torrent\"])"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 182,
+    "selector": "a[href*=\"imdb.com/title/tt\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 184,
+    "selector": "tr.group_torrent:has(a[href^=\"torrents.php?id=\"])"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 187,
+    "selector": "a[href^=\"torrents.php?action=download\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 188,
+    "selector": "a[href^=\"torrents.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 190,
+    "selector": "a[href^=\"torrents.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 192,
+    "selector": "td:nth-child(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 193,
+    "selector": "td:nth-child(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 204,
+    "selector": "td:nth-child(4)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 205,
+    "selector": "td:nth-child(6)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 216,
+    "selector": "td:nth-child(3) span[class=\"time\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PixelHD.cs",
+    "line": 222,
+    "selector": "td:nth-child(3)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 90,
+    "selector": "table.body_table font[color~=\"red\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 365,
+    "selector": "table \u003e tbody \u003e tr.browse"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 368,
+    "selector": "a[href^=\"details.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 372,
+    "selector": "a[href^=\"download.php\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 374,
+    "selector": "td:nth-of-type(6)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 376,
+    "selector": "td:nth-of-type(10)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 377,
+    "selector": "td:nth-of-type(11)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 379,
+    "selector": "td:nth-of-type(1) a[href^=\"browse.php\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 389,
+    "selector": "td:nth-of-type(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 390,
+    "selector": "td:nth-of-type(4)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/PreToMe.cs",
+    "line": 391,
+    "selector": "td:nth-of-type(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 254,
+    "selector": "#torrents-table \u003e tbody \u003e tr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 258,
+    "selector": ".br_right \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 260,
+    "selector": "b"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 268,
+    "selector": "td:nth-child(4) \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 277,
+    "selector": "td:nth-child(6) nobr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 280,
+    "selector": "td:nth-child(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 281,
+    "selector": "td:nth-child(7) \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 282,
+    "selector": "td:nth-child(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 283,
+    "selector": "td:nth-child(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 284,
+    "selector": "td:nth-child(10)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 286,
+    "selector": ".br_type \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RevolutionTT.cs",
+    "line": 288,
+    "selector": "a[href*=\"www.imdb.com/\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 67,
+    "selector": "table.attach a.magnet-link[href^=\"magnet:?\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 109,
+    "selector": "h4.warnColor1.tCenter.mrg_16, div.msg-main"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1597,
+    "selector": "table#tor-tbl \u003e tbody \u003e tr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1615,
+    "selector": "td.tor-size \u003e a.tr-dl"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1623,
+    "selector": "td.t-title-col \u003e div.t-title \u003e a.tLink"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1633,
+    "selector": "td:nth-child(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1635,
+    "selector": "td:nth-child(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1664,
+    "selector": "td:nth-child(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1667,
+    "selector": "b"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1679,
+    "selector": "td.f-name-col \u003e div.f-name \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1687,
+    "selector": "td.tor-size"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/RuTracker.cs",
+    "line": 1692,
+    "selector": "td:nth-child(10)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 84,
+    "selector": "div#fail .modal-body"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 236,
+    "selector": "span:contains(\"Freeleech until:\"):has(span.datetime)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 240,
+    "selector": "div.show[data-id]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 319,
+    "selector": "span:contains(\"Freeleech until:\"):has(span.datetime)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 324,
+    "selector": "#torrent-table tr.eprow, table tr.eprow"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 327,
+    "selector": "td:nth-of-type(5) a[href^=\"load_torrent?\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 328,
+    "selector": "td:nth-of-type(5) [href^=\"torrent_info?\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 329,
+    "selector": "td:nth-of-type(3)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 331,
+    "selector": "td:nth-of-type(4)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 337,
+    "selector": ".datetime[data-timestamp]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Shazbat.cs",
+    "line": 354,
+    "selector": "label.label-tag"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 100,
+    "selector": "h5"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 328,
+    "selector": "div.boxContent \u003e table \u003e tbody \u003e tr"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 331,
+    "selector": "td:nth-child(2) \u003e div \u003e a[href^=\"/t/\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 332,
+    "selector": "td:nth-child(4) a[href^=\"/download/\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 333,
+    "selector": "td:nth-child(2) \u003e div \u003e a[href^=\"/t/\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 334,
+    "selector": "td:nth-child(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 335,
+    "selector": "td:nth-child(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 336,
+    "selector": "td:nth-child(2) span[class^=\"elapsedDate\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 337,
+    "selector": "td:nth-child(1) a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 338,
+    "selector": "td:nth-child(2) span:contains(\"[Freeleech]\")"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 348,
+    "selector": "td:nth-child(6)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/SpeedCD.cs",
+    "line": 349,
+    "selector": "td:nth-child(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 78,
+    "selector": "table.forumline table span.gen"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 373,
+    "selector": "table.forumline \u003e tbody \u003e tr[class*=prow]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 376,
+    "selector": "td:nth-child(6) \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 384,
+    "selector": "td:nth-child(3) \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 385,
+    "selector": "td:nth-child(3) \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 387,
+    "selector": "td:nth-child(2) \u003e a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 391,
+    "selector": "td:nth-child(10) \u003e b"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 392,
+    "selector": "td:nth-child(11) \u003e b"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 395,
+    "selector": "td:nth-child(13)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 407,
+    "selector": "td:nth-child(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 408,
+    "selector": "td:nth-child(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 416,
+    "selector": "img[src=\"images/gold.gif\"], img[src=\"images/authors.gif\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 420,
+    "selector": "img[src=\"images/silver.gif\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Toloka.cs",
+    "line": 424,
+    "selector": "img[src=\"images/bronze.gif\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 76,
+    "selector": "td.embedded"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 250,
+    "selector": "table \u003e tbody:has(tr \u003e td.colhead) \u003e tr:not(:has(td.colhead))"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 254,
+    "selector": "td:nth-of-type(2) a:nth-of-type(2)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 274,
+    "selector": "td:nth-of-type(1) a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 281,
+    "selector": "td:nth-of-type(2) a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 284,
+    "selector": "td:nth-of-type(5)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 287,
+    "selector": "td:nth-of-type(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 289,
+    "selector": "td:nth-of-type(9)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 290,
+    "selector": "td:nth-of-type(10)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 293,
+    "selector": "td:nth-child(3)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 296,
+    "selector": "td:nth-child(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/TorrentBytes.cs",
+    "line": 302,
+    "selector": "font[color=\"green\"]:contains(\"F\"):contains(\"L\")"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs",
+    "line": 69,
+    "selector": ".login-content span.text-red"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs",
+    "line": 96,
+    "selector": "a[href^=\"download.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs",
+    "line": 258,
+    "selector": "a[href^=\"torrents-details.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs",
+    "line": 262,
+    "selector": "img[alt]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs",
+    "line": 264,
+    "selector": "a[href*=\"teams-view.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs",
+    "line": 288,
+    "selector": "img[src*=\"images/free.gif\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs",
+    "line": 289,
+    "selector": "img[src*=\"images/silverdownload.gif\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 77,
+    "selector": ".left_side table:nth-of-type(1) tr:nth-of-type(2)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 80,
+    "selector": "div.notification-body"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 306,
+    "selector": "table#sortabletable \u003e tbody \u003e tr:has(a[href*=\"details.php?id=\"])"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 311,
+    "selector": "img[title^=\"Free Torrent\"], img[title^=\"Sitewide Free Torrent\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 315,
+    "selector": "img[title^=\"Silver Torrent\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 326,
+    "selector": "div \u003e a[href*=\"details.php?id=\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 330,
+    "selector": "a[href*=\"download.php\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 332,
+    "selector": ".tooltip-content \u003e div:nth-of-type(2)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 334,
+    "selector": "td:nth-of-type(7)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 335,
+    "selector": "td:nth-of-type(8)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 337,
+    "selector": "td:nth-of-type(1) a"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 350,
+    "selector": "td:nth-of-type(5)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 351,
+    "selector": "td:nth-child(6)"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 353,
+    "selector": "img[title^=\"x2 Torrent\"]"
+  },
+  {
+    "file": "src/NzbDrone.Core/Indexers/Definitions/XSpeeds.cs",
+    "line": 357,
+    "selector": "td:nth-of-type(2) \u003e div:last-child"
+  }
+]

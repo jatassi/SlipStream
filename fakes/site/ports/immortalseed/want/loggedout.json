@@ -1,0 +1,55 @@
+{
+  "releases": [
+    {
+      "title": "Salt.Meadow.2020.2160p.WEB-DL.H265-FKW",
+      "size": 20132659200,
+      "published": "2026-06-04T06:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 2,
+      "link": "https://immortalseed.fixture-site.fake.localhost/download.php?id=3001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2045,
+        100059
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "24h0m0s",
+      "details": "https://immortalseed.fixture-site.fake.localhost/details.php?id=3001",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Harbor.Lights.S01.1080p.WEB-DL.H264-FKW",
+      "size": 24051816857,
+      "published": "2026-06-03T23:59:00Z",
+      "seeders": 15,
+      "leechers": 6,
+      "grabs": 11,
+      "link": "https://immortalseed.fixture-site.fake.localhost/download.php?id=3002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040,
+        100004
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "24h0m0s",
+      "details": "https://immortalseed.fixture-site.fake.localhost/details.php?id=3002",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": true
+}

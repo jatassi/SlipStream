@@ -124,9 +124,11 @@ function SearchInput({
 }
 
 /**
- * The Indexer catalog, searchable by name and narrowed by privacy and
- * language. Focus stays in the search field, whose arrow keys move through
- * the rows; Enter or a click picks one.
+ * The Indexer catalog with the sites SlipStream supports itself, searchable
+ * by name and narrowed by privacy and language. Before the catalog's first
+ * download, those sites are listed under why the rest are missing. Focus
+ * stays in the search field, whose arrow keys move through the rows; Enter
+ * or a click picks one.
  */
 export function CatalogPicker({
   catalog,
@@ -143,7 +145,7 @@ export function CatalogPicker({
   });
   const { shown, counts } = filtered(catalog.entries, filter);
   const { active, setActive, onKeyDown } = usePicking(shown, onPick);
-  if (catalog.notice !== null) {
+  if (catalog.notice !== null && catalog.entries.length === 0) {
     return <NotYet notice={catalog.notice} />;
   }
   const change = (next: Filter) => {
@@ -152,6 +154,7 @@ export function CatalogPicker({
   };
   return (
     <div className="flex flex-col gap-3">
+      {catalog.notice !== null && <NotYet notice={catalog.notice} />}
       <SearchInput
         listId={listId}
         listed={shown.length > 0}

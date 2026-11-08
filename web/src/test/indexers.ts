@@ -46,7 +46,9 @@ export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "
     session: null,
     feedHost: "prowlarr.lan:9696",
     definition: null,
+    port: null,
     searchModes: [{ mode: "search", params: ["q"] }],
+    notes: [],
     revision: 3,
     createdAt: "2026-10-20T08:00:00Z",
     ...over,
@@ -74,6 +76,7 @@ export const torrentLeech = indexer({
     fetchedAt: "2026-10-03T09:00:00Z",
     baseAddress: "https://www.torrentleech.org/",
     values: { username: "orchard" },
+    sealed: ["password"],
   },
   session: {
     nodeId: seedboxId,

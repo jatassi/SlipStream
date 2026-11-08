@@ -1,0 +1,19 @@
+{
+  "report": {
+    "modes": {
+      "search": [
+        "q"
+      ]
+    },
+    "categories": [
+      3000,
+      100001,
+      100002,
+      3020,
+      100007
+    ],
+    "items": 1,
+    "sources": null
+  },
+  "sessionChanged": true
+}

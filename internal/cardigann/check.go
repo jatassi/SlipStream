@@ -4,9 +4,12 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"github.com/dlclark/regexp2"
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/dom"
 )
 
 // variantLimit caps how many if-branch combinations of one template are
@@ -78,7 +81,7 @@ func (c *checker) css(path, css string) {
 	if css == "" {
 		return
 	}
-	if _, err := compileSelector(css); err != nil {
+	if _, err := dom.Compile(css); err != nil {
 		c.fail(unrunnable(err, "its selector %q at %s can't be read: %s", css, path, err))
 	}
 }
@@ -115,7 +118,7 @@ func (c *checker) templated(path string, t *template, check func(string) error) 
 }
 
 func compileCSS(css string) error {
-	_, err := compileSelector(css)
+	_, err := dom.Compile(css)
 	return err
 }
 
@@ -314,4 +317,12 @@ func filterTemplates(f filterBlock) []*template {
 		return nil
 	}
 	return []*template{t}
+}
+
+func group(m *regexp2.Match, name string) string {
+	g := m.GroupByName(name)
+	if g == nil {
+		return ""
+	}
+	return g.String()
 }

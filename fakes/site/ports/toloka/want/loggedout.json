@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "Harbor Lights (S1-2) (2023-2024) WEB-DL 1080p (S1-2)",
+      "size": 12884901888,
+      "published": "2026-01-06T00:00:00Z",
+      "seeders": 18,
+      "leechers": 2,
+      "grabs": 600,
+      "link": "https://toloka.fixture-site.fake.localhost/download.php?id=7001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100124
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://toloka.fixture-site.fake.localhost/t3001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard (2021) WEB-DL",
+      "size": 1503238553,
+      "published": "2026-01-07T00:00:00Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 77,
+      "link": "https://toloka.fixture-site.fake.localhost/download.php?id=7002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100042
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://toloka.fixture-site.fake.localhost/t3002",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": true
+}

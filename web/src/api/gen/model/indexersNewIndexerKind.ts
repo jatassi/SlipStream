@@ -1,1 +1,1 @@
-export type IndexersNewIndexerKind = "catalog" | "torznab" | "rss";
+export type IndexersNewIndexerKind = "catalog" | "torznab" | "rss" | "native";

@@ -1,0 +1,86 @@
+{
+  "releases": [
+    {
+      "title": "Cedar Hollow (1952) 2160p",
+      "size": 57473058680,
+      "published": "2022-12-15T17:37:29Z",
+      "seeders": 8,
+      "leechers": 0,
+      "grabs": 6,
+      "link": "https://secretcinema.fixture-site.fake.localhost/torrents.php?action=download\u0026id=45068",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://secretcinema.fixture-site.fake.localhost/torrents.php?id=2497\u0026torrentid=45068",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Cedar Hollow (1952) 1080p",
+      "size": 24724893991,
+      "published": "2017-09-10T09:47:27Z",
+      "seeders": 1,
+      "leechers": 0,
+      "grabs": 14,
+      "link": "https://secretcinema.fixture-site.fake.localhost/torrents.php?action=download\u0026id=3599",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://secretcinema.fixture-site.fake.localhost/torrents.php?id=2497\u0026torrentid=3599",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Cedar Hollow (1952) DVD-R",
+      "size": 10350032896,
+      "published": "2017-08-26T12:58:58Z",
+      "seeders": 0,
+      "leechers": 0,
+      "grabs": 5,
+      "link": "https://secretcinema.fixture-site.fake.localhost/torrents.php?action=download\u0026id=2726",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://secretcinema.fixture-site.fake.localhost/torrents.php?id=2497\u0026torrentid=2726",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

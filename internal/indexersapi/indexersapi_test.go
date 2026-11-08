@@ -68,6 +68,8 @@ type served struct {
 	key     string
 	changed *published
 	asked   []role.NodeID
+	// native answers the jobs of native Indexers.
+	native *nativeNode
 }
 
 var fixtureScenario = scenario.Scenario{Name: "x", Seed: "indexersapi"}
@@ -86,7 +88,7 @@ func serve(t *testing.T, r indexerstest.Roster, down role.NodeID) *served {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := &served{lib: lib, sealer: secrettest.Sealer(t), key: site.APIKey(fixtureScenario), changed: &published{}}
+	srv := &served{lib: lib, sealer: secrettest.Sealer(t), key: site.APIKey(fixtureScenario), changed: &published{}, native: &nativeNode{}}
 	srv.site = faketest.Loopback(t, site.Fake, fixtureScenario)
 	timings := searching.DefaultTimings()
 	timings.Floor = 0
@@ -100,15 +102,17 @@ func serve(t *testing.T, r indexerstest.Roster, down role.NodeID) *served {
 			if n == down {
 				return disconnected{}
 			}
-			return home
+			return split{native: srv.native, other: home}
 		},
-		Changed:  srv.changed,
-		Status:   discard[indexers.StatusChanged]{},
-		Trackers: discard[indexers.TrackerChanged]{},
-		Settings: discard[indexers.SettingsChanged]{},
-		Timings:  indexers.DefaultTimings(),
-		Zone:     time.UTC,
-		Log:      slog.New(slog.DiscardHandler),
+		Ports:       ports,
+		CatalogNext: func(context.Context) (time.Time, error) { return time.Time{}, nil },
+		Changed:     srv.changed,
+		Status:      discard[indexers.StatusChanged]{},
+		Trackers:    discard[indexers.TrackerChanged]{},
+		Settings:    discard[indexers.SettingsChanged]{},
+		Timings:     indexers.DefaultTimings(),
+		Zone:        time.UTC,
+		Log:         slog.New(slog.DiscardHandler),
 	})
 	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { indexersapi.Routes(r, registry{x}) })
 	return srv
@@ -157,7 +161,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
 		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
-		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,` + modes + `,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
+		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,"port":null,` + modes + `,"notes":[],"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
 }
 
 const on = `"on":true,"automaticSearch":true,"rss":true,"allowFailover":false`
@@ -196,7 +200,7 @@ func TestAnIndexerIsCreatedOnItsHomeNodeAndListed(t *testing.T) {
 func TestEachCreateErrorAnswersItsProblem(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.address(), "wrong"), http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.site.Address.URL("/elsewhere"), s.key), http.StatusUnprocessableEntity,
 		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site failed the Test with 'the Indexer responded with status 404'. Check the address and test again."}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body("ftp://example.test/torznab", "k"), http.StatusUnprocessableEntity,
@@ -245,7 +249,7 @@ func TestAPatchChangesOnlyWhatItSends(t *testing.T) {
 	}
 
 	s.owner.Expect(t, http.MethodPatch, path, `{"apiKey":"wrong"}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
 	s.owner.Expect(t, http.MethodGet, path, "", http.StatusOK, fresh(host, on, 25, 3, "null"))
 	s.owner.Expect(t, http.MethodPatch, path, `{"apiKey":"`+s.key+`","searches":{"count":5,"per":"day"}}`, http.StatusOK,
 		strings.Replace(fresh(host, on, 25, 4, "null"), `"searches":{"count":0,"per":"hour"`, `"searches":{"count":5,"per":"day"`, 1))
@@ -285,7 +289,7 @@ func TestATestReportsWhatItLearnedOrWhyItFailed(t *testing.T) {
 
 	stopped := s.plant(t, "Suspended Site", site.PlayKey(101))
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/"+stopped+"/test", "", http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Suspended Site refused the API key with 'Account suspended'. Check the account, then test again."}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Suspended Site refused the API key with 'Account suspended'. Check the account, then test again.","cause":"account_refused"}`)
 	_, v := s.owner.Call(t, http.MethodGet, "/api/v1/indexers/"+stopped, "")
 	if !strings.Contains(v, `"status":{"state":"stopped","cause":"account_refused","text":"Account suspended"`) ||
 		!strings.Contains(v, `"sentence":"Stopped because Suspended Site refused the API key with 'Account suspended'.","fix":"Check the account, then test the Indexer."`) ||

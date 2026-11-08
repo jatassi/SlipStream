@@ -1,1 +1,1 @@
-export type IndexersCatalogEntryOrigin = "catalog" | "custom";
+export type IndexersCatalogEntryOrigin = "catalog" | "custom" | "native";

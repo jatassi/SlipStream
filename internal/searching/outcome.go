@@ -55,10 +55,17 @@ const (
 	ChallengeUnsolved    StopCause = "challenge_unsolved"
 	CookieExpired        StopCause = "cookie_expired"
 	DefinitionUnloadable StopCause = "definition_unloadable"
-	// AccountRefused is Torznab codes 100 to 199 and 910.
+	// AccountRefused is Torznab codes 100 to 199 and 910, and a key a
+	// ported site or a stateless catalog sign-in refused.
 	AccountRefused StopCause = "account_refused"
 	// RequestRejected is Torznab codes 200 to 203.
 	RequestRejected StopCause = "request_rejected"
+	// CodeNeeded is a sign-in that needs a two-factor code SlipStream
+	// can't make.
+	CodeNeeded StopCause = "code_needed"
+	// PortRetired is a ported site SlipStream no longer carries. Text is
+	// why.
+	PortRetired StopCause = "port_retired"
 )
 
 var stopWords = map[StopCause]string{
@@ -69,6 +76,8 @@ var stopWords = map[StopCause]string{
 	DefinitionUnloadable: "the Indexer's definition doesn't load",
 	AccountRefused:       "the Indexer refused the account",
 	RequestRejected:      "the Indexer rejected the request",
+	CodeNeeded:           "the site needs a two-factor code",
+	PortRetired:          "SlipStream no longer supports the site",
 }
 
 // outcomeOf is err as an Answer's Outcome: nil, an outcome a driver

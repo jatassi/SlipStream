@@ -1,0 +1,55 @@
+{
+  "releases": [
+    {
+      "title": "Тихий сад / The Quiet Orchard [2021, США, драма, BR-DISK 2160p] Dub + Original Eng",
+      "size": 59055800320,
+      "published": "2026-01-02T00:00:00Z",
+      "seeders": 0,
+      "leechers": 0,
+      "grabs": 7,
+      "link": "https://rutracker.fixture-site.fake.localhost/forum/viewtopic.php?t=1002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        102198
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://rutracker.fixture-site.fake.localhost/forum/viewtopic.php?t=1002",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Тихий сад / The Quiet Orchard [2021, США, драма, WEB-DL 1080p] MVO + Original Eng",
+      "size": 2254857830,
+      "published": "2026-01-01T00:00:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://rutracker.fixture-site.fake.localhost/forum/viewtopic.php?t=1001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100313
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://rutracker.fixture-site.fake.localhost/forum/viewtopic.php?t=1001",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

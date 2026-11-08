@@ -1,9 +1,11 @@
 import { Link } from "@tanstack/react-router";
 
-import type { IndexersDefinitionField } from "../../api/gen/model";
+import type { IndexersDefinitionField, IndexersDefinitionFieldType } from "../../api/gen/model";
 import { Checkbox } from "../../ui/checkbox";
+import { withFieldGroup } from "../../ui/form";
 import { Select } from "../../ui/select";
-import type { AddForm } from "../add/use-add";
+import { ChoiceSet } from "../add/families-field";
+import { chosenOf, numberError, rangeWords, requiredError } from "./settings";
 
 /**
  * An info field's text as the definition's authors wrote it, which may be
@@ -56,78 +58,202 @@ export function SolverHint({
   );
 }
 
-type FieldProps = { form: AddForm; field: IndexersDefinitionField; index: number };
-
-function TextValue({ form, field, index }: FieldProps) {
+const description = (field: IndexersDefinitionField) => {
+  const range = field.type === "number" ? rangeWords(field) : undefined;
   return (
-    <form.AppField name={`values[${index}]`}>
-      {(bound) =>
-        field.sealed || field.type === "password" ? (
-          <bound.SecretField label={field.label} saved={false} />
-        ) : (
-          <bound.TextField label={field.label} autoComplete="off" spellCheck={false} />
-        )
-      }
-    </form.AppField>
+    [
+      field.help === null ? "" : helpText(field.help),
+      range === undefined ? "" : `${range.charAt(0).toUpperCase()}${range.slice(1)}.`,
+    ]
+      .filter((part) => part !== "")
+      .join(" ") || undefined
   );
-}
+};
 
-function CheckboxValue({ form, field, index }: FieldProps) {
-  return (
-    <form.Field name={`values[${index}]`}>
-      {(bound) => (
-        <Checkbox
-          label={field.label}
-          checked={bound.state.value === "true"}
-          onCheckedChange={(checked) => {
-            bound.handleChange(String(checked));
-          }}
-        />
-      )}
-    </form.Field>
-  );
-}
+type One = { field: IndexersDefinitionField; saved: boolean };
 
-function SelectValue({ form, field, index }: FieldProps) {
-  return (
-    <form.Field name={`values[${index}]`}>
-      {(bound) => (
-        <Select
-          label={field.label}
-          options={field.options}
-          value={bound.state.value}
-          onValueChange={bound.handleChange}
-        />
-      )}
-    </form.Field>
-  );
-}
+const one: One = {
+  field: {
+    name: "",
+    label: "",
+    type: "text",
+    default: null,
+    help: null,
+    min: null,
+    max: null,
+    options: [],
+    sealed: false,
+    required: false,
+  },
+  saved: false,
+};
+
+const TextSetting = withFieldGroup({
+  defaultValues: { value: "" },
+  props: one,
+  render: function Text({ group, field, saved }) {
+    return (
+      <group.AppField
+        name="value"
+        validators={{ onSubmit: ({ value }) => requiredError(field, saved, value) }}
+      >
+        {(bound) =>
+          field.sealed || field.type === "password" ? (
+            <bound.SecretField
+              label={field.label}
+              saved={saved}
+              required={field.required}
+              description={description(field)}
+            />
+          ) : (
+            <bound.TextField
+              label={field.label}
+              autoComplete="off"
+              spellCheck={false}
+              aria-required={field.required}
+              description={description(field)}
+            />
+          )
+        }
+      </group.AppField>
+    );
+  },
+});
+
+const NumberSetting = withFieldGroup({
+  defaultValues: { value: "" },
+  props: one,
+  render: function NumberValue({ group, field }) {
+    return (
+      <group.AppField
+        name="value"
+        validators={{ onSubmit: ({ value }) => numberError(field, value) }}
+      >
+        {(bound) => (
+          <bound.TextField
+            label={field.label}
+            inputMode="numeric"
+            autoComplete="off"
+            description={description(field)}
+          />
+        )}
+      </group.AppField>
+    );
+  },
+});
+
+/** A multiselect's choices as checkboxes, saved in the options' order. */
+const MultiSetting = withFieldGroup({
+  defaultValues: { value: "" },
+  props: one,
+  render: function Multi({ group, field }) {
+    return (
+      <group.Field name="value">
+        {(bound) => (
+          <ChoiceSet
+            legend={field.label}
+            options={field.options}
+            chosen={chosenOf(bound.state.value)}
+            errors={bound.state.meta.errors}
+            description={description(field)}
+            onChange={(chosen) => {
+              bound.handleChange(
+                field.options
+                  .filter((option) => chosen.includes(option.value))
+                  .map((option) => option.value)
+                  .join(","),
+              );
+            }}
+          />
+        )}
+      </group.Field>
+    );
+  },
+});
+
+const CheckSetting = withFieldGroup({
+  defaultValues: { value: "" },
+  props: one,
+  render: function Check({ group, field }) {
+    return (
+      <group.Field name="value">
+        {(bound) => (
+          <Checkbox
+            label={field.label}
+            checked={bound.state.value === "true"}
+            onCheckedChange={(checked) => {
+              bound.handleChange(String(checked));
+            }}
+          />
+        )}
+      </group.Field>
+    );
+  },
+});
+
+const SelectSetting = withFieldGroup({
+  defaultValues: { value: "" },
+  props: one,
+  render: function Choose({ group, field }) {
+    return (
+      <group.Field name="value">
+        {(bound) => (
+          <Select
+            label={field.label}
+            options={field.options}
+            value={bound.state.value}
+            onValueChange={bound.handleChange}
+          />
+        )}
+      </group.Field>
+    );
+  },
+});
+
+/** How each field type is drawn: a control, its info text, or nothing here. */
+const drawnBy = {
+  text: TextSetting,
+  password: TextSetting,
+  number: NumberSetting,
+  multiselect: MultiSetting,
+  checkbox: CheckSetting,
+  select: SelectSetting,
+  info: "help",
+  info_cookie: "help",
+  info_useragent: "help",
+  info_category_8000: "help",
+  info_flaresolverr: null,
+  cardigannCaptcha: null,
+} as const satisfies Record<IndexersDefinitionFieldType, unknown>;
 
 /**
- * One of a definition's settings, drawn by its Cardigann type. A setting
- * whose value is sealed is typed like a password, since it is never shown
- * again. The captcha has its own step, and the FlareSolverr hint is the
- * form's SolverHint, so neither is drawn here.
+ * A definition's settings in its order, each drawn by its type. A sealed
+ * setting is typed like a password, since it is never shown again, and one
+ * named in saved, which holds a value, reads Saved with Replace. The captcha
+ * has its own step, and the FlareSolverr hint is the form's SolverHint, so
+ * neither is drawn here.
  */
-export function DefinitionField(props: FieldProps) {
-  const { field } = props;
-  switch (field.type) {
-    case "text":
-    case "password":
-      return <TextValue {...props} />;
-    case "checkbox":
-      return <CheckboxValue {...props} />;
-    case "select":
-      return <SelectValue {...props} />;
-    case "info":
-    case "info_cookie":
-    case "info_useragent":
-    case "info_category_8000":
-      return <Help label={field.label} help={field.help} />;
-    case "info_flaresolverr":
-    case "cardigannCaptcha":
-      return null;
-    default:
-      return field.type satisfies never;
-  }
-}
+export const SettingFields = withFieldGroup({
+  defaultValues: { values: [] as string[] },
+  props: { settings: [] as readonly IndexersDefinitionField[], saved: [] as readonly string[] },
+  render: function Settings({ group, settings, saved }) {
+    return settings.map((field, index) => {
+      const Control = drawnBy[field.type];
+      if (Control === null) {
+        return null;
+      }
+      if (Control === "help") {
+        return <Help key={field.name} label={field.label} help={field.help} />;
+      }
+      return (
+        <Control
+          key={field.name}
+          form={group}
+          fields={{ value: `values[${index}]` }}
+          field={field}
+          saved={field.sealed && saved.includes(field.name)}
+        />
+      );
+    });
+  },
+});

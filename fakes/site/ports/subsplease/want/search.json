@@ -1,0 +1,83 @@
+{
+  "releases": [
+    {
+      "title": "[SubsPlease] The Quiet Orchard - 01 (480p)",
+      "size": 367001600,
+      "published": "2026-06-01T09:00:00Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:a96e9ff4f1a6cd37561c29160cd66bdc1e279d62\u0026dn=%5BSubsPlease%5D+The+Quiet+Orchard+-+01+%28480p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "a96e9ff4f1a6cd37561c29160cd66bdc1e279d62",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/the-quiet-orchard/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] The Quiet Orchard - 01 (720p)",
+      "size": 734003200,
+      "published": "2026-06-01T09:00:00Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:9390b4926eda0bbd9e94b39c25b4bbfb4a8756b8\u0026dn=%5BSubsPlease%5D+The+Quiet+Orchard+-+01+%28720p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "9390b4926eda0bbd9e94b39c25b4bbfb4a8756b8",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/the-quiet-orchard/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] The Quiet Orchard - 01 (1080p)",
+      "size": 1395864371,
+      "published": "2026-06-01T09:00:00Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:47d36600e66c6444a7ff188d5bcfac26e6af4d9a\u0026dn=%5BSubsPlease%5D+The+Quiet+Orchard+-+01+%281080p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "47d36600e66c6444a7ff188d5bcfac26e6af4d9a",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/the-quiet-orchard/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

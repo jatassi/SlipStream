@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"net/netip"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -15,7 +16,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "endpoint-literals",
-		Doc:   "external hosts appear only in a package's DefaultEndpoints (spec #127, Architecture lints)",
+		Doc:   "external hosts appear only in a package's DefaultEndpoints, or in a ported site's own package (spec #127, Architecture lints)",
 		Check: checkEndpointLiterals,
 	})
 }
@@ -43,6 +44,10 @@ func checkEndpointLiterals(repo *lint.Repo) ([]lint.Finding, error) {
 	}
 	var findings []lint.Finding
 	for _, f := range files {
+		// A ported site's addresses are its Entry's, as upstream lists them.
+		if inTree(path.Dir(f.Path), portsTree) {
+			continue
+		}
 		for _, lit := range hostLiterals(f.Syntax) {
 			s, err := strconv.Unquote(lit.Value)
 			if err != nil {

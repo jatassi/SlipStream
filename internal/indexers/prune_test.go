@@ -139,19 +139,19 @@ func TestMovingAnIndexerDiscardsTheCaptchasShownForItsOldHome(t *testing.T) {
 	x, _, idx := onTwo(t)
 	shown := signInOf(idx, home)
 	shown.expires = time.Now().Add(time.Minute)
-	if _, err := x.Test(t.Context(), identity.Admin{}, idx.ID, &CaptchaAnswer{Attempt: x.attempts.keep(shown), Text: "x7k2"}); err != nil {
+	if _, err := x.Test(t.Context(), identity.Admin{}, idx.ID, Typed{Captcha: &CaptchaAnswer{Attempt: x.attempts.keep(shown), Text: "x7k2"}}); err != nil {
 		t.Fatalf("an answer to a captcha shown on home = %v, want it taken", err)
 	}
 	attempt := x.attempts.keep(shown)
 	move := func(to role.NodeID) {
 		t.Helper()
-		if _, err := x.Update(t.Context(), identity.Admin{}, idx.ID, Edit{Home: &to}, nil); err != nil {
+		if _, err := x.Update(t.Context(), identity.Admin{}, idx.ID, Edit{Home: &to}, Typed{}); err != nil {
 			t.Fatalf("move to %s: %v", to, err)
 		}
 	}
 	move(seed)
 	move(home)
-	if _, err := x.Test(t.Context(), identity.Admin{}, idx.ID, &CaptchaAnswer{Attempt: attempt, Text: "x7k2"}); !errors.Is(err, ErrCaptchaExpired) {
+	if _, err := x.Test(t.Context(), identity.Admin{}, idx.ID, Typed{Captcha: &CaptchaAnswer{Attempt: attempt, Text: "x7k2"}}); !errors.Is(err, ErrCaptchaExpired) {
 		t.Errorf("an answer to a captcha shown on home before a move away and back = %v, want it expired", err)
 	}
 }

@@ -13,6 +13,7 @@
 package indexers
 
 import (
+	"cmp"
 	"context"
 	"embed"
 	"encoding/json"
@@ -20,15 +21,18 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/cardigann"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching"
@@ -57,6 +61,7 @@ const (
 	Catalog Kind = "catalog"
 	Torznab Kind = "torznab"
 	RSS     Kind = "rss"
+	Native  Kind = "native"
 )
 
 // DefaultPriority is an Indexer's priority until an Admin sets one.
@@ -117,7 +122,7 @@ func (w Window) Duration() time.Duration {
 	return time.Hour
 }
 
-// Source is a Definition or a Feed.
+// Source is a Definition, a Feed or a Port.
 type Source interface{ source() }
 
 type Origin string
@@ -125,6 +130,7 @@ type Origin string
 const (
 	FromCatalog Origin = "catalog"
 	FromCustom  Origin = "custom"
+	FromPort    Origin = "native"
 )
 
 // Definition is the definition version a catalog Indexer pins and its
@@ -136,12 +142,26 @@ type Definition struct {
 	BaseAddress string
 	// Plain is the select and checkbox values and the username.
 	Plain map[string]string
-	// Name, Privacy, Login and Captcha are the pinned version's, read
-	// from its summary: zero while that version doesn't load.
+	// Name, Privacy, Login, Captcha and Key are the pinned version's,
+	// read from its summary: zero while that version doesn't load.
 	Name    string
 	Privacy cardigann.Privacy
 	Login   cardigann.LoginClass
 	Captcha bool
+	// Key names the fields a stateless sign-in sends, for its stops: "API
+	// key". It is "" for any other sign-in.
+	Key string
+}
+
+// definitionOf is the Definition of the pinned version that s summarizes.
+func definitionOf(id, sha, baseAddress string, s cardigann.Summary) Definition {
+	d := Definition{ID: id, SHA: sha, BaseAddress: baseAddress, Name: s.Name, Privacy: s.Privacy, Login: s.Login, Captcha: s.Captcha}
+	if s.Login == cardigann.StatelessLogin {
+		d.Key = indexerfields.Words(slices.DeleteFunc(slices.Clone(s.Fields), func(f indexerfields.Field) bool {
+			return f.Type != indexerfields.Text && f.Type != indexerfields.Password
+		}))
+	}
+	return d
 }
 
 // Feed is a Torznab or RSS feed.
@@ -155,8 +175,30 @@ type Feed struct {
 	Reading searching.RSSReading
 }
 
+// Port is the ported site a native Indexer runs, the address it reaches
+// the site at and its plain settings. Entry and Retired are read from the
+// registry with the row, as a Definition reads its pinned summary: Entry is
+// zero for a port the binary no longer carries, and Retired is set for one
+// SlipStream retired because its site died.
+type Port struct {
+	ID      port.ID
+	Address string
+	Plain   map[string]string
+	Entry   port.Entry
+	Retired *port.Retired
+}
+
+// Site is the ported site's name.
+func (p Port) Site() string {
+	if p.Retired != nil {
+		return p.Retired.Name
+	}
+	return cmp.Or(p.Entry.Name, string(p.ID))
+}
+
 func (Definition) source() {}
 func (Feed) source()       {}
+func (Port) source()       {}
 
 // Secrets are an Indexer's sealed values, opened only to put on the wire.
 type Secrets struct {
@@ -354,6 +396,9 @@ type Config struct {
 	Roster Roster
 	// Searching reaches the Searching service on a Node.
 	Searching func(role.NodeID) searching.Remote
+	// Ports are the ported sites this build carries, the same registry
+	// the Nodes run. Nil carries none.
+	Ports port.Catalog
 	// Types are how each Content Type is searched.
 	Types map[works.TypeID]Facet
 	// Works names each Content Type's Works in sentences.
@@ -387,6 +432,9 @@ type Indexers struct {
 }
 
 func New(cfg Config) *Indexers {
+	if cfg.Ports == nil {
+		cfg.Ports = port.NewRegistry(nil, nil, nil)
+	}
 	return &Indexers{cfg: cfg, next: make(chan struct{}), attempts: attempts{byID: map[string]attempt{}}}
 }
 
@@ -404,9 +452,13 @@ func (x *Indexers) moved() {
 	x.next = make(chan struct{})
 }
 
-// Run keeps late jobs polled until ctx ends, then waits for the ones still
+// Run moves the Indexers of ported sites the catalog took over, then
+// keeps late jobs polled until ctx ends and waits for the ones still
 // polling, which end with ctx.
 func (x *Indexers) Run(ctx context.Context) error {
+	if err := x.moveMoved(ctx); err != nil {
+		return err
+	}
 	x.late.run(ctx)
 	return nil
 }
@@ -442,7 +494,8 @@ func (b *background) goOn(f func(ctx context.Context)) bool {
 	return true
 }
 
-// All reads every Indexer in r, by name.
+// All reads every Indexer in r, by name. A native Indexer's Port has no
+// registry entry: the Indexers' own reads fill it.
 func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	rows, err := db.New(r).ListIndexers(ctx)
 	if err != nil {
@@ -457,7 +510,8 @@ func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
 	return out, nil
 }
 
-// Get reads Indexer id in r: ErrNoIndexer when there is none.
+// Get reads Indexer id in r, as All does: ErrNoIndexer when there is
+// none.
 func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 	row, err := db.New(r).GetIndexer(ctx, id)
 	if errors.Is(err, storage.ErrNoRows) {
@@ -467,6 +521,33 @@ func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 		return Indexer{}, err
 	}
 	return indexerOf(row.IndexersIndexer, row.DefinitionSummary, row.DefinitionFetchedAt, row.Pasted)
+}
+
+func (x *Indexers) all(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
+	all, err := All(ctx, r)
+	for i := range all {
+		all[i] = x.ported(all[i])
+	}
+	return all, err
+}
+
+func (x *Indexers) get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
+	idx, err := Get(ctx, r, id)
+	return x.ported(idx), err
+}
+
+// ported is idx with its port's registry entry, or its retired record.
+func (x *Indexers) ported(idx Indexer) Indexer {
+	p, ok := idx.Source.(Port)
+	if !ok {
+		return idx
+	}
+	p.Entry, _ = x.cfg.Ports.Lookup(p.ID)
+	if r, ok := x.cfg.Ports.Retired(p.ID); ok {
+		p.Retired = &r
+	}
+	idx.Source = p
+	return idx
 }
 
 // indexerOf is row as an Indexer, with its pinned definition's summary,
@@ -480,27 +561,9 @@ func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pa
 		Grabs:    Limit{Count: int(row.GrabLimit), Per: Window(row.GrabWindow)},
 		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Pasted: pasted, Revision: row.Revision, Created: row.CreatedAt.Time(),
 	}
-	if row.DefinitionID != nil {
-		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), Fetched: fetched.Time(), BaseAddress: deref(row.BaseAddress)}
-		if err := decode(row.Plain, &d.Plain); err != nil {
-			return Indexer{}, fmt.Errorf("indexer %s: plain: %w", row.ID, err)
-		}
-		if summary != nil {
-			var s cardigann.Summary
-			if err := decode(*summary, &s); err != nil {
-				return Indexer{}, fmt.Errorf("indexer %s: definition summary: %w", row.ID, err)
-			}
-			d.Name, d.Privacy, d.Login, d.Captcha = s.Name, s.Privacy, s.Login, s.Captcha
-		}
-		idx.Source = d
-	} else {
-		f := Feed{Tracker: deref(row.TrackerName), AllowNoSize: row.AllowNoSize}
-		if row.RssReading != nil {
-			if err := decode(*row.RssReading, &f.Reading); err != nil {
-				return Indexer{}, fmt.Errorf("indexer %s: rss reading: %w", row.ID, err)
-			}
-		}
-		idx.Source = f
+	var err error
+	if idx.Source, err = sourceOf(row, summary, fetched); err != nil {
+		return Indexer{}, fmt.Errorf("indexer %s: %w", row.ID, err)
 	}
 	for _, f := range []struct {
 		raw *string
@@ -516,6 +579,37 @@ func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pa
 	return idx, nil
 }
 
+func sourceOf(row db.IndexersIndexer, summary *string, fetched storage.Time) (Source, error) {
+	switch {
+	case row.DefinitionID != nil:
+		var s cardigann.Summary
+		if summary != nil {
+			if err := decode(*summary, &s); err != nil {
+				return nil, fmt.Errorf("definition summary: %w", err)
+			}
+		}
+		d := definitionOf(*row.DefinitionID, deref(row.DefinitionSha), deref(row.BaseAddress), s)
+		d.Fetched = fetched.Time()
+		if err := decode(row.Plain, &d.Plain); err != nil {
+			return nil, fmt.Errorf("plain: %w", err)
+		}
+		return d, nil
+	case row.PortID != nil:
+		p := Port{ID: port.ID(*row.PortID), Address: deref(row.BaseAddress)}
+		if err := decode(row.Plain, &p.Plain); err != nil {
+			return nil, fmt.Errorf("plain: %w", err)
+		}
+		return p, nil
+	}
+	f := Feed{Tracker: deref(row.TrackerName), AllowNoSize: row.AllowNoSize}
+	if row.RssReading != nil {
+		if err := decode(*row.RssReading, &f.Reading); err != nil {
+			return nil, fmt.Errorf("rss reading: %w", err)
+		}
+	}
+	return f, nil
+}
+
 // row is idx as indexers_indexer holds it.
 func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
 	p := db.InsertIndexerParams{
@@ -529,6 +623,14 @@ func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
 	switch s := idx.Source.(type) {
 	case Definition:
 		p.DefinitionID, p.DefinitionSha, p.BaseAddress = &s.ID, &s.SHA, &s.BaseAddress
+		plain, err := encode(s.Plain)
+		if err != nil {
+			return db.InsertIndexerParams{}, err
+		}
+		p.Plain = *plain
+	case Port:
+		id := string(s.ID)
+		p.PortID, p.BaseAddress = &id, &s.Address
 		plain, err := encode(s.Plain)
 		if err != nil {
 			return db.InsertIndexerParams{}, err

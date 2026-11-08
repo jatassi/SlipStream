@@ -1,0 +1,82 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard 2021 1080p WEB-DL H264-FKW",
+      "size": 6002216796,
+      "published": "1999-12-31T21:42:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://iptorrents.fixture-site.fake.localhost/download.php/1001/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100072
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "336h0m0s",
+      "details": "https://iptorrents.fixture-site.fake.localhost/t/1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard 2021 1080p BluRay x264-FKW",
+      "size": 10522669875,
+      "published": "1999-12-30T12:00:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 9,
+      "link": "https://iptorrents.fixture-site.fake.localhost/download.php/1002/The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2050,
+        100048
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "336h0m0s",
+      "details": "https://iptorrents.fixture-site.fake.localhost/t/1002",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The Quiet Orchard 2021 720p WEB-DL H264-FKW",
+      "size": 2995739688,
+      "published": "1999-12-04T00:00:00Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 2,
+      "link": "https://iptorrents.fixture-site.fake.localhost/download.php/1003/The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2080,
+        100020
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "336h0m0s",
+      "details": "https://iptorrents.fixture-site.fake.localhost/t/1003",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

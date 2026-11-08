@@ -1,0 +1,50 @@
+source: synthetic
+session:
+  cookie: "h_sl={{hsl}}; h_sp={{hsp}}; h_su={{hsu}}"
+  pasted: true
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {Cookie: "h_sl={{hsl}}; h_sp={{hsp}}; h_su={{hsu}}", Accept: text/html}
+          query: {cat: "0", search: tt0000001, options: "4"}
+        response: {headers: {Content-Type: text/html; charset=iso-8859-1}, body: search.html}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /torrents.php, query: {cat: "0", search: Harbor Lights S02E03, options: "0"}}
+        response: {headers: {Content-Type: text/html; charset=iso-8859-1}, body: tv.html}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /torrents.php, query: {search: Juniper Falls, options: "0"}}
+        response: {headers: {Content-Type: text/html; charset=iso-8859-1}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php, query: {cat: "0", search: "", options: "0"}}
+        response: {headers: {Content-Type: text/html; charset=iso-8859-1}, body: recent.html}
+  - name: auth
+    call: {test: {}}
+    session: {cookie: "h_sl={{hsl}}; h_sp={{wrongHsp}}; h_su={{hsu}}", pasted: true}
+    exchanges:
+      - request: {path: /torrents.php, headers: {Cookie: "h_sl={{hsl}}; h_sp={{wrongHsp}}; h_su={{hsu}}"}}
+        response: {headers: {Content-Type: text/html; charset=iso-8859-1}, body: login.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    session: {cookie: "h_sl={{hsl}}; h_sp={{expiredHsp}}; h_su={{hsu}}", pasted: true}
+    exchanges:
+      - request: {path: /torrents.php, headers: {Cookie: "h_sl={{hsl}}; h_sp={{expiredHsp}}; h_su={{hsu}}"}}
+        response: {headers: {Content-Type: text/html; charset=iso-8859-1}, body: login.html}
+  - name: grab
+    call: {fetch: "/download.php?id=1001&passkey={{passkey}}"}
+    exchanges:
+      - request: {path: /download.php, headers: {Cookie: "h_sl={{hsl}}; h_sp={{hsp}}; h_su={{hsu}}"}, query: {id: "1001", passkey: "{{passkey}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

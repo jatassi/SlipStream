@@ -1,0 +1,106 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+  pin: "{{pin}}"
+session:
+  cookie: "uid={{uid}}; pass={{pass}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}", Accept: text/html}
+          query: {st: "1", search: tt0000001, sd: "1", tags: "", tf: all}
+          noQuery: ["cat[]"]
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {st: "1", search: Harbor Lights S02E03, tags: "", tf: all}
+          noQuery: [sd]
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {st: "1", search: Juniper Falls}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: empty.html
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {st: "1", search: "", tags: "", tf: all}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: recent.html
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /login.php}
+        response:
+          headers:
+            Content-Type: text/html; charset=iso-8859-1
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: login.html
+      - request:
+          method: POST
+          path: /takelogin.php
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+          form: {username: fixture-user, password: "{{password}}", login_pin: "{{pin}}", returnto: "%2F", login: Login}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: loginfailed.html
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "uid={{uid}}; pass={{expiredPass}}"}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{expiredPass}}"}
+        response:
+          status: 302
+          headers: {Location: "/login.php?returnto=%2Fbrowse.php"}
+      - request: {path: /login.php}
+        response:
+          headers:
+            Content-Type: text/html; charset=iso-8859-1
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: login.html
+      - request:
+          method: POST
+          path: /takelogin.php
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+          form: {username: fixture-user, password: "{{password}}", login_pin: "{{pin}}"}
+        response:
+          status: 302
+          headers:
+            Location: /index.php
+            Set-Cookie: "uid={{uid}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/\npass={{pass}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/"
+      - request: {path: /index.php}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: index.html
+      - request:
+          path: /browse.php
+          headers: {Cookie: "PHPSESSID={{sid}}; uid={{uid}}; pass={{pass}}"}
+        response:
+          headers: {Content-Type: text/html; charset=iso-8859-1}
+          body: recent.html

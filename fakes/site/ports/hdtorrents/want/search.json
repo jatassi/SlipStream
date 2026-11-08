@@ -1,0 +1,91 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.DTS.x264-FKW",
+      "size": 8804682956,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://hdtorrents.fixture-site.fake.localhost/download.php?id=1001\u0026f=The.Quiet.Orchard.2021.1080p.BluRay.DTS.x264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100005
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://hdtorrents.fixture-site.fake.localhost/details.php?id=1001",
+      "source": null,
+      "flags": [
+        "internal",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.2160p.UHD.BluRay.REMUX.HDR.HEVC-FKW",
+      "size": 65927747993,
+      "published": "2026-05-30T08:30:00Z",
+      "seeders": 0,
+      "leechers": 2,
+      "grabs": 0,
+      "link": "https://hdtorrents.fixture-site.fake.localhost/download.php?id=1002\u0026f=The.Quiet.Orchard.2021.2160p.UHD.BluRay.REMUX.HDR.HEVC-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2045,
+        100071
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://hdtorrents.fixture-site.fake.localhost/details.php?id=1002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.720p.BluRay.x264-FKW",
+      "size": 4692251770,
+      "published": "2026-05-28T23:59:59Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 7,
+      "link": "https://hdtorrents.fixture-site.fake.localhost/download.php?id=1003\u0026f=The.Quiet.Orchard.2021.720p.BluRay.x264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100003
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.75,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://hdtorrents.fixture-site.fake.localhost/details.php?id=1003",
+      "source": null,
+      "flags": [
+        "freeleech25"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

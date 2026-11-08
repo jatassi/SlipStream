@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard [FKW]",
+      "size": 2254857830,
+      "published": "1999-12-31T23:59:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=1001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2020,
+        100047
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0.7,
+      "minSeed": "0s",
+      "details": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard (Legendado)",
+      "size": 734003200,
+      "published": "1999-12-31T23:58:00Z",
+      "seeders": 3,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=1002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100028
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0.7,
+      "minSeed": "0s",
+      "details": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=1002",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

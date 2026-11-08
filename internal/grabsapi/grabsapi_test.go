@@ -408,7 +408,7 @@ func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit ind
 		t.Fatal(err)
 	}
 	edit.Priority = new(10)
-	if _, err := f.xs.Update(f.ctx, admin, better, edit, nil); err != nil {
+	if _, err := f.xs.Update(f.ctx, admin, better, edit, indexers.Typed{}); err != nil {
 		t.Fatal(err)
 	}
 	rootstest.Root(t, f.lib, f.home, contenttypetest.ID, t.TempDir())

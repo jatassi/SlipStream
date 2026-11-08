@@ -1,0 +1,113 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard 2021 Update [Deluxe \u0026 Extra 2022] [Windows / English / Trumpable] [Update]",
+      "size": 52428800,
+      "published": "2026-06-02T08:15:00Z",
+      "seeders": 12,
+      "leechers": 0,
+      "grabs": 30,
+      "link": "https://gazellegames.fixture-site.fake.localhost/torrents.php?action=download\u0026id=5002\u0026authkey=prowlarr\u0026torrent_pass=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4050,
+        155590
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "80h0m0s",
+      "details": "https://gazellegames.fixture-site.fake.localhost/torrents.php?id=1001\u0026torrentid=5002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard (2021) [Windows / English / Full ISO]",
+      "size": 4294967296,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 40,
+      "leechers": 2,
+      "grabs": 100,
+      "link": "https://gazellegames.fixture-site.fake.localhost/torrents.php?action=download\u0026id=5001\u0026authkey=prowlarr\u0026torrent_pass=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4050,
+        155590
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "80h0m0s",
+      "details": "https://gazellegames.fixture-site.fake.localhost/torrents.php?id=1001\u0026torrentid=5001",
+      "source": null,
+      "flags": [
+        "scene"
+      ]
+    },
+    {
+      "title": "Harbor Lights (2024) [FLAC Lossless]",
+      "size": 734003200,
+      "published": "2026-05-20T22:15:00Z",
+      "seeders": 9,
+      "leechers": 1,
+      "grabs": 55,
+      "link": "https://gazellegames.fixture-site.fake.localhost/torrents.php?action=download\u0026id=5004\u0026authkey=prowlarr\u0026torrent_pass=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3050,
+        100004
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 0,
+      "minSeed": "80h0m0s",
+      "details": "https://gazellegames.fixture-site.fake.localhost/torrents.php?id=1002\u0026torrentid=5004",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Cedar.Hollow.2019.PS2-FIXTURE [PlayStation 2 / Multi-Language / PAL]",
+      "size": 2147483648,
+      "published": "2026-04-11T06:45:00Z",
+      "seeders": 2,
+      "leechers": 3,
+      "grabs": 8,
+      "link": "https://gazellegames.fixture-site.fake.localhost/torrents.php?action=download\u0026id=5005\u0026authkey=prowlarr\u0026torrent_pass=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        1090,
+        127469
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "80h0m0s",
+      "details": "https://gazellegames.fixture-site.fake.localhost/torrents.php?id=1004\u0026torrentid=5005",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

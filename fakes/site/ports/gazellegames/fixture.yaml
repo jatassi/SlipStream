@@ -1,0 +1,80 @@
+source: synthetic
+settings:
+  apiKey: "{{apiKey}}"
+cases:
+  - name: search
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /api.php
+          headers: {Accept: application/json, X-API-Key: "{{apiKey}}"}
+          query: {request: quick_user}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request:
+          path: /api.php
+          headers: {Accept: application/json, X-API-Key: "{{apiKey}}"}
+          query: {request: search, search_type: torrents, empty_groups: filled, order_by: time, order_way: desc, searchstr: The Quiet Orchard}
+          noQuery: [groupname, freetorrent]
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /api.php, query: {request: search, searchstr: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /api.php, query: {request: search}, noQuery: [searchstr, groupname]}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /api.php, query: {request: search}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {status: 401, headers: {Content-Type: application/json}, body: badkey.json}
+  - name: searchauth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /api.php, query: {request: search}}
+        response: {status: 401, headers: {Content-Type: application/json}, body: badkey.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /api.php, query: {request: search}}
+        response: {status: 429}
+  - name: failure
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /api.php, query: {request: search}}
+        response: {headers: {Content-Type: application/json}, body: failure.json}
+  - name: notjson
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php, query: {request: quick_user}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /api.php, query: {request: search}}
+        response: {headers: {Content-Type: text/html}, body: failure.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges: []
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=5001&authkey=prowlarr&torrent_pass={{passkey}}"}
+    exchanges:
+      - request: {path: /torrents.php, query: {action: download, id: "5001", authkey: prowlarr, torrent_pass: "{{passkey}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

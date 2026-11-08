@@ -1,0 +1,14 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "date": "2026-11-06",
+  "family": "",
+  "files": {
+    "json.go": [
+      "src/NzbDrone.Common/Serializer/Newtonsoft.Json/Json.cs"
+    ],
+    "stjson.go": [
+      "src/NzbDrone.Common/Serializer/System.Text.Json/BooleanConverter.cs",
+      "src/NzbDrone.Common/Serializer/System.Text.Json/STJson.cs"
+    ]
+  }
+}

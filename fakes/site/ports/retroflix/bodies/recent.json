@@ -1,0 +1,71 @@
+[
+  {
+    "download_volume_factor": 0.5,
+    "upload_volume_factor": 1,
+    "url": "https://retroflix.fixture-site.fake.localhost/browse/310555",
+    "id": 310555,
+    "name": "Cedar.Hollow.S01E05.1080p.WEB.H264-FIXTURE",
+    "description": "",
+    "category": {
+      "id": 402,
+      "name": ""
+    },
+    "size": 2345678901,
+    "created_at": "2021-11-15T14:10:00+02:00",
+    "times_completed": 30,
+    "leechers": 3,
+    "seeders": 25,
+    "short_description": "",
+    "poster": "",
+    "season": 0,
+    "episode": 0,
+    "tags": [],
+    "imdb_id": ""
+  },
+  {
+    "download_volume_factor": 0,
+    "upload_volume_factor": 0,
+    "url": "https://retroflix.fixture-site.fake.localhost/browse/310549",
+    "id": 310549,
+    "name": "Juniper.Falls.S01.2160p.WEB-DL.DDP5.1.H.265-FIXTURE",
+    "description": "",
+    "category": {
+      "id": 402,
+      "name": ""
+    },
+    "size": 61234567890,
+    "created_at": "2021-11-15T13:40:00+02:00",
+    "times_completed": 4,
+    "leechers": 5,
+    "seeders": 6,
+    "short_description": "",
+    "poster": "",
+    "season": 0,
+    "episode": 0,
+    "tags": [],
+    "imdb_id": "tt0000003"
+  },
+  {
+    "download_volume_factor": 1,
+    "upload_volume_factor": 1,
+    "url": "https://retroflix.fixture-site.fake.localhost/browse/310540",
+    "id": 310540,
+    "name": "The.Copper.Bell.2021.DVDRip.x264-FIXTURE [REQUESTED]",
+    "description": "",
+    "category": {
+      "id": 401,
+      "name": ""
+    },
+    "size": 1456789012,
+    "created_at": "2021-11-15T01:59:01+02:00",
+    "times_completed": 9,
+    "leechers": 1,
+    "seeders": 4,
+    "short_description": "",
+    "poster": "",
+    "season": 0,
+    "episode": 0,
+    "tags": [],
+    "imdb_id": "tt0000004"
+  }
+]

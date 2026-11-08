@@ -78,6 +78,10 @@ sql:
             go_type:
               type: string
               pointer: true
+          - column: indexers_indexer.port_id
+            go_type:
+              type: string
+              pointer: true
           - column: indexers_indexer.base_address
             go_type:
               type: string

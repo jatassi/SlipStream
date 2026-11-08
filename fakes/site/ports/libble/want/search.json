@@ -1,0 +1,81 @@
+{
+  "releases": [
+    {
+      "title": "Salt Meadow - Quiet Orchard [2021] FLAC / Lossless / CD",
+      "size": 432537600,
+      "published": "2026-01-01T12:00:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://libble.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1001\u0026authkey={{authkey}}\u0026torrent_pass={{torrentPass}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://libble.fixture-site.fake.localhost/torrents.php?id=11\u0026torrentid=1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Salt Meadow - Quiet Orchard [2021] MP3 / 320 / WEB",
+      "size": 125829120,
+      "published": "1999-12-31T19:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 12,
+      "link": "https://libble.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1002\u0026authkey={{authkey}}\u0026torrent_pass={{torrentPass}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://libble.fixture-site.fake.localhost/torrents.php?id=11\u0026torrentid=1002",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Harbor Lights - Mixtape [2020] MP3 / V0 / WEB",
+      "size": 102760448,
+      "published": "2026-01-02T08:30:00Z",
+      "seeders": 2,
+      "leechers": 0,
+      "grabs": 7,
+      "link": "https://libble.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1003\u0026authkey={{authkey}}\u0026torrent_pass={{torrentPass}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://libble.fixture-site.fake.localhost/torrents.php?id=12\u0026torrentid=1003",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

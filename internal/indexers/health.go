@@ -57,7 +57,7 @@ func (x *Indexers) healthAnswer(ctx context.Context, r storage.Reader[file], now
 		return health.Answer{}, err
 	}
 	long := LongBackoff.Value(s.LongBackoffSeconds)
-	all, err := All(ctx, r)
+	all, err := x.all(ctx, r)
 	if err != nil {
 		return health.Answer{}, err
 	}
@@ -120,15 +120,19 @@ func soonest(a, b time.Time) time.Time {
 }
 
 // stopItem links a challenge met with no Challenge solver to the
-// Searching section of the Node it was met on, where the solver is set.
+// Searching section of the Node it was met on, where the solver is set,
+// and a sign-in that needs a two-factor code to the Indexer's code step.
 func (x *Indexers) stopItem(idx Indexer, st Status) health.Item {
 	action := indexerLink(idx)
-	if st.Cause == searching.ChallengeUnsolved && !st.SolverTried {
+	switch {
+	case st.Cause == searching.ChallengeUnsolved && !st.SolverTried:
 		action = health.LinkAction("/nodes/"+st.Node.String()+"/searching", "Open Searching on "+x.cfg.Roster.Name(st.Node))
+	case st.Cause == searching.CodeNeeded:
+		action = health.LinkAction("/settings/indexers/"+idx.ID.String()+"#code", "Type code")
 	}
 	return health.Item{Key: health.KeyOf("stopped", idx.ID.String()), Level: health.Fail, Says: health.Says{
 		Subject: idx.Name,
-		Text:    x.stopItemWords(idx.Name, st),
+		Text:    x.stopItemWords(idx, st),
 		Detail:  []health.Fact{{Label: "Stopped since", At: st.Since}},
 		Action:  action,
 	}}

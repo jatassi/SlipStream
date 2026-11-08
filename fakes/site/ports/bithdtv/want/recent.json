@@ -1,0 +1,55 @@
+{
+  "releases": [
+    {
+      "title": "Juniper.Falls.S01.1080p.BluRay.x264-FKW",
+      "size": 32212254720,
+      "published": "2026-01-06T06:00:00Z",
+      "seeders": 18,
+      "leechers": 2,
+      "grabs": 600,
+      "link": "https://bithdtv.fixture-site.fake.localhost/download.php?id=3001\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100012
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bithdtv.fixture-site.fake.localhost/details.php?id=3001",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Salt.Meadow.2020.720p.HDTV.x264-FKW",
+      "size": 2362232012,
+      "published": "2026-01-07T07:07:07Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 77,
+      "link": "https://bithdtv.fixture-site.fake.localhost/download.php?id=3002\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5080,
+        100004
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bithdtv.fixture-site.fake.localhost/details.php?id=3002",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

@@ -1,0 +1,94 @@
+# Synthetic, written from GazelleBase, GazelleRequestGenerator and GreatPosterWall.cs. Prowlarr has
+# no GreatPosterWall recording. The rows are groups with their torrents in GreatPosterWall's own
+# shape: each title is the file name, each time is the site's +08:00, the categories come from the
+# resolution, and the free types reach every factor (75%, 50%, 25%, free and neutral). A movie
+# search sends the IMDb id as searchstr. The settings search only freeleech and prefer a token, so
+# a row that can take one links with usetoken=1, and grab downloads again without it when the site
+# has no token left. The site declares no TV search, so a TV search sends no request.
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+  useFreeleechToken: "1"
+  freeleechOnly: "true"
+session: {cookie: "session={{session}}"}
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}", Accept: application/json}
+          query: {action: browse, order_by: time, order_way: desc, searchstr: tt0000001, freetorrent: "1"}
+          noQuery: [cataloguenumber, taglist]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, searchstr: Juniper Falls, freetorrent: "1"}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, order_by: time, order_way: desc, freetorrent: "1"}
+          noQuery: [searchstr]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /login.php
+          headers: {Accept: application/json, Referer: "https://greatposterwall.fixture-site.fake.localhost/login.php"}
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /ajax.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "session={{expiredSession}}"}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{expiredSession}}"}
+        response:
+          status: 302
+          headers: {Location: login.php}
+      - request:
+          method: POST
+          path: /login.php
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response:
+          status: 302
+          headers:
+            Location: index.php
+            Set-Cookie: "session={{session}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/; secure; HttpOnly"
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: browse}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges: []
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=90410&usetoken=1"}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: download, id: "90410", usetoken: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: notokens.html}
+      - request:
+          path: /torrents.php
+          query: {action: download, id: "90410"}
+          noQuery: [usetoken]
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

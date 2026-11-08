@@ -1,10 +1,11 @@
 package cardigann
 
 import (
-	"strings"
 	"testing"
 
 	"golang.org/x/net/html"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/dom"
 )
 
 const testPage = `<html><body>
@@ -18,84 +19,27 @@ const testPage = `<html><body>
 
 func testDoc(t *testing.T) *html.Node {
 	t.Helper()
-	doc, err := parseHTML(testPage)
+	doc, err := dom.ParseHTML(testPage)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return doc
 }
 
-func mustSelector(t *testing.T, css string) *selector {
+func mustSelector(t *testing.T, css string) *dom.Selector {
 	t.Helper()
-	s, err := compileSelector(css)
+	s, err := dom.Compile(css)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
 
-func texts(nodes []*html.Node) []string {
-	out := make([]string, len(nodes))
-	for i, n := range nodes {
-		out[i] = strings.TrimSpace(textContent(n))
-	}
-	return out
-}
-
-func TestSelectorDialect(t *testing.T) {
-	doc := testDoc(t)
-	tests := []struct {
-		css  string
-		want []string
-	}{
-		{`td.title a:contains("Seeders")`, []string{"Show Seeders NEW"}},
-		{`td.title a:contains('seeders')`, []string{"show seeders"}},
-		{`td.title a:contains(Show Seeders)`, []string{"Show Seeders NEW"}},
-		{`td:contains("(x")`, []string{}},
-		{`table[border=1] td.seeders`, []string{"12", "3"}},
-		{`tr[data-id=2] td.seeders`, []string{"3"}},
-		{`a:not(.dl)a`, []string{"show seeders", "D", "Log out"}},
-		{`td.title a[href]a:not(:contains("show"))`, []string{"Show Seeders NEW"}},
-		{`div#content > div.poststuff:has(~ div.entry a.download)`, []string{"P1"}},
-		{`div.poststuff:has(+ div.entry a.download), div.footer`, []string{"P1", "Log out"}},
-		{`tr:has(> td img)`, []string{"Show Seeders NEW12"}},
-	}
-	for _, tt := range tests {
-		got := texts(mustSelector(t, tt.css).All(doc))
-		if strings.Join(got, "|") != strings.Join(tt.want, "|") {
-			t.Errorf("%s: got %q, want %q", tt.css, got, tt.want)
-		}
-	}
-}
-
-func TestSelectorScope(t *testing.T) {
-	doc := testDoc(t)
-	row := mustSelector(t, "tr.row").First(doc)
-	got := texts(mustSelector(t, ":scope > td.seeders").All(row))
-	if len(got) != 1 || got[0] != "12" {
-		t.Errorf(":scope > td.seeders = %q", got)
-	}
-	if !mustSelector(t, "tr.row").Match(row) {
-		t.Error("the row doesn't match its own selector")
-	}
-	if len(row.Attr) != 2 {
-		t.Errorf("the row kept a marker attribute: %v", row.Attr)
-	}
-}
-
-func TestSelectorErrors(t *testing.T) {
-	for _, css := range []string{`td[src$=\"/x\"]`, `td:contains("x`, `td:contains(x`, `div:has(~)`, `a >`} {
-		if _, err := compileSelector(css); err == nil {
-			t.Errorf("compileSelector(%q): want an error", css)
-		}
-	}
-}
-
 func TestQuerySelectorRoot(t *testing.T) {
 	doc := testDoc(t)
 	row := mustSelector(t, "tr.row").First(doc)
 	n, err := querySelector(row, ":root div.footer a")
-	if err != nil || n == nil || textContent(n) != "Log out" {
+	if err != nil || n == nil || dom.TextContent(n) != "Log out" {
 		t.Errorf(":root div.footer a = %v, %v", n, err)
 	}
 	if n, _ := querySelector(row, "div.footer a"); n != nil {
@@ -117,7 +61,7 @@ func block(t *testing.T, sel, attribute string) *selectorBlock {
 }
 
 func TestSelectHTML(t *testing.T) {
-	e := testEnv(t)
+	e := testEnv()
 	row := func() *html.Node { return mustSelector(t, "tr.row").First(testDoc(t)) }
 	tests := []struct {
 		name string
@@ -164,7 +108,7 @@ func mustFilter(t *testing.T, name string, a filterArgs) filterBlock {
 }
 
 func TestSelectRemoveAndCase(t *testing.T) {
-	e := testEnv(t)
+	e := testEnv()
 	r := mustSelector(t, "tr.row").First(testDoc(t))
 	b := block(t, "td.title a", "")
 	b.Remove = "span"
@@ -192,16 +136,16 @@ func TestSelectorFieldMatch(t *testing.T) {
 	doc := testDoc(t)
 	sel, _ := parseTemplate(":root a.logout")
 	f := &selectorField{Selector: sel, Attribute: "href"}
-	v, ok, err := f.Match(doc, testEnv(t))
+	v, ok, err := f.Match(doc, testEnv())
 	if err != nil || !ok || v.String() != "/logout" {
 		t.Errorf("Match = %q, %v, %v", v.String(), ok, err)
 	}
 	sel, _ = parseTemplate("a.none")
-	if _, ok, err := (&selectorField{Selector: sel}).Match(doc, testEnv(t)); ok || err != nil {
+	if _, ok, err := (&selectorField{Selector: sel}).Match(doc, testEnv()); ok || err != nil {
 		t.Errorf("a selector that matches nothing = %v, %v", ok, err)
 	}
 	sel, _ = parseTemplate("a.logout")
-	if _, _, err := (&selectorField{Selector: sel, Attribute: "title"}).Match(doc, testEnv(t)); err == nil {
+	if _, _, err := (&selectorField{Selector: sel, Attribute: "title"}).Match(doc, testEnv()); err == nil {
 		t.Error("a missing attribute: want an error")
 	}
 }
@@ -228,9 +172,9 @@ func TestParseXML(t *testing.T) {
 			t.Errorf("%s matches nothing", tt.css)
 			continue
 		}
-		got := textContent(n)
+		got := dom.TextContent(n)
 		if tt.attribute != "" {
-			got, _ = attr(n, tt.attribute)
+			got, _ = dom.Attr(n, tt.attribute)
 		}
 		if got != tt.want {
 			t.Errorf("%s = %q, want %q", tt.css, got, tt.want)

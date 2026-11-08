@@ -28,7 +28,7 @@ export interface IndexersIndexerEdit {
    */
   automaticSearch?: boolean | null;
   /**
-   * A catalog Indexer's: one of its definition's addresses
+   * A catalog Indexer's: one of its definition's addresses. A native Indexer's: one its port knows or a typed http or https one
    * @maxLength 2048
    */
   baseAddress?: string;
@@ -39,6 +39,11 @@ export interface IndexersIndexerEdit {
    * @nullable
    */
   categories?: number[] | null;
+  /**
+   * The current two-factor code, for the Test the change runs
+   * @maxLength 16
+   */
+  code?: string;
   /** A new browser cookie. Write-only */
   cookie?: IndexersPastedCookie;
   /** Null turns the limit off */
@@ -71,6 +76,6 @@ export interface IndexersIndexerEdit {
   rss?: boolean | null;
   /** Null turns the limit off */
   searches?: IndexersLimit | null;
-  /** A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value */
+  /** A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value */
   values?: IndexersIndexerEditValues;
 }

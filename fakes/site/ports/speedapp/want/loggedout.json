@@ -1,0 +1,88 @@
+{
+  "releases": [
+    {
+      "title": "Cedar.Hollow.S01E05.1080p.WEB.H264-FIXTURE",
+      "size": 2345678901,
+      "published": "2021-11-15T12:10:00Z",
+      "seeders": 25,
+      "leechers": 3,
+      "grabs": 30,
+      "link": "https://speedapp.fixture-site.fake.localhost/api/torrent/310555/download",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040,
+        100044
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://speedapp.fixture-site.fake.localhost/browse/310555",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    },
+    {
+      "title": "Juniper.Falls.S01.2160p.WEB-DL.DDP5.1.H.265-FIXTURE",
+      "size": 61234567890,
+      "published": "2021-11-15T11:40:00Z",
+      "seeders": 6,
+      "leechers": 5,
+      "grabs": 4,
+      "link": "https://speedapp.fixture-site.fake.localhost/api/torrent/310549/download",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100041
+      ],
+      "ids": {
+        "imdbid": "tt0000003"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://speedapp.fixture-site.fake.localhost/browse/310549",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Copper.Bell.2021.DVDRip.x264-FIXTURE",
+      "size": 1456789012,
+      "published": "2021-11-14T23:59:01Z",
+      "seeders": 4,
+      "leechers": 1,
+      "grabs": 9,
+      "link": "https://speedapp.fixture-site.fake.localhost/api/torrent/310540/download",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2070,
+        100007
+      ],
+      "ids": {
+        "imdbid": "tt0000004"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://speedapp.fixture-site.fake.localhost/browse/310540",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": true
+}

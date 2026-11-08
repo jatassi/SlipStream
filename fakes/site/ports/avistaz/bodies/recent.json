@@ -1,0 +1,561 @@
+{
+  "current_page": 1,
+  "data": [
+    {
+      "id": 187240,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187240-cedar-hollow-2021-s01e05-720p-nf-web-dl-ddp20-x264-seikel",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "file_name": "Cedar Hollow 2021 S01E05 720p NF WEB-DL DDP2.0 x264-SEIKEL",
+      "file_size": 935127615,
+      "file_count": 1,
+      "seed": 20,
+      "leech": 0,
+      "completed": 23,
+      "downloaded": 33,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 2,
+      "video_quality": "720p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": "tt15569106",
+        "tmdb": "135144",
+        "tvdb": "410548",
+        "title": "Cedar Hollow",
+        "tv_season": 1,
+        "tv_episode": 5,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 79,
+          "language": "Japanese"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 7,
+          "language": "Arabic"
+        },
+        {
+          "id": 33,
+          "language": "Chinese"
+        },
+        {
+          "id": 39,
+          "language": "Croatian"
+        },
+        {
+          "id": 40,
+          "language": "Czech"
+        },
+        {
+          "id": 41,
+          "language": "Danish"
+        },
+        {
+          "id": 43,
+          "language": "Dutch"
+        },
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 51,
+          "language": "Finnish"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 58,
+          "language": "German"
+        },
+        {
+          "id": 59,
+          "language": "Greek"
+        },
+        {
+          "id": 64,
+          "language": "Hebrew"
+        },
+        {
+          "id": 68,
+          "language": "Hungarian"
+        },
+        {
+          "id": 72,
+          "language": "Indonesian"
+        },
+        {
+          "id": 78,
+          "language": "Italian"
+        },
+        {
+          "id": 79,
+          "language": "Japanese"
+        },
+        {
+          "id": 104,
+          "language": "Malay"
+        },
+        {
+          "id": 130,
+          "language": "Polish"
+        },
+        {
+          "id": 131,
+          "language": "Portuguese"
+        },
+        {
+          "id": 134,
+          "language": "Romanian"
+        },
+        {
+          "id": 137,
+          "language": "Russian"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        },
+        {
+          "id": 155,
+          "language": "Swedish"
+        },
+        {
+          "id": 162,
+          "language": "Thai"
+        },
+        {
+          "id": 168,
+          "language": "Turkish"
+        },
+        {
+          "id": 172,
+          "language": "Ukrainian"
+        },
+        {
+          "id": 176,
+          "language": "Vietnamese"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-14 23:26:21",
+      "created_at_iso": "2021-11-14T23:26:21+02:00"
+    },
+    {
+      "id": 187239,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187239-harbor-lights-2021-s01e54-1080p-web-dl-aac-20-h264-ordinaryperson",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "Harbor Lights 2021 S01E54 1080p WEB-DL AAC 2.0 H.264 - OrdinaryPerson",
+      "file_size": 703242056,
+      "file_count": 1,
+      "seed": 5,
+      "leech": 1,
+      "completed": 4,
+      "downloaded": 10,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": null,
+        "tmdb": null,
+        "tvdb": "409041",
+        "title": "Harbor Lights",
+        "tv_season": 1,
+        "tv_episode": 54,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 33,
+          "language": "Chinese"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-14 23:11:49",
+      "created_at_iso": "2021-11-14T23:11:49+02:00"
+    },
+    {
+      "id": 187237,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187237-juniper-falls-2021-s01-1080p-web-dl-aac-20-h264-ordinaryperson",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "Juniper Falls 2021 S01 1080p WEB-DL AAC 2.0 H.264 - OrdinaryPerson",
+      "file_size": 21195285723,
+      "file_count": 15,
+      "seed": 2,
+      "leech": 1,
+      "completed": 1,
+      "downloaded": 8,
+      "upload_multiply": 1,
+      "download_multiply": 0.5,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": "tt15212912",
+        "tmdb": "136236",
+        "tvdb": "408898",
+        "title": "Juniper Falls",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": true
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-14 23:05:30",
+      "created_at_iso": "2021-11-14T23:05:30+02:00"
+    },
+    {
+      "id": 187224,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187224-salt-meadow-2009-720p-webrip-aac-h264",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "Salt Meadow 2009 720p WEBRip AAC H.264",
+      "file_size": 45518363661,
+      "file_count": 40,
+      "seed": 10,
+      "leech": 3,
+      "completed": 11,
+      "downloaded": 38,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 2,
+      "video_quality": "720p",
+      "rip_type_id": 13,
+      "rip_type": "WEBRip",
+      "movie_tv": {
+        "imdb": "https://www.imdb.com",
+        "tmdb": "https://www.themovie",
+        "tvdb": "https://thetvdb.com/",
+        "title": "Salt Meadow",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": true
+      },
+      "audio": [
+        {
+          "id": 33,
+          "language": "Chinese"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 33,
+          "language": "Chinese"
+        },
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-14 13:15:51",
+      "created_at_iso": "2021-11-14T13:15:51+02:00"
+    },
+    {
+      "id": 187223,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187223-the-copper-bell-2021-s01e02-1080p-web-dl-aac-x264",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "The Copper Bell 2021 S01E02 1080p WEB-DL AAC x264",
+      "file_size": 406379186,
+      "file_count": 1,
+      "seed": 7,
+      "leech": 0,
+      "completed": 6,
+      "downloaded": 22,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": null,
+        "tmdb": null,
+        "tvdb": null,
+        "title": "The Copper Bell",
+        "tv_season": 1,
+        "tv_episode": 2,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 156,
+          "language": "Tagalog"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-14 12:56:09",
+      "created_at_iso": "2021-11-14T12:56:09+02:00"
+    },
+    {
+      "id": 187214,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187214-the-lantern-keeper-s01e06-450p-hdtv-aac-h264-next",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "The Lantern Keeper S01E06 450p HDTV AAC H.264-NEXT",
+      "file_size": 743146271,
+      "file_count": 1,
+      "seed": 9,
+      "leech": 0,
+      "completed": 11,
+      "downloaded": 20,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 1,
+      "video_quality": "SD",
+      "rip_type_id": 7,
+      "rip_type": "HDTV",
+      "movie_tv": {
+        "imdb": "tt15616218",
+        "tmdb": "96262",
+        "tvdb": "410613",
+        "title": "The Lantern Keeper",
+        "tv_season": 1,
+        "tv_episode": 6,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 91,
+          "language": "Korean"
+        }
+      ],
+      "subtitle": null,
+      "music_type": null,
+      "created_at": "2021-11-14 10:31:43",
+      "created_at_iso": "2021-11-14T10:31:43+02:00"
+    },
+    {
+      "id": 187191,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187191-the-quiet-orchard-1984-720p-complete-web-dl-aac-h264-carmee",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "The Quiet Orchard (1984) 720p Complete WEB-DL AAC H.264-CARMEE",
+      "file_size": 4075094335,
+      "file_count": 5,
+      "seed": 7,
+      "leech": 0,
+      "completed": 8,
+      "downloaded": 13,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 2,
+      "video_quality": "720p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": null,
+        "tmdb": "107936",
+        "tvdb": null,
+        "title": "The Quiet Orchard",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": true
+      },
+      "audio": [
+        {
+          "id": 27,
+          "language": "Cantonese"
+        },
+        {
+          "id": 107,
+          "language": "Mandarin"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 27,
+          "language": "Cantonese"
+        },
+        {
+          "id": 33,
+          "language": "Chinese"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-14 07:34:25",
+      "created_at_iso": "2021-11-14T07:34:25+02:00"
+    },
+    {
+      "id": 187155,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187155-cedar-hollow-2021-complete-1080p-web-dl-aac-x264",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "Cedar Hollow 2021 Complete 1080p WEB-DL AAC x264",
+      "file_size": 76871091758,
+      "file_count": 168,
+      "seed": 21,
+      "leech": 3,
+      "completed": 23,
+      "downloaded": 47,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": null,
+        "tmdb": null,
+        "tvdb": null,
+        "title": "Cedar Hollow",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": true
+      },
+      "audio": [
+        {
+          "id": 156,
+          "language": "Tagalog"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-13 19:53:29",
+      "created_at_iso": "2021-11-13T19:53:29+02:00"
+    },
+    {
+      "id": 187132,
+      "url": "https://avistaz.fixture-site.fake.localhost/torrent/187132-harbor-lights-1979-s01-remastered-576i-dvd-remux-mpeg-2-dd-20-kmx",
+      "download": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "(removed)",
+      "file_name": "Harbor Lights (1979) S01 Remastered 576i DVD REMUX MPEG-2 DD 2.0-KMX",
+      "file_size": 106571873382,
+      "file_count": 60,
+      "seed": 16,
+      "leech": 2,
+      "completed": 20,
+      "downloaded": 44,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 1,
+      "video_quality": "SD",
+      "rip_type_id": 17,
+      "rip_type": "DVD Remux",
+      "movie_tv": {
+        "imdb": "tt1988438",
+        "tmdb": "17454",
+        "tvdb": "403197",
+        "title": "Harbor Lights",
+        "tv_season": 1,
+        "tv_episode": null,
+        "tv_full_season": true,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 27,
+          "language": "Cantonese"
+        },
+        {
+          "id": 33,
+          "language": "Chinese"
+        },
+        {
+          "id": 107,
+          "language": "Mandarin"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 27,
+          "language": "Cantonese"
+        },
+        {
+          "id": 33,
+          "language": "Chinese"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-11-13 12:10:57",
+      "created_at_iso": "2021-11-13T12:10:57+02:00"
+    }
+  ],
+  "first_page_url": "https://avistaz.fixture-site.fake.localhost/api/v1/jackett/torrents?type=2&page=1",
+  "from": 1,
+  "last_page": 314,
+  "last_page_url": "https://avistaz.fixture-site.fake.localhost/api/v1/jackett/torrents?type=2&page=314",
+  "next_page_url": "https://avistaz.fixture-site.fake.localhost/api/v1/jackett/torrents?type=2&page=2",
+  "path": "https://avistaz.fixture-site.fake.localhost/api/v1/jackett/torrents",
+  "per_page": 100,
+  "prev_page_url": null,
+  "to": 100,
+  "total": 31393
+}

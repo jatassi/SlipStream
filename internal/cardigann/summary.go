@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/newznab"
 )
 
@@ -17,7 +18,7 @@ type Summary struct {
 	// RequestDelay is the definition's own, before the Node's floor.
 	RequestDelay time.Duration
 	// Fields are the settings in definition order, the captcha last.
-	Fields  []Field
+	Fields  []indexerfields.Field
 	Login   LoginClass
 	Captcha bool
 	Caps    Caps
@@ -48,42 +49,6 @@ const (
 	// SessionLogin is every other login.
 	SessionLogin
 )
-
-// Field is one setting of the Indexer form.
-type Field struct {
-	// Name may hold hyphens or start with a digit.
-	Name    string
-	Label   string
-	Type    FieldType
-	Default string
-	// Options are a select's, in key order.
-	Options []Option
-	// Help is an info setting's text, third-party prose.
-	Help string
-}
-
-// FieldType is a setting's type.
-type FieldType string
-
-// The setting types. CaptchaField is the one Prowlarr adds for a login
-// captcha.
-const (
-	TextField             FieldType = "text"
-	PasswordField         FieldType = "password"
-	CheckboxField         FieldType = "checkbox"
-	SelectField           FieldType = "select"
-	InfoField             FieldType = "info"
-	InfoCookieField       FieldType = "info_cookie"
-	InfoFlareSolverrField FieldType = "info_flaresolverr"
-	InfoUserAgentField    FieldType = "info_useragent"
-	InfoCategory8000Field FieldType = "info_category_8000"
-	CaptchaField          FieldType = "cardigannCaptcha"
-)
-
-// Option is one choice of a select.
-type Option struct {
-	Value, Label string
-}
 
 // Caps are a definition's search modes and categories.
 type Caps struct {
@@ -138,21 +103,21 @@ func loginClass(def *cardigannDefinition) LoginClass {
 	return StatelessLogin
 }
 
-func fields(def *cardigannDefinition) []Field {
-	out := make([]Field, 0, len(def.Settings)+1)
+func fields(def *cardigannDefinition) []indexerfields.Field {
+	out := make([]indexerfields.Field, 0, len(def.Settings)+1)
 	for _, s := range def.Settings {
-		f := Field{Name: s.Name, Label: s.Label, Type: FieldType(s.Type), Default: s.Default}
+		f := indexerfields.Field{Name: s.Name, Label: s.Label, Type: indexerfields.Type(s.Type), Default: s.Default}
 		if strings.HasPrefix(s.Type, "info") {
 			f.Help, f.Default = s.Default, ""
 		}
 		for _, o := range s.Options {
-			f.Options = append(f.Options, Option{Value: o.Key, Label: o.Value})
+			f.Options = append(f.Options, indexerfields.Option{Value: o.Key, Label: o.Value})
 		}
-		slices.SortStableFunc(f.Options, func(a, b Option) int { return strings.Compare(a.Value, b.Value) })
+		slices.SortStableFunc(f.Options, func(a, b indexerfields.Option) int { return strings.Compare(a.Value, b.Value) })
 		out = append(out, f)
 	}
 	if def.Login.captcha() != nil {
-		out = append(out, Field{Name: "cardigannCaptcha", Label: "CAPTCHA", Type: CaptchaField})
+		out = append(out, indexerfields.Field{Name: "cardigannCaptcha", Label: "CAPTCHA", Type: indexerfields.Captcha})
 	}
 	return out
 }

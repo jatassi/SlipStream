@@ -124,6 +124,8 @@ func TestOnline(t *testing.T) {
 		{"fake-omdb", []nativetouch.Change{modified("fakes/omdb/omdb.go")}, true},
 		{"fake-catalog", []nativetouch.Change{modified("fakes/catalog/catalog.go")}, true},
 		{"a definition fake-catalog serves", []nativetouch.Change{modified("fakes/site/definitions/larkspur.yml")}, true},
+		{"a port", []nativetouch.Change{modified("internal/ports/knaben/knaben.go")}, true},
+		{"a port's fixture", []nativetouch.Change{modified("fakes/site/ports/knaben/fixture.yaml")}, true},
 		{"the catalog client", []nativetouch.Change{modified("internal/indexers/refresh.go")}, true},
 		{"the OMDb client", []nativetouch.Change{modified("internal/providers/omdb/omdb.go")}, true},
 		{"fake-image-cdn", []nativetouch.Change{modified("fakes/imagecdn/imagecdn.go")}, true},

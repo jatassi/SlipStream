@@ -1,0 +1,41 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 5,
+    "results": [
+      {
+        "groupId": 8820,
+        "groupName": "Harbor.Lights.2024.Soundtrack.FLAC-FIXTURE",
+        "torrentId": 20530,
+        "category": "Music",
+        "fileCount": 9,
+        "groupTime": "1731004200",
+        "size": 98566144,
+        "snatches": 2,
+        "seeders": 3,
+        "leechers": 8,
+        "isFreeleech": false,
+        "isNeutralLeech": true,
+        "isPersonalFreeleech": false,
+        "canUseToken": false
+      },
+      {
+        "groupId": "8819",
+        "groupName": "Juniper.Falls.2024.Live.MP3-FIXTURE",
+        "torrentId": 20527,
+        "category": "--Select Category--",
+        "fileCount": 22,
+        "groupTime": "2024-11-07 06:30:00",
+        "size": "734003200",
+        "snatches": 11,
+        "seeders": "12",
+        "leechers": "0",
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      }
+    ]
+  }
+}

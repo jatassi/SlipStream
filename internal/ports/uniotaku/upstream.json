@@ -1,0 +1,10 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "date": "2026-11-06",
+  "family": "",
+  "files": {
+    "uniotaku.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Uniotaku.cs"
+    ]
+  }
+}

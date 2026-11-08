@@ -36,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
@@ -291,6 +292,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Searching: func(node role.NodeID) searching.Remote {
 			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
+		Ports:     n.ports,
 		Types:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
 		Works:     tree,
 		Changed:   indexers.ChangedEvent.Bind(n.hub),
@@ -502,7 +504,9 @@ func (n *Node) zone() *time.Location {
 // site through endpoints.searching ahead of the Node's network.
 func (n *Node) searchingService() *searching.Service {
 	client := n.httpClient(n.cfg.Endpoints.Searching.Dial(n.env.Net.DialContext))
-	return searching.New(searching.Config{HTTP: client, Timings: n.cfg.Timings.Searching, Log: n.rootLog.With("subsystem", "searching")})
+	return searching.New(searching.Config{
+		HTTP: client, Native: port.Driver(n.ports), Timings: n.cfg.Timings.Searching, Log: n.rootLog.With("subsystem", "searching"),
+	})
 }
 
 // httpClient is a half's client for the hosts the Node reaches, dialing

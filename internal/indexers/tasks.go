@@ -68,7 +68,7 @@ func (x *Indexers) Tasks() []tasks.Task {
 // a cause the health check doesn't retry. A unit goes where the Indexer
 // searches from: tied to its home while it waits for home, else portable.
 func (x *Indexers) healthUnits(ctx context.Context, r storage.Reader[storage.Library]) ([]tasks.Unit, error) {
-	all, err := All(ctx, r)
+	all, err := x.all(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (x *Indexers) healthCheck(ctx context.Context, key tasks.UnitKey) error {
 	if !checked(st) {
 		return nil
 	}
-	_, _, err = x.testSaved(ctx, id, nil)
+	_, _, err = x.testSaved(ctx, id, Typed{})
 	var failed *TestFailedError
 	var refused *FeedRefusedError
 	switch {

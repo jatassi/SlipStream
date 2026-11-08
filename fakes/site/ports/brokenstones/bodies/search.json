@@ -1,0 +1,41 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 1,
+    "results": [
+      {
+        "groupId": 30412,
+        "groupName": "The.Quiet.Orchard.2024.v3.1.macOS.Universal-FIXTURE",
+        "torrentId": 71840,
+        "category": "MacOS Apps",
+        "fileCount": 2,
+        "groupTime": "1731000000",
+        "size": 214748364,
+        "snatches": 58,
+        "seeders": 31,
+        "leechers": 2,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      },
+      {
+        "groupId": "30409",
+        "groupName": "The.Quiet.Orchard.2024.v3.0.iOS.arm64-FIXTURE",
+        "torrentId": 71802,
+        "category": "iOS Apps",
+        "fileCount": 1,
+        "groupTime": "1730275512",
+        "size": "96468992",
+        "snatches": 12,
+        "seeders": "9",
+        "leechers": "0",
+        "isFreeleech": true,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": false
+      }
+    ]
+  }
+}

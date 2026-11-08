@@ -1,0 +1,35 @@
+{
+  "releases": [
+    {
+      "title": "Harbor Lights S02E03 1080p WEB-DL DDP5.1 H.264-NOGROUP",
+      "size": 2147483648,
+      "published": "2021-03-20T14:00:00Z",
+      "seeders": 22,
+      "leechers": 0,
+      "grabs": 21,
+      "link": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78450-9390b4926eda0bbd9e94b39c25b4bbfb4a8756b8.torrent",
+      "magnet": "",
+      "infoHash": "9390b4926eda0bbd9e94b39c25b4bbfb4a8756b8",
+      "categories": [
+        5040
+      ],
+      "ids": {
+        "imdbid": "tt0000002",
+        "tmdbid": "2",
+        "tvdbid": "2"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "76h0m0s",
+      "details": "https://privatehd.fixture-site.fake.localhost/torrent/78450-harbor-lights-s02e03-1080p-web-dl-ddp51-h264-nogroup",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

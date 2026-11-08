@@ -20,6 +20,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/site/definitions"
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/ports/all"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -44,7 +46,14 @@ type served func(testing.TB, fake.Spec, scenario.Scenario, ...faketest.Option) f
 
 func newCatalogWorld(t *testing.T, serve served) catalogWorld {
 	t.Helper()
-	s := scenarioWithSeed()
+	return newWorld(t, serve, scenarioWithSeed())
+}
+
+// newWorld is fixture-site in a world with Scenario s, listing orchard's
+// .torrent release and meadow's magnet one, and a Node that reaches it
+// and runs every port.
+func newWorld(t *testing.T, serve served, s scenario.Scenario) catalogWorld {
+	t.Helper()
 	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +66,7 @@ func newCatalogWorld(t *testing.T, serve served) catalogWorld {
 	f := serve(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
 	timings := searching.DefaultTimings()
 	timings.Floor = 0
-	n := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
+	n := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Native: port.Driver(all.Registry()), Log: slog.New(slog.DiscardHandler)}))
 	return catalogWorld{f: f, n: n, s: s, torrent: hash}
 }
 

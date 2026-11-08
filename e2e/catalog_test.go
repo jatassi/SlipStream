@@ -140,3 +140,20 @@ func TestAnAdminAddsLarkspurByItsCaptchaAndGrabsFromIt(t *testing.T) {
 		t.Errorf("the Grab reached %+v, want the private Larkspur Tracker that adding Larkspur made", tracker)
 	}
 }
+
+// TestACatalogIndexersEditTestsANewKeyFirstAndKeepsTheSavedOneSentEmpty
+// edits Quarry's sealed API key to a wrong one, which its Test refuses and
+// the edit doesn't save, then sends it empty, which keeps the saved key
+// that the next Test passes with.
+func TestACatalogIndexersEditTestsANewKeyFirstAndKeepsTheSavedOneSentEmpty(t *testing.T) {
+	t.Parallel()
+	w := begin(t, "catalog-sites")
+	quarry := w.indexers(t)["Quarry"].ID
+	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexers/"+quarry, `{"values":{"apikey":"wrong"}}`); r.Status != http.StatusUnprocessableEntity || !strings.Contains(r.Body, `"code":"indexer_test_failed"`) {
+		t.Fatalf("updateIndexer Quarry with a wrong API key = %d %s, want its failed Test", r.Status, r.Body)
+	}
+	w.patchIndexer(t, quarry, `{"values":{"apikey":""}}`)
+	if r := w.a.Admin("home", http.MethodPost, "/api/v1/indexers/"+quarry+"/test", ""); r.Status != http.StatusOK {
+		t.Fatalf("testIndexer Quarry with its saved key = %d %s, want 200", r.Status, r.Body)
+	}
+}

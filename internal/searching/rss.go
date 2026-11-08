@@ -45,6 +45,7 @@ func (d rssDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
 		out[i] = Release{
 			Title: e.Title, Size: e.Size, Published: e.Published, Seeders: e.Seeders,
 			Link: LinkOf(e.Link), Magnet: LinkOf(e.Magnet), InfoHash: e.InfoHash, Details: e.Details,
+			Factors: Factors{Download: 1, Upload: 1},
 		}
 	}
 	return out, nil
@@ -81,9 +82,9 @@ func (rssDriver) Fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 func (rssDriver) feed(ctx context.Context, s *Site) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Address.String(), http.NoBody)
 	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("build the request: %w", withoutURL(err))}
+		return nil, &Failing{Err: fmt.Errorf("build the request: %w", WithoutURL(err))}
 	}
-	res, err := s.Do(ctx, req, Read)
+	res, err := s.Do(ctx, req, Send{Purpose: Read})
 	switch {
 	case err != nil:
 		return nil, err

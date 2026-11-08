@@ -7,13 +7,22 @@ import (
 	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+// PortIDTakenError is a custom definition whose id is a ported site's.
+type PortIDTakenError struct{ Name string }
+
+func (e *PortIDTakenError) Error() string { return "the ported site " + e.Name + " has this id" }
+
+func (e *PortIDTakenError) Unwrap() error { return ErrDefinitionIDTaken }
 
 // AddCustom adds src as a custom definition, or replaces the custom
 // definition with its id and moves that definition's Indexers to it. It
 // refuses a definition that doesn't load with *cardigann.Unrunnable, and
-// an id the catalog lists with ErrDefinitionIDTaken.
+// an id the catalog lists with ErrDefinitionIDTaken, and a port's id with
+// *PortIDTakenError.
 func (x *Indexers) AddCustom(ctx context.Context, _ identity.Admin, src []byte) (Entry, error) {
 	d, err := cardigann.Load(src)
 	if err != nil {
@@ -22,6 +31,9 @@ func (x *Indexers) AddCustom(ctx context.Context, _ identity.Admin, src []byte) 
 	id := d.Summary().ID
 	if id == "" {
 		return Entry{}, &cardigann.Unrunnable{Reason: "it has no id"}
+	}
+	if e, ok := x.cfg.Ports.Lookup(port.ID(id)); ok {
+		return Entry{}, &PortIDTakenError{Name: e.Name}
 	}
 	now := storage.Now()
 	sha := blobSHA(src)

@@ -1,0 +1,77 @@
+{
+  "data": [
+    {
+      "id": 30101,
+      "url": "https://animez.fixture-site.fake.localhost/torrent/30101-harbor-lights-s02e03-1080p-web-dl-aac-h264-nogroup",
+      "download": "https://animez.fixture-site.fake.localhost/rss/download/123456789/30101-47d36600e66c6444a7ff188d5bcfac26e6af4d9a.torrent",
+      "category": {
+        "1": "Anime"
+      },
+      "info_hash": "47d36600e66c6444a7ff188d5bcfac26e6af4d9a",
+      "file_name": "[NOGROUP] Harbor Lights - 15 (1080p).mkv",
+      "release_title": "Harbor Lights S02E03 1080p WEB-DL AAC H.264-NOGROUP",
+      "file_size": 1468006400,
+      "file_count": 1,
+      "seed": 42,
+      "leech": 3,
+      "completed": 120,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "video_quality": "1080p",
+      "type": "TV-Show",
+      "format": "TV",
+      "created_at_iso": "2026-10-30T18:20:00+09:00",
+      "movie_tv": {
+        "imdb": null,
+        "tmdb": null,
+        "tvdb": "2"
+      }
+    },
+    {
+      "id": 30100,
+      "url": "https://animez.fixture-site.fake.localhost/torrent/30100-the-quiet-orchard-2021-1080p-bluray-flac-x264-nogroup",
+      "download": "https://animez.fixture-site.fake.localhost/rss/download/123456789/30100-86f93e9a427f347df00ddaa6cd04d810acba5766.torrent",
+      "category": {
+        "2": "Anime Movie"
+      },
+      "info_hash": "86f93e9a427f347df00ddaa6cd04d810acba5766",
+      "file_name": "The Quiet Orchard 2021 1080p BluRay FLAC x264-NOGROUP",
+      "release_title": "",
+      "file_size": 9663676416,
+      "file_count": 3,
+      "seed": 18,
+      "leech": 0,
+      "completed": 64,
+      "upload_multiply": 1,
+      "download_multiply": 0.5,
+      "video_quality": "1080p",
+      "type": "Movie",
+      "format": "MOVIE",
+      "created_at_iso": "2026-10-29T09:00:00+09:00",
+      "movie_tv": null
+    },
+    {
+      "id": 30099,
+      "url": "https://animez.fixture-site.fake.localhost/torrent/30099-cedar-hollow-vol-01-12-cbz",
+      "download": "https://animez.fixture-site.fake.localhost/rss/download/123456789/30099-9365dd6b08768bd8a17967069f3d363d765a3fdb.torrent",
+      "category": {
+        "3": "Manga"
+      },
+      "info_hash": "9365dd6b08768bd8a17967069f3d363d765a3fdb",
+      "file_name": "Cedar Hollow v01-12",
+      "release_title":"Cedar Hollow 2021 Vol. 01-12 (Digital)",
+      "file_size": 734003200,
+      "file_count": 12,
+      "seed": 7,
+      "leech": 1,
+      "completed": 15,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "video_quality": "",
+      "type": "Manga",
+      "format": "MANGA",
+      "created_at_iso": "2026-10-28T21:45:00+09:00",
+      "movie_tv": null
+    }
+  ]
+}
