@@ -19,49 +19,105 @@ import (
 // the files whose score moves.
 type moves map[ID]map[targets.TargetID]int
 
-// flips runs each of edits over the files of ws, across GOMAXPROCS
-// goroutines on one prepared name per file, and answers the Works holding
-// a file whose score at some Target moves, and those files' moves. It
-// decodes a file's Title, in those goroutines, only when an edit tests
-// more than the name.
+// flips runs edits over the files of ws and answers the Works holding a
+// file whose score at some Target moves, and those files' moves. It reads
+// the files a batch of Works at a time and hands each batch to GOMAXPROCS
+// goroutines as the next one reads, so matching overlaps the read. It
+// reads and decodes a file's Title only when an edit tests more than the
+// name.
 func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.WorkID, edits *targets.Narrow) ([]works.WorkID, moves, error) {
-	q := db.New(r)
-	var rows []db.ListFileReadsOfWorksRow
-	for chunk := range slices.Chunk(ws, works.Batch) {
-		of, err := q.ListFileReadsOfWorks(ctx, chunk)
-		if err != nil {
+	nameOnly := edits.Match.NameOnly()
+	var originals map[works.WorkID]release.Fact[release.Language]
+	if !nameOnly {
+		var err error
+		if originals, err = f.originals(ctx, r, ws); err != nil {
 			return nil, nil, err
 		}
-		rows = append(rows, of...)
 	}
-	originals, err := f.originals(ctx, r, ws)
+	batches := make(chan []db.ListFileReadsOfWorksRow, runtime.GOMAXPROCS(0))
+	outs := make([]flipped, runtime.GOMAXPROCS(0))
+	var wg sync.WaitGroup
+	for i := range outs {
+		wg.Go(func() {
+			outs[i] = flipped{moved: moves{}, works: map[works.WorkID]bool{}}
+			for batch := range batches {
+				if outs[i].err == nil {
+					outs[i].err = outs[i].flip(batch, edits, nameOnly, originals)
+				}
+			}
+		})
+	}
+	err := readNamed(ctx, db.New(r), ws, nameOnly, func(rows []db.ListFileReadsOfWorksRow) {
+		for batch := range slices.Chunk(rows, flipBatch) {
+			batches <- batch
+		}
+	})
+	close(batches)
+	wg.Wait()
+	moved, kept := moves{}, map[works.WorkID]bool{}
+	for _, out := range outs {
+		err = errors.Join(err, out.err)
+		maps.Copy(moved, out.moved)
+		maps.Copy(kept, out.works)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-	nameOnly := edits.Match.NameOnly()
-	moved := make([]map[targets.TargetID]int, len(rows))
-	failed := make([]error, len(rows))
-	inParallel(len(rows), func(i int) {
+	return slices.DeleteFunc(slices.Clone(ws), func(w works.WorkID) bool { return !kept[w] }), moved, nil
+}
+
+// flipped is what one goroutine of the flip pass found: the files whose
+// score moves and their Works.
+type flipped struct {
+	moved moves
+	works map[works.WorkID]bool
+	err   error
+}
+
+// flip runs edits over rows, decoding a file's Title only when an edit
+// tests more than the name.
+func (out *flipped) flip(rows []db.ListFileReadsOfWorksRow, edits *targets.Narrow, nameOnly bool, originals map[works.WorkID]release.Fact[release.Language]) error {
+	for _, row := range rows {
 		var title db.Reading
 		if !nameOnly {
-			if failed[i] = title.Scan(rows[i].TitleJson); failed[i] != nil {
-				return
+			if err := title.Scan(row.TitleJson); err != nil {
+				return err
 			}
 		}
-		moved[i] = edits.Moves(asNamed(title.Read, rows[i].ReleaseName, originals[rows[i].WorkID]))
-	})
-	if err := errors.Join(failed...); err != nil {
-		return nil, nil, err
-	}
-	out := moves{}
-	kept := map[works.WorkID]bool{}
-	for i, m := range moved {
-		if len(m) > 0 {
-			out[rows[i].ID] = m
-			kept[rows[i].WorkID] = true
+		if m := edits.Moves(asNamed(title.Read, row.ReleaseName, originals[row.WorkID])); len(m) > 0 {
+			out.moved[row.ID], out.works[row.WorkID] = m, true
 		}
 	}
-	return slices.DeleteFunc(slices.Clone(ws), func(w works.WorkID) bool { return !kept[w] }), out, nil
+	return nil
+}
+
+// flipBatch is how many files one goroutine of the flip pass takes at a
+// time.
+const flipBatch = 512
+
+// readNamed reads the files of ws a batch of Works at a time and hands
+// each batch's files to each, without their Titles when nameOnly.
+func readNamed(ctx context.Context, q *db.Queries, ws []works.WorkID, nameOnly bool, each func([]db.ListFileReadsOfWorksRow)) error {
+	for chunk := range slices.Chunk(ws, works.Batch) {
+		if !nameOnly {
+			rows, err := q.ListFileReadsOfWorks(ctx, chunk)
+			if err != nil {
+				return err
+			}
+			each(rows)
+			continue
+		}
+		rows, err := q.ListFileNamesOfWorks(ctx, chunk)
+		if err != nil {
+			return err
+		}
+		named := make([]db.ListFileReadsOfWorksRow, len(rows))
+		for i, row := range rows {
+			named[i] = db.ListFileReadsOfWorksRow{ID: row.ID, WorkID: row.WorkID, ReleaseName: row.ReleaseName}
+		}
+		each(named)
+	}
+	return nil
 }
 
 // inParallel calls do for each index below n, split in contiguous runs

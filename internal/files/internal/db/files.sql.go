@@ -502,8 +502,51 @@ func (q *Queries) ListFileIDs(ctx context.Context) ([]FileID, error) {
 	return items, nil
 }
 
+const listFileNamesOfWorks = `-- name: ListFileNamesOfWorks :many
+SELECT id, work_id, release_name FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListFileNamesOfWorksRow struct {
+	ID          FileID
+	WorkID      works.WorkID
+	ReleaseName string
+}
+
+func (q *Queries) ListFileNamesOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListFileNamesOfWorksRow, error) {
+	query := listFileNamesOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileNamesOfWorksRow
+	for rows.Next() {
+		var i ListFileNamesOfWorksRow
+		if err := rows.Scan(&i.ID, &i.WorkID, &i.ReleaseName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFileReadsOfWorks = `-- name: ListFileReadsOfWorks :many
-SELECT id, work_id, release_name, CAST(title_read AS TEXT) AS title_json FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+SELECT id, work_id, release_name, CAST(title_read AS TEXT) AS title_json FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 type ListFileReadsOfWorksRow struct {
