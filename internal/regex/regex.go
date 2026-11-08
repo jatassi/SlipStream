@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	_ "unsafe"
 
 	"github.com/dlclark/regexp2"
 	"github.com/dlclark/regexp2/syntax"
@@ -159,19 +160,19 @@ func (r *Regex) next(m *regexp2.Match) (*regexp2.Match, error) {
 // deadline from a clock that a goroutine advances, and under load the
 // goroutine runs late, so the clock leaps and fires a deadline
 // microseconds after the call began. run checks each timeout against the
-// monotonic clock and runs a false one again on a fresh compile limited
-// to the time left, so a *TimeoutError means the limit passed. A false
-// timeout needs the clock to advance by the time left plus a tick, so
-// the reruns end once the limit passes.
+// runtime's monotonic clock and runs a false one again on a fresh
+// compile limited to the time left, so a *TimeoutError means the limit
+// passed. A false timeout needs the clock to advance by the time left
+// plus a tick, so the reruns end once the limit passes.
 func run[T any](r *Regex, call func(*regexp2.Regexp) (T, error)) (T, error) {
-	start := time.Now()
+	start := nanotime()
 	re := r.re
 	for {
 		v, err := call(re)
 		if err == nil {
 			return v, nil
 		}
-		left := r.re.MatchTimeout - time.Since(start)
+		left := r.re.MatchTimeout - time.Duration(nanotime()-start)
 		if left <= 0 {
 			return v, &TimeoutError{Pattern: r.pattern, Limit: r.re.MatchTimeout}
 		}
@@ -179,6 +180,13 @@ func run[T any](r *Regex, call func(*regexp2.Regexp) (T, error)) (T, error) {
 		re.MatchTimeout = left
 	}
 }
+
+// nanotime is the runtime's monotonic clock, which a synctest bubble
+// doesn't fake. In a bubble time.Now stands still while a match runs and
+// regexp2's deadlines don't, so a real timeout there would run forever.
+//
+//go:linkname nanotime runtime.nanotime
+func nanotime() int64
 
 // replacement is a parsed replacement string: literal runs and group
 // numbers, with regexp2's specials for $`, $', $+ and $_ below zero.
