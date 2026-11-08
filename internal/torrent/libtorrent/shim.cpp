@@ -80,6 +80,10 @@ struct deleting_torrent {
 // turn is what a torrent does once no tracker awaits an answer.
 enum class turn { pause, resume };
 
+// recheck is how far a Recheck got: asked until its check starts, checking
+// after.
+enum class recheck { asked, checking };
+
 struct lts_session {
 	lt::session ses;
 	// popped is the alert pump's alone.
@@ -97,10 +101,8 @@ struct lts_session {
 	// trackers to answer, as awaits_answer says.
 	std::unordered_map<lt::torrent_handle, turn> turning;
 	std::map<lt::info_hash_t, deleting_torrent> deleting;
-	// rechecking holds each torrent whose Recheck has yet to pause it.
-	// libtorrent pauses it before it posts torrent_checked, so its pause
-	// stands for both.
-	std::unordered_set<lt::torrent_handle> rechecking;
+	// rechecking holds each torrent whose Recheck has yet to end.
+	std::unordered_map<lt::torrent_handle, recheck> rechecking;
 	// resync is set once alerts were dropped: the next post_updates sends
 	// every torrent, since the dropped ones may have carried changes.
 	bool resync = false;
@@ -271,6 +273,55 @@ void settle(lts_session* s, lt::torrent_handle const& h) {
 		s->parting.erase(p);
 		remove_now(s, h, gone);
 	}
+}
+
+// start_recheck checks h on the network thread, so these calls finish before
+// the check can. A check that finds no files ends at once, paused or not.
+// Were it to end before resume ran, it would spend stop_when_ready on a paused
+// torrent with no pause to post, and resume would then run it. force_recheck
+// does nothing while a check reads resume data, so the check starts once that
+// read ends instead. post_peer_info marks where the check's own alerts begin.
+void start_recheck(lts_session* s, lt::torrent_handle const& h) {
+	boost::asio::post(s->ses.get_context(), [h] {
+		if (!h.is_valid()) return;
+		if (h.status(lt::status_flags_t{}).state == lt::torrent_status::checking_resume_data) return;
+		h.post_peer_info();
+		h.force_recheck();
+		h.set_flags(lt::torrent_flags::stop_when_ready);
+		h.unset_flags(lt::torrent_flags::upload_mode);
+		h.resume();
+	});
+}
+
+// lacking_data is whether ec is an error a check takes for pieces the files
+// lack, so one a check pauses with came from a read queued before it.
+bool lacking_data(lt::error_code const& ec) {
+	return ec == boost::system::errc::no_such_file_or_directory || ec == boost::asio::error::eof || ec == lt::errors::file_too_short;
+}
+
+// settle_recheck settles the Recheck of a torrent its check paused or ended:
+// it ends with Checked once the check is done, or with the torrent's error. A
+// read that fails in seed mode has libtorrent fail the torrent again for each
+// piece a peer had asked to verify, as those reads come back, and that can be
+// well into the check. Such a failure pauses the torrent, with or without a
+// pause to post, and the check stops or ends with it. It starts the check
+// over. Called with s->mu held.
+void settle_recheck(lts_session* s, lt::torrent_handle const& h, int64_t torrent) {
+	auto it = s->rechecking.find(h);
+	if (it == s->rechecking.end() || it->second != recheck::checking) return;
+	lt::torrent_status const st = h.status(lt::status_flags_t{});
+	bool const checking = st.state == lt::torrent_status::checking_files || st.state == lt::torrent_status::checking_resume_data;
+	if (lacking_data(st.errc) || (checking && !st.errc)) {
+		it->second = recheck::asked;
+		start_recheck(s, h);
+		return;
+	}
+	s->rechecking.erase(it);
+	if (st.errc) return;
+	lts_alert checked{};
+	checked.kind = LTS_ALERT_CHECKED;
+	checked.torrent = torrent;
+	s->pending.push_back(checked);
 }
 
 // turn_to pauses or resumes h now, or once no tracker awaits an answer.
@@ -448,6 +499,8 @@ void convert(lts_session* s, lt::alert* a) {
 		o.kind = LTS_ALERT_STATE_CHANGED;
 		o.torrent = torrent(sc);
 		o.state = state(sc->state);
+		auto it = s->rechecking.find(sc->handle);
+		if (it != s->rechecking.end() && it->second == recheck::asked && sc->prev_state == lt::torrent_status::checking_resume_data) start_recheck(s, sc->handle);
 		break;
 	}
 	// libtorrent posts torrent_finished once the last piece passes its hash
@@ -486,7 +539,6 @@ void convert(lts_session* s, lt::alert* a) {
 	}
 	case lt::torrent_error_alert::alert_type: {
 		auto* te = static_cast<lt::torrent_error_alert*>(a);
-		s->rechecking.erase(te->handle);
 		o.kind = LTS_ALERT_TORRENT_FAILED;
 		o.torrent = torrent(te);
 		fill(&o.error, te->error);
@@ -565,13 +617,19 @@ void convert(lts_session* s, lt::alert* a) {
 		// soon. A paused torrent forgets them: its resume's started announce
 		// lists them again.
 		if (o.torrent != 0 && (tp->handle.flags() & lt::torrent_flags::paused)) tp->handle.clear_peers();
-		if (o.torrent != 0 && s->rechecking.erase(tp->handle) != 0) {
-			lts_alert checked{};
-			checked.kind = LTS_ALERT_CHECKED;
-			checked.torrent = o.torrent;
-			s->pending.push_back(checked);
-		}
+		if (o.torrent != 0) settle_recheck(s, tp->handle, o.torrent);
 		break;
+	}
+	case lt::torrent_checked_alert::alert_type: {
+		auto* tc = static_cast<lt::torrent_checked_alert*>(a);
+		int64_t id = torrent(tc);
+		if (id != 0) settle_recheck(s, tc->handle, id);
+		return;
+	}
+	case lt::peer_info_alert::alert_type: {
+		auto it = s->rechecking.find(static_cast<lt::peer_info_alert*>(a)->handle);
+		if (it != s->rechecking.end()) it->second = recheck::checking;
+		return;
 	}
 	case lt::file_error_alert::alert_type: {
 		auto* fe = static_cast<lt::file_error_alert*>(a);
@@ -918,18 +976,8 @@ int lts_recheck(lts_session* s, int64_t torrent, lts_error* err) {
 	return guard(err, [&] {
 		lt::torrent_handle h = find(s, torrent);
 		std::lock_guard<std::mutex> l(s->mu);
-		s->rechecking.insert(h);
-		// A check that finds no files ends at once, paused or not. Were it to
-		// end before resume ran, it would spend stop_when_ready on a paused
-		// torrent with no pause to post, and resume would then run it. Run on
-		// the network thread, these calls finish before the check can.
-		boost::asio::post(s->ses.get_context(), [h] {
-			if (!h.is_valid()) return;
-			h.force_recheck();
-			h.set_flags(lt::torrent_flags::stop_when_ready);
-			h.unset_flags(lt::torrent_flags::upload_mode);
-			h.resume();
-		});
+		s->rechecking[h] = recheck::asked;
+		start_recheck(s, h);
 	});
 }
 

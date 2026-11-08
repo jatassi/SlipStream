@@ -13,9 +13,10 @@ const retryPiece = 16 << 10
 
 // seedingThenFailed has a session seed a release, moves its file away and
 // has a second session download from it, so the seeder's read for that
-// peer fails. It returns the seeder, its torrent, the file, where the
+// peer fails. With settle it waits for the failure to reach the torrent's
+// status. It returns the seeder, its torrent, the file, where the
 // file went and the payload.
-func seedingThenFailed(t *testing.T, name string) (seeder engine.Engine, h engine.Handle, file, away string, payload []byte) {
+func seedingThenFailed(t *testing.T, name string, settle bool) (seeder engine.Engine, h engine.Handle, file, away string, payload []byte) {
 	t.Helper()
 	payload = make([]byte, 8*retryPiece)
 	_, _ = rand.NewChaCha8([32]byte{'r', 'e', 't', 'r', 'y'}).Read(payload)
@@ -45,6 +46,9 @@ func seedingThenFailed(t *testing.T, name string) (seeder engine.Engine, h engin
 	failed := waitFor(t, seeder.Events(), func(f engine.TorrentFailed) bool { return f.Torrent == h })
 	if failed.Err == nil || failed.Err.Category != engine.CategorySystem {
 		t.Fatalf("the seeder failed its torrent with %v, want a system error reading its file", failed.Err)
+	}
+	if !settle {
+		return seeder, h, file, away, payload
 	}
 	until(t, "the failed torrent's status carries its error", func() bool {
 		s, ok := updated(t, seeder, h)
@@ -76,7 +80,7 @@ func checkingState(s engine.State) bool {
 }
 
 func TestARecheckClearsAReadErrorOnceTheFileIsBack(t *testing.T) {
-	seeder, h, file, away, payload := seedingThenFailed(t, "Hold.Fast.mkv")
+	seeder, h, file, away, payload := seedingThenFailed(t, "Hold.Fast.mkv", true)
 	if err := os.Rename(away, file); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +99,7 @@ func TestARecheckClearsAReadErrorOnceTheFileIsBack(t *testing.T) {
 }
 
 func TestARecheckAfterALossFindsWhatIsLeft(t *testing.T) {
-	seeder, h, file, away, payload := seedingThenFailed(t, "Lost.Half.mkv")
+	seeder, h, file, away, payload := seedingThenFailed(t, "Lost.Half.mkv", true)
 	kept := 3 * retryPiece
 	if err := os.WriteFile(file, payload[:kept], 0o600); err != nil {
 		t.Fatal(err)
@@ -107,5 +111,17 @@ func TestARecheckAfterALossFindsWhatIsLeft(t *testing.T) {
 	s := rechecked(t, seeder, h)
 	if s.Err != nil || s.Done != int64(kept) || s.State == engine.StateSeeding || !s.Paused {
 		t.Fatalf("rechecked with %d of %d bytes on disk, the torrent reads %+v, want no error, %d bytes done, not seeding and paused", kept, len(payload), s, kept)
+	}
+}
+
+func TestARecheckRightAfterAReadErrorChecksTheFileAsItIsNow(t *testing.T) {
+	seeder, h, file, away, payload := seedingThenFailed(t, "Right.Away.mkv", false)
+	if err := os.Rename(away, file); err != nil {
+		t.Fatal(err)
+	}
+
+	s := rechecked(t, seeder, h)
+	if s.Err != nil || s.Done != int64(len(payload)) || s.State != engine.StateSeeding || !s.Paused {
+		t.Fatalf("rechecked as soon as its read failed, with its file back, the torrent reads %+v, want no error, every byte done, seeding and paused", s)
 	}
 }
