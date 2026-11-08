@@ -3,22 +3,12 @@ import type { ReactNode } from "react";
 import type { Clock } from "../format";
 import type { LiveRow } from "../live/torrents";
 import { Data } from "../ui/data";
-import { LiveBar } from "../ui/live-bar";
-import { Meter } from "../ui/meter";
 import { Poster } from "../ui/poster";
 import { SignalChip } from "../ui/signal-chip";
-import {
-  type Row,
-  paceOf,
-  percentOf,
-  progressOf,
-  rateWords,
-  seedWords,
-  stateLine,
-  stateWords,
-  trackerLine,
-} from "./model";
+import { type Row, rateWords, stateLine, stateWords, trackerLine } from "./model";
 import type { Names } from "./names";
+
+export { ProgressCell } from "./progress-cell";
 
 export type CellProps = {
   readonly row: Row;
@@ -79,51 +69,6 @@ export function StateCell({ row, live, names, clock }: CellProps) {
       </span>
     </span>
   );
-}
-
-const moving = new Set<Row["state"]>(["downloading", "checking"]);
-
-export function ProgressCell({ row, live }: CellProps) {
-  const progress = progressOf(row, live);
-  if (progress.done >= progress.wanted) {
-    return (
-      <span className="truncate text-meta text-ink-2">
-        {seedWords(row)}
-        <span data-column-echo="">
-          {" · Ratio "}
-          <Data>{row.ratio.toFixed(2)}</Data>
-        </span>
-      </span>
-    );
-  }
-  const percent = percentOf(progress);
-  const label = `${stateWords[row.state]} ${row.name}`;
-  const { eta, rate } = paceOf(row.state, live);
-  return (
-    <span className="flex min-w-0 flex-col gap-1.5">
-      <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
-        <Data className="text-ink-1">{percent}%</Data>
-        <Data className="truncate">
-          {eta}
-          {rate !== "" && (
-            <span data-column-echo="">
-              {eta === "" ? "" : " · "}
-              {rate}
-            </span>
-          )}
-        </Data>
-      </span>
-      {moving.has(row.state) && row.lastKnown === undefined ? (
-        <LiveBar label={label} value={percent} />
-      ) : (
-        <Meter label={label} value={percent} />
-      )}
-    </span>
-  );
-}
-
-export function RatioCell({ row }: CellProps) {
-  return <Data>{row.ratio.toFixed(2)}</Data>;
 }
 
 export function SpeedCell({ live }: CellProps) {

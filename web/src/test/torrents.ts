@@ -4,6 +4,7 @@ import type {
   ActInputBody,
   DownloadclientsActResult,
   DownloadclientsPreview,
+  DownloadclientsSeedingView,
   DownloadclientsTorrentDetail,
   DownloadclientsTorrentList,
   DownloadclientsTorrentRow,
@@ -47,6 +48,22 @@ const posteredOrchard: WorksLibraryRow = { ...orchardRow, posterUrl: orchardPost
 
 let serial = 0;
 
+/** A torrent's seeding view: the default goal, and no Tracker it owes. */
+export const seedingOf = (
+  more: Partial<DownloadclientsSeedingView> = {},
+): DownloadclientsSeedingView => ({
+  ratio: { value: 0, goal: 2 },
+  time: { value: 0, goal: 1_209_600 },
+  state: "none",
+  atRisk: "no",
+  goalMet: false,
+  combine: "first",
+  action: "remove-delete",
+  endless: "none",
+  clears: "none",
+  ...more,
+});
+
 export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
   serial += 1;
   const tail = serial.toString(16).padStart(12, "0");
@@ -63,17 +80,7 @@ export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
     ratio: 0,
     seedingSeconds: 0,
     tracker: null,
-    seeding: {
-      ratio: { value: 0, goal: 2 },
-      time: { value: 0, goal: 1_209_600 },
-      state: "none",
-      atRisk: "no",
-      goalMet: false,
-      combine: "first",
-      action: "remove-delete",
-      endless: "none",
-      clears: "none",
-    },
+    seeding: seedingOf(),
     addedAt: `2026-10-12T09:${String(serial % 60).padStart(2, "0")}:00Z`,
     ...row,
   };

@@ -98,7 +98,7 @@ test("a row opens the Inspector beside the table, leading with what the torrent 
 
   const section = (name: string) => inspector().getByRole("heading", { name, level: 3 });
   await Promise.all(
-    ["Numbers", "Announce URLs", "Files", "Grabs", "Details"].map((name) =>
+    ["Numbers", "Seeding", "Announce URLs", "Files", "Grabs", "Details"].map((name) =>
       expect.element(section(name)).toBeVisible(),
     ),
   );
