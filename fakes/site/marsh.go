@@ -74,7 +74,7 @@ func (s *site) marshSearch(w http.ResponseWriter, r *http.Request) {
 		b.WriteString("<error>" + MarshTooShort + "</error>\n")
 	} else {
 		b.WriteString("<day><date>01.06.2026</date></day>\n")
-		for _, rel := range s.found(q) {
+		for _, rel := range s.found(r, q) {
 			fmt.Fprintf(&b, "<row><title>%s</title><cat>%s</cat><link>download.php?id=%s</link></row>\n", esc(rel.Name), marshFilms, rel.InfoHash)
 			fmt.Fprintf(&b, "<row><size>%d</size><seeders>%d</seeders><leechers>%d</leechers></row>\n", rel.Size, rel.Seeders, rel.Leechers)
 		}
@@ -88,7 +88,7 @@ func (s *site) marshDownload(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/index.php", http.StatusFound)
 		return
 	}
-	rel, ok := s.byHash(r.URL.Query().Get("id"))
+	rel, ok := s.byHash(r, r.URL.Query().Get("id"))
 	if !ok {
 		http.NotFound(w, r)
 		return

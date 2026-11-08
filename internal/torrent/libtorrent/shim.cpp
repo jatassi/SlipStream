@@ -51,7 +51,7 @@ static_assert(sizeof(lts_add_params) == 80 && offsetof(lts_add_params, seed_mode
 	"lts_add_params layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_alert) == 320 && offsetof(lts_alert, error) == 16 && offsetof(lts_alert, payload) == 280 && offsetof(lts_alert, at_ms) == 312,
 	"lts_alert layout: update TestTheShimStructsMatchGo");
-static_assert(sizeof(lts_tracker) == 320 && offsetof(lts_tracker, last_error) == 32 && offsetof(lts_tracker, start_sent) == 312,
+static_assert(sizeof(lts_tracker) == 328 && offsetof(lts_tracker, last_error) == 32 && offsetof(lts_tracker, start_sent) == 312 && offsetof(lts_tracker, leechers) == 320,
 	"lts_tracker layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_file) == 24 && offsetof(lts_file, path) == 16, "lts_file layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_limits) == 32 && offsetof(lts_limits, connections) == 16 && offsetof(lts_limits, watch_incoming) == 24 && offsetof(lts_limits, dht) == 28,
@@ -408,6 +408,8 @@ void tracker_list(lts_alert* o, std::vector<lt::announce_entry> const& trackers)
 		out[i].message = put(ih ? ih->message : std::string());
 		out[i].tier = ae.tier;
 		out[i].endpoints = int32_t(ae.endpoints.size());
+		out[i].seeders = -1;
+		out[i].leechers = -1;
 		if (ih == nullptr) continue;
 		out[i].next_announce_ms = unix_ms(ih->next_announce);
 		out[i].min_announce_ms = unix_ms(ih->min_announce);
@@ -415,6 +417,8 @@ void tracker_list(lts_alert* o, std::vector<lt::announce_entry> const& trackers)
 		out[i].fails = ih->fails;
 		out[i].updating = ih->updating;
 		out[i].start_sent = ih->start_sent;
+		out[i].seeders = ih->scrape_complete;
+		out[i].leechers = ih->scrape_incomplete;
 	}
 	o->payload = block;
 	o->payload_len = int64_t(trackers.size());
@@ -1084,7 +1088,9 @@ int lts_close(lts_session* s, lts_error* err) {
 			}
 		}
 		// An announce ends within tracker_completion_timeout, and its answer
-		// wakes the wait sooner.
+		// wakes the wait sooner. The wait also outlasts each stopped the
+		// pauses sent: an abort closes the UDP socket a UDP tracker's
+		// response would arrive on, and then waits out stop_tracker_timeout.
 		auto const answer = lt::seconds(s->ses.get_settings().get_int(sp::tracker_completion_timeout));
 		for (;;) {
 			{
@@ -1093,7 +1099,8 @@ int lts_close(lts_session* s, lts_error* err) {
 				for (auto const& t : s->turning) waiting.push_back(t.first);
 				for (auto const& p : s->parting) waiting.push_back(p.first);
 				for (lt::torrent_handle const& h : waiting) settle(s, h);
-				if (s->turning.empty() && s->parting.empty()) break;
+				std::vector<lt::torrent_handle> const held = s->ses.get_torrents();
+				if (s->turning.empty() && s->parting.empty() && std::none_of(held.begin(), held.end(), awaits_answer)) break;
 			}
 			s->ses.wait_for_alert(answer);
 			s->ses.pop_alerts(&s->popped);

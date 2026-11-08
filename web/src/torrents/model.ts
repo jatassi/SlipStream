@@ -17,12 +17,13 @@ export const tabLabels: { readonly [T in Tab]: string } = {
   downloading: "Downloading",
   seeding: "Seeding",
   problems: "Problems",
+  "goal-met": "Goal met",
   all: "All",
 };
 
 export const tabOrder = {
-  desktop: ["downloading", "seeding", "problems", "all"],
-  phone: ["all", "downloading", "seeding", "problems"],
+  desktop: ["downloading", "seeding", "problems", "goal-met", "all"],
+  phone: ["all", "downloading", "seeding", "problems", "goal-met"],
 } as const satisfies Record<string, readonly Tab[]>;
 
 export const stateWords: { readonly [S in State]: string } = {
@@ -167,7 +168,7 @@ export function stateLine(row: Row, live: LiveRow | undefined, place: Place): st
     case "failed":
       return row.error ?? "The torrent client stopped it";
     case "tracker-error":
-      return trackerLine(row.tracker, place.clock).status;
+      return trackerLine(row.announce, place.clock).status;
     case "checking":
       return row.until === undefined
         ? "Checking its files"
@@ -270,7 +271,7 @@ export function seedLength(seconds: number): string {
   return `${Math.floor(seconds / day)} days`;
 }
 
-/** A seed's progress cell, until seeding goals take its place. */
+/** An external client's seed, which its client's own seeding rules govern. */
 export const seedWords = ({ seedingSeconds }: Row): string =>
   seedingSeconds < 60 ? "Seeding since just now" : `Seeded ${seedLength(seedingSeconds)}`;
 

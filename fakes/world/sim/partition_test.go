@@ -61,6 +61,7 @@ func redialAt(seed string, down, heal time.Time) time.Time {
 // Roles set while it is down reach it once the path heals, at the instant
 // seedbox's seeded link stream picks for its re-dial.
 func TestPartitionThenRedial(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithProbe())
 		a := w.API()

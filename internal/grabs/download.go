@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 )
 
 // TorrentUses answers downloadclients which Grabs used each Torrent.
@@ -29,6 +30,7 @@ func (TorrentUses) Of(ctx context.Context, r storage.Reader[file], ids []downloa
 		if row.FileIndex != nil {
 			u.File = new(int(*row.FileIndex))
 		}
+		u.Floor = seeding.Stated(row.MinRatio, seconds(row.MinSeedSeconds))
 		out[row.TorrentID] = append(out[row.TorrentID], u)
 	}
 	return out, nil

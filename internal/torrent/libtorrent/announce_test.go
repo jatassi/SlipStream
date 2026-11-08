@@ -60,6 +60,9 @@ func (a *announces) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case a.rules.Warning != "":
 		reply["warning message"] = a.rules.Warning
 	}
+	if sw := a.rules.Swarm; sw != nil && a.rules.Failure == "" {
+		reply["complete"], reply["incomplete"] = sw.Seeders, sw.Leechers
+	}
 	body, err := bencode.Encode(reply)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

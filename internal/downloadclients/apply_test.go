@@ -39,7 +39,7 @@ func newMediaServer(t *testing.T) *mediaServer {
 		client: mustImport(t, lib, secrettest.Sealer(t), transmission(t, node, "Transmission", "http://192.168.1.20:9091")),
 	}
 	s.c = dc.New(dc.Config{
-		Library: lib, Touch: s.heard.touch, Changed: s.heard, CardsChanged: s.cards, Uses: uses{},
+		Library: lib, Touch: s.heard.touch, Changed: s.heard, CardsChanged: s.cards, Uses: uses{}, Seeding: seeder{},
 		Roster: &roster{serving: []role.NodeID{node}}, Log: slog.New(slog.DiscardHandler),
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return &client{} },
 		Live:   dc.LiveConfig{Watched: func() []role.NodeID { return nil }, Event: &admin{}, Sample: liveSample},

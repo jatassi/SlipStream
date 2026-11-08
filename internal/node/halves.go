@@ -49,6 +49,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -76,6 +77,7 @@ type half struct {
 	works    *works.Works
 	metadata *metadata.Metadata
 	indexers *indexers.Indexers
+	trackers *trackers.Trackers
 	targets  *targets.Targets
 	roots    *roots.Roots
 	files    *files.Files
@@ -109,6 +111,8 @@ func (n *Node) startController(ctx context.Context) error {
 		side         *nodes.Service
 		cluster      *rpc.Cluster
 		homes        *roots.Roots
+		seeding      *trackers.Trackers
+		pipeline     *grabs.Grabs
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -119,9 +123,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
-		Sealer: lib.sealer,
-		Roster: openedRoster{&side},
-		Uses:   grabs.TorrentUses{},
+		Sealer:  lib.sealer,
+		Roster:  openedRoster{&side},
+		Uses:    grabs.TorrentUses{},
+		Seeding: lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -129,6 +134,19 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Hub: n.hub,
 		Log: n.rootLog.With("subsystem", "downloadclients"),
+	})
+	var scheduler *tasks.Scheduler
+	seeding = trackers.New(trackers.Config{
+		Library:         lib.db,
+		Clients:         clients,
+		Grabs:           grabs.TrackerFacts{},
+		Roster:          openedRoster{&side},
+		Routing:         trackers.Routing{Roster: openedRoster{&side}},
+		Rerouted:        func() { pipeline.Rerouted() },
+		Soon:            func() { scheduler.Soon(trackers.TaskID) },
+		Reconciling:     trackers.NotReconciling,
+		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
+		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
@@ -163,7 +181,7 @@ func (n *Node) startController(ctx context.Context) error {
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads, stored, transferring}, n.env.Test.Served...),
-		Owners:          owners(),
+		Owners:          owners(clients),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
@@ -267,7 +285,6 @@ func (n *Node) startController(ctx context.Context) error {
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
-	var scheduler *tasks.Scheduler
 	registry := indexers.New(indexers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -283,7 +300,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),
 		Trackers:  indexers.TrackersEvent.Bind(n.hub),
 		Settings:  indexers.SettingsChangedEvent.Bind(n.hub),
-		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker},
+		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
 		HTTP:      client,
 		Endpoints: n.cfg.Endpoints.Indexers,
 		CatalogNext: func(ctx context.Context) (time.Time, error) {
@@ -326,8 +343,9 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	router := downloadclients.Router{Roster: side, Routes: trackers.Routing{Roster: side}}
 	shelf := files.New(files.Config{
-		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep}, Transfers: transfers.LiveIn,
+		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}, Transfers: transfers.LiveIn,
 		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Today:   n.today,
 		Disk:    homes,
@@ -335,7 +353,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
 	})
-	pipeline := grabs.New(grabs.Config{
+	pipeline = grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
 		Targets:   goals,
@@ -345,6 +363,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
 		Roster:    side,
 		Downloads: clients,
+		Router:    router,
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
@@ -379,7 +398,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}), append(registry.Tasks(), n.env.Test.tasks(started)...)...),
+		}), append(append(registry.Tasks(), seeding.Task()), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -393,6 +412,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	h := &half{
 		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, metadata: meta, indexers: registry,
+		trackers:  seeding,
 		targets:   goals,
 		roots:     homes,
 		files:     shelf,
@@ -427,8 +447,9 @@ func (n *Node) startController(ctx context.Context) error {
 	return nil
 }
 
-// openedRoster is the nodes service once it opens: the download clients'
-// owner is made before it, since the service reads that owner.
+// openedRoster is the nodes service once it opens: the download clients
+// and the Trackers are made before it, since the service reads the
+// clients' owner, which reads the Trackers.
 type openedRoster struct{ side **nodes.Service }
 
 func (r openedRoster) InStep(node role.NodeID) bool { return (*r.side).InStep(node) }
@@ -441,8 +462,27 @@ func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
 
 func (r openedRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Serving(name) }
 
+func (r openedRoster) Holding(name role.Name) []role.NodeID { return (*r.side).Holding(name) }
+
 func (r openedRoster) Holds(name role.Name, node role.NodeID) bool {
 	return (*r.side).Holds(name, node)
+}
+
+func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
+	return (*r.side).Draining(name, node)
+}
+
+// lateSeeder is the Trackers' seeder once they are made: the download
+// clients are made before them, since the Trackers read Torrents through
+// them.
+type lateSeeder struct{ trackers **trackers.Trackers }
+
+func (s lateSeeder) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
+	return (*s.trackers).Seeder().Judge(ctx, r, rows)
+}
+
+func (s lateSeeder) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (int64, error) {
+	return (*s.trackers).Seeder().EndlessUnits(ctx, r, node)
 }
 
 // today is the time now in the Controller's zone.
@@ -623,10 +663,10 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 }
 
 // owners is each Role's owner: the feature that keeps its work.
-func owners() []nodes.Owner {
+func owners(clients *downloadclients.Clients) []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
-		downloadclients.DownloadingOwner,
+		clients.DownloadingOwner(),
 		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
 		nodes.Unowned(role.Subtitles),

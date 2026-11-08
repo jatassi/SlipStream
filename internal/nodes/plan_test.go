@@ -15,7 +15,7 @@ var (
 	seedbox = nodes.Named{ID: nodes.ID{UUID: storage.NewUUID()}, Name: "seedbox"}
 	relay   = nodes.Named{ID: nodes.ID{UUID: storage.NewUUID()}, Name: "relay-fra"}
 
-	torrents = nodes.Held{Units: 3, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: 41 << 30, Endless: true}
+	torrents = nodes.Held{Units: 3, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: 41 << 30, EndlessUnits: 3}
 	indexers = nodes.Held{Units: 3, Noun: nodes.Noun{One: "Indexer", Many: "Indexers"}}
 )
 
@@ -75,7 +75,7 @@ func TestUntickingTheLastDownloaderDrainsItAndHandsDownloadingToTheController(t 
 		t.Fatalf("next = %v, blocked %v", out.Next, out.Blocked())
 	}
 	wantWords(t, out,
-		"seedbox takes no new Downloading work. It keeps its 3 torrents (41 GB) until you move or write them off.",
+		"seedbox takes no new Downloading work. It keeps 3 torrents that have no seeding end until you remove, move or write them off.",
 		"home takes over Downloading, since SlipStream always needs a Node that downloads.")
 }
 

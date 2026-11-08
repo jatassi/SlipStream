@@ -212,6 +212,7 @@ func (w *world) open(t *testing.T) *health.Health {
 		Categories: []health.Category{
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes", Events: []live.Event{nodesEvent}}, Source: health.Source{Answer: w.nodes.Answer, Check: w.nodes.Check}},
 			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
+			{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still owe a Tracker"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks", Events: []live.Event{tasksEvent}}, Source: health.Source{Answer: w.tasks.Answer}},
 		},

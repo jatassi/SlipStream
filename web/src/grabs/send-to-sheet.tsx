@@ -22,10 +22,13 @@ export type ClientPick = {
   readonly body: SendToInputBody;
 };
 
-const builtInKey = (nodeId: string) => `built-in:${nodeId}`;
+export const builtInKey = (nodeId: string) => `built-in:${nodeId}`;
 
-export const currentKey = (grab: GrabsGrab): string =>
-  grab.downloadClient?.id ?? builtInKey(grab.nodeId);
+/** The client a Grab goes to now: the one it waits for while it does, else its Torrent's. */
+export const currentKey = ({ waitsFor, downloadClient, nodeId }: GrabsGrab): string =>
+  waitsFor === undefined
+    ? (downloadClient?.id ?? builtInKey(nodeId))
+    : (waitsFor.client?.id ?? builtInKey(waitsFor.nodeId));
 
 /**
  * Every client that can take a Grab: each downloading Node's built-in

@@ -151,6 +151,26 @@ export const getListGrabsResponseMock = (
     ),
     torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    ...(faker.datatype.boolean()
+      ? {
+          waitsFor: {
+            client: faker.helpers.arrayElement([
+              {
+                id: faker.string.uuid(),
+                kind: faker.helpers.arrayElement([
+                  "qbittorrent",
+                  "transmission",
+                  "deluge",
+                  "rtorrent",
+                ] as const),
+                name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+              null,
+            ]),
+            nodeId: faker.string.uuid(),
+          },
+        }
+      : {}),
     workId: faker.string.uuid(),
   })),
   ...overrideResponse,
@@ -295,6 +315,26 @@ export const getGetGrabResponseMock = (
   ),
   torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  ...(faker.datatype.boolean()
+    ? {
+        waitsFor: {
+          client: faker.helpers.arrayElement([
+            {
+              id: faker.string.uuid(),
+              kind: faker.helpers.arrayElement([
+                "qbittorrent",
+                "transmission",
+                "deluge",
+                "rtorrent",
+              ] as const),
+              name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            },
+            null,
+          ]),
+          nodeId: faker.string.uuid(),
+        },
+      }
+    : {}),
   workId: faker.string.uuid(),
   ...overrideResponse,
 });
@@ -439,6 +479,26 @@ export const getListIndexerGrabsResponseMock = (
     ),
     torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    ...(faker.datatype.boolean()
+      ? {
+          waitsFor: {
+            client: faker.helpers.arrayElement([
+              {
+                id: faker.string.uuid(),
+                kind: faker.helpers.arrayElement([
+                  "qbittorrent",
+                  "transmission",
+                  "deluge",
+                  "rtorrent",
+                ] as const),
+                name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+              null,
+            ]),
+            nodeId: faker.string.uuid(),
+          },
+        }
+      : {}),
     workId: faker.string.uuid(),
   })),
   nextOffset: faker.helpers.arrayElement([faker.number.int(), null]),

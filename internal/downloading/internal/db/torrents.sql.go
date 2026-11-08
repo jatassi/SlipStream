@@ -28,7 +28,7 @@ func (q *Queries) DeleteTorrents(ctx context.Context) error {
 }
 
 const listTorrents = `-- name: ListTorrents :many
-SELECT info_hash, save_folder, private, resume FROM downloading_torrent ORDER BY info_hash
+SELECT info_hash, save_folder, private, resume, announced_seconds, failed FROM downloading_torrent ORDER BY info_hash
 `
 
 func (q *Queries) ListTorrents(ctx context.Context) ([]DownloadingTorrent, error) {
@@ -45,6 +45,8 @@ func (q *Queries) ListTorrents(ctx context.Context) ([]DownloadingTorrent, error
 			&i.SaveFolder,
 			&i.Private,
 			&i.Resume,
+			&i.AnnouncedSeconds,
+			&i.Failed,
 		); err != nil {
 			return nil, err
 		}
@@ -59,19 +61,46 @@ func (q *Queries) ListTorrents(ctx context.Context) ([]DownloadingTorrent, error
 	return items, nil
 }
 
-const putTorrent = `-- name: PutTorrent :exec
-INSERT INTO downloading_torrent (info_hash, save_folder, private) VALUES (?, ?, ?)
-ON CONFLICT (info_hash) DO UPDATE SET save_folder = excluded.save_folder, private = excluded.private, resume = NULL
+const putTorrent = `-- name: PutTorrent :one
+INSERT INTO downloading_torrent (info_hash, save_folder, private, announced_seconds) VALUES (?, ?, ?, ?)
+ON CONFLICT (info_hash) DO UPDATE SET
+    save_folder = excluded.save_folder, private = excluded.private, resume = NULL,
+    announced_seconds = MAX(announced_seconds, excluded.announced_seconds)
+RETURNING announced_seconds
 `
 
 type PutTorrentParams struct {
-	InfoHash   []byte
-	SaveFolder string
-	Private    bool
+	InfoHash         []byte
+	SaveFolder       string
+	Private          bool
+	AnnouncedSeconds int64
 }
 
-func (q *Queries) PutTorrent(ctx context.Context, arg PutTorrentParams) error {
-	_, err := q.db.ExecContext(ctx, putTorrent, arg.InfoHash, arg.SaveFolder, arg.Private)
+// A torrent fetched again keeps the larger count of announced seed time,
+// its own or the Controller's baseline.
+func (q *Queries) PutTorrent(ctx context.Context, arg PutTorrentParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, putTorrent,
+		arg.InfoHash,
+		arg.SaveFolder,
+		arg.Private,
+		arg.AnnouncedSeconds,
+	)
+	var announced_seconds int64
+	err := row.Scan(&announced_seconds)
+	return announced_seconds, err
+}
+
+const setFailed = `-- name: SetFailed :exec
+UPDATE downloading_torrent SET failed = ?1 WHERE info_hash = ?2
+`
+
+type SetFailedParams struct {
+	Failed   *string
+	InfoHash []byte
+}
+
+func (q *Queries) SetFailed(ctx context.Context, arg SetFailedParams) error {
+	_, err := q.db.ExecContext(ctx, setFailed, arg.Failed, arg.InfoHash)
 	return err
 }
 
@@ -86,5 +115,20 @@ type SetResumeParams struct {
 
 func (q *Queries) SetResume(ctx context.Context, arg SetResumeParams) error {
 	_, err := q.db.ExecContext(ctx, setResume, arg.Resume, arg.InfoHash)
+	return err
+}
+
+const storeAnnounced = `-- name: StoreAnnounced :exec
+UPDATE downloading_torrent SET announced_seconds = MAX(announced_seconds, ?1)
+WHERE info_hash = ?2
+`
+
+type StoreAnnouncedParams struct {
+	AnnouncedSeconds interface{}
+	InfoHash         []byte
+}
+
+func (q *Queries) StoreAnnounced(ctx context.Context, arg StoreAnnouncedParams) error {
+	_, err := q.db.ExecContext(ctx, storeAnnounced, arg.AnnouncedSeconds, arg.InfoHash)
 	return err
 }

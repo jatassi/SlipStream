@@ -57,7 +57,7 @@ async function act(page: Page, action: string): Promise<void> {
 }
 
 const header = (page: Page, name: string) => table(page).getByRole("columnheader", { name });
-const wide = ["Ratio", "Speed", "Announce", "Node · client"];
+const wide = ["Speed", "Announce", "Node · client"];
 
 async function expectColumns(page: Page, shown: readonly string[], hidden: readonly string[]) {
   for (const name of shown) {
@@ -86,7 +86,7 @@ async function expectCards(page: Page) {
   await expect(row(page).getByRole("cell", { name: /^Announce 127\.0\.0\.1/u })).toBeVisible();
 }
 
-test("the table shows eight columns at 1280 px, four at 980 px and stacked cards at 620 px, each led by its poster", async ({
+test("the table shows seven columns at 1280 px, four at 980 px and stacked cards at 620 px, each led by its poster", async ({
   adminPage: page,
   world,
 }, testInfo) => {

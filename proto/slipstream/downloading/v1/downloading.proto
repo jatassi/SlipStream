@@ -37,6 +37,10 @@ message Torrent {
   // client_id is the external client that holds it, empty for the
   // built-in client.
   bytes client_id = 5;
+  // retry_at_unix_ms is the Admin's Retry of a failed torrent while it is
+  // pending, 0 for none: the Node clears its failure and checks its files,
+  // and wanted is paused in the same intent.
+  int64 retry_at_unix_ms = 6;
 }
 
 enum Wanted {
@@ -312,6 +316,9 @@ message TorrentReport {
   // stopped_at_limit is an external torrent its client stopped at its
   // seeding limit.
   bool stopped_at_limit = 21;
+  // retry_checked_unix_ms is the Retry whose check ended, 0 before one
+  // did. done is what that check found.
+  int64 retry_checked_unix_ms = 22;
 }
 
 enum Origin {
@@ -413,6 +420,11 @@ message TotalsRow {
   int64 seeding_seconds = 5;
   // done is the bytes done, sent only while incomplete.
   int64 done = 6;
+  // announced_seconds is the seed time the torrent's trackers credited it
+  // by UNIT3D's rule, counted on the Node from its accepted announces. The
+  // Node stores it in the Write that queues the row, so a restart counts
+  // on from it.
+  int64 announced_seconds = 7;
 }
 
 // Parted confirms a discard: the Node no longer holds the torrent.
@@ -627,6 +639,11 @@ message TrackerDetail {
   // accepts_at_unix_ms is the earliest the tracker would accept an
   // announce.
   int64 accepts_at_unix_ms = 7;
+  // seeders and leechers are the counts the tracker's last announce
+  // response carried, unset while none did. Only Inspect carries them, so
+  // an announce changes no report.
+  optional int32 seeders = 8;
+  optional int32 leechers = 9;
 }
 
 message ActRequest {

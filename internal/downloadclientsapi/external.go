@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
+	"github.com/jatassi/slipstream/internal/trackers"
 )
 
 var (
@@ -337,13 +338,15 @@ type externalClient struct {
 	Problem        api.Nullable[pollProblem] `json:"problem" doc:"Why its last poll failed; null while it responds and before its first poll"`
 	Torrents       int                       `json:"torrents" minimum:"0" doc:"Its live Torrents"`
 	Actions        []string                  `json:"actions" enum:"pause,resume,recheck,announce" nullable:"false" doc:"The actions its kind supports"`
+	Trackers       []routedTracker           `json:"trackers" nullable:"false" doc:"The private Trackers whose Grabs download on it now, by name"`
 }
 
 var actWords = map[clients.Act]string{clients.Pause: "pause", clients.Resume: "resume", clients.Recheck: "recheck", clients.Announce: "announce"}
 
-func clientOf(e downloadclients.ExternalCard, node string) externalClient {
+func clientOf(e downloadclients.ExternalCard, node string, routed []trackers.Routed) externalClient {
 	out := externalClient{
-		ID: e.ID.String(), NodeID: e.Node.String(), Kind: string(e.Kind), Name: e.Name, Address: e.Address.String(),
+		Trackers: routedOf(routed),
+		ID:       e.ID.String(), NodeID: e.Node.String(), Kind: string(e.Kind), Name: e.Name, Address: e.Address.String(),
 		Username: e.Username, PasswordSaved: e.Saved.Password, APIKeySaved: e.Saved.APIKey, Label: e.Label.String(),
 		Folder: e.Folder, ClientFolders: []clientFolder{}, CheckEvery: e.CheckEveryField(), ImportDelay: e.ImportDelayField(),
 		On: e.On, Version: e.Version, Reach: string(e.Reach), Away: e.Reach.Away(), Torrents: e.Torrents, Actions: []string{},
@@ -422,7 +425,7 @@ func (h handlers) createClient(ctx context.Context, _ identity.Admin, in *newCli
 	if err != nil {
 		return nil, answer(err, names, kind)
 	}
-	return &clientOutput{Body: clientOf(e, names[e.Node].Name)}, nil
+	return &clientOutput{Body: clientOf(e, names[e.Node].Name, nil)}, nil
 }
 
 func (h handlers) testDraft(ctx context.Context, _ identity.Admin, in *newClientInput) (*testOutput, error) {
@@ -458,7 +461,7 @@ func edited(ctx context.Context, dc *downloadclients.Clients, id downloadclients
 	return kind, e, err
 }
 
-func (h handlers) editClient(ctx context.Context, _ identity.Admin, in *editClientInput) (*clientOutput, error) {
+func (h handlers) editClient(ctx context.Context, by identity.Admin, in *editClientInput) (*clientOutput, error) {
 	dc, roster := open(h.clients)
 	names, err := roster.Names(ctx)
 	if err != nil {
@@ -473,7 +476,11 @@ func (h handlers) editClient(ctx context.Context, _ identity.Admin, in *editClie
 	if err != nil {
 		return nil, answer(err, names, kind)
 	}
-	return &clientOutput{Body: clientOf(got, names[got.Node].Name)}, nil
+	routed, err := routedTo(ctx, h.clients, by)
+	if err != nil {
+		return nil, err
+	}
+	return &clientOutput{Body: clientOf(got, names[got.Node].Name, routed.External[got.ID])}, nil
 }
 
 func (h handlers) testSaved(ctx context.Context, _ identity.Admin, in *testClientInput) (*testOutput, error) {

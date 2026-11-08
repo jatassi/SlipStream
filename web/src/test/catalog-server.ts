@@ -9,7 +9,7 @@ import { housekeeping, taskServer } from "./tasks";
 
 const hours = (count: number) => count * 3600;
 
-const cadenceTask = (id: string, name: string, every: number, words: string): TasksTask => ({
+export const cadenceTask = (id: string, name: string, every: number, words: string): TasksTask => ({
   ...housekeeping,
   id,
   name,

@@ -162,6 +162,7 @@ func (m moviesOnHome) at(t *testing.T, gib int64) healthItem {
 // recovers: since holds through the worse step, Check now on the item
 // samples it, and the item clears once space is back.
 func TestAVolumeWarnsThenFailsThenRecovers(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		m := launchMoviesOnHome(t)
 		if it := m.at(t, 200); it.Level != "" {
@@ -190,6 +191,7 @@ func TestAVolumeWarnsThenFailsThenRecovers(t *testing.T) {
 // against a 50% global warning, then the volume's own 30% warning and
 // 250 GB error, then resets both to the defaults.
 func TestAVolumesLevelsAreSetGloballyAndPerVolume(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		m := launchMoviesOnHome(t)
 		if it := m.at(t, 200); it.Level != "" {
@@ -235,6 +237,7 @@ func TestAVolumesLevelsAreSetGloballyAndPerVolume(t *testing.T) {
 // is its mount, so a remount here can't change the id; the levels are keyed
 // by mount alone.
 func TestAVolumesOwnLevelsOutliveItsFigures(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		m := launchMoviesOnHome(t)
 		m.at(t, 200)
@@ -270,6 +273,7 @@ func TestAVolumesOwnLevelsOutliveItsFigures(t *testing.T) {
 // root: Check now raises its error, a Controller restart keeps its since,
 // and once the disk is back Check now on the item clears it.
 func TestAnUnmountedRootIsAStorageErrorThroughARestart(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		m := launchMoviesOnHome(t)
 		root := string(health.KeyOf("r", rootAt(t, m.a, m.folder).ID))
@@ -302,6 +306,7 @@ func TestAnUnmountedRootIsAStorageErrorThroughARestart(t *testing.T) {
 // error and Storage nothing, and Check now on Storage answers seedbox
 // unreached.
 func TestARootOnAnOfflineNodeRaisesOnlyTheNodesItem(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")

@@ -94,6 +94,7 @@ func nextTraffic(t *testing.T, r *bufio.Reader, id string) trafficView {
 // release's title, done, and the link seedbox dialed; once an Admin
 // listens, nodes.traffic carries seedbox's upload and the torrent.
 func TestTheTopologyDrawsSeedboxsTorrentAndTrafficCarriesItsUpload(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk())
 		search(t, w, addOrchard(t, w))

@@ -7,6 +7,7 @@ import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Details } from "../ui/details";
 import { rateWords } from "../ui/setting-rate";
 import { ClientVerdict, listenWords } from "./client-verdict";
+import { RoutedHere } from "./routed-here";
 
 const torrents = { one: "torrent", many: "torrents" } as const;
 
@@ -50,6 +51,7 @@ export function BuiltInClient({ card }: { card: Card }) {
     <article aria-label={`Built-in client on ${card.nodeName}`} className="flex flex-col gap-3">
       <h4 className="font-semibold text-ink-1">Built-in client</h4>
       <ClientVerdict card={card} />
+      <RoutedHere trackers={card.trackers} />
       <Details summary={totalsWords(card)}>
         <div className="mt-2 self-stretch">
           <KeyValues rows={rows(card)} />

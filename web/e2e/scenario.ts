@@ -15,4 +15,6 @@ export type Scenario =
   | "catalog-sites"
   | "indexers"
   | "seedbox-nas"
+  | "seeding"
+  | "seeding-routing"
   | "external-clients";

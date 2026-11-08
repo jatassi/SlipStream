@@ -8,7 +8,7 @@ import { useActing } from "./acting";
 import { actionIcons, menuItems } from "./actions-menu";
 import type { Row } from "./model";
 
-const onButtons = new Set<TorrentAction>(["pause", "resume", "remove"]);
+const onButtons = new Set<TorrentAction>(["pause", "resume", "retry", "remove"]);
 
 export function Actions({
   row,
@@ -19,8 +19,8 @@ export function Actions({
   name: string;
   trackersAccept: boolean;
 }) {
-  const subject = subjectOf(row, name);
   const { start, dialogs } = useActing();
+  const subject = subjectOf(row, name);
   const offered = menuFor(row, trackersAccept);
   const buttons = offered.filter((action) => onButtons.has(action));
   const more = offered.filter((action) => !onButtons.has(action));

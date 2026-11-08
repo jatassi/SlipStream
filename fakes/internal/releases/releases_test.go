@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestBuildMakesTheSameBytesFromOneInput(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if c.Passkey != releases.Passkey(s) || len(c.Releases) != 1 {
+		if len(c.Releases) != 1 {
 			t.Fatalf("catalog = %+v", c)
 		}
 		r := c.Releases[0]
@@ -56,7 +57,7 @@ func TestBuildMakesTheSameBytesFromOneInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantAnnounce := "https://127.0.0.1:8443/announce/" + releases.Passkey(s)
+	wantAnnounce := "https://127.0.0.1:8443/announce/" + releases.Passkey(s, releases.Seeders)
 	if m.Announce != wantAnnounce || m.Info.Name != "The.Quiet.Orchard.2021.360p.mkv" || !m.Info.Private ||
 		m.Info.PieceLength != 256<<10 || len(m.Info.Files) != 1 || m.Info.Files[0].Length != first.Size || m.InfoHash != first.InfoHash {
 		t.Fatalf("metainfo = %+v, want announce %s", m, wantAnnounce)
@@ -92,10 +93,12 @@ func TestWorldsSharingACacheAllPlaceTheirPayload(t *testing.T) {
 	}
 }
 
-func TestPasskeyComesFromTheSeed(t *testing.T) {
-	a, b := releases.Passkey(scenario.Scenario{Seed: "home"}), releases.Passkey(scenario.Scenario{Seed: "office"})
-	if _, err := hex.DecodeString(a); err != nil || len(a) != 32 || a == b || a != releases.Passkey(scenario.Scenario{Seed: "home"}) {
-		t.Fatalf("passkeys %q and %q", a, b)
+func TestPasskeyComesFromTheSeedAndTheAccount(t *testing.T) {
+	home, office := scenario.Scenario{Seed: "home"}, scenario.Scenario{Seed: "office"}
+	a := releases.Passkey(home, "heron")
+	others := []string{releases.Passkey(office, "heron"), releases.Passkey(home, "tamarack"), releases.Passkey(home, releases.Seeders)}
+	if _, err := hex.DecodeString(a); err != nil || len(a) != 32 || slices.Contains(others, a) || a != releases.Passkey(home, "heron") {
+		t.Fatalf("passkey %q, others %q", a, others)
 	}
 }
 
