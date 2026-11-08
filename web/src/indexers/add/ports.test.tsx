@@ -249,7 +249,7 @@ test("a site with no list of new Releases says RSS sync can't use it and keeps R
 });
 
 const codeNeeded =
-  "NorBits needs a two-factor code to sign in again. Type the current code and test again.";
+  "NorBits needs a two-factor code to sign in. Type the current code and test again.";
 
 async function addNorBitsWithCode() {
   const server = addIndexerServer({ codeNeeded });

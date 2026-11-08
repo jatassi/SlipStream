@@ -26,6 +26,13 @@ var stopSaid = map[Cause]string{
 	searching.PortRetired:          "SlipStream no longer supports %[1]s, because %[2]s.",
 }
 
+// testSaid is stopSaid in a Test's sentence, which may come from the
+// Indexer's first sign-in.
+var testSaid = map[Cause]string{
+	searching.CaptchaNeeded: "%[1]s needs a captcha to sign in.",
+	searching.CodeNeeded:    "%[1]s needs a two-factor code to sign in.",
+}
+
 // portSaid is an Indexer's own stopSaid for the variants that name its
 // credentials: %[4]s is the key account_refused names ("passkey"), %[5]s
 // the sign-in fields credentials_rejected names ("email or password").
@@ -153,6 +160,9 @@ func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer,
 	case errors.As(a.Outcome, &stopped):
 		c := credentialsOf(idx)
 		said, fix := c.pick(stopSaid, portSaid, stopped.Cause, stopped.Text), c.pick(stopFormFixes, portFormFixes, stopped.Cause, stopped.Text)
+		if f, ok := testSaid[stopped.Cause]; ok {
+			said = f
+		}
 		switch {
 		case stopped.SolverTried:
 			said, fix = solverTriedSaid, "Paste a browser cookie and test again."
