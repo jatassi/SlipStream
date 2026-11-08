@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/ports/port"
@@ -132,7 +131,7 @@ func parseResponse(c *ix, r *port.IndexerResponse) ([]port.TorrentInfo, error) {
 	}
 
 	for _, value := range values {
-		releaseDate, err := parseDateTimeOffset(value.ReleaseDate, c.Clock)
+		releaseDate, err := datetimeutil.Parse(value.ReleaseDate, datetimeutil.None, c.Clock)
 		if err != nil {
 			return nil, port.IndexerError("read the release date of %q in the Indexer's search response: %v", value.Show, err)
 		}
@@ -210,16 +209,6 @@ func decodeReleases(body []byte) ([]subPleaseRelease, error) {
 		values = append(values, value)
 	}
 	return values, nil
-}
-
-// parseDateTimeOffset is the DateTimeOffset Newtonsoft reads from the
-// release date: an RFC 1123 date with its offset, or any date
-// DateTime.Parse reads.
-func parseDateTimeOffset(s string, clock datetimeutil.Clock) (time.Time, error) {
-	if t, err := time.Parse(time.RFC1123Z, s); err == nil {
-		return t.UTC(), nil
-	}
-	return datetimeutil.Parse(s, datetimeutil.None, clock)
 }
 
 type subPleaseRelease struct {

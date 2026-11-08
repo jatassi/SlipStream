@@ -51,8 +51,8 @@ func TryParseExact(s, format string, style DateTimeStyles, clock Clock) (time.Ti
 // Parse is .NET's DateTime.Parse with the invariant culture over the forms
 // the sites send: ISO 8601 with a 'T' or a space, optional seconds,
 // fraction and offset (Z, GMT, UTC, +hh, +hhmm or +hh:mm), the invariant
-// MM/dd/yyyy with an optional time and AM or PM, and RFC 1123. Other forms
-// DateTime.Parse would read are an error.
+// MM/dd/yyyy with an optional time and AM or PM, and RFC 1123 with GMT or
+// a numeric offset. Other forms DateTime.Parse would read are an error.
 func Parse(s string, style DateTimeStyles, clock Clock) (time.Time, error) {
 	s = strings.TrimSpace(s)
 	if m := isoDate.FindStringSubmatch(s); m != nil {
@@ -66,6 +66,9 @@ func Parse(s string, style DateTimeStyles, clock Clock) (time.Time, error) {
 		}
 	}
 	if t, ok := TryParseExact(s, "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'", style|AssumeUniversal, clock); ok {
+		return t, nil
+	}
+	if t, ok := TryParseExact(s, "ddd, dd MMM yyyy HH':'mm':'ss zzz", style, clock); ok {
 		return t, nil
 	}
 	return time.Time{}, fmt.Errorf("%q isn't a date", s)
