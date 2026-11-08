@@ -4872,7 +4872,14 @@
             "type": "string"
           },
           "lostAt": {
-            "$ref": "#/components/schemas/GrabsLostAt",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsLostAt"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"
           },
           "outcome": {

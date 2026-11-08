@@ -22,7 +22,7 @@ export interface GrabsListedRelease {
   /** The Indexer's name when the run started */
   indexerName: string;
   /** Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step */
-  lostAt: GrabsLostAt;
+  lostAt: GrabsLostAt | null;
   /** grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell. */
   outcome: GrabsListedReleaseOutcome;
   /**

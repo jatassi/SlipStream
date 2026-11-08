@@ -150,21 +150,21 @@ type targetScore struct {
 }
 
 type listedRelease struct {
-	Position int           `json:"position" minimum:"0" doc:"Its place in the order the Indexers listed the run's Releases"`
-	Title    string        `json:"title"`
-	Words    string        `json:"words" doc:"What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB"`
-	Indexer  *string       `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
-	Name     string        `json:"indexerName" doc:"The Indexer's name when the run started"`
-	Size     int64         `json:"size" minimum:"0" doc:"Bytes"`
-	Seeders  int           `json:"seeders" minimum:"0"`
-	Outcome  string        `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused" doc:"grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell."`
-	Rank     *int          `json:"rank" minimum:"1" doc:"Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none"`
-	CopyOf   *int          `json:"copyOf" minimum:"0" doc:"The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy"`
-	Covers   []string      `json:"covers" format:"uuid" nullable:"false" doc:"The Items of the Work it holds"`
-	Scores   []targetScore `json:"scores" nullable:"false" doc:"Its score at each Target it was judged at, in Profile order"`
-	Formats  []string      `json:"formatIds" format:"uuid" nullable:"false" doc:"The Custom Formats it matched of those the Work's Targets score, as the run saw them"`
-	Reasons  []reason      `json:"reasons" nullable:"false" doc:"Its own refusals, then each cell's failures and notes, in Profile order"`
-	LostAt   *lostAt       `json:"lostAt" doc:"Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"`
+	Position int                  `json:"position" minimum:"0" doc:"Its place in the order the Indexers listed the run's Releases"`
+	Title    string               `json:"title"`
+	Words    string               `json:"words" doc:"What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB"`
+	Indexer  *string              `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
+	Name     string               `json:"indexerName" doc:"The Indexer's name when the run started"`
+	Size     int64                `json:"size" minimum:"0" doc:"Bytes"`
+	Seeders  int                  `json:"seeders" minimum:"0"`
+	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused" doc:"grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell."`
+	Rank     *int                 `json:"rank" minimum:"1" doc:"Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none"`
+	CopyOf   *int                 `json:"copyOf" minimum:"0" doc:"The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy"`
+	Covers   []string             `json:"covers" format:"uuid" nullable:"false" doc:"The Items of the Work it holds"`
+	Scores   []targetScore        `json:"scores" nullable:"false" doc:"Its score at each Target it was judged at, in Profile order"`
+	Formats  []string             `json:"formatIds" format:"uuid" nullable:"false" doc:"The Custom Formats it matched of those the Work's Targets score, as the run saw them"`
+	Reasons  []reason             `json:"reasons" nullable:"false" doc:"Its own refusals, then each cell's failures and notes, in Profile order"`
+	LostAt   api.Nullable[lostAt] `json:"lostAt" doc:"Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"`
 }
 
 type releaseList struct {
@@ -198,7 +198,7 @@ func releaseOf(l grabs.Listed) listedRelease {
 		out.Formats = append(out.Formats, f.String())
 	}
 	if lost := l.LostAt; lost != nil {
-		out.LostAt = &lostAt{Step: string(lost.Step), TargetID: idOrNil(lost.Target.UUID), Own: lost.Own, Ref: lost.Ref}
+		out.LostAt = api.Some(lostAt{Step: string(lost.Step), TargetID: idOrNil(lost.Target.UUID), Own: lost.Own, Ref: lost.Ref})
 	}
 	return out
 }

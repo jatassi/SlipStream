@@ -2767,9 +2767,11 @@ export const GrabsListedRelease = zod.object({
     ),
   indexerId: zod.uuid().nullable().describe("Null once the Indexer is deleted"),
   indexerName: zod.string().describe("The Indexer's name when the run started"),
-  lostAt: GrabsLostAt.describe(
-    "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step",
-  ),
+  lostAt: zod
+    .union([GrabsLostAt, zod.null()])
+    .describe(
+      "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step",
+    ),
   outcome: zod
     .enum(["grabbed", "not_taken", "outranked", "kept", "refused"])
     .describe(
