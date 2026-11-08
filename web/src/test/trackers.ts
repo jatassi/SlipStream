@@ -1,9 +1,9 @@
 import { HttpResponse, http } from "msw";
 
 import type {
-  DownloadclientsTorrentRow,
   SettingDurationField,
   TrackersGoal,
+  TrackersGoalsPreview,
   TrackersRule,
   TrackersStats,
   TrackersTrackerItem,
@@ -16,11 +16,18 @@ import {
 } from "../api/gen/zod/trackers/trackers.zod";
 import { problem } from "./handlers";
 import type { IndexerWrite } from "./indexer-plays";
-import { larkspurId, torrentLeechTrackerId, trackers } from "./indexers";
+import { larkspurId, trackers } from "./indexers";
 import { indexersServer } from "./indexers-server";
-import { torrent, torrentsServer } from "./torrents";
+import { torrentsServer } from "./torrents";
+import {
+  attentionOf,
+  goalsPreview,
+  readHandlers,
+  seedpoolId,
+  seedpoolRows,
+} from "./tracker-seeding";
 
-export const seedpoolId = "4d5e6f7a-8b9c-4d0e-9f1a-3b4c5d6e7f80";
+export { seedpoolId, seedpoolRows };
 
 export const statedRule: TrackersRule = {
   clears: "time",
@@ -83,34 +90,6 @@ const duration = (
 const seedingSettings = [
   duration("trackers.margin", "Margin past a rule", 7200, 0),
   duration("trackers.warnAfter", "Warn when a torrent that owes hasn't announced for", 21_600, 60),
-];
-
-/** seedpool's three torrents and one of TorrentLeech's. */
-export const seedpoolRows: DownloadclientsTorrentRow[] = [
-  torrent({
-    state: "seeding",
-    name: "Hold.Fast.2024.1080p.WEB-DL",
-    tabs: ["seeding", "all"],
-    tracker: { id: seedpoolId, name: "seedpool" },
-  }),
-  torrent({
-    state: "seeding",
-    name: "Low.Tide.2023.1080p.WEB-DL",
-    tabs: ["seeding", "all"],
-    tracker: { id: seedpoolId, name: "seedpool" },
-  }),
-  torrent({
-    state: "paused",
-    name: "Salt.Line.2022.1080p.WEB-DL",
-    tabs: ["all"],
-    tracker: { id: seedpoolId, name: "seedpool" },
-  }),
-  torrent({
-    state: "downloading",
-    name: "Elsewhere.2021.1080p.WEB-DL",
-    tabs: ["downloading", "all"],
-    tracker: { id: torrentLeechTrackerId, name: "TorrentLeech" },
-  }),
 ];
 
 type Refusal = { field: string; detail: string };
@@ -229,7 +208,11 @@ function pageHandlers(state: State, writes: IndexerWrite[], inUse: string | unde
       "*/api/v1/trackers/:id",
       onTracker(state, (tracker) => {
         const { counts: _, ...page } = tracker;
-        return HttpResponse.json({ ...page, stats: seedpoolStats });
+        return HttpResponse.json({
+          ...page,
+          stats: seedpoolStats,
+          attention: attentionOf[tracker.id] ?? [],
+        });
       }),
     ),
     http.delete(
@@ -250,17 +233,29 @@ function pageHandlers(state: State, writes: IndexerWrite[], inUse: string | unde
  * The Indexers server with seedpool and the seeding side of every Tracker: a
  * rule or goal save stores it whole and is recorded in writes, unless refuse
  * names the field seeding_value_refused points at. Remove refuses with
- * tracker_in_use while inUse gives its detail.
+ * tracker_in_use while inUse gives its detail. Windows answer two to a page.
  */
-export function trackersServer({ refuse, inUse }: { refuse?: Refusal; inUse?: string } = {}) {
+export function trackersServer({
+  refuse,
+  inUse,
+  preview = goalsPreview,
+}: { refuse?: Refusal; inUse?: string; preview?: TrackersGoalsPreview } = {}) {
   const base = indexersServer({ trackerList: [...trackers, seedpool] });
   const seeding: Seeding = { defaultGoal, settings: seedingSettings };
+  const reads = readHandlers(preview);
   const handlers = [
+    ...reads.handlers,
     ...defaultHandlers(seeding, base.writes, refuse),
     ...pageHandlers(base.state, base.writes, inUse),
     ...seedingHandlers(base.state, base.writes, refuse),
     ...base.handlers,
     ...torrentsServer(seedpoolRows).handlers,
   ];
-  return { handlers, state: base.state, writes: base.writes, seeding };
+  return {
+    handlers,
+    state: base.state,
+    writes: base.writes,
+    seeding,
+    taskWrites: reads.taskWrites,
+  };
 }

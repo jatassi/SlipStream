@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { goalSentence, noRuleSentence, ruleSentence, standingSentence } from "./words";
+import { goalSentence, noRuleSentence, ruleSentence } from "./words";
 
 const day = 86_400;
 
@@ -54,26 +54,5 @@ test("a goal reads as how far each torrent seeds and what happens then", () => {
   );
   expect(goalSentence({ combine: "forever", ratio: null, seedSeconds: null, action: null })).toBe(
     "Each torrent seeds with no end until you remove it.",
-  );
-});
-
-test("the standing sentence counts what is seeding, what still owes and what is at risk", () => {
-  const counts = { torrents: 214, seeding: 214, owing: 0, atRisk: 0, goalMet: 0 };
-  expect(standingSentence("seedpool", { ...counts, torrents: 0, seeding: 0 })).toBe(
-    "SlipStream has no torrents from seedpool.",
-  );
-  expect(standingSentence("seedpool", counts)).toBe(
-    "214 torrents are seeding. None of them owe seedpool seeding.",
-  );
-  expect(standingSentence("seedpool", { ...counts, owing: 1 })).toBe(
-    "214 torrents are seeding. 1 still owes seedpool seeding.",
-  );
-  expect(standingSentence("seedpool", { ...counts, seeding: 1, owing: 3, atRisk: 2 })).toBe(
-    "1 torrent is seeding. 3 still owe seedpool seeding, and 2 of those aren't seeding.",
-  );
-  expect(
-    standingSentence("seedpool", { ...counts, torrents: 1, seeding: 0, owing: 1, atRisk: 1 }),
-  ).toBe(
-    "Its one torrent isn't seeding. 1 still owes seedpool seeding, and 1 of those isn't seeding.",
   );
 });

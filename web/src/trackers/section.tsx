@@ -4,6 +4,7 @@ import {
   getListTrackersSuspenseQueryOptions,
   useListTrackersSuspense,
 } from "../api/gen/query/trackers/trackers";
+import { getListTasksSuspenseQueryOptions } from "../api/gen/query/tasks/tasks";
 import { ensureQuery, freshQuery } from "../api/query-client";
 import type { SettingsSection } from "../settings/section";
 import { Empty } from "../shell/empty";
@@ -39,8 +40,10 @@ export const trackersSection: SettingsSection = {
       ensureQuery(queryClient, getListTrackersSuspenseQueryOptions()),
       freshQuery(queryClient, getGetDefaultGoalSuspenseQueryOptions()),
       freshQuery(queryClient, getGetSeedingSettingsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListTasksSuspenseQueryOptions()),
     ]);
   },
   component: TrackersSection,
   wide: true,
+  health: ["seeding"],
 };

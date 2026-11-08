@@ -14,7 +14,7 @@ import { useTracker } from "./tracker";
 // header, lists the other sections and then its torrents, as a Node's does.
 export function TrackerLayout({ trackerId }: { trackerId: string }) {
   const tracker = useTracker(trackerId);
-  const { stats } = useGetTrackerSuspense(trackerId).data;
+  const page = useGetTrackerSuspense(trackerId).data;
   const menu = <TrackerActions tracker={tracker} />;
   const beside = <PrivacyChip tracker={tracker} />;
   const top =
@@ -26,7 +26,7 @@ export function TrackerLayout({ trackerId }: { trackerId: string }) {
   if (useShell() === "phone") {
     return (
       <Page {...(top && { action: menu, beside })}>
-        {top && <TrackerHeader tracker={tracker} stats={stats} />}
+        {top && <TrackerHeader tracker={tracker} page={page} />}
         {top && <SectionRows tracker={tracker} />}
         <Outlet />
       </Page>
@@ -34,7 +34,7 @@ export function TrackerLayout({ trackerId }: { trackerId: string }) {
   }
   return (
     <Page title={tracker.name} beside={beside} action={menu}>
-      <TrackerHeader tracker={tracker} stats={stats} />
+      <TrackerHeader tracker={tracker} page={page} />
       <PageTabs label={tracker.name}>
         {trackerSections.map((section) => (
           <Link

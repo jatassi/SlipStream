@@ -7,6 +7,8 @@ import {
   useGetSeedingSettingsSuspense,
 } from "../api/gen/query/trackers/trackers";
 import { adoptDefaultGoal, adoptSeedingSettings } from "../live/adopt-trackers";
+import { KeyValues } from "../routes/_app/nodes/-facts";
+import { TaskCadence } from "../tasks/task-cadence";
 import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 import { toast } from "../ui/toast";
@@ -60,6 +62,11 @@ export function RuleSettings() {
             />
           ))}
         </SettingGroup>
+        <p className="text-ink-2">
+          The Seeding goals task reads each Tracker&apos;s rule and records what each of its
+          torrents still owes.
+        </p>
+        <KeyValues rows={[["Seeding goals", <TaskCadence key="goals" task="seeding-goals" />]]} />
       </div>
     </Section>
   );

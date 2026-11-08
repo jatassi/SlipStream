@@ -52,6 +52,8 @@ async function openSeeding(page: Page, name: string) {
       .click();
   }
   await expect(page).toHaveURL(/\/seeding$/u);
+  await expect(page.getByText(`No torrent owes ${name} seeding.`)).toBeVisible();
+  await expect(page.getByText("No hit and run window has ended yet.")).toBeVisible();
 }
 
 test("an Admin opens a Tracker from Settings > Trackers and sets its rule and goal", async ({
@@ -64,6 +66,7 @@ test("an Admin opens a Tracker from Settings > Trackers and sets its rule and go
   }
   await openSettingsSection(page, "Trackers");
   await expect(page.getByRole("form", { name: "Seeding goal" })).toBeVisible();
+  await expect(page.getByRole("term").filter({ hasText: "Seeding goals" })).toBeVisible();
   await capture(page, testInfo.outputPath("settings-trackers.png"));
   await expectAccessible(page);
 

@@ -54,9 +54,9 @@ export function SeedingTab({ tracker }: { tracker: TrackersTrackerItem }) {
     adoptTracker(queryClient, saved);
   };
   return (
-    <div className="max-w-[640px]">
+    <>
       <RuleSection tracker={tracker} adopt={adopt} />
       <GoalSection tracker={tracker} adopt={adopt} />
-    </div>
+    </>
   );
 }

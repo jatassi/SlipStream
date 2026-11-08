@@ -1,9 +1,4 @@
-import type {
-  TrackersCounts,
-  TrackersGoal,
-  TrackersRule,
-  TrackersTrackerItemPrivacy,
-} from "../api/gen/model";
+import type { TrackersGoal, TrackersRule, TrackersTrackerItemPrivacy } from "../api/gen/model";
 import { durationWords } from "../format";
 
 type Action = NonNullable<TrackersGoal["action"]>;
@@ -76,29 +71,4 @@ export function goalSentence(goal: TrackersGoal): string {
     return "Each torrent seeds with no end until you remove it.";
   }
   return `Each torrent seeds until it reaches ${reaches(goal)}. ${actionSentences[goal.action]}`;
-}
-
-const plural = (count: number, one: string, many: string): string =>
-  `${count} ${count === 1 ? one : many}`;
-
-/** "214 torrents are seeding. 3 still owe seedpool seeding, and 1 of those isn't seeding." */
-export function standingSentence(name: string, counts: TrackersCounts): string {
-  if (counts.torrents === 0) {
-    return `SlipStream has no torrents from ${name}.`;
-  }
-  const seeding =
-    counts.seeding === 0
-      ? counts.torrents === 1
-        ? "Its one torrent isn't seeding."
-        : `None of its ${counts.torrents} torrents are seeding.`
-      : `${plural(counts.seeding, "torrent is", "torrents are")} seeding.`;
-  if (counts.owing === 0) {
-    return `${seeding} None of them owe ${name} seeding.`;
-  }
-  const owing = `${counts.owing} still ${counts.owing === 1 ? "owes" : "owe"} ${name} seeding`;
-  if (counts.atRisk === 0) {
-    return `${seeding} ${owing}.`;
-  }
-  const risk = counts.atRisk === 1 ? "isn't" : "aren't";
-  return `${seeding} ${owing}, and ${counts.atRisk} of those ${risk} seeding.`;
 }

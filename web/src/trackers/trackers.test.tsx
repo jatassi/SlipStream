@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import type { HealthItem } from "../api/gen/model";
+import { healthServer, minutesAgo, reportOf } from "../test/health";
 import { renderApp } from "../test/render-app";
 import { seedpoolId, trackersServer } from "../test/trackers";
 import { asPhone } from "../test/viewport";
@@ -110,9 +112,7 @@ test("the Tracker page leads with its rule and standing, and its Torrents tab ho
   await expect.element(page.getByText("From seedpool's Releases.")).toBeVisible();
   await expect
     .element(
-      page.getByText(
-        "2 torrents are seeding. 2 still owe seedpool seeding, and 1 of those isn't seeding.",
-      ),
+      page.getByText("2 torrents are seeding. 2 still owe seedpool, and 1 of those isn't seeding."),
     )
     .toBeVisible();
   await expect.element(page.getByRole("definition").filter({ hasText: "1.50" })).toBeVisible();
@@ -228,4 +228,40 @@ test("on a phone the Tracker page lists its sections as rows, with no tab row", 
   await expect.poll(() => router.state.location.pathname).toBe(`${trackerPage}/seeding`);
   const back = page.getByRole("banner").getByRole("link", { name: "seedpool" });
   await expect.element(back).toHaveAttribute("href", trackerPage);
+});
+
+test("Settings > Trackers shows how often the Seeding goals task runs", async () => {
+  const server = trackersServer();
+  renderApp({ path: "/settings/trackers", handlers: server.handlers });
+  const cadence = page.getByRole("definition").filter({ hasText: "Every 15 min" });
+  await expect.element(cadence).toBeVisible();
+  await expect.element(page.getByRole("term").filter({ hasText: "Seeding goals" })).toBeVisible();
+});
+
+const stoppedSeeding: HealthItem = {
+  key: seedpoolId,
+  subject: "seedpool",
+  level: "warn",
+  text: "3 torrents on seedpool stopped seeding before seedpool's rule was met. Resume or retry them before seedpool counts a hit and run.",
+  since: minutesAgo(400),
+  changedAt: minutesAgo(400),
+  unsure: false,
+  detail: [],
+  action: null,
+};
+
+test("Settings > Trackers carries the Seeding Health category's warning on its link and at its top", async () => {
+  const health = healthServer(reportOf({ seeding: [stoppedSeeding] }));
+  renderApp({
+    path: "/settings/trackers",
+    handlers: [...health.handlers, ...trackersServer().handlers],
+  });
+  await expect
+    .element(
+      page
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("link", { name: "Trackers 1 warning" }),
+    )
+    .toBeVisible();
+  await expect.element(page.getByText(stoppedSeeding.text)).toBeVisible();
 });

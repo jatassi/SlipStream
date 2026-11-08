@@ -9,7 +9,9 @@ import {
   getGetDefaultGoalQueryKey,
   getGetSeedingSettingsQueryKey,
   getGetTrackerQueryKey,
+  getListTrackerWindowsQueryKey,
   getListTrackersQueryKey,
+  getPreviewSeedingGoalsQueryKey,
 } from "../api/gen/query/trackers/trackers";
 import { everyPath } from "./refresh";
 import type { LiveEffects } from "./types";
@@ -43,12 +45,14 @@ export const indexerEffects = {
   },
   "trackers.seeding-changed": (data, { refresh }) => {
     refresh({ queryKey: getListTrackersQueryKey() });
+    refresh({ queryKey: getPreviewSeedingGoalsQueryKey() });
     if (data.trackerId === null) {
       refresh({ queryKey: getGetDefaultGoalQueryKey() });
       refresh({ queryKey: getGetSeedingSettingsQueryKey() });
       return;
     }
     refresh({ queryKey: getGetTrackerQueryKey(data.trackerId) });
+    refresh({ queryKey: getListTrackerWindowsQueryKey(data.trackerId) });
   },
 } satisfies Pick<
   LiveEffects,

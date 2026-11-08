@@ -1,12 +1,19 @@
 import type { ReactNode } from "react";
 
-import type { TrackersStats, TrackersTrackerItem } from "../api/gen/model";
+import type {
+  TrackersAttention,
+  TrackersStats,
+  TrackersTrackerItem,
+  TrackersTrackerPage,
+} from "../api/gen/model";
 import { bytes } from "../format";
 import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
-import { noRuleSentence, privacyLabels, ruleSentence, ruleSource, standingSentence } from "./words";
+import { Icon } from "../ui/icon";
+import { signals } from "../ui/signal-chip";
+import { noRuleSentence, privacyLabels, ruleSentence, ruleSource } from "./words";
 
 const lines = (values: readonly string[]): ReactNode =>
   values.length === 0 ? (
@@ -57,18 +64,36 @@ export function RuleLine({ tracker: { name, rule, privacy } }: { tracker: Tracke
   );
 }
 
+function Attention({ attention }: { attention: readonly TrackersAttention[] }) {
+  return attention.map(({ level, text }) =>
+    level === "warn" ? (
+      <span key={text} className="text-warn">
+        <Icon
+          icon={signals.warn.icon}
+          className="mr-1.5 inline-block size-[0.9em] align-[-0.1em]"
+        />
+        {text}{" "}
+      </span>
+    ) : (
+      <span key={text}>{text} </span>
+    ),
+  );
+}
+
 /** What a Tracker requires, where it stands with it, and its totals. */
 export function TrackerHeader({
   tracker,
-  stats,
+  page,
 }: {
   tracker: TrackersTrackerItem;
-  stats: TrackersStats;
+  page: TrackersTrackerPage;
 }) {
+  // The server's attention already says a private Tracker has no rule.
+  const ruleSaid = tracker.rule === null && tracker.privacy === "private";
   return (
     <div className="mb-6 flex flex-col gap-4">
-      <RuleLine tracker={tracker} />
-      <Details summary={standingSentence(tracker.name, tracker.counts)}>
+      {!ruleSaid && <RuleLine tracker={tracker} />}
+      <Details summary={<Attention attention={page.attention} />}>
         <div className="mt-2 w-full">
           <KeyValues
             rows={[
@@ -78,7 +103,7 @@ export function TrackerHeader({
           />
         </div>
       </Details>
-      <Stats stats={stats} />
+      <Stats stats={page.stats} />
     </div>
   );
 }
