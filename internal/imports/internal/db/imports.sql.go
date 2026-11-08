@@ -104,7 +104,7 @@ func (q *Queries) DeleteEntryFiles(ctx context.Context, pendingID EntryID) error
 }
 
 const getCompared = `-- name: GetCompared :one
-SELECT root_id, place, compared_at, found, changed, gone, returned, added, stopped_gone, stopped_of, confirmed FROM imports_root WHERE root_id = ?
+SELECT root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of, confirmed, changed FROM imports_root WHERE root_id = ?
 `
 
 func (q *Queries) GetCompared(ctx context.Context, rootID roots.ID) (ImportsRoot, error) {
@@ -115,13 +115,13 @@ func (q *Queries) GetCompared(ctx context.Context, rootID roots.ID) (ImportsRoot
 		&i.Place,
 		&i.ComparedAt,
 		&i.Found,
-		&i.Changed,
 		&i.Gone,
 		&i.Returned,
 		&i.Added,
 		&i.StoppedGone,
 		&i.StoppedOf,
 		&i.Confirmed,
+		&i.Changed,
 	)
 	return i, err
 }
@@ -274,7 +274,7 @@ func (q *Queries) InsertEntryFile(ctx context.Context, arg InsertEntryFileParams
 }
 
 const listCompared = `-- name: ListCompared :many
-SELECT root_id, place, compared_at, found, changed, gone, returned, added, stopped_gone, stopped_of, confirmed FROM imports_root ORDER BY root_id
+SELECT root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of, confirmed, changed FROM imports_root ORDER BY root_id
 `
 
 func (q *Queries) ListCompared(ctx context.Context) ([]ImportsRoot, error) {
@@ -291,13 +291,13 @@ func (q *Queries) ListCompared(ctx context.Context) ([]ImportsRoot, error) {
 			&i.Place,
 			&i.ComparedAt,
 			&i.Found,
-			&i.Changed,
 			&i.Gone,
 			&i.Returned,
 			&i.Added,
 			&i.StoppedGone,
 			&i.StoppedOf,
 			&i.Confirmed,
+			&i.Changed,
 		); err != nil {
 			return nil, err
 		}

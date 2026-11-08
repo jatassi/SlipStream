@@ -42,13 +42,13 @@ type ImportsRoot struct {
 	Place       int64
 	ComparedAt  storage.Time
 	Found       int64
-	Changed     int64
 	Gone        int64
 	Returned    int64
 	Added       int64
 	StoppedGone *int64
 	StoppedOf   *int64
 	Confirmed   *int64
+	Changed     int64
 }
 
 type ImportsSetting struct {

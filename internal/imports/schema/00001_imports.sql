@@ -43,7 +43,6 @@ CREATE TABLE imports_root (
     place INTEGER NOT NULL CHECK (place > 0),
     compared_at INTEGER,
     found INTEGER NOT NULL DEFAULT 0 CHECK (found >= 0),
-    changed INTEGER NOT NULL DEFAULT 0 CHECK (changed >= 0),
     gone INTEGER NOT NULL DEFAULT 0 CHECK (gone >= 0),
     returned INTEGER NOT NULL DEFAULT 0 CHECK (returned >= 0),
     added INTEGER NOT NULL DEFAULT 0 CHECK (added >= 0),
