@@ -68,22 +68,14 @@ var probes = []struct{ suffix, args string }{
 // Capture writes c's three files into dir: the bundled ffprobe's two runs
 // on the file Build makes, and the commands that made them.
 func (b *Builder) Capture(ctx context.Context, c Capture, dir string) error {
-	built, err := b.Build(ctx, c.File)
-	if err != nil {
-		return err
-	}
 	work, err := os.MkdirTemp("", "mediafix-capture-")
 	if err != nil {
 		return fmt.Errorf("capture %s: %w", c.Name, err)
 	}
 	defer func() { _ = os.RemoveAll(work) }()
 	name := c.Name + path.Ext(c.File.Path)
-	data, err := os.ReadFile(built)
-	if err != nil {
-		return fmt.Errorf("capture %s: %w", c.Name, err)
-	}
-	if err := os.WriteFile(filepath.Join(work, name), data, 0o600); err != nil {
-		return fmt.Errorf("capture %s: %w", c.Name, err)
+	if err := b.Write(ctx, c.File, filepath.Join(work, name)); err != nil {
+		return err
 	}
 	for _, p := range probes {
 		cmd := exec.CommandContext(ctx, b.tools.FFprobe, append(strings.Fields(p.args), name)...)
