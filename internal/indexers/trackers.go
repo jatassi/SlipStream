@@ -315,6 +315,15 @@ func fold(s string) string {
 	}, s)
 }
 
+// PrivacyOf is Tracker id's privacy, read in r, or ErrNoTracker.
+func PrivacyOf(ctx context.Context, r storage.Reader[file], id TrackerID) (Privacy, error) {
+	row, err := db.New(r).GetTracker(ctx, id)
+	if errors.Is(err, storage.ErrNoRows) {
+		return "", ErrNoTracker
+	}
+	return Privacy(row.Privacy), err
+}
+
 // TrackersIn is every Tracker by name, read in r.
 func TrackersIn(ctx context.Context, r storage.Reader[file]) ([]Tracker, error) {
 	q := db.New(r)

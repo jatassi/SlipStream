@@ -55,6 +55,8 @@ type GrabsGrab struct {
 	Unwanted          *files.Unwanted
 	FetchNodeID       role.NodeID
 	MetadataStartedAt storage.Time
+	SentBuiltInOn     *role.NodeID
+	SentClientID      *downloadclients.ClientID
 }
 
 type GrabsRefusal struct {

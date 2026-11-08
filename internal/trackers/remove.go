@@ -24,7 +24,7 @@ func (e *InUseError) Error() string { return "the Tracker is in use" }
 // with *InUseError while any Indexer reaches it, any live Torrent names it
 // or any Grab neither imported nor failed names it. Otherwise its Grabs
 // and removed Torrents keep their rows with no Tracker, and its rule,
-// goal, windows and goal runs are deleted with it.
+// goal, routes, windows and goal runs are deleted with it.
 func (t *Trackers) Remove(ctx context.Context, _ identity.Admin, id indexers.TrackerID) error {
 	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		s, err := summaryIn(ctx, tx, id)

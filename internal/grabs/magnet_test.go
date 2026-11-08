@@ -35,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -82,22 +83,48 @@ func (s *swarm) asked() []asked {
 	return slices.Clone(s.calls)
 }
 
+// roster is node, which holds every Role, and the Nodes a test adds. A
+// Work's Grabs go to node until a test covers it with another Node, and
+// a Node a test takes away is out of step.
 type roster struct {
 	node    role.NodeID
 	mu      sync.Mutex
 	changed chan struct{}
+	cover   role.NodeID
+	away    map[role.NodeID]bool
 }
 
 func (r *roster) Self() role.NodeID                                  { return r.node }
 func (r *roster) Pick(role.Name, role.NodeID) (role.NodeID, bool)    { return r.node, true }
-func (r *roster) Route(role.Name, role.NodeID) (role.NodeID, error)  { return r.node, nil }
 func (*roster) Away(role.Name, role.NodeID) (nodes.Absence, bool)    { return nodes.Absence{}, false }
-func (*roster) InStep(role.NodeID) bool                              { return true }
 func (*roster) WrittenOff(role.Name, role.NodeID) bool               { return false }
 func (*roster) Holds(role.Name, role.NodeID) bool                    { return true }
 func (r *roster) Holding(role.Name) []role.NodeID                    { return []role.NodeID{r.node} }
 func (*roster) Name(role.NodeID) string                              { return "home" }
 func (*roster) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role.NodeID{}, false }
+
+func (r *roster) Route(role.Name, role.NodeID) (role.NodeID, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.cover.IsZero() {
+		return r.cover, nil
+	}
+	return r.node, nil
+}
+
+func (r *roster) InStep(node role.NodeID) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return !r.away[node]
+}
+
+// takeAway takes node out of step, and has cover take the Work's Grabs.
+func (r *roster) takeAway(node, cover role.NodeID) {
+	r.mu.Lock()
+	r.away, r.cover = map[role.NodeID]bool{node: true}, cover
+	r.mu.Unlock()
+	r.change()
+}
 
 func (r *roster) Changed() <-chan struct{} {
 	r.mu.Lock()
@@ -186,6 +213,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		}),
 		Roster: p.roster, Downloads: p.swarm,
+		Router:    downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
 		Transfers: p.copies,
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, Log: slog.New(slog.DiscardHandler),
@@ -201,7 +229,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 func schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
 		secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema(),
+		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema(), transfers.LibrarySchema(),
 	}
 }
 
@@ -256,13 +284,13 @@ type release struct {
 	link magnet.Link
 }
 
-func newRelease(t *testing.T, trackers ...string) release {
+func newRelease(t *testing.T, announce ...string) release {
 	t.Helper()
 	info, err := bencode.Encode(map[string]any{"name": "The.Attic.1080p.WEB", "piece length": int64(16384), "pieces": "aaaaaaaaaaaaaaaaaaaa", "length": int64(4096)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return release{info: info, link: magnet.Link{InfoHash: sha1.Sum(info), Name: "The.Attic.1080p.WEB", Trackers: trackers}} //nolint:gosec // the v1 info hash
+	return release{info: info, link: magnet.Link{InfoHash: sha1.Sum(info), Name: "The.Attic.1080p.WEB", Trackers: announce}} //nolint:gosec // the v1 info hash
 }
 
 func searchingWith(peers int) answer {

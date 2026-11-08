@@ -184,3 +184,7 @@ SELECT id, work_id FROM grabs_grab WHERE torrent_id = sqlc.arg(torrent_id) AND s
 -- send-to moves every Grab downloading a Torrent with it.
 UPDATE grabs_grab SET torrent_id = sqlc.arg(to_id), node_id = sqlc.arg(node_id), updated_at = sqlc.arg(updated_at)
 WHERE torrent_id = sqlc.arg(from_id) AND stage = 'downloading';
+
+-- name: SetSent :exec
+UPDATE grabs_grab SET sent_built_in_on = sqlc.narg(built_in_on), sent_client_id = sqlc.narg(client_id), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id);

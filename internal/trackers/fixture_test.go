@@ -64,6 +64,9 @@ type library struct {
 	changed         *published
 	trackersChanged *identities
 	soon            int
+	rerouted        int
+	// board is who holds Downloading, for routing.
+	board *board
 	// offline takes the library's Node out of step.
 	offline bool
 	// node, work and item are what every planted Grab names.
@@ -76,11 +79,12 @@ func newLibrary(t *testing.T) *library {
 		t: t, changed: &published{}, trackersChanged: &identities{},
 		lib: storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(),
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
-		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(),
+		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(), board: &board{},
 	}
 	l.clients = downloadclients.New(downloadclients.Config{Library: l.lib, Roster: roster{&l.offline}, Uses: grabs.TorrentUses{}, Seeding: late{&l.x}})
 	l.x = trackers.New(trackers.Config{
 		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: roster{&l.offline},
+		Routing: trackers.Routing{Roster: l.board}, Rerouted: func() { l.rerouted++ },
 		Soon: func() { l.soon++ }, Reconciling: trackers.NotReconciling, Changed: l.changed, TrackersChanged: l.trackersChanged,
 	})
 	l.exec(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, l.node)
@@ -140,3 +144,10 @@ func (l *library) saved(saves int, want *indexers.TrackerID) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func mustNot(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+}

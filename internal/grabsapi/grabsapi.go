@@ -44,7 +44,7 @@ var (
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
 	indexerNotFound = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 
-	grabNotDownloading  = api.NewCode(http.StatusConflict, "grab_not_downloading", "This Grab isn't downloading")
+	grabNotSendable     = api.NewCode(http.StatusConflict, "grab_not_sendable", "This Grab can't be sent to another client")
 	grabTorrentInClient = api.NewCode(http.StatusConflict, "grab_torrent_in_client", "This client's Node already has the torrent")
 	clientNotFound      = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientRefused       = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
@@ -344,9 +344,9 @@ func Routes(r *api.Router, p Pipeline) {
 		ID:      "sendGrabTo",
 		Method:  http.MethodPost,
 		Path:    "/grabs/{grabId}/send-to",
-		Summary: "Send a downloading Grab's torrent to another Download Client",
+		Summary: "Send a Grab to another Download Client: a downloading Grab's torrent, or a Grab whose fetch waits for its client's Node, which then fetches for the new client",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{grabNotFound, grabNotDownloading, grabTorrentInClient, clientNotFound, clientRefused, nodeNotDownloading},
+		Errors:  []*api.Code{grabNotFound, grabNotSendable, grabTorrentInClient, clientNotFound, clientRefused, nodeNotDownloading},
 	}, h.sendTo)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listIndexerGrabs",
@@ -499,8 +499,8 @@ func (h handlers) sendTo(ctx context.Context, by identity.Admin, in *sendToInput
 		inClient *downloadclients.InClientError
 	)
 	switch {
-	case errors.Is(err, grabs.ErrNotDownloading):
-		return nil, grabNotDownloading
+	case errors.Is(err, grabs.ErrNotSendable):
+		return nil, grabNotSendable.Because("Only a download that hasn't finished, or a Grab waiting for its client's Node, can be sent to another client.")
 	case errors.As(err, &inClient):
 		return nil, grabTorrentInClient.Because(downloadclients.InClient(inClient.Client, inClient.Node))
 	case errors.Is(err, downloadclients.ErrRemoving):

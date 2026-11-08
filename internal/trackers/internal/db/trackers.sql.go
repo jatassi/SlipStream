@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -29,6 +30,20 @@ DELETE FROM trackers_goal WHERE tracker_id = ?1
 
 func (q *Queries) ClearGoal(ctx context.Context, trackerID indexers.TrackerID) error {
 	_, err := q.db.ExecContext(ctx, clearGoal, trackerID)
+	return err
+}
+
+const clearRoute = `-- name: ClearRoute :exec
+DELETE FROM trackers_route WHERE tracker_id = ?1 AND home_node_id = ?2
+`
+
+type ClearRouteParams struct {
+	TrackerID  indexers.TrackerID
+	HomeNodeID role.NodeID
+}
+
+func (q *Queries) ClearRoute(ctx context.Context, arg ClearRouteParams) error {
+	_, err := q.db.ExecContext(ctx, clearRoute, arg.TrackerID, arg.HomeNodeID)
 	return err
 }
 
@@ -148,6 +163,70 @@ func (q *Queries) ListGoals(ctx context.Context) ([]TrackersGoal, error) {
 			&i.RatioCenti,
 			&i.SeedSeconds,
 			&i.Action,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRoutes = `-- name: ListRoutes :many
+SELECT tracker_id, home_node_id, built_in_on, client_id FROM trackers_route ORDER BY tracker_id, home_node_id
+`
+
+func (q *Queries) ListRoutes(ctx context.Context) ([]TrackersRoute, error) {
+	rows, err := q.db.QueryContext(ctx, listRoutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TrackersRoute
+	for rows.Next() {
+		var i TrackersRoute
+		if err := rows.Scan(
+			&i.TrackerID,
+			&i.HomeNodeID,
+			&i.BuiltInOn,
+			&i.ClientID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRoutesOf = `-- name: ListRoutesOf :many
+SELECT tracker_id, home_node_id, built_in_on, client_id FROM trackers_route WHERE tracker_id = ?1 ORDER BY home_node_id
+`
+
+func (q *Queries) ListRoutesOf(ctx context.Context, trackerID indexers.TrackerID) ([]TrackersRoute, error) {
+	rows, err := q.db.QueryContext(ctx, listRoutesOf, trackerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TrackersRoute
+	for rows.Next() {
+		var i TrackersRoute
+		if err := rows.Scan(
+			&i.TrackerID,
+			&i.HomeNodeID,
+			&i.BuiltInOn,
+			&i.ClientID,
 		); err != nil {
 			return nil, err
 		}
@@ -298,6 +377,20 @@ func (q *Queries) RepointGoal(ctx context.Context, arg RepointGoalParams) error 
 	return err
 }
 
+const repointRoutes = `-- name: RepointRoutes :exec
+UPDATE OR IGNORE trackers_route SET tracker_id = ?1 WHERE tracker_id = ?2
+`
+
+type RepointRoutesParams struct {
+	IntoID indexers.TrackerID
+	FromID indexers.TrackerID
+}
+
+func (q *Queries) RepointRoutes(ctx context.Context, arg RepointRoutesParams) error {
+	_, err := q.db.ExecContext(ctx, repointRoutes, arg.IntoID, arg.FromID)
+	return err
+}
+
 const repointRules = `-- name: RepointRules :exec
 UPDATE OR IGNORE trackers_rule SET tracker_id = ?1 WHERE tracker_id = ?2
 `
@@ -406,6 +499,29 @@ UPDATE trackers_settings SET margin_seconds = ?1
 
 func (q *Queries) SetMargin(ctx context.Context, marginSeconds *int64) error {
 	_, err := q.db.ExecContext(ctx, setMargin, marginSeconds)
+	return err
+}
+
+const setRoute = `-- name: SetRoute :exec
+INSERT INTO trackers_route (tracker_id, home_node_id, built_in_on, client_id)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT (tracker_id, home_node_id) DO UPDATE SET built_in_on = excluded.built_in_on, client_id = excluded.client_id
+`
+
+type SetRouteParams struct {
+	TrackerID  indexers.TrackerID
+	HomeNodeID role.NodeID
+	BuiltInOn  *role.NodeID
+	ClientID   *downloadclients.ClientID
+}
+
+func (q *Queries) SetRoute(ctx context.Context, arg SetRouteParams) error {
+	_, err := q.db.ExecContext(ctx, setRoute,
+		arg.TrackerID,
+		arg.HomeNodeID,
+		arg.BuiltInOn,
+		arg.ClientID,
+	)
 	return err
 }
 

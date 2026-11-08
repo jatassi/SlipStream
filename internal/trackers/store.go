@@ -15,10 +15,11 @@ import (
 
 var ErrNoTracker = indexers.ErrNoTracker
 
-// PublicError refuses a seeding rule on a public Tracker, named Name.
+// PublicError refuses a seeding rule or a route on a public Tracker, named
+// Name.
 type PublicError struct{ Name string }
 
-func (e *PublicError) Error() string { return "a public Tracker has no seeding rule" }
+func (e *PublicError) Error() string { return "the Tracker is public" }
 
 // InitialGoal is the default goal until an Admin sets one: whichever first
 // of ratio 2.0 or 14 days, then remove the torrent and delete its download

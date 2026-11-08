@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -65,14 +66,16 @@ type fail struct {
 
 // wait retries the same step once a backoff has passed and, when the
 // Grab's Node is out of step or roster is set, the roster has changed; when
-// root is set, once it is closed or the roster has changed. When until is
-// set, it retries at once at until or the Indexers' next change. It never
-// fails the Grab.
+// root is set, once it is closed or the roster has changed. When rerouted
+// is set and closes first, it retries at once. When until is set, it
+// retries at once at until or the Indexers' next change. It never fails
+// the Grab.
 type wait struct {
-	cause  error
-	roster bool
-	root   <-chan struct{}
-	until  time.Time
+	cause    error
+	roster   bool
+	root     <-chan struct{}
+	rerouted <-chan struct{}
+	until    time.Time
 }
 
 // stopped commits nothing: the step runs again at the next start.
@@ -137,25 +140,17 @@ func local(ctx context.Context, err error) outcome {
 }
 
 // fetch brings the .torrent through the Node the Indexer routes to now, or
-// a magnet link's metadata through the Downloading Node, and hands it to
-// that Downloading Node: the one holding the Work's root when it may
-// download, so the file lands by a hard link. While no Node may take
-// either, it waits for the roster to change.
+// a magnet link's metadata through the Node of the client the Grab routes
+// to, and hands it to that client: by default the one on the Node holding
+// the Work's root when it may download, so the file lands by a hard link.
+// While no Node may take either, or the client's Node is out of step, it
+// waits for the roster or the Grab's route to change.
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	if g.Ticket.Indexer.IsZero() {
 		return dropOf[indexers.DropRemoved]
 	}
-	var root roots.Root
-	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		var err error
-		root, err = roots.OfWork(ctx, r, g.WorkID)
-		return err
-	})
-	if err != nil {
-		return local(ctx, err)
-	}
-	if _, err := gr.cfg.Roster.Route(role.Downloading, root.Node); err != nil {
-		return wait{cause: err, roster: true}
+	if _, w := gr.route(ctx, g); w != nil {
+		return w
 	}
 	link, err := gr.link(g)
 	if err != nil {
@@ -177,15 +172,15 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return classify(ctx, err, TorrentUnreachable)
 	}
-	to, err := gr.cfg.Roster.Route(role.Downloading, root.Node)
-	if err != nil {
-		return wait{cause: err, roster: true}
+	to, w := gr.route(ctx, g)
+	if w != nil {
+		return w
 	}
 	switch got := got.(type) {
 	case indexers.Torrent:
-		return decoded(g, got.Raw, fetched{by: got.Node, to: to})
+		return decoded(g, got.Raw, fetched{by: got.Node, to: to.Node})
 	case indexers.Magnet:
-		return gr.resolve(ctx, g, got.Link, to)
+		return gr.resolve(ctx, g, got.Link, to.Node)
 	}
 	panic("grabs: unknown fetch result")
 }
@@ -471,16 +466,15 @@ func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outc
 	return o, nil
 }
 
-// attach binds g to the Torrent of a's .torrent, in the client Route
-// picks on the Node the fetch picked unless another Node already holds
-// it, and records the torrent's privacy and a private torrent's announce
-// hosts on g's Tracker.
+// attach binds g to the Torrent of a's .torrent, in the client g routes
+// to now unless another Node already holds it, and records the torrent's
+// privacy and a private torrent's announce hosts on g's Tracker.
 func (gr *Grabs) attach(ctx context.Context, tx *storage.Tx[file], g Grab, a advance, now storage.Time) (downloadclients.ID, role.NodeID, error) {
 	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
 	if err != nil {
 		return downloadclients.ID{}, role.NodeID{}, err
 	}
-	target, err := downloadclients.Route(ctx, tx, downloadclients.Ask{Node: a.fetched.to, Tracker: g.Ticket.Tracker})
+	target, err := gr.routeIn(ctx, tx, g)
 	if err != nil {
 		return downloadclients.ID{}, role.NodeID{}, err
 	}
@@ -666,6 +660,8 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 			select {
 			case <-changed:
 			case <-o.root:
+			case <-o.rerouted:
+				return rerun
 			case <-ctx.Done():
 				return halted
 			}
@@ -676,7 +672,7 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 		if ctx.Err() != nil {
 			return halted
 		}
-		if errors.Is(err, downloadclients.ErrRemoving) {
+		if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted || errors.Is(err, downloadclients.ErrRemoving) {
 			gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", err.Error())
 			return waited
 		}

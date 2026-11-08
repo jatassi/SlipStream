@@ -32,6 +32,20 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/downloadclients
               type: ID
+          - column: trackers_route.home_node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: trackers_route.built_in_on
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+              pointer: true
+          - column: trackers_route.client_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/downloadclients
+              type: ClientID
+              pointer: true
           - column: trackers_settings.id
             go_type:
               type: Singleton

@@ -11,12 +11,27 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+// rootRoster routes each Work's Grabs to the Node of its root, which holds
+// Downloading.
+type rootRoster struct{}
+
+func (rootRoster) Route(_ role.Name, home role.NodeID) (role.NodeID, error) { return home, nil }
+func (rootRoster) Holds(role.Name, role.NodeID) bool                        { return true }
+func (rootRoster) WrittenOff(role.Name, role.NodeID) bool                   { return false }
+
+// noRoutes is Tracker routing with no private Tracker.
+type noRoutes struct{}
+
+func (noRoutes) Route(context.Context, storage.Reader[storage.Library], indexers.TrackerID, indexers.ID) (dc.Target, bool, error) {
+	return dc.Target{}, false, nil
+}
+
 func route(t *testing.T, lib library, node role.NodeID) dc.Target {
 	t.Helper()
 	var got dc.Target
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = dc.Route(ctx, r, dc.Ask{Node: node, Tracker: indexers.TrackerID{UUID: storage.NewUUID()}})
+		got, err = dc.Router{Roster: rootRoster{}, Routes: noRoutes{}}.Route(ctx, r, dc.Ask{Root: node, Tracker: indexers.TrackerID{UUID: storage.NewUUID()}})
 		return err
 	})
 	if err != nil {
