@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/jatassi/slipstream/internal/release"
 )
 
 type Timings struct {
@@ -79,15 +77,6 @@ type KindInfo struct {
 	Regex  bool
 }
 
-// Kinds lists every kind with its fields, in upstream's order. The editor
-// and /custom-formats/schema read it.
-func Kinds() []KindInfo { panic("not implemented") }
-
-// Check compiles a format with the Match limit, and names the first
-// condition that doesn't compile: a *PatternError, or a *FieldError for a
-// field its kind lacks.
-func Check(Format, Timings) error { panic("not implemented") }
-
 // PatternError is a condition whose pattern doesn't compile.
 type PatternError struct {
 	Condition int
@@ -111,6 +100,23 @@ func (e *KindError) Error() string {
 	return fmt.Sprintf("condition %q has the kind %s, which isn't a Custom Format condition kind", e.Name, e.Kind)
 }
 
+// ValueError is a condition with a field its kind can't read in the
+// format's dialect.
+type ValueError struct {
+	Name  string
+	Kind  Kind
+	Field string
+	// Value is the field's JSON, verbatim.
+	Value string
+	// Want is what the field takes, in words: "a number", "a radarr
+	// SourceSpecification value".
+	Want string
+}
+
+func (e *ValueError) Error() string {
+	return fmt.Sprintf("condition %q has the %s %s, which isn't %s", e.Name, e.Field, e.Value, e.Want)
+}
+
 // FieldError is a condition with a field its kind lacks.
 type FieldError struct {
 	Name  string
@@ -121,24 +127,6 @@ type FieldError struct {
 func (e *FieldError) Error() string {
 	return fmt.Sprintf("condition %q has the field %s, which %s conditions don't have", e.Name, e.Field, e.Kind)
 }
-
-// Catalog is a compiled set of formats, immutable and safe to share.
-type Catalog struct{}
-
-// Compile compiles formats with the Match limit. A format that no longer
-// compiles matches nothing and is listed by Broken.
-func Compile([]Format, Timings) *Catalog { panic("not implemented") }
-
-// Only is the catalog's formats the Set names.
-func (*Catalog) Only(Set) *Catalog { panic("not implemented") }
-
-// With is the catalog with a format added, replacing the one of its ID:
-// the tester's draft.
-func (*Catalog) With(Format) *Catalog { panic("not implemented") }
-
-func (*Catalog) Broken() []ID { panic("not implemented") }
-
-func (*Catalog) Len() int { panic("not implemented") }
 
 // Set is matched formats, sorted by ID.
 type Set []ID
@@ -153,17 +141,6 @@ type Timeout struct {
 	Format    ID
 	Condition int
 }
-
-// Match is every format a Read matches, by upstream's rule: each condition
-// matches, then Negate flips it; conditions group by kind; a group matches
-// when no Required condition in it failed and one matched; a format
-// matches when every group does. An unknown language reads as the Read's
-// Facts.Coverage.Original. A timed-out condition counts as not matched.
-// Match stops a format at its first failed group, cheap kinds first.
-func (*Catalog) Match(release.Read) Result { panic("not implemented") }
-
-// Explain is Match with every condition evaluated, for the tester.
-func (*Catalog) Explain(release.Read) []Explained { panic("not implemented") }
 
 type Explained struct {
 	Format     ID
