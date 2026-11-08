@@ -49,3 +49,39 @@ describe.each(shells)("in the $shell shell", ({ shell, row, twoLine }) => {
     await expect.element(films).toHaveFocus();
   });
 });
+
+describe.each(shells)("in the $shell shell", ({ shell }) => {
+  test("a row's detail spans the row under its title and trailing slot", async () => {
+    renderKit(
+      <div style={{ width: "360px" }}>
+        <List label="Files">
+          <ListRow
+            title="Lanterns at Low Tide (2016).mkv"
+            meta="Lanterns at Low Tide (2016) · Fills 1080p"
+            detail={<p>x265 · 1920×1080 · 10-bit · Dolby Vision profile 8, HDR10</p>}
+            trailing="HDTV-1080p · 1920×1080 · 524 KB"
+          />
+        </List>
+      </div>,
+      { shell },
+    );
+    await expect.element(page.getByRole("listitem")).toBeVisible();
+    const item = page.getByRole("listitem").element().getBoundingClientRect();
+    const title = page
+      .getByText("Lanterns at Low Tide (2016).mkv")
+      .element()
+      .getBoundingClientRect();
+    const detail = page
+      .getByText("Dolby Vision", { exact: false })
+      .element()
+      .getBoundingClientRect();
+    const trailing = page
+      .getByText("HDTV-1080p", { exact: false })
+      .element()
+      .getBoundingClientRect();
+    expect(detail.left).toBe(title.left);
+    expect(detail.right).toBe(trailing.right);
+    expect(detail.width).toBe(item.width - 32);
+    expect(trailing.bottom).toBeLessThanOrEqual(detail.top);
+  });
+});
