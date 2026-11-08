@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/clientfake"
+	"github.com/jatassi/slipstream/fakes/internal/mediafix"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/omdb"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -141,6 +142,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		listing = append(listing, item)
 	}
+	w.writeFolders(t, s)
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
 	faults := fault.NewPlan(append([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, clientFronts(s)...), nil)
 	w.faults = faults
@@ -155,6 +157,29 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	site.Fake.Endpoints(endpoints, w.site)
 	w.serveClients(t, s, local, fakes, catalog, filepath.Join(base, "fakes"), log)
 	return w
+}
+
+// writeFolders writes each file of the Scenario's library folders under
+// the media dir as a few bytes of its own, which the Nodes probe as the
+// process world's encode reads, since the simulation tier runs no ffmpeg.
+func (w *walk) writeFolders(t *testing.T, s scenario.Scenario) {
+	t.Helper()
+	if s.Library == nil {
+		return
+	}
+	for _, f := range s.Library.Folders {
+		for _, m := range f.Files {
+			rel := f.Folder + "/" + m.Path
+			file := filepath.Join(w.mediaDir, filepath.FromSlash(rel))
+			if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file, []byte(rel), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			w.probes[rel] = mediafix.Want(m)
+		}
+	}
 }
 
 // imdbIDs is the IMDb id of each movie the Scenario's TMDB lists, by its
