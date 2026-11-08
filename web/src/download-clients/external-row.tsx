@@ -9,6 +9,7 @@ import type { NodeChoice } from "./client-fields";
 import { kindOf } from "./client-form";
 import { ClientSheetButton } from "./client-sheet";
 import { DeleteClientButton } from "./delete-client";
+import { RoutedHere } from "./routed-here";
 import { StatusLine } from "./status-line";
 
 const torrents = { one: "torrent", many: "torrents" } as const;
@@ -43,6 +44,7 @@ export function ExternalRow({
         </p>
       </div>
       <StatusLine client={client} kind={kind} node={node} />
+      <RoutedHere trackers={client.trackers} />
       <div className="flex flex-wrap items-center gap-2">
         {client.webUi !== null && (
           <a href={client.webUi} target="_blank" rel="noreferrer" className={`mr-2 ${linkLook}`}>

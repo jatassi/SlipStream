@@ -223,3 +223,31 @@ test("clients on Nodes that no longer download sit under their own heading with 
   expect(row.getByRole("button", { name: "Edit" }).query()).toBeNull();
   expect(row.getByRole("link").query()).toBeNull();
 });
+
+test("each client lists the Trackers routed to it, linking to their Routing tabs, the default marked", async () => {
+  const seedpool = { id: "5c1e7a9b-3d2f-4b6a-8c0e-9f1a3b5c7d9e", name: "seedpool", stored: false };
+  const heron = { id: "6d2f8b0c-4e3a-4c7b-9d1f-0a2b4c6d8e0f", name: "Heron", stored: true };
+  renderApp({
+    path,
+    handlers: downloadClients({
+      cards: [
+        withExternals({ ...homeCard, trackers: [seedpool] }, { ...attic, trackers: [heron] }),
+        seedboxCard,
+      ],
+    }).handlers,
+  });
+  const builtIn = card("home").getByRole("list", { name: "Trackers routed here" });
+  await expect.element(builtIn).toHaveTextContent("seedpool (default)");
+  await expect
+    .element(builtIn.getByRole("link", { name: "seedpool" }))
+    .toHaveAttribute("href", `/settings/trackers/${seedpool.id}/routing`);
+  const external = page
+    .getByRole("listitem", { name: "Transmission" })
+    .getByRole("list", { name: "Trackers routed here" });
+  await expect.element(external).toHaveTextContent("Heron");
+  await expect.element(external).not.toHaveTextContent("default");
+  await expect
+    .element(external.getByRole("link", { name: "Heron" }))
+    .toHaveAttribute("href", `/settings/trackers/${heron.id}/routing`);
+  expect(card("seedbox").getByRole("list", { name: "Trackers routed here" }).query()).toBeNull();
+});
