@@ -8,6 +8,7 @@ package ports
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -90,7 +91,31 @@ func Run(t *testing.T, tgt Target) {
 			}
 		}
 	}
-	shape.Verify(t, jsonBodies(rec.Bodies()), shapeJSON, tgt.Record)
+	shape.Verify(t, entries(tgt.Port, jsonBodies(rec.Bodies())), shapeJSON, tgt.Record)
+}
+
+// keyedByTitle are the ports whose site answers one object keyed by each
+// Release's title, as SubsPlease does.
+var keyedByTitle = []port.ID{"subsplease"}
+
+// entries splits a title-keyed answer into one body per entry, under the
+// key "{}", so the shape holds an entry's fields and not the week's titles.
+func entries(id port.ID, bodies []shape.Body) []shape.Body {
+	if !slices.Contains(keyedByTitle, id) {
+		return bodies
+	}
+	var split []shape.Body
+	for _, b := range bodies {
+		var byTitle map[string]json.RawMessage
+		if json.Unmarshal(b.JSON, &byTitle) != nil || len(byTitle) == 0 {
+			split = append(split, b)
+			continue
+		}
+		for _, entry := range byTitle {
+			split = append(split, shape.Body{Key: b.Key, JSON: []byte(`{"{}":` + string(entry) + `}`)})
+		}
+	}
+	return split
 }
 
 // jsonBodies are the bodies a JSON API sent; an HTML site such as
