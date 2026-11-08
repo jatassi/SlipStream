@@ -22,6 +22,11 @@ func DefaultTimings() Timings { return Timings{Match: 100 * time.Millisecond} }
 // it.
 type ID [16]byte
 
+// String is id in the UUID text form.
+func (id ID) String() string {
+	return fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:16])
+}
+
 // Dialect is the app a format was written for, which numbers its source,
 // resolution, modifier, language and flag values.
 type Dialect string
