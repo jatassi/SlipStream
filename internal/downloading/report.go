@@ -162,6 +162,7 @@ func (t *torrent) totals(now time.Time) *dlv1.TotalsRow {
 	row := &dlv1.TotalsRow{
 		Id: t.id.Bytes(), Uploaded: tot.Uploaded, Downloaded: tot.Downloaded,
 		ActiveSeconds: int64(tot.Active / time.Second), SeedingSeconds: int64(tot.Seeding / time.Second),
+		AnnouncedSeconds: int64(t.announced / time.Second),
 	}
 	if !t.Complete {
 		row.Done = t.status.Done

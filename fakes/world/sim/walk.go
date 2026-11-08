@@ -64,7 +64,8 @@ type walk struct {
 	faults   *fault.Plan
 	mediaDir string
 	site     fake.Address
-	announce string
+	// announce is each site's tracker URL, by label.
+	announce map[string]string
 	payloads map[bencode.InfoHash][]byte
 	// served are the public seeded releases, whose seeders send their
 	// metadata to a magnet link.
@@ -83,8 +84,8 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		probes:   map[string]media.Probe{},
 	}
 	imdb := imdbIDs(s)
-	announce := "https://127.0.0.1/announce/" + releases.Passkey(s)
-	w.announce = announce
+	w.announce = siteAnnounces(s)
+	announce := "https://127.0.0.1/announce/" + releases.Passkey(s, releases.Seeders)
 	var listing []site.Release
 	for _, r := range s.Releases {
 		payload := Payload(r.Name)
@@ -112,7 +113,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		item := site.Release{
 			Name: r.Name, Size: size, InfoHash: hash.String(), TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: meta,
-			Link: r.Link, Trackerless: r.Trackerless,
+			Link: r.Link, Trackerless: r.Trackerless, Sites: r.Sites,
 		}
 		if listed != nil {
 			listed(&item)
@@ -129,9 +130,20 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		spec.Endpoints(endpoints, fakes.serve(t, local, server))
 	}
-	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(string) (string, error) { return announce, nil })))
+	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(label, _ string) (string, error) { return w.announce[label], nil })))
 	site.Fake.Endpoints(endpoints, w.site)
 	return w
+}
+
+// siteAnnounces are each fixture-site site's tracker URL, by label.
+func siteAnnounces(s scenario.Scenario) map[string]string {
+	out := map[string]string{}
+	for _, labels := range scenario.FixtureSites {
+		for _, label := range labels {
+			out[label] = "https://127.0.0.1/announce/" + releases.Passkey(s, label)
+		}
+	}
+	return out
 }
 
 // imdbIDs is the IMDb id of each movie the Scenario's TMDB lists, by its
@@ -150,9 +162,9 @@ func imdbIDs(s scenario.Scenario) map[int64]string {
 // such as fixture-site.
 func (w *World) Faults() *fault.Plan { return w.walk.faults }
 
-// Announce is the tracker URL the walk's torrents and magnet links name,
-// which each Node's swarm runs.
-func (w *World) Announce() string { return w.walk.announce }
+// Announce is the tracker URL the torrents and magnet links of the site
+// labeled label name, one of the trackers each Node's swarm runs.
+func (w *World) Announce(label string) string { return w.walk.announce[label] }
 
 // InfoHash is the walk's torrent of release.
 func (w *World) InfoHash(release string) bencode.InfoHash { return w.walk.hashes[release] }
@@ -172,7 +184,9 @@ func (w *walk) env(n *Node, e *node.Env) {
 	e.Types = contenttype.NewSet(movie.Def, series.Def)
 	e.Engine = func(cfg engine.Config) (engine.Engine, error) {
 		swarm := enginetest.NewWorld()
-		swarm.Tracker(w.announce, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		for _, announce := range w.announce {
+			swarm.Tracker(announce, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		}
 		for h, payload := range w.payloads {
 			swarm.Payload(h, payload)
 		}

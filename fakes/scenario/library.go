@@ -141,8 +141,9 @@ type LibraryProfile struct {
 type LibraryIndexer struct {
 	Name string `jsonschema:"required"                              yaml:"name"`
 	Kind string `jsonschema:"required,enum=catalog,enum=torznab,enum=rss" yaml:"kind"`
-	// Site is the fixture-site site's label: torznab for a Torznab feed,
-	// brook for an RSS feed, or a catalog site such as larkspur.
+	// Site is the fixture-site site's label: a Torznab feed's such as
+	// torznab or heron, brook for an RSS feed, or a catalog site such as
+	// larkspur.
 	Site string `jsonschema:"required" yaml:"site"`
 	// Definition is a catalog Indexer's definition id, the site's label
 	// when empty.
@@ -162,9 +163,18 @@ type LibraryIndexer struct {
 // FixtureSites are the labels of fixture-site's sites by the kind of
 // Indexer each serves.
 var FixtureSites = map[string][]string{
-	"torznab": {"torznab"},
+	"torznab": {"torznab", "prowlarr", "heron", "tamarack"},
 	"rss":     {"brook"},
 	"catalog": {"larkspur", "quarry", "cinder", "marsh", "ferry"},
+}
+
+func isFixtureSite(label string) bool {
+	for _, labels := range FixtureSites {
+		if slices.Contains(labels, label) {
+			return true
+		}
+	}
+	return false
 }
 
 var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)

@@ -127,7 +127,10 @@ type torrent struct {
 	// fault is the release fault recorded on the torrent, nil for none.
 	fault *dlv1.Fault
 	// freed is the bytes its removal deletes.
-	freed          int64
+	freed int64
+	// announced is the seed time its trackers credited it with since the
+	// client added it.
+	announced      time.Duration
 	fetching       bool
 	fetches        int
 	retryAt        time.Time
@@ -780,9 +783,9 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		l.call(t, "save a torrent's resume data", ev.Err)
 		l.resumeDone(t)
 	case engine.TrackerAnnounced:
-		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At)
+		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At, t.Complete)
 	case engine.TrackerReplied:
-		l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
+		t.announced += l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
 		t.replied[ev.Tracker] = ev.At
 		l.call(t, "list a torrent's trackers", l.eng.PostTrackers(t.handle))
 	case engine.TrackerFailed:

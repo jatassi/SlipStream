@@ -172,6 +172,24 @@ func (h *holder) totals() [][]*dlv1.TotalsRow {
 	return out
 }
 
+// announced is the announced seconds of every totals row of the torrent
+// id, oldest first.
+func (h *holder) announced(id storage.UUID) []int64 {
+	var out []int64
+	for _, r := range h.reported() {
+		rows := r.GetTotals().GetRows()
+		for _, tr := range r.GetTorrents().GetReports() {
+			rows = append(rows, tr.GetTotals())
+		}
+		for _, row := range rows {
+			if bytes.Equal(row.GetId(), id.Bytes()) {
+				out = append(out, row.GetAnnouncedSeconds())
+			}
+		}
+	}
+	return out
+}
+
 func (h *holder) lastFacts() *dlv1.Facts {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -874,6 +892,58 @@ func TestTotalsGoToTheControllerInBatches(t *testing.T) {
 			t.Errorf("a complete torrent's totals carry done %d, want none", second.GetDone())
 		}
 	})
+}
+
+// TestTheSeedTimeTrackersCreditReachesTheTotals seeds a private torrent
+// from its completion, pauses it, then seeds and pauses it again: every
+// report's totals carry the seed time its tracker credited, which never
+// falls, and the last is the time from each run's first seeder announce to
+// its stopped, less under a second per announce.
+func TestTheSeedTimeTrackersCreditReachesTheTotals(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := newPrivateFile(t, "Orchard.mkv")
+		n.world.Payload(f.hash, f.payload)
+		id := n.hold(f)
+		c := n.start()
+		for range 2 {
+			c.send(live(f.started(id, 1)))
+			time.Sleep(2 * time.Hour)
+			c.send(live(f.paused(id, 1)))
+			time.Sleep(timings.TotalsReport)
+			synctest.Wait()
+		}
+
+		announces := n.world.Announces(trackerURL)
+		seeded := seededBetween(announces)
+		if seeded < 3*time.Hour {
+			t.Fatalf("the tracker heard %v of seeding, want two runs of about two hours", seeded)
+		}
+		announced := c.h.announced(id)
+		if !slices.IsSorted(announced) {
+			t.Fatalf("the totals carried announced seconds %v, want them never to fall", announced)
+		}
+		got := time.Duration(announced[len(announced)-1]) * time.Second
+		if got > seeded || got <= seeded-time.Duration(len(announces))*time.Second {
+			t.Errorf("the totals carry %v announced, want the %v seeded between announces, in whole seconds per announce", got, seeded)
+		}
+	})
+}
+
+// seededBetween is the time from each run's first seeder announce to its
+// stopped: from the completed, then from each started after it.
+func seededBetween(announces []enginetest.Announce) time.Duration {
+	var seeded time.Duration
+	var from time.Time
+	for _, a := range announces {
+		switch {
+		case a.Event == "completed", a.Event == "started" && !from.IsZero():
+			from = a.At
+		case a.Event == "stopped":
+			seeded += a.At.Sub(from)
+		}
+	}
+	return seeded
 }
 
 func TestATrackerFailureShowsInTheReport(t *testing.T) {
