@@ -101,9 +101,9 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			imdb[m.ID] = m.IMDbID
 		}
 	}
-	unlisted := map[string]bool{}
+	unlisted, untagged := map[string]bool{}, map[string]bool{}
 	for _, r := range s.Releases {
-		unlisted[r.Name] = r.Unlisted
+		unlisted[r.Name], untagged[r.Name] = r.Unlisted, r.Untagged
 	}
 	var listed []Release
 	if env.Releases != nil {
@@ -115,7 +115,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			listed = append(listed, Release{
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
-				Link: r.Link, Trackerless: r.Trackerless, Public: r.Public, Sites: r.Sites, DownloadFactor: r.DownloadFactor,
+				Untagged: untagged[r.Name], Link: r.Link, Trackerless: r.Trackerless, Public: r.Public, Sites: r.Sites, DownloadFactor: r.DownloadFactor,
 			})
 		}
 	}
@@ -164,6 +164,8 @@ type Release struct {
 	Torrent []byte
 	// Unlisted leaves it out of every feed until the List cue lists it.
 	Unlisted bool
+	// Untagged leaves a movie's tmdbid and imdbid attrs out of its item.
+	Untagged bool
 	// Link is how the feeds link it: a magnet or redirect release's item
 	// carries its magnet link as the magneturl attr too.
 	Link scenario.Link
@@ -626,10 +628,13 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 }
 
 // idAttrs are the id attributes of rel's item: an episode's tvdbid, else
-// a movie's tmdbid and imdbid.
+// a movie's tmdbid and imdbid unless it is Untagged.
 func idAttrs(rel Release) string {
 	if rel.TVDB != nil {
 		return fmt.Sprintf(`      <torznab:attr name="tvdbid" value="%d" />`+"\n", rel.TVDB.Series)
+	}
+	if rel.Untagged {
+		return ""
 	}
 	return fmt.Sprintf(`      <torznab:attr name="tmdbid" value="%d" />
       <torznab:attr name="imdbid" value="%s" />

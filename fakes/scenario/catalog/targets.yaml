@@ -2,8 +2,10 @@
 description: >-
   One Node set up as the Controller, whose movies want the starter 1080p
   and HD, a second Target of the same qualities. fixture-site lists a
-  1080p WEB-DL, and a 1080p Bluray or an Extended 1080p WEB-DL once the
-  fixture-site-list cue posts it. The Salt Road is in the catalog with no
+  1080p WEB-DL, and once the fixture-site-list cue posts them a 1080p
+  Bluray, an Extended 1080p WEB-DL, FLUX's WEB-DL, a freeleech WEB-DL,
+  repacks of the WEB-DL from its group and from another, and an untagged
+  Bluray whose name gives another year. The Salt Road is in the catalog with no
   releases.
 seed: targets
 admin:
@@ -55,6 +57,43 @@ releases:
     seeders: 15
     seeded: true
     advertised_size: 8.4GiB
+    unlisted: true
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H264-FLUX
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 10}
+    seeders: 3
+    seeded: true
+    advertised_size: 8.3GiB
+    unlisted: true
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-CMRG
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 11}
+    seeders: 2
+    seeded: true
+    advertised_size: 8.1GiB
+    download_factor: 0
+    unlisted: true
+  - name: The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 12}
+    seeders: 5
+    seeded: true
+    advertised_size: 8.2GiB
+    unlisted: true
+  - name: The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.H264-NTb
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 13}
+    seeders: 25
+    seeded: true
+    advertised_size: 8.2GiB
+    unlisted: true
+  - name: The.Quiet.Orchard.1987.1080p.BluRay.x264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 14}
+    seeders: 40
+    seeded: true
+    advertised_size: 9.9GiB
+    untagged: true
     unlisted: true
 tracker:
   interval: 5s
