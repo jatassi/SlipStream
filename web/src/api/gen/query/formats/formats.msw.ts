@@ -218,6 +218,31 @@ export const getUpdateCustomFormatResponseMock = (
   ...overrideResponse,
 });
 
+export const getDuplicateCustomFormatResponseMock = (
+  overrideResponse: Partial<Extract<FormatsCustomFormat, object>> = {},
+): FormatsCustomFormat => ({
+  conditions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      fields: {
+        [faker.string.alphanumeric(5)]: {},
+      },
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      negate: faker.datatype.boolean(),
+      required: faker.datatype.boolean(),
+    }),
+  ),
+  dialect: faker.helpers.arrayElement(["slipstream", "radarr", "sonarr"] as const),
+  id: faker.string.uuid(),
+  includeWhenRenaming: faker.datatype.boolean(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  scoredBy: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({ id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) }),
+  ),
+  slowReleases: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
 export const getParseReleasesResponseMock = (
   overrideResponse: Partial<Extract<FormatsParseResults, object>> = {},
 ): FormatsParseResults => ({
@@ -533,6 +558,30 @@ export const getUpdateCustomFormatMockHandler = (
   );
 };
 
+export const getDuplicateCustomFormatMockHandler = (
+  overrideResponse?:
+    | FormatsCustomFormat
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<FormatsCustomFormat> | FormatsCustomFormat),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/custom-formats/:formatId/duplicate",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDuplicateCustomFormatResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
 export const getParseReleasesMockHandler = (
   overrideResponse?:
     | FormatsParseResults
@@ -564,5 +613,6 @@ export const getFormatsMock = () => [
   getDeleteCustomFormatMockHandler(),
   getGetCustomFormatMockHandler(),
   getUpdateCustomFormatMockHandler(),
+  getDuplicateCustomFormatMockHandler(),
   getParseReleasesMockHandler(),
 ];

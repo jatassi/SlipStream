@@ -88,8 +88,7 @@ type planned struct {
 }
 
 // plan names each of fs: it replaces the held format of its name when
-// replace lists that format, and otherwise takes the first free name of
-// its own and its own with " (2)", " (3)" and on after it.
+// replace lists that format, and otherwise takes its freeName.
 func plan(fs []formats.Format, held []targets.StoredFormat, replace []string) (planned, error) {
 	fold := cases.Fold()
 	byName := map[string]targets.StoredFormat{}
@@ -121,15 +120,24 @@ func plan(fs []formats.Format, held []targets.StoredFormat, replace []string) (p
 			p.formats = append(p.formats, out)
 			continue
 		}
-		for n := 2; taken[fold.String(out.SavedAs)]; n++ {
-			out.SavedAs = fmt.Sprintf("%s (%d)", f.Name, n)
-		}
+		out.SavedAs = freeName(f.Name, taken)
 		taken[fold.String(out.SavedAs)] = true
 		f.ID, f.Name = targets.NewFormatID(), out.SavedAs
 		p.add = append(p.add, f)
 		p.formats = append(p.formats, out)
 	}
 	return p, nil
+}
+
+// freeName is the first of name and name with " (2)", " (3)" and on
+// after it that taken, by case-folded name, doesn't hold.
+func freeName(name string, taken map[string]bool) string {
+	fold := cases.Fold()
+	free := name
+	for n := 2; taken[fold.String(free)]; n++ {
+		free = fmt.Sprintf("%s (%d)", name, n)
+	}
+	return free
 }
 
 // pasteRefused answers err from reading or saving the pasted format

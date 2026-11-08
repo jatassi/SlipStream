@@ -33,6 +33,12 @@ import type {
   DeleteCustomFormat422,
   DeleteCustomFormat500,
   DeleteCustomFormatParams,
+  DuplicateCustomFormat401,
+  DuplicateCustomFormat403,
+  DuplicateCustomFormat404,
+  DuplicateCustomFormat409,
+  DuplicateCustomFormat422,
+  DuplicateCustomFormat500,
   FormatsCustomFormat,
   FormatsFormatChange,
   FormatsFormatDeletion,
@@ -1060,6 +1066,114 @@ export const useUpdateCustomFormat = <
   TContext
 > => {
   return useMutation(getUpdateCustomFormatMutationOptions(options), queryClient);
+};
+export const getDuplicateCustomFormatUrl = (formatId: string) => {
+  return `/api/v1/custom-formats/${formatId}/duplicate`;
+};
+
+/**
+ * @summary Copy a Custom Format with its app and conditions as they are, under its name with a number after it. No Target scores the copy until one is given a score for it
+ */
+export const duplicateCustomFormat = async (
+  formatId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<FormatsCustomFormat> => {
+  return apiFetch<FormatsCustomFormat>(getDuplicateCustomFormatUrl(formatId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDuplicateCustomFormatMutationKey = () => ["duplicateCustomFormat"] as const;
+
+export const getDuplicateCustomFormatMutationOptions = <
+  TError = ErrorType<
+    | DuplicateCustomFormat401
+    | DuplicateCustomFormat403
+    | DuplicateCustomFormat404
+    | DuplicateCustomFormat409
+    | DuplicateCustomFormat422
+    | DuplicateCustomFormat500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof duplicateCustomFormat>>,
+    TError,
+    DuplicateCustomFormatMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof duplicateCustomFormat>>,
+  TError,
+  DuplicateCustomFormatMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDuplicateCustomFormatMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof duplicateCustomFormat>>,
+    DuplicateCustomFormatMutationVariables
+  > = (props) => {
+    const { formatId } = props ?? {};
+
+    return duplicateCustomFormat(formatId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DuplicateCustomFormatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof duplicateCustomFormat>>
+>;
+
+export type DuplicateCustomFormatMutationError = ErrorType<
+  | DuplicateCustomFormat401
+  | DuplicateCustomFormat403
+  | DuplicateCustomFormat404
+  | DuplicateCustomFormat409
+  | DuplicateCustomFormat422
+  | DuplicateCustomFormat500
+>;
+export type DuplicateCustomFormatMutationVariables = { formatId: string };
+
+/**
+ * @summary Copy a Custom Format with its app and conditions as they are, under its name with a number after it. No Target scores the copy until one is given a score for it
+ */
+export const useDuplicateCustomFormat = <
+  TError = ErrorType<
+    | DuplicateCustomFormat401
+    | DuplicateCustomFormat403
+    | DuplicateCustomFormat404
+    | DuplicateCustomFormat409
+    | DuplicateCustomFormat422
+    | DuplicateCustomFormat500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof duplicateCustomFormat>>,
+      TError,
+      DuplicateCustomFormatMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof duplicateCustomFormat>>,
+  TError,
+  DuplicateCustomFormatMutationVariables,
+  TContext
+> => {
+  return useMutation(getDuplicateCustomFormatMutationOptions(options), queryClient);
 };
 export const getParseReleasesUrl = () => {
   return `/api/v1/releases/parse`;

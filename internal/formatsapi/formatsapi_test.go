@@ -268,6 +268,25 @@ func TestAPasteAddsReplacesOrKeepsBothOfANameAndReadsInTheAppItWasWrittenFor(t *
 			`"errors":[{"location":"body.replace[0]","message":"No pasted Custom Format has this one's name. Leave it out and paste again."}]}`)
 }
 
+func TestADuplicateKeepsItsAppAndConditionsUnderTheFirstFreeName(t *testing.T) {
+	s := serve(t)
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/paste", pasteBody(trash("Remux", "QualityModifierSpecification", `{"value":5}`), ""), http.StatusOK,
+		`{"app":"radarr","formats":[{"name":"Remux","outcome":"add","savedAs":"Remux"}],"impact":`+noImpact+`}`)
+	_, body := s.Call(t, http.MethodGet, "/api/v1/custom-formats", "")
+	id := ownertest.FirstID(body)
+	s.scoreStarter(t, id)
+	remux := func(name string) string {
+		return `{"id":"ID","name":"` + name + `","includeWhenRenaming":false,"dialect":"radarr","conditions":[` +
+			`{"name":"Remux","kind":"QualityModifierSpecification","negate":false,"required":true,"fields":{"value":5}}],"scoredBy":[],"slowReleases":0}`
+	}
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/"+id+"/duplicate", "", http.StatusCreated, remux("Remux (2)"))
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/"+id+"/duplicate", "", http.StatusCreated, remux("Remux (3)"))
+	s.expect(t, http.MethodGet, "/api/v1/custom-formats", "", http.StatusOK,
+		`{"formats":[`+strings.Replace(remux("Remux"), `"scoredBy":[]`, `"scoredBy":[{"id":"ID","name":"1080p"}]`, 1)+`,`+remux("Remux (2)")+`,`+remux("Remux (3)")+`],"matchLimitMilliseconds":100}`)
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/"+s.starter+"/duplicate", "", http.StatusNotFound,
+		`{"status":404,"code":"format_not_found","title":"No Custom Format has that id"}`)
+}
+
 func TestAPasteAsksForTheAppUnlessItsKindsSettleIt(t *testing.T) {
 	s := serve(t)
 	needed := `{"status":422,"code":"format_app_needed","title":"Say whether this was written for Radarr or Sonarr"}`
@@ -324,6 +343,12 @@ func TestAFormatThatWontRunIsRefusedWithWhatToFix(t *testing.T) {
 				`The pattern in \"Not HDR10+\" doesn't compile at position 4 (a repetition follows another repetition). Fix the pattern and save again.`, "conditions[1].fields.value"),
 		},
 		{
+			"a condition named for its pattern, quoted as typed", "/api/v1/custom-formats",
+			format(`{"name":"\\b(DV","kind":"ReleaseTitleSpecification","negate":false,"required":false,"fields":{"value":"\\b(DV"}}`),
+			400, refusal(400, "format_pattern_not_compiled", notCompiled,
+				`The pattern in \"\\b(DV\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
+		},
+		{
 			"a pattern refused with no position", "/api/v1/custom-formats", format(title("(a")),
 			400, refusal(400, "format_pattern_not_compiled", notCompiled,
 				`The pattern in \"Not HDR10+\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
@@ -340,12 +365,6 @@ func TestAFormatThatWontRunIsRefusedWithWhatToFix(t *testing.T) {
 		{
 			"a pasted format with no conditions", "/api/v1/custom-formats/paste", pasteBody(`{"name":"Bare","specifications":[]}`, `,"app":"sonarr"`),
 			422, refusal(422, "format_empty", empty, `The Custom Format \"Bare\" has no conditions. Add a condition to it or leave it out, and paste again.`, "text"),
-		},
-		{
-			"a condition named for its pattern, quoted as typed", "/api/v1/custom-formats",
-			format(`{"name":"\\b(DV","kind":"ReleaseTitleSpecification","negate":false,"required":false,"fields":{"value":"\\b(DV"}}`),
-			400, refusal(400, "format_pattern_not_compiled", notCompiled,
-				`The pattern in \"\\b(DV\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
 		},
 		{
 			"a kind SlipStream doesn't have", "/api/v1/custom-formats", format(title("x") + `,{"name":"Mine","kind":"MineSpecification","negate":false,"required":false,"fields":{}}`),

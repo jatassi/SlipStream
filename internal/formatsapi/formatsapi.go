@@ -1,5 +1,5 @@
 // Package formatsapi is the Custom Formats operations: list, read, make,
-// change, delete and paste them, and the kinds and values each app's
+// change, duplicate, delete and paste them, and the kinds and values each app's
 // formats take.
 package formatsapi
 
@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+
+	"golang.org/x/text/cases"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
@@ -113,6 +115,14 @@ func Routes(r *api.Router, s Shelf) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{formatNotFound, targetsapi.ImpactChanged},
 	}, h.deleteCustomFormat)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "duplicateCustomFormat",
+		Method:  http.MethodPost,
+		Path:    "/custom-formats/{formatId}/duplicate",
+		Summary: "Copy a Custom Format with its app and conditions as they are, under its name with a number after it. No Target scores the copy until one is given a score for it",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{formatNotFound},
+	}, h.duplicateCustomFormat)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "pasteCustomFormats",
 		Method:  http.MethodPost,
@@ -250,6 +260,37 @@ func (h handlers) createCustomFormat(ctx context.Context, by identity.Admin, in 
 		return nil, formatRefused(f, err, "", "save")
 	}
 	stored, err := open(h.goals).GetFormat(ctx, by, f.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &formatOutput{Body: formatOf(stored)}, nil
+}
+
+func (h handlers) duplicateCustomFormat(ctx context.Context, by identity.Admin, in *formatInput) (*formatOutput, error) {
+	id, err := formatID(in.FormatID)
+	if err != nil {
+		return nil, err
+	}
+	t := open(h.goals)
+	f, err := t.GetFormat(ctx, by, id)
+	if err != nil {
+		return nil, notFound(err)
+	}
+	held, err := t.ListFormats(ctx, by)
+	if err != nil {
+		return nil, err
+	}
+	fold := cases.Fold()
+	taken := map[string]bool{}
+	for _, h := range held {
+		taken[fold.String(h.Name)] = true
+	}
+	c := f.Format
+	c.ID, c.Name = targets.NewFormatID(), freeName(f.Name, taken)
+	if _, err := shelf(h.goals).Change(ctx, by, targets.AddFormats{Dialect: c.Dialect, Add: []formats.Format{c}}, files.Mode{}); err != nil {
+		return nil, err
+	}
+	stored, err := t.GetFormat(ctx, by, c.ID)
 	if err != nil {
 		return nil, err
 	}
