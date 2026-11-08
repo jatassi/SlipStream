@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { WorksContentType } from "../api/gen/model";
+import { PendingLink } from "../imports/pending-link";
 import { BulkBar } from "./bulk-bar";
 import { columnsFor } from "./columns";
 import { useRefreshAll } from "./refresh-all";
@@ -34,10 +35,16 @@ export function LibraryPage({ types, view, onView, empty }: LibraryProps) {
     change({ filters: defaultView(types).filters, q: "" });
   };
   if (arranged.total === 0) {
-    return empty;
+    return (
+      <>
+        <PendingLink />
+        {empty}
+      </>
+    );
   }
   return (
     <>
+      <PendingLink />
       <Toolbar
         scope={scope}
         view={view}

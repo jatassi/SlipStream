@@ -1,9 +1,11 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { halfLoop } from "../test/imports";
 import { brazil, halloween, heat, orchardLeft, severanceEntry } from "../test/pending-imports";
 import { openPending } from "../test/pending-page";
+import { asPhone } from "../test/viewport";
 
 const entry = (folder: string) => page.getByRole("listitem", { name: folder });
 
@@ -191,4 +193,28 @@ test("with nothing waiting, each view says so", async () => {
     .toBeVisible();
   await userEvent.click(page.getByRole("link", { name: "Ignored" }));
   await expect.element(page.getByText("No folders are ignored.")).toBeVisible();
+});
+
+test("the Library counts the folders that need you and links to Pending imports, a pushed page on a phone", async () => {
+  await asPhone();
+  const { app } = openPending({
+    path: "/library",
+    handlers: [
+      getGetCountsMockHandler({
+        activity: 0,
+        downloads: { done: 0, wanted: 0, allPaused: false },
+        alerts: { nodes: null, health: null, tasks: null },
+        pendingImports: 4,
+      }),
+    ],
+  });
+  await expect
+    .element(page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: /Library/u }))
+    .toHaveTextContent("Library4");
+  await userEvent.click(page.getByRole("link", { name: /4 folders need you/u }));
+  await expect.poll(() => app.router.state.location.pathname).toBe("/library/pending");
+  await expect
+    .element(page.getByRole("banner").getByRole("link", { name: "Library" }))
+    .toHaveAttribute("href", "/library");
+  await expect.element(entry(halloween.folder)).toBeVisible();
 });
