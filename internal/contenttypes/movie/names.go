@@ -115,15 +115,16 @@ func mask(releaseTitle string, m regex.Match) (string, bool) {
 	if strings.TrimSpace(title) == "" {
 		return string(simple), true
 	}
-	at, length, _ := m.GroupSpan("title")
-	if at+length > len(simple) {
+	captures := m.Captures("title")
+	span := captures[len(captures)-1]
+	if span.End > len(simple) {
 		return "", false
 	}
 	placeholder := "A Movie"
 	if strings.Contains(title, ".") {
 		placeholder = "A.Movie"
 	}
-	return string(simple[:at]) + placeholder + string(simple[at+length:]), true
+	return string(simple[:span.Index]) + placeholder + string(simple[span.End:]), true
 }
 
 // CleanTitle ports Radarr's CleanMovieTitle.

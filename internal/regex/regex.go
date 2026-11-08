@@ -243,8 +243,8 @@ func (p replacement) write(b *bytes.Buffer, m Match, text []rune) {
 }
 
 // Match is one match. Group answers a named or numbered group's last
-// capture, Captures every capture of a repeated group, which Sonarr's
-// episode lists read (Groups["episode"].Captures).
+// capture, Captures every capture of a repeated group with its place,
+// which Sonarr's episode lists read (Groups["episode"].Captures).
 type Match struct{ m *regexp2.Match }
 
 func (m Match) Index() int  { return m.m.Index }
@@ -262,24 +262,20 @@ func (m Match) Group(name string) (string, bool) {
 	return g.String(), true
 }
 
-// GroupSpan is where the group's last capture is, in runes, and false
-// when Group is.
-func (m Match) GroupSpan(name string) (index, length int, ok bool) {
-	g := m.group(name)
-	if g == nil || len(g.Captures) == 0 {
-		return 0, 0, false
-	}
-	return g.Index, g.Length, true
+// Capture is one capture of a group. Index and End count runes.
+type Capture struct {
+	Value      string
+	Index, End int
 }
 
-func (m Match) Captures(name string) []string {
+func (m Match) Captures(name string) []Capture {
 	g := m.group(name)
 	if g == nil {
 		return nil
 	}
-	out := make([]string, len(g.Captures))
-	for i := range g.Captures {
-		out[i] = g.Captures[i].String()
+	out := make([]Capture, len(g.Captures))
+	for i, c := range g.Captures {
+		out[i] = Capture{Value: c.String(), Index: c.Index, End: c.Index + c.Length}
 	}
 	return out
 }
