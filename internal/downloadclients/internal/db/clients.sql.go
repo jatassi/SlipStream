@@ -14,27 +14,91 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/clients"
 )
 
-const clientTaken = `-- name: ClientTaken :one
-SELECT
-    CAST(EXISTS (SELECT 1 FROM downloadclients_client c WHERE c.name = ?1 AND c.deleted_at IS NULL) AS INTEGER) AS name_taken,
-    CAST(EXISTS (SELECT 1 FROM downloadclients_client c WHERE c.address_key = ?2 AND c.deleted_at IS NULL) AS INTEGER) AS address_taken
+const addressHolder = `-- name: AddressHolder :one
+SELECT name, node_id FROM downloadclients_client
+WHERE address_key = ?1 AND id IS NOT ?2 AND deleted_at IS NULL
 `
 
-type ClientTakenParams struct {
-	Name       string
+type AddressHolderParams struct {
 	AddressKey string
+	Except     ClientID
 }
 
-type ClientTakenRow struct {
-	NameTaken    int64
-	AddressTaken int64
+type AddressHolderRow struct {
+	Name   string
+	NodeID role.NodeID
 }
 
-func (q *Queries) ClientTaken(ctx context.Context, arg ClientTakenParams) (ClientTakenRow, error) {
-	row := q.db.QueryRowContext(ctx, clientTaken, arg.Name, arg.AddressKey)
-	var i ClientTakenRow
-	err := row.Scan(&i.NameTaken, &i.AddressTaken)
+// The client other than except that uses the address.
+func (q *Queries) AddressHolder(ctx context.Context, arg AddressHolderParams) (AddressHolderRow, error) {
+	row := q.db.QueryRowContext(ctx, addressHolder, arg.AddressKey, arg.Except)
+	var i AddressHolderRow
+	err := row.Scan(&i.Name, &i.NodeID)
 	return i, err
+}
+
+const countLiveByClient = `-- name: CountLiveByClient :many
+SELECT client_id, count(*) AS torrents FROM downloadclients_torrent
+WHERE client_id IS NOT NULL AND removed_at IS NULL
+GROUP BY client_id ORDER BY client_id
+`
+
+type CountLiveByClientRow struct {
+	ClientID *ClientID
+	Torrents int64
+}
+
+func (q *Queries) CountLiveByClient(ctx context.Context) ([]CountLiveByClientRow, error) {
+	rows, err := q.db.QueryContext(ctx, countLiveByClient)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountLiveByClientRow
+	for rows.Next() {
+		var i CountLiveByClientRow
+		if err := rows.Scan(&i.ClientID, &i.Torrents); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countTracked = `-- name: CountTracked :one
+SELECT count(*) FROM downloadclients_torrent WHERE client_id = ?1 AND parted_at IS NULL
+`
+
+// The Torrents a client holds until their Node parts from them.
+func (q *Queries) CountTracked(ctx context.Context, clientID *ClientID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTracked, clientID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteClient = `-- name: DeleteClient :execrows
+UPDATE downloadclients_client SET deleted_at = ?1, updated_at = ?1, secrets_sealed = NULL
+WHERE id = ?2 AND deleted_at IS NULL
+`
+
+type DeleteClientParams struct {
+	DeletedAt storage.Time
+	ID        ClientID
+}
+
+func (q *Queries) DeleteClient(ctx context.Context, arg DeleteClientParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteClient, arg.DeletedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getClient = `-- name: GetClient :one
@@ -75,6 +139,17 @@ func (q *Queries) GetClient(ctx context.Context, id ClientID) (DownloadclientsCl
 	return i, err
 }
 
+const getClientSealed = `-- name: GetClientSealed :one
+SELECT secrets_sealed FROM downloadclients_client WHERE id = ?1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetClientSealed(ctx context.Context, id ClientID) (secret.Sealed, error) {
+	row := q.db.QueryRowContext(ctx, getClientSealed, id)
+	var secrets_sealed secret.Sealed
+	err := row.Scan(&secrets_sealed)
+	return secrets_sealed, err
+}
+
 const getClientSecrets = `-- name: GetClientSecrets :one
 SELECT node_id, secrets_sealed, settings_version FROM downloadclients_client
 WHERE id = ?1 AND deleted_at IS NULL
@@ -106,14 +181,27 @@ func (q *Queries) GetGrabsTo(ctx context.Context, nodeID role.NodeID) (ClientID,
 	return id, err
 }
 
+const grabsGoTo = `-- name: GrabsGoTo :one
+SELECT node_id FROM downloadclients_node WHERE grabs_to = ?1
+`
+
+// The Node whose new Grabs go to the client.
+func (q *Queries) GrabsGoTo(ctx context.Context, clientID *ClientID) (role.NodeID, error) {
+	row := q.db.QueryRowContext(ctx, grabsGoTo, clientID)
+	var node_id role.NodeID
+	err := row.Scan(&node_id)
+	return node_id, err
+}
+
 const insertClient = `-- name: InsertClient :exec
 INSERT INTO downloadclients_client (
-    id, node_id, kind, name, address, address_key, username, secrets_sealed, label, import_delay_seconds,
-    is_on, settings_version, created_at, updated_at
+    id, node_id, kind, name, address, address_key, username, secrets_sealed, label, folder, client_folders,
+    daemon_host, daemon_port, check_every_seconds, import_delay_seconds, is_on, settings_version, created_at, updated_at
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, ?10,
-    1, 1, ?11, ?11
+    ?7, ?8, ?9, ?10, ?11,
+    ?12, ?13, ?14, ?15,
+    ?16, 1, ?17, ?17
 )
 `
 
@@ -127,7 +215,13 @@ type InsertClientParams struct {
 	Username           *string
 	SecretsSealed      secret.Sealed
 	Label              string
+	Folder             *string
+	ClientFolders      string
+	DaemonHost         *string
+	DaemonPort         *int64
+	CheckEverySeconds  *int64
 	ImportDelaySeconds *int64
+	IsOn               bool
 	CreatedAt          storage.Time
 }
 
@@ -142,10 +236,70 @@ func (q *Queries) InsertClient(ctx context.Context, arg InsertClientParams) erro
 		arg.Username,
 		arg.SecretsSealed,
 		arg.Label,
+		arg.Folder,
+		arg.ClientFolders,
+		arg.DaemonHost,
+		arg.DaemonPort,
+		arg.CheckEverySeconds,
 		arg.ImportDelaySeconds,
+		arg.IsOn,
 		arg.CreatedAt,
 	)
 	return err
+}
+
+const listClients = `-- name: ListClients :many
+SELECT id, node_id, kind, name, address, address_key, username, secrets_sealed, label, folder, client_folders, daemon_host, daemon_port, check_every_seconds, import_delay_seconds, is_on, settings_version, poll_state, poll_since, poll_problem, poll_settings_version, poll_check, client_version, created_at, updated_at, deleted_at FROM downloadclients_client WHERE deleted_at IS NULL ORDER BY name, id
+`
+
+func (q *Queries) ListClients(ctx context.Context) ([]DownloadclientsClient, error) {
+	rows, err := q.db.QueryContext(ctx, listClients)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DownloadclientsClient
+	for rows.Next() {
+		var i DownloadclientsClient
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.Kind,
+			&i.Name,
+			&i.Address,
+			&i.AddressKey,
+			&i.Username,
+			&i.SecretsSealed,
+			&i.Label,
+			&i.Folder,
+			&i.ClientFolders,
+			&i.DaemonHost,
+			&i.DaemonPort,
+			&i.CheckEverySeconds,
+			&i.ImportDelaySeconds,
+			&i.IsOn,
+			&i.SettingsVersion,
+			&i.PollState,
+			&i.PollSince,
+			&i.PollProblem,
+			&i.PollSettingsVersion,
+			&i.PollCheck,
+			&i.ClientVersion,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listNodeClients = `-- name: ListNodeClients :many
@@ -202,6 +356,52 @@ func (q *Queries) ListNodeClients(ctx context.Context, nodeID role.NodeID) ([]Do
 	return items, nil
 }
 
+const listTracked = `-- name: ListTracked :many
+SELECT id FROM downloadclients_torrent WHERE client_id = ?1 AND parted_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListTracked(ctx context.Context, clientID *ClientID) ([]TorrentID, error) {
+	rows, err := q.db.QueryContext(ctx, listTracked, clientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TorrentID
+	for rows.Next() {
+		var id TorrentID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nameTaken = `-- name: NameTaken :one
+SELECT CAST(EXISTS (
+    SELECT 1 FROM downloadclients_client
+    WHERE name = ?1 AND id IS NOT ?2 AND deleted_at IS NULL
+) AS INTEGER)
+`
+
+type NameTakenParams struct {
+	Name   string
+	Except ClientID
+}
+
+func (q *Queries) NameTaken(ctx context.Context, arg NameTakenParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, nameTaken, arg.Name, arg.Except)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const setPoll = `-- name: SetPoll :execrows
 UPDATE downloadclients_client SET
     poll_state = ?1, poll_since = ?2, poll_problem = ?3,
@@ -234,6 +434,87 @@ func (q *Queries) SetPoll(ctx context.Context, arg SetPollParams) (int64, error)
 		arg.ClientVersion,
 		arg.ID,
 		arg.NodeID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const stopTracking = `-- name: StopTracking :exec
+UPDATE downloadclients_torrent SET
+    removed_at = coalesce(removed_at, ?1),
+    removed_reason = 'client_deleted',
+    parted_at = ?1,
+    freed = NULL
+WHERE client_id = ?2 AND parted_at IS NULL
+`
+
+type StopTrackingParams struct {
+	At       storage.Time
+	ClientID *ClientID
+}
+
+// Deleting a client with Stop tracking parts every Torrent it holds at
+// once and leaves each in the client, a Removing one too, whose removal
+// the client never confirmed.
+func (q *Queries) StopTracking(ctx context.Context, arg StopTrackingParams) error {
+	_, err := q.db.ExecContext(ctx, stopTracking, arg.At, arg.ClientID)
+	return err
+}
+
+const updateClient = `-- name: UpdateClient :execrows
+UPDATE downloadclients_client SET
+    node_id = ?1, kind = ?2, name = ?3, address = ?4,
+    address_key = ?5, username = ?6, secrets_sealed = ?7,
+    label = ?8, folder = ?9, client_folders = ?10,
+    daemon_host = ?11, daemon_port = ?12,
+    check_every_seconds = ?13, import_delay_seconds = ?14,
+    is_on = ?15, settings_version = ?16, updated_at = ?17
+WHERE id = ?18 AND deleted_at IS NULL
+`
+
+type UpdateClientParams struct {
+	NodeID             role.NodeID
+	Kind               clients.Kind
+	Name               string
+	Address            string
+	AddressKey         string
+	Username           *string
+	SecretsSealed      secret.Sealed
+	Label              string
+	Folder             *string
+	ClientFolders      string
+	DaemonHost         *string
+	DaemonPort         *int64
+	CheckEverySeconds  *int64
+	ImportDelaySeconds *int64
+	IsOn               bool
+	SettingsVersion    int64
+	UpdatedAt          storage.Time
+	ID                 ClientID
+}
+
+func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateClient,
+		arg.NodeID,
+		arg.Kind,
+		arg.Name,
+		arg.Address,
+		arg.AddressKey,
+		arg.Username,
+		arg.SecretsSealed,
+		arg.Label,
+		arg.Folder,
+		arg.ClientFolders,
+		arg.DaemonHost,
+		arg.DaemonPort,
+		arg.CheckEverySeconds,
+		arg.ImportDelaySeconds,
+		arg.IsOn,
+		arg.SettingsVersion,
+		arg.UpdatedAt,
+		arg.ID,
 	)
 	if err != nil {
 		return 0, err

@@ -237,7 +237,7 @@ SELECT count(*) AS torrents,
        CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
        CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
 FROM downloadclients_torrent
-WHERE node_id = ?1 AND removed_at IS NULL
+WHERE node_id = ?1 AND client_id IS NULL AND removed_at IS NULL
 `
 
 type GetNodeTotalsRow struct {
@@ -286,6 +286,38 @@ func (q *Queries) GetRaw(ctx context.Context, arg GetRawParams) (GetRawRow, erro
 		&i.RawDownloaded,
 		&i.RawActiveSeconds,
 		&i.RawSeedingSeconds,
+	)
+	return i, err
+}
+
+const getRetarget = `-- name: GetRetarget :one
+SELECT node_id, client_id, info_hash, metainfo, content_type, tracker_id, reported_at, removed_at FROM downloadclients_torrent
+WHERE id = ?1
+`
+
+type GetRetargetRow struct {
+	NodeID      role.NodeID
+	ClientID    *ClientID
+	InfoHash    []byte
+	Metainfo    []byte
+	ContentType works.TypeID
+	TrackerID   *indexers.TrackerID
+	ReportedAt  storage.Time
+	RemovedAt   storage.Time
+}
+
+func (q *Queries) GetRetarget(ctx context.Context, id TorrentID) (GetRetargetRow, error) {
+	row := q.db.QueryRowContext(ctx, getRetarget, id)
+	var i GetRetargetRow
+	err := row.Scan(
+		&i.NodeID,
+		&i.ClientID,
+		&i.InfoHash,
+		&i.Metainfo,
+		&i.ContentType,
+		&i.TrackerID,
+		&i.ReportedAt,
+		&i.RemovedAt,
 	)
 	return i, err
 }
@@ -364,9 +396,11 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 }
 
 const listActed = `-- name: ListActed :many
-SELECT id, node_id, removed_at, wanted, report, completion FROM downloadclients_torrent
-WHERE id IN (/*SLICE:ids*/?)
-ORDER BY id
+SELECT t.id, t.node_id, t.removed_at, t.wanted, t.report, t.completion, t.client_id, t.attached,
+       coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on, c.poll_state
+FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
+WHERE t.id IN (/*SLICE:ids*/?)
+ORDER BY t.id
 `
 
 type ListActedRow struct {
@@ -376,6 +410,11 @@ type ListActedRow struct {
 	Wanted     string
 	Report     *string
 	Completion *string
+	ClientID   *ClientID
+	Attached   *bool
+	ClientName string
+	ClientOn   bool
+	PollState  *string
 }
 
 func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRow, error) {
@@ -404,6 +443,11 @@ func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRo
 			&i.Wanted,
 			&i.Report,
 			&i.Completion,
+			&i.ClientID,
+			&i.Attached,
+			&i.ClientName,
+			&i.ClientOn,
+			&i.PollState,
 		); err != nil {
 			return nil, err
 		}
@@ -529,7 +573,8 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]ListDownloadsRow, error)
 const listHeld = `-- name: ListHeld :many
 SELECT t.id, t.node_id, t.name, t.size, t.trackers, t.content_type, t.wanted, t.added_order, t.added_at, t.removed_at,
        t.uploaded, t.downloaded, t.active_seconds, t.seeding_seconds, t.totals_at, t.report, t.fault, t.fault_at,
-       t.client_id, t.attached, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
+       t.client_id, t.attached, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name,
+       coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.parted_at IS NULL
 ORDER BY t.added_order
@@ -558,6 +603,7 @@ type ListHeldRow struct {
 	Attached       *bool
 	ClientKind     clients.Kind
 	ClientName     string
+	ClientOn       bool
 }
 
 func (q *Queries) ListHeld(ctx context.Context) ([]ListHeldRow, error) {
@@ -592,6 +638,7 @@ func (q *Queries) ListHeld(ctx context.Context) ([]ListHeldRow, error) {
 			&i.Attached,
 			&i.ClientKind,
 			&i.ClientName,
+			&i.ClientOn,
 		); err != nil {
 			return nil, err
 		}
@@ -886,6 +933,24 @@ func (q *Queries) NextOrder(ctx context.Context) (int64, error) {
 	return column_1, err
 }
 
+const rehome = `-- name: Rehome :exec
+UPDATE downloadclients_torrent SET node_id = ?1, client_id = ?2
+WHERE id = ?3 AND removed_at IS NULL AND reported_at IS NULL
+`
+
+type RehomeParams struct {
+	NodeID   role.NodeID
+	ClientID *ClientID
+	ID       TorrentID
+}
+
+// Before its Node first reports a Torrent, it goes to another client in
+// place: no client holds it yet.
+func (q *Queries) Rehome(ctx context.Context, arg RehomeParams) error {
+	_, err := q.db.ExecContext(ctx, rehome, arg.NodeID, arg.ClientID, arg.ID)
+	return err
+}
+
 const remove = `-- name: Remove :exec
 UPDATE downloadclients_torrent SET
     removed_at = ?1, removed_reason = ?2, delete_files = ?3
@@ -906,6 +971,24 @@ func (q *Queries) Remove(ctx context.Context, arg RemoveParams) error {
 		arg.DeleteFiles,
 		arg.ID,
 	)
+	return err
+}
+
+const removeParted = `-- name: RemoveParted :exec
+UPDATE downloadclients_torrent SET
+    removed_at = ?1, removed_reason = ?2, parted_at = ?1, freed = 0
+WHERE id = ?3 AND removed_at IS NULL
+`
+
+type RemovePartedParams struct {
+	At            storage.Time
+	RemovedReason *string
+	ID            TorrentID
+}
+
+// A removal its client takes no part in parts at once and frees nothing.
+func (q *Queries) RemoveParted(ctx context.Context, arg RemovePartedParams) error {
+	_, err := q.db.ExecContext(ctx, removeParted, arg.At, arg.RemovedReason, arg.ID)
 	return err
 }
 
@@ -985,10 +1068,11 @@ func (q *Queries) SetFault(ctx context.Context, arg SetFaultParams) error {
 
 const setNodeSettings = `-- name: SetNodeSettings :exec
 INSERT INTO downloadclients_node (
-    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht
+    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht, grabs_to
 ) VALUES (
     ?1, ?2, ?3, ?4,
-    ?5, ?6, ?7, ?8, ?9
+    ?5, ?6, ?7, ?8, ?9,
+    ?10
 )
 ON CONFLICT (node_id) DO UPDATE SET
     download_limit = excluded.download_limit,
@@ -998,7 +1082,8 @@ ON CONFLICT (node_id) DO UPDATE SET
     connections = excluded.connections,
     utp = excluded.utp,
     stalled_after_seconds = excluded.stalled_after_seconds,
-    dht = excluded.dht
+    dht = excluded.dht,
+    grabs_to = excluded.grabs_to
 `
 
 type SetNodeSettingsParams struct {
@@ -1011,6 +1096,7 @@ type SetNodeSettingsParams struct {
 	Utp                 *bool
 	StalledAfterSeconds *int64
 	Dht                 *bool
+	GrabsTo             *ClientID
 }
 
 func (q *Queries) SetNodeSettings(ctx context.Context, arg SetNodeSettingsParams) error {
@@ -1024,6 +1110,7 @@ func (q *Queries) SetNodeSettings(ctx context.Context, arg SetNodeSettingsParams
 		arg.Utp,
 		arg.StalledAfterSeconds,
 		arg.Dht,
+		arg.GrabsTo,
 	)
 	return err
 }

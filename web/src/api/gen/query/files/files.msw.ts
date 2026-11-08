@@ -192,7 +192,7 @@ export const getGetWorkCellsResponseFilesWaitingNeedMock = (
   overrideResponse: Partial<FilesWaitingNeed> = {},
 ): FilesWaitingNeed => ({
   ...{
-    code: faker.helpers.arrayElement(["node_away"] as const),
+    code: faker.helpers.arrayElement(["node_away", "client_away"] as const),
     grabId: faker.string.uuid(),
     kind: faker.helpers.arrayElement(["waiting"] as const),
   },

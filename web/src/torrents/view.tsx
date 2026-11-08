@@ -2,6 +2,7 @@ import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downlo
 import { useNow } from "../tasks/use-now";
 import { StatusSentence } from "../ui/status-sentence";
 import { Browse, type Seams, type TorrentsSearch } from "./browse";
+import { ClientCards } from "./client-cards";
 import { NoTorrents } from "./empty";
 import { useNames } from "./names";
 import { Signals } from "./signals";
@@ -22,12 +23,19 @@ export function TorrentsView({
   const list = useListTorrentsSuspense().data;
   const names = useNames();
   const clock = { now: useNow(wordsTick), zone: undefined };
+  const cards = <ClientCards rows={list.rows} clock={clock} />;
   if (list.rows.length === 0) {
-    return <NoTorrents />;
+    return (
+      <>
+        {cards}
+        <NoTorrents />
+      </>
+    );
   }
   const signals = signalsOf(list.rows, names.node, clock);
   return (
     <>
+      {cards}
       <div className="mb-6">
         <StatusSentence parts={torrentsSentence(list.counts, signals)} />
       </div>

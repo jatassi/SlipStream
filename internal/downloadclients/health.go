@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 )
 
 var HealthAbout = health.About{
@@ -53,23 +55,29 @@ func (c *Clients) healthVolumes(ctx context.Context) ([]health.Volume, error) {
 	return out, err
 }
 
-// HealthSource answers what is wrong with each downloading Node's built-in
-// client: a listener that won't bind fails, and the disk guard holding new
-// downloads warns. A Node out of step, or not reported since the
-// Controller started, is unsure of its listener, so a blip neither raises
-// nor clears it.
+// HealthSource answers what is wrong with each downloading Node's
+// clients. Its built-in client fails while its listener won't bind, and
+// warns while the disk guard holds new downloads. Each external client
+// fails while it is away. A Node out of step is unsure of its listener
+// and its external clients, and one not reported since the Controller
+// started is unsure of its listener, so a blip neither raises nor clears
+// them. Check is Check now on the external clients.
 func (c *Clients) HealthSource() health.Source {
-	return health.Source{Answer: c.healthAnswer}
+	return health.Source{Answer: c.healthAnswer, Check: c.healthCheck}
 }
 
 func (c *Clients) healthAnswer(ctx context.Context) (health.Answer, error) {
 	var (
-		guards map[role.NodeID]Guard
-		names  map[role.NodeID]string
+		guards    map[role.NodeID]Guard
+		names     map[role.NodeID]string
+		externals []External
 	)
 	err := c.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
 		var err error
 		if guards, err = guardsIn(ctx, rd); err != nil {
+			return err
+		}
+		if externals, err = externalsIn(ctx, rd); err != nil {
 			return err
 		}
 		names, err = namesIn(ctx, rd)
@@ -101,8 +109,58 @@ func (c *Clients) healthAnswer(ctx context.Context) (health.Answer, error) {
 		if g, on := guards[node]; on {
 			a.Items = append(a.Items, guardItem(node, name, g))
 		}
+		for _, e := range externals {
+			if e.Node != node {
+				continue
+			}
+			switch reach := ReachOf(e, c.cfg.Roster.InStep(node)); {
+			case reach == ReachNodeOffline:
+				a.Unsure = append(a.Unsure, health.Unsure{Key: ClientHealthKey(e.ID), Says: health.Says{Subject: e.Name + " on " + name, Text: name + " is offline."}})
+			case reach.Away():
+				a.Items = append(a.Items, clientItem(e, name))
+			}
+		}
 	}
 	return a, nil
+}
+
+// ClientHealthKey is external client id's Health item.
+func ClientHealthKey(id ClientID) health.Key { return health.KeyOf(id.String(), "client") }
+
+// clientItem is the Health error of away client e on its Node named node:
+// what happened and what to do first, and since when.
+func clientItem(e External, node string) health.Item {
+	p := e.Poll
+	text := Says(*p.Problem, e.Subject(), node)
+	if p.State == clients.SignInRefused && e.Kind.Facts().Lockout && p.Problem.Cause == clients.WrongCredentials {
+		text = Stopped(e.Name)
+	}
+	detail := []health.Fact{{Label: "Address", Text: e.Address.String()}}
+	if p.Version != "" {
+		detail = append(detail, health.Fact{Label: "Version", Text: p.Version})
+	}
+	detail = append(detail, health.Fact{Label: "Since", At: p.Since})
+	return health.Item{Key: ClientHealthKey(e.ID), Level: health.Fail, Says: health.Says{
+		Subject: e.Name + " on " + node,
+		Text:    text,
+		Detail:  detail,
+		Action:  health.LinkAction("/settings/download-clients?client="+e.ID.String(), "Edit "+e.Name),
+	}}
+}
+
+// externalsIn is every external client, without its secrets.
+func externalsIn(ctx context.Context, rd storage.Reader[file]) ([]External, error) {
+	rows, err := db.New(rd).ListClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]External, len(rows))
+	for i, row := range rows {
+		if out[i], err = externalOf(row, nil); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func guardItem(node role.NodeID, name string, g Guard) health.Item {

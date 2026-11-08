@@ -12,10 +12,11 @@ SELECT * FROM downloadclients_node WHERE node_id = ?;
 
 -- name: SetNodeSettings :exec
 INSERT INTO downloadclients_node (
-    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht
+    node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds, dht, grabs_to
 ) VALUES (
     sqlc.arg(node_id), sqlc.narg(download_limit), sqlc.narg(upload_limit), sqlc.narg(active_downloads),
-    sqlc.narg(active_checks), sqlc.narg(connections), sqlc.narg(utp), sqlc.narg(stalled_after_seconds), sqlc.narg(dht)
+    sqlc.narg(active_checks), sqlc.narg(connections), sqlc.narg(utp), sqlc.narg(stalled_after_seconds), sqlc.narg(dht),
+    sqlc.narg(grabs_to)
 )
 ON CONFLICT (node_id) DO UPDATE SET
     download_limit = excluded.download_limit,
@@ -25,7 +26,8 @@ ON CONFLICT (node_id) DO UPDATE SET
     connections = excluded.connections,
     utp = excluded.utp,
     stalled_after_seconds = excluded.stalled_after_seconds,
-    dht = excluded.dht;
+    dht = excluded.dht,
+    grabs_to = excluded.grabs_to;
 
 -- name: GetThresholds :one
 SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds FROM downloadclients_settings WHERE id = 1;
@@ -142,9 +144,11 @@ UPDATE downloadclients_torrent SET
 WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL;
 
 -- name: ListActed :many
-SELECT id, node_id, removed_at, wanted, report, completion FROM downloadclients_torrent
-WHERE id IN (sqlc.slice(ids))
-ORDER BY id;
+SELECT t.id, t.node_id, t.removed_at, t.wanted, t.report, t.completion, t.client_id, t.attached,
+       coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on, c.poll_state
+FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
+WHERE t.id IN (sqlc.slice(ids))
+ORDER BY t.id;
 
 -- name: SetWanted :exec
 UPDATE downloadclients_torrent SET wanted = sqlc.arg(wanted)
@@ -155,10 +159,17 @@ UPDATE downloadclients_torrent SET
     removed_at = sqlc.arg(removed_at), removed_reason = sqlc.arg(removed_reason), delete_files = sqlc.arg(delete_files)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
+-- name: RemoveParted :exec
+-- A removal its client takes no part in parts at once and frees nothing.
+UPDATE downloadclients_torrent SET
+    removed_at = sqlc.arg(at), removed_reason = sqlc.arg(removed_reason), parted_at = sqlc.arg(at), freed = 0
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
 -- name: ListHeld :many
 SELECT t.id, t.node_id, t.name, t.size, t.trackers, t.content_type, t.wanted, t.added_order, t.added_at, t.removed_at,
        t.uploaded, t.downloaded, t.active_seconds, t.seeding_seconds, t.totals_at, t.report, t.fault, t.fault_at,
-       t.client_id, t.attached, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
+       t.client_id, t.attached, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name,
+       coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.parted_at IS NULL
 ORDER BY t.added_order;
@@ -174,7 +185,7 @@ SELECT count(*) AS torrents,
        CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
        CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
 FROM downloadclients_torrent
-WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL;
+WHERE node_id = sqlc.arg(node_id) AND client_id IS NULL AND removed_at IS NULL;
 
 -- name: SetTrackerIfNone :exec
 UPDATE downloadclients_torrent SET tracker_id = sqlc.arg(tracker_id) WHERE id = sqlc.arg(id) AND tracker_id IS NULL;
@@ -215,3 +226,13 @@ UPDATE downloadclients_torrent SET
     raw_active_seconds = sqlc.arg(raw_active_seconds), raw_seeding_seconds = sqlc.arg(raw_seeding_seconds),
     totals_at = sqlc.arg(totals_at)
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+
+-- name: GetRetarget :one
+SELECT node_id, client_id, info_hash, metainfo, content_type, tracker_id, reported_at, removed_at FROM downloadclients_torrent
+WHERE id = sqlc.arg(id);
+
+-- name: Rehome :exec
+-- Before its Node first reports a Torrent, it goes to another client in
+-- place: no client holds it yet.
+UPDATE downloadclients_torrent SET node_id = sqlc.arg(node_id), client_id = sqlc.narg(client_id)
+WHERE id = sqlc.arg(id) AND removed_at IS NULL AND reported_at IS NULL;

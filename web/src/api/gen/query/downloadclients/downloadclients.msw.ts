@@ -6,7 +6,9 @@ import type { RequestHandlerOptions } from "msw";
 import type {
   DownloadclientsActed,
   DownloadclientsClientsList,
+  DownloadclientsExternalClient,
   DownloadclientsSettings,
+  DownloadclientsTestReport,
   DownloadclientsThresholds,
   DownloadclientsTorrentDetail,
   DownloadclientsTorrentList,
@@ -56,6 +58,134 @@ export const getListDownloadClientsResponseMock = (
           },
         }
       : {}),
+    externals: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
+        address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        apiKeySaved: faker.datatype.boolean(),
+        away: faker.datatype.boolean(),
+        checkEvery: {
+          applies: faker.helpers.arrayElement(["live", "restart"] as const),
+          default: faker.number.int(),
+          ...(faker.datatype.boolean()
+            ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          isDefault: faker.datatype.boolean(),
+          key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          kind: faker.helpers.arrayElement(["duration"] as const),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          ...(faker.datatype.boolean()
+            ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          max: faker.number.int(),
+          min: faker.number.int(),
+          pendingRestart: faker.datatype.boolean(),
+          running: faker.number.int(),
+          source: faker.helpers.arrayElement([
+            "database",
+            "default",
+            "config.yaml",
+            ".env",
+            "env",
+          ] as const),
+          step: faker.number.int(),
+          value: faker.number.int(),
+        },
+        clientFolders: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          client: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+          node: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+        })),
+        daemon: faker.helpers.arrayElement([
+          {
+            host: faker.string.alpha({ length: { min: 1, max: 253 } }),
+            port: faker.number.int({ min: 1, max: 65535 }),
+          },
+          null,
+        ]),
+        folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        id: faker.string.uuid(),
+        importDelay: {
+          applies: faker.helpers.arrayElement(["live", "restart"] as const),
+          default: faker.number.int(),
+          ...(faker.datatype.boolean()
+            ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          isDefault: faker.datatype.boolean(),
+          key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          kind: faker.helpers.arrayElement(["duration"] as const),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          ...(faker.datatype.boolean()
+            ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          max: faker.number.int(),
+          min: faker.number.int(),
+          pendingRestart: faker.datatype.boolean(),
+          running: faker.number.int(),
+          source: faker.helpers.arrayElement([
+            "database",
+            "default",
+            "config.yaml",
+            ".env",
+            "env",
+          ] as const),
+          step: faker.number.int(),
+          value: faker.number.int(),
+        },
+        kind: faker.helpers.arrayElement([
+          "qbittorrent",
+          "transmission",
+          "deluge",
+          "rtorrent",
+        ] as const),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        nodeId: faker.string.uuid(),
+        on: faker.datatype.boolean(),
+        passwordSaved: faker.datatype.boolean(),
+        problem: faker.helpers.arrayElement([
+          {
+            cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            fields: Array.from(
+              { length: faker.number.int({ min: 1, max: 10 }) },
+              (_, i) => i + 1,
+            ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+            sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          null,
+        ]),
+        productVersion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        reach: faker.helpers.arrayElement([
+          "responding",
+          "not_responding",
+          "sign_in_refused",
+          "needs_attention",
+          "off",
+          "node_offline",
+          "unchecked",
+        ] as const),
+        settingsVersion: faker.number.int({ min: 1 }),
+        since: faker.helpers.arrayElement([
+          faker.date.past().toISOString().slice(0, 19) + "Z",
+          null,
+        ]),
+        torrents: faker.number.int({ min: 0 }),
+        username: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        webUi: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+      }),
+    ),
+    grabsTo: faker.helpers.arrayElement([faker.string.uuid(), null]),
     inStep: faker.datatype.boolean(),
     limits: {
       activeChecks: faker.number.int({ min: 1 }),
@@ -77,6 +207,148 @@ export const getListDownloadClientsResponseMock = (
       uploaded: faker.number.int({ min: 0 }),
     },
   })),
+  kinds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
+    apiKey: faker.datatype.boolean(),
+    daemon: faker.datatype.boolean(),
+    deletesData: faker.datatype.boolean(),
+    floor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement([
+      "qbittorrent",
+      "transmission",
+      "deluge",
+      "rtorrent",
+    ] as const),
+    label: faker.helpers.arrayElement(["any", "no_comma", "lower_word"] as const),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    password: faker.helpers.arrayElement(["none", "optional", "required"] as const),
+    path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    username: faker.helpers.arrayElement(["none", "optional", "required"] as const),
+  })),
+  orphans: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      apiKeySaved: faker.datatype.boolean(),
+      away: faker.datatype.boolean(),
+      checkEvery: {
+        applies: faker.helpers.arrayElement(["live", "restart"] as const),
+        default: faker.number.int(),
+        ...(faker.datatype.boolean()
+          ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        isDefault: faker.datatype.boolean(),
+        key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        kind: faker.helpers.arrayElement(["duration"] as const),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ...(faker.datatype.boolean()
+          ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        max: faker.number.int(),
+        min: faker.number.int(),
+        pendingRestart: faker.datatype.boolean(),
+        running: faker.number.int(),
+        source: faker.helpers.arrayElement([
+          "database",
+          "default",
+          "config.yaml",
+          ".env",
+          "env",
+        ] as const),
+        step: faker.number.int(),
+        value: faker.number.int(),
+      },
+      clientFolders: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => ({
+        client: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+        node: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+      })),
+      daemon: faker.helpers.arrayElement([
+        {
+          host: faker.string.alpha({ length: { min: 1, max: 253 } }),
+          port: faker.number.int({ min: 1, max: 65535 }),
+        },
+        null,
+      ]),
+      folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.uuid(),
+      importDelay: {
+        applies: faker.helpers.arrayElement(["live", "restart"] as const),
+        default: faker.number.int(),
+        ...(faker.datatype.boolean()
+          ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        isDefault: faker.datatype.boolean(),
+        key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        kind: faker.helpers.arrayElement(["duration"] as const),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ...(faker.datatype.boolean()
+          ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        max: faker.number.int(),
+        min: faker.number.int(),
+        pendingRestart: faker.datatype.boolean(),
+        running: faker.number.int(),
+        source: faker.helpers.arrayElement([
+          "database",
+          "default",
+          "config.yaml",
+          ".env",
+          "env",
+        ] as const),
+        step: faker.number.int(),
+        value: faker.number.int(),
+      },
+      kind: faker.helpers.arrayElement([
+        "qbittorrent",
+        "transmission",
+        "deluge",
+        "rtorrent",
+      ] as const),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      nodeId: faker.string.uuid(),
+      on: faker.datatype.boolean(),
+      passwordSaved: faker.datatype.boolean(),
+      problem: faker.helpers.arrayElement([
+        {
+          cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          fields: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        null,
+      ]),
+      productVersion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      reach: faker.helpers.arrayElement([
+        "responding",
+        "not_responding",
+        "sign_in_refused",
+        "needs_attention",
+        "off",
+        "node_offline",
+        "unchecked",
+      ] as const),
+      settingsVersion: faker.number.int({ min: 1 }),
+      since: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+      torrents: faker.number.int({ min: 0 }),
+      username: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      webUi: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+    }),
+  ),
   thresholds: {
     faultStall: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -431,6 +703,7 @@ export const getGetDownloadClientSettingsResponseMock = (
       ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
   },
+  grabsTo: faker.helpers.arrayElement([faker.string.uuid(), null]),
   stalledAfter: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.number.int(),
@@ -679,6 +952,7 @@ export const getSetDownloadClientSettingsResponseMock = (
       ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
   },
+  grabsTo: faker.helpers.arrayElement([faker.string.uuid(), null]),
   stalledAfter: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.number.int(),
@@ -764,6 +1038,274 @@ export const getSetDownloadClientSettingsResponseMock = (
   ...overrideResponse,
 });
 
+export const getCreateDownloadClientResponseMock = (
+  overrideResponse: Partial<Extract<DownloadclientsExternalClient, object>> = {},
+): DownloadclientsExternalClient => ({
+  actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
+  address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  apiKeySaved: faker.datatype.boolean(),
+  away: faker.datatype.boolean(),
+  checkEvery: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  clientFolders: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      client: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+      node: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+    }),
+  ),
+  daemon: faker.helpers.arrayElement([
+    {
+      host: faker.string.alpha({ length: { min: 1, max: 253 } }),
+      port: faker.number.int({ min: 1, max: 65535 }),
+    },
+    null,
+  ]),
+  folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  id: faker.string.uuid(),
+  importDelay: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  kind: faker.helpers.arrayElement(["qbittorrent", "transmission", "deluge", "rtorrent"] as const),
+  label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  nodeId: faker.string.uuid(),
+  on: faker.datatype.boolean(),
+  passwordSaved: faker.datatype.boolean(),
+  problem: faker.helpers.arrayElement([
+    {
+      cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
+  productVersion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  reach: faker.helpers.arrayElement([
+    "responding",
+    "not_responding",
+    "sign_in_refused",
+    "needs_attention",
+    "off",
+    "node_offline",
+    "unchecked",
+  ] as const),
+  settingsVersion: faker.number.int({ min: 1 }),
+  since: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+  torrents: faker.number.int({ min: 0 }),
+  username: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  webUi: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  ...overrideResponse,
+});
+
+export const getTestDownloadClientDraftResponseMock = (
+  overrideResponse: Partial<Extract<DownloadclientsTestReport, object>> = {},
+): DownloadclientsTestReport => ({
+  daemons: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      host: faker.string.alpha({ length: { min: 1, max: 253 } }),
+      port: faker.number.int({ min: 1, max: 65535 }),
+    }),
+  ),
+  nodeFolder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  product: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  warnings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  ...overrideResponse,
+});
+
+export const getUpdateDownloadClientResponseMock = (
+  overrideResponse: Partial<Extract<DownloadclientsExternalClient, object>> = {},
+): DownloadclientsExternalClient => ({
+  actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
+  address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  apiKeySaved: faker.datatype.boolean(),
+  away: faker.datatype.boolean(),
+  checkEvery: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  clientFolders: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      client: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+      node: faker.string.alpha({ length: { min: 1, max: 4096 } }),
+    }),
+  ),
+  daemon: faker.helpers.arrayElement([
+    {
+      host: faker.string.alpha({ length: { min: 1, max: 253 } }),
+      port: faker.number.int({ min: 1, max: 65535 }),
+    },
+    null,
+  ]),
+  folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  id: faker.string.uuid(),
+  importDelay: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  kind: faker.helpers.arrayElement(["qbittorrent", "transmission", "deluge", "rtorrent"] as const),
+  label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  nodeId: faker.string.uuid(),
+  on: faker.datatype.boolean(),
+  passwordSaved: faker.datatype.boolean(),
+  problem: faker.helpers.arrayElement([
+    {
+      cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
+  productVersion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  reach: faker.helpers.arrayElement([
+    "responding",
+    "not_responding",
+    "sign_in_refused",
+    "needs_attention",
+    "off",
+    "node_offline",
+    "unchecked",
+  ] as const),
+  settingsVersion: faker.number.int({ min: 1 }),
+  since: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+  torrents: faker.number.int({ min: 0 }),
+  username: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  webUi: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  ...overrideResponse,
+});
+
+export const getTestDownloadClientResponseMock = (
+  overrideResponse: Partial<Extract<DownloadclientsTestReport, object>> = {},
+): DownloadclientsTestReport => ({
+  daemons: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      host: faker.string.alpha({ length: { min: 1, max: 253 } }),
+      port: faker.number.int({ min: 1, max: 65535 }),
+    }),
+  ),
+  nodeFolder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  product: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  warnings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  ...overrideResponse,
+});
+
 export const getListTorrentsResponseMock = (
   overrideResponse: Partial<Extract<DownloadclientsTorrentList, object>> = {},
 ): DownloadclientsTorrentList => ({
@@ -796,7 +1338,23 @@ export const getListTorrentsResponseMock = (
   },
   rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    ...(faker.datatype.boolean() ? { attached: faker.datatype.boolean() } : {}),
+    ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+    ...(faker.datatype.boolean()
+      ? {
+          clientKind: faker.helpers.arrayElement([
+            "qbittorrent",
+            "transmission",
+            "deluge",
+            "rtorrent",
+          ] as const),
+        }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { clientName: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    deleteFiles: faker.datatype.boolean(),
     done: faker.number.int({ min: 0 }),
     ...(faker.datatype.boolean()
       ? { edition: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -828,12 +1386,19 @@ export const getListTorrentsResponseMock = (
             "disk_guard",
             "draining",
             "controller",
+            "client_error",
           ] as const),
         }
       : {}),
     id: faker.string.uuid(),
     ...(faker.datatype.boolean()
+      ? { importAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { lastKnown: faker.date.past().toISOString().slice(0, 19) + "Z" }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { lastKnownCause: faker.helpers.arrayElement(["node", "client", "off"] as const) }
       : {}),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     nodeId: faker.string.uuid(),
@@ -880,6 +1445,7 @@ export const getListTorrentsResponseMock = (
       "downloading",
       "seeding",
     ] as const),
+    ...(faker.datatype.boolean() ? { stoppedAtLimit: faker.datatype.boolean() } : {}),
     tabs: faker.helpers.arrayElements(["downloading", "seeding", "problems", "all"] as const),
     ...(faker.datatype.boolean()
       ? {
@@ -943,16 +1509,24 @@ export const getActOnTorrentsResponseMock = (
               ...(faker.datatype.boolean()
                 ? { acceptsAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
                 : {}),
+              ...(faker.datatype.boolean()
+                ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
               code: faker.helpers.arrayElement([
                 "not_found",
                 "removed",
                 "importing",
                 "not_stalled",
                 "offline",
+                "client_away",
+                "client_off",
                 "window",
                 "not_running",
                 "failed",
               ] as const),
+              ...(faker.datatype.boolean()
+                ? { node: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
               ...(faker.datatype.boolean() ? { workId: faker.string.uuid() } : {}),
             },
           }
@@ -970,7 +1544,23 @@ export const getGetTorrentResponseMock = (
   ...(faker.datatype.boolean()
     ? { announceAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
+  ...(faker.datatype.boolean() ? { attached: faker.datatype.boolean() } : {}),
+  ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        clientKind: faker.helpers.arrayElement([
+          "qbittorrent",
+          "transmission",
+          "deluge",
+          "rtorrent",
+        ] as const),
+      }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? { clientName: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+    : {}),
   contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  deleteFiles: faker.datatype.boolean(),
   done: faker.number.int({ min: 0 }),
   downloaded: faker.number.int({ min: 0 }),
   ...(faker.datatype.boolean()
@@ -1013,13 +1603,20 @@ export const getGetTorrentResponseMock = (
           "disk_guard",
           "draining",
           "controller",
+          "client_error",
         ] as const),
       }
     : {}),
   id: faker.string.uuid(),
+  ...(faker.datatype.boolean()
+    ? { importAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
   infoHash: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean()
     ? { lastKnown: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? { lastKnownCause: faker.helpers.arrayElement(["node", "client", "off"] as const) }
     : {}),
   live: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1072,6 +1669,7 @@ export const getGetTorrentResponseMock = (
     "downloading",
     "seeding",
   ] as const),
+  ...(faker.datatype.boolean() ? { stoppedAtLimit: faker.datatype.boolean() } : {}),
   tabs: faker.helpers.arrayElements(["downloading", "seeding", "problems", "all"] as const),
   ...(faker.datatype.boolean()
     ? {
@@ -1227,6 +1825,121 @@ export const getSetDownloadClientSettingsMockHandler = (
   );
 };
 
+export const getCreateDownloadClientMockHandler = (
+  overrideResponse?:
+    | DownloadclientsExternalClient
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<DownloadclientsExternalClient> | DownloadclientsExternalClient),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/external-download-clients",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCreateDownloadClientResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getTestDownloadClientDraftMockHandler = (
+  overrideResponse?:
+    | DownloadclientsTestReport
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<DownloadclientsTestReport> | DownloadclientsTestReport),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/external-download-clients/test",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getTestDownloadClientDraftResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getDeleteDownloadClientMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/external-download-clients/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getUpdateDownloadClientMockHandler = (
+  overrideResponse?:
+    | DownloadclientsExternalClient
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<DownloadclientsExternalClient> | DownloadclientsExternalClient),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/external-download-clients/:id",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateDownloadClientResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getTestDownloadClientMockHandler = (
+  overrideResponse?:
+    | DownloadclientsTestReport
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<DownloadclientsTestReport> | DownloadclientsTestReport),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/external-download-clients/:id/test",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getTestDownloadClientResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListTorrentsMockHandler = (
   overrideResponse?:
     | DownloadclientsTorrentList
@@ -1303,6 +2016,11 @@ export const getDownloadclientsMock = () => [
   getSetDownloadClientThresholdsMockHandler(),
   getGetDownloadClientSettingsMockHandler(),
   getSetDownloadClientSettingsMockHandler(),
+  getCreateDownloadClientMockHandler(),
+  getTestDownloadClientDraftMockHandler(),
+  getDeleteDownloadClientMockHandler(),
+  getUpdateDownloadClientMockHandler(),
+  getTestDownloadClientMockHandler(),
   getListTorrentsMockHandler(),
   getActOnTorrentsMockHandler(),
   getGetTorrentMockHandler(),

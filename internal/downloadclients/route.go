@@ -38,3 +38,37 @@ func Route(ctx context.Context, r storage.Reader[file], a Ask) (Target, error) {
 	}
 	return Target{Node: a.Node, Client: &id}, nil
 }
+
+// Choice is a client as an Admin picks it: an external client by id, or
+// the built-in client of BuiltInOn when Client is nil.
+type Choice struct {
+	Client    *ClientID
+	BuiltInOn role.NodeID
+}
+
+// ClientOffError refuses an off client, Name, a Grab can't go to.
+type ClientOffError struct{ Name string }
+
+func (e *ClientOffError) Error() string { return e.Name + " is off" }
+
+// Usable is the Target c names when a Grab can go to it now: downloading
+// says its Node holds Downloading, and an external client is on and not
+// deleted. It fails with ErrNotDownloading, ErrNoClient or
+// *ClientOffError, and reads in the caller's tx.
+func Usable(ctx context.Context, r storage.Reader[file], c Choice, downloading func(role.NodeID) bool) (Target, error) {
+	t := Target{Node: c.BuiltInOn}
+	if c.Client != nil {
+		e, err := ExternalOf(ctx, r, *c.Client)
+		if err != nil {
+			return Target{}, err
+		}
+		if !e.On {
+			return Target{}, &ClientOffError{Name: e.Name}
+		}
+		t = Target{Node: e.Node, Client: &e.ID}
+	}
+	if !downloading(t.Node) {
+		return Target{}, ErrNotDownloading
+	}
+	return t, nil
+}

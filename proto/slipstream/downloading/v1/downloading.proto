@@ -216,6 +216,9 @@ message Problem {
   // missing is how many torrents the client no longer lists, for
   // CAUSE_MOST_MISSING.
   int32 missing = 7;
+  // daemons are the daemons Deluge's web UI lists, for a Test that failed
+  // with CAUSE_DAEMON_NEEDED or CAUSE_WRONG_DAEMON.
+  repeated Daemon daemons = 8;
 }
 
 enum Cause {

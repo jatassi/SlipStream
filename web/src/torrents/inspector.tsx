@@ -8,24 +8,30 @@ import { useInspected } from "./inspector-detail";
 import { Sections } from "./inspector-sections";
 import type { Row } from "./model";
 import type { Names } from "./names";
-import { inspectorSentence } from "./sentence";
+import { attachedSentence, inspectorSentence } from "./sentence";
 
 function Content({ row, names }: { row: Row; names: Names }) {
   const inspected = useInspected(row.id);
   const { live, clock } = inspected;
   const node = names.node(row.nodeId);
-  const subject = { id: row.id, name: names.work(row.workId) ?? row.name };
   return (
     <>
       <InspectorSection>
         <p className="text-sentence text-ink-1">{inspectorSentence(row, live, { node, clock })}</p>
+        {attachedSentence(row) !== undefined && (
+          <p className="mt-3 text-ink-2">{attachedSentence(row)}</p>
+        )}
         {row.fault !== undefined && (
           <p className="mt-3 flex flex-wrap items-center gap-2">
             <SignalChip kind="fail">Bad Release</SignalChip>
             {row.fault.sentence}
           </p>
         )}
-        <Actions row={row} subject={subject} trackersAccept={inspected.trackersAccept} />
+        <Actions
+          row={row}
+          name={names.work(row.workId) ?? row.name}
+          trackersAccept={inspected.trackersAccept}
+        />
       </InspectorSection>
       <Sections row={row} names={names} node={node} clock={clock} inspected={inspected} />
     </>

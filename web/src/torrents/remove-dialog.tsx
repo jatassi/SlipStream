@@ -17,6 +17,22 @@ const titles: { readonly [P in Parting]: (subjects: readonly Subject[]) => strin
   "mark-failed": (subjects) => `Mark ${list.format(subjects.map(({ name }) => name))} failed?`,
 };
 
+const partingWords: { readonly [P in Parting]: (frees: string) => string } = {
+  remove: () => "Files in your library stay.",
+  "mark-failed": (frees) =>
+    `It is removed and its download copy deleted${frees}. Files in your library stay.`,
+};
+
+const stopsTrackingWords = (client: string) =>
+  `SlipStream stops tracking it and leaves it in ${client}. Files in your library stay.`;
+
+// The one client every subject stays in, when a remove leaves each of them in it.
+function keptIn(subjects: readonly Subject[]): string | undefined {
+  const clients = new Set(subjects.map((subject) => subject.keptIn));
+  const [only] = clients;
+  return clients.size === 1 ? only : undefined;
+}
+
 // A dry run of the same action says what it takes with it, and which torrents it refuses.
 function usePreview(parting: Parting, subjects: readonly Subject[]) {
   const ids = subjects.map(({ id }) => id);
@@ -56,27 +72,26 @@ export function RemoveDialog({
   const { preview, going } = usePreview(parting, subjects);
   const [deleteFiles, setDeleteFiles] = useState(false);
   const frees = freesWords(preview.data?.preview?.frees);
+  const kept = keptIn(subjects);
   return (
     <ConfirmDialog
       title={titles[parting](subjects)}
-      confirmLabel={parting === "remove" ? "Remove" : "Mark failed"}
+      confirmLabel={
+        parting === "mark-failed" ? "Mark failed" : kept === undefined ? "Remove" : "Stop tracking"
+      }
       look="fail"
       confirmDisabled={going.length === 0}
       open={open}
       onOpenChange={onOpenChange}
       onConfirm={() => onConfirm(going, parting === "mark-failed" || deleteFiles)}
     >
-      <p>
-        {parting === "remove"
-          ? "Files in your library stay."
-          : `It is removed and its download copy deleted${frees}. Files in your library stay.`}
-      </p>
+      <p>{kept === undefined ? partingWords[parting](frees) : stopsTrackingWords(kept)}</p>
       {preview.isPending && <Spinner label="Checking what this changes" />}
       {preview.isError && <p className="text-fail-ink">{sentenceOf(preview.error)}</p>}
       {preview.data !== undefined && (
         <Preview parting={parting} acted={preview.data} subjects={subjects} work={work} />
       )}
-      {parting === "remove" && (
+      {parting === "remove" && kept === undefined && (
         <div className="flex flex-col gap-1">
           <Checkbox
             label={`Also delete the download copy${frees}`}

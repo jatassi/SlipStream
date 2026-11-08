@@ -160,6 +160,32 @@ func TestTheEngineRemovesOnlyItsTorrentsFiles(t *testing.T) {
 	})
 }
 
+func TestTheEngineMovesATorrentsFiles(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		dir := t.TempDir()
+		e, c := engine(t, torrentclient.Config{Dir: dir, Name: "/downloads"}, "orchard")
+		r := c.Releases[0]
+		add(t, e, r, "/downloads/incoming")
+		time.Sleep(time.Minute)
+		get(t, e, r)
+		if err := e.Move(r.InfoHash, "/downloads/done"); err != nil {
+			t.Fatal(err)
+		}
+		if got := get(t, e, r); got.Folder != "/downloads/done" {
+			t.Errorf("moved, its folder is %s", got.Folder)
+		}
+		if !bytes.Equal(onDisk(t, filepath.Join(dir, "done", "orchard.mkv")), payload(t, r)) {
+			t.Error("the moved file isn't the payload")
+		}
+		if _, err := os.Stat(filepath.Join(dir, "incoming", "orchard.mkv")); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("the file is still in the old folder: %v", err)
+		}
+		if err := e.Move(r.InfoHash, "/elsewhere"); err == nil {
+			t.Error("moving outside the client's folder succeeded")
+		}
+	})
+}
+
 func TestTheEngineNamesAWindowsClientsFoldersAsTheClientDoes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		dir := t.TempDir()

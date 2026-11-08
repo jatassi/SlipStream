@@ -94,6 +94,56 @@
           },
           "challenge_solver": {
             "type": "boolean"
+          },
+          "download_clients": {
+            "items": {
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "qbittorrent",
+                    "transmission",
+                    "deluge",
+                    "rtorrent"
+                  ]
+                },
+                "version": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "folder": {
+                  "type": "string"
+                },
+                "pair": {
+                  "type": "boolean"
+                },
+                "import_delay": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "grabs_to": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "kind",
+                "version"
+              ]
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,

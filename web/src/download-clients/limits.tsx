@@ -10,7 +10,7 @@ import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 import { toast } from "../ui/toast";
 
-type Key = keyof DownloadclientsSettings;
+type Key = Exclude<keyof DownloadclientsSettings, "grabsTo">;
 
 const groups: readonly { readonly title: string; readonly keys: readonly Key[] }[] = [
   { title: "Speed", keys: ["downloadLimit", "uploadLimit"] },

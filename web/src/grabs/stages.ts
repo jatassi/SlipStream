@@ -111,9 +111,6 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The Release only offers a BitTorrent v2 .torrent, which SlipStream can't download.",
     recovery: searchAgain,
   },
-  no_download_client: {
-    cause: "The Node this Indexer belongs to doesn't download.",
-  },
   download_failed: {
     cause: "The download stopped with an error.",
     recovery: searchAgain,

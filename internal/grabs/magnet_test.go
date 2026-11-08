@@ -94,6 +94,7 @@ func (r *roster) Route(role.Name, role.NodeID) (role.NodeID, error)  { return r.
 func (*roster) Away(role.Name, role.NodeID) (nodes.Absence, bool)    { return nodes.Absence{}, false }
 func (*roster) InStep(role.NodeID) bool                              { return true }
 func (*roster) WrittenOff(role.Name, role.NodeID) bool               { return false }
+func (*roster) Holds(role.Name, role.NodeID) bool                    { return true }
 func (r *roster) Holding(role.Name) []role.NodeID                    { return []role.NodeID{r.node} }
 func (*roster) Name(role.NodeID) string                              { return "home" }
 func (*roster) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role.NodeID{}, false }

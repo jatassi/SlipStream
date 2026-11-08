@@ -38,6 +38,10 @@ func (r *roster) Serving(name role.Name) []role.NodeID {
 	return slices.Clone(r.serving)
 }
 
+func (r *roster) Holds(name role.Name, node role.NodeID) bool {
+	return slices.Contains(r.Serving(name), node)
+}
+
 func (r *roster) InStep(node role.NodeID) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()

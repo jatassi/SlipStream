@@ -23,10 +23,27 @@ import type {
   ActOnTorrents409,
   ActOnTorrents422,
   ActOnTorrents500,
+  CreateDownloadClient401,
+  CreateDownloadClient403,
+  CreateDownloadClient409,
+  CreateDownloadClient422,
+  CreateDownloadClient500,
+  CreateDownloadClient502,
+  DeleteDownloadClient401,
+  DeleteDownloadClient403,
+  DeleteDownloadClient404,
+  DeleteDownloadClient409,
+  DeleteDownloadClient422,
+  DeleteDownloadClient500,
+  DeleteDownloadClientParams,
   DownloadclientsActed,
+  DownloadclientsClientEdit,
   DownloadclientsClientsList,
+  DownloadclientsExternalClient,
+  DownloadclientsNewClient,
   DownloadclientsSettings,
   DownloadclientsSettingsPatch,
+  DownloadclientsTestReport,
   DownloadclientsThresholds,
   DownloadclientsThresholdsPatch,
   DownloadclientsTorrentDetail,
@@ -64,6 +81,26 @@ import type {
   SetDownloadClientThresholds409,
   SetDownloadClientThresholds422,
   SetDownloadClientThresholds500,
+  TestDownloadClient401,
+  TestDownloadClient403,
+  TestDownloadClient404,
+  TestDownloadClient409,
+  TestDownloadClient422,
+  TestDownloadClient500,
+  TestDownloadClient502,
+  TestDownloadClientDraft401,
+  TestDownloadClientDraft403,
+  TestDownloadClientDraft409,
+  TestDownloadClientDraft422,
+  TestDownloadClientDraft500,
+  TestDownloadClientDraft502,
+  UpdateDownloadClient401,
+  UpdateDownloadClient403,
+  UpdateDownloadClient404,
+  UpdateDownloadClient409,
+  UpdateDownloadClient422,
+  UpdateDownloadClient500,
+  UpdateDownloadClient502,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -91,7 +128,7 @@ export const getListDownloadClientsUrl = () => {
 };
 
 /**
- * @summary List each downloading Node's built-in client, and the thresholds for a bad release
+ * @summary List each downloading Node's built-in and external clients, the kinds of external client, and the thresholds for a bad release
  */
 export const listDownloadClients = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -197,7 +234,7 @@ export function useListDownloadClientsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List each downloading Node's built-in client, and the thresholds for a bad release
+ * @summary List each downloading Node's built-in and external clients, the kinds of external client, and the thresholds for a bad release
  */
 
 export function useListDownloadClientsSuspense<
@@ -359,7 +396,7 @@ export const getGetDownloadClientSettingsUrl = (nodeId: string) => {
 };
 
 /**
- * @summary Get a Node's built-in torrent client settings
+ * @summary Get a Node's built-in torrent client settings and where its new Grabs go
  */
 export const getDownloadClientSettings = async (
   nodeId: string,
@@ -488,7 +525,7 @@ export function useGetDownloadClientSettingsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get a Node's built-in torrent client settings
+ * @summary Get a Node's built-in torrent client settings and where its new Grabs go
  */
 
 export function useGetDownloadClientSettingsSuspense<
@@ -526,7 +563,7 @@ export const getSetDownloadClientSettingsUrl = (nodeId: string) => {
 };
 
 /**
- * @summary Change a Node's built-in torrent client settings, which the Node applies at once
+ * @summary Change a Node's built-in torrent client settings and where its new Grabs go, which the Node applies at once
  */
 export const setDownloadClientSettings = async (
   nodeId: string,
@@ -623,7 +660,7 @@ export type SetDownloadClientSettingsMutationVariables = {
 };
 
 /**
- * @summary Change a Node's built-in torrent client settings, which the Node applies at once
+ * @summary Change a Node's built-in torrent client settings and where its new Grabs go, which the Node applies at once
  */
 export const useSetDownloadClientSettings = <
   TError = ErrorType<
@@ -654,6 +691,654 @@ export const useSetDownloadClientSettings = <
 > => {
   return useMutation(getSetDownloadClientSettingsMutationOptions(options), queryClient);
 };
+export const getCreateDownloadClientUrl = () => {
+  return `/api/v1/external-download-clients`;
+};
+
+/**
+ * @summary Add an external Download Client once its Test passed on its Node
+ */
+export const createDownloadClient = async (
+  downloadclientsNewClient: DownloadclientsNewClient,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DownloadclientsExternalClient> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<DownloadclientsExternalClient>(getCreateDownloadClientUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(downloadclientsNewClient),
+  });
+};
+
+export const getCreateDownloadClientMutationKey = () => ["createDownloadClient"] as const;
+
+export const getCreateDownloadClientMutationOptions = <
+  TError = ErrorType<
+    | CreateDownloadClient401
+    | CreateDownloadClient403
+    | CreateDownloadClient409
+    | CreateDownloadClient422
+    | CreateDownloadClient500
+    | CreateDownloadClient502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDownloadClient>>,
+    TError,
+    CreateDownloadClientMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDownloadClient>>,
+  TError,
+  CreateDownloadClientMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCreateDownloadClientMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDownloadClient>>,
+    CreateDownloadClientMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDownloadClient(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDownloadClientMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDownloadClient>>
+>;
+export type CreateDownloadClientMutationBody = DownloadclientsNewClient;
+export type CreateDownloadClientMutationError = ErrorType<
+  | CreateDownloadClient401
+  | CreateDownloadClient403
+  | CreateDownloadClient409
+  | CreateDownloadClient422
+  | CreateDownloadClient500
+  | CreateDownloadClient502
+>;
+export type CreateDownloadClientMutationVariables = { data: DownloadclientsNewClient };
+
+/**
+ * @summary Add an external Download Client once its Test passed on its Node
+ */
+export const useCreateDownloadClient = <
+  TError = ErrorType<
+    | CreateDownloadClient401
+    | CreateDownloadClient403
+    | CreateDownloadClient409
+    | CreateDownloadClient422
+    | CreateDownloadClient500
+    | CreateDownloadClient502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createDownloadClient>>,
+      TError,
+      CreateDownloadClientMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createDownloadClient>>,
+  TError,
+  CreateDownloadClientMutationVariables,
+  TContext
+> => {
+  return useMutation(getCreateDownloadClientMutationOptions(options), queryClient);
+};
+export const getTestDownloadClientDraftUrl = () => {
+  return `/api/v1/external-download-clients/test`;
+};
+
+/**
+ * @summary Test an external Download Client from its Node without saving it
+ */
+export const testDownloadClientDraft = async (
+  downloadclientsNewClient: DownloadclientsNewClient,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DownloadclientsTestReport> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<DownloadclientsTestReport>(getTestDownloadClientDraftUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(downloadclientsNewClient),
+  });
+};
+
+export const getTestDownloadClientDraftMutationKey = () => ["testDownloadClientDraft"] as const;
+
+export const getTestDownloadClientDraftMutationOptions = <
+  TError = ErrorType<
+    | TestDownloadClientDraft401
+    | TestDownloadClientDraft403
+    | TestDownloadClientDraft409
+    | TestDownloadClientDraft422
+    | TestDownloadClientDraft500
+    | TestDownloadClientDraft502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testDownloadClientDraft>>,
+    TError,
+    TestDownloadClientDraftMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testDownloadClientDraft>>,
+  TError,
+  TestDownloadClientDraftMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTestDownloadClientDraftMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testDownloadClientDraft>>,
+    TestDownloadClientDraftMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return testDownloadClientDraft(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestDownloadClientDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testDownloadClientDraft>>
+>;
+export type TestDownloadClientDraftMutationBody = DownloadclientsNewClient;
+export type TestDownloadClientDraftMutationError = ErrorType<
+  | TestDownloadClientDraft401
+  | TestDownloadClientDraft403
+  | TestDownloadClientDraft409
+  | TestDownloadClientDraft422
+  | TestDownloadClientDraft500
+  | TestDownloadClientDraft502
+>;
+export type TestDownloadClientDraftMutationVariables = { data: DownloadclientsNewClient };
+
+/**
+ * @summary Test an external Download Client from its Node without saving it
+ */
+export const useTestDownloadClientDraft = <
+  TError = ErrorType<
+    | TestDownloadClientDraft401
+    | TestDownloadClientDraft403
+    | TestDownloadClientDraft409
+    | TestDownloadClientDraft422
+    | TestDownloadClientDraft500
+    | TestDownloadClientDraft502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof testDownloadClientDraft>>,
+      TError,
+      TestDownloadClientDraftMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof testDownloadClientDraft>>,
+  TError,
+  TestDownloadClientDraftMutationVariables,
+  TContext
+> => {
+  return useMutation(getTestDownloadClientDraftMutationOptions(options), queryClient);
+};
+export const getDeleteDownloadClientUrl = (id: string, params?: DeleteDownloadClientParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/external-download-clients/${id}?${stringifiedParams}`
+    : `/api/v1/external-download-clients/${id}`;
+};
+
+/**
+ * @summary Delete an external Download Client, and with stopTracking stop tracking the torrents it holds
+ */
+export const deleteDownloadClient = async (
+  id: string,
+  params?: DeleteDownloadClientParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getDeleteDownloadClientUrl(id, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteDownloadClientMutationKey = () => ["deleteDownloadClient"] as const;
+
+export const getDeleteDownloadClientMutationOptions = <
+  TError = ErrorType<
+    | DeleteDownloadClient401
+    | DeleteDownloadClient403
+    | DeleteDownloadClient404
+    | DeleteDownloadClient409
+    | DeleteDownloadClient422
+    | DeleteDownloadClient500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDownloadClient>>,
+    TError,
+    DeleteDownloadClientMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDownloadClient>>,
+  TError,
+  DeleteDownloadClientMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteDownloadClientMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDownloadClient>>,
+    DeleteDownloadClientMutationVariables
+  > = (props) => {
+    const { id, params } = props ?? {};
+
+    return deleteDownloadClient(id, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDownloadClientMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDownloadClient>>
+>;
+
+export type DeleteDownloadClientMutationError = ErrorType<
+  | DeleteDownloadClient401
+  | DeleteDownloadClient403
+  | DeleteDownloadClient404
+  | DeleteDownloadClient409
+  | DeleteDownloadClient422
+  | DeleteDownloadClient500
+>;
+export type DeleteDownloadClientMutationVariables = {
+  id: string;
+  params?: DeleteDownloadClientParams;
+};
+
+/**
+ * @summary Delete an external Download Client, and with stopTracking stop tracking the torrents it holds
+ */
+export const useDeleteDownloadClient = <
+  TError = ErrorType<
+    | DeleteDownloadClient401
+    | DeleteDownloadClient403
+    | DeleteDownloadClient404
+    | DeleteDownloadClient409
+    | DeleteDownloadClient422
+    | DeleteDownloadClient500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteDownloadClient>>,
+      TError,
+      DeleteDownloadClientMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDownloadClient>>,
+  TError,
+  DeleteDownloadClientMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeleteDownloadClientMutationOptions(options), queryClient);
+};
+export const getUpdateDownloadClientUrl = (id: string) => {
+  return `/api/v1/external-download-clients/${id}`;
+};
+
+/**
+ * @summary Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders
+ */
+export const updateDownloadClient = async (
+  id: string,
+  downloadclientsClientEdit: DownloadclientsClientEdit,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DownloadclientsExternalClient> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<DownloadclientsExternalClient>(getUpdateDownloadClientUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(downloadclientsClientEdit),
+  });
+};
+
+export const getUpdateDownloadClientMutationKey = () => ["updateDownloadClient"] as const;
+
+export const getUpdateDownloadClientMutationOptions = <
+  TError = ErrorType<
+    | UpdateDownloadClient401
+    | UpdateDownloadClient403
+    | UpdateDownloadClient404
+    | UpdateDownloadClient409
+    | UpdateDownloadClient422
+    | UpdateDownloadClient500
+    | UpdateDownloadClient502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDownloadClient>>,
+    TError,
+    UpdateDownloadClientMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDownloadClient>>,
+  TError,
+  UpdateDownloadClientMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateDownloadClientMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDownloadClient>>,
+    UpdateDownloadClientMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateDownloadClient(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDownloadClientMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDownloadClient>>
+>;
+export type UpdateDownloadClientMutationBody = DownloadclientsClientEdit;
+export type UpdateDownloadClientMutationError = ErrorType<
+  | UpdateDownloadClient401
+  | UpdateDownloadClient403
+  | UpdateDownloadClient404
+  | UpdateDownloadClient409
+  | UpdateDownloadClient422
+  | UpdateDownloadClient500
+  | UpdateDownloadClient502
+>;
+export type UpdateDownloadClientMutationVariables = { id: string; data: DownloadclientsClientEdit };
+
+/**
+ * @summary Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders
+ */
+export const useUpdateDownloadClient = <
+  TError = ErrorType<
+    | UpdateDownloadClient401
+    | UpdateDownloadClient403
+    | UpdateDownloadClient404
+    | UpdateDownloadClient409
+    | UpdateDownloadClient422
+    | UpdateDownloadClient500
+    | UpdateDownloadClient502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateDownloadClient>>,
+      TError,
+      UpdateDownloadClientMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateDownloadClient>>,
+  TError,
+  UpdateDownloadClientMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateDownloadClientMutationOptions(options), queryClient);
+};
+export const getTestDownloadClientUrl = (id: string) => {
+  return `/api/v1/external-download-clients/${id}/test`;
+};
+
+/**
+ * @summary Test a saved external Download Client with unsaved changes, using its saved secrets where the changes leave them
+ */
+export const testDownloadClient = async (
+  id: string,
+  downloadclientsClientEdit?: DownloadclientsClientEdit,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DownloadclientsTestReport> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<DownloadclientsTestReport>(getTestDownloadClientUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(downloadclientsClientEdit),
+  });
+};
+
+export const getTestDownloadClientMutationKey = () => ["testDownloadClient"] as const;
+
+export const getTestDownloadClientMutationOptions = <
+  TError = ErrorType<
+    | TestDownloadClient401
+    | TestDownloadClient403
+    | TestDownloadClient404
+    | TestDownloadClient409
+    | TestDownloadClient422
+    | TestDownloadClient500
+    | TestDownloadClient502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testDownloadClient>>,
+    TError,
+    TestDownloadClientMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testDownloadClient>>,
+  TError,
+  TestDownloadClientMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTestDownloadClientMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testDownloadClient>>,
+    TestDownloadClientMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return testDownloadClient(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestDownloadClientMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testDownloadClient>>
+>;
+export type TestDownloadClientMutationBody = DownloadclientsClientEdit | undefined;
+export type TestDownloadClientMutationError = ErrorType<
+  | TestDownloadClient401
+  | TestDownloadClient403
+  | TestDownloadClient404
+  | TestDownloadClient409
+  | TestDownloadClient422
+  | TestDownloadClient500
+  | TestDownloadClient502
+>;
+export type TestDownloadClientMutationVariables = { id: string; data?: DownloadclientsClientEdit };
+
+/**
+ * @summary Test a saved external Download Client with unsaved changes, using its saved secrets where the changes leave them
+ */
+export const useTestDownloadClient = <
+  TError = ErrorType<
+    | TestDownloadClient401
+    | TestDownloadClient403
+    | TestDownloadClient404
+    | TestDownloadClient409
+    | TestDownloadClient422
+    | TestDownloadClient500
+    | TestDownloadClient502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof testDownloadClient>>,
+      TError,
+      TestDownloadClientMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof testDownloadClient>>,
+  TError,
+  TestDownloadClientMutationVariables,
+  TContext
+> => {
+  return useMutation(getTestDownloadClientMutationOptions(options), queryClient);
+};
 export const getListTorrentsUrl = (params?: ListTorrentsParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -671,7 +1356,7 @@ export const getListTorrentsUrl = (params?: ListTorrentsParams) => {
 };
 
 /**
- * @summary List the Torrents every Node's built-in client holds, with their state and counts
+ * @summary List the Torrents every Node's Download Clients hold, with their state and counts
  */
 export const listTorrents = async (
   params?: ListTorrentsParams,
@@ -770,7 +1455,7 @@ export function useListTorrentsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the Torrents every Node's built-in client holds, with their state and counts
+ * @summary List the Torrents every Node's Download Clients hold, with their state and counts
  */
 
 export function useListTorrentsSuspense<

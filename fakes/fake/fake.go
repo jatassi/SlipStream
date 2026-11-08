@@ -143,6 +143,10 @@ type Env struct {
 	Fronts Fronts
 	// Files is the run dir a capture's files land under.
 	Files string
+	// Dir is the fake's own folder for files a Node on the machine reads,
+	// such as a Download Client's downloads. The world keeps it in its
+	// scratch dir, beside the media dir, so a Node can hard link from it.
+	Dir string
 	// Leaf serves a run-CA certificate for LeafNames, for an OwnTLS fake,
 	// and is nil otherwise.
 	Leaf *tls.Config

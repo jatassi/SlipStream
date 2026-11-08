@@ -1979,7 +1979,10 @@ type Problem struct {
 	Host string `protobuf:"bytes,6,opt,name=host,proto3" json:"host,omitempty"`
 	// missing is how many torrents the client no longer lists, for
 	// CAUSE_MOST_MISSING.
-	Missing       int32 `protobuf:"varint,7,opt,name=missing,proto3" json:"missing,omitempty"`
+	Missing int32 `protobuf:"varint,7,opt,name=missing,proto3" json:"missing,omitempty"`
+	// daemons are the daemons Deluge's web UI lists, for a Test that failed
+	// with CAUSE_DAEMON_NEEDED or CAUSE_WRONG_DAEMON.
+	Daemons       []*Daemon `protobuf:"bytes,8,rep,name=daemons,proto3" json:"daemons,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2061,6 +2064,13 @@ func (x *Problem) GetMissing() int32 {
 		return x.Missing
 	}
 	return 0
+}
+
+func (x *Problem) GetDaemons() []*Daemon {
+	if x != nil {
+		return x.Daemons
+	}
+	return nil
 }
 
 // Vanished is a torrent an external client listed and then didn't list
@@ -4883,7 +4893,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\rsince_unix_ms\x18\x04 \x01(\x03R\vsinceUnixMs\x12\x18\n" +
 	"\aversion\x18\x05 \x01(\tR\aversion\x12<\n" +
 	"\aproblem\x18\x06 \x01(\v2\".slipstream.downloading.v1.ProblemR\aproblem\x12\x14\n" +
-	"\x05check\x18\a \x01(\fR\x05check\"\xd1\x01\n" +
+	"\x05check\x18\a \x01(\fR\x05check\"\x8e\x02\n" +
 	"\aProblem\x126\n" +
 	"\x05cause\x18\x01 \x01(\x0e2 .slipstream.downloading.v1.CauseR\x05cause\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x18\n" +
@@ -4891,7 +4901,8 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x06folder\x18\x04 \x01(\tR\x06folder\x12\x16\n" +
 	"\x06paired\x18\x05 \x01(\tR\x06paired\x12\x12\n" +
 	"\x04host\x18\x06 \x01(\tR\x04host\x12\x18\n" +
-	"\amissing\x18\a \x01(\x05R\amissing\"\x1a\n" +
+	"\amissing\x18\a \x01(\x05R\amissing\x12;\n" +
+	"\adaemons\x18\b \x03(\v2!.slipstream.downloading.v1.DaemonR\adaemons\"\x1a\n" +
 	"\bVanished\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\"M\n" +
 	"\fClientTotals\x12=\n" +
@@ -5295,70 +5306,71 @@ var file_slipstream_downloading_v1_downloading_proto_depIdxs = []int32{
 	2,  // 16: slipstream.downloading.v1.ClientPoll.state:type_name -> slipstream.downloading.v1.PollState
 	26, // 17: slipstream.downloading.v1.ClientPoll.problem:type_name -> slipstream.downloading.v1.Problem
 	3,  // 18: slipstream.downloading.v1.Problem.cause:type_name -> slipstream.downloading.v1.Cause
-	29, // 19: slipstream.downloading.v1.ClientTotals.rows:type_name -> slipstream.downloading.v1.ClientCounters
-	31, // 20: slipstream.downloading.v1.Torrents.reports:type_name -> slipstream.downloading.v1.TorrentReport
-	5,  // 21: slipstream.downloading.v1.TorrentReport.engine:type_name -> slipstream.downloading.v1.EngineState
-	6,  // 22: slipstream.downloading.v1.TorrentReport.hold:type_name -> slipstream.downloading.v1.Hold
-	33, // 23: slipstream.downloading.v1.TorrentReport.trackers:type_name -> slipstream.downloading.v1.TrackerLine
-	34, // 24: slipstream.downloading.v1.TorrentReport.completion:type_name -> slipstream.downloading.v1.Completion
-	36, // 25: slipstream.downloading.v1.TorrentReport.fault:type_name -> slipstream.downloading.v1.Fault
-	38, // 26: slipstream.downloading.v1.TorrentReport.totals:type_name -> slipstream.downloading.v1.TotalsRow
-	4,  // 27: slipstream.downloading.v1.TorrentReport.origin:type_name -> slipstream.downloading.v1.Origin
-	32, // 28: slipstream.downloading.v1.TorrentReport.wanted_change:type_name -> slipstream.downloading.v1.WantedChange
-	0,  // 29: slipstream.downloading.v1.TorrentReport.run:type_name -> slipstream.downloading.v1.Wanted
-	0,  // 30: slipstream.downloading.v1.WantedChange.from:type_name -> slipstream.downloading.v1.Wanted
-	0,  // 31: slipstream.downloading.v1.WantedChange.to:type_name -> slipstream.downloading.v1.Wanted
-	7,  // 32: slipstream.downloading.v1.TrackerLine.status:type_name -> slipstream.downloading.v1.TrackerStatus
-	35, // 33: slipstream.downloading.v1.Completion.files:type_name -> slipstream.downloading.v1.File
-	8,  // 34: slipstream.downloading.v1.Fault.kind:type_name -> slipstream.downloading.v1.FaultKind
-	38, // 35: slipstream.downloading.v1.Totals.rows:type_name -> slipstream.downloading.v1.TotalsRow
-	16, // 36: slipstream.downloading.v1.TestClientRequest.client:type_name -> slipstream.downloading.v1.Client
-	19, // 37: slipstream.downloading.v1.TestClientRequest.secrets:type_name -> slipstream.downloading.v1.Secrets
-	42, // 38: slipstream.downloading.v1.TestClientResponse.passed:type_name -> slipstream.downloading.v1.Passed
-	26, // 39: slipstream.downloading.v1.TestClientResponse.failed:type_name -> slipstream.downloading.v1.Problem
-	9,  // 40: slipstream.downloading.v1.Passed.warnings:type_name -> slipstream.downloading.v1.Warning
-	18, // 41: slipstream.downloading.v1.Passed.daemons:type_name -> slipstream.downloading.v1.Daemon
-	47, // 42: slipstream.downloading.v1.ResolveResponse.searching:type_name -> slipstream.downloading.v1.Searching
-	48, // 43: slipstream.downloading.v1.ResolveResponse.unresolved:type_name -> slipstream.downloading.v1.Unresolved
-	49, // 44: slipstream.downloading.v1.ResolveResponse.held:type_name -> slipstream.downloading.v1.Held
-	50, // 45: slipstream.downloading.v1.ResolveResponse.not_taking:type_name -> slipstream.downloading.v1.NotTaking
-	10, // 46: slipstream.downloading.v1.Unresolved.reason:type_name -> slipstream.downloading.v1.UnresolvedReason
-	55, // 47: slipstream.downloading.v1.WatchResponse.rows:type_name -> slipstream.downloading.v1.Live
-	58, // 48: slipstream.downloading.v1.InspectResponse.files:type_name -> slipstream.downloading.v1.FileProgress
-	59, // 49: slipstream.downloading.v1.InspectResponse.trackers:type_name -> slipstream.downloading.v1.TrackerDetail
-	7,  // 50: slipstream.downloading.v1.TrackerDetail.status:type_name -> slipstream.downloading.v1.TrackerStatus
-	11, // 51: slipstream.downloading.v1.ActRequest.act:type_name -> slipstream.downloading.v1.Act
-	62, // 52: slipstream.downloading.v1.ActResponse.results:type_name -> slipstream.downloading.v1.ActResult
-	12, // 53: slipstream.downloading.v1.ActResult.refused:type_name -> slipstream.downloading.v1.Refusal
-	65, // 54: slipstream.downloading.v1.FreesResponse.freed:type_name -> slipstream.downloading.v1.Freed
-	38, // 55: slipstream.downloading.v1.TorrentResponse.baseline:type_name -> slipstream.downloading.v1.TotalsRow
-	4,  // 56: slipstream.downloading.v1.TorrentResponse.origin:type_name -> slipstream.downloading.v1.Origin
-	19, // 57: slipstream.downloading.v1.ClientSecretsResponse.secrets:type_name -> slipstream.downloading.v1.Secrets
-	53, // 58: slipstream.downloading.v1.DownloadingService.Watch:input_type -> slipstream.downloading.v1.WatchRequest
-	56, // 59: slipstream.downloading.v1.DownloadingService.Inspect:input_type -> slipstream.downloading.v1.InspectRequest
-	60, // 60: slipstream.downloading.v1.DownloadingService.Act:input_type -> slipstream.downloading.v1.ActRequest
-	63, // 61: slipstream.downloading.v1.DownloadingService.Frees:input_type -> slipstream.downloading.v1.FreesRequest
-	51, // 62: slipstream.downloading.v1.DownloadingService.Sample:input_type -> slipstream.downloading.v1.SampleRequest
-	45, // 63: slipstream.downloading.v1.DownloadingService.Resolve:input_type -> slipstream.downloading.v1.ResolveRequest
-	40, // 64: slipstream.downloading.v1.DownloadingService.TestClient:input_type -> slipstream.downloading.v1.TestClientRequest
-	43, // 65: slipstream.downloading.v1.DownloadingService.CheckClients:input_type -> slipstream.downloading.v1.CheckClientsRequest
-	66, // 66: slipstream.downloading.v1.DownloadingControlService.Torrent:input_type -> slipstream.downloading.v1.TorrentRequest
-	68, // 67: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:input_type -> slipstream.downloading.v1.ClientSecretsRequest
-	54, // 68: slipstream.downloading.v1.DownloadingService.Watch:output_type -> slipstream.downloading.v1.WatchResponse
-	57, // 69: slipstream.downloading.v1.DownloadingService.Inspect:output_type -> slipstream.downloading.v1.InspectResponse
-	61, // 70: slipstream.downloading.v1.DownloadingService.Act:output_type -> slipstream.downloading.v1.ActResponse
-	64, // 71: slipstream.downloading.v1.DownloadingService.Frees:output_type -> slipstream.downloading.v1.FreesResponse
-	52, // 72: slipstream.downloading.v1.DownloadingService.Sample:output_type -> slipstream.downloading.v1.SampleResponse
-	46, // 73: slipstream.downloading.v1.DownloadingService.Resolve:output_type -> slipstream.downloading.v1.ResolveResponse
-	41, // 74: slipstream.downloading.v1.DownloadingService.TestClient:output_type -> slipstream.downloading.v1.TestClientResponse
-	44, // 75: slipstream.downloading.v1.DownloadingService.CheckClients:output_type -> slipstream.downloading.v1.CheckClientsResponse
-	67, // 76: slipstream.downloading.v1.DownloadingControlService.Torrent:output_type -> slipstream.downloading.v1.TorrentResponse
-	69, // 77: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:output_type -> slipstream.downloading.v1.ClientSecretsResponse
-	68, // [68:78] is the sub-list for method output_type
-	58, // [58:68] is the sub-list for method input_type
-	58, // [58:58] is the sub-list for extension type_name
-	58, // [58:58] is the sub-list for extension extendee
-	0,  // [0:58] is the sub-list for field type_name
+	18, // 19: slipstream.downloading.v1.Problem.daemons:type_name -> slipstream.downloading.v1.Daemon
+	29, // 20: slipstream.downloading.v1.ClientTotals.rows:type_name -> slipstream.downloading.v1.ClientCounters
+	31, // 21: slipstream.downloading.v1.Torrents.reports:type_name -> slipstream.downloading.v1.TorrentReport
+	5,  // 22: slipstream.downloading.v1.TorrentReport.engine:type_name -> slipstream.downloading.v1.EngineState
+	6,  // 23: slipstream.downloading.v1.TorrentReport.hold:type_name -> slipstream.downloading.v1.Hold
+	33, // 24: slipstream.downloading.v1.TorrentReport.trackers:type_name -> slipstream.downloading.v1.TrackerLine
+	34, // 25: slipstream.downloading.v1.TorrentReport.completion:type_name -> slipstream.downloading.v1.Completion
+	36, // 26: slipstream.downloading.v1.TorrentReport.fault:type_name -> slipstream.downloading.v1.Fault
+	38, // 27: slipstream.downloading.v1.TorrentReport.totals:type_name -> slipstream.downloading.v1.TotalsRow
+	4,  // 28: slipstream.downloading.v1.TorrentReport.origin:type_name -> slipstream.downloading.v1.Origin
+	32, // 29: slipstream.downloading.v1.TorrentReport.wanted_change:type_name -> slipstream.downloading.v1.WantedChange
+	0,  // 30: slipstream.downloading.v1.TorrentReport.run:type_name -> slipstream.downloading.v1.Wanted
+	0,  // 31: slipstream.downloading.v1.WantedChange.from:type_name -> slipstream.downloading.v1.Wanted
+	0,  // 32: slipstream.downloading.v1.WantedChange.to:type_name -> slipstream.downloading.v1.Wanted
+	7,  // 33: slipstream.downloading.v1.TrackerLine.status:type_name -> slipstream.downloading.v1.TrackerStatus
+	35, // 34: slipstream.downloading.v1.Completion.files:type_name -> slipstream.downloading.v1.File
+	8,  // 35: slipstream.downloading.v1.Fault.kind:type_name -> slipstream.downloading.v1.FaultKind
+	38, // 36: slipstream.downloading.v1.Totals.rows:type_name -> slipstream.downloading.v1.TotalsRow
+	16, // 37: slipstream.downloading.v1.TestClientRequest.client:type_name -> slipstream.downloading.v1.Client
+	19, // 38: slipstream.downloading.v1.TestClientRequest.secrets:type_name -> slipstream.downloading.v1.Secrets
+	42, // 39: slipstream.downloading.v1.TestClientResponse.passed:type_name -> slipstream.downloading.v1.Passed
+	26, // 40: slipstream.downloading.v1.TestClientResponse.failed:type_name -> slipstream.downloading.v1.Problem
+	9,  // 41: slipstream.downloading.v1.Passed.warnings:type_name -> slipstream.downloading.v1.Warning
+	18, // 42: slipstream.downloading.v1.Passed.daemons:type_name -> slipstream.downloading.v1.Daemon
+	47, // 43: slipstream.downloading.v1.ResolveResponse.searching:type_name -> slipstream.downloading.v1.Searching
+	48, // 44: slipstream.downloading.v1.ResolveResponse.unresolved:type_name -> slipstream.downloading.v1.Unresolved
+	49, // 45: slipstream.downloading.v1.ResolveResponse.held:type_name -> slipstream.downloading.v1.Held
+	50, // 46: slipstream.downloading.v1.ResolveResponse.not_taking:type_name -> slipstream.downloading.v1.NotTaking
+	10, // 47: slipstream.downloading.v1.Unresolved.reason:type_name -> slipstream.downloading.v1.UnresolvedReason
+	55, // 48: slipstream.downloading.v1.WatchResponse.rows:type_name -> slipstream.downloading.v1.Live
+	58, // 49: slipstream.downloading.v1.InspectResponse.files:type_name -> slipstream.downloading.v1.FileProgress
+	59, // 50: slipstream.downloading.v1.InspectResponse.trackers:type_name -> slipstream.downloading.v1.TrackerDetail
+	7,  // 51: slipstream.downloading.v1.TrackerDetail.status:type_name -> slipstream.downloading.v1.TrackerStatus
+	11, // 52: slipstream.downloading.v1.ActRequest.act:type_name -> slipstream.downloading.v1.Act
+	62, // 53: slipstream.downloading.v1.ActResponse.results:type_name -> slipstream.downloading.v1.ActResult
+	12, // 54: slipstream.downloading.v1.ActResult.refused:type_name -> slipstream.downloading.v1.Refusal
+	65, // 55: slipstream.downloading.v1.FreesResponse.freed:type_name -> slipstream.downloading.v1.Freed
+	38, // 56: slipstream.downloading.v1.TorrentResponse.baseline:type_name -> slipstream.downloading.v1.TotalsRow
+	4,  // 57: slipstream.downloading.v1.TorrentResponse.origin:type_name -> slipstream.downloading.v1.Origin
+	19, // 58: slipstream.downloading.v1.ClientSecretsResponse.secrets:type_name -> slipstream.downloading.v1.Secrets
+	53, // 59: slipstream.downloading.v1.DownloadingService.Watch:input_type -> slipstream.downloading.v1.WatchRequest
+	56, // 60: slipstream.downloading.v1.DownloadingService.Inspect:input_type -> slipstream.downloading.v1.InspectRequest
+	60, // 61: slipstream.downloading.v1.DownloadingService.Act:input_type -> slipstream.downloading.v1.ActRequest
+	63, // 62: slipstream.downloading.v1.DownloadingService.Frees:input_type -> slipstream.downloading.v1.FreesRequest
+	51, // 63: slipstream.downloading.v1.DownloadingService.Sample:input_type -> slipstream.downloading.v1.SampleRequest
+	45, // 64: slipstream.downloading.v1.DownloadingService.Resolve:input_type -> slipstream.downloading.v1.ResolveRequest
+	40, // 65: slipstream.downloading.v1.DownloadingService.TestClient:input_type -> slipstream.downloading.v1.TestClientRequest
+	43, // 66: slipstream.downloading.v1.DownloadingService.CheckClients:input_type -> slipstream.downloading.v1.CheckClientsRequest
+	66, // 67: slipstream.downloading.v1.DownloadingControlService.Torrent:input_type -> slipstream.downloading.v1.TorrentRequest
+	68, // 68: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:input_type -> slipstream.downloading.v1.ClientSecretsRequest
+	54, // 69: slipstream.downloading.v1.DownloadingService.Watch:output_type -> slipstream.downloading.v1.WatchResponse
+	57, // 70: slipstream.downloading.v1.DownloadingService.Inspect:output_type -> slipstream.downloading.v1.InspectResponse
+	61, // 71: slipstream.downloading.v1.DownloadingService.Act:output_type -> slipstream.downloading.v1.ActResponse
+	64, // 72: slipstream.downloading.v1.DownloadingService.Frees:output_type -> slipstream.downloading.v1.FreesResponse
+	52, // 73: slipstream.downloading.v1.DownloadingService.Sample:output_type -> slipstream.downloading.v1.SampleResponse
+	46, // 74: slipstream.downloading.v1.DownloadingService.Resolve:output_type -> slipstream.downloading.v1.ResolveResponse
+	41, // 75: slipstream.downloading.v1.DownloadingService.TestClient:output_type -> slipstream.downloading.v1.TestClientResponse
+	44, // 76: slipstream.downloading.v1.DownloadingService.CheckClients:output_type -> slipstream.downloading.v1.CheckClientsResponse
+	67, // 77: slipstream.downloading.v1.DownloadingControlService.Torrent:output_type -> slipstream.downloading.v1.TorrentResponse
+	69, // 78: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:output_type -> slipstream.downloading.v1.ClientSecretsResponse
+	69, // [69:79] is the sub-list for method output_type
+	59, // [59:69] is the sub-list for method input_type
+	59, // [59:59] is the sub-list for extension type_name
+	59, // [59:59] is the sub-list for extension extendee
+	0,  // [0:59] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_downloading_v1_downloading_proto_init() }

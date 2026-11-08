@@ -23,13 +23,19 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
+	"github.com/jatassi/slipstream/internal/torrent/clients/deluge"
+	"github.com/jatassi/slipstream/internal/torrent/clients/qbittorrent"
+	"github.com/jatassi/slipstream/internal/torrent/clients/rtorrent"
 	"github.com/jatassi/slipstream/internal/torrent/clients/transmission"
 	"github.com/jatassi/slipstream/internal/transfers/source"
 )
 
-// openers opens a session with each kind this Node reaches.
+// openers opens a session with each kind.
 var openers = map[clients.Kind]func(clients.Session) clients.Client{
+	clients.QBittorrent:  qbittorrent.Open,
 	clients.Transmission: transmission.Open,
+	clients.Deluge:       deluge.Open,
+	clients.RTorrent:     rtorrent.Open,
 }
 
 var kindFromWire = map[dlv1.Kind]clients.Kind{
@@ -194,8 +200,8 @@ func routesOf(in *dlv1.Intent) *routes {
 	return r
 }
 
-// sync starts an actor for each new client of a kind this Node reaches,
-// hands every other its share, and stops each one the intent dropped.
+// sync starts an actor for each new client, hands every other its share,
+// and stops each one the intent dropped.
 func (n *Node) sync(ctx context.Context, shares map[storage.UUID]external.Share, local *storage.DB[storage.Local], ctl Control, h Holder) {
 	n.mu.Lock()
 	var stopped []*external.Actor
@@ -212,12 +218,7 @@ func (n *Node) sync(ctx context.Context, shares map[storage.UUID]external.Share,
 			continue
 		}
 		kind := kindFromWire[s.Client.GetKind()]
-		open, ok := openers[kind]
-		if !ok {
-			n.cfg.Log.Warn("this Node can't reach a Download Client of this kind yet", "client", s.Client.GetName(), "kind", string(kind))
-			continue
-		}
-		n.actors[id] = external.Start(ctx, n.actorConfig(id, kind, open, local, ctl, h), s)
+		n.actors[id] = external.Start(ctx, n.actorConfig(id, kind, openers[kind], local, ctl, h), s)
 	}
 	n.mu.Unlock()
 	for a, s := range updated {
@@ -483,24 +484,20 @@ func (n *Node) TestClient(ctx context.Context, req *dlv1.TestClientRequest) (*dl
 	if !ok {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "no Download Client kind %v", c.GetKind())
 	}
-	open, ok := openers[kind]
-	if !ok {
-		return nil, rpc.Errorf(rpc.CodeUnimplemented, "this Node can't reach a %s client yet", kind.Facts().Name)
-	}
 	session, label, folders, err := n.draft(kind, c, req.GetSecrets())
 	if err != nil {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
 	}
-	client := open(session)
+	client := openers[kind](session)
 	defer func() { _ = client.Close(context.WithoutCancel(ctx)) }()
 	tested, err := client.Test(ctx, label)
 	if err != nil {
-		return failedTest(err)
+		return failedTest(err, tested.Daemons)
 	}
 	folder := c.GetFolder()
 	if folder == "" {
 		if folder, err = client.DefaultFolder(ctx, label); err != nil {
-			return failedTest(err)
+			return failedTest(err, nil)
 		}
 	}
 	onNode, problem, err := n.judgeFolder(ctx, kind, folders, folder)
@@ -514,9 +511,7 @@ func (n *Node) TestClient(ctx context.Context, req *dlv1.TestClientRequest) (*dl
 	for _, w := range warningsOf(kind, tested, c.GetImportDelaySeconds()) {
 		passed.Warnings = append(passed.Warnings, warningOnWire[w])
 	}
-	for _, d := range tested.Daemons {
-		passed.Daemons = append(passed.Daemons, &dlv1.Daemon{Host: d.Host, Port: int32(d.Port)}) //nolint:gosec // a port fits
-	}
+	passed.Daemons = daemonsOnWire(tested.Daemons)
 	return &dlv1.TestClientResponse{Answer: &dlv1.TestClientResponse_Passed{Passed: passed}}, nil
 }
 
@@ -549,14 +544,24 @@ func (n *Node) draft(kind clients.Kind, c *dlv1.Client, secrets *dlv1.Secrets) (
 	return s, label, folders, nil
 }
 
-// failedTest is a Test that failed with err: a Problem is the Test's
-// answer, any other error the call's.
-func failedTest(err error) (*dlv1.TestClientResponse, error) {
+// failedTest is a Test that failed with err, with the daemons Deluge's web
+// UI lists: a Problem is the Test's answer, any other error the call's.
+func failedTest(err error, daemons []clients.Daemon) (*dlv1.TestClientResponse, error) {
 	p, ok := errors.AsType[*clients.Problem](err)
 	if !ok {
 		return nil, rpc.Errorf(rpc.CodeUnavailable, "test the client: %v", err)
 	}
-	return &dlv1.TestClientResponse{Answer: &dlv1.TestClientResponse_Failed{Failed: external.ProblemOnWire(p)}}, nil
+	failed := external.ProblemOnWire(p)
+	failed.Daemons = daemonsOnWire(daemons)
+	return &dlv1.TestClientResponse{Answer: &dlv1.TestClientResponse_Failed{Failed: failed}}, nil
+}
+
+func daemonsOnWire(daemons []clients.Daemon) []*dlv1.Daemon {
+	var out []*dlv1.Daemon
+	for _, d := range daemons {
+		out = append(out, &dlv1.Daemon{Host: d.Host, Port: int32(d.Port)}) //nolint:gosec // a port fits
+	}
+	return out
 }
 
 // judgeFolder is folder, as the client reports it, on this Node, or the

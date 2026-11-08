@@ -118,6 +118,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
+		Sealer: lib.sealer,
 		Roster: openedRoster{&side},
 		Uses:   grabs.TorrentUses{},
 		Live: downloadclients.LiveConfig{
@@ -437,6 +438,10 @@ func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
 func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
 
 func (r openedRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Serving(name) }
+
+func (r openedRoster) Holds(name role.Name, node role.NodeID) bool {
+	return (*r.side).Holds(name, node)
+}
 
 // today is the time now in the Controller's zone.
 func (n *Node) today() time.Time {

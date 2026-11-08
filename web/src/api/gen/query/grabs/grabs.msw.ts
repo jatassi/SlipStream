@@ -16,6 +16,19 @@ export const getListGrabsResponseMock = (
 ): GrabsGrabList => ({
   grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    downloadClient: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        kind: faker.helpers.arrayElement([
+          "qbittorrent",
+          "transmission",
+          "deluge",
+          "rtorrent",
+        ] as const),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? {
@@ -32,7 +45,6 @@ export const getListGrabsResponseMock = (
               "torrent_invalid",
               "infohash_mismatch",
               "torrent_v2_only",
-              "no_download_client",
               "download_failed",
               "removed",
               "no_video_file",
@@ -148,6 +160,19 @@ export const getGetGrabResponseMock = (
   overrideResponse: Partial<Extract<GrabsGrab, object>> = {},
 ): GrabsGrab => ({
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  downloadClient: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.helpers.arrayElement([
+        "qbittorrent",
+        "transmission",
+        "deluge",
+        "rtorrent",
+      ] as const),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean()
     ? {
@@ -164,7 +189,6 @@ export const getGetGrabResponseMock = (
             "torrent_invalid",
             "infohash_mismatch",
             "torrent_v2_only",
-            "no_download_client",
             "download_failed",
             "removed",
             "no_video_file",
@@ -280,6 +304,19 @@ export const getListIndexerGrabsResponseMock = (
 ): GrabsIndexerGrabList => ({
   grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    downloadClient: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        kind: faker.helpers.arrayElement([
+          "qbittorrent",
+          "transmission",
+          "deluge",
+          "rtorrent",
+        ] as const),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? {
@@ -296,7 +333,6 @@ export const getListIndexerGrabsResponseMock = (
               "torrent_invalid",
               "infohash_mismatch",
               "torrent_v2_only",
-              "no_download_client",
               "download_failed",
               "removed",
               "no_video_file",
@@ -578,6 +614,25 @@ export const getGetGrabMockHandler = (
   );
 };
 
+export const getSendGrabToMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/grabs/:grabId/send-to",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
 export const getListIndexerGrabsMockHandler = (
   overrideResponse?:
     | GrabsIndexerGrabList
@@ -652,6 +707,7 @@ export const getListSearchesMockHandler = (
 export const getGrabsMock = () => [
   getListGrabsMockHandler(),
   getGetGrabMockHandler(),
+  getSendGrabToMockHandler(),
   getListIndexerGrabsMockHandler(),
   getSearchWorkMockHandler(),
   getListSearchesMockHandler(),

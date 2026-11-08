@@ -52,6 +52,35 @@ const shared: DownloadclientsPreview = {
   linked: false,
 };
 
+test("removing a torrent SlipStream attached to stops tracking it and offers no delete", async () => {
+  const attached = torrent({
+    state: "seeding",
+    tabs: ["seeding", "all"],
+    workId: harvestId,
+    name: "Orchard.Harvest.2019.720p.HDTV",
+    clientId: "7d3f9b1e-5a2c-4e8f-b6d0-1c3e5a7f9b2d",
+    clientName: "Transmission",
+    clientKind: "transmission",
+    attached: true,
+    deleteFiles: false,
+  });
+  const actions = actionsServer();
+  open([attached], actions);
+  await removeFromMenu("Orchard Harvest");
+  const dialog = page.getByRole("dialog", { name: "Remove Orchard Harvest?" });
+  await expect
+    .element(
+      dialog.getByText(
+        "SlipStream stops tracking it and leaves it in Transmission. Files in your library stay.",
+      ),
+    )
+    .toBeVisible();
+  await expect.element(dialog.getByRole("checkbox")).not.toBeInTheDocument();
+  await userEvent.click(dialog.getByRole("button", { name: "Stop tracking" }));
+  await expect.element(dialog).not.toBeInTheDocument();
+  expect(actions.bodies.at(-1)).toEqual({ action: "remove", ids: [attached.id] });
+});
+
 test("remove names the torrent, keeps library files, and lists what it takes with it", async () => {
   const actions = actionsServer({ preview: shared });
   open([orchard, harvest], actions);

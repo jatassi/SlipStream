@@ -54,7 +54,9 @@ type Client interface {
 	// Test signs in, reads the version and checks what only the product
 	// can say: that label can be used, and the warnings. It changes
 	// nothing in the client. A version under the kind's Floor is a Problem
-	// with Cause VersionTooOld.
+	// with Cause VersionTooOld. A Deluge Test that fails with DaemonNeeded
+	// or WrongDaemon still answers Tested.Daemons, for the Admin to choose
+	// from.
 	Test(ctx context.Context, label Label) (Tested, error)
 	// Version is the product's version, read at the last sign-in.
 	Version(ctx context.Context) (Version, error)
@@ -63,7 +65,10 @@ type Client interface {
 	DefaultFolder(ctx context.Context, label Label) (string, error)
 	// Add sends a .torrent's bytes. A torrent already in the client is
 	// nil: the next poll resolves it. Add creates the label first where
-	// the kind needs one (qBittorrent's category, Deluge's label).
+	// the kind needs one (qBittorrent's category, Deluge's label). Deluge
+	// sets the label in a call of its own, so an Add of a torrent already
+	// there sets a label it lacks. The Node heals a torrent it added whose
+	// Status.Label is not the label by sending the Add again.
 	Add(ctx context.Context, a Add) error
 	// Poll is the status of each of hashes the client lists. A hash it
 	// doesn't list is missing from the map. A session to the wrong Deluge
@@ -73,7 +78,8 @@ type Client interface {
 	Files(ctx context.Context, h bencode.InfoHash) ([]File, error)
 	Act(ctx context.Context, a Act, hashes []bencode.InfoHash) error
 	// Remove removes one torrent, deleting its data when data is set and
-	// the kind DeletesData.
+	// the kind DeletesData. A kind that doesn't removes the torrent only,
+	// and the Node deletes its files.
 	Remove(ctx context.Context, h bencode.InfoHash, data bool) error
 	// Close signs out where the kind has a sign-out, and drops the session.
 	Close(ctx context.Context) error
