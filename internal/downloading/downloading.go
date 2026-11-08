@@ -89,6 +89,33 @@ type Timings struct {
 	// ResolveKeep is how long a found info dictionary stays for a Resolve
 	// call whose answer was lost.
 	ResolveKeep time.Duration `yaml:"resolve_keep"`
+	// ClientRetryMin and ClientRetryMax bound the backoff of an external
+	// client that isn't responding.
+	ClientRetryMin time.Duration `yaml:"client_retry_min"`
+	ClientRetryMax time.Duration `yaml:"client_retry_max"`
+	// ClientRefusedRetry is how often a client with no lockout is tried
+	// again after it refused the sign-in.
+	ClientRefusedRetry time.Duration `yaml:"client_refused_retry"`
+	// ClientGrace is how long a client may fail to respond before it
+	// counts as not responding.
+	ClientGrace time.Duration `yaml:"client_grace"`
+	// ClientResendWait is how long a torrent sent to a client may go
+	// unlisted before it is sent once more.
+	ClientResendWait time.Duration `yaml:"client_resend_wait"`
+	// ClientMissingShare is the percent of the listed torrents that,
+	// absent from one poll together, mark nothing removed and put the
+	// client in needs attention. ClientMissingFloor is the fewest absent
+	// that can.
+	ClientMissingShare int `yaml:"client_missing_share"`
+	ClientMissingFloor int `yaml:"client_missing_floor"`
+	// ClientTrackers is the least time between two reads of one torrent's
+	// tracker messages, for a kind that reads them apart from its status.
+	ClientTrackers time.Duration `yaml:"client_trackers"`
+	// ClientCall bounds one call to a client.
+	ClientCall time.Duration `yaml:"client_call"`
+	// ClientLiveFloor is the shortest gap between two polls of one client
+	// while an Admin watches.
+	ClientLiveFloor time.Duration `yaml:"client_live_floor"`
 }
 
 func DefaultTimings() Timings {
@@ -96,6 +123,9 @@ func DefaultTimings() Timings {
 		Facts: time.Second, AnnounceFloor: 5 * time.Minute, ResumeSave: 5 * time.Minute, ShutdownSave: 15 * time.Second,
 		StartSpread: 2 * time.Minute, AnnounceJitter: 3 * time.Minute, TotalsReport: 5 * time.Minute, LiveSample: time.Second, RouteCheck: 30 * time.Second,
 		ResolveHold: 20 * time.Second, ResolveLease: 2 * time.Minute, ResolveKeep: 2 * time.Minute,
+		ClientRetryMin: 5 * time.Second, ClientRetryMax: 5 * time.Minute, ClientRefusedRetry: 30 * time.Minute,
+		ClientGrace: time.Minute, ClientResendWait: 2 * time.Minute, ClientMissingShare: 50, ClientMissingFloor: 3,
+		ClientTrackers: time.Minute, ClientCall: 30 * time.Second, ClientLiveFloor: 2 * time.Second,
 	}
 }
 

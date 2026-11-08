@@ -447,6 +447,30 @@ func TestCheckForAClientFolder(t *testing.T) {
 	}
 }
 
+func TestAClientFolderTheNodeDeletesFromMustBeWritable(t *testing.T) {
+	d := newTestDisk(t)
+	base := t.TempDir()
+	writable := dir(t, base, "writable")
+	readOnly := dir(t, base, "read-only")
+	d.flag(d.readOnly, readOnly)
+	s := newStore(d)
+	running(t, s, intentOf()).next(t)
+	if got, err := s.JudgeClientFolder(t.Context(), readOnly, true); err != nil || got.Refusal == nil || got.Refusal.Reason != ReasonUnwritable {
+		t.Errorf("read-only, write = %+v, %v, want %v", got, err, ReasonUnwritable)
+	}
+	for name, c := range map[string]struct {
+		path  string
+		write bool
+	}{"writable": {writable, true}, "read-only, no write": {readOnly, false}} {
+		if got, err := s.JudgeClientFolder(t.Context(), c.path, c.write); err != nil || got.Refusal != nil {
+			t.Errorf("%s: JudgeClientFolder = %+v, %v, want usable", name, got, err)
+		}
+		if es, _ := os.ReadDir(c.path); len(es) != 0 {
+			t.Errorf("%s: left %d entries in the folder, want none", name, len(es))
+		}
+	}
+}
+
 func TestVerifyFindsMissingFilesInBatches(t *testing.T) {
 	d := newTestDisk(t)
 	folder := t.TempDir()

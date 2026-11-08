@@ -666,6 +666,9 @@ enum Refusal {
   REFUSAL_WINDOW = 3;
   // REFUSAL_FAILED is a recheck of a torrent the engine failed.
   REFUSAL_FAILED = 4;
+  // REFUSAL_CLIENT_AWAY is a torrent of an external client whose polls
+  // don't succeed now.
+  REFUSAL_CLIENT_AWAY = 5;
 }
 
 message FreesRequest {
