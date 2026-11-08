@@ -49,6 +49,29 @@ func (sessions) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine, 
 	}
 }
 
+// Fail moves the release's folder away and has a session of its own
+// download from e, so e's read of a piece for that peer fails.
+func (sessions) Fail(t *testing.T, e engine.Engine, _ engine.Handle, meta []byte, dir string) func() {
+	away := dir + ".away"
+	if err := os.Rename(dir, away); err != nil {
+		t.Fatal(err)
+	}
+	leecher := open(t)
+	h := started(t, leecher, engine.AddParams{Metainfo: meta, SavePath: t.TempDir()})
+	addr, err := e.ListenAddr()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := leecher.ConnectPeer(h, addr); err != nil {
+		t.Fatal(err)
+	}
+	return func() {
+		if err := os.Rename(away, dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func (sessions) TakePort(t *testing.T) netip.AddrPort {
 	l, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
