@@ -47,6 +47,7 @@
 //	Capabilities.Categories.MapTorznabCapsToTrackers(cats)   ix.Categories.TrackerIDs(q.Categories)
 //	_categories.MapTrackerCatToNewznab(id) ix.Categories.FromTracker(id)
 //	MapTrackerCatDescToNewznab(desc)       ix.Categories.FromDesc(desc)
+//	Categories.GetTrackerCategories()      ix.Categories.TrackerCategories()
 //	searchCriteria.SanitizedSearchTerm     q.SanitizedSearchTerm()
 //	searchCriteria.SanitizedTvSearchString q.SanitizedTvSearchString()
 //	searchCriteria.FullImdbId              q.FullImdbID()
