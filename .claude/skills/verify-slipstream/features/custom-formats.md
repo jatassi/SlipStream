@@ -7,7 +7,7 @@ An Admin reads what SlipStream reads from release names and steers which Release
 - `formats-paste-trash` pasting TRaSH Guides' `FLUX` format, which names no app, asks `Say whether this was written for Radarr or Sonarr.`; with `Radarr` the preview reads `Read as Radarr formats.` and `Add 1 Custom Format` lists `FLUX` with `Matches a Release when its release group matches "^(FLUX)$".` and `Radarr` (P-358).
 - `formats-score` the `1080p` Target's `Scores` region takes `FLUX score` 51 and `Upgrade until` 51, the `Grabs` sentence ends `and a score of 51, then stops.`, and the save has no Impact (P-358).
 - `formats-grab-changes` with FLUX's WEB-DL listed beside FKW's, the first search, before the score, grabs FKW's (12 seeders) and lists FLUX's as outranked at seeders, `3` against `12`; after the score, the next search grabs FLUX's at Score 51 and refuses FKW's held release with `not_an_upgrade` (P-071, P-072, P-128).
-- `formats-releases-list` the Work page's search lists its Releases under Details: the grabbed one first with `Grabbed for 1080p`, each in words such as `WEBDL-1080p · DD+ 5.1 · FLUX` with the raw title under it, and an outranked one with its lost-at sentence (P-071).
+- `formats-releases-list` the Work page's search lists its Releases under `Details`: the grabbed one first with `Grabbed for 1080p.`, each in words such as `WEBDL-1080p · DD+ 5.1 · FLUX` with the raw title under it, FLUX's outranked one with `It has 3 seeders. The grabbed Release has 12 seeders.`, and each one's `Open in tester` opens the `Tester` dialog over the Work page with its title, judged against the Work (P-071).
 - `formats-wrong-title` an untagged Bluray whose name gives 1987 is refused as `wrong_title` with the value `The Quiet Orchard (1987)`, though it ranks first, and the search grabs the WEB-DL (P-129).
 - `formats-repack` with FKW's WEB-DL held at both Targets, a search grabs FKW's REPACK, refuses NTb's REPACK with `repack_other_group` at each Target, and the REPACK replaces the held file at the same path (P-072).
 - `formats-freeleech` with a freeleech WEB-DL of 2 seeders listed beside FKW's of 12, the search grabs the freeleech one and FKW's lost at freeleech, `1` against `0` (P-071).
@@ -15,9 +15,9 @@ An Admin reads what SlipStream reads from release names and steers which Release
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `Settings`, then `Custom Formats` under Files to keep, `/settings/custom-formats`. `Paste` opens `Paste Custom Formats`, `New Custom Format` opens `/settings/custom-formats/new`, and a format's name opens `/settings/custom-formats/<id>`. The tester sits at the top of the section. The Target editor's `Scores` region and `Propers and repacks` choice are on `/settings/targets/<id>`.
+- Desktop shell: the sidebar's `Settings`, then `Custom Formats` under Files to keep, `/settings/custom-formats`. `Paste` opens `Paste Custom Formats`, `New Custom Format` opens `/settings/custom-formats/new`, and a format's name opens `/settings/custom-formats/<id>`. The `Tester` region sits under the section's intro, above `New Custom Format` and `Paste`. A format editor's `Try it` and a Release's `Open in tester` open the same tester as the `Tester` dialog. The Target editor's `Scores` region and `Propers and repacks` choice are on `/settings/targets/<id>`.
 - Phone shell: `More`, then `Settings`, then `Custom Formats`; the editor and the paste dialog are pushed pages.
-- The Work page: each Item's latest search, under `Details`, `Releases`.
+- The Work page: the `Searches` list, where each Item's latest search lists its `Releases` under its `Details`.
 - API (Admin): `GET`, `POST /api/v1/custom-formats`, `GET /api/v1/custom-formats/schema`, `GET`, `PUT`, `DELETE /api/v1/custom-formats/{formatId}`, `POST /api/v1/custom-formats/{formatId}/duplicate`, `POST /api/v1/custom-formats/paste`, `POST /api/v1/releases/parse`, `PUT /api/v1/targets/{targetId}` with `scores` and `propers`, `GET /api/v1/searches/{searchId}/releases`.
 
 ## Driving it with fakeworld, playwright cli and curl
@@ -63,12 +63,15 @@ Steps:
   $FW exec $RUN --proof custom-formats/formats-grab-changes -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/searches/$S1/releases"
   ```
 
-- **Read the Releases list.** Open the search's `Details`, then `Releases`. The grabbed Release leads with `Grabbed for 1080p` and its facts in words, and FLUX's reads `WEBDL-1080p · DD+ 5.1 · FLUX` with its raw title under it and the step it lost at.
+- **Read the Releases list.** Open the search's `Details`, which loads its `Releases` list. The grabbed Release comes first with its facts in words and `Grabbed for 1080p.`, and FLUX's reads `WEBDL-1080p · DD+ 5.1 · FLUX` with its raw title under it and `It has 3 seeders. The grabbed Release has 12 seeders.` FLUX's `Open in tester` opens the `Tester` dialog over the Work page, its `Release names` filled with FLUX's title and `Each name is judged against The Quiet Orchard.` under it.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Searches" }).getByRole("button", { name: "Details" }).first()'
   $FW exec $RUN --proof custom-formats/formats-releases-list -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/custom-formats/formats-releases-list/releases.aria.yml
   $FW exec $RUN --proof custom-formats/formats-releases-list -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/custom-formats/formats-releases-list/releases.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Releases" }).getByRole("listitem").filter({ hasText: "FLUX" }).first().getByRole("button", { name: "Open in tester" })'
+  $FW exec $RUN --proof custom-formats/formats-releases-list -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/custom-formats/formats-releases-list/tester.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
   ```
 
 - **Score FLUX at `1080p`.** Open the `1080p` Target, open `Scores`' `Details`, set `FLUX score` to 51 and `Upgrade until` to 51, and save. The `Grabs` sentence ends `and a score of 51, then stops.`, and `Saved 1080p.` shows with no Impact.
@@ -94,10 +97,12 @@ Steps:
   $FW exec $RUN --proof custom-formats/formats-grab-changes -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H264-FLUX
   ```
 
-- **Try names in the tester.** Paste the Dolby Vision name and the 1987 Bluray into the tester and run it. The first reads as WEBDL-1080p from FLUX, matches The Quiet Orchard and would fill `1080p` at Score 51. The second matches no Work.
+- **Try names in the tester.** Paste the Dolby Vision name and the 1987 Bluray into the `Tester` region's `Release names` and choose `Test`. The first reads as WEBDL-1080p from FLUX, matches The Quiet Orchard and would fill `1080p` at Score 51. The second matches no Work.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/custom-formats'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("region", { name: "Tester" }).getByRole("textbox", { name: "Release names" })' "$(printf '%s\n%s' The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.Atmos.DV.HDR10.x265-FLUX The.Quiet.Orchard.1987.1080p.BluRay.x264-FKW)"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Tester" }).getByRole("button", { name: "Test", exact: true })'
   $FW exec $RUN --proof custom-formats/formats-tester -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"names":["The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.Atmos.DV.HDR10.x265-FLUX","The.Quiet.Orchard.1987.1080p.BluRay.x264-FKW"]}' '{nodes.home.url}/api/v1/releases/parse'
   $FW exec $RUN --proof custom-formats/formats-tester -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/custom-formats/formats-tester/section.png
   ```
