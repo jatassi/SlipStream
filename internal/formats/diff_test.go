@@ -71,7 +71,7 @@ func TestDiffFlipsEachFormatOfOneChangeOnItsOwn(t *testing.T) {
 	dv := format(2, formats.Radarr, title(`\bDV\b`))
 	widened := format(2, formats.Radarr, title(`\b(DV|HDR)\b`))
 	e := formats.Diff([]formats.Versions{{Before: &hdr}, {Before: &dv, After: &widened}, {After: &hdr}}, limit)
-	got := e.Match(release.Read{Given: "Film.2160p.HDR"})
+	got := e.Match(release.Read{Release: "Film.2160p.HDR"})
 	want := []formats.Flip{{Before: true}, {After: true}, {After: true}}
 	if len(got) != len(want) {
 		t.Fatalf("Match = %+v, want %+v", got, want)

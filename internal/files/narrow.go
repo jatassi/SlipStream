@@ -163,7 +163,7 @@ func (f *Files) originals(ctx context.Context, r storage.Reader[file], ws []work
 // condition tests its release name, and an unknown language reads as the
 // Work's original.
 func asNamed(title release.Read, name string, original release.Fact[release.Language]) release.Read {
-	title.Given = name
+	title.Release = name
 	title.Facts.Coverage.Original = original
 	return title
 }
