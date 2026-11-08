@@ -12,6 +12,9 @@ type regexDecl struct {
 	replace bool
 	array   bool
 	items   []regexItem
+	// list, when set, makes the declaration a []string table of a
+	// field's string literals instead of a pattern.
+	list []string
 }
 
 type regexItem struct {

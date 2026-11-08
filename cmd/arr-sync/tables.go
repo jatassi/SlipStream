@@ -51,6 +51,34 @@ func patternTables(t *tree, p pins, cos map[string]checkout) (map[string]int, er
 
 type tableKey struct{ owner, from, file string }
 
+// readStrings reads the string literals in the initializer of field
+// name: "name = new HashSet<string> { ".a", ".b" }", or a Dictionary's
+// keys, whose values aren't strings.
+func readStrings(s *source, name string) ([]string, error) {
+	c := &cursor{source: s}
+	for c.i < len(c.toks) && (!c.is(0, name) || !c.is(1, "=") && !c.is(1, "=>")) {
+		c.i++
+	}
+	for c.i < len(c.toks) && !c.is(0, "{") {
+		c.i++
+	}
+	if c.i >= len(c.toks) {
+		return nil, s.errorf(0, "no field %s with an initializer", name)
+	}
+	start := c.i
+	c.skipBalanced()
+	var list []string
+	for _, t := range c.toks[start:c.i] {
+		if t.kind == tString {
+			list = append(list, t.text)
+		}
+	}
+	if len(list) == 0 {
+		return nil, s.errorf(c.toks[start].line, "field %s lists no strings", name)
+	}
+	return list, nil
+}
+
 func groupPatterns(groups map[tableKey][]regexDecl, counts map[string]int, pf patternFile, co checkout) error {
 	s, err := co.source(pf.File)
 	if err != nil {
@@ -59,6 +87,13 @@ func groupPatterns(groups map[tableKey][]regexDecl, counts map[string]int, pf pa
 	decls, err := readRegexes(s, pf.Skip)
 	if err != nil {
 		return err
+	}
+	for _, name := range pf.Strings {
+		list, err := readStrings(s, name)
+		if err != nil {
+			return err
+		}
+		decls = append(decls, regexDecl{name: name, list: list})
 	}
 	seen := map[string]bool{}
 	for _, d := range decls {
@@ -87,6 +122,14 @@ func writeDecl(b *strings.Builder, p pins, owner, app, file string, d regexDecl)
 	ident := goIdent(app, stem(file), d.name)
 	if isCore(owner) {
 		ident = coreIdent(p.CoreWords, ident)
+	}
+	if d.list != nil {
+		quoted := make([]string, len(d.list))
+		for i, v := range d.list {
+			quoted[i] = strconv.Quote(v)
+		}
+		fmt.Fprintf(b, "\t%s = []string{%s}\n", ident, strings.Join(quoted, ", "))
+		return
 	}
 	elem := "Pattern"
 	if d.replace {

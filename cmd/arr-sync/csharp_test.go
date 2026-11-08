@@ -131,3 +131,32 @@ func mustJSON(t *testing.T, v any) string {
 	}
 	return string(b)
 }
+
+func TestReadStrings(t *testing.T) {
+	const src = `public static class MediaFileExtensions
+{
+    private static readonly HashSet<string> Usenet = new HashSet<string>() { ".par2", ".nzb" };
+    private static readonly Dictionary<string, Quality> Video = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Unknown
+        { ".webm", Quality.Unknown },
+        { ".mkv", Quality.HDTV720p },
+    };
+}`
+	s, err := lex("MediaFileExtensions.cs", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{"Usenet": `[".par2",".nzb"]`, "Video": `[".webm",".mkv"]`} {
+		got, err := readStrings(s, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a := mustJSON(t, got); a != want {
+			t.Errorf("%s read %s, want %s", name, a, want)
+		}
+	}
+	if _, err := readStrings(s, "Missing"); err == nil {
+		t.Error("a field the file doesn't declare read without error")
+	}
+}

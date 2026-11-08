@@ -9,6 +9,8 @@
       "paths": [
         "/LICENSE.md",
         "/src/NzbDrone.Core/Parser/",
+        "/src/NzbDrone.Core/MediaFiles/FileExtensions.cs",
+        "/src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs",
         "/src/NzbDrone.Core/Qualities/QualitySource.cs",
         "/src/NzbDrone.Core/Languages/Language.cs",
         "/src/NzbDrone.Core/CustomFormats/",
@@ -119,6 +121,22 @@
       "from": "sonarr",
       "file": "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs",
       "owner": "internal/release"
+    },
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/MediaFiles/FileExtensions.cs",
+      "owner": "internal/release",
+      "strings": [
+        "UsenetExtensions"
+      ]
+    },
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs",
+      "owner": "internal/release",
+      "strings": [
+        "FileExtensions"
+      ]
     },
     {
       "from": "radarr",
@@ -363,7 +381,9 @@
         "sonarr:src/NzbDrone.Core/Parser/Parser.cs",
         "radarr:src/NzbDrone.Core/Parser/Parser.cs",
         "sonarr:src/NzbDrone.Core/Parser/ParserCommon.cs",
-        "radarr:src/NzbDrone.Core/Parser/ParserCommon.cs"
+        "radarr:src/NzbDrone.Core/Parser/ParserCommon.cs",
+        "sonarr:src/NzbDrone.Core/MediaFiles/FileExtensions.cs",
+        "sonarr:src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
       ],
       "read_quality.go": [
         "sonarr:src/NzbDrone.Core/Parser/QualityParser.cs",
