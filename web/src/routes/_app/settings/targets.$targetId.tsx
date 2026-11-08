@@ -10,7 +10,7 @@ import {
   useGetTargetSuspense,
   useListQualitiesSuspense,
 } from "../../../api/gen/query/targets/targets";
-import { ensureQuery } from "../../../api/query-client";
+import { ensureQuery, freshQuery } from "../../../api/query-client";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { SavedTargetEditor } from "../../../targets/target-editor";
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/settings/targets/$targetId")({
   staticData: { title: loaderTitle },
   loader: async ({ context, params: { targetId } }) => {
     const [target] = await Promise.all([
-      ensureQuery(context.queryClient, getGetTargetSuspenseQueryOptions(targetId)),
+      freshQuery(context.queryClient, getGetTargetSuspenseQueryOptions(targetId)),
       ensureQuery(context.queryClient, getListQualitiesSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getListCustomFormatsSuspenseQueryOptions()),
     ]);
