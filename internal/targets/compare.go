@@ -3,9 +3,7 @@ package targets
 import (
 	"cmp"
 	"fmt"
-	"slices"
 	"strconv"
-	"strings"
 )
 
 // Step is one step of a Target's order, which fills and ranking share.
@@ -60,13 +58,7 @@ func (t Target) Value(s Step, a Scored) string {
 		q, _ := a.Facts.Quality.Get()
 		return q.Info().Name
 	case ByRevision:
-		r := a.Facts.Revision
-		words := slices.Repeat([]string{"REAL"}, r.Real)
-		words = append(words, "v"+strconv.Itoa(max(r.Version, 1)))
-		if r.Repack {
-			words = append(words, "REPACK")
-		}
-		return strings.Join(words, " ")
+		return a.Facts.Revision.String()
 	case ByScore:
 		return strconv.Itoa(t.Score(a))
 	}
