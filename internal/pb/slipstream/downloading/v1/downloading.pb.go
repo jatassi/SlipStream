@@ -2678,8 +2678,13 @@ type TrackerDetail struct {
 	// accepts_at_unix_ms is the earliest the tracker would accept an
 	// announce.
 	AcceptsAtUnixMs int64 `protobuf:"varint,7,opt,name=accepts_at_unix_ms,json=acceptsAtUnixMs,proto3" json:"accepts_at_unix_ms,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// seeders and leechers are the counts the tracker's last announce
+	// response carried, unset while none did. Only Inspect carries them, so
+	// an announce changes no report.
+	Seeders       *int32 `protobuf:"varint,8,opt,name=seeders,proto3,oneof" json:"seeders,omitempty"`
+	Leechers      *int32 `protobuf:"varint,9,opt,name=leechers,proto3,oneof" json:"leechers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TrackerDetail) Reset() {
@@ -2757,6 +2762,20 @@ func (x *TrackerDetail) GetMinIntervalSeconds() int64 {
 func (x *TrackerDetail) GetAcceptsAtUnixMs() int64 {
 	if x != nil {
 		return x.AcceptsAtUnixMs
+	}
+	return 0
+}
+
+func (x *TrackerDetail) GetSeeders() int32 {
+	if x != nil && x.Seeders != nil {
+		return *x.Seeders
+	}
+	return 0
+}
+
+func (x *TrackerDetail) GetLeechers() int32 {
+	if x != nil && x.Leechers != nil {
+		return *x.Leechers
 	}
 	return 0
 }
@@ -3358,7 +3377,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x13announce_at_unix_ms\x18\x03 \x01(\x03R\x10announceAtUnixMs\"8\n" +
 	"\fFileProgress\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x12\n" +
-	"\x04done\x18\x02 \x01(\x03R\x04done\"\xc2\x02\n" +
+	"\x04done\x18\x02 \x01(\x03R\x04done\"\x9b\x03\n" +
 	"\rTrackerDetail\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12@\n" +
 	"\x06status\x18\x02 \x01(\x0e2(.slipstream.downloading.v1.TrackerStatusR\x06status\x12\x18\n" +
@@ -3366,7 +3385,12 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x13answered_at_unix_ms\x18\x04 \x01(\x03R\x10answeredAtUnixMs\x121\n" +
 	"\x15next_announce_unix_ms\x18\x05 \x01(\x03R\x12nextAnnounceUnixMs\x120\n" +
 	"\x14min_interval_seconds\x18\x06 \x01(\x03R\x12minIntervalSeconds\x12+\n" +
-	"\x12accepts_at_unix_ms\x18\a \x01(\x03R\x0facceptsAtUnixMs\"P\n" +
+	"\x12accepts_at_unix_ms\x18\a \x01(\x03R\x0facceptsAtUnixMs\x12\x1d\n" +
+	"\aseeders\x18\b \x01(\x05H\x00R\aseeders\x88\x01\x01\x12\x1f\n" +
+	"\bleechers\x18\t \x01(\x05H\x01R\bleechers\x88\x01\x01B\n" +
+	"\n" +
+	"\b_seedersB\v\n" +
+	"\t_leechers\"P\n" +
 	"\n" +
 	"ActRequest\x120\n" +
 	"\x03act\x18\x01 \x01(\x0e2\x1e.slipstream.downloading.v1.ActR\x03act\x12\x10\n" +
@@ -3589,6 +3613,7 @@ func file_slipstream_downloading_v1_downloading_proto_init() {
 		(*ResolveResponse_Held)(nil),
 		(*ResolveResponse_NotTaking)(nil),
 	}
+	file_slipstream_downloading_v1_downloading_proto_msgTypes[31].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
