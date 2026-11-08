@@ -1,8 +1,9 @@
 package release
 
 // Title reads a release title: the type's Name, then every core fact.
-// Quality, revision, group, the stream facts and id tags read the whole
-// name; languages, the cut and the edition text read Name.Tail.
+// Quality, revision, the stream facts and id tags read the whole name;
+// the group reads Name.Masked; languages, the cut and the edition text
+// read Name.Tail.
 func Title(name string, names Names, cuts []Cut) Read {
 	p := Prepare(name)
 	var n Name
@@ -14,9 +15,13 @@ func Title(name string, names Names, cuts []Cut) Read {
 	if tail == "" {
 		tail = p.Title.String()
 	}
+	masked := n.Masked
+	if masked == "" {
+		masked = p.Release.String()
+	}
 	f := Facts{
 		Revision:  readRevision(p, s),
-		Group:     readGroup(p, s),
+		Group:     readGroup(masked, s),
 		Cut:       readCut(tail, cuts),
 		Edition:   readEdition(tail),
 		Languages: readLanguages(tail),

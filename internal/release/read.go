@@ -18,10 +18,14 @@ type Name struct {
 	Year   Fact[int]
 	Marks  []Mark
 	Span   Span
-	// Tail is the name after the title, year and numbering. Languages,
-	// the cut and the edition text are read from it. Empty reads the
-	// whole name.
+	// Tail is the name as the type's upstream reads languages, the cut
+	// and the edition text from, with its title out of the way: Sonarr's
+	// ReleaseTokens, Radarr's Masked. Empty reads the whole
+	// name.
 	Tail string
+	// Masked is the name with its title replaced, as Radarr reads the
+	// group from it. Empty reads the whole name, as Sonarr does.
+	Masked string
 }
 
 // Mark is one piece of a type's numbering. Words is how the Admin reads
