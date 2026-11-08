@@ -186,7 +186,7 @@ func TestEachAwayExternalClientIsAHealthErrorAndOneOnAnOfflineNodeIsUnsure(t *te
 		{"a refused sign-in on a kind with a lockout", refused, "Transmission 4K on Media server",
 			"Transmission 4K rejected the saved password. SlipStream stopped checking it to avoid a lockout. Change the password, or select Check now once it's fixed."},
 		{"a refused sign-in on a kind with no lockout", refusedDeluge, "Deluge on Media server",
-			"Deluge rejected the username or password. Check them and test again."},
+			"Deluge rejected the password. Check it and test again."},
 		{"needing attention", blocked, "Transmission anime on Media server",
 			"Transmission anime refused Media server's address. Add it to rpc-whitelist in Transmission anime's settings, then select Check now."},
 	} {
