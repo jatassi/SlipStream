@@ -271,19 +271,24 @@ func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) 
 			if err != nil {
 				return fmt.Errorf("search %s: Release %d: %w", run, row.Position, err)
 			}
-			read := release.Title(l.Title, names, cuts)
-			if l.Size > 0 {
-				read.Facts.Size = release.Known(l.Size)
-			}
-			l.Words = release.Describe(read)
-			for _, r := range reasons {
-				l.Reasons = append(l.Reasons, Worded{Reason: r, Words: reasonWords(r, byID[r.Target], read.Facts)})
-			}
-			out = append(out, l)
+			out = append(out, l.inWords(reasons, release.Title(l.Title, names, cuts), byID))
 		}
 		return nil
 	})
 	return out, err
+}
+
+// inWords is l with its facts, read as rd with its size, and its reasons,
+// at the Targets of byID, in words.
+func (l Listed) inWords(reasons []Reason, rd release.Read, byID map[targets.TargetID]*targets.Target) Listed {
+	if l.Size > 0 {
+		rd.Facts.Size = release.Known(l.Size)
+	}
+	l.Words = release.Describe(rd)
+	for _, r := range reasons {
+		l.Reasons = append(l.Reasons, Worded{Reason: r, Words: reasonWords(r, byID[r.Target], rd.Facts)})
+	}
+	return l
 }
 
 // releaseOf is row as a Listed with no words, and its reasons.
