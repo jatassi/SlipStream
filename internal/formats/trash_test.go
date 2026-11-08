@@ -1,7 +1,6 @@
 package formats_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,17 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
 )
-
-type trashFormat struct {
-	Name           string `json:"name"`
-	Specifications []struct {
-		Name           string          `json:"name"`
-		Implementation string          `json:"implementation"`
-		Negate         bool            `json:"negate"`
-		Required       bool            `json:"required"`
-		Fields         json.RawMessage `json:"fields"`
-	} `json:"specifications"`
-}
 
 var titles = sync.OnceValues(func() ([]release.Read, error) {
 	b, err := os.ReadFile("testdata/titles.txt")
@@ -101,15 +89,14 @@ func readTRaSH(t *testing.T, path string, d formats.Dialect) formats.Format {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var tf trashFormat
-	if err := json.Unmarshal(b, &tf); err != nil {
+	fs, err := formats.Paste(b)
+	if err != nil {
 		t.Fatal(err)
 	}
-	f := formats.Format{ID: formats.ID{1}, Name: tf.Name, Dialect: d, Source: b}
-	for _, s := range tf.Specifications {
-		f.Conditions = append(f.Conditions, formats.Condition{
-			Name: s.Name, Kind: formats.Kind(s.Implementation), Negate: s.Negate, Required: s.Required, Fields: s.Fields,
-		})
+	if app, ok := formats.AppOf(fs); ok && app != d {
+		t.Errorf("AppOf = %s for a %s format", app, d)
 	}
+	f := fs[0]
+	f.ID, f.Dialect = formats.ID{1}, d
 	return f
 }
