@@ -83,6 +83,9 @@ func Scrub(f Fixture) []string {
 	}
 	for _, c := range f.Cases {
 		at := "case " + c.Name
+		for k, v := range sorted(c.Settings) {
+			s.named(at+" settings", userNames, k, v)
+		}
 		if q := c.Call.Search; q != nil {
 			s.title(at+" search", q.Text)
 			for k, v := range sorted(q.IDs) {
@@ -91,18 +94,7 @@ func Scrub(f Fixture) []string {
 		}
 		s.text(at+" fetch", c.Call.Fetch)
 		for i, x := range c.Exchanges {
-			ex := fmt.Sprintf("%s exchange %d", at, i+1)
-			s.text(ex+" path", x.Request.Path)
-			s.text(ex+" rawQuery", x.Request.RawQuery)
-			s.headers(ex+" request", x.Request.Headers)
-			s.headers(ex+" response", x.Response.Headers)
-			for k, v := range sorted(x.Request.Query) {
-				s.named(ex+" query", userNames, k, v)
-			}
-			for k, v := range sorted(x.Request.Form) {
-				s.named(ex+" form", formUserNames, k, v)
-			}
-			s.jsonFields(ex+" json", x.Request.JSON)
+			s.exchange(fmt.Sprintf("%s exchange %d", at, i+1), x)
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(f.Bodies)) {
@@ -123,6 +115,20 @@ func sessions(cs []Case) []*Session {
 }
 
 type scrubber struct{ found []string }
+
+func (s *scrubber) exchange(at string, x Exchange) {
+	s.text(at+" path", x.Request.Path)
+	s.text(at+" rawQuery", x.Request.RawQuery)
+	s.headers(at+" request", x.Request.Headers)
+	s.headers(at+" response", x.Response.Headers)
+	for k, v := range sorted(x.Request.Query) {
+		s.named(at+" query", userNames, k, v)
+	}
+	for k, v := range sorted(x.Request.Form) {
+		s.named(at+" form", formUserNames, k, v)
+	}
+	s.jsonFields(at+" json", x.Request.JSON)
+}
 
 func (s *scrubber) report(at, format string, args ...any) {
 	s.found = append(s.found, at+": "+fmt.Sprintf(format, args...))

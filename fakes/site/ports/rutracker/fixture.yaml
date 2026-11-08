@@ -92,3 +92,19 @@ cases:
     exchanges:
       - request: {path: /forum/dl.php, headers: {Cookie: "bb_session={{bbSession}}"}, query: {t: "1001"}}
         response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
+  - name: magnetsearch
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    settings: {useMagnetLinks: "true"}
+    exchanges:
+      - request: {path: /forum/tracker.php, query: {nm: The%Quiet%Orchard}}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: search.html
+  - name: magnetgrab
+    call: {fetch: "/forum/viewtopic.php?t=1001"}
+    settings: {useMagnetLinks: "true"}
+    exchanges:
+      - request: {path: /forum/viewtopic.php, headers: {Cookie: "bb_session={{bbSession}}", Accept: text/html}, query: {t: "1001"}}
+        response:
+          headers: {Content-Type: text/html; charset=windows-1251}
+          body: topic.html

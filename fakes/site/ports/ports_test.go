@@ -68,10 +68,16 @@ func fits(t *testing.T, e port.Entry, f Fixture) {
 	if _, ok := f.TVCase(); !ok && len(e.Capabilities.TvSearchParams) > 0 {
 		t.Error("the fixture has no TV search with a season and an episode, which every port with TV search needs")
 	}
-	for name := range f.Settings {
-		if !slices.ContainsFunc(e.Fields, func(fl port.Field) bool { return fl.Name == name }) {
-			t.Errorf("the fixture sets %s, which isn't one of the port's settings", name)
+	settings := func(who string, m map[string]string) {
+		for name := range m {
+			if !slices.ContainsFunc(e.Fields, func(fl port.Field) bool { return fl.Name == name }) {
+				t.Errorf("%s sets %s, which isn't one of the port's settings", who, name)
+			}
 		}
+	}
+	settings("the fixture", f.Settings)
+	for _, c := range f.Cases {
+		settings("case "+c.Name, c.Settings)
 	}
 	for name := range f.Wants {
 		if _, ok := f.Case(name); !ok {
@@ -98,7 +104,7 @@ func runCase(t *testing.T, reg port.Registry, native searching.Driver, e port.En
 	}))
 	job := searching.Job{
 		ID: "job-" + c.Name, Indexer: "fixture", Revision: 1, Kind: searching.Native, Port: string(e.ID),
-		Address: Address(e.ID), Settings: f.Settings, Session: sessionOf(f.SessionOf(c), e.ID), Call: c.Call.Searching(Address(e.ID)),
+		Address: Address(e.ID), Settings: f.SettingsOf(c), Categories: c.Categories, Session: sessionOf(f.SessionOf(c), e.ID), Call: c.Call.Searching(Address(e.ID)),
 	}
 	var a searching.Answer
 	for {
