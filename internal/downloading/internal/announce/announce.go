@@ -45,6 +45,9 @@ type Ledger struct {
 	floor    time.Duration
 	torrents map[bencode.InfoHash]map[int]*line
 	hostMin  map[string]time.Duration
+	// credited is, for each torrent, the latest send its seed time was
+	// credited up to on any of its lines.
+	credited map[bencode.InfoHash]time.Time
 }
 
 type line struct {
@@ -54,12 +57,23 @@ type line struct {
 	// sent is when each event last went out, or once the tracker answered
 	// it, when the answer came.
 	sent [Stopped + 1]time.Time
-	// awaiting is the event of the announce the tracker has yet to answer.
-	awaiting  Event
-	answering bool
+	// awaited is the announce the tracker has yet to answer, nil once it
+	// answered.
+	awaited *announcement
 	// answer is when the tracker last answered.
 	answer       time.Time
 	unregistered time.Time
+	// seeded is the last seeder announce the tracker accepted that a later
+	// one credits seed time from, nil when there is none.
+	seeded *exchange
+}
+
+// announcement is an announce that went out at at. seeder is whether the
+// torrent was complete, so the tracker took it for a seeder's.
+type announcement struct {
+	event  Event
+	at     time.Time
+	seeder bool
 }
 
 // Line is the policy's view of one tracker of a torrent.
@@ -79,14 +93,16 @@ type Line struct {
 func New(r *rand.Rand, jitter, floor time.Duration) *Ledger {
 	return &Ledger{
 		rand: r, jitter: jitter, floor: floor,
-		torrents: map[bencode.InfoHash]map[int]*line{}, hostMin: map[string]time.Duration{},
+		torrents: map[bencode.InfoHash]map[int]*line{}, hostMin: map[string]time.Duration{}, credited: map[bencode.InfoHash]time.Time{},
 	}
 }
 
-// Sent notes an announce that went out at at.
-func (l *Ledger) Sent(h bencode.InfoHash, t Tracker, ev Event, at time.Time) {
+// Sent notes an announce that went out at at, while the torrent was
+// complete when complete.
+func (l *Ledger) Sent(h bencode.InfoHash, t Tracker, ev Event, at time.Time, complete bool) {
 	ln := l.line(h, t)
-	ln.sent[ev], ln.awaiting, ln.answering = at, ev, true
+	ln.sent[ev] = at
+	ln.awaited = &announcement{event: ev, at: at, seeder: complete || ev == Completed}
 	minInterval := l.minInterval(ln)
 	open := ln.open(at, minInterval)
 	switch {
@@ -113,12 +129,19 @@ func (l *Ledger) Replied(h bencode.InfoHash, t Tracker, r Reply) time.Duration {
 	return r.NextAnnounce.Sub(r.At) + time.Duration(l.rand.Int64N(int64(l.jitter)+1))
 }
 
-// Answered notes the tracker's answer at at to the announce it awaited. The
-// duplicate rule counts from the answer: the tracker received the announce
-// at some time between its send and the answer, and an engine's clock says
-// when it sent only roughly.
-func (l *Ledger) Answered(h bencode.InfoHash, t Tracker, at time.Time) {
-	l.line(h, t).answered(at)
+// Answered notes the tracker's answer at at to the announce it awaited,
+// and returns the seed time the tracker credited for it. The duplicate
+// rule counts from the answer: the tracker received the announce at some
+// time between its send and the answer, and an engine's clock says when it
+// sent only roughly.
+func (l *Ledger) Answered(h bencode.InfoHash, t Tracker, at time.Time) time.Duration {
+	ln := l.line(h, t)
+	a := ln.awaited
+	ln.answered(at)
+	if a == nil {
+		return 0
+	}
+	return l.credit(h, ln, *a, at)
 }
 
 // Failed notes the tracker's answer at at with a failure reason, and
@@ -171,6 +194,7 @@ func (l *Ledger) Detail(h bencode.InfoHash, private bool, now time.Time) []Line 
 // ID.
 func (l *Ledger) Forget(h bencode.InfoHash) {
 	delete(l.torrents, h)
+	delete(l.credited, h)
 }
 
 func (l *Ledger) acceptsAt(h bencode.InfoHash, ev Event, windowed bool, now time.Time) time.Time {
@@ -218,9 +242,9 @@ func (l *Ledger) minInterval(ln *line) time.Duration {
 
 func (ln *line) answered(at time.Time) {
 	ln.answer = later(ln.answer, at)
-	if ln.answering {
-		ln.sent[ln.awaiting] = later(ln.sent[ln.awaiting], at)
-		ln.answering = false
+	if a := ln.awaited; a != nil {
+		ln.sent[a.event] = later(ln.sent[a.event], at)
+		ln.awaited = nil
 	}
 }
 

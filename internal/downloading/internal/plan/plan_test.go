@@ -26,14 +26,14 @@ type step func(*announce.Ledger)
 // quickPause leaves h inside a 30-minute window that opened at t0.
 func quickPause(h bencode.InfoHash) step {
 	return func(l *announce.Ledger) {
-		l.Sent(h, tracker, announce.Started, t0)
+		l.Sent(h, tracker, announce.Started, t0, false)
 		l.Replied(h, tracker, announce.Reply{At: t0, NextAnnounce: at(30 * time.Minute), MinAnnounce: at(30 * time.Minute)})
-		l.Sent(h, tracker, announce.Stopped, at(time.Minute))
+		l.Sent(h, tracker, announce.Stopped, at(time.Minute), false)
 	}
 }
 
 func stoppedAt(h bencode.InfoHash, d time.Duration) step {
-	return func(l *announce.Ledger) { l.Sent(h, tracker, announce.Stopped, at(d)) }
+	return func(l *announce.Ledger) { l.Sent(h, tracker, announce.Stopped, at(d), false) }
 }
 
 var node = plan.Node{ActiveDownloads: 1, ActiveChecks: 1, StalledAfter: 10 * time.Minute, Live: true}

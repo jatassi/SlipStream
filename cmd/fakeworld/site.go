@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -61,10 +62,10 @@ func siteOf(m world.Manifest, label, node string) (siteEntry, error) {
 	}
 	s := scenario.Scenario{Seed: m.Scenario.Seed}
 	e := siteEntry{Origin: site.Origin(at, label)}
-	switch label {
-	case site.Torznab, site.Prowlarr:
+	switch {
+	case slices.Contains(scenario.FixtureSites["torznab"], label):
 		e.Feed, e.APIKey = e.Origin+site.TorznabPath, site.APIKey(s)
-	case site.Brook:
+	case label == site.Brook:
 		e.Feed, e.Cookie = site.RSSURL(at, ""), site.Cookie(s)
 	default:
 		e.Settings, e.Cookie = site.Credentials(s, label, node)

@@ -82,7 +82,7 @@ func addIndexers(ctx context.Context, c *http.Client, s scenario.Scenario, claim
 		}
 		switch ix.Kind {
 		case "torznab":
-			body.Address, body.APIKey = site.URL(at), site.APIKey(s)
+			body.Address, body.APIKey = site.Origin(at, ix.Site)+site.TorznabPath, site.APIKey(s)
 		case "rss":
 			body.Address, body.TrackerName, body.Media = site.RSSURL(at, ""), ix.Tracker, ix.Media
 		case "catalog":

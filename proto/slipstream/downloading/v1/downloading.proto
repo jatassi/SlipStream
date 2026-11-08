@@ -222,6 +222,11 @@ message TotalsRow {
   int64 seeding_seconds = 5;
   // done is the bytes done, sent only while incomplete.
   int64 done = 6;
+  // announced_seconds is the seed time the torrent's trackers credited it
+  // by UNIT3D's rule, counted on the Node from its accepted announces. The
+  // Node keeps it in memory, so it starts again from 0 when the Node
+  // restarts.
+  int64 announced_seconds = 7;
 }
 
 // Parted confirms a discard: the Node no longer holds the torrent.
