@@ -52,7 +52,7 @@ func (x *Indexers) Trackers(ctx context.Context, _ identity.Admin) ([]Tracker, e
 	var out []Tracker
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		out, err = trackersIn(ctx, r)
+		out, err = TrackersIn(ctx, r)
 		return err
 	})
 	return out, err
@@ -77,7 +77,7 @@ func (x *Indexers) Tracker(ctx context.Context, by identity.Admin, id TrackerID)
 // and punctuation are ignored, as matching reads names.
 func (x *Indexers) RenameTracker(ctx context.Context, _ identity.Admin, id TrackerID, name string) error {
 	err := x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		all, err := trackersIn(ctx, tx)
+		all, err := TrackersIn(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -263,7 +263,7 @@ func reachTracker(ctx context.Context, tx *storage.Tx[file], idx ID, at reached)
 // A name equal to at.name matches even when it folds to nothing.
 func match(ctx context.Context, r storage.Reader[file], at reached) (TrackerID, error) {
 	want := namesOf(at.name, at.key)
-	all, err := trackersIn(ctx, r)
+	all, err := TrackersIn(ctx, r)
 	if err != nil {
 		return TrackerID{}, err
 	}
@@ -309,8 +309,8 @@ func fold(s string) string {
 	}, s)
 }
 
-// trackersIn is every Tracker by name, read in r.
-func trackersIn(ctx context.Context, r storage.Reader[file]) ([]Tracker, error) {
+// TrackersIn is every Tracker by name, read in r.
+func TrackersIn(ctx context.Context, r storage.Reader[file]) ([]Tracker, error) {
 	q := db.New(r)
 	rows, err := q.ListTrackers(ctx)
 	if err != nil {
