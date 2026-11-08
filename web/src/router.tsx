@@ -24,6 +24,9 @@ export function createAppRouter(
     defaultViewTransition: { types: transitionTypes },
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
+    // Components read the query cache their loader fills, so a revisit that
+    // rendered before its loader reran would seed editors with what was cached.
+    defaultStaleReloadMode: "blocking",
     defaultErrorComponent: RouteError,
     scrollRestoration: true,
   });
