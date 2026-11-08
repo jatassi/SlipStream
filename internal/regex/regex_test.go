@@ -136,14 +136,17 @@ func TestReplace(t *testing.T) {
 
 func TestOptions(t *testing.T) {
 	for _, tt := range []struct {
-		o    Options
-		want bool
+		pattern string
+		o       Options
+		want    bool
 	}{
-		{Options{IgnoreCase: true, Timeout: time.Second}, true},
-		{Options{Timeout: time.Second}, false},
+		{`remux`, Options{IgnoreCase: true, Timeout: time.Second}, true},
+		{`remux`, Options{Timeout: time.Second}, false},
+		{`re mux  # a comment`, Options{IgnoreCase: true, IgnorePatternWhitespace: true}, true},
+		{`re mux`, Options{IgnoreCase: true}, false},
 	} {
-		if got, _ := MustCompile(`remux`, tt.o).Match(TextOf("REMUX")); got != tt.want {
-			t.Errorf("Match with %+v = %v; want %v", tt.o, got, tt.want)
+		if got, _ := MustCompile(tt.pattern, tt.o).Match(TextOf("REMUX")); got != tt.want {
+			t.Errorf("%q with %+v matches REMUX: %v; want %v", tt.pattern, tt.o, got, tt.want)
 		}
 	}
 }

@@ -9,18 +9,18 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dlclark/regexp2"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // This file ports the US-date half of CliverSoft's DateTimeRoutines,
-// which FromFuzzyTime calls. Indexes count runes, as regexp2 does.
+// which FromFuzzyTime calls. Indexes count runes, as regex.Match's do.
 
-func mustRe(pattern string) *regexp2.Regexp {
-	return regexp2.MustCompile(pattern, regexp2.None)
+func mustRe(pattern string) *regex.Regex {
+	return regex.MustCompile(pattern, regex.Options{})
 }
 
-func mustReI(pattern string) *regexp2.Regexp {
-	return regexp2.MustCompile(pattern, regexp2.IgnoreCase)
+func mustReI(pattern string) *regex.Regex {
+	return regex.MustCompile(pattern, regex.Options{IgnoreCase: true})
 }
 
 const usTimeZone = `(?:\s*(?'time_zone'UTC|GMT|CST|EST))?`
@@ -34,7 +34,7 @@ var (
 
 	dateNumeric = mustReI(`(?<=^|[^\d])(?'day'\d{1,2})\s*(?'separator'[\\/\.])+\s*(?'month'\d{1,2})\s*\'separator'+\s*(?'year'\d{2}|\d{4})(?=$|[^\d])`)
 	dateISO     = mustReI(`(?<=^|[^\d])(?'year'\d{2}|\d{4})\s*(?'separator'[\-])\s*(?'month'\d{1,2})\s*\'separator'+\s*(?'day'\d{1,2})(?=$|[^\d])`)
-	dateNamed   = []*regexp2.Regexp{
+	dateNamed   = []*regex.Regex{
 		mustReI(`(?:^|[^\d\w])(?'month'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[uarychilestmbro]*\s+(?'day'\d{1,2})(?:-?st|-?th|-?rd|-?nd)?\s*,?\s*(?'year'\d{4})(?=$|[^\d\w])`),
 		mustReI(`(?:^|[^\d\w:])(?'day'\d{1,2})(?:-?st\s+|-?th\s+|-?rd\s+|-?nd\s+|-|\s+)(?'month'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[uarychilestmbro]*(?:\s*,?\s*|-)'?(?'year'\d{2}|\d{4})(?=$|[^\d\w])`),
 		mustReI(`(?:^|[^\d\w])(?'year'\d{4})\s+(?'month'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[uarychilestmbro]*\s+(?'day'\d{1,2})(?:-?st|-?th|-?rd|-?nd)?(?=$|[^\d\w])`),
@@ -96,29 +96,30 @@ func fuzzyDate(s string, clock Clock) (time.Time, bool, error) {
 }
 
 func findDate(s string, clock Clock) (foundDate, bool, error) {
-	m, err := dateNumeric.FindStringMatch(s)
+	text := regex.TextOf(s)
+	m, ok, err := dateNumeric.Find(text)
 	if err != nil {
 		return foundDate{}, false, fmt.Errorf("read %q as a date: %w", s, err)
 	}
-	if m != nil {
+	if ok {
 		// In US order the first number is the month.
 		return dateFromGroups(m, group(m, "year"), group(m, "day"), group(m, "month"))
 	}
-	if m, err = dateISO.FindStringMatch(s); err != nil {
+	if m, ok, err = dateISO.Find(text); err != nil {
 		return foundDate{}, false, fmt.Errorf("read %q as a date: %w", s, err)
 	}
-	if m != nil {
+	if ok {
 		return dateFromGroups(m, group(m, "year"), group(m, "month"), group(m, "day"))
 	}
 	for _, re := range dateNamed {
-		if m, err = re.FindStringMatch(s); err != nil {
+		if m, ok, err = re.Find(text); err != nil {
 			return foundDate{}, false, fmt.Errorf("read %q as a date: %w", s, err)
 		}
-		if m != nil {
+		if ok {
 			break
 		}
 	}
-	if m == nil {
+	if !ok {
 		return foundDate{}, false, nil
 	}
 	month, ok := monthsByCase[group(m, "month")]
@@ -132,15 +133,12 @@ func findDate(s string, clock Clock) (foundDate, bool, error) {
 	return dateFromGroups(m, year, strconv.Itoa(month), group(m, "day"))
 }
 
-func group(m *regexp2.Match, name string) string {
-	g := m.GroupByName(name)
-	if g == nil {
-		return ""
-	}
-	return g.String()
+func group(m regex.Match, name string) string {
+	g, _ := m.Group(name)
+	return g
 }
 
-func dateFromGroups(m *regexp2.Match, year, month, day string) (foundDate, bool, error) {
+func dateFromGroups(m regex.Match, year, month, day string) (foundDate, bool, error) {
 	y, err := strconv.Atoi(year)
 	if err != nil {
 		return foundDate{}, false, fmt.Errorf("%q isn't a year", year)
@@ -157,7 +155,7 @@ func dateFromGroups(m *regexp2.Match, year, month, day string) (foundDate, bool,
 	if !ok {
 		return foundDate{}, false, nil
 	}
-	return foundDate{date: date, index: m.Index, length: m.Length}, true, nil
+	return foundDate{date: date, index: m.Index(), length: m.Length()}, true, nil
 }
 
 // convertToDate reads a two-digit year as 19xx above 30 and 20xx
@@ -180,12 +178,13 @@ func convertToDate(year, month, day int) (time.Time, bool) {
 // findTime is TryParseTime: with a date found it looks after the date, then
 // before it, then inside it; without one it looks anywhere.
 func findTime(s string, d *foundDate) (h, m, sec int, ok bool, err error) {
-	var match *regexp2.Match
+	var match regex.Match
+	var found bool
 	if d != nil {
 		runes := []rune(s)
 		after := string(runes[d.index+d.length:])
 		candidates := []struct {
-			re   *regexp2.Regexp
+			re   *regex.Regex
 			text string
 		}{
 			{timeAfterDateOffset, after},
@@ -194,23 +193,23 @@ func findTime(s string, d *foundDate) (h, m, sec int, ok bool, err error) {
 			{timeAroundDate, string(runes[d.index : d.index+d.length])},
 		}
 		for _, c := range candidates {
-			if match, err = c.re.FindStringMatch(c.text); err != nil || match != nil {
+			if match, found, err = c.re.Find(regex.TextOf(c.text)); err != nil || found {
 				break
 			}
 		}
-	} else if match, err = timeAnywhereOffset.FindStringMatch(s); err == nil && match == nil {
-		match, err = timeAnywhere.FindStringMatch(s)
+	} else if match, found, err = timeAnywhereOffset.Find(regex.TextOf(s)); err == nil && !found {
+		match, found, err = timeAnywhere.Find(regex.TextOf(s))
 	}
 	if err != nil {
 		return 0, 0, 0, false, fmt.Errorf("read %q as a time: %w", s, err)
 	}
-	if match == nil {
+	if !found {
 		return 0, 0, 0, false, nil
 	}
 	return timeFromMatch(match)
 }
 
-func timeFromMatch(match *regexp2.Match) (h, m, sec int, ok bool, err error) {
+func timeFromMatch(match regex.Match) (h, m, sec int, ok bool, err error) {
 	if h, err = strconv.Atoi(group(match, "hour")); err != nil {
 		return 0, 0, 0, false, fmt.Errorf("%q isn't an hour", group(match, "hour"))
 	}

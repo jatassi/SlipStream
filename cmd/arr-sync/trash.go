@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/dlclark/regexp2"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // trashSnapshot copies the pinned TRaSH formats verbatim, with TRaSH's
@@ -81,7 +81,7 @@ func trashReaders(t *tree, p pins, co checkout) (int, error) {
 				return 0, fmt.Errorf("%s %s %s: %w", co.Name, file, s.Name, err)
 			}
 			if s.Implementation == "ReleaseTitleSpecification" {
-				if _, err := regexp2.Compile(value, regexp2.IgnoreCase); err != nil {
+				if _, err := regex.Compile(value, regex.Options{IgnoreCase: true}); err != nil {
 					return 0, fmt.Errorf("%s %s %s doesn't compile: %w", co.Name, file, s.Name, err)
 				}
 			}

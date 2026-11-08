@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dlclark/regexp2"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // patternTables writes each owner's internal/upstream package: one
@@ -160,21 +160,38 @@ func item(replace bool, key string, it regexItem) string {
 	return pattern
 }
 
-// compileAll compiles every pattern of d on regexp2, the engine SlipStream
-// runs them on, with the options .NET and regexp2 share.
+// compileAll compiles every pattern of d on internal/regex, as SlipStream
+// runs it.
 func compileAll(co checkout, file string, d regexDecl) error {
 	for i, it := range d.items {
-		var opts regexp2.RegexOptions
-		for _, o := range it.options {
-			if v := netOptions[o]; v < 0x80 || v == 0x100 {
-				opts |= regexp2.RegexOptions(v)
-			}
+		o, err := regexOptions(it.options)
+		if err != nil {
+			return fmt.Errorf("%s %s %s[%d]: %w", co.Name, file, d.name, i, err)
 		}
-		if _, err := regexp2.Compile(it.text, opts); err != nil {
+		if _, err := regex.Compile(it.text, o); err != nil {
 			return fmt.Errorf("%s %s %s[%d] doesn't compile: %w", co.Name, file, d.name, i, err)
 		}
 	}
 	return nil
+}
+
+// regexOptions are the internal/regex Options for .NET's options by name.
+// Compiled and CultureInvariant change no match. Any other option is one
+// internal/regex can't run, so a pattern that sets it fails the sync.
+func regexOptions(names []string) (regex.Options, error) {
+	var o regex.Options
+	for _, name := range names {
+		switch name {
+		case "IgnoreCase":
+			o.IgnoreCase = true
+		case "IgnorePatternWhitespace":
+			o.IgnorePatternWhitespace = true
+		case "Compiled", "CultureInvariant":
+		default:
+			return regex.Options{}, fmt.Errorf("RegexOptions.%s has no internal/regex option", name)
+		}
+	}
+	return o, nil
 }
 
 // goString is s as a Go literal, raw when it can be, so a pattern reads as

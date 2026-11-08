@@ -1,5 +1,7 @@
 // Package regex runs patterns written for .NET, on regexp2: Sonarr's and
-// Radarr's parser, TRaSH's Custom Formats and Cardigann's definitions.
+// Radarr's parser, TRaSH's Custom Formats, Cardigann's definitions and
+// the ported sites. No other package imports regexp2 (lint rule
+// regexp2-confined).
 package regex
 
 import (
@@ -12,10 +14,13 @@ import (
 	"github.com/dlclark/regexp2/syntax"
 )
 
-// Options are how a pattern compiles. Every caller sets a Timeout.
+// Options are how a pattern compiles. Timeout bounds one match. Zero is
+// .NET's InfiniteMatchTimeout, for a fixed pattern SlipStream wrote or
+// ported whose upstream sets none.
 type Options struct {
-	IgnoreCase bool
-	Timeout    time.Duration
+	IgnoreCase              bool
+	IgnorePatternWhitespace bool
+	Timeout                 time.Duration
 }
 
 // regexp2 reads match deadlines from a clock that ticks every 100 ms and
@@ -40,7 +45,9 @@ func Compile(pattern string, o Options) (*Regex, error) {
 	if err != nil {
 		return nil, compileError(pattern, o, err)
 	}
-	re.MatchTimeout = o.Timeout
+	if o.Timeout > 0 {
+		re.MatchTimeout = o.Timeout
+	}
 	return &Regex{re: re, pattern: pattern}, nil
 }
 
@@ -54,10 +61,14 @@ func MustCompile(pattern string, o Options) *Regex {
 }
 
 func (o Options) flags() regexp2.RegexOptions {
+	f := regexp2.None
 	if o.IgnoreCase {
-		return regexp2.IgnoreCase
+		f |= regexp2.IgnoreCase
 	}
-	return regexp2.None
+	if o.IgnorePatternWhitespace {
+		f |= regexp2.IgnorePatternWhitespace
+	}
+	return f
 }
 
 // Text is a string split into runes once. regexp2 matches runes, so a
