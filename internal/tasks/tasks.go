@@ -47,11 +47,19 @@ type Changed struct {
 
 const everyTask TaskID = ""
 
+// Progressed is a run's progress. Done and Total count its units: those
+// ended of those queued.
 type Progressed struct {
-	RunID  RunID  `json:"runId"`
-	TaskID TaskID `json:"taskId"`
-	Done   int    `json:"done"`
-	Total  int    `json:"total"`
+	RunID  RunID     `json:"runId"`
+	TaskID TaskID    `json:"taskId"`
+	Done   int       `json:"done"`
+	Total  int       `json:"total"`
+	Unit   *UnitStep `json:"unit,omitempty" doc:"The unit whose step moved; absent when a unit ended"`
+}
+
+type UnitStep struct {
+	Key UnitKey `json:"key"`
+	Step
 }
 
 type Hub interface {
@@ -86,7 +94,8 @@ var (
 	ErrNotOpen     = errors.New("no open run has this id")
 )
 
-// ErrRunning refuses Run now while the task has a run open.
+// ErrRunning refuses a whole-task Start that adds no unit to the task's
+// open run.
 type ErrRunning struct{ Since time.Time }
 
 func (e *ErrRunning) Error() string { return "the task has run since " + e.Since.Format(time.RFC3339) }
@@ -192,28 +201,34 @@ func catalogByID(catalog []Task) map[TaskID]Task {
 	return byID
 }
 
+// closeCut closes r, which a previous process left open, as canceled: each
+// unit it queued with the outcome it reported in r, canceled when none.
 func (s *Scheduler) closeCut(ctx context.Context, q *db.Queries, r db.TasksRun) error {
+	var queued []line
+	if err := json.Unmarshal([]byte(*r.Units), &queued); err != nil {
+		return fmt.Errorf("run %d lines: %w", r.ID, err)
+	}
 	units, err := q.ListUnits(ctx, r.TaskID)
 	if err != nil {
 		return err
 	}
-	ended := r.StartedAt
-	var lines []line
-	var results []result
+	rows := map[UnitKey]db.TasksUnit{}
 	for _, u := range units {
-		reported := u.LastRunID != nil && *u.LastRunID == r.ID
-		if !reported && r.Kind == ByReturn && (u.DueOnReturn == nil || *u.DueOnReturn == 0) {
-			continue
-		}
-		res := result{outcome: Canceled}
-		if reported {
-			res = result{outcome: *u.LastOutcome, cause: deref(u.LastCause)}
+		rows[u.UnitKey] = u
+	}
+	ended := r.StartedAt
+	lines := make([]line, len(queued))
+	results := make([]result, len(queued))
+	for i, ln := range queued {
+		res, node := result{outcome: Canceled}, role.NodeID{}
+		if u, ok := rows[ln.Key]; ok && u.LastRunID != nil && *u.LastRunID == r.ID {
+			res, node = result{outcome: *u.LastOutcome, cause: deref(u.LastCause)}, u.LastNode
 			if u.LastEndedAt.Compare(ended) > 0 {
 				ended = u.LastEndedAt
 			}
 		}
-		results = append(results, res)
-		lines = append(lines, lineOf(u.UnitKey, u.Label, u.LastNode, res))
+		results[i] = res
+		lines[i] = lineOf(ln.Key, ln.Label, node, res)
 	}
 	_, summary, _ := rollUp(s.byID[r.TaskID].Noun, results, true)
 	if err := closeRun(ctx, q, r.ID, ended, RunCanceled, summary, crashCause, lines); err != nil {

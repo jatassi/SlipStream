@@ -6010,7 +6010,7 @@ export const TasksRun = zod.object({
     .describe("Null while it runs"),
   startedAt: zod.iso.datetime({ offset: true }),
   summary: zod.string().describe("Such as 5 of 6 steps, seedbox offline; empty while it runs"),
-  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned", "event"]),
   units: zod
     .array(TasksRunUnit)
     .describe(
@@ -6052,7 +6052,7 @@ export const TasksRunningState = zod.object({
   runId: zod.int(),
   since: zod.iso.datetime({ offset: true }),
   total: zod.int().min(tasksRunningStateTotalMin),
-  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned", "event"]),
 });
 
 export type TasksRunningState = zod.input<typeof TasksRunningState>;
@@ -6171,7 +6171,7 @@ export const TasksOpenRun = zod.object({
   startedAt: zod.iso.datetime({ offset: true }),
   taskId: zod.string(),
   total: zod.int().min(tasksOpenRunTotalMin),
-  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned", "event"]),
 });
 
 export type TasksOpenRun = zod.input<typeof TasksOpenRun>;
@@ -6240,11 +6240,28 @@ export const TasksOverview = zod.object({
 export type TasksOverview = zod.input<typeof TasksOverview>;
 export type TasksOverviewOutput = zod.output<typeof TasksOverview>;
 
+export const tasksUnitStepDoneMin = 0;
+
+export const tasksUnitStepTotalMin = 0;
+
+export const TasksUnitStep = zod.object({
+  done: zod.int().min(tasksUnitStepDoneMin),
+  key: zod.string(),
+  phase: zod.string(),
+  total: zod.int().min(tasksUnitStepTotalMin).nullable(),
+});
+
+export type TasksUnitStep = zod.input<typeof TasksUnitStep>;
+export type TasksUnitStepOutput = zod.output<typeof TasksUnitStep>;
+
 export const TasksProgressed = zod.object({
   done: zod.int(),
   runId: zod.int(),
   taskId: zod.string(),
   total: zod.int(),
+  unit: TasksUnitStep.exactOptional().describe(
+    "The unit whose step moved; absent when a unit ended",
+  ),
 });
 
 export type TasksProgressed = zod.input<typeof TasksProgressed>;

@@ -12,6 +12,7 @@ const triggers: { readonly [T in TasksRunTrigger]: string } = {
   "catch-up": "Catch-up",
   "run-now": "Run now",
   returned: "Node returned",
+  event: "Root ready",
 };
 
 function RunHead({ run, clock }: { run: TasksRun; clock: Clock }) {
