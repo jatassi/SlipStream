@@ -195,7 +195,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 
 func TestATrackerLineCountsTheSwarmOnlyWhenItsResponseDid(t *testing.T) {
 	w := serveWorld(t)
-	harbor := w.hold(t, "Harbor", seeding())
+	harbor := w.hold(t, "Harbor", unregisteredSeeding())
 	working := dlv1.TrackerStatus_TRACKER_STATUS_WORKING
 	w.node.inspected = map[downloadclients.ID]*dlv1.InspectResponse{harbor: {Trackers: []*dlv1.TrackerDetail{
 		{Index: 0, Status: working},
