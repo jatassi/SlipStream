@@ -29,7 +29,8 @@ var titleQualities = map[string]string{
 	"The.Quiet.Orchard.2021.1080p.BRRip":            "bluray-1080p",
 	"The.Quiet.Orchard.2021.2160p.UHD.BluRay.REMUX": "remux-2160p",
 	"The.Quiet.Orchard.2021.1080p.BDREMUX":          "remux-1080p",
-	"The.Quiet.Orchard.2021.4K.HDR.BluRay":          "bluray-2160p",
+	"The.Quiet.Orchard.2021.4K.HDR.BluRay":          "bluray-720p",
+	"The.Quiet.Orchard.2021.4K.UHD.BluRay":          "bluray-2160p",
 	"The.Quiet.Orchard.2021.720p.HDTV.x264":         "hdtv-720p",
 	"The.Quiet.Orchard.S01E01.SDTV.XviD":            "sdtv",
 	"The.Quiet.Orchard.2021.TVRip":                  "sdtv",
@@ -45,7 +46,8 @@ var titleQualities = map[string]string{
 	"The.Quiet.Orchard.2021.TS.XviD":               "cam",
 	"The.Quiet.Orchard.2021.720p.HDTS":             "cam",
 	"The.Quiet.Orchard.2021.1080p.TELESYNC":        "cam",
-	"The.Quiet.Orchard.2021.2160p.WEB-DL.TS":       "cam",
+	"The.Quiet.Orchard.2021.2160p.WEB-DL.TS":       "webdl-2160p",
+	"The.Quiet.Orchard.2021.2160p.WEB-DL.TS.x265":  "cam",
 	"The.Quiet.Orchard.2021.1080p.TELESYNC.BluRay": "cam",
 
 	"Pirates.of.the.Orchard.2021.1080p.WEB-DL":             "webdl-1080p",
@@ -70,7 +72,7 @@ var titleQualities = map[string]string{
 	"The.Quiet.Orchard.2021.Remux":    "remux-1080p",
 	"The.Quiet.Orchard.2021.HDTV":     "hdtv-720p",
 	"The.Quiet.Orchard.2021":          "",
-	"The.Quiet.Orchard.2021.1080i":    "",
+	"The.Quiet.Orchard.2021.1080i":    "hdtv-1080p",
 	"The.Quiet.Orchard.2021.x264-FKW": "",
 	"":                                "",
 }

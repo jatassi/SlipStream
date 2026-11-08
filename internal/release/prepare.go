@@ -108,17 +108,8 @@ func unsited(s *scan, t regex.Text) regex.Text {
 	t = s.replace(websitePostfix, t)
 	t = s.replace(torrentSuffix, t)
 	m, ok := s.find(qualityBrackets, t)
-	if !ok || !namesQuality(m.Value()) {
+	if !ok || parseQualityName(s, m.Value()).grade == (grade{}) {
 		return t
 	}
 	return regex.TextOf(string([]rune(t.String())[:m.Index()]))
-}
-
-// namesQuality is whether text alone reads as a quality, Sonarr's
-// ParseQualityName(text).Quality != Unknown.
-func namesQuality(text string) bool {
-	var f Facts
-	readQuality(Prepared{Original: text, Title: regex.TextOf(text), Simple: regex.TextOf(text)}, &f)
-	_, ok := f.Quality.Get()
-	return ok
 }

@@ -22,7 +22,7 @@ func Title(name string, names Names, cuts []Cut) Read {
 		Languages: readLanguages(tail),
 		IDs:       readIDs(p),
 	}
-	readQuality(p, &f)
+	readQuality(p, s, &f)
 	readStream(p, &f)
 	return Read{Given: name, Name: n, Facts: f, Slow: s.slow}
 }

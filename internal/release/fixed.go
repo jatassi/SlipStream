@@ -98,3 +98,23 @@ func (s *scan) replace(r replacer, t regex.Text) regex.Text {
 	}
 	return regex.TextOf(out)
 }
+
+// group is the first of names that f's first match on t captured, or ""
+// when f doesn't match.
+func (s *scan) group(f fixed, t regex.Text, names []string) string {
+	m, ok := s.find(f, t)
+	if !ok {
+		return ""
+	}
+	return firstGroup(m, names)
+}
+
+// firstGroup is the first of names m captured, or "".
+func firstGroup(m regex.Match, names []string) string {
+	for _, n := range names {
+		if _, ok := m.Group(n); ok {
+			return n
+		}
+	}
+	return ""
+}

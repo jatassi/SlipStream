@@ -87,5 +87,3 @@ func words(s string) string {
 	}
 	return b.String()
 }
-
-func phrase(w string) string { return " " + w + " " }
