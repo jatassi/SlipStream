@@ -8,6 +8,7 @@ import {
   knownZone,
   lengthWords,
   sinceWords,
+  spanWords,
 } from "./format";
 
 const local = (day: number, hours: number, minutes = 0) =>
@@ -47,6 +48,20 @@ test.each([
   [7_200_000, "2 h"],
 ])("lengthWords(%d) is %s", (milliseconds, words) => {
   expect(lengthWords(milliseconds)).toBe(words);
+});
+
+test.each([
+  [30, "1 min"],
+  [720, "12 min"],
+  [7_200, "2 h"],
+  [15_120, "4 h 12 min"],
+  [15_121, "4 h 13 min"],
+  [86_370, "1 day"],
+  [273_600, "3 days 4 h"],
+  [273_601, "3 days 5 h"],
+  [345_600, "4 days"],
+])("spanWords(%d) is %s, rounded up to two units", (seconds, words) => {
+  expect(spanWords(seconds)).toBe(words);
 });
 
 test.each([

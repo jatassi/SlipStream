@@ -39,6 +39,25 @@ export function durationWords(seconds: number): string {
   return `${seconds} s`;
 }
 
+/**
+ * A length in at most two units, rounded up to the smaller one, so a time
+ * still needed is never understated: "3 days 4 h", "4 h 12 min", "12 min".
+ */
+export function spanWords(seconds: number): string {
+  const minutes = Math.ceil(seconds / minute);
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+  if (minutes < 24 * 60) {
+    const rest = minutes % 60;
+    return rest === 0 ? `${minutes / 60} h` : `${Math.floor(minutes / 60)} h ${rest} min`;
+  }
+  const hours = Math.ceil(seconds / hour);
+  const days = Math.floor(hours / 24);
+  const dayWords = days === 1 ? "1 day" : `${days} days`;
+  return hours % 24 === 0 ? dayWords : `${dayWords} ${hours % 24} h`;
+}
+
 export type Noun = { readonly one: string; readonly many: string };
 
 export const nounOf = (count: number, noun: Noun): string => (count === 1 ? noun.one : noun.many);
