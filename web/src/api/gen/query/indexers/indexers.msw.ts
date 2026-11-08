@@ -43,7 +43,7 @@ export const getGetIndexerCatalogResponseMock = (
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       language: faker.string.alpha({ length: { min: 10, max: 20 } }),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      origin: faker.helpers.arrayElement(["catalog", "custom"] as const),
+      origin: faker.helpers.arrayElement(["catalog", "custom", "native"] as const),
       privacy: faker.helpers.arrayElement(["private", "semi-private", "public"] as const),
       reason: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -80,7 +80,7 @@ export const getSetCatalogAddressResponseMock = (
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       language: faker.string.alpha({ length: { min: 10, max: 20 } }),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      origin: faker.helpers.arrayElement(["catalog", "custom"] as const),
+      origin: faker.helpers.arrayElement(["catalog", "custom", "native"] as const),
       privacy: faker.helpers.arrayElement(["private", "semi-private", "public"] as const),
       reason: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -112,7 +112,7 @@ export const getAddCustomDefinitionResponseMock = (
   id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   language: faker.string.alpha({ length: { min: 10, max: 20 } }),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  origin: faker.helpers.arrayElement(["catalog", "custom"] as const),
+  origin: faker.helpers.arrayElement(["catalog", "custom", "native"] as const),
   privacy: faker.helpers.arrayElement(["private", "semi-private", "public"] as const),
   reason: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   replacedByCustom: faker.datatype.boolean(),
@@ -124,6 +124,7 @@ export const getGetCatalogDefinitionResponseMock = (
   overrideResponse: Partial<Extract<IndexersDefinitionForm, object>> = {},
 ): IndexersDefinitionForm => ({
   captcha: faker.datatype.boolean(),
+  code: faker.datatype.boolean(),
   cookie: faker.datatype.boolean(),
   entry: {
     categories: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -133,7 +134,7 @@ export const getGetCatalogDefinitionResponseMock = (
     id: faker.string.alpha({ length: { min: 10, max: 20 } }),
     language: faker.string.alpha({ length: { min: 10, max: 20 } }),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    origin: faker.helpers.arrayElement(["catalog", "custom"] as const),
+    origin: faker.helpers.arrayElement(["catalog", "custom", "native"] as const),
     privacy: faker.helpers.arrayElement(["private", "semi-private", "public"] as const),
     reason: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -153,6 +154,8 @@ export const getGetCatalogDefinitionResponseMock = (
         null,
       ]),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      max: faker.helpers.arrayElement([faker.number.int(), null]),
+      min: faker.helpers.arrayElement([faker.number.int(), null]),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -160,12 +163,15 @@ export const getGetCatalogDefinitionResponseMock = (
           value: faker.string.alpha({ length: { min: 10, max: 20 } }),
         }),
       ),
+      required: faker.datatype.boolean(),
       sealed: faker.datatype.boolean(),
       type: faker.helpers.arrayElement([
         "text",
         "password",
         "checkbox",
         "select",
+        "number",
+        "multiselect",
         "info",
         "info_cookie",
         "info_flaresolverr",
@@ -178,6 +184,26 @@ export const getGetCatalogDefinitionResponseMock = (
   links: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  port: faker.helpers.arrayElement([
+    {
+      grabs: {
+        count: faker.number.int({ min: 0, max: 100000 }),
+        per: faker.helpers.arrayElement(["hour", "day"] as const),
+      },
+      recent: faker.datatype.boolean(),
+      searches: {
+        count: faker.number.int({ min: 0, max: 100000 }),
+        per: faker.helpers.arrayElement(["hour", "day"] as const),
+      },
+      spacingSeconds: faker.number.float({ fractionDigits: 2 }),
+      synced: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      userAgent: faker.datatype.boolean(),
+    },
+    null,
+  ]),
   session: faker.datatype.boolean(),
   solver: faker.datatype.boolean(),
   ...overrideResponse,
@@ -943,6 +969,10 @@ export const getListIndexersResponseMock = (
           baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
           fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          sealed: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
           values: {
             [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
           },
@@ -966,7 +996,7 @@ export const getListIndexersResponseMock = (
       },
       homeNodeId: faker.string.uuid(),
       id: faker.string.uuid(),
-      kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+      kind: faker.helpers.arrayElement(["catalog", "torznab", "rss", "native"] as const),
       media: faker.helpers.arrayElement([
         Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
           faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -974,7 +1004,29 @@ export const getListIndexersResponseMock = (
         null,
       ]),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
       on: faker.datatype.boolean(),
+      port: faker.helpers.arrayElement([
+        {
+          baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          sealed: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          synced: faker.helpers.arrayElement([
+            faker.date.past().toISOString().slice(0, 19) + "Z",
+            null,
+          ]),
+          values: {
+            [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+        },
+        null,
+      ]),
       priority: faker.number.int({ min: 1, max: 50 }),
       revision: faker.number.int({ min: 1 }),
       rss: faker.datatype.boolean(),
@@ -1016,6 +1068,8 @@ export const getListIndexersResponseMock = (
             "definition_unloadable",
             "account_refused",
             "request_rejected",
+            "code_needed",
+            "port_retired",
           ] as const),
           null,
         ]),
@@ -1116,6 +1170,9 @@ export const getCreateIndexerResponseMock = (
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      sealed: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
@@ -1136,7 +1193,7 @@ export const getCreateIndexerResponseMock = (
   },
   homeNodeId: faker.string.uuid(),
   id: faker.string.uuid(),
-  kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+  kind: faker.helpers.arrayElement(["catalog", "torznab", "rss", "native"] as const),
   media: faker.helpers.arrayElement([
     Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1144,7 +1201,28 @@ export const getCreateIndexerResponseMock = (
     null,
   ]),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   on: faker.datatype.boolean(),
+  port: faker.helpers.arrayElement([
+    {
+      baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      sealed: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      synced: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      values: {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    },
+    null,
+  ]),
   priority: faker.number.int({ min: 1, max: 50 }),
   revision: faker.number.int({ min: 1 }),
   rss: faker.datatype.boolean(),
@@ -1182,6 +1260,8 @@ export const getCreateIndexerResponseMock = (
         "definition_unloadable",
         "account_refused",
         "request_rejected",
+        "code_needed",
+        "port_retired",
       ] as const),
       null,
     ]),
@@ -1291,6 +1371,9 @@ export const getGetIndexerResponseMock = (
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      sealed: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
@@ -1311,7 +1394,7 @@ export const getGetIndexerResponseMock = (
   },
   homeNodeId: faker.string.uuid(),
   id: faker.string.uuid(),
-  kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+  kind: faker.helpers.arrayElement(["catalog", "torznab", "rss", "native"] as const),
   media: faker.helpers.arrayElement([
     Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1319,7 +1402,28 @@ export const getGetIndexerResponseMock = (
     null,
   ]),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   on: faker.datatype.boolean(),
+  port: faker.helpers.arrayElement([
+    {
+      baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      sealed: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      synced: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      values: {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    },
+    null,
+  ]),
   priority: faker.number.int({ min: 1, max: 50 }),
   revision: faker.number.int({ min: 1 }),
   rss: faker.datatype.boolean(),
@@ -1357,6 +1461,8 @@ export const getGetIndexerResponseMock = (
         "definition_unloadable",
         "account_refused",
         "request_rejected",
+        "code_needed",
+        "port_retired",
       ] as const),
       null,
     ]),
@@ -1439,6 +1545,9 @@ export const getUpdateIndexerResponseMock = (
       baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fetchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      sealed: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
       values: {
         [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
@@ -1459,7 +1568,7 @@ export const getUpdateIndexerResponseMock = (
   },
   homeNodeId: faker.string.uuid(),
   id: faker.string.uuid(),
-  kind: faker.helpers.arrayElement(["catalog", "torznab", "rss"] as const),
+  kind: faker.helpers.arrayElement(["catalog", "torznab", "rss", "native"] as const),
   media: faker.helpers.arrayElement([
     Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1467,7 +1576,28 @@ export const getUpdateIndexerResponseMock = (
     null,
   ]),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   on: faker.datatype.boolean(),
+  port: faker.helpers.arrayElement([
+    {
+      baseAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      sealed: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      synced: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      values: {
+        [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    },
+    null,
+  ]),
   priority: faker.number.int({ min: 1, max: 50 }),
   revision: faker.number.int({ min: 1 }),
   rss: faker.datatype.boolean(),
@@ -1505,6 +1635,8 @@ export const getUpdateIndexerResponseMock = (
         "definition_unloadable",
         "account_refused",
         "request_rejected",
+        "code_needed",
+        "port_retired",
       ] as const),
       null,
     ]),

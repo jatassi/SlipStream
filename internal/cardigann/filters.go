@@ -4,13 +4,16 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"html"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
+	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
 )
 
 // env is what evaluating a template, a filter or a selector reads besides
@@ -18,7 +21,7 @@ import (
 type env struct {
 	Scope   scope
 	Clock   Clock
-	charset charset
+	charset encoding.Charset
 }
 
 // filterBlock is one entry of a filters list, its arguments checked when the
@@ -74,7 +77,7 @@ func (fs filterBlocks) Apply(v value, env env) (value, error) {
 // Prowlarr, so it compiles to a no-op.
 var filterSpecs = map[string]func(a filterArgs) (filterFunc, error){
 	"querystring": oneArg(func(param string) filterFunc {
-		return textFilter(func(s string, _ env) (string, error) { return queryParam(s, param) })
+		return textFilter(func(s string, _ env) (string, error) { return parseutil.GetArgumentFromQueryString(s, param) })
 	}),
 	"dateparse":     buildDateParse,
 	"timeparse":     buildDateParse,
@@ -91,8 +94,8 @@ var filterSpecs = map[string]func(a filterArgs) (filterFunc, error){
 	"base64encode":  noArgs(textFilter(func(s string, _ env) (string, error) { return base64.RawURLEncoding.EncodeToString([]byte(s)), nil })),
 	"urldecode":     noArgs(emptyForNull(func(s string, env env) string { return env.charset.URLDecode(s) })),
 	"urlencode":     noArgs(emptyForNull(func(s string, env env) string { return env.charset.URLEncode(s) })),
-	"htmldecode":    noArgs(nullSafe(htmlDecode)),
-	"htmlencode":    noArgs(nullSafe(htmlEncode)),
+	"htmldecode":    noArgs(nullSafe(encoding.HTMLDecode)),
+	"htmlencode":    noArgs(nullSafe(encoding.HTMLEncode)),
 	"timeago":       noArgs(textFilter(timeAgoFilter)),
 	"reltime":       noArgs(textFilter(timeAgoFilter)),
 	"fuzzytime":     noArgs(textFilter(fuzzyTimeFilter)),
@@ -172,7 +175,7 @@ func buildDateParse(a filterArgs) (filterFunc, error) {
 		return nil, errors.New("takes a date layout")
 	}
 	return textFilter(func(s string, env env) (string, error) {
-		if t, err := parseDateLayout(s, layout, env.Clock); err == nil {
+		if t, err := datetimeutil.ParseDateTimeGoLang(s, layout, env.Clock); err == nil {
 			return formatRFC1123Z(t), nil
 		}
 		return s, nil
@@ -312,7 +315,7 @@ func buildJSONJoinArray(a filterArgs) (filterFunc, error) {
 }
 
 func timeAgoFilter(s string, env env) (string, error) {
-	t, err := fromTimeAgo(s, env.Clock)
+	t, err := datetimeutil.FromTimeAgo(s, env.Clock)
 	if err != nil {
 		return "", err
 	}
@@ -320,51 +323,11 @@ func timeAgoFilter(s string, env env) (string, error) {
 }
 
 func fuzzyTimeFilter(s string, env env) (string, error) {
-	t, err := parseDate(s, env.Clock)
+	t, err := datetimeutil.FromUnknown(s, env.Clock)
 	if err != nil {
 		return "", err
 	}
 	return formatRFC1123Z(t), nil
-}
-
-// queryParam is ParseUtil.GetArgumentFromQueryString: the first value of
-// param, matched ignoring case, in the query after the first '?'. A key
-// without '=' has an empty value, as QueryHelpers.ParseQuery reads it.
-func queryParam(url, param string) (string, error) {
-	_, qs, ok := strings.Cut(url, "?")
-	if !ok {
-		return "", fmt.Errorf("%q has no query string", url)
-	}
-	qs, _, _ = strings.Cut(qs, "#")
-	for _, part := range strings.Split(qs, "&") {
-		key, value, _ := strings.Cut(part, "=")
-		if strings.EqualFold(unescapeQuery(strings.TrimLeftFunc(key, unicode.IsSpace)), param) {
-			return unescapeQuery(value), nil
-		}
-	}
-	return "", fmt.Errorf("%q has no %s parameter", url, param)
-}
-
-// unescapeQuery is Uri.UnescapeDataString after '+' becomes a space. A
-// sequence that isn't UTF-8 stays escaped.
-func unescapeQuery(s string) string {
-	s = strings.ReplaceAll(s, "+", " ")
-	if !strings.Contains(s, "%") {
-		return s
-	}
-	var out []byte
-	for i := 0; i < len(s); i++ {
-		if s[i] == '%' && i+2 < len(s) && isHex(s[i+1]) && isHex(s[i+2]) {
-			out = append(out, unhex(s[i+1])<<4|unhex(s[i+2]))
-			i += 2
-			continue
-		}
-		out = append(out, s[i])
-	}
-	if !utf8.Valid(out) {
-		return s
-	}
-	return string(out)
 }
 
 // base64URLDecode is WebEncoders.Base64UrlDecode, read as UTF-8.
@@ -386,84 +349,6 @@ func base64URLDecode(s string) (string, error) {
 		return "", fmt.Errorf("%q isn't base64", s)
 	}
 	return strings.ToValidUTF8(string(b), string(utf8.RuneError)), nil
-}
-
-// htmlDecode is WebUtility.HtmlDecode: named entities and &#N; and &#xN;
-// references that end in ';'. Anything else stays as written.
-func htmlDecode(s string) string {
-	if !strings.Contains(s, "&") {
-		return s
-	}
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		if s[i] != '&' {
-			b.WriteByte(s[i])
-			continue
-		}
-		end := strings.IndexAny(s[i+1:], ";&")
-		if end <= 0 || s[i+1+end] != ';' {
-			b.WriteByte('&')
-			continue
-		}
-		entity := s[i+1 : i+1+end]
-		if r, ok := decodeEntity(entity); ok {
-			b.WriteString(r)
-			i += end + 1
-			continue
-		}
-		if len(entity) > 1 && entity[0] == '#' {
-			b.WriteByte('&')
-			continue
-		}
-		b.WriteString("&" + entity + ";")
-		i += end + 1
-	}
-	return b.String()
-}
-
-func decodeEntity(entity string) (string, bool) {
-	if len(entity) > 1 && entity[0] == '#' {
-		var n uint64
-		var err error
-		if entity[1] == 'x' || entity[1] == 'X' {
-			n, err = strconv.ParseUint(entity[2:], 16, 32)
-		} else {
-			n, err = strconv.ParseUint(strings.TrimSpace(entity[1:]), 10, 32)
-		}
-		if err != nil || (n >= 0xD800 && n <= 0xDFFF) || n > unicode.MaxRune {
-			return "", false
-		}
-		return string(rune(n)), true
-	}
-	out := html.UnescapeString("&" + entity + ";")
-	if strings.Contains(out, ";") {
-		return "", false
-	}
-	return out, true
-}
-
-// htmlEncode is WebUtility.HtmlEncode.
-func htmlEncode(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		switch {
-		case r == '<':
-			b.WriteString("&lt;")
-		case r == '>':
-			b.WriteString("&gt;")
-		case r == '"':
-			b.WriteString("&quot;")
-		case r == '\'':
-			b.WriteString("&#39;")
-		case r == '&':
-			b.WriteString("&amp;")
-		case (r >= 160 && r < 256) || r > 0xFFFF:
-			b.WriteString("&#" + strconv.Itoa(int(r)) + ";")
-		default:
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }
 
 // validFileName is MakeValidFileName(s, '_', false) with Windows' invalid

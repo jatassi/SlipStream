@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer responded with \"Invalid search type\""
+  },
+  "sessionChanged": false
+}

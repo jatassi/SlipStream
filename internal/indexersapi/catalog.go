@@ -24,7 +24,10 @@ var (
 func catalogAnswer(err error) error {
 	var unrunnable *cardigann.Unrunnable
 	var unreachable *indexers.CatalogUnreachableError
+	var ported *indexers.PortIDTakenError
 	switch {
+	case errors.As(err, &ported):
+		return definitionIDTaken.Because("SlipStream includes " + ported.Name + ", which has this id.")
 	case errors.As(err, &unreachable):
 		return catalogAddressUnreachable.Because("Check the address and that it serves schema 12.")
 	case errors.As(err, &unrunnable):
@@ -54,7 +57,7 @@ type catalogEntry struct {
 	Language    string    `json:"language" doc:"A language tag such as en-US"`
 	Privacy     string    `json:"privacy" enum:"private,semi-private,public"`
 	Categories  []int     `json:"categories" nullable:"false" doc:"The Newznab category ids it maps to"`
-	Origin      string    `json:"origin" enum:"catalog,custom"`
+	Origin      string    `json:"origin" enum:"catalog,custom,native"`
 	Reason      *string   `json:"reason" doc:"Why SlipStream can't run it; null when it can"`
 	Replaced    bool      `json:"replacedByCustom" doc:"A custom definition has this catalog entry's id and runs in its place"`
 	Version     time.Time `json:"version" doc:"When SlipStream downloaded this version"`
@@ -97,34 +100,54 @@ type option struct {
 }
 
 type definitionField struct {
-	Name    string   `json:"name" doc:"May hold hyphens or start with a digit"`
-	Label   string   `json:"label"`
-	Type    string   `json:"type" enum:"text,password,checkbox,select,info,info_cookie,info_flaresolverr,info_useragent,info_category_8000,cardigannCaptcha"`
-	Default *string  `json:"default" doc:"Null when the field has none"`
-	Options []option `json:"options" nullable:"false" doc:"A select's choices, by value"`
-	Help    *string  `json:"help" doc:"An info field's text, written by the definition's authors"`
-	Sealed  bool     `json:"sealed" doc:"Its saved value is never returned"`
+	Name     string   `json:"name" doc:"May hold hyphens or start with a digit"`
+	Label    string   `json:"label"`
+	Type     string   `json:"type" enum:"text,password,checkbox,select,number,multiselect,info,info_cookie,info_flaresolverr,info_useragent,info_category_8000,cardigannCaptcha"`
+	Default  *string  `json:"default" doc:"Null when the field has none"`
+	Options  []option `json:"options" nullable:"false" doc:"A select's or a multiselect's choices, by value"`
+	Min      *int     `json:"min" doc:"A number's least value; null for none"`
+	Max      *int     `json:"max" doc:"A number's greatest value; null for none"`
+	Help     *string  `json:"help" doc:"An info field's text, written by the definition's authors, or a ported site's help"`
+	Sealed   bool     `json:"sealed" doc:"Its saved value is never returned"`
+	Required bool     `json:"required" doc:"An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value"`
 }
 
 type definitionForm struct {
-	Entry   catalogEntry      `json:"entry"`
-	Links   []string          `json:"links" nullable:"false" doc:"The site's addresses, the first being the default"`
-	Fields  []definitionField `json:"fields" nullable:"false" doc:"In the definition's order, the captcha last"`
-	Session bool              `json:"session" doc:"Its Indexers sign in and keep a session on their Node"`
-	Captcha bool              `json:"captcha" doc:"Signing in asks for an image captcha"`
-	Solver  bool              `json:"solver" doc:"The site sits behind a browser challenge that a Challenge solver can clear"`
-	Cookie  bool              `json:"cookie" doc:"Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field"`
+	Entry   catalogEntry            `json:"entry"`
+	Links   []string                `json:"links" nullable:"false" doc:"The site's addresses, the first being the default"`
+	Fields  []definitionField       `json:"fields" nullable:"false" doc:"In the definition's order, the captcha last"`
+	Session bool                    `json:"session" doc:"Its Indexers sign in and keep a session on their Node"`
+	Captcha bool                    `json:"captcha" doc:"Signing in asks for an image captcha"`
+	Solver  bool                    `json:"solver" doc:"The site sits behind a browser challenge that a Challenge solver can clear"`
+	Cookie  bool                    `json:"cookie" doc:"Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field"`
+	Code    bool                    `json:"code" doc:"Signing in may ask for a two-factor code"`
+	Port    api.Nullable[portFacts] `json:"port" doc:"What an included site's form says beyond a definition's; null for a definition"`
+}
+
+type portFacts struct {
+	UserAgent      bool       `json:"userAgent" doc:"The pasted cookie works only with the User-Agent of the browser it came from"`
+	Searches       limit      `json:"searches" doc:"A new Indexer's search limit unless the form sets one"`
+	Grabs          limit      `json:"grabs" doc:"A new Indexer's grab limit unless the form sets one"`
+	Recent         bool       `json:"recent" doc:"The site lists its new uploads, so RSS sync can use it"`
+	SpacingSeconds float64    `json:"spacingSeconds" doc:"The least time between two requests to the site"`
+	Synced         *time.Time `json:"synced" doc:"When the Prowlarr commit SlipStream's support for the site was synced to was made"`
 }
 
 func formOf(f indexers.Form) definitionForm {
 	out := definitionForm{
 		Entry: entryOf(f.Entry), Links: append([]string{}, f.Links...), Fields: []definitionField{},
-		Session: f.Session, Captcha: f.Captcha, Solver: f.Solver, Cookie: f.Cookie,
+		Session: f.Session, Captcha: f.Captcha, Solver: f.Solver, Cookie: f.Cookie, Code: f.Code,
+	}
+	if p := f.Port; p != nil {
+		out.Port = api.Some(portFacts{
+			UserAgent: p.UserAgent, Searches: limitOf(p.Searches), Grabs: limitOf(p.Grabs), Recent: p.Recent,
+			SpacingSeconds: p.Spacing.Seconds(), Synced: when(p.Synced),
+		})
 	}
 	for _, field := range f.Fields {
 		d := definitionField{
 			Name: field.Name, Label: field.Label, Type: string(field.Type), Default: text(field.Default), Options: []option{},
-			Help: text(field.Help), Sealed: field.Sealed,
+			Help: text(field.Help), Sealed: field.Sealed, Required: field.Required, Min: field.Min, Max: field.Max,
 		}
 		for _, o := range field.Options {
 			d.Options = append(d.Options, option{Value: o.Value, Label: o.Label})

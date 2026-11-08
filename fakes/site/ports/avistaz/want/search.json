@@ -1,0 +1,33 @@
+{
+  "releases": [
+    {
+      "title": "Cedar Hollow 2021 S01E05 720p NF WEB-DL DDP2.0 x264-SEIKEL",
+      "size": 935127615,
+      "published": "2021-11-14T21:26:21Z",
+      "seeders": 20,
+      "leechers": 0,
+      "grabs": 23,
+      "link": "https://avistaz.fixture-site.fake.localhost/rss/download/(removed)/(removed).torrent",
+      "magnet": "",
+      "infoHash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "categories": [
+        5040
+      ],
+      "ids": {
+        "imdbid": "tt15569106",
+        "tmdbid": "135144",
+        "tvdbid": "410548"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "73h44m30s",
+      "details": "https://avistaz.fixture-site.fake.localhost/torrent/187240-cedar-hollow-2021-s01e05-720p-nf-web-dl-ddp20-x264-seikel",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

@@ -171,7 +171,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 		spec.Endpoints(&e, at)
 		tr.DialContext = e.Searching.Dial(tr.DialContext)
 	}
-	leaf, err := authority.Leaf(fake.LeafNames(spec.Name)...)
+	leaf, err := authority.Leaf(spec.LeafNames()...)
 	if err != nil {
 		t.Fatal(err)
 	}

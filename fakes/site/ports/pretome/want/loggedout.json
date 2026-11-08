@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "Salt.Meadow.2020.2160p.WEB-DL.H265-FKW",
+      "size": 20132659200,
+      "published": "1999-12-31T23:48:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 2,
+      "link": "https://pretome.fixture-site.fake.localhost/download.php/3001/Salt.Meadow.2020.2160p.WEB-DL.H265-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5045,
+        164878
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0.75,
+      "minSeed": "60h0m0s",
+      "details": "https://pretome.fixture-site.fake.localhost/details.php?id=3001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Juniper.Falls.2022.1080p.WEB-DL.H264-FKW",
+      "size": 4724464025,
+      "published": "1999-12-25T00:00:00Z",
+      "seeders": 1,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://pretome.fixture-site.fake.localhost/download.php/3002/Juniper.Falls.2022.1080p.WEB-DL.H264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        125166
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0.75,
+      "minSeed": "60h0m0s",
+      "details": "https://pretome.fixture-site.fake.localhost/details.php?id=3002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": true
+}

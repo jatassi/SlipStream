@@ -1,0 +1,94 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard 2021 2160p UHD BluRay Remux HDR HEVC TrueHD 7.1-FraMeSToR",
+      "size": 64424509440,
+      "published": "2026-05-28T21:46:40Z",
+      "seeders": 40,
+      "leechers": 2,
+      "grabs": 38,
+      "link": "https://beyond-hd.fixture-site.fake.localhost/torrent/download/auto.180007.{{rssKey}}",
+      "magnet": "",
+      "infoHash": "f3d82ea776451f96507397646f0e0f626997da6a",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": {
+        "imdbid": "tt0000001",
+        "tmdbid": "1"
+      },
+      "factors": {
+        "download": 0.25,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://beyond-hd.fixture-site.fake.localhost/details/180007",
+      "source": null,
+      "flags": [
+        "freeleech75"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard 2021 720p WEB-DL DDP5.1 H.264-NTb",
+      "size": 3221225472,
+      "published": "2026-05-24T08:30:00Z",
+      "seeders": 22,
+      "leechers": 0,
+      "grabs": 90,
+      "link": "https://beyond-hd.fixture-site.fake.localhost/torrent/download/auto.180003.{{rssKey}}",
+      "magnet": "",
+      "infoHash": "39349f6b3254f093d94809a9d0ef38ba70f18265",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://beyond-hd.fixture-site.fake.localhost/details/180003",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard 2021 1080p BluRay DTS-HD MA 5.1 x264-BHDStudio",
+      "size": 12884901888,
+      "published": "2026-05-20T10:00:00Z",
+      "seeders": 151,
+      "leechers": 4,
+      "grabs": 412,
+      "link": "https://beyond-hd.fixture-site.fake.localhost/torrent/download/auto.180001.{{rssKey}}",
+      "magnet": "",
+      "infoHash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": {
+        "imdbid": "tt0000001",
+        "tmdbid": "1"
+      },
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://beyond-hd.fixture-site.fake.localhost/details/180001",
+      "source": null,
+      "flags": [
+        "internal",
+        "exclusive",
+        "halfleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

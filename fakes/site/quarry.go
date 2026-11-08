@@ -13,14 +13,14 @@ func (s *site) quarry() fake.Routes {
 	return fake.Routes{
 		"auth": {Pattern: "GET /api/auth", Handler: s.quarryAuth},
 		"me": {Pattern: "GET /api/me", Handler: func(w http.ResponseWriter, _ *http.Request) {
-			quarryJSON(w, http.StatusOK, map[string]string{"user": Username})
+			writeJSON(w, http.StatusOK, map[string]string{"user": Username})
 		}},
 		"search":   {Pattern: "GET /api/torrents", Handler: s.quarrySearch},
 		"download": {Pattern: "GET /api/download", Handler: s.quarryDownload},
 	}
 }
 
-func quarryJSON(w http.ResponseWriter, status int, v any) {
+func writeJSON(w http.ResponseWriter, status int, v any) {
 	body, err := json.Marshal(v)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -35,7 +35,7 @@ func quarryJSON(w http.ResponseWriter, status int, v any) {
 // 401 when it doesn't.
 func (s *site) quarryKeyed(w http.ResponseWriter, r *http.Request) bool {
 	if r.URL.Query().Get("apikey") != Key(s.scenario, Quarry) {
-		quarryJSON(w, http.StatusUnauthorized, map[string]string{"error": "Invalid API key"})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Invalid API key"})
 		return false
 	}
 	return true
@@ -43,7 +43,7 @@ func (s *site) quarryKeyed(w http.ResponseWriter, r *http.Request) bool {
 
 func (s *site) quarryAuth(w http.ResponseWriter, r *http.Request) {
 	if s.quarryKeyed(w, r) {
-		quarryJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
 }
 
@@ -75,7 +75,7 @@ func (s *site) quarrySearch(w http.ResponseWriter, r *http.Request) {
 			Added: "2026-06-01T12:00:00Z", Freeleech: rel.Freeleech,
 		})
 	}
-	quarryJSON(w, http.StatusOK, map[string]any{"data": rows})
+	writeJSON(w, http.StatusOK, map[string]any{"data": rows})
 }
 
 func (s *site) quarryDownload(w http.ResponseWriter, r *http.Request) {

@@ -9,6 +9,8 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/magnet"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/dom"
 )
 
 // Got is what a download link leads to: a Torrent or a Magnet.
@@ -132,13 +134,13 @@ func (x *Download) before(path *template) (*step, error) {
 	switch {
 	case strings.EqualFold(b.Method, methodPost):
 		req.Method = http.MethodPost
-		req.Body = []byte(x.d.charset.QueryString(pairs, "&"))
+		req.Body = []byte(queryString(x.d.charset, pairs, "&"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	case len(pairs) > 0:
 		if !strings.Contains(target, "?") {
 			target += "?"
 		}
-		target += x.d.charset.QueryString(pairs, b.QuerySeparator)
+		target += queryString(x.d.charset, pairs, b.QuerySeparator)
 	}
 	if req.URL, err = url.Parse(target); err != nil {
 		return nil, fmt.Errorf("read the address %q: %w", target, err)
@@ -265,7 +267,7 @@ func (x *Download) match(r Response, f *selectorField) (text string, ok bool, er
 	if r.Status >= http.StatusBadRequest {
 		return "", false, fmt.Errorf("the download page responded with HTTP %d", r.Status)
 	}
-	doc, err := parseHTML(x.d.charset.Decode(r.Body))
+	doc, err := dom.ParseHTML(x.d.charset.GetString(r.Body))
 	if err != nil {
 		return "", false, err
 	}

@@ -1,0 +1,76 @@
+source: prowlarr
+settings:
+  username: fixture-user
+  passkey: "{{passkey}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}}}
+    exchanges:
+      - request:
+          path: /api.php
+          headers: {Accept: application/json, Authorization: Basic Zml4dHVyZS11c2VyOnt7cGFzc2tleX19}
+          query: {action: search-torrents, type: imdb, query: tt0000001}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: text
+    call: {search: {mode: search, text: Cedar Hollow}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: search-torrents, type: name, query: Cedar Hollow}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /api.php, query: {action: search-torrents, type: name, query: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: latest-torrents}
+          noQuery: [type, query, freeleech]
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /api.php, query: {action: latest-torrents}}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php}
+        response: {status: 401, headers: {Content-Type: application/json}, body: unauthorized.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php}
+        response: {headers: {Content-Type: application/json}, body: error.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: search-torrents, type: name, query: Harbor Lights, season: "2", episode: "3"}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: daily
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2026, episode: "05/28"}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: search-torrents, type: name, query: Harbor Lights 2026.05.28}
+          noQuery: [season, episode]
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: dailyid
+    call: {search: {mode: tvsearch, ids: {imdbid: tt0000001}, season: 2026, episode: "05/28"}}
+    exchanges: []
+  - name: grab
+    call: {fetch: "/download.php?id=665873&passkey={{passkey}}"}
+    exchanges:
+      - request: {path: /download.php, query: {id: "665873", passkey: "{{passkey}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

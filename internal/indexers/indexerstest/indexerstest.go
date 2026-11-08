@@ -1,5 +1,5 @@
 // Package indexerstest is fixtures for the tests of the indexers' callers:
-// a roster and a saved Torznab or catalog Indexer.
+// a roster and a saved Torznab, catalog or native Indexer.
 package indexerstest
 
 import (
@@ -130,6 +130,30 @@ func Catalog(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secre
 		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", DefinitionID: &definition, DefinitionSha: &sha, BaseAddress: &base,
 		Plain: string(settings), SecretsSealed: sealer.Seal(secrets, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		Caps: `{"modes":{}}`, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("save Indexer %s: %w", name, err)
+	}
+	return nil
+}
+
+// Native saves a native Indexer homed on home that runs port at address,
+// with its plain settings and its sealed fields, at revision 1 with no
+// status, even for a port the registry no longer carries.
+func Native(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secret.Sealer, id indexers.ID, name string, home role.NodeID, port, address string, plain, sealed map[string]string) error {
+	secrets, err := json.Marshal(indexers.Secrets{Fields: sealed}) //nolint:gosec // G117: sealed below
+	if err != nil {
+		return fmt.Errorf("encode the secrets: %w", err)
+	}
+	settings, err := json.Marshal(plain)
+	if err != nil {
+		return fmt.Errorf("encode the settings: %w", err)
+	}
+	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
+		ID: id, Name: name, Kind: string(indexers.Native), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
+		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", PortID: &port, BaseAddress: &address,
+		Plain: string(settings), SecretsSealed: sealer.Seal(secrets, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
+		Caps: Caps, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
 	if err != nil {
 		return fmt.Errorf("save Indexer %s: %w", name, err)

@@ -1,0 +1,22 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "date": "2026-11-06",
+  "family": "",
+  "files": {
+    "api.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/PassThePopcorn/PassThePopcornApi.cs"
+    ],
+    "parser.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/PassThePopcorn/PassThePopcornParser.cs"
+    ],
+    "passthepopcorn.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/PassThePopcorn/PassThePopcorn.cs"
+    ],
+    "requestgenerator.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/PassThePopcorn/PassThePopcornRequestGenerator.cs"
+    ],
+    "settings.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/PassThePopcorn/PassThePopcornSettings.cs"
+    ]
+  }
+}

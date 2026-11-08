@@ -1,0 +1,59 @@
+{
+  "data": [
+    {
+      "id": 64040,
+      "url": "https://exoticaz.fixture-site.fake.localhost/torrent/64040-the-quiet-orchard-2022-1080p-web-dl",
+      "download": "https://exoticaz.fixture-site.fake.localhost/rss/download/123456789/64040-00230c343b580c75b2d13350204811aeb1f181bc.torrent",
+      "category": {
+        "1": "Video Clip"
+      },
+      "info_hash": "00230c343b580c75b2d13350204811aeb1f181bc",
+      "file_name": "The Quiet Orchard 2022 1080p WEB-DL",
+      "file_size": 7085405541,
+      "file_count": 1,
+      "seed": 33,
+      "leech": 0,
+      "completed": 55,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "created_at_iso": "2022-06-11T11:04:50+02:00"
+    },
+    {
+      "id": 64038,
+      "url": "https://exoticaz.fixture-site.fake.localhost/torrent/64038-harbor-lights-collection-2022",
+      "download": "https://exoticaz.fixture-site.fake.localhost/rss/download/123456789/64038-a4481c64ca0f0da573b14e06f7802c5de1a854ab.torrent",
+      "category": {
+        "2": "Video Pack",
+        "7": "Photo Pack"
+      },
+      "info_hash": "a4481c64ca0f0da573b14e06f7802c5de1a854ab",
+      "file_name": "Harbor Lights 2022 Collection",
+      "file_size": 64424509440,
+      "file_count": 120,
+      "seed": 8,
+      "leech": 2,
+      "completed": 19,
+      "upload_multiply": 2,
+      "download_multiply": 0,
+      "created_at_iso": "2022-06-10T22:15:00+02:00"
+    },
+    {
+      "id": 64031,
+      "url": "https://exoticaz.fixture-site.fake.localhost/torrent/64031-cedar-hollow-2021-dvd",
+      "download": "https://exoticaz.fixture-site.fake.localhost/rss/download/123456789/64031-10bfc21b139cefee30118f55f8f8dee3f20427d6.torrent",
+      "category": {
+        "5": "DVD"
+      },
+      "info_hash": "10bfc21b139cefee30118f55f8f8dee3f20427d6",
+      "file_name": "Cedar Hollow 2021 DVD",
+      "file_size": 4508876800,
+      "file_count": 2,
+      "seed": 4,
+      "leech": 0,
+      "completed": 12,
+      "upload_multiply": 1,
+      "download_multiply": 0.5,
+      "created_at_iso": "2022-06-09T08:30:00+02:00"
+    }
+  ]
+}

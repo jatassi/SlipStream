@@ -1,0 +1,60 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.German.DL.1080p.BluRay.x264-SYNDIKAT",
+      "size": 10737418240,
+      "published": "2026-05-28T20:26:40Z",
+      "seeders": 61,
+      "leechers": 2,
+      "grabs": 230,
+      "link": "https://torrentsyndikat.fixture-site.fake.localhost/download.php?id=733001\u0026apikey={{apiKey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100009
+      ],
+      "ids": {
+        "imdbid": "tt0000001",
+        "tmdbid": "1"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "96h0m0s",
+      "details": "https://torrentsyndikat.fixture-site.fake.localhost/details.php?id=733001",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Harbor.Lights.S02E03.German.DL.720p.WEB.h264-SYNDIKAT",
+      "size": 1610612736,
+      "published": "2026-05-28T17:40:00Z",
+      "seeders": 14,
+      "leechers": 0,
+      "grabs": 31,
+      "link": "https://torrentsyndikat.fixture-site.fake.localhost/download.php?id=733002\u0026apikey={{apiKey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040,
+        100054
+      ],
+      "ids": {
+        "tvdbid": "248841"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "96h0m0s",
+      "details": "https://torrentsyndikat.fixture-site.fake.localhost/details.php?id=733002",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

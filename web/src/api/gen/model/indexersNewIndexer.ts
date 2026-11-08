@@ -21,7 +21,7 @@ export interface IndexersNewIndexer {
   apiKey?: string;
   automaticSearch?: boolean;
   /**
-   * One of the definition's addresses; absent for its first
+   * One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one
    * @maxLength 2048
    */
   baseAddress?: string;
@@ -32,7 +32,12 @@ export interface IndexersNewIndexer {
    * @nullable
    */
   categories?: number[] | null;
-  /** A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only */
+  /**
+   * The current two-factor code, for a site whose sign-in asks for one
+   * @maxLength 16
+   */
+  code?: string;
+  /** A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only */
   cookie?: IndexersPastedCookie;
   /**
    * A catalog Indexer's definition id; required for one
@@ -55,6 +60,11 @@ export interface IndexersNewIndexer {
   name: string;
   on?: boolean;
   /**
+   * A native Indexer's port id; required for one
+   * @maxLength 200
+   */
+  port?: string;
+  /**
    * @minimum 1
    * @maximum 50
    */
@@ -66,6 +76,6 @@ export interface IndexersNewIndexer {
    * @maxLength 100
    */
   trackerName?: string;
-  /** A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only */
+  /** A catalog or native Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only */
   values?: IndexersNewIndexerValues;
 }

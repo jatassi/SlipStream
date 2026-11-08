@@ -178,6 +178,12 @@ linters:
         linters:
           - gosec
         text: "^G(122|204|301|304|306|702|703):"
+      # A port keeps its C# methods whole and in order, so an upstream diff
+      # ports hunk by hunk. The path is every directory under
+      # internal/ports but port/, the kit, which RE2 can't say directly.
+      - path: ^internal/ports/([^p/][^/]*|p[^o/][^/]*|po[^r/][^/]*|por[^t/][^/]*|port[^/]+)/
+        linters:
+          - gocognit
 
 formatters:
   enable:

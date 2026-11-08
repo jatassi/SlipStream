@@ -1,0 +1,77 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 120,
+    "results": [
+      {
+        "groupId": "48420",
+        "groupName": "Cedar.Hollow.S01E05.1080p.WEB.H264-FIXTURE",
+        "torrentId": 102555,
+        "tags": [],
+        "category": "TvHD",
+        "fileCount": 1,
+        "groupTime": "2021-11-15 12:10:00",
+        "size": 2345678901,
+        "snatches": 30,
+        "seeders": 25,
+        "leechers": 3,
+        "isFreeleech": false,
+        "isNeutralLeech": true,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      },
+      {
+        "groupId": "48418",
+        "groupName": "Juniper.Falls.S01.2160p.WEB-DL.DDP5.1.H.265-FIXTURE",
+        "torrentId": 102549,
+        "tags": [],
+        "category": "TvPackUHD",
+        "fileCount": 8,
+        "groupTime": "1636976400",
+        "size": 61234567890,
+        "snatches": 4,
+        "seeders": 6,
+        "leechers": 5,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": true,
+        "canUseToken": true
+      },
+      {
+        "groupId": "48415",
+        "groupName": "Salt.Meadow.2009.720p.BluRay.x264-FIXTURE",
+        "torrentId": 102540,
+        "tags": [],
+        "category": "Select Category",
+        "fileCount": 2,
+        "groupTime": "2021-11-15 06:45:12",
+        "size": 4567890123,
+        "snatches": 2,
+        "seeders": 3,
+        "leechers": 0,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      },
+      {
+        "groupId": "48409",
+        "groupName": "The.Copper.Bell.2021.DVDRip.x264-FIXTURE",
+        "torrentId": 102531,
+        "tags": [],
+        "category": "MovieSD",
+        "fileCount": 2,
+        "groupTime": "2021-11-14 23:59:01",
+        "size": "1456789012",
+        "snatches": 9,
+        "seeders": "4",
+        "leechers": "1",
+        "isFreeleech": true,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": false
+      }
+    ]
+  }
+}

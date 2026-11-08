@@ -1,0 +1,662 @@
+{
+  "current_page": 1,
+  "data": [
+    {
+      "id": 78506,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78506-cedar-hollow-2014-2160p-uhd-bluray-remux-hdr-hevc-atmos-triton",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78506-3a09bbfb97c5074d6d263730ff9cb8d82140c05f.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "file_name": "Cedar Hollow 2014 2160p UHD BluRay REMUX HDR HEVC Atmos-TRiToN",
+      "file_size": 69914591044,
+      "file_count": 1,
+      "seed": 27,
+      "leech": 5,
+      "completed": 30,
+      "downloaded": 44,
+      "upload_multiply": 2,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 6,
+      "video_quality": "2160p",
+      "rip_type_id": 14,
+      "rip_type": "REMUX",
+      "movie_tv": {
+        "imdb": "tt0831387",
+        "tmdb": "124905",
+        "tvdb": null,
+        "title": "Cedar Hollow",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 33,
+          "language": "Chinese"
+        },
+        {
+          "id": 40,
+          "language": "Czech"
+        },
+        {
+          "id": 41,
+          "language": "Danish"
+        },
+        {
+          "id": 43,
+          "language": "Dutch"
+        },
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 51,
+          "language": "Finnish"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 58,
+          "language": "German"
+        },
+        {
+          "id": 68,
+          "language": "Hungarian"
+        },
+        {
+          "id": 78,
+          "language": "Italian"
+        },
+        {
+          "id": 91,
+          "language": "Korean"
+        },
+        {
+          "id": 120,
+          "language": "Norwegian"
+        },
+        {
+          "id": 130,
+          "language": "Polish"
+        },
+        {
+          "id": 134,
+          "language": "Romanian"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        },
+        {
+          "id": 155,
+          "language": "Swedish"
+        },
+        {
+          "id": 162,
+          "language": "Thai"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-21 00:24:49",
+      "created_at_iso": "2021-03-21T00:24:49-04:00",
+      "description": null
+    },
+    {
+      "id": 78501,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78501-harbor-lights-2020-1080p-bluray-hybrid-remux-avc-truehd-71-atmos-triton",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78501-f3d82ea776451f96507397646f0e0f626997da6a.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "f3d82ea776451f96507397646f0e0f626997da6a",
+      "file_name": "Harbor Lights 2020 1080p BluRay Hybrid REMUX AVC TrueHD 7.1 Atmos-TRiToN",
+      "file_size": 23405423482,
+      "file_count": 1,
+      "seed": 66,
+      "leech": 1,
+      "completed": 69,
+      "downloaded": 103,
+      "upload_multiply": 2,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 14,
+      "rip_type": "REMUX",
+      "movie_tv": {
+        "imdb": "tt2948372",
+        "tmdb": "508442",
+        "tvdb": null,
+        "title": "Harbor Lights",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-19 21:52:21",
+      "created_at_iso": "2021-03-19T21:52:21-04:00",
+      "description": null
+    },
+    {
+      "id": 78496,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78496-juniper-falls-2008-1080p-bluray-remux-vc-1-dts-hd-ma-51-triton",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78496-39349f6b3254f093d94809a9d0ef38ba70f18265.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "39349f6b3254f093d94809a9d0ef38ba70f18265",
+      "file_name": "Juniper Falls 2008 1080p BluRay REMUX VC-1 DTS-HD MA 5.1-TRiToN",
+      "file_size": 18149206810,
+      "file_count": 1,
+      "seed": 30,
+      "leech": 0,
+      "completed": 31,
+      "downloaded": 61,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 14,
+      "rip_type": "REMUX",
+      "movie_tv": {
+        "imdb": "tt0443559",
+        "tmdb": "16164",
+        "tvdb": null,
+        "title": "Juniper Falls",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 43,
+          "language": "Dutch"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-19 01:57:43",
+      "created_at_iso": "2021-03-19T01:57:43-04:00",
+      "description": null
+    },
+    {
+      "id": 78491,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78491-salt-meadow-2021-2160p-hmax-web-dl-ddp-51-atmos-dv-x265-mzabi",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78491-33ee01d828becdd3316463583df181ee2c8a7b1c.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "33ee01d828becdd3316463583df181ee2c8a7b1c",
+      "file_name": "Salt Meadow 2021 2160p HMAX WEB-DL DDP 5.1 Atmos DV x265-MZABI",
+      "file_size": 34009563060,
+      "file_count": 1,
+      "seed": 138,
+      "leech": 3,
+      "completed": 183,
+      "downloaded": 233,
+      "upload_multiply": 1,
+      "download_multiply": 0.5,
+      "adult": false,
+      "video_quality_id": 6,
+      "video_quality": "2160p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": "tt12361974",
+        "tmdb": "791373",
+        "tvdb": null,
+        "title": "Salt Meadow",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-18 09:26:08",
+      "created_at_iso": "2021-03-18T09:26:08-04:00",
+      "description": null
+    },
+    {
+      "id": 78486,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78486-the-copper-bell-2013-1080p-bluray-avc-dts-hd-ma-51-publichd",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78486-798a28c73de6212789019a8c59183cd774f9dd95.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "798a28c73de6212789019a8c59183cd774f9dd95",
+      "file_name": "The Copper Bell 2013 1080p BluRay AVC DTS-HD MA 5.1-PublicHD",
+      "file_size": 22355890076,
+      "file_count": 101,
+      "seed": 5,
+      "leech": 0,
+      "completed": 3,
+      "downloaded": 22,
+      "upload_multiply": 1,
+      "download_multiply": 0.5,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 3,
+      "rip_type": "BluRay Raw",
+      "movie_tv": {
+        "imdb": "tt1838520",
+        "tmdb": "157351",
+        "tvdb": null,
+        "title": "The Copper Bell",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-18 07:09:34",
+      "created_at_iso": "2021-03-18T07:09:34-04:00",
+      "description": null
+    },
+    {
+      "id": 78472,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78472-the-lantern-keeper-2002-2160p-eur-uhd-blu-ray-hdr-hevc-atmos-71-itwasntme",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78472-2dab737c0865f80647b6a1f14aca754853fa55c4.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "2dab737c0865f80647b6a1f14aca754853fa55c4",
+      "file_name": "The Lantern Keeper 2002 2160p EUR UHD Blu-ray HDR HEVC Atmos 7.1-iTWASNTME",
+      "file_size": 63024883296,
+      "file_count": 469,
+      "seed": 11,
+      "leech": 0,
+      "completed": 12,
+      "downloaded": 26,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 6,
+      "video_quality": "2160p",
+      "rip_type_id": 3,
+      "rip_type": "BluRay Raw",
+      "movie_tv": {
+        "imdb": "tt0121765",
+        "tmdb": "1894",
+        "tvdb": null,
+        "title": "The Lantern Keeper",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 58,
+          "language": "German"
+        },
+        {
+          "id": 78,
+          "language": "Italian"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 41,
+          "language": "Danish"
+        },
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 51,
+          "language": "Finnish"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 58,
+          "language": "German"
+        },
+        {
+          "id": 78,
+          "language": "Italian"
+        },
+        {
+          "id": 120,
+          "language": "Norwegian"
+        },
+        {
+          "id": 155,
+          "language": "Swedish"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-17 12:01:05",
+      "created_at_iso": "2021-03-17T12:01:05-04:00",
+      "description": null
+    },
+    {
+      "id": 78468,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78468-the-quiet-orchard-2021-720p-bluray-dd-51-x264-ift",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78468-a074a85107841ab807858c3131171bec6c837e3a.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "a074a85107841ab807858c3131171bec6c837e3a",
+      "file_name": "The Quiet Orchard 2021 720p BluRay DD 5.1 x264-iFT",
+      "file_size": 6738877631,
+      "file_count": 1,
+      "seed": 5,
+      "leech": 0,
+      "completed": 5,
+      "downloaded": 16,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 2,
+      "video_quality": "720p",
+      "rip_type_id": 2,
+      "rip_type": "BluRay",
+      "movie_tv": {
+        "imdb": "tt7638348",
+        "tmdb": "513310",
+        "tvdb": null,
+        "title": "The Quiet Orchard",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-16 22:47:11",
+      "created_at_iso": "2021-03-16T22:47:11-04:00",
+      "description": null
+    },
+    {
+      "id": 78446,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78446-cedar-hollow-2020-1080p-blu-ray-avc-truehd-71-atmos-nogroup",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78446-22b2ff58a1e92f508d282ceb9a457fa422d66f27.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "22b2ff58a1e92f508d282ceb9a457fa422d66f27",
+      "file_name": "Cedar Hollow 2020 1080p Blu-ray AVC TrueHD 7.1 Atmos-NOGROUP",
+      "file_size": 48619500759,
+      "file_count": 268,
+      "seed": 22,
+      "leech": 0,
+      "completed": 21,
+      "downloaded": 38,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 3,
+      "rip_type": "BluRay Raw",
+      "movie_tv": {
+        "imdb": "tt6878306",
+        "tmdb": "581032",
+        "tvdb": null,
+        "title": "Cedar Hollow",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-15 16:37:11",
+      "created_at_iso": "2021-03-15T16:37:11-04:00",
+      "description": null
+    },
+    {
+      "id": 78398,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78398-harbor-lights-2019-2160p-atvp-web-dl-ddp-51-atmos-dv-h265-ika",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78398-32eab9951492c4232b7697638e5bb48479de2b4a.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "32eab9951492c4232b7697638e5bb48479de2b4a",
+      "file_name": "Harbor Lights 2019 2160p ATVP WEB-DL DDP 5.1 Atmos DV H.265-iKA",
+      "file_size": 17800071771,
+      "file_count": 1,
+      "seed": 15,
+      "leech": 0,
+      "completed": 15,
+      "downloaded": 32,
+      "upload_multiply": 1,
+      "download_multiply": 1,
+      "adult": false,
+      "video_quality_id": 6,
+      "video_quality": "2160p",
+      "rip_type_id": 12,
+      "rip_type": "WEB-DL",
+      "movie_tv": {
+        "imdb": "tt6722976",
+        "tmdb": "541572",
+        "tvdb": null,
+        "title": "Harbor Lights",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 41,
+          "language": "Danish"
+        },
+        {
+          "id": 43,
+          "language": "Dutch"
+        },
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 51,
+          "language": "Finnish"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 58,
+          "language": "German"
+        },
+        {
+          "id": 78,
+          "language": "Italian"
+        },
+        {
+          "id": 120,
+          "language": "Norwegian"
+        },
+        {
+          "id": 131,
+          "language": "Portuguese"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        },
+        {
+          "id": 155,
+          "language": "Swedish"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-13 16:17:07",
+      "created_at_iso": "2021-03-13T16:17:07-04:00",
+      "description": null
+    },
+    {
+      "id": 78159,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78159-juniper-falls-2021-1080i-mblu-ray-avc-dts-hd-ma-51-nogroup",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78159-82153df80903128bdd7b60010bd64dec62562aff.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "82153df80903128bdd7b60010bd64dec62562aff",
+      "file_name": "Juniper Falls 2021 1080i MBlu-ray AVC DTS-HD MA 5.1-NOGROUP",
+      "file_size": 95376194124,
+      "file_count": 139,
+      "seed": 11,
+      "leech": 0,
+      "completed": 13,
+      "downloaded": 23,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 7,
+      "video_quality": "1080i",
+      "rip_type_id": 3,
+      "rip_type": "BluRay Raw",
+      "movie_tv": {
+        "imdb": null,
+        "tmdb": "796574",
+        "tvdb": null,
+        "title": "Juniper Falls",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": null,
+      "music_type": null,
+      "created_at": "2021-03-04 23:08:06",
+      "created_at_iso": "2021-03-04T23:08:06-04:00",
+      "description": null
+    }
+  ],
+  "first_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=1",
+  "from": 1,
+  "last_page": 324,
+  "last_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=324",
+  "next_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=2",
+  "path": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents",
+  "per_page": 100,
+  "prev_page_url": null,
+  "to": 100,
+  "total": 32322
+}

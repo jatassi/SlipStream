@@ -101,7 +101,7 @@ func newHealthWorld(t *testing.T) *healthWorld {
 func (w *healthWorld) test(t *testing.T, outcome error) {
 	t.Helper()
 	w.site.answer(outcome)
-	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id, nil)
+	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id, indexers.Typed{})
 	if failed := new(indexers.TestFailedError); (outcome == nil) != (err == nil) || (err != nil && !errors.As(err, &failed)) {
 		t.Fatalf("Test with the site answering %v = %v", outcome, err)
 	}
@@ -165,7 +165,7 @@ func TestAnIndexerThatIsOffRaisesNothing(t *testing.T) {
 	w := newHealthWorld(t)
 	w.test(t, &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"})
 	off := false
-	if _, err := w.x.Update(t.Context(), identity.Admin{}, w.id, indexers.Edit{On: &off}, nil); err != nil {
+	if _, err := w.x.Update(t.Context(), identity.Admin{}, w.id, indexers.Edit{On: &off}, indexers.Typed{}); err != nil {
 		t.Fatal(err)
 	}
 	if a := w.answer(t); len(a.Items) != 0 || len(a.Unsure) != 0 {
@@ -312,7 +312,7 @@ func TestTheHealthCheckOfAFeedItCantUseSucceedsAndItsTestSaysWhy(t *testing.T) {
 	if a := w.answer(t); len(a.Items) != 0 {
 		t.Errorf("Health after a Test the site answered = %+v, want the stop cleared", a.Items)
 	}
-	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id, nil)
+	_, err := w.x.Test(t.Context(), identity.Admin{}, w.id, indexers.Typed{})
 	var refused *indexers.FeedRefusedError
 	if want := "Some items repeat the same GUID."; !errors.As(err, &refused) || refused.Sentence != want {
 		t.Errorf("Test of a feed SlipStream can't use = %v, want %q", err, want)
@@ -324,7 +324,7 @@ func TestAnIndexerWithAPastedCookieWaitingOnALapsedHomeWarnsUntilItAllowsFailove
 	v, err := w.x.Create(t.Context(), identity.Admin{}, indexers.Draft{
 		Kind: indexers.RSS, Name: "Brook", Home: w.box, On: true, Address: "https://brook.test/rss", Media: []works.TypeID{indexerstest.Type},
 		Cookie: &indexers.PastedCookie{Cookie: "uid=1; pass=2", UserAgent: "Firefox"},
-	}, nil)
+	}, indexers.Typed{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestAnIndexerWithAPastedCookieWaitingOnALapsedHomeWarnsUntilItAllowsFailove
 	}
 
 	allow := true
-	if _, err := w.x.Update(t.Context(), identity.Admin{}, v.ID, indexers.Edit{AllowFailover: &allow}, nil); err != nil {
+	if _, err := w.x.Update(t.Context(), identity.Admin{}, v.ID, indexers.Edit{AllowFailover: &allow}, indexers.Typed{}); err != nil {
 		t.Fatal(err)
 	}
 	if a := w.answer(t); len(a.Items) != 0 {

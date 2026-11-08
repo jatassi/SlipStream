@@ -1,0 +1,55 @@
+{
+  "releases": [
+    {
+      "title": "Огни гавани / Harbor Lights / S2E3 [2024, HDTV] Original",
+      "size": 734003200,
+      "published": "2026-01-05T00:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 15,
+      "link": "https://rutracker.fixture-site.fake.localhost/forum/dl.php?t=2002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100009
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://rutracker.fixture-site.fake.localhost/forum/viewtopic.php?t=2002",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Огни гавани / Harbor Lights / S2E1-3 of 8 [2024, драма, WEB-DL 1080p] MVO",
+      "size": 6442450944,
+      "published": "2026-01-04T00:00:00Z",
+      "seeders": 40,
+      "leechers": 9,
+      "grabs": 120,
+      "link": "https://rutracker.fixture-site.fake.localhost/forum/dl.php?t=2001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040,
+        100081
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://rutracker.fixture-site.fake.localhost/forum/viewtopic.php?t=2001",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

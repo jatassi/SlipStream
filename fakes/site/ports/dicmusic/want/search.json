@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2022.FLAC.Lossless.CD-FIXTURE",
+      "size": 389021696,
+      "published": "2024-11-07T09:41:03Z",
+      "seeders": 52,
+      "leechers": 0,
+      "grabs": 64,
+      "link": "https://dicmusic.fixture-site.fake.localhost/torrents.php?action=download\u0026id=140322",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://dicmusic.fixture-site.fake.localhost/torrents.php?id=51207\u0026torrentid=140322",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.2022.FLAC.24bit.WEB-FIXTURE",
+      "size": 1063256064,
+      "published": "2024-11-07T09:12:48Z",
+      "seeders": 15,
+      "leechers": 3,
+      "grabs": 17,
+      "link": "https://dicmusic.fixture-site.fake.localhost/torrents.php?action=download\u0026id=140318",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://dicmusic.fixture-site.fake.localhost/torrents.php?id=51206\u0026torrentid=140318",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

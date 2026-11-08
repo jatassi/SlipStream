@@ -156,3 +156,27 @@ func TestTheSpacerSpacesEachHostByTheFloorOrALongerDelay(t *testing.T) {
 		}
 	})
 }
+
+func TestANativeJobRunsOnTheInjectedDriverOnlyWithItsPort(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		d := &stall{release: make(chan struct{})}
+		close(d.release)
+		job := func(kind Kind, port string) *searchv1.RunRequest {
+			return &searchv1.RunRequest{Job: encodeJob(Job{ID: "n", Indexer: "i", Kind: kind, Port: port, Address: "https://site.test/", Call: SearchCall{}})}
+		}
+		bare := New(Config{HTTP: &http.Client{}, Timings: testTimings, Log: slog.New(slog.DiscardHandler)})
+		if _, err := bare.Run(t.Context(), job(Native, "hdbits")); err == nil {
+			t.Fatal("a Node with no native driver ran a native job")
+		}
+		s := New(Config{HTTP: &http.Client{}, Timings: testTimings, Log: slog.New(slog.DiscardHandler), Native: d})
+		for _, refused := range []*searchv1.RunRequest{job(Native, ""), job(Torznab, "hdbits")} {
+			if _, err := s.Run(t.Context(), refused); err == nil {
+				t.Fatalf("Run took %v, want it refused", refused.GetJob().GetSite())
+			}
+		}
+		res, err := s.Run(t.Context(), job(Native, "hdbits"))
+		if err != nil || len(res.GetDone().GetReleases().GetReleases()) != 1 || d.runs.Load() != 1 {
+			t.Fatalf("the native job = %v, %v after %d runs, want the native driver's one Release", res, err, d.runs.Load())
+		}
+	})
+}

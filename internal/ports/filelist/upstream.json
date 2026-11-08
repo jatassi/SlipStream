@@ -1,0 +1,22 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "date": "2026-11-06",
+  "family": "",
+  "files": {
+    "api.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/FileList/FileListApi.cs"
+    ],
+    "filelist.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/FileList/FileList.cs"
+    ],
+    "parser.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/FileList/FileListParser.cs"
+    ],
+    "requestgenerator.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/FileList/FileListRequestGenerator.cs"
+    ],
+    "settings.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/FileList/FileListSettings.cs"
+    ]
+  }
+}

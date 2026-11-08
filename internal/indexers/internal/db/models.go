@@ -57,6 +57,7 @@ type IndexersIndexer struct {
 	GrabWindow    string
 	DefinitionID  *string
 	DefinitionSha *string
+	PortID        *string
 	BaseAddress   *string
 	Plain         string
 	SecretsSealed secret.Sealed
@@ -103,6 +104,7 @@ type IndexersSession struct {
 	UserAgent     string
 	Pasted        bool
 	EarnedAt      storage.Time
+	TokenSealed   secret.Sealed
 }
 
 type IndexersSetting struct {

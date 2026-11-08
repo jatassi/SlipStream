@@ -3,6 +3,7 @@ package site_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"slices"
@@ -15,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/site/definitions"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -77,6 +79,14 @@ func failedWith(t *testing.T, err error, want string) indexers.Captcha {
 	return *failed.Captcha
 }
 
+// sentence is a failed Test's sentence, or err's text for any other error.
+func sentence(err error) string {
+	if failed, ok := errors.AsType[*indexers.TestFailedError](err); ok {
+		return failed.Sentence
+	}
+	return fmt.Sprint(err)
+}
+
 func shows(t *testing.T, c indexers.Captcha) string {
 	t.Helper()
 	text, err := site.CaptchaText(c.Image)
@@ -95,23 +105,23 @@ func TestAnAdminAddsLarkspurByTypingItsCaptcha(t *testing.T) {
 			Kind: indexers.Catalog, Name: "Larkspur", Definition: site.Larkspur, On: true, AutoSearch: true,
 			Values: map[string]string{"username": site.Username, "password": site.Password(w.s, site.Larkspur), "sort": "seeders"},
 		}
-		_, err := x.Create(t.Context(), admin, d, nil)
+		_, err := x.Create(t.Context(), admin, d, indexers.Typed{})
 		first := failedWith(t, err, "needs a captcha")
-		_, err = x.Create(t.Context(), admin, d, &indexers.CaptchaAnswer{Attempt: first.Attempt, Text: "wrong"})
+		_, err = x.Create(t.Context(), admin, d, indexers.Typed{Captcha: &indexers.CaptchaAnswer{Attempt: first.Attempt, Text: "wrong"}})
 		second := failedWith(t, err, site.WrongCaptcha)
-		if _, err := x.Create(t.Context(), admin, d, &indexers.CaptchaAnswer{Attempt: first.Attempt, Text: shows(t, first)}); !errors.Is(err, indexers.ErrCaptchaExpired) {
+		if _, err := x.Create(t.Context(), admin, d, indexers.Typed{Captcha: &indexers.CaptchaAnswer{Attempt: first.Attempt, Text: shows(t, first)}}); !errors.Is(err, indexers.ErrCaptchaExpired) {
 			t.Errorf("a second answer to one attempt = %v, want it expired", err)
 		}
 		other := d
 		other.Values = map[string]string{"username": "someone", "password": "x"}
-		if _, err := x.Create(t.Context(), admin, other, &indexers.CaptchaAnswer{Attempt: second.Attempt, Text: shows(t, second)}); !errors.Is(err, indexers.ErrCaptchaExpired) {
+		if _, err := x.Create(t.Context(), admin, other, indexers.Typed{Captcha: &indexers.CaptchaAnswer{Attempt: second.Attempt, Text: shows(t, second)}}); !errors.Is(err, indexers.ErrCaptchaExpired) {
 			t.Errorf("an answer for another username = %v, want it expired", err)
 		}
 		third, err := x.Captcha(t.Context(), admin, indexers.CaptchaFor{Draft: &d})
 		if err != nil {
 			t.Fatal(err)
 		}
-		v, err := x.Create(t.Context(), admin, d, &indexers.CaptchaAnswer{Attempt: third.Attempt, Text: shows(t, third)})
+		v, err := x.Create(t.Context(), admin, d, indexers.Typed{Captcha: &indexers.CaptchaAnswer{Attempt: third.Attempt, Text: shows(t, third)}})
 		if err != nil {
 			t.Fatalf("Create with the code = %v", err)
 		}
@@ -120,7 +130,7 @@ func TestAnAdminAddsLarkspurByTypingItsCaptcha(t *testing.T) {
 			def.Plain["username"] != site.Username || def.Plain["sort"] != "seeders" || def.Plain["password"] != "" {
 			t.Errorf("the Indexer = %+v, want it signed in with its session, at Larkspur's first link, the password sealed", v)
 		}
-		if _, err := x.Test(t.Context(), admin, v.ID, nil); err != nil {
+		if _, err := x.Test(t.Context(), admin, v.ID, indexers.Typed{}); err != nil {
 			t.Errorf("a Test with the session it holds = %v, want a pass without a captcha", err)
 		}
 		expiring, err := x.Captcha(t.Context(), admin, indexers.CaptchaFor{Indexer: v.ID})
@@ -128,7 +138,7 @@ func TestAnAdminAddsLarkspurByTypingItsCaptcha(t *testing.T) {
 			t.Fatal(err)
 		}
 		time.Sleep(indexers.DefaultTimings().Captcha)
-		if _, err := x.Test(t.Context(), admin, v.ID, &indexers.CaptchaAnswer{Attempt: expiring.Attempt, Text: shows(t, expiring)}); !errors.Is(err, indexers.ErrCaptchaExpired) {
+		if _, err := x.Test(t.Context(), admin, v.ID, indexers.Typed{Captcha: &indexers.CaptchaAnswer{Attempt: expiring.Attempt, Text: shows(t, expiring)}}); !errors.Is(err, indexers.ErrCaptchaExpired) {
 			t.Errorf("an answer after five minutes = %v, want it expired", err)
 		}
 	})
@@ -140,7 +150,7 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 		x, _ := controlled(t, w)
 		admin := identity.Admin{}
 		quarry := indexers.Draft{Kind: indexers.Catalog, Name: "Quarry", Definition: site.Quarry, Values: map[string]string{"apikey": site.Key(w.s, site.Quarry)}}
-		create := func(d indexers.Draft) error { _, err := x.Create(t.Context(), admin, d, nil); return err }
+		create := func(d indexers.Draft) error { _, err := x.Create(t.Context(), admin, d, indexers.Typed{}); return err }
 		for _, tc := range []struct {
 			name string
 			edit func(*indexers.Draft)
@@ -150,7 +160,7 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 			{"a definition the custom ones lack before the catalog is downloaded", func(d *indexers.Draft) { d.Definition = "nowhere" }, create, func(err error) bool { return errors.Is(err, indexers.ErrCatalogUnavailable) }},
 			{"an address it doesn't list", func(d *indexers.Draft) { d.BaseAddress = "https://elsewhere.test/" }, create, func(err error) bool { return errors.Is(err, indexers.ErrNotALink) }},
 			{"a setting it doesn't have", func(d *indexers.Draft) { d.Values = map[string]string{"passkey": "x"} }, create, func(err error) bool {
-				var v *indexers.ValueError
+				var v *indexerfields.ValueError
 				return errors.As(err, &v) && v.Field == "passkey"
 			}},
 			{"a captcha it doesn't show", func(*indexers.Draft) {}, func(d indexers.Draft) error {
@@ -164,29 +174,29 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 				t.Errorf("%s: %v", tc.name, err)
 			}
 		}
-		v, err := x.Create(t.Context(), admin, quarry, nil)
+		v, err := x.Create(t.Context(), admin, quarry, indexers.Typed{})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if v.SignsIn || v.Session != nil || v.Caps.Modes["movie"] == nil {
 			t.Errorf("Quarry = %+v, want it stateless with its movie search", v)
 		}
-		if _, err := x.Update(t.Context(), admin, v.ID, indexers.Edit{Values: map[string]string{"apikey": ""}}, nil); err != nil {
+		if _, err := x.Update(t.Context(), admin, v.ID, indexers.Edit{Values: map[string]string{"apikey": ""}}, indexers.Typed{}); err != nil {
 			t.Errorf("an edit that sends the sealed API key empty = %v, want it kept and the Test passed", err)
 		}
-		var failed *indexers.TestFailedError
-		if _, err := x.Update(t.Context(), admin, v.ID, indexers.Edit{Values: map[string]string{"apikey": "nope"}}, nil); !errors.As(err, &failed) {
-			t.Errorf("an edit to a wrong API key = %v, want its Test failed", err)
+		_, err = x.Update(t.Context(), admin, v.ID, indexers.Edit{Values: map[string]string{"apikey": "nope"}}, indexers.Typed{})
+		if got, want := sentence(err), "Quarry refused the API key. Check the account, then test again."; got != want {
+			t.Errorf("an edit to a wrong API key = %q, want its Test failed with %q", got, want)
 		}
 		cinder := indexers.Draft{Kind: indexers.Catalog, Name: "Cinder", Definition: site.Cinder}
-		if _, err := x.Create(t.Context(), admin, cinder, nil); !errors.Is(err, indexers.ErrCookieNeeded) {
+		if _, err := x.Create(t.Context(), admin, cinder, indexers.Typed{}); !errors.Is(err, indexers.ErrCookieNeeded) {
 			t.Errorf("Cinder without a cookie = %v, want ErrCookieNeeded", err)
 		}
 		cinder.Cookie = &indexers.PastedCookie{
 			Cookie:    site.SessionCookie(w.s) + "; " + site.ClearanceCookie + "=" + site.Clearance(w.s, "seedbox", site.BrowserUserAgent),
 			UserAgent: site.BrowserUserAgent,
 		}
-		if v, err := x.Create(t.Context(), admin, cinder, nil); err != nil || !v.SignsIn || v.Session == nil || !v.Session.Pasted {
+		if v, err := x.Create(t.Context(), admin, cinder, indexers.Typed{}); err != nil || !v.SignsIn || v.Session == nil || !v.Session.Pasted {
 			t.Errorf("Cinder with a pasted cookie = %+v, %v; want it signed in with the pasted session", v, err)
 		}
 	})
@@ -199,7 +209,7 @@ func TestACatalogIndexerReachesItsDefinitionsTrackerFromTheStart(t *testing.T) {
 		admin := identity.Admin{}
 		v, err := x.Create(t.Context(), admin, indexers.Draft{
 			Kind: indexers.Catalog, Name: "Quarry on seedbox", Definition: site.Quarry, Values: map[string]string{"apikey": site.Key(w.s, site.Quarry)},
-		}, nil)
+		}, indexers.Typed{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -236,9 +246,9 @@ func TestTheHealthCheckStopsALarkspurWhoseSignInNeedsACaptchaWithoutLoadingOne(t
 			Kind: indexers.Catalog, Name: "Larkspur", Definition: site.Larkspur, On: true,
 			Values: map[string]string{"username": site.Username, "password": site.Password(w.s, site.Larkspur)},
 		}
-		_, err := x.Create(t.Context(), admin, d, nil)
+		_, err := x.Create(t.Context(), admin, d, indexers.Typed{})
 		c := failedWith(t, err, "needs a captcha")
-		v, err := x.Create(t.Context(), admin, d, &indexers.CaptchaAnswer{Attempt: c.Attempt, Text: shows(t, c)})
+		v, err := x.Create(t.Context(), admin, d, indexers.Typed{Captcha: &indexers.CaptchaAnswer{Attempt: c.Attempt, Text: shows(t, c)}})
 		if err != nil {
 			t.Fatal(err)
 		}

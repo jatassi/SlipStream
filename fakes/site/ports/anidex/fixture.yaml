@@ -1,0 +1,36 @@
+source: synthetic
+cases:
+  - name: search
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /
+          headers: {Accept: text/html}
+          query: {page: search, s: upload_timestamp, o: desc, group_id: "0", q: The Quiet Orchard}
+          noQuery: [a, id, lang_id]
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: search.html}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 1, episode: "3"}}
+    exchanges:
+      - request: {path: /, query: {q: Harbor Lights S01E03}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: tv.html}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /, query: {q: Juniper Falls}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /, query: {page: search, q: ""}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: auth
+    call: {test: {}}
+    exchanges:
+      - request: {path: /}
+        response: {status: 403, headers: {Content-Type: text/html}, body: forbidden.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /}
+        response: {status: 429, headers: {Retry-After: "60"}}

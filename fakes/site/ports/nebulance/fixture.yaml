@@ -1,0 +1,76 @@
+source: synthetic
+settings:
+  apiKey: "{{apiKey}}"
+cases:
+  - name: search
+    call: {search: {mode: search, text: Harbor Lights}}
+    exchanges:
+      - request:
+          path: /api.php
+          headers: {Accept: application/json}
+          query: {action: search, age: ">0", release: Harbor Lights, api_key: "{{apiKey}}", per_page: "100"}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /api.php, query: {action: search, release: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: search, age: ">0", api_key: "{{apiKey}}"}
+          noQuery: [release, season, episode]
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /api.php, query: {action: search}}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php}
+        response: {status: 401}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php}
+        response: {status: 429}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api.php}
+        response: {headers: {Content-Type: application/json}, body: error.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: search, release: Harbor Lights, season: "2", episode: "3"}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: tvmaze
+    call: {search: {mode: tvsearch, ids: {tvmazeid: "2", imdbid: tt0000002}, season: 2}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: search, tvmaze: "2", season: "2"}
+          noQuery: [imdb, release]
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: daily
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2026, episode: "05/28"}}
+    exchanges:
+      - request:
+          path: /api.php
+          query: {action: search, name: Harbor Lights, release: "2026.05.28"}
+          noQuery: [season, episode]
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: seasononly
+    call: {search: {mode: tvsearch, season: 2, text: ""}}
+    exchanges: []
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=88001&authkey={{authkey}}&torrent_pass={{apiKey}}"}
+    exchanges:
+      - request: {path: /torrents.php, query: {action: download, id: "88001"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

@@ -12,7 +12,7 @@ import { Meter } from "../ui/meter";
 import { Section } from "../ui/section";
 import { SettingGroup } from "../ui/setting-field";
 import { IndexerSwitch, type SwitchName } from "./switches";
-import { kindWords, limitWords, nodeName } from "./words";
+import { kindOf, limitWords, nodeName } from "./words";
 
 function LimitUse({ label, limit }: { label: string; limit: IndexersLimitUse }) {
   return (
@@ -41,7 +41,7 @@ const words = (text: string): ReactNode => <span>{text}</span>;
 
 /** The account it signs in with, so two Indexers on one site tell apart. */
 function usernameRow(indexer: IndexersIndexer): (readonly [string, ReactNode])[] {
-  const username = indexer.definition?.values["username"];
+  const username = (indexer.definition ?? indexer.port)?.values["username"];
   return username === undefined ? [] : [["Username", <Data key="username">{username}</Data>]];
 }
 
@@ -66,7 +66,7 @@ export function IndexerFacts({
             ["Tracker", words(trackerWords(indexer, trackers))],
             ...usernameRow(indexer),
             ["Searches from", words(nodeName(nodes, indexer.homeNodeId))],
-            ["Kind", words(kindWords[indexer.kind])],
+            ["Kind", words(kindOf(indexer))],
             ["Priority", words(String(indexer.priority))],
             ["Searches", <LimitUse key="searches" label="Searches" limit={indexer.searches} />],
             ["Grabs", <LimitUse key="grabs" label="Grabs" limit={indexer.grabs} />],

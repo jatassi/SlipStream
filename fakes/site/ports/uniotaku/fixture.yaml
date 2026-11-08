@@ -1,0 +1,107 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "uid={{uid}}; pass={{pass}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /torrents_.php
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}", Accept: text/html}
+          query: {categoria: "0", grupo: "0", status: "0", ordenar: "0", start: "0", length: "100", "search[value]": "%The%Quiet%Orchard%", "search[regex]": "false"}
+        response:
+          headers:
+            Content-Type: application/json
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+          body: search.json
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 1, episode: "3"}}
+    exchanges:
+      - request: {path: /torrents_.php, query: {"search[value]": "%Harbor%Lights%"}}
+        response:
+          headers:
+            Content-Type: application/json
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+          body: tv.json
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /torrents_.php, query: {"search[value]": "%Juniper%Falls%"}}
+        response:
+          headers:
+            Content-Type: application/json
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+          body: empty.json
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents_.php, query: {"search[value]": ""}}
+        response:
+          headers:
+            Content-Type: application/json
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+          body: recent.json
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /account-login.php
+          headers: {Content-Type: application/x-www-form-urlencoded, Referer: "https://uniotaku.fixture-site.fake.localhost/"}
+          form: {username: fixture-user, password: "{{password}}", manter: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: loginfailed.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents_.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "uid={{uid}}; pass={{expiredPass}}"}
+    exchanges:
+      - request: {path: /torrents_.php, headers: {Cookie: "uid={{uid}}; pass={{expiredPass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: loginfailed.html}
+      - request:
+          method: POST
+          path: /account-login.php
+          form: {username: fixture-user, password: "{{password}}"}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+          body: index.html
+      - request: {path: /torrents_.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}}
+        response:
+          headers:
+            Content-Type: application/json
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+          body: recent.json
+  - name: grab
+    call: {fetch: "/torrents-details.php?id=1001"}
+    exchanges:
+      - request: {path: /torrents-details.php, query: {id: "1001"}}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: |-
+              uid={{uid}}; path=/
+              pass={{pass}}; path=/
+          body: details.html
+      - request: {path: /download.php, headers: {Cookie: "uid={{uid}}; pass={{pass}}"}, query: {id: "1001", f: The.Quiet.Orchard.torrent}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

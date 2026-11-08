@@ -1,0 +1,233 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.S02E03.1080p.WEB.mkv",
+      "size": 1400000000,
+      "published": "2026-06-03T08:30:00Z",
+      "seeders": 120,
+      "leechers": 6,
+      "grabs": 800,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9002/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "77h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9002/group",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "[Harbor] Harbor Lights S02E03 - 03 [Web][MKV][h264][1080p][AAC 2.0][Softsubs (Harbor)]",
+      "size": 1400000000,
+      "published": "2026-06-03T08:30:00Z",
+      "seeders": 120,
+      "leechers": 6,
+      "grabs": 800,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9002/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "77h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9002/group",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.mkv",
+      "size": 12884901893,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 40,
+      "leechers": 3,
+      "grabs": 210,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9001/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "132h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9001/group",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[Orchard] The Quiet Orchard 2021 [Blu-ray][MKV][h265 10-bit][1080p][FLAC 2.0][Softsubs (Orchard)]",
+      "size": 12884901893,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 40,
+      "leechers": 3,
+      "grabs": 210,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9001/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "132h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9001/group",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[Orchard] The Copper Bell 2021 [Blu-ray][MKV][h265 10-bit][1080p][FLAC 2.0][Softsubs (Orchard)]",
+      "size": 12884901893,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 40,
+      "leechers": 3,
+      "grabs": 210,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9001/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "132h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9001/group",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor Lights S01 [Blu-ray][M2TS][AVC][1080p Remux][LPCM 2.0][RAW][BR-DISK]",
+      "size": 49392123904,
+      "published": "2026-05-20T22:15:00Z",
+      "seeders": 9,
+      "leechers": 1,
+      "grabs": 30,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9003/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 2
+      },
+      "minRatio": 1,
+      "minSeed": "302h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9003/group",
+      "source": null,
+      "flags": [
+        "halfleech",
+        "doubleupload"
+      ]
+    },
+    {
+      "title": "Salt.Meadow.2019.PSP.iso",
+      "size": 900000000,
+      "published": "2026-04-11T06:45:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 22,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9005/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        1000,
+        1020
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9005/group",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "[Meadow] Salt Meadow 2019  [PSP][ISO][Translated (Meadow)]",
+      "size": 900000000,
+      "published": "2026-04-11T06:45:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 22,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9005/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        1000,
+        1020
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9005/group",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Cedar Hollow 2020  [FLAC][Lossless][Log (100%)][Cue]",
+      "size": 350000000,
+      "published": "2026-03-02T19:00:00Z",
+      "seeders": 7,
+      "leechers": 1,
+      "grabs": 40,
+      "link": "https://animebytes.fixture-site.fake.localhost/torrent/9006/download/{{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        3040
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://animebytes.fixture-site.fake.localhost/torrent/9006/group",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

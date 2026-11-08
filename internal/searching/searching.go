@@ -22,6 +22,9 @@ type Config struct {
 	HTTP    *http.Client
 	Timings Timings
 	Log     *slog.Logger
+	// Native runs kind Native. The Node injects it, so this package
+	// imports no ported site.
+	Native Driver
 }
 
 type Timings struct {
@@ -66,6 +69,14 @@ func New(cfg Config) *Service {
 	client := *cfg.HTTP
 	client.CheckRedirect = redirects
 	client.Jar = nil
+	drivers := map[Kind]Driver{
+		Catalog: catalogDriver{relogins: cfg.Timings.Relogins},
+		Torznab: torznabDriver{results: cfg.Timings.Results},
+		RSS:     rssDriver{},
+	}
+	if cfg.Native != nil {
+		drivers[Native] = cfg.Native
+	}
 	return &Service{
 		cfg:      cfg,
 		client:   &client,
@@ -74,10 +85,6 @@ func New(cfg Config) *Service {
 		cleared:  &clearances{byHost: map[string]clearance{}},
 		spacer:   &spacer{floor: cfg.Timings.Floor, next: map[string]time.Time{}},
 		defs:     &definitions{bySHA: map[string]*cardigann.Definition{}},
-		drivers: map[Kind]Driver{
-			Catalog: catalogDriver{relogins: cfg.Timings.Relogins},
-			Torznab: torznabDriver{results: cfg.Timings.Results},
-			RSS:     rssDriver{},
-		},
+		drivers:  drivers,
 	}
 }

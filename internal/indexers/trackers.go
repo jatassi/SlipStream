@@ -174,19 +174,31 @@ func AddHosts(ctx context.Context, tx *storage.Tx[file], t TrackerID, private bo
 }
 
 // reached is the Tracker a Release reaches, before it is found or made.
+// aliases are more keys of the same Tracker, a port's replaced and alias
+// catalog ids.
 type reached struct {
 	key, name string
 	privacy   Privacy
+	aliases   []string
 }
 
 // reachedBy is the Tracker r reaches through idx: its definition's for a
-// catalog Indexer, named and made private or public as its summary says, its source's for a feed item that names one (a Jackett
-// source's id is its definition id; a Prowlarr source's is Prowlarr's
-// own), and else the one the Admin named for the feed.
+// catalog Indexer, named and made private or public as its summary says,
+// its port's for a native one, keyed by its id and every catalog id it
+// replaces or aliases and named as its entry says, its source's for a
+// feed item that names one (a Jackett source's id is its definition id; a
+// Prowlarr source's is Prowlarr's own), and else the one the Admin named
+// for the feed.
 func reachedBy(idx Indexer, r Release) reached {
 	switch src := idx.Source.(type) {
 	case Definition:
 		return reached{key: "definition:" + src.ID, name: cmp.Or(src.Name, src.ID), privacy: sourcePrivacy(string(src.Privacy))}
+	case Port:
+		at := reached{key: "definition:" + string(src.ID), name: src.Site(), privacy: sourcePrivacy(string(src.Entry.Privacy))}
+		for _, id := range slices.Concat(src.Entry.Replaces, src.Entry.Aliases) {
+			at.aliases = append(at.aliases, "definition:"+id)
+		}
+		return at
 	case Feed:
 		if s := r.Source; s != nil {
 			key := "prowlarr:" + idx.ID.String() + ":" + s.ID
@@ -216,14 +228,20 @@ func sourcePrivacy(s string) Privacy {
 	return Unknown
 }
 
-// trackerFor is the Tracker at.key reaches in tx. A key no Tracker has
-// yet goes to the Tracker whose name or definition id matches at.name or
-// the key's definition id, case and punctuation ignored, else to a new
-// Tracker named at.name. A known at.privacy sets the Tracker's privacy
-// while it is unknown. created reports a new Tracker.
+// trackerFor is the Tracker at.key reaches in tx, else the one an alias
+// key reaches. A key no Tracker has yet goes to the Tracker whose name or
+// definition id matches at.name or the keys' definition ids, case and
+// punctuation ignored, else to a new Tracker named at.name. Each of at's
+// keys that no Tracker has joins it. A known at.privacy sets the
+// Tracker's privacy while it is unknown. created reports a new Tracker.
 func trackerFor(ctx context.Context, tx *storage.Tx[file], at reached) (id TrackerID, created bool, err error) {
 	q := db.New(tx)
-	id, err = q.GetTrackerOfKey(ctx, at.key)
+	keys := append([]string{at.key}, at.aliases...)
+	for _, k := range keys {
+		if id, err = q.GetTrackerOfKey(ctx, k); !errors.Is(err, storage.ErrNoRows) {
+			break
+		}
+	}
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
 		if id, err = match(ctx, tx, at); err != nil {
@@ -236,11 +254,13 @@ func trackerFor(ctx context.Context, tx *storage.Tx[file], at reached) (id Track
 				return TrackerID{}, false, err
 			}
 		}
-		if err := q.InsertTrackerKey(ctx, db.InsertTrackerKeyParams{Key: at.key, TrackerID: id}); err != nil {
-			return TrackerID{}, false, err
-		}
 	case err != nil:
 		return TrackerID{}, false, err
+	}
+	for _, k := range keys {
+		if err := q.AddTrackerKey(ctx, db.AddTrackerKeyParams{Key: k, TrackerID: id}); err != nil {
+			return TrackerID{}, false, err
+		}
 	}
 	if at.privacy != Unknown {
 		err = q.SetUnknownPrivacy(ctx, db.SetUnknownPrivacyParams{Privacy: string(at.privacy), ID: id})
@@ -262,7 +282,7 @@ func reachTracker(ctx context.Context, tx *storage.Tx[file], idx ID, at reached)
 // match is the first Tracker by name that at's names match, zero for none.
 // A name equal to at.name matches even when it folds to nothing.
 func match(ctx context.Context, r storage.Reader[file], at reached) (TrackerID, error) {
-	want := namesOf(at.name, at.key)
+	want := namesOf(at.name, append([]string{at.key}, at.aliases...)...)
 	all, err := trackersIn(ctx, r)
 	if err != nil {
 		return TrackerID{}, err

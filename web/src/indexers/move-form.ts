@@ -6,7 +6,7 @@ import { updateIndexer } from "../api/gen/query/indexers/indexers";
 import { adoptIndexer } from "../live/adopt";
 import { useAppForm } from "../ui/form";
 import { toast } from "../ui/toast";
-import type { CaptchaStep } from "./add/use-add";
+import type { SignInStep } from "./add/use-add";
 import { type MoveValues, moveOf, refusedMove, stepAfter } from "./move-edit";
 import { nodeName } from "./words";
 
@@ -21,7 +21,7 @@ export function useMoveForm(
   onDone: () => void,
 ) {
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<CaptchaStep>({ kind: "none" });
+  const [step, setStep] = useState<SignInStep>({ kind: "none" });
   const values: MoveValues = { to: indexer.homeNodeId, cookie: "", userAgent: "", captcha: "" };
   const form = useAppForm({
     defaultValues: values,

@@ -1,0 +1,48 @@
+[
+  {
+    "download_volume_factor": 1,
+    "upload_volume_factor": 1,
+    "url": "https://retroflix.fixture-site.fake.localhost/browse/310201",
+    "id": 310201,
+    "name": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FIXTURE",
+    "description": "",
+    "category": {
+      "id": 401,
+      "name": ""
+    },
+    "size": 9123456789,
+    "created_at": "2021-11-14T23:26:21+02:00",
+    "times_completed": 41,
+    "leechers": 1,
+    "seeders": 22,
+    "short_description": "",
+    "poster": "",
+    "season": 0,
+    "episode": 0,
+    "tags": [],
+    "imdb_id": "tt0000001"
+  },
+  {
+    "download_volume_factor": 0,
+    "upload_volume_factor": 1,
+    "url": "https://retroflix.fixture-site.fake.localhost/browse/310188",
+    "id": 310188,
+    "name": "[REQUEST] The.Quiet.Orchard.2021.720p.WEB-DL.x264-FIXTURE.",
+    "description": "",
+    "category": {
+      "id": 401,
+      "name": ""
+    },
+    "size": 3456789012,
+    "created_at": "2021-11-14T10:00:00+02:00",
+    "times_completed": 5,
+    "leechers": 0,
+    "seeders": 9,
+    "short_description": "",
+    "poster": "",
+    "season": 0,
+    "episode": 0,
+    "tags": [],
+    "imdb_id": "tt0000001"
+  }
+]

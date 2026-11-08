@@ -1,0 +1,64 @@
+source: synthetic
+settings:
+  username: fixture-user
+  passkey: "{{passkey}}"
+cases:
+  - name: search
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /scrape.php
+          headers: {Accept: application/json}
+          query: {username: fixture-user, torrent_pass: "{{passkey}}", sort: grouptime, way: desc, type: anime, searchstr: The Quiet Orchard, limit: "50"}
+          noQuery: [year, freeleech, hentai]
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /scrape.php, query: {searchstr: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /scrape.php, query: {searchstr: "", limit: "20"}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /scrape.php}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /scrape.php}
+        response: {status: 401}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /scrape.php}
+        response: {status: 429}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /scrape.php}
+        response: {headers: {Content-Type: application/json}, body: error.json}
+  - name: notjson
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /scrape.php}
+        response: {headers: {Content-Type: text/html}, body: empty.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /scrape.php, query: {searchstr: Harbor Lights, limit: "50"}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: movie
+    call: {search: {mode: movie, text: The Quiet Orchard 2021}}
+    exchanges:
+      - request: {path: /scrape.php, query: {type: anime, searchstr: The Quiet Orchard}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: grab
+    call: {fetch: "/torrent/9001/download/{{passkey}}"}
+    exchanges:
+      - request: {path: "/torrent/9001/download/{{passkey}}"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

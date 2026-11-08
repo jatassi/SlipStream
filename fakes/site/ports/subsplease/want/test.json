@@ -1,0 +1,24 @@
+{
+  "report": {
+    "modes": {
+      "movie": [
+        "q"
+      ],
+      "search": [
+        "q"
+      ],
+      "tvsearch": [
+        "q",
+        "season",
+        "ep"
+      ]
+    },
+    "categories": [
+      5070,
+      2020
+    ],
+    "items": 6,
+    "sources": null
+  },
+  "sessionChanged": false
+}

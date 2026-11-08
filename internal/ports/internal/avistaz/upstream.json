@@ -1,0 +1,22 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "date": "2026-11-06",
+  "family": "",
+  "files": {
+    "api.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Avistaz/AvistazApi.cs"
+    ],
+    "base.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Avistaz/AvistazBase.cs"
+    ],
+    "parserbase.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Avistaz/AvistazParserBase.cs"
+    ],
+    "requestgenerator.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Avistaz/AvistazRequestGenerator.cs"
+    ],
+    "settings.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Avistaz/AvistazSettings.cs"
+    ]
+  }
+}

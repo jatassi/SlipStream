@@ -1,0 +1,39 @@
+{
+  "report": {
+    "modes": {
+      "movie": [
+        "q",
+        "imdbid"
+      ],
+      "search": [
+        "q"
+      ],
+      "tvsearch": [
+        "q",
+        "season",
+        "ep",
+        "tvdbid"
+      ]
+    },
+    "categories": [
+      2000,
+      100001,
+      5000,
+      100002,
+      5080,
+      100003,
+      3000,
+      100004,
+      5060,
+      100005,
+      100006,
+      6000,
+      100007,
+      8000,
+      100008
+    ],
+    "items": 2,
+    "sources": null
+  },
+  "sessionChanged": false
+}

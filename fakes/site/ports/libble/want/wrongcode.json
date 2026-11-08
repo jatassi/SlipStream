@@ -1,0 +1,8 @@
+{
+  "outcome": {
+    "kind": "stopped",
+    "cause": "credentials_rejected",
+    "text": "Your 2FA code was incorrect."
+  },
+  "sessionChanged": false
+}

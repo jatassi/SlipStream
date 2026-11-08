@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FIXTURE",
+      "size": 9123456789,
+      "published": "2021-11-14T21:26:21Z",
+      "seeders": 22,
+      "leechers": 1,
+      "grabs": 41,
+      "link": "https://alpharatio.fixture-site.fake.localhost/torrents.php?action=download\u0026id=102233\u0026usetoken=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100009
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://alpharatio.fixture-site.fake.localhost/torrents.php?id=48211\u0026torrentid=102233",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.2160p.WEB-DL.DDP5.1.HDR.H.265-FIXTURE",
+      "size": 18234567890,
+      "published": "2021-11-14T00:30:00Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 7,
+      "link": "https://alpharatio.fixture-site.fake.localhost/torrents.php?action=download\u0026id=102101",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2045,
+        100010
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://alpharatio.fixture-site.fake.localhost/torrents.php?id=48190\u0026torrentid=102101",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

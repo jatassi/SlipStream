@@ -1,0 +1,40 @@
+[
+  {
+  "id": 901201,
+  "name": "Harbor.Lights.S02E03.1080p.WEB-DL.DDP5.1.H.264-NTb",
+  "imdb": "tt0000001",
+  "freeleech": 0,
+  "doubleup": 1,
+  "upload_date": "2026-05-28 23:46:40",
+  "download_link": "https://filelist.fixture-site.fake.localhost/download.php?id=901201&passkey={{passkey}}",
+  "size": 2361183241,
+  "internal": 1,
+  "moderated": 1,
+  "category": "TV-Series HD",
+  "seeders": 140,
+  "leechers": 6,
+  "times_completed": 302,
+  "comments": 1,
+  "files": 1,
+  "small_description": "Drama, Mystery"
+  },
+  {
+  "id": 901188,
+  "name": "Harbor.Lights.S02E03.720p.HDTV.x264-RO",
+  "imdb": null,
+  "freeleech": true,
+  "doubleup": false,
+  "upload_date": "2026-05-28 18:00:00",
+  "download_link": "https://filelist.fixture-site.fake.localhost/download.php?id=901188&passkey={{passkey}}",
+  "size": 912680550,
+  "internal": 0,
+  "moderated": 1,
+  "category": "RO Dubbed",
+  "seeders": 20,
+  "leechers": 0,
+  "times_completed": 41,
+  "comments": 0,
+  "files": 2,
+  "small_description": ""
+  }
+]

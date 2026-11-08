@@ -1,0 +1,25 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "date": "2026-11-06",
+  "family": "",
+  "files": {
+    "api.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleApi.cs"
+    ],
+    "base.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleBase.cs"
+    ],
+    "parser.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleParser.cs"
+    ],
+    "requestgenerator.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleRequestGenerator.cs"
+    ],
+    "settings.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleSettings.cs"
+    ],
+    "userpassorcookiesettings.go": [
+      "src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleUserPassOrCookieSettings.cs"
+    ]
+  }
+}

@@ -1,12 +1,10 @@
 import type { NodesNode } from "../../api/gen/model";
 import { Details } from "../../ui/details";
-import { Select } from "../../ui/select";
 import { Switch } from "../../ui/switch";
 import { prioritySchema } from "../edit-values";
 import { LimitField } from "../fields/limit-field";
-import { searchingNodes } from "../move-edit";
-import { Families } from "./families-field";
-import type { AddValues, Source } from "./source";
+import { Choices } from "./choices";
+import { type AddValues, type Source, listsRecent } from "./source";
 import type { AddForm } from "./use-add";
 
 const limitWords = ({ count, per }: AddValues["searches"], noun: string) =>
@@ -30,47 +28,23 @@ const switches = [
   ["rss", "RSS"],
 ] as const;
 
-function Choices({
-  form,
-  source,
-  nodes,
-}: {
-  form: AddForm;
-  source: Source;
-  nodes: readonly NodesNode[];
-}) {
-  const searching = searchingNodes(nodes);
-  const links = source.kind === "catalog" ? source.form.links : [];
+/** The On, Automatic search and RSS switches; RSS stays off for a site with no list of new Releases. */
+function Switches({ form, source }: { form: AddForm; source: Source }) {
   return (
-    <>
-      {searching.length > 1 && (
-        <form.Field name="homeNodeId">
+    <div className="flex flex-wrap gap-x-6">
+      {switches.map(([name, label]) => (
+        <form.Field key={name} name={name}>
           {(field) => (
-            <Select
-              label="Search from"
-              options={searching.map((node) => ({ value: node.id, label: node.name }))}
-              value={field.state.value}
-              onValueChange={field.handleChange}
+            <Switch
+              label={label}
+              checked={field.state.value}
+              disabled={name === "rss" && !listsRecent(source)}
+              onCheckedChange={field.handleChange}
             />
           )}
         </form.Field>
-      )}
-      {links.length > 1 && (
-        <form.Field name="baseAddress">
-          {(field) => (
-            <Select
-              label="Address"
-              options={links.map((link) => ({ value: link, label: link }))}
-              value={field.state.value}
-              onValueChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-      )}
-      {source.kind === "catalog" && (
-        <Families form={form} categories={source.form.entry.categories} />
-      )}
-    </>
+      ))}
+    </div>
   );
 }
 
@@ -106,19 +80,7 @@ export function MoreFields({
             </form.AppField>
             <LimitField form={form} fields="searches" label="Searches" />
             <LimitField form={form} fields="grabs" label="Grabs" />
-            <div className="flex flex-wrap gap-x-6">
-              {switches.map(([name, label]) => (
-                <form.Field key={name} name={name}>
-                  {(field) => (
-                    <Switch
-                      label={label}
-                      checked={field.state.value}
-                      onCheckedChange={field.handleChange}
-                    />
-                  )}
-                </form.Field>
-              ))}
-            </div>
+            <Switches form={form} source={source} />
           </div>
         </Details>
       )}

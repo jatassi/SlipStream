@@ -1,0 +1,88 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.2024.720p.WEB-DL.H264-FIXTURE",
+      "size": 4294967296,
+      "published": "2024-11-07T17:15:00Z",
+      "seeders": 3,
+      "leechers": 9,
+      "grabs": 2,
+      "link": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?action=download\u0026id=90501",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2040
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?id=6230\u0026torrentid=90501",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor.Lights.2024.1080i.HDTV.H264-FIXTURE",
+      "size": 2147483648,
+      "published": "2024-11-07T16:40:00Z",
+      "seeders": 2,
+      "leechers": 4,
+      "grabs": 1,
+      "link": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?action=download\u0026id=90500\u0026usetoken=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2040
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.25,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?id=6230\u0026torrentid=90500",
+      "source": null,
+      "flags": [
+        "freeleech75"
+      ]
+    },
+    {
+      "title": "Juniper.Falls.2019.576p.DVDRip.x264-FIXTURE",
+      "size": 734003200,
+      "published": "2024-11-07T14:05:00Z",
+      "seeders": 18,
+      "leechers": 0,
+      "grabs": 30,
+      "link": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?action=download\u0026id=90488",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2030
+      ],
+      "ids": {
+        "imdbid": "tt0000002"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?id=6229\u0026torrentid=90488",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": true
+}

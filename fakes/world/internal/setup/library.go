@@ -18,8 +18,10 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
+	"github.com/jatassi/slipstream/fakes/site/ports"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/ports/port"
 )
 
 // tvdbKey is the Admin's TVDB key a Scenario with a tvdb catalog sets,
@@ -136,6 +138,10 @@ func addIndexers(ctx context.Context, c *http.Client, s scenario.Scenario, claim
 			if err := catalogBody(ctx, c, s, ix, controller, claims.APIKey, &body); err != nil {
 				return err
 			}
+		case "native":
+			if err := nativeBody(s, ix, at, &body); err != nil {
+				return err
+			}
 		}
 		if _, err := nodeapi.CreateIndexer(ctx, c, controller, claims.APIKey, body); err != nil {
 			return err
@@ -160,6 +166,33 @@ func catalogBody(ctx context.Context, c *http.Client, s scenario.Scenario, ix sc
 	}
 	body.Captcha, err = answered(ctx, c, controller, apiKey, *body)
 	return err
+}
+
+// nativeBody fills in body what an Admin enters for native Indexer ix:
+// its port at its site's host, and the seed's credentials on a family
+// site or the settings and pasted cookie of its port's fixture on any
+// other, beside ix's settings.
+func nativeBody(s scenario.Scenario, ix scenario.LibraryIndexer, at fake.Address, body *nodeapi.NewIndexer) error {
+	body.Port, body.BaseAddress = ix.Port, site.Origin(at, ix.Site)+"/"
+	values, cookie, userAgent := map[string]string{}, "", site.BrowserUserAgent
+	if slices.Contains(site.Families, ix.Site) {
+		values, cookie = site.Credentials(s, ix.Site, s.Home(ix))
+	} else {
+		f, err := ports.Embedded(port.ID(ix.Port))
+		if err != nil {
+			return err
+		}
+		maps.Copy(values, f.Settings)
+		if f.Session != nil && f.Session.Pasted {
+			cookie, userAgent = f.Session.Cookie, f.Session.UserAgent
+		}
+	}
+	maps.Copy(values, ix.Settings)
+	body.Values = values
+	if cookie != "" {
+		body.Cookie = &nodeapi.PastedCookie{Cookie: cookie, UserAgent: userAgent}
+	}
+	return nil
 }
 
 // catalogRefreshed waits for the Indexer catalog's first refresh, which

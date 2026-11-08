@@ -146,12 +146,12 @@ func solve(ctx context.Context, client *http.Client, solver Solver, u *url.URL, 
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, at, bytes.NewReader(body))
 	if err != nil {
-		return clearance{}, &Failing{Err: fmt.Errorf("build the Challenge solver's request: %w", withoutURL(err))}
+		return clearance{}, &Failing{Err: fmt.Errorf("build the Challenge solver's request: %w", WithoutURL(err))}
 	}
 	req.Header.Set("Content-Type", "application/json")
 	res, err := client.Do(req)
 	if err != nil {
-		return clearance{}, &Failing{Err: fmt.Errorf("reach the Challenge solver: %w", withoutURL(err))}
+		return clearance{}, &Failing{Err: fmt.Errorf("reach the Challenge solver: %w", WithoutURL(err))}
 	}
 	defer func() { _ = res.Body.Close() }()
 	var out solveResponse
@@ -199,11 +199,11 @@ func reachSolver(ctx context.Context, client *http.Client, address string, timeo
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, at, http.NoBody)
 	if err != nil {
-		return 0, fmt.Errorf("the address: %w", withoutURL(err))
+		return 0, fmt.Errorf("the address: %w", WithoutURL(err))
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		return 0, &SolverUnreachable{Cause: withoutURL(err).Error()}
+		return 0, &SolverUnreachable{Cause: WithoutURL(err).Error()}
 	}
 	_ = res.Body.Close()
 	return res.StatusCode, nil

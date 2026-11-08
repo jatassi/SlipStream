@@ -34,7 +34,9 @@ const testsOn = (body: Edit) =>
   body.apiKey !== undefined ||
   body.address !== undefined ||
   body.homeNodeId !== undefined ||
-  body.cookie !== undefined;
+  body.cookie !== undefined ||
+  body.baseAddress !== undefined ||
+  body.values !== undefined;
 
 function readHandlers(server: Server) {
   return [
@@ -88,7 +90,9 @@ function edited(row: IndexersIndexer, edit: Edit): IndexersIndexer {
 
 function patchIndexer(server: Server, row: IndexersIndexer, body: Edit) {
   server.writes.push({ method: "PATCH", id: row.id, body });
-  const refused = testsOn(body) ? tested(server, body.captcha !== undefined) : undefined;
+  const refused = testsOn(body)
+    ? tested(server, body.captcha !== undefined, body.code !== undefined)
+    : undefined;
   if (refused !== undefined) {
     return refused;
   }
@@ -197,9 +201,11 @@ function trackerHandlers(server: Server) {
 /**
  * An Indexers server that keeps its list: a PATCH merges what it sends, a
  * DELETE drops the Indexer, and each is recorded in writes. A Test, and a
- * PATCH that tests, passes unless captchaTests or failTest give
- * indexer_test_failed's sentence; each of captchaTests hands back a captcha. A rename refuses a name another Tracker has, and a merge moves
- * the Tracker's keys, hosts and Indexers to the one kept.
+ * PATCH that tests, passes unless captchaTests, codeNeeded or failTest give
+ * indexer_test_failed's sentence; each of captchaTests hands back a
+ * captcha, and codeNeeded holds until a code is sent. A rename refuses a
+ * name another Tracker has, and a merge moves the Tracker's keys, hosts
+ * and Indexers to the one kept.
  */
 export function indexersServer({
   indexers = [torrentLeech, prowlarr, larkspur],
@@ -208,6 +214,7 @@ export function indexersServer({
   failTest,
   captchaTests = [],
   expireFirst = false,
+  codeNeeded,
 }: {
   indexers?: IndexersIndexer[];
   trackerList?: IndexersTracker[];
@@ -215,6 +222,7 @@ export function indexersServer({
   failTest?: string;
   captchaTests?: string[];
   expireFirst?: boolean;
+  codeNeeded?: string;
 } = {}) {
   const server: Server = {
     state: {
@@ -227,6 +235,7 @@ export function indexersServer({
     captchaTests: [...captchaTests],
     expireFirst,
     captchasHanded: 0,
+    codeNeeded,
   };
   const handlers = [
     nodesAre(...nodes),

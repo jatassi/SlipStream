@@ -4,7 +4,7 @@ import { useId } from "react";
 import type { IndexersIndexer, NodesNode } from "../api/gen/model";
 import { StatusLine } from "./status-line";
 import { IndexerSwitch } from "./switches";
-import { kindWords, nodeName } from "./words";
+import { kindOf, nodeName } from "./words";
 
 /** An Indexer in its Tracker's list: what it is, where it searches from, its status and its switches. */
 export function IndexerRow({
@@ -31,7 +31,7 @@ export function IndexerRow({
             {indexer.name}
           </Link>
           <p className="text-meta text-ink-3">
-            {kindWords[indexer.kind]} on {nodeName(nodes, indexer.homeNodeId)}
+            {kindOf(indexer)} on {nodeName(nodes, indexer.homeNodeId)}
           </p>
           <StatusLine indexer={indexer} />
         </div>

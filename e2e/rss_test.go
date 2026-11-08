@@ -32,7 +32,7 @@ func TestHomeAddsBrooksRSSFeedWithItsCookie(t *testing.T) {
 
 	for _, tc := range []struct{ address, cookie, want string }{
 		{feed + "?play=" + site.PlayRepeatedGUID, site.Cookie(s), `{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Some items repeat the same GUID."}`},
-		{feed, site.CookieName + "=stale", `{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Brook no longer accepts the browser cookie. Paste a new one and test again."}`},
+		{feed, site.CookieName + "=stale", `{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Brook no longer accepts the browser cookie. Paste a new one and test again.","cause":"cookie_expired"}`},
 	} {
 		worldtest.Expect(t, "createIndexer", a.Admin("home", http.MethodPost, "/api/v1/indexers", body(tc.address, tc.cookie)), worldtest.Reply{Status: 422, Body: tc.want + "\n"})
 	}

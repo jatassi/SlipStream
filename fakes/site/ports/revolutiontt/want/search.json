@@ -1,0 +1,55 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW",
+      "size": 8804682956,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://revolutiontt.fixture-site.fake.localhost/download.php/1001/The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://revolutiontt.fixture-site.fake.localhost/details.php?id=1001\u0026hit=1",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.480p.WEB-DL.x264-FKW",
+      "size": 1074266112,
+      "published": "2026-05-30T08:30:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://revolutiontt.fixture-site.fake.localhost/download.php/1002/The.Quiet.Orchard.2021.480p.WEB-DL.x264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2030
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://revolutiontt.fixture-site.fake.localhost/details.php?id=1002\u0026hit=1",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

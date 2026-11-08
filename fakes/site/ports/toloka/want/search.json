@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard (2021) WEB-DL 1080p Ukr/Eng",
+      "size": 2254857830,
+      "published": "2026-01-01T00:00:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://toloka.fixture-site.fake.localhost/download.php?id=5001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100042
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://toloka.fixture-site.fake.localhost/t1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard (2021) BDRip 720p [Ukr]",
+      "size": 4831838208,
+      "published": "2026-01-02T00:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 12,
+      "link": "https://toloka.fixture-site.fake.localhost/download.php?id=5002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100042
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://toloka.fixture-site.fake.localhost/t1002",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

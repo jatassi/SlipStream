@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 
 function rowAt<R>(rows: readonly R[], index: number): R {
   const row = rows[index];
@@ -65,7 +65,7 @@ export function VirtualListbox<R>({
   useKeptInView(virtualizer, active, rows);
 
   return (
-    <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+    <Scroller ref={scroller}>
       <ul
         id={id}
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-to-interactive-role -- a select can't be virtualized or driven by aria-activedescendant
@@ -89,6 +89,22 @@ export function VirtualListbox<R>({
           </Option>
         ))}
       </ul>
+    </Scroller>
+  );
+}
+
+// Scroller takes focus so a keyboard can scroll a list that overflows.
+function Scroller({
+  ref,
+  children,
+}: {
+  ref: RefObject<HTMLDivElement | null>;
+  children: ReactNode;
+}) {
+  return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling region a keyboard can't reach can't be scrolled by one
+    <div ref={ref} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {children}
     </div>
   );
 }

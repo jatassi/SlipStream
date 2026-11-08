@@ -1,0 +1,30 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard 2022 1080p WEB-DL",
+      "size": 7085405541,
+      "published": "2022-06-11T09:04:50Z",
+      "seeders": 33,
+      "leechers": 0,
+      "grabs": 55,
+      "link": "https://exoticaz.fixture-site.fake.localhost/rss/download/123456789/64040-00230c343b580c75b2d13350204811aeb1f181bc.torrent",
+      "magnet": "",
+      "infoHash": "00230c343b580c75b2d13350204811aeb1f181bc",
+      "categories": [
+        6040,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "85h11m51s",
+      "details": "https://exoticaz.fixture-site.fake.localhost/torrent/64040-the-quiet-orchard-2022-1080p-web-dl",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

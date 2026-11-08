@@ -118,7 +118,7 @@ func TestJSONRows(t *testing.T) {
 }
 
 func TestSelectJSON(t *testing.T) {
-	e := testEnv(t)
+	e := testEnv()
 	doc := mustJSON(t, testJSON)
 	rows, _ := doc.Rows("data")
 	tests := []struct {
