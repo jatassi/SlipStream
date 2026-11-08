@@ -34,7 +34,7 @@ function Stats({ stats }: { stats: TrackersStats }) {
     ["Torrents", String(stats.torrents)],
     ["Seeding", bytes(stats.seedingBytes)],
     ["Grabs in 30 days", String(stats.grabs30d)],
-    ["Owe seeding", String(stats.owing)],
+    ["Open windows", String(stats.owing)],
   ];
   return (
     <dl aria-label="Totals" className="flex flex-wrap gap-x-8 gap-y-3">

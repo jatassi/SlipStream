@@ -113,6 +113,7 @@ test("the header says what needs a look as getTracker words it, amber when a tor
   );
   await expect.element(warning).toBeVisible();
   await expect.element(warning).toHaveClass(/text-warn/u);
+  await expect.element(page.getByLabelText("Totals")).toMatchTextContent(/Open windows2$/u);
 });
 
 test("a private Tracker with no rule says so once, in its header's attention line", async () => {
