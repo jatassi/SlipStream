@@ -1,4 +1,4 @@
-.PHONY: help deps web build test dev lint fmt notices arr-sync check clean
+.PHONY: help deps web build test dev lint fmt notices arr-sync golden-pending check clean
 
 RELEASE := go run ./cmd/release
 
@@ -12,6 +12,7 @@ help:
 	@echo "make fmt      format the Go code and the web app"
 	@echo "make notices  regenerate internal/notices/NOTICES.txt"
 	@echo "make arr-sync regenerate what SlipStream reads from Sonarr, Radarr and TRaSH Guides at cmd/arr-sync/pins.json"
+	@echo "make golden-pending rewrite each upstream fixture's list of rows that don't pass yet"
 	@echo "make check    lint, build and test, as CI does"
 	@echo "make clean    remove dist/ and web/dist/"
 
@@ -42,6 +43,9 @@ notices:
 # CHECKOUTS names where the upstream checkouts live. It defaults to the user cache directory.
 arr-sync:
 	go run ./cmd/arr-sync $(if $(CHECKOUTS),--checkouts $(CHECKOUTS))
+
+golden-pending:
+	go test ./internal/release ./internal/contenttypes/series ./internal/contenttypes/movie -run Golden -update-pending
 
 check:
 	$(RELEASE) check
