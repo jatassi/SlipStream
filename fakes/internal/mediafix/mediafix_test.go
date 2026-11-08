@@ -106,32 +106,50 @@ func TestBuildIsTheSameOnEveryRun(t *testing.T) {
 
 // TestCapturesHaveNotDrifted captures again what internal/media's Parse
 // tests read and compares it with the checked-in files, so a recipe
-// changed without a capture fails here.
+// changed without a capture fails here. The commands must match byte for
+// byte, and each capture must parse to the same record but for its bit
+// rate, since another target's build of an encoder may write other bytes.
 func TestCapturesHaveNotDrifted(t *testing.T) {
 	b, _ := builder(t)
-	dir := t.TempDir()
+	fresh := t.TempDir()
 	for _, c := range mediafix.Captures {
-		if err := b.Capture(t.Context(), c, dir); err != nil {
+		if err := b.Capture(t.Context(), c, fresh); err != nil {
 			t.Fatal(err)
 		}
 	}
 	checkedIn := filepath.Join("..", "..", "..", "internal", "media", "testdata", "ffprobe")
-	if got, want := names(t, checkedIn), names(t, dir); !slices.Equal(got, want) {
+	if got, want := names(t, checkedIn), names(t, fresh); !slices.Equal(got, want) {
 		t.Fatalf("%s holds %v, the captures are %v", checkedIn, got, want)
 	}
-	for _, name := range names(t, dir) {
-		got, err := os.ReadFile(filepath.Join(checkedIn, name))
-		if err != nil {
-			t.Fatal(err)
+	const again = "run go run ./fakes/internal/mediafix/capture internal/media/testdata/ffprobe"
+	for _, c := range mediafix.Captures {
+		if got, want := read(t, checkedIn, c.Name+".cmd"), read(t, fresh, c.Name+".cmd"); !bytes.Equal(got, want) {
+			t.Errorf("%s.cmd differs from the recipe's commands; %s", c.Name, again)
 		}
-		want, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(got, want) {
-			t.Errorf("%s differs from a fresh capture; run go run ./fakes/internal/mediafix/capture internal/media/testdata/ffprobe", name)
+		got, want := parse(t, checkedIn, c.Name), parse(t, fresh, c.Name)
+		got.Bitrate, want.Bitrate = 0, 0
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s's capture parses as %+v, a fresh one as %+v; %s", c.Name, got, want, again)
 		}
 	}
+}
+
+func read(t *testing.T, dir, name string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func parse(t *testing.T, dir, name string) media.Record {
+	t.Helper()
+	r, err := media.Parse(read(t, dir, name+".streams.json"), read(t, dir, name+".frame.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
 
 func names(t *testing.T, dir string) []string {
