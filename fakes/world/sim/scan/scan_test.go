@@ -1,4 +1,4 @@
-package sim_test
+package scan_test
 
 import (
 	"context"
@@ -349,6 +349,7 @@ func goneWords(n int) string {
 // as Works filled by their files and leaves the fifth in Pending imports,
 // and the next scan of the unchanged root reads no file.
 func TestAFirstScanAddsTheWorksItIsSureOfAndAnUnchangedRootReadsNothing(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		if got := s.last(); got.trigger != "event" || got.result != "succeeded" {
@@ -379,6 +380,7 @@ func TestAFirstScanAddsTheWorksItIsSureOfAndAnUnchangedRootReadsNothing(t *testi
 // the root: a scan marks it gone, its cell reads missing and Health counts
 // it; once the file is back the next scan fills the cell with it again.
 func TestADeletedFileReadsGoneAndWholeOnceRestored(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films...)
@@ -406,6 +408,7 @@ func TestADeletedFileReadsGoneAndWholeOnceRestored(t *testing.T) {
 // with the new count; Mark them gone then applies it, and the folders
 // moved back read whole.
 func TestAMassVanishStopsUntilMarkThemGone(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films...)
@@ -458,6 +461,7 @@ func TestAMassVanishStopsUntilMarkThemGone(t *testing.T) {
 // TestAnUnmountedRootIsSkippedAndItsFilesStay unmounts the movies root:
 // its unit is Skipped with Storage's words and no file reads gone.
 func TestAnUnmountedRootIsSkippedAndItsFilesStay(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films...)
@@ -477,6 +481,7 @@ func TestAnUnmountedRootIsSkippedAndItsFilesStay(t *testing.T) {
 // TestAHungFolderFailsTheUnitFast hangs one Work folder: the unit fails
 // within the stat deadline with Storage's words, and nothing reads gone.
 func TestAHungFolderFailsTheUnitFast(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films...)
@@ -528,6 +533,7 @@ func (d *stalled) ReadDir(ctx context.Context, dir string) ([]storing.Entry, err
 // second Walk page reaches a folder that hangs: Cancel ends the walk on
 // seedbox and the unit, and records nothing.
 func TestCancelMidWalkStopsTheWorkersWalk(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		d := &stalled{reached: make(chan struct{}), ended: make(chan error, 1)}
 		s := shelve(t, func(sc *scenario.Scenario) {
@@ -569,6 +575,7 @@ func TestCancelMidWalkStopsTheWorkersWalk(t *testing.T) {
 // reads the second of three new folders: the first folder's Work stays,
 // and the next scan adds the other two once each.
 func TestCancelWhileSettlingKeepsTheFoldersWritten(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films[:3]...)
@@ -598,6 +605,7 @@ func cancel(t *testing.T, s *shelf, run int64) {
 // second of three new folders: after the restart, the next scan ends with
 // each folder's Work and file once, as one uninterrupted scan would.
 func TestACrashMidScanConverges(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films[:3]...)
@@ -623,6 +631,7 @@ func TestACrashMidScanConverges(t *testing.T) {
 // matches it by its file id, reads nothing and fills the cell from the
 // new path.
 func TestARenamedFileKeepsItsRecord(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films...)
@@ -647,6 +656,7 @@ func TestARenamedFileKeepsItsRecord(t *testing.T) {
 // folder of a root whose volume keeps no file ids: the scan matches it by
 // its size and name.
 func TestAFileMovedOnARootWithoutIDsKeepsItsRecord(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.w.Disk("home", s.dir, fault.NoIDs{})
@@ -670,6 +680,7 @@ func TestAFileMovedOnARootWithoutIDsKeepsItsRecord(t *testing.T) {
 // TestACaseOnlyRenameIsAMoveOnACaseInsensitiveRoot respells a file's
 // name in lower case on a root that resolves names ignoring case.
 func TestACaseOnlyRenameIsAMoveOnACaseInsensitiveRoot(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.w.Disk("home", s.dir, fault.FoldCase{})
@@ -722,6 +733,7 @@ func (g *gate) pass() {
 // compares, while bytes the disk queue can't remove yet still lie there:
 // nothing reads gone, found or pending.
 func TestAScanDuringAnImportChangesNothing(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		grab, scan := newGate(), newGate()
 		s := shelve(t, nil, sim.Edit(func(_ string, e *node.Env) {
@@ -796,6 +808,7 @@ func importOrchard(t *testing.T, s *shelf) string {
 // row to how rows read before this spec: the next scan reads it once,
 // records its modification time and id, and keeps its quality and Grab.
 func TestRowsFromBeforeLibraryScanTakeTheirStamps(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		path := importOrchard(t, s)
@@ -839,6 +852,7 @@ func TestRowsFromBeforeLibraryScanTakeTheirStamps(t *testing.T) {
 // file off the root: once a Grab imports another, it fills the cell and
 // the gone file is forgotten.
 func TestAGoneFilesCellIsFilledByTheNextImport(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films...)
@@ -866,6 +880,7 @@ func TestAGoneFilesCellIsFilledByTheNextImport(t *testing.T) {
 // Quiet Orchard's gone 1080p file: when the 1080p file returns, it fills
 // the cell again and the 720p file stays a Kept file.
 func TestAGoneFileThatReturnsTakesBackItsCell(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films...)
@@ -890,6 +905,7 @@ func TestAGoneFileThatReturnsTakesBackItsCell(t *testing.T) {
 // with a film in its root: its unit is Skipped, and once seedbox returns
 // it runs and adds the film.
 func TestARootOnAnOfflineWorkerIsSkippedThenScannedOnReturn(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := shelve(t, func(sc *scenario.Scenario) {
 			sc.Nodes[1].Roles = append(sc.Nodes[1].Roles, "storage")

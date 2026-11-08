@@ -5,7 +5,7 @@
 
 //go:build !race
 
-package sim_test
+package scan_test
 
 import (
 	"fmt"
