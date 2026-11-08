@@ -9,8 +9,8 @@ import (
 )
 
 // Title reads a release title: the type's Name, then every core fact.
-// Quality, revision, the stream facts and id tags read the whole name;
-// the group reads Name.Masked; languages, the cut and the edition text
+// Quality and revision read the whole name; the group, the stream facts
+// and id tags read Name.Masked; languages, the cut and the edition text
 // read Name.Tail.
 func Title(name string, names Names, cuts []Cut) Read {
 	return read(Prepare(name), names, cuts)
@@ -39,7 +39,7 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 		IDs:       readIDs(masked, s),
 	}
 	readQuality(p, s, &f)
-	readStream(p, &f)
+	readStream(masked, s, &f)
 	return Read{Given: p.Original, Name: n, Facts: f, Slow: s.slow}
 }
 
