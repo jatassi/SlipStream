@@ -136,20 +136,23 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	if err != nil {
 		return Impact{}, nil, err
 	}
+	fills, from := make([]map[CellKey]Fill, len(before)), make([][]Cell, len(before))
+	inParallel(len(before), func(i int) {
+		afters[i].scoring.known = moved.onto(before[i].fills)
+		fills[i], from[i] = refill(afters[i]), cells(before[i])
+	})
 	impact := Impact{OwnList: touched.OwnList}
 	for i, was := range before {
-		after := afters[i]
-		after.scoring.known = moved.onto(was.fills)
-		p, err := f.converge(ctx, tx, was, after, refill(after), func(File) bool { return m.Unwanted == Delete })
+		p, err := f.converge(ctx, tx, was, afters[i], fills[i], func(File) bool { return m.Unwanted == Delete })
 		if err != nil {
 			return Impact{}, nil, err
 		}
-		from, to := cells(was), cells(p.settled())
-		impact.add(p, from, to)
+		to := cells(p.settled())
+		impact.add(p, from[i], to)
 		if err := apply(ctx, q, p); err != nil {
 			return Impact{}, nil, err
 		}
-		n, err := f.cfg.Grabs.Settle(ctx, tx, was.tree.ID, gone(from, to), m.Unwanted)
+		n, err := f.cfg.Grabs.Settle(ctx, tx, was.tree.ID, gone(from[i], to), m.Unwanted)
 		if err != nil {
 			return Impact{}, nil, err
 		}
