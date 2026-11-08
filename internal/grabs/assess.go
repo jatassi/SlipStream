@@ -18,9 +18,10 @@ import (
 )
 
 // judging is what assessing a run's Releases needs, read before the
-// Indexers are asked: the searched Item, what its Work expects of a name,
-// its Content Type's Names and cuts, the formats its Work's Targets score
-// and each of its Items' runtime.
+// Indexers are asked: the searched Item, zero when the tester judges a
+// whole Work, what its Work expects of a name, its Content Type's Names
+// and cuts, the formats its Work's Targets score and each of its Items'
+// runtime.
 type judging struct {
 	searched works.ItemID
 	expect   indexers.Expect
@@ -73,8 +74,13 @@ type assessed struct {
 
 // assess reads l against j. It is pure and deterministic.
 func assess(j judging, l listed) assessed {
+	return assessRead(j, l, release.Title(l.Release.Title, j.names, j.cuts))
+}
+
+// assessRead is assess of l read as rd.
+func assessRead(j judging, l listed, rd release.Read) assessed {
 	r := l.Release
-	a := assessed{listed: l, read: release.Title(r.Title, j.names, j.cuts)}
+	a := assessed{listed: l, read: rd}
 	a.covers = j.expect.Covers(a.read.Name)
 	f := &a.read.Facts
 	if r.Size > 0 {
@@ -124,8 +130,9 @@ func (j judging) runtimeOf(items []works.ItemID) release.Fact[time.Duration] {
 
 // refusals is a's own refusals: an id that names another Work alone, else
 // a title or year that doesn't match the Work, then a name that covers
-// none of the searched Items or more than it. Its ids are the Indexer's,
-// over the id tags its name carries.
+// none of the Work's Items or not the searched one, or more than one.
+// With no searched Item, as the tester judges, any of the Work's Items
+// passes. Its ids are the Indexer's, over the id tags its name carries.
 func (j judging) refusals(a assessed) []Reason {
 	ids := map[string]string{}
 	maps.Copy(ids, a.read.Facts.IDs)
@@ -139,7 +146,7 @@ func (j judging) refusals(a assessed) []Reason {
 		out = append(out, own(targets.WrongTitle, given))
 	}
 	switch {
-	case !slices.Contains(a.covers, j.searched):
+	case len(a.covers) == 0, !j.searched.IsZero() && !slices.Contains(a.covers, j.searched):
 		out = append(out, own(targets.WrongItem, marks(a.read.Name)))
 	case len(a.covers) > 1:
 		out = append(out, own(targets.CoversMore, marks(a.read.Name)))

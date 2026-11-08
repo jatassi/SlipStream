@@ -1,0 +1,363 @@
+package grabs
+
+import (
+	"bytes"
+	"context"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/jatassi/slipstream/internal/formats"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
+)
+
+// Trial is the names the Custom Format tester reads, and how.
+type Trial struct {
+	Names []string
+	// Work is the Work every name is judged against, nil to match each
+	// name to the Works of every Content Type.
+	Work *works.WorkID
+	// Draft is a format matched in place of the saved one of its ID, or
+	// beside the saved ones when none has its ID.
+	Draft *formats.Format
+	// File reads each name as a file path.
+	File bool
+}
+
+// Tried is one name as the tester reads and judges it.
+type Tried struct {
+	Name string
+	Read release.Read
+	// Sentence is what the name reads as, the Works it matches and the
+	// Targets it would fill, or why it would fill none.
+	Sentence string
+	// Works are the Works it matches: the given Work, or each Work whose
+	// title it gives.
+	Works []works.Summary
+	// Covers are the Items it names of the one Work it is judged against.
+	Covers  []works.ItemID
+	Formats []formats.Explained
+	Targets []TriedTarget
+}
+
+// TriedTarget is a name's verdict at one Target. Reasons are the name's
+// own refusals, then the reasons of the first cell it would fill, else of
+// the first cell it was judged at.
+type TriedTarget struct {
+	Target    targets.Target
+	Score     int
+	WouldFill bool
+	Reasons   []Reason
+}
+
+// Try reads each name and judges it as a search would. With one Work,
+// given or the only one a name matches, it judges that Work's Targets at
+// the cells of the Items the name covers, against their held files. With
+// several or none it judges every Target with no held file. A name with
+// no Work given is read with each Content Type's Names in turn, and reads
+// as the first type that finds a Work for it, else as the first type.
+func (gr *Grabs) Try(ctx context.Context, by identity.Admin, t Trial) ([]Tried, error) {
+	if t.Draft != nil {
+		if err := formats.Check(*t.Draft, formats.Timings{Match: gr.cfg.Targets.MatchLimit()}); err != nil {
+			return nil, err
+		}
+	}
+	types, err := gr.cfg.Works.Types(ctx)
+	if err != nil {
+		return nil, err
+	}
+	every, err := gr.cfg.Targets.ListTargets(ctx, by)
+	if err != nil {
+		return nil, err
+	}
+	tr := trier{gr: gr, file: t.File, work: t.Work, every: every}
+	for _, typ := range types {
+		if typ.Enabled {
+			tr.types = append(tr.types, typ.ID)
+		}
+	}
+	out := make([]Tried, len(t.Names))
+	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		if tr.cuts, err = gr.cfg.Targets.CutsIn(ctx, r); err != nil {
+			return err
+		}
+		if tr.catalog, err = gr.cfg.Targets.FormatsIn(ctx, r); err != nil {
+			return err
+		}
+		if t.Draft != nil {
+			tr.catalog = tr.catalog.With(*t.Draft)
+		}
+		for i, name := range t.Names {
+			if out[i], err = tr.try(ctx, r, name); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return out, err
+}
+
+type trier struct {
+	gr      *Grabs
+	file    bool
+	work    *works.WorkID
+	types   []works.TypeID
+	every   []targets.Target
+	cuts    targets.Cuts
+	catalog *formats.Catalog
+}
+
+func (tr trier) try(ctx context.Context, r storage.Reader[file], name string) (Tried, error) {
+	if tr.work != nil {
+		w, err := works.SummaryOf(ctx, r, *tr.work)
+		if err != nil {
+			return Tried{}, err
+		}
+		return tr.againstWork(ctx, r, name, tr.read(name, w.ContentType), w)
+	}
+	var rd release.Read
+	var found []works.Summary
+	for i, typ := range tr.types {
+		read := tr.read(name, typ)
+		ws, err := tr.matching(ctx, r, typ, read)
+		if err != nil {
+			return Tried{}, err
+		}
+		if i == 0 || len(found) == 0 && len(ws) > 0 {
+			rd = read
+		}
+		found = append(found, ws...)
+	}
+	if len(found) == 1 {
+		return tr.againstWork(ctx, r, name, rd, found[0])
+	}
+	return tr.againstEvery(name, rd, found), nil
+}
+
+func (tr trier) read(name string, typ works.TypeID) release.Read {
+	names, cuts := tr.gr.cfg.Names[typ], tr.cuts.For(typ)
+	if tr.file {
+		return release.File(name, names, cuts)
+	}
+	return release.Title(name, names, cuts)
+}
+
+// matching is the Works of typ whose titles hold each of rd's titles and
+// that the title matching of a search matches rd to.
+func (tr trier) matching(ctx context.Context, r storage.Reader[file], typ works.TypeID, rd release.Read) ([]works.Summary, error) {
+	var seen []works.WorkID
+	var out []works.Summary
+	for _, title := range rd.Name.Titles {
+		ids, err := tr.gr.cfg.Works.MatchIn(ctx, r, title, &typ)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range ids {
+			if slices.Contains(seen, id) {
+				continue
+			}
+			seen = append(seen, id)
+			expect, err := tr.gr.cfg.Terms[typ].Expect(ctx, r, id)
+			if err != nil {
+				return nil, err
+			}
+			if m, _ := release.Match(rd.Name, rd.Facts.IDs, expect.Claim, tr.gr.cfg.Names[typ]); m != release.Matched {
+				continue
+			}
+			w, err := works.SummaryOf(ctx, r, id)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, w)
+		}
+	}
+	return out, nil
+}
+
+// againstWork judges name, read as rd, against w as a search for any of
+// its Items would: its own refusals, then every counted, released cell of
+// the Items it covers.
+func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name string, rd release.Read, w works.Summary) (Tried, error) {
+	expect, err := tr.gr.cfg.Terms[w.ContentType].Expect(ctx, r, w.ID)
+	if err != nil {
+		return Tried{}, err
+	}
+	j, err := tr.gr.judgingOf(ctx, r, w.ContentType, Search{WorkID: w.ID}, expect)
+	if err != nil {
+		return Tried{}, err
+	}
+	j.scoring = tr.catalog
+	a := assessRead(j, listed{Release: indexers.Release{Release: searching.Release{Title: name}}}, rd)
+	goals, err := targets.GoalsIn(ctx, r, w.ID)
+	if err != nil {
+		return Tried{}, err
+	}
+	all, err := tr.gr.cfg.Files.Cells(ctx, r, w.ID)
+	if err != nil {
+		return Tried{}, err
+	}
+	var c cells
+	for _, cell := range all {
+		if cell.Item.Counts() && cell.Released && slices.Contains(a.covers, cell.Item.ID) {
+			c.open = append(c.open, cell)
+		}
+	}
+	judged := judge(c, a)
+	t := Tried{Name: name, Read: a.read, Covers: a.covers, Formats: tr.catalog.Explain(a.read)}
+	if a.namesTheWork() {
+		t.Works = []works.Summary{w}
+	}
+	s := scoredOf(a.read, t.Formats)
+	for _, target := range goals.Targets {
+		tt := TriedTarget{Target: target, Score: target.Score(s), Reasons: slices.Clone(a.refusals)}
+		var at []verdict
+		for _, v := range judged.verdicts {
+			if v.target == target.ID {
+				at = append(at, v)
+			}
+		}
+		if i := slices.IndexFunc(at, verdict.grabbable); i >= 0 {
+			tt.WouldFill = len(a.refusals) == 0
+			tt.Reasons = append(tt.Reasons, at[i].reasons()...)
+		} else if len(at) > 0 {
+			tt.Reasons = append(tt.Reasons, at[0].reasons()...)
+		}
+		t.Targets = append(t.Targets, tt)
+	}
+	t.Sentence = sentence(t)
+	return t, nil
+}
+
+// againstEvery judges rd at every Target with no held file, for a name
+// that matches several Works or none.
+func (tr trier) againstEvery(name string, rd release.Read, ws []works.Summary) Tried {
+	t := Tried{Name: name, Read: rd, Works: ws, Formats: tr.catalog.Explain(rd)}
+	s := scoredOf(rd, t.Formats)
+	for _, target := range tr.every {
+		v := verdict{target: target.ID, wanted: true, v: targets.Judge(target, s, nil)}
+		t.Targets = append(t.Targets, TriedTarget{Target: target, Score: v.v.Score(), WouldFill: v.grabbable(), Reasons: v.reasons()})
+	}
+	t.Sentence = sentence(t)
+	return t
+}
+
+func scoredOf(rd release.Read, es []formats.Explained) targets.Scored {
+	var matched formats.Set
+	for _, e := range es {
+		if e.Matched {
+			matched = append(matched, e.Format)
+		}
+	}
+	slices.SortFunc(matched, func(a, b formats.ID) int { return bytes.Compare(a[:], b[:]) })
+	return targets.Scored{Facts: rd.Facts, Formats: matched}
+}
+
+// sentence is t in words: "Reads as WEBDL-1080p from FLUX. It matches
+// Heat (1995) and would fill 1080p." A name that would fill no Target
+// ends with the first reason a Target gives, in Profile order.
+func sentence(t Tried) string {
+	f := t.Read.Facts
+	read := "Reads no Quality"
+	if q, ok := f.Quality.Get(); ok {
+		read = "Reads as " + q.Info().Name
+	}
+	if g, ok := f.Group.Get(); ok {
+		read += " from " + g
+	}
+	labels := make([]string, len(t.Works))
+	for i, w := range t.Works {
+		labels[i] = w.Label
+	}
+	matches := "no Work"
+	if len(labels) > 0 {
+		matches = joinWords(labels)
+	}
+	var fills []string
+	for _, tt := range t.Targets {
+		if tt.WouldFill {
+			fills = append(fills, tt.Target.Name)
+		}
+	}
+	if len(fills) > 0 {
+		return read + ". It matches " + matches + " and would fill " + joinWords(fills) + "."
+	}
+	return read + ". It matches " + matches + " and would fill no Target. " + whyNot(t)
+}
+
+// whyNot is the first reason a Target of t gives that isn't a note, in
+// words.
+func whyNot(t Tried) string {
+	if len(t.Targets) == 0 {
+		return "No Target is set up."
+	}
+	for _, tt := range t.Targets {
+		for _, r := range tt.Reasons {
+			if r.Code != targets.SizeNotChecked {
+				return reasonWords(r, tt.Target, t.Read.Facts)
+			}
+		}
+	}
+	return "No Item it names is monitored and released."
+}
+
+var attributeWords = map[targets.Attribute]string{
+	targets.HDR: "HDR", targets.VideoCodec: "video codec", targets.AudioCodec: "audio codec",
+	targets.Channels: "channels", targets.Language: "language",
+}
+
+// reasonWords is r, a reason at t about a name whose facts are f, as a
+// sentence.
+func reasonWords(r Reason, t targets.Target, f release.Facts) string {
+	switch r.Code {
+	case targets.WrongWork:
+		return "An id in the name belongs to another Work."
+	case targets.WrongItem:
+		if r.Value == "" {
+			return "It names none of the Work's Items."
+		}
+		return "The Work has no Item " + r.Value + "."
+	case targets.CoversMore:
+		return "It holds more than one Item."
+	case targets.WrongTitle:
+		if r.Value == "" {
+			return "Title doesn't match."
+		}
+		return "Title doesn't match: " + r.Value + "."
+	case targets.CutNotWanted:
+		return "The Work doesn't want the " + r.Value + " cut at " + t.Name + "."
+	case targets.QualityNotInTarget:
+		if q, ok := f.Quality.Get(); ok {
+			return t.Name + " doesn't accept " + q.Info().Name + "."
+		}
+		return t.Name + " doesn't accept a release with no Quality."
+	case targets.FilterFailed:
+		return "It fails the " + attributeWords[r.Attribute] + " filter of " + t.Name + "."
+	case targets.SizeBelow:
+		return "It's smaller than " + t.Name + " allows."
+	case targets.SizeAbove:
+		return "It's larger than " + t.Name + " allows."
+	case targets.SizeNotChecked:
+		return "Its size isn't checked at " + t.Name + " because the name gives no size or the runtime is unknown."
+	case targets.ScoreBelowMinimum:
+		return "Score " + r.Value + " is below the minimum of " + strconv.Itoa(t.Scores.Minimum) + " at " + t.Name + "."
+	case targets.NotAnUpgrade:
+		return "It isn't an upgrade of the file at " + t.Name + "."
+	case targets.RepackOtherGroup:
+		return "This repack is from another release group than the file it would replace."
+	}
+	panic("grabs: no words for the reason " + string(r.Code))
+}
+
+// joinWords is ws as a list in a sentence: "A", "A and B", "A, B and C".
+func joinWords(ws []string) string {
+	if len(ws) == 1 {
+		return ws[0]
+	}
+	return strings.Join(ws[:len(ws)-1], ", ") + " and " + ws[len(ws)-1]
+}
