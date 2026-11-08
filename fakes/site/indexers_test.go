@@ -3,6 +3,7 @@ package site_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"slices"
@@ -76,6 +77,14 @@ func failedWith(t *testing.T, err error, want string) indexers.Captcha {
 		t.Fatalf("Create = %v (%+v), want a failed Test saying %q with a new captcha", err, failed, want)
 	}
 	return *failed.Captcha
+}
+
+// sentence is a failed Test's sentence, or err's text for any other error.
+func sentence(err error) string {
+	if failed, ok := errors.AsType[*indexers.TestFailedError](err); ok {
+		return failed.Sentence
+	}
+	return fmt.Sprint(err)
 }
 
 func shows(t *testing.T, c indexers.Captcha) string {
@@ -175,9 +184,9 @@ func TestACatalogDraftTakesOnlyWhatItsDefinitionDoes(t *testing.T) {
 		if _, err := x.Update(t.Context(), admin, v.ID, indexers.Edit{Values: map[string]string{"apikey": ""}}, indexers.Typed{}); err != nil {
 			t.Errorf("an edit that sends the sealed API key empty = %v, want it kept and the Test passed", err)
 		}
-		var failed *indexers.TestFailedError
-		if _, err := x.Update(t.Context(), admin, v.ID, indexers.Edit{Values: map[string]string{"apikey": "nope"}}, indexers.Typed{}); !errors.As(err, &failed) {
-			t.Errorf("an edit to a wrong API key = %v, want its Test failed", err)
+		_, err = x.Update(t.Context(), admin, v.ID, indexers.Edit{Values: map[string]string{"apikey": "nope"}}, indexers.Typed{})
+		if got, want := sentence(err), "Quarry refused the API key. Check the account, then test again."; got != want {
+			t.Errorf("an edit to a wrong API key = %q, want its Test failed with %q", got, want)
 		}
 		cinder := indexers.Draft{Kind: indexers.Catalog, Name: "Cinder", Definition: site.Cinder}
 		if _, err := x.Create(t.Context(), admin, cinder, indexers.Typed{}); !errors.Is(err, indexers.ErrCookieNeeded) {

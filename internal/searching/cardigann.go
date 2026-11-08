@@ -297,18 +297,24 @@ func (s *Site) exchange(ctx context.Context, r cardigann.Request, j *jar) (cardi
 
 // refused is the outcome of a sign-in that ended with err: a site that
 // refused the credentials, the pasted cookie or an automatic sign-in at a
-// captcha stops the Indexer.
+// captcha stops the Indexer. A stateless sign-in only checks a key, so
+// its refusal is the account's, as a port's StatelessKey is.
 func refused(def *cardigann.Definition, err error) error {
+	s := def.Summary()
+	rejected := CredentialsRejected
+	if s.Login == cardigann.StatelessLogin {
+		rejected = AccountRefused
+	}
 	if r, ok := errors.AsType[*cardigann.Rejected](err); ok {
-		return &Stopped{Cause: CredentialsRejected, Text: r.Message}
+		return &Stopped{Cause: rejected, Text: r.Message}
 	}
 	switch {
 	case errors.Is(err, cardigann.ErrCaptchaNeeded):
 		return &Stopped{Cause: CaptchaNeeded}
-	case errors.Is(err, cardigann.ErrSignInRefused) && def.Summary().Uses.Has(cardigann.LoginCookie):
+	case errors.Is(err, cardigann.ErrSignInRefused) && s.Uses.Has(cardigann.LoginCookie):
 		return &Stopped{Cause: CookieExpired}
 	case errors.Is(err, cardigann.ErrSignInRefused):
-		return &Stopped{Cause: CredentialsRejected}
+		return &Stopped{Cause: rejected}
 	}
 	return &Failing{Err: err}
 }

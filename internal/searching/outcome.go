@@ -55,7 +55,8 @@ const (
 	ChallengeUnsolved    StopCause = "challenge_unsolved"
 	CookieExpired        StopCause = "cookie_expired"
 	DefinitionUnloadable StopCause = "definition_unloadable"
-	// AccountRefused is Torznab codes 100 to 199 and 910.
+	// AccountRefused is Torznab codes 100 to 199 and 910, and a key a
+	// ported site or a stateless catalog sign-in refused.
 	AccountRefused StopCause = "account_refused"
 	// RequestRejected is Torznab codes 200 to 203.
 	RequestRejected StopCause = "request_rejected"

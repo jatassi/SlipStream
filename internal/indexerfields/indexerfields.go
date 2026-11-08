@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Field is one setting of the Indexer form.
@@ -64,6 +66,32 @@ func Stored(f Field) bool {
 // password field but the username, since most API key fields are text.
 func Sealed(f Field) bool {
 	return (f.Type == Text || f.Type == Password) && f.Name != "username"
+}
+
+// Words names fields as a sentence names them: "passkey", "email or
+// password", "username, password or PID".
+func Words(fields []Field) string {
+	names := make([]string, 0, len(fields))
+	for _, f := range fields {
+		names = append(names, lowerFirst(f.Label))
+	}
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
+}
+
+// lowerFirst lowercases a label's first letter unless it starts an
+// acronym: "Passkey" is "passkey", "API key" stays.
+func lowerFirst(label string) string {
+	first, size := utf8.DecodeRuneInString(label)
+	if next, _ := utf8.DecodeRuneInString(label[size:]); unicode.IsUpper(next) {
+		return label
+	}
+	return string(unicode.ToLower(first)) + label[size:]
 }
 
 // OptionLabel is the label of f's option value, "" when f doesn't offer it.

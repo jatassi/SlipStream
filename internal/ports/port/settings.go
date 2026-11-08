@@ -11,8 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/jatassi/slipstream/internal/indexerfields"
 )
@@ -387,31 +385,14 @@ func scalar(t reflect.Type, raw string) (reflect.Value, error) {
 	return x, nil
 }
 
-// words names the fields of settings that want holds, as a sentence
-// names them: "passkey", "email or password", "username, password or
-// PID".
+// words names the fields of settings that want holds, as
+// indexerfields.Words does.
 func words(settings []setting, want func(setting) bool) string {
-	var names []string
+	var fields []Field
 	for _, s := range settings {
 		if want(s) {
-			names = append(names, lowerFirst(s.Label))
+			fields = append(fields, s.Field)
 		}
 	}
-	switch len(names) {
-	case 0:
-		return ""
-	case 1:
-		return names[0]
-	}
-	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
-}
-
-// lowerFirst lowercases a label's first letter unless it starts an
-// acronym: "Passkey" is "passkey", "API key" stays.
-func lowerFirst(label string) string {
-	first, size := utf8.DecodeRuneInString(label)
-	if next, _ := utf8.DecodeRuneInString(label[size:]); unicode.IsUpper(next) {
-		return label
-	}
-	return string(unicode.ToLower(first)) + label[size:]
+	return indexerfields.Words(fields)
 }
