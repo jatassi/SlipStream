@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "Salt.Meadow.2020.2160p.WEB-DL.DDP5.1.H265-FKW",
+      "size": 20132659200,
+      "published": "2026-06-04T06:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 2,
+      "link": "https://hdtorrents.fixture-site.fake.localhost/download.php?id=3001\u0026f=Salt.Meadow.2020.2160p.WEB-DL.DDP5.1.H265-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2045,
+        100064
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://hdtorrents.fixture-site.fake.localhost/details.php?id=3001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Copper.Bell.2020.FLAC-FKW",
+      "size": 432327884,
+      "published": "2026-06-03T23:59:59Z",
+      "seeders": 1,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://hdtorrents.fixture-site.fake.localhost/download.php?id=3002\u0026f=The.Copper.Bell.2020.FLAC-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100044
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://hdtorrents.fixture-site.fake.localhost/details.php?id=3002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

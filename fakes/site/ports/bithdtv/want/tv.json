@@ -1,0 +1,32 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.S02E03.1080p.WEB-DL.H264-FKW",
+      "size": 1503238553,
+      "published": "2026-01-04T21:00:00Z",
+      "seeders": 40,
+      "leechers": 9,
+      "grabs": 120,
+      "link": "https://bithdtv.fixture-site.fake.localhost/download.php?id=2001\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100010
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 2
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bithdtv.fixture-site.fake.localhost/details.php?id=2001",
+      "source": null,
+      "flags": [
+        "doubleupload"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

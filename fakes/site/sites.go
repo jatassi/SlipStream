@@ -32,14 +32,43 @@ const (
 	Ferry = "ferry"
 )
 
-func catalogSite(label string) bool { return slices.Contains(scenario.FixtureSites["catalog"], label) }
+// The labels of the sites that each fake one family of ported site with
+// the protocol of its port of the same id.
+const (
+	// PassThePopcorn takes an API user and key on every request and lists
+	// JSON.
+	PassThePopcorn = "passthepopcorn"
+	// TorrentBytes signs in with a form and lists HTML rows.
+	TorrentBytes = "torrentbytes"
+	// AvistaZ signs in with a username, password and PID to a bearer
+	// token and lists JSON.
+	AvistaZ = "avistaz"
+	// IPTorrents takes a pasted session cookie with its browser's
+	// User-Agent and lists HTML rows.
+	IPTorrents = "iptorrents"
+	// NorBits signs in with a form and a two-factor code and lists HTML
+	// rows.
+	NorBits = "norbits"
+)
+
+// Families are the sites that fake a family of ported site.
+var Families = []string{PassThePopcorn, TorrentBytes, AvistaZ, IPTorrents, NorBits}
+
+// stateful reports whether label is a catalog site or a family site,
+// whose sessions the Expire cue signs out and which Maintenance takes
+// down.
+func stateful(label string) bool {
+	return slices.Contains(scenario.FixtureSites["catalog"], label) || slices.Contains(Families, label)
+}
 
 var (
-	// Expire signs every session of a catalog site out, and makes a pasted
-	// session cookie stop working: {"site": "<label>"}.
+	// Expire signs every session of a catalog or family site out, bearer
+	// tokens included, and makes a pasted session cookie stop working:
+	// {"site": "<label>"}.
 	Expire = fake.CueSpec{Name: "fixture-site-expire"}
-	// Maintenance puts a catalog site in maintenance, where every page
-	// responds 503, or takes it out: {"site": "<label>", "on": true}.
+	// Maintenance puts a catalog or family site in maintenance, where
+	// every page responds 503, or takes it out: {"site": "<label>", "on":
+	// true}.
 	Maintenance = fake.CueSpec{Name: "fixture-site-maintenance"}
 )
 
@@ -55,7 +84,7 @@ var (
 	Searched = fake.CaptureSpec{Name: "searches", Kind: "fixture-site.search"}
 )
 
-// SiteArgs name a catalog site for a cue.
+// SiteArgs name a catalog or family site for a cue.
 type SiteArgs struct {
 	Site string `json:"site"`
 	On   bool   `json:"on,omitempty"`
@@ -79,17 +108,17 @@ func derive(seed string, parts ...string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Username is the account name on every catalog site.
+// Username is the account name on every catalog and family site.
 const Username = "slipstream"
 
-// Password is the account's password on the catalog site label in a
-// world with Scenario s.
+// Password is the account's password on the catalog or family site label
+// in a world with Scenario s.
 func Password(s scenario.Scenario, label string) string {
 	return derive(s.Seed, "password", label)[:16]
 }
 
-// Key is the account's API key on Quarry, or its passkey on Ferry, in a
-// world with Scenario s.
+// Key is the account's API key on Quarry or PassThePopcorn, or its
+// passkey on Ferry, AvistaZ or NorBits, in a world with Scenario s.
 func Key(s scenario.Scenario, label string) string { return derive(s.Seed, "key", label)[:32] }
 
 // SessionCookie is the account's session cookie on Cinder in a world with
@@ -113,11 +142,13 @@ func Clearance(s scenario.Scenario, origin, userAgent string) string {
 const BrowserUserAgent = "Mozilla/5.0 (fixture)"
 
 // Credentials are what an Admin enters to add an Indexer for the catalog
-// site label that searches from Node origin, in a world with Scenario s:
-// its settings, and the browser cookie it pastes with BrowserUserAgent, ""
-// for none. Cinder's cookie carries the browser's clearance of its
-// challenge unless origin has a Challenge solver to clear it.
+// or family site label that searches from Node origin, in a world with
+// Scenario s: its settings, and the browser cookie it pastes with
+// BrowserUserAgent, "" for none. Cinder's cookie carries the browser's
+// clearance of its challenge unless origin has a Challenge solver to
+// clear it.
 func Credentials(s scenario.Scenario, label, origin string) (settings map[string]string, cookie string) {
+	signIn := map[string]string{"username": Username, "password": Password(s, label)}
 	switch label {
 	case Quarry:
 		return map[string]string{"apikey": Key(s, Quarry)}, ""
@@ -128,12 +159,20 @@ func Credentials(s scenario.Scenario, label, origin string) (settings map[string
 			return map[string]string{}, SessionCookie(s)
 		}
 		return map[string]string{}, SessionCookie(s) + "; " + ClearanceCookie + "=" + Clearance(s, origin, BrowserUserAgent)
+	case PassThePopcorn:
+		return map[string]string{"apiUser": Username, "apiKey": Key(s, PassThePopcorn)}, ""
+	case AvistaZ:
+		signIn["pid"] = PID(s)
+	case IPTorrents:
+		return map[string]string{}, IPTorrentsCookie(s)
+	case NorBits:
+		signIn["authenticatorKey"] = AuthenticatorKey(s)
 	}
-	return map[string]string{"username": Username, "password": Password(s, label)}, ""
+	return signIn, ""
 }
 
-// session is one sign-in to a catalog site, valid only from the Node that
-// signed in.
+// session is one sign-in to a catalog or family site, a bearer token
+// included, valid only from the Node that signed in.
 type session struct {
 	site, origin string
 }
@@ -175,8 +214,8 @@ func (s *site) signedIn(r *http.Request, label string) (string, bool) {
 }
 
 func (s *site) expire(_ context.Context, a SiteArgs) (any, error) {
-	if !catalogSite(a.Site) {
-		return nil, fmt.Errorf("fixture-site has no catalog site %q", a.Site)
+	if !stateful(a.Site) {
+		return nil, fmt.Errorf("fixture-site has no catalog or family site %q", a.Site)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -190,8 +229,8 @@ func (s *site) expire(_ context.Context, a SiteArgs) (any, error) {
 }
 
 func (s *site) maintain(_ context.Context, a SiteArgs) (any, error) {
-	if !catalogSite(a.Site) {
-		return nil, fmt.Errorf("fixture-site has no catalog site %q", a.Site)
+	if !stateful(a.Site) {
+		return nil, fmt.Errorf("fixture-site has no catalog or family site %q", a.Site)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -215,19 +254,21 @@ func (s *site) serving(label string, h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// found are the releases the feeds list whose IMDb id is query, or whose
-// name holds every word of it.
-func (s *site) found(query string) []Release {
+// found are the releases the feeds list that every query hits.
+func (s *site) found(queries ...string) []Release {
 	var out []Release
 	for _, rel := range s.releases {
-		if !s.shown(rel) {
-			continue
-		}
-		if strings.HasPrefix(query, "tt") && rel.IMDbID == query || matches(rel.Name, query) {
+		if s.shown(rel) && !slices.ContainsFunc(queries, func(q string) bool { return !hits(rel, q) }) {
 			out = append(out, rel)
 		}
 	}
 	return out
+}
+
+// hits reports whether query is rel's IMDb id, or every word of it is a
+// word of rel's name.
+func hits(rel Release, query string) bool {
+	return strings.HasPrefix(query, "tt") && rel.IMDbID == query || matches(rel.Name, query)
 }
 
 // byHash is the release whose info hash is hash.

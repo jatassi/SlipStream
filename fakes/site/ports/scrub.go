@@ -31,6 +31,13 @@ var (
 	userKey = regexp.MustCompile(`(?i)"(user(?:_?name)?|uploader|owner|author|login)"\s*:\s*"([^"]*)"`)
 )
 
+// upstreamConstants are key-shaped runs a Prowlarr indexer hard-codes,
+// which every user's requests carry, so they aren't anyone's secret.
+var upstreamConstants = []string{
+	// TorrentSyndikat.cs: the API's path segment.
+	"api_9djWe8Tb2NE3p6opyqnh",
+}
+
 // credentialNames are the setting, query, form, JSON and session names
 // whose values must be placeholders, lowercased.
 var credentialNames = []string{
@@ -184,6 +191,9 @@ func (s *scrubber) jsonFields(at string, m map[string]any) {
 // a release name outside the catalog.
 func (s *scrubber) text(at, v string) {
 	bare := placeholder.ReplaceAllString(v, "")
+	for _, c := range upstreamConstants {
+		bare = strings.ReplaceAll(bare, c, "")
+	}
 	for _, h := range hexHash.FindAllString(bare, -1) {
 		if !Minted(h) {
 			s.report(at, "info hash %s isn't one the fixture catalog minted. Rewrite it with the record tool.", h)

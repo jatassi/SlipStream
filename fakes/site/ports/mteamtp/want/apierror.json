@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer's API responded with \"key is invalid\""
+  },
+  "sessionChanged": false
+}

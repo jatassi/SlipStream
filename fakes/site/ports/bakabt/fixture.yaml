@@ -1,0 +1,119 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "PHPSESSID={{sid}}; bbtid={{bbtid}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, text: Harbor Lights}}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "PHPSESSID={{sid}}; bbtid={{bbtid}}"}
+          query: {only: "0", incomplete: "1", lossless: "1", hd: "1", multiaudio: "1", bonus: "1", reorder: "1", q: Harbor Lights}
+          noQuery: [hentai]
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {q: Harbor Lights}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls E05}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {q: Juniper Falls}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: empty.html
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {only: "0", reorder: "1", q: ""}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html
+  - name: grab
+    call: {fetch: /torrent/1001/fixture}
+    exchanges:
+      - request:
+          path: /torrent/1001/fixture
+          headers: {Cookie: "PHPSESSID={{sid}}; bbtid={{bbtid}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: details.html
+      - request:
+          path: /download/1001/fixture.torrent
+          headers: {Cookie: "PHPSESSID={{sid}}; bbtid={{bbtid}}"}
+        response:
+          headers: {Content-Type: application/x-bittorrent}
+          body: harbor.torrent
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /login.php}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: login.html
+      - request:
+          method: POST
+          path: /login.php
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+          form: {loginKey: "{{loginKey}}", username: fixture-user, password: "{{password}}", returnto: /index.php}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: loginfailed.html
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "PHPSESSID={{sid}}; bbtid={{expiredBbtid}}"}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "PHPSESSID={{sid}}; bbtid={{expiredBbtid}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: login.html
+      - request: {path: /login.php}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: login.html
+      - request:
+          method: POST
+          path: /login.php
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+          form: {loginKey: "{{loginKey}}", username: fixture-user, password: "{{password}}"}
+        response:
+          status: 302
+          headers:
+            Location: /index.php
+            Set-Cookie: "bbtid={{bbtid}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/"
+      - request: {path: /index.php}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: index.html
+      - request:
+          path: /browse.php
+          headers: {Cookie: "PHPSESSID={{sid}}; bbtid={{bbtid}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html

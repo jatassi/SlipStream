@@ -1,0 +1,41 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 8,
+    "results": [
+      {
+        "groupId": 51230,
+        "groupName": "Harbor.Lights.2024.Audio.Editor.v5-FIXTURE",
+        "torrentId": 140401,
+        "category": "Applications",
+        "fileCount": 2,
+        "groupTime": "1731001800",
+        "size": 157286400,
+        "snatches": 4,
+        "seeders": 5,
+        "leechers": 1,
+        "isFreeleech": true,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": false
+      },
+      {
+        "groupId": "51229",
+        "groupName": "Juniper.Falls.2024.FLAC.Lossless.WEB-FIXTURE",
+        "torrentId": 140398,
+        "category": "Music",
+        "fileCount": 10,
+        "groupTime": "1731000600",
+        "size": "268435456",
+        "snatches": 9,
+        "seeders": "11",
+        "leechers": "2",
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      }
+    ]
+  }
+}

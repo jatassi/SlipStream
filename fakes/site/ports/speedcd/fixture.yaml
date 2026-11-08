@@ -1,0 +1,123 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "PHPSESSID={{sid}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /browse/deep/q/tt0000001
+          headers: {Cookie: "PHPSESSID={{sid}}", Accept: text/html}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /browse/q/Harbor+Lights+S02E03
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /browse/q/Juniper+Falls
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: empty.html
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /browse/
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /checkpoint/API
+          form: {username: fixture-user}
+        response:
+          headers:
+            Content-Type: application/json
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: checkpoint.json
+      - request:
+          method: POST
+          path: /checkpoint/
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+          form: {pwd: "{{password}}", a: "{{token}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: loginfailed.html
+  - name: captcha
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /checkpoint/API
+          form: {username: fixture-user}
+        response:
+          headers: {Content-Type: application/json}
+          body: checkpoint.json
+      - request:
+          method: POST
+          path: /checkpoint/
+          form: {pwd: "{{password}}", a: "{{token}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: captcha.html
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse/}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "PHPSESSID={{expiredSid}}"}
+    exchanges:
+      - request:
+          path: /browse/
+          headers: {Cookie: "PHPSESSID={{expiredSid}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: login.html
+      - request:
+          method: POST
+          path: /checkpoint/API
+          form: {username: fixture-user}
+        response:
+          headers:
+            Content-Type: application/json
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: checkpoint.json
+      - request:
+          method: POST
+          path: /checkpoint/
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+          form: {pwd: "{{password}}", a: "{{token}}"}
+        response:
+          status: 302
+          headers:
+            Location: /browse.php
+            Set-Cookie: "uid={{uid}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/\npass={{pass}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/"
+      - request: {path: /browse.php}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html
+      - request:
+          path: /browse/
+          headers: {Cookie: "PHPSESSID={{sid}}; uid={{uid}}; pass={{pass}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html

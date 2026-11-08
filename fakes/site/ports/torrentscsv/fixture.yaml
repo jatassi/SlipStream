@@ -1,0 +1,38 @@
+source: synthetic
+cases:
+  - name: search
+    call: {search: {mode: movie, text: "The Quiet Orchard 2021"}}
+    exchanges:
+      - request:
+          path: /service/search
+          headers: {Accept: application/json}
+          query: {size: "100", q: The Quiet Orchard 2021}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /service/search, query: {size: "100", q: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges: []
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /service/search, query: {size: "100", q: Harbor Lights S02E03}}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /service/search, query: {size: "100", q: test}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: auth
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request: {path: /service/search}
+        response: {status: 403, headers: {Content-Type: text/html}, body: blocked.html}
+  - name: limit
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request: {path: /service/search}
+        response: {status: 429, headers: {Retry-After: "60"}}

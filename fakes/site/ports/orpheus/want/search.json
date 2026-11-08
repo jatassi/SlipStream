@@ -1,0 +1,112 @@
+{
+  "releases": [
+    {
+      "title": "Juniper \u0026 Vale - The Quiet Orchard (2021) [EP] [Deluxe Edition 2023] [FLAC Lossless / WEB / Log (100%) / Cue]",
+      "size": 312345678,
+      "published": "2023-04-02T18:30:00Z",
+      "seeders": 12,
+      "leechers": 1,
+      "grabs": 41,
+      "link": "https://orpheus.fixture-site.fake.localhost/ajax.php?action=download\u0026id=910001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://orpheus.fixture-site.fake.localhost/torrents.php?id=77001\u0026torrentid=910001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Lantern Keeper",
+      "size": 4567890,
+      "published": "2022-06-01T10:00:00Z",
+      "seeders": 5,
+      "leechers": 0,
+      "grabs": 3,
+      "link": "https://orpheus.fixture-site.fake.localhost/ajax.php?action=download\u0026id=910004",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        7020,
+        100003
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://orpheus.fixture-site.fake.localhost/torrents.php?id=77002\u0026torrentid=910004",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Juniper \u0026 Vale - The Quiet Orchard (2021) [EP] [FLAC 24bit Lossless / Vinyl]",
+      "size": 1234567890,
+      "published": "2022-01-10T08:15:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 9,
+      "link": "https://orpheus.fixture-site.fake.localhost/ajax.php?action=download\u0026id=910003",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://orpheus.fixture-site.fake.localhost/torrents.php?id=77001\u0026torrentid=910003",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Juniper \u0026 Vale - The Quiet Orchard (2021) [EP] [MP3 320 / CD]",
+      "size": 98765432,
+      "published": "2021-11-15T12:00:00Z",
+      "seeders": 30,
+      "leechers": 2,
+      "grabs": 205,
+      "link": "https://orpheus.fixture-site.fake.localhost/ajax.php?action=download\u0026id=910002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://orpheus.fixture-site.fake.localhost/torrents.php?id=77001\u0026torrentid=910002",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

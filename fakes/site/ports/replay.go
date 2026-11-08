@@ -271,7 +271,9 @@ type Served map[port.ID]*Replay
 
 // Serve adds a route to routes for each port of reg whose host no route
 // serves yet, a family fake's taking precedence, answering from the
-// port's fixture as load loads it. It plays PortCase for those ports.
+// port's fixture as load loads it at its host and every other host its
+// exchanges name, such as an api. host under it. It plays PortCase for
+// those ports.
 func Serve(env fake.Env, reg port.Catalog, load Loader, routes fake.Routes) (Served, error) {
 	taken := map[string]bool{}
 	for _, rt := range routes {
@@ -291,6 +293,9 @@ func Serve(env fake.Env, reg port.Catalog, load Loader, routes fake.Routes) (Ser
 		r := NewReplay(f)
 		served[e.ID] = r
 		routes[string(e.ID)+".replay"] = fake.Route{Pattern: Host(e.ID) + "/", Handler: r.ServeHTTP}
+		for _, h := range f.otherHosts() {
+			routes[string(e.ID)+".replay."+h] = fake.Route{Pattern: h + "/", Handler: r.ServeHTTP}
+		}
 	}
 	err := fake.OnCue(env, PortCase.Name, func(_ context.Context, a CaseArgs) (any, error) {
 		r, ok := served[port.ID(a.Port)]
@@ -312,4 +317,17 @@ func Embedded(id port.ID) (Fixture, error) { return Load(FS, id) }
 type CaseArgs struct {
 	Port string `json:"port"`
 	Case string `json:"case"`
+}
+
+// otherHosts are the hosts besides its port's that f's exchanges name.
+func (f Fixture) otherHosts() []string {
+	var out []string
+	for _, c := range f.Cases {
+		for _, x := range c.Exchanges {
+			if h := x.Request.Host; h != "" && h != Host(f.Port) && !slices.Contains(out, h) {
+				out = append(out, h)
+			}
+		}
+	}
+	return out
 }

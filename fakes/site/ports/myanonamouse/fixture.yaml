@@ -1,0 +1,100 @@
+source: synthetic
+settings:
+  searchType: "1"
+  searchInSeries: "true"
+  searchLanguages: "1,36"
+  useFreeleechWedge: "true"
+session:
+  cookie: "mam_id={{mamId}}"
+  pasted: true
+cases:
+  - name: search
+    call: {search: {mode: search, text: "The Quiet Orchard"}}
+    exchanges:
+      - request: {path: /jsonLoad.php, headers: {Cookie: "mam_id={{mamId}}", Accept: application/json}}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request:
+          path: /tor/js/loadSearchJSONbasic.php
+          headers: {Cookie: "mam_id={{mamId}}", Accept: application/json}
+          query:
+            "tor[text]": The Quiet Orchard
+            "tor[searchType]": active
+            "tor[srchIn][title]": "true"
+            "tor[srchIn][author]": "true"
+            "tor[srchIn][narrator]": "true"
+            "tor[srchIn][series]": "true"
+            "tor[searchIn]": torrents
+            "tor[sortType]": default
+            "tor[startNumber]": "0"
+            perpage: "100"
+            thumbnails: "1"
+            description: "1"
+            "tor[browse_lang][0]": "1"
+            "tor[browse_lang][1]": "36"
+            "tor[cat][]": "0"
+          noQuery: ["tor[srchIn][description]", "tor[srchIn][filenames]"]
+        response:
+          headers: {Content-Type: application/json; charset=utf-8, Set-Cookie: "mam_id={{mamIdNext}}; path=/; domain=myanonamouse.fixture-site.fake.localhost; HttpOnly"}
+          body: search.json
+  - name: plainuser
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user-plain.json}
+      - request: {path: /tor/js/loadSearchJSONbasic.php}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /tor/js/loadSearchJSONbasic.php, query: {"tor[text]": Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /tor/js/loadSearchJSONbasic.php, query: {"tor[text]": "", "tor[startNumber]": "0", perpage: "100"}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /tor/js/loadSearchJSONbasic.php}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {test: {}}
+    session: {cookie: "mam_id={{wrongMamId}}", pasted: true}
+    exchanges:
+      - request: {path: /jsonLoad.php, headers: {Cookie: "mam_id={{wrongMamId}}"}}
+        response: {status: 403, headers: {Content-Type: text/html}, body: login.html}
+  - name: loggedout
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /tor/js/loadSearchJSONbasic.php}
+        response: {status: 403, headers: {Content-Type: text/html}, body: login.html}
+  - name: nodata
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /tor/js/loadSearchJSONbasic.php}
+        response: {headers: {Content-Type: application/json}, body: nodata.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /tor/js/loadSearchJSONbasic.php}
+        response: {status: 429, headers: {Retry-After: "120"}}
+  - name: grab
+    call: {fetch: "/tor/download.php?tid=1004&fl=1"}
+    exchanges:
+      - request: {path: /jsonLoad.php}
+        response: {headers: {Content-Type: application/json}, body: user.json}
+      - request: {path: /tor/download.php, query: {tid: "1004", fl: "1"}, headers: {Cookie: "mam_id={{mamId}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

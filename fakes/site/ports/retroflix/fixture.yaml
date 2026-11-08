@@ -1,0 +1,81 @@
+# Synthetic, written from SpeedAppBase's request generator, parser and DoLogin and RetroFlix.cs.
+# Prowlarr has no RetroFlix recording. The exchanges are SpeedApp's, on RetroFlix's categories:
+# the refused sign-in is the 401 body of the API's JSON sign-in, created_at carries a +02:00
+# offset, and each release keeps 120 hours as its minimum seed time.
+source: synthetic
+settings:
+  email: fixture-user@fixture-site.fake.localhost
+  password: "{{password}}"
+session: {token: "{{token}}"}
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /api/torrent
+          headers: {Authorization: "Bearer {{token}}", Accept: application/json}
+          query: {itemsPerPage: "100", sort: torrent.createdAt, direction: desc, imdbId: tt0000001}
+          noQuery: [search, page, season, episode]
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /api/torrent
+          query: {itemsPerPage: "100", search: Harbor Lights, season: "2", episode: "3"}
+          noQuery: [imdbId]
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /api/torrent
+          query: {search: Juniper Falls}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /api/torrent
+          headers: {Authorization: "Bearer {{token}}"}
+          query: {itemsPerPage: "100", sort: torrent.createdAt, direction: desc, search: ""}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/login
+          json: {username: fixture-user@fixture-site.fake.localhost, password: "{{password}}"}
+        response: {status: 401, headers: {Content-Type: application/json}, body: refused.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/torrent}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {token: "{{expiredToken}}"}
+    exchanges:
+      - request:
+          path: /api/torrent
+          headers: {Authorization: "Bearer {{expiredToken}}"}
+        response: {status: 401, headers: {Content-Type: application/json}, body: signedout.json}
+      - request:
+          method: POST
+          path: /api/login
+          json: {username: fixture-user@fixture-site.fake.localhost, password: "{{password}}"}
+        response: {headers: {Content-Type: application/json}, body: signedin.json}
+      - request:
+          path: /api/torrent
+          headers: {Authorization: "Bearer {{token}}"}
+          query: {search: ""}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: grab
+    call: {fetch: /api/torrent/310555/download}
+    exchanges:
+      - request:
+          path: /api/torrent/310555/download
+          headers: {Authorization: "Bearer {{token}}"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

@@ -71,6 +71,20 @@ func TestScrubPassesASubmitButtonNamedLogin(t *testing.T) {
 	}
 }
 
+func TestScrubPassesAnUpstreamConstantOnly(t *testing.T) {
+	for path, refused := range map[string]bool{
+		"/api_9djWe8Tb2NE3p6opyqnh/v1/browse.php": false,
+		"/api_9djWe8Tb2NE3p6opyqnX/v1/browse.php": true,
+	} {
+		f := cleanFixture(t)
+		f.Cases[0].Exchanges[0].Request.Path = path
+		found := Scrub(f)
+		if got := slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "is shaped like a key") }); got != refused {
+			t.Errorf("Scrub of path %q = %q, want refused %v", path, found, refused)
+		}
+	}
+}
+
 // cleanFixture is testport's fixture, which Scrub passes, with maps the
 // cases above write to.
 func cleanFixture(t *testing.T) Fixture {
@@ -125,12 +139,44 @@ func TestTheRewriteTurnsARecordingIntoWhatScrubPasses(t *testing.T) {
 	}
 }
 
-func TestAnEpisodeAloneEndsATitlesStem(t *testing.T) {
+func TestAnEpisodeATagOrAnAuthorEndsATitlesStem(t *testing.T) {
 	for title, want := range map[string]string{
-		"Harbor.Lights.E05.1080p.WEB-DL": "Harbor Lights",
-		"Harbor Lights E1234 720p":       "Harbor Lights",
-		"Harbor.Lights.S02E05.1080p":     "Harbor Lights",
-		"Evermore.1080p":                 "Evermore",
+		"Harbor.Lights.E05.1080p.WEB-DL":                "Harbor Lights",
+		"Harbor Lights E1234 720p":                      "Harbor Lights",
+		"Harbor.Lights.S02E05.1080p":                    "Harbor Lights",
+		"Evermore.1080p":                                "Evermore",
+		"[SubsPlease] Harbor Lights - 03 (1080p)":       "Harbor Lights",
+		"[SubsPlease] Salt Meadow - Movie (720p)":       "Salt Meadow",
+		"Harbor Lights - Second Tide 2021":              "Harbor Lights - Second Tide",
+		"The Quiet Orchard by Ada Fernsby [ENG / EPUB]": "The Quiet Orchard",
+		"The Quiet Orchard [FRA]":                       "The Quiet Orchard",
+	} {
+		if got := Stem(title); got != want {
+			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
+		}
+	}
+}
+
+func TestAMusicTitleIsFictionalByItsArtistOrItsAlbum(t *testing.T) {
+	for title, want := range map[string]string{
+		"Juniper & Vale - The Quiet Orchard (2021) [EP] [FLAC Lossless / WEB]": "The Quiet Orchard",
+		"The Lantern Choir - Cedar Hollow (1969) [Album] [MP3 V2 (VBR) / BD]":  "Cedar Hollow",
+		"Salt Meadow - Quiet Orchard [2021] FLAC":                              "Salt Meadow",
+	} {
+		if got := Stems(title); !slices.Contains(got, want) {
+			t.Errorf("Stems(%q) = %q, want it to hold %q", title, got, want)
+		}
+	}
+}
+
+func TestATagADashOrALocalNameEndsATitlesStem(t *testing.T) {
+	for title, want := range map[string]string{
+		"The Quiet Orchard [2021] 1080p / MP4":                     "The Quiet Orchard",
+		"The Quiet Orchard (Legendado)":                            "The Quiet Orchard",
+		"[FKW] Harbor Lights - 03 [1080p].mkv":                     "Harbor Lights",
+		"Тихий сад / The Quiet Orchard [2021, США, WEB-DL]":        "The Quiet Orchard",
+		"Огни гавани / Harbor Lights / S2E3 [2024, HDTV]":          "Harbor Lights",
+		"Начало / Inception (Кристофер Нолан / Christopher Nolan)": "Inception",
 	} {
 		if got := Stem(title); got != want {
 			t.Errorf("Stem(%q) = %q, want %q", title, got, want)

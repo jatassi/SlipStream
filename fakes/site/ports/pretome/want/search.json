@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW",
+      "size": 8804682956,
+      "published": "1999-12-30T00:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://pretome.fixture-site.fake.localhost/download.php/1001/The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        114617
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0.75,
+      "minSeed": "60h0m0s",
+      "details": "https://pretome.fixture-site.fake.localhost/details.php?id=1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.2160p.WEB-DL.H265-FKW",
+      "size": 15139759718,
+      "published": "1999-12-31T19:00:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://pretome.fixture-site.fake.localhost/download.php/1002/The.Quiet.Orchard.2021.2160p.WEB-DL.H265-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2045,
+        152224
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0.75,
+      "minSeed": "60h0m0s",
+      "details": "https://pretome.fixture-site.fake.localhost/details.php?id=1002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

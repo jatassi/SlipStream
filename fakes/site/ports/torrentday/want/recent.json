@@ -1,0 +1,86 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW",
+      "size": 2147483648,
+      "published": "2025-06-01T12:00:00Z",
+      "seeders": 55,
+      "leechers": 4,
+      "grabs": 120,
+      "link": "https://torrentday.fixture-site.fake.localhost/download.php/1001/1001.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2050,
+        100011
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://torrentday.fixture-site.fake.localhost/details.php?id=1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.720p.BluRay.x264-FKW",
+      "size": 1073741824,
+      "published": "2025-05-31T12:00:00Z",
+      "seeders": 9,
+      "leechers": 1,
+      "grabs": 30,
+      "link": "https://torrentday.fixture-site.fake.localhost/download.php/1002/1002.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2030,
+        100044
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://torrentday.fixture-site.fake.localhost/details.php?id=1002",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.2160p.WEB-DL.H265-FKW",
+      "size": 9663676416,
+      "published": "2025-05-30T12:00:00Z",
+      "seeders": 2,
+      "leechers": 7,
+      "grabs": 4,
+      "link": "https://torrentday.fixture-site.fake.localhost/download.php/1003/1003.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2045,
+        100096
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://torrentday.fixture-site.fake.localhost/details.php?id=1003",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

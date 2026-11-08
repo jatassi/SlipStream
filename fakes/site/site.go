@@ -1,9 +1,11 @@
 // Package site is fixture-site: the fictional sites Indexers reach, each
 // at its own host under Domain, which each Node dials at its own front.
 // A router picks the site by the request's Host. It serves a Torznab feed,
-// Brook's RSS feed and a site for each Cardigann definition in
-// fakes/site/definitions, all listing the world's releases. Every key,
-// password and cookie derives from the Scenario's seed.
+// Brook's RSS feed, a site for each Cardigann definition in
+// fakes/site/definitions and a site for each family of ported site, all
+// listing the world's releases, and every other port's fixture at its
+// port's host. Every key, password and cookie derives from the Scenario's
+// seed.
 package site
 
 import (
@@ -47,14 +49,15 @@ var Fake = fake.Spec{
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
 	},
-	Online:   fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
-	Cues:     []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse, ports.PortCase},
-	Captures: []fake.CaptureSpec{CaptchaShown, SignedIn, Searched},
-	Entered:  indexers,
+	Online:     fake.OnlineSuite("ports"),
+	Cues:       []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse, ports.PortCase},
+	Captures:   []fake.CaptureSpec{CaptchaShown, SignedIn, Searched},
+	Entered:    indexers,
+	Subdomains: scenario.FixtureSites["native"],
 }
 
 // indexers are the Indexers an Admin added, each dialed at its feed's
-// host, or its definition's base address, from its home Node.
+// host, or its definition's or port's base address, from its home Node.
 func indexers(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 	body, err := get("/api/v1/indexers")
 	if err != nil {
@@ -68,6 +71,9 @@ func indexers(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 			Definition *struct {
 				BaseAddress string `json:"baseAddress"`
 			} `json:"definition"`
+			Port *struct {
+				BaseAddress string `json:"baseAddress"`
+			} `json:"port"`
 		} `json:"indexers"`
 	}
 	if err := json.Unmarshal(body, &list); err != nil {
@@ -76,8 +82,11 @@ func indexers(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 	out := make([]fake.Entered, len(list.Indexers))
 	for i, ix := range list.Indexers {
 		at := "https://" + ix.FeedHost
-		if ix.Definition != nil {
+		switch {
+		case ix.Definition != nil:
 			at = ix.Definition.BaseAddress
+		case ix.Port != nil:
+			at = ix.Port.BaseAddress
 		}
 		out[i] = fake.Entered{What: "Indexer " + ix.Name, URL: at, NodeID: ix.HomeNodeID}
 	}
@@ -274,7 +283,7 @@ func (s *site) routes() fake.Routes {
 		for name, rt := range routes {
 			method, path, _ := strings.Cut(rt.Pattern, " ")
 			h := rt.Handler
-			if catalogSite(label) {
+			if stateful(label) {
 				h = s.serving(label, h)
 			}
 			out[label+"."+name] = fake.Route{Pattern: method + " " + Host(label) + path, Handler: h}
@@ -295,6 +304,11 @@ func (s *site) routes() fake.Routes {
 	add(Cinder, s.cinder())
 	add(Marsh, s.marsh())
 	add(Ferry, s.ferry())
+	add(PassThePopcorn, s.passThePopcorn())
+	add(TorrentBytes, s.torrentBytes())
+	add(AvistaZ, s.avistaZ())
+	add(IPTorrents, s.ipTorrents())
+	add(NorBits, s.norBits())
 	return out
 }
 

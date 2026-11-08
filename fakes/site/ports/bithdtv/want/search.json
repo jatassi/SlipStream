@@ -1,0 +1,60 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW",
+      "size": 9126805504,
+      "published": "2026-01-01T12:00:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://bithdtv.fixture-site.fake.localhost/download.php?id=1001\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100007
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bithdtv.fixture-site.fake.localhost/details.php?id=1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.COMPLETE.BLURAY-FKW",
+      "size": 45204530790,
+      "published": "2026-01-02T08:30:15Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 12,
+      "link": "https://bithdtv.fixture-site.fake.localhost/download.php?id=1002\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2050,
+        100002
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 2
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bithdtv.fixture-site.fake.localhost/details.php?id=1002",
+      "source": null,
+      "flags": [
+        "freeleech",
+        "doubleupload"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

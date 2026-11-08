@@ -1,0 +1,91 @@
+source: prowlarr
+settings:
+  username: fixture-user
+  passkey: "{{passkey}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}}}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/torrents
+          headers: {Accept: application/json, Content-Type: application/json}
+          json: {username: fixture-user, passkey: "{{passkey}}", imdb: {id: 1}, limit: 100}
+        response:
+          headers: {Content-Type: application/json}
+          body: search.json
+  - name: text
+    call: {search: {mode: movie, text: "The Quiet Orchard 2021 – Director’s Cut!"}}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/torrents
+          json: {search: The Quiet Orchard 2021 Director s Cut}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/torrents
+          json: {search: Juniper Falls}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/torrents
+          json: {username: fixture-user, passkey: "{{passkey}}", limit: 100}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {method: POST, path: /api/torrents}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /api/torrents}
+        response: {headers: {Content-Type: application/json}, body: authfailed.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /api/torrents}
+        response: {status: 403}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /api/torrents}
+        response: {headers: {Content-Type: application/json}, body: invalidparam.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/torrents
+          json: {search: Harbor Lights S02E03}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: tvdb
+    call: {search: {mode: tvsearch, ids: {tvdbid: "248841"}, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/torrents
+          json: {tvdb: {id: 248841, season: 2, episode: "3"}}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: daily
+    call: {search: {mode: tvsearch, ids: {tvdbid: "248841"}, season: 2026, episode: "05/28"}}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/torrents
+          json: {search: "2026-05-28", tvdb: {id: 248841}}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: grab
+    call: {fetch: "/download.php?id=257142&passkey={{passkey}}"}
+    exchanges:
+      - request:
+          path: /download.php
+          query: {id: "257142", passkey: "{{passkey}}"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

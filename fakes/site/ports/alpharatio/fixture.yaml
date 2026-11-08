@@ -1,0 +1,101 @@
+# Synthetic, written from GazelleBase, GazelleRequestGenerator, GazelleParser and AlphaRatio.cs.
+# Prowlarr has no AlphaRatio recording. The rows are ajax.php browse results without torrents,
+# the shape GazelleParser reads for a site that lists each torrent as its own group, with size,
+# seeders and groupId sent as numbers on some rows and strings on others. The settings prefer a
+# freeleech token, so a row that can take one links with usetoken=1, and grab downloads again
+# without it when the site has no token left.
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+  useFreeleechToken: "1"
+session: {cookie: "session={{session}}"}
+cases:
+  - name: search
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}", Accept: application/json}
+          query: {action: browse, order_by: time, order_way: desc, searchstr: The Quiet Orchard}
+          noQuery: [page, freetorrent, scene, taglist]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: search.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, searchstr: Harbor Lights S02E03}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: tv.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, searchstr: Juniper Falls}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, order_by: time, order_way: desc}
+          noQuery: [searchstr]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /login.php
+          headers: {Accept: application/json, Referer: "https://alpharatio.fixture-site.fake.localhost/login.php"}
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /ajax.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: maintenance
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /ajax.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: maintenance.html}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "session={{expiredSession}}"}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{expiredSession}}"}
+        response:
+          status: 302
+          headers: {Location: login.php}
+      - request:
+          method: POST
+          path: /login.php
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response:
+          status: 302
+          headers:
+            Location: index.php
+            Set-Cookie: "session={{session}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/; secure; HttpOnly"
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: browse}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=102540&usetoken=1"}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: download, id: "102540", usetoken: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: notokens.html}
+      - request:
+          path: /torrents.php
+          query: {action: download, id: "102540"}
+          noQuery: [usetoken]
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

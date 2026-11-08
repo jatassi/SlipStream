@@ -1,0 +1,92 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.S02E03.1080p.WEB-DL.DD5.1.H.264-BTN",
+      "size": 2147483648,
+      "published": "2026-05-28T20:26:40Z",
+      "seeders": 88,
+      "leechers": 3,
+      "grabs": 215,
+      "link": "https://broadcasthenet.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1450003\u0026authkey={{authkey}}\u0026torrent_pass={{passkey}}",
+      "magnet": "",
+      "infoHash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "categories": [
+        5040,
+        140388
+      ],
+      "ids": {
+        "imdbid": "tt0000001",
+        "tvdbid": "248841"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "24h0m0s",
+      "details": "https://broadcasthe.net/torrents.php?id=770003\u0026torrentid=1450003",
+      "source": null,
+      "flags": [
+        "internal",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor.Lights.S02.COMPLETE.1080p.BluRay.AVC-GRP",
+      "size": 98784247808,
+      "published": "2026-05-28T17:40:00Z",
+      "seeders": 12,
+      "leechers": 1,
+      "grabs": 40,
+      "link": "https://broadcasthenet.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1450001\u0026authkey={{authkey}}\u0026torrent_pass={{passkey}}",
+      "magnet": "",
+      "infoHash": "f3d82ea776451f96507397646f0e0f626997da6a",
+      "categories": [
+        5040,
+        140388
+      ],
+      "ids": {
+        "tvdbid": "248841"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "120h0m0s",
+      "details": "https://broadcasthe.net/torrents.php?id=770001\u0026torrentid=1450001",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor.Lights.S02E03.HDTV.x265-GRP",
+      "size": 734003200,
+      "published": "2026-05-28T14:53:20Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://broadcasthenet.fixture-site.fake.localhost/torrents.php?action=download\u0026id=1450002\u0026authkey={{authkey}}\u0026torrent_pass={{passkey}}",
+      "magnet": "",
+      "infoHash": "39349f6b3254f093d94809a9d0ef38ba70f18265",
+      "categories": [
+        5000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "24h0m0s",
+      "details": "https://broadcasthe.net/torrents.php?id=770003\u0026torrentid=1450002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

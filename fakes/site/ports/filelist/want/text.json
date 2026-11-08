@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "Cedar.Hollow.2010.1080p.BluRay.x264-GUACAMOLE",
+      "size": 8300512414,
+      "published": "2020-01-25T20:20:19Z",
+      "seeders": 12,
+      "leechers": 2,
+      "grabs": 11,
+      "link": "https://filelist.fixture-site.fake.localhost/download.php?id=665873\u0026passkey=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100004
+      ],
+      "ids": {
+        "imdbid": "tt1776305"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://filelist.fixture-site.fake.localhost/details.php?id=665873",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Cedar.Hollow.2010.720p.BluRay.x264-GUACAMOLE",
+      "size": 4731949881,
+      "published": "2020-01-25T20:19:37Z",
+      "seeders": 9,
+      "leechers": 1,
+      "grabs": 8,
+      "link": "https://filelist.fixture-site.fake.localhost/download.php?id=665872\u0026passkey=%7B%7Bpasskey%7D%7D",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100004
+      ],
+      "ids": {
+        "imdbid": "tt1776305"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://filelist.fixture-site.fake.localhost/details.php?id=665872",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

@@ -1,0 +1,61 @@
+{
+  "releases": [
+    {
+      "title": "Salt.Meadow.S01E04.720p.WEB-DL.H264-FKW",
+      "size": 1503238553,
+      "published": "2026-06-03T15:20:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "https://shazbat.fixture-site.fake.localhost/load_torrent?id=3001\u0026fk=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        5040
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://shazbat.fixture-site.fake.localhost/torrent_info?id=3001",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor.Lights.S01.1080p.WEB-DL.H264-FKW",
+      "size": 24051816857,
+      "published": "2026-06-03T15:19:00Z",
+      "seeders": 15,
+      "leechers": 6,
+      "grabs": 0,
+      "link": "https://shazbat.fixture-site.fake.localhost/load_torrent?id=3002\u0026fk=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        5040
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://shazbat.fixture-site.fake.localhost/torrent_info?id=3002",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": true
+}

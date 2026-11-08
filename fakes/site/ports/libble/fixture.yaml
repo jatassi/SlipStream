@@ -1,0 +1,87 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "session={{session}}"
+cases:
+  - name: search
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {Cookie: "session={{session}}", Accept: text/html}
+          query: {action: advanced, order_by: time, order_way: desc, searchstr: The Quiet Orchard}
+          noQuery: [page]
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: search.html}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges: []
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /torrents.php, query: {searchstr: Juniper Falls}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php, query: {action: advanced, order_by: time, order_way: desc}, noQuery: [searchstr]}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /login.php
+          headers: {Content-Type: application/x-www-form-urlencoded, Referer: "https://libble.fixture-site.fake.localhost/login.php"}
+          form: {username: fixture-user, password: "{{password}}", code: "", keeplogged: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: refused.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "session={{expiredSession}}"}
+    exchanges:
+      - request: {path: /torrents.php, headers: {Cookie: "session={{expiredSession}}"}}
+        response: {status: 302, headers: {Location: /login.php}}
+      - request: {path: /login.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+      - request:
+          method: POST
+          path: /login.php
+          form: {username: fixture-user, password: "{{password}}", code: ""}
+        response:
+          status: 302
+          headers: {Location: /index.php, Set-Cookie: "session={{session}}; path=/"}
+      - request: {path: /index.php, headers: {Cookie: "session={{session}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: home.html}
+      - request: {path: /torrents.php, headers: {Cookie: "session={{session}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: code
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {method: POST, path: /login.php, form: {code: ""}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: needscode.html}
+  - name: typedcode
+    call: {test: {code: "424242"}}
+    session: {}
+    exchanges:
+      - request: {method: POST, path: /login.php, form: {username: fixture-user, code: "424242"}}
+        response:
+          status: 302
+          headers: {Location: /index.php, Set-Cookie: "session={{session}}; path=/"}
+      - request: {path: /index.php, headers: {Cookie: "session={{session}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: home.html}
+      - request: {path: /torrents.php, headers: {Cookie: "session={{session}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+  - name: wrongcode
+    call: {test: {code: "000000"}}
+    session: {}
+    exchanges:
+      - request: {method: POST, path: /login.php, form: {code: "000000"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: wrongcode.html}

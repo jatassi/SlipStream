@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer's API responded with the error \"The search type is not valid\""
+  },
+  "sessionChanged": false
+}

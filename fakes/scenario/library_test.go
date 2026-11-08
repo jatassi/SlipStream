@@ -32,6 +32,7 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 			{Name: "Site", Kind: "rss", Site: "torznab"},
 			{Name: "Ported", Kind: "native", Site: "torznab"},
 			{Name: "Feed", Kind: "torznab", Site: "torznab", Port: "norbits"},
+			{Name: "Elsewhere", Kind: "native", Site: "norbits", Port: "avistaz"},
 		},
 	}}
 	want := []string{
@@ -52,6 +53,7 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 		`scenario x: library indexer Ported is a native Indexer on site "torznab", which fixture-site doesn't serve as one`,
 		"scenario x: library indexer Ported is native and names no port",
 		"scenario x: library indexer Feed names a port, which only a native Indexer has",
+		`scenario x: library indexer Elsewhere is on site "norbits", and port avistaz runs only on its own site`,
 		"scenario x: library has indexers, and no node holds searching",
 	}
 	err := s.Validate()

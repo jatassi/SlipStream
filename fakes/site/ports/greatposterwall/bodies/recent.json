@@ -1,0 +1,79 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 12,
+    "results": [
+      {
+        "groupId": 6230,
+        "groupName": "港湾之光",
+        "groupSubName": "Harbor Lights",
+        "groupYear": 2024,
+        "groupTime": "2024-11-08 01:15:00",
+        "maxSize": "4294967296",
+        "imdbId": "",
+        "torrents": [
+          {
+            "torrentId": 90501,
+            "fileCount": 1,
+            "time": "2024-11-08 01:15:00",
+            "size": 4294967296,
+            "snatches": 2,
+            "seeders": 3,
+            "leechers": 9,
+            "isFreeleech": false,
+            "isNeutralLeech": true,
+            "freeType": "2",
+            "isPersonalFreeleech": false,
+            "canUseToken": false,
+            "resolution": "720p",
+            "fileName": "Harbor.Lights.2024.720p.WEB-DL.H264-FIXTURE"
+          },
+          {
+            "torrentId": 90500,
+            "fileCount": 1,
+            "time": "2024-11-08 00:40:00",
+            "size": 2147483648,
+            "snatches": 1,
+            "seeders": 2,
+            "leechers": 4,
+            "isFreeleech": false,
+            "isNeutralLeech": false,
+            "freeType": "13",
+            "isPersonalFreeleech": false,
+            "canUseToken": true,
+            "resolution": "1080i",
+            "fileName": "Harbor.Lights.2024.1080i.HDTV.H264-FIXTURE"
+          }
+        ]
+      },
+      {
+        "groupId": 6229,
+        "groupName": "杜松瀑布",
+        "groupSubName": "Juniper Falls",
+        "groupYear": 2019,
+        "groupTime": "2024-11-07 22:05:00",
+        "maxSize": 734003200,
+        "imdbId": "tt0000002",
+        "torrents": [
+          {
+            "torrentId": 90488,
+            "fileCount": 1,
+            "time": "2024-11-07 22:05:00",
+            "size": 734003200,
+            "snatches": 30,
+            "seeders": 18,
+            "leechers": 0,
+            "isFreeleech": false,
+            "isNeutralLeech": false,
+            "freeType": "0",
+            "isPersonalFreeleech": true,
+            "canUseToken": false,
+            "resolution": "576p",
+            "fileName": "Juniper.Falls.2019.576p.DVDRip.x264-FIXTURE"
+          }
+        ]
+      }
+    ]
+  }
+}
