@@ -33,8 +33,7 @@ function filesWords(plan: WorksDeletePlan, files: WorksDeletingFiles, named: Nam
   return files === "delete"
     ? [`${heldWords(plan, named)} ${one ? "is" : "are"} deleted from disk.`]
     : [
-        `${heldWords(plan, named)} ${one ? "stays" : "stay"} on disk.`,
-        `The next library scan finds ${one ? "it" : "them"} again.`,
+        `${heldWords(plan, named)} ${one ? "stays on disk and shows" : "stay on disk and show"} under Ignored in Pending imports.`,
       ];
 }
 
