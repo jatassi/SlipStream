@@ -1,6 +1,7 @@
 export * from "./downloadclients/downloadclients.zod.ts";
 export * from "./files/files.zod.ts";
 export * from "./firstrun/firstrun.zod.ts";
+export * from "./formats/formats.zod.ts";
 export * from "./grabs/grabs.zod.ts";
 export * from "./health/health.zod.ts";
 export * from "./identity/identity.zod.ts";
