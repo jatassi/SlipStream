@@ -126,6 +126,9 @@ func TestRepeatedGroupCaptures(t *testing.T) {
 	if m.Index() != 5 || m.Length() != 12 {
 		t.Errorf("match at %d for %d; want 5 for 12", m.Index(), m.Length())
 	}
+	if at, n, ok := m.GroupSpan("episode"); at != 15 || n != 2 || !ok {
+		t.Errorf(`GroupSpan("episode") = %d, %d, %v; want the last capture, 15, 2`, at, n, ok)
+	}
 }
 
 func TestGroupThatCapturedNothing(t *testing.T) {
@@ -135,6 +138,9 @@ func TestGroupThatCapturedNothing(t *testing.T) {
 	}
 	if got, ok := m.Group("nope"); got != "" || ok {
 		t.Errorf(`Group("nope") = %q, %v; want "", false`, got, ok)
+	}
+	if _, _, ok := m.GroupSpan("b"); ok {
+		t.Error(`GroupSpan("b") is true; want false`)
 	}
 }
 

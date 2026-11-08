@@ -262,6 +262,16 @@ func (m Match) Group(name string) (string, bool) {
 	return g.String(), true
 }
 
+// GroupSpan is where the group's last capture is, in runes, and false
+// when Group is.
+func (m Match) GroupSpan(name string) (index, length int, ok bool) {
+	g := m.group(name)
+	if g == nil || len(g.Captures) == 0 {
+		return 0, 0, false
+	}
+	return g.Index, g.Length, true
+}
+
 func (m Match) Captures(name string) []string {
 	g := m.group(name)
 	if g == nil {
