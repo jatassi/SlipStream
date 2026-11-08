@@ -30,7 +30,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "nebulance",
 	Name:        "Nebulance",
-	Description: "Nebulance is a private tracker for TV with no ratio to keep.",
+	Description: "Nebulance is a private Tracker for TV with no ratio to keep.",
 	Language:    "en-US",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://nebulance.io/"},

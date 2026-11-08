@@ -25,10 +25,9 @@ var upstream []byte
 type ix = port.Indexer[LibbleSettings]
 
 var Port = port.Define(port.Entry{
-	ID:          "libble",
-	Name:        "Libble",
-	IndexerURLs: []string{"https://libble.me/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "libble",
+	Name:         "Libble",
+	IndexerURLs:  []string{"https://libble.me/"},
 	Description:  "Libble is a private Tracker for music.",
 	Language:     "en-US",
 	Privacy:      port.Private,

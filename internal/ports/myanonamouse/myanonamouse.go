@@ -34,7 +34,7 @@ var Port = port.Define(port.Entry{
 	ID:           "myanonamouse",
 	Name:         "MyAnonamouse",
 	IndexerURLs:  []string{"https://www.myanonamouse.net/"},
-	Description:  "MyAnonamouse is a private tracker for ebooks and audiobooks.",
+	Description:  "MyAnonamouse is a private Tracker for ebooks and audiobooks.",
 	Privacy:      port.Private,
 	PageSize:     100,
 	Capabilities: setCapabilities(),

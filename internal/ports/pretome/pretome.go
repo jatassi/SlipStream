@@ -26,7 +26,7 @@ type ix = port.Indexer[PreToMeSettings]
 var Port = port.Define(port.Entry{
 	ID:           "pretome",
 	Name:         "PreToMe",
-	Description:  "PreToMe is a ratioless private Tracker for 0day and general releases.",
+	Description:  "PreToMe is a ratioless private Tracker for 0day and general Releases.",
 	Language:     "en-US",
 	Privacy:      port.Private,
 	IndexerURLs:  []string{"https://pretome.info/"},

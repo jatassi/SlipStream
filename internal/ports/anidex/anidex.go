@@ -25,10 +25,9 @@ var upstream []byte
 type ix = port.Indexer[AnidexSettings]
 
 var Port = port.Define(port.Entry{
-	ID:          "anidex",
-	Name:        "Anidex",
-	IndexerURLs: []string{"https://anidex.info/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "anidex",
+	Name:         "Anidex",
+	IndexerURLs:  []string{"https://anidex.info/"},
 	Description:  "Anidex is a public Tracker for anime, mostly from English fansub groups.",
 	Language:     "en-US",
 	Privacy:      port.Public,

@@ -29,10 +29,9 @@ type settings struct{}
 type ix = port.Indexer[settings]
 
 var Port = port.Define(port.Entry{
-	ID:          "bithdtv",
-	Name:        "BitHDTV",
-	IndexerURLs: []string{"https://www.bit-hdtv.com/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "bithdtv",
+	Name:         "BitHDTV",
+	IndexerURLs:  []string{"https://www.bit-hdtv.com/"},
 	Description:  "BitHDTV is a private Tracker for HD movies, TV, documentaries, sports and music.",
 	Language:     "en-US",
 	Encoding:     "iso-8859-1",

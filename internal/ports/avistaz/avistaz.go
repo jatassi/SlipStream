@@ -21,7 +21,7 @@ var Port = avistazbase.Define(port.Entry{
 	ID:          "avistaz",
 	Name:        "AvistaZ",
 	IndexerURLs: []string{"https://avistaz.to/"},
-	Description: "AvistaZ, once called AsiaTorrents, is a private tracker for Asian movies and TV series.",
+	Description: "AvistaZ, once called AsiaTorrents, is a private Tracker for Asian movies and TV series.",
 	Privacy:     port.Private,
 	Capabilities: port.Capabilities{
 		// SlipStream: no genre, which SearchCriteria doesn't carry.

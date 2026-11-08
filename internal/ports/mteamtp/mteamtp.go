@@ -34,7 +34,7 @@ const userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, li
 var Port = port.Define(port.Entry{
 	ID:          "mteamtp",
 	Name:        "M-Team - TP",
-	Description: "M-Team TP is a private Chinese tracker for HD movies, TV and adult video.",
+	Description: "M-Team TP is a private Chinese Tracker for HD movies, TV and adult video.",
 	Language:    "zh-CN",
 	Privacy:     port.Private,
 	IndexerURLs: []string{

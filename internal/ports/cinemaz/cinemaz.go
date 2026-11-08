@@ -20,7 +20,7 @@ var Port = avistazbase.Define(port.Entry{
 	ID:          "cinemaz",
 	Name:        "CinemaZ",
 	IndexerURLs: []string{"https://cinemaz.to/"},
-	Description: "CinemaZ, once called EuTorrents, is a private tracker for movies and TV series from outside Asia.",
+	Description: "CinemaZ, once called EuTorrents, is a private Tracker for movies and TV series from outside Asia.",
 	Privacy:     port.Private,
 	Capabilities: port.Capabilities{
 		// SlipStream: no genre, which SearchCriteria doesn't carry.

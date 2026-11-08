@@ -36,7 +36,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "gazellegames",
 	Name:        "GazelleGames",
-	Description: "GazelleGames (GGn) is a Private Torrent Tracker for GAMES",
+	Description: "GazelleGames is a private Tracker for games.",
 	Language:    "en-US",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://gazellegames.net/"},

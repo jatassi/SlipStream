@@ -38,7 +38,6 @@ var Port = port.Define(port.Entry{
 		"https://rutracker.net/",
 		"https://rutracker.nl/",
 	},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
 	Description:  "RuTracker.org is a semi-private Russian Tracker for movies, TV, music, books, games and software.",
 	Language:     "ru-RU",
 	Encoding:     "windows-1251",

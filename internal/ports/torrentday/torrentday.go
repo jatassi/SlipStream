@@ -43,7 +43,7 @@ var Port = port.Define(port.Entry{
 		"https://tday.venom.global/",
 		"https://tday.workisboring.net/",
 	},
-	Description:  "TorrentDay is a private general tracker with TV, movies, games, music, apps and books.",
+	Description:  "TorrentDay is a private general Tracker with TV, movies, games, music, apps and books.",
 	Privacy:      port.Private,
 	Capabilities: setCapabilities(),
 	Upstream:     port.ReadUpstream(upstream),

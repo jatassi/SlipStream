@@ -28,7 +28,7 @@ var Port = avistazbase.Define(port.Entry{
 	ID:           "animez",
 	Name:         "AnimeZ",
 	IndexerURLs:  []string{"https://animez.to/"},
-	Description:  "AnimeZ, once called AnimeTorrents, is a private tracker for anime and manga.",
+	Description:  "AnimeZ, once called AnimeTorrents, is a private Tracker for anime and manga.",
 	Privacy:      port.Private,
 	Capabilities: setCapabilities(),
 	Upstream:     port.ReadUpstream(upstream),

@@ -27,10 +27,9 @@ var upstream []byte
 type ix = port.Indexer[UniotakuSettings]
 
 var Port = port.Define(port.Entry{
-	ID:          "uniotaku",
-	Name:        "UniOtaku",
-	IndexerURLs: []string{"https://tracker.uniotaku.com/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "uniotaku",
+	Name:         "UniOtaku",
+	IndexerURLs:  []string{"https://tracker.uniotaku.com/"},
 	Description:  "UniOtaku is a semi-private Brazilian Tracker for anime.",
 	Language:     "pt-BR",
 	Privacy:      port.SemiPrivate,

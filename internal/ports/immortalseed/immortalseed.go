@@ -26,7 +26,7 @@ type ix = port.Indexer[ImmortalSeedSettings]
 var Port = port.Define(port.Entry{
 	ID:           "immortalseed",
 	Name:         "ImmortalSeed",
-	Description:  "ImmortalSeed is a private Tracker for movies, TV and general releases.",
+	Description:  "ImmortalSeed is a private Tracker for movies, TV and general Releases.",
 	Language:     "en-US",
 	Privacy:      port.Private,
 	IndexerURLs:  []string{"https://immortalseed.me/"},

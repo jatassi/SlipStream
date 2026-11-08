@@ -28,10 +28,9 @@ type settings struct{ port.UserPass }
 type ix = port.Indexer[settings]
 
 var Port = port.Define(port.Entry{
-	ID:          "anidub",
-	Name:        "Anidub",
-	IndexerURLs: []string{"https://tr.anidub.com/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "anidub",
+	Name:         "Anidub",
+	IndexerURLs:  []string{"https://tr.anidub.com/"},
 	Description:  "Anidub is a semi-private Russian Tracker for anime, run by the Anidub voiceover group.",
 	Language:     "ru-RU",
 	Privacy:      port.SemiPrivate,

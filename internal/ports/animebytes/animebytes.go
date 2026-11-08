@@ -40,7 +40,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "animebytes",
 	Name:        "AnimeBytes",
-	Description: "AnimeBytes (AB) is the largest private torrent tracker that specialises in anime and anime-related content.",
+	Description: "AnimeBytes is a private Tracker for anime and its music, games, manga and light novels.",
 	Language:    "en-US",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://animebytes.tv/"},

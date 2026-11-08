@@ -22,7 +22,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "broadcasthenet",
 	Name:        "BroadcasTheNet",
-	Description: "BroadcasTheNet is a private tracker for TV.",
+	Description: "BroadcasTheNet is a private Tracker for TV.",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://api.broadcasthe.net/"},
 	LegacyURLs:  []string{"http://api.broadcasthe.net/"},

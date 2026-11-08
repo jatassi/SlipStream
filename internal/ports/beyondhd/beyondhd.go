@@ -30,7 +30,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "beyond-hd",
 	Name:        "BeyondHD",
-	Description: "BeyondHD is a private tracker for HD movies and TV.",
+	Description: "BeyondHD is a private Tracker for HD movies and TV.",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://beyond-hd.me/"},
 	PageSize:    100,

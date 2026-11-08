@@ -30,10 +30,9 @@ type PixelHDSettings struct{}
 type ix = port.Indexer[PixelHDSettings]
 
 var Port = port.Define(port.Entry{
-	ID:          "pixelhd",
-	Name:        "PiXELHD",
-	IndexerURLs: []string{"https://pixelhd.me/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "pixelhd",
+	Name:         "PiXELHD",
+	IndexerURLs:  []string{"https://pixelhd.me/"},
 	Description:  "PiXELHD is a private Tracker with no ratio requirement for HD movies in MP4.",
 	Language:     "en-US",
 	Privacy:      port.Private,

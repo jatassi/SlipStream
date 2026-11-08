@@ -41,7 +41,7 @@ var Port = port.Define(port.Entry{
 		"https://ipt.world/",
 		"https://ipt.octopus.town/",
 	},
-	Description:  "IPTorrents is a private general tracker with movies, TV, music, games, apps and books.",
+	Description:  "IPTorrents is a private general Tracker with movies, TV, music, games, apps and books.",
 	Privacy:      port.Private,
 	Upstream:     port.ReadUpstream(upstream),
 	Capabilities: setCapabilities(),

@@ -36,7 +36,7 @@ var Port = port.Define(port.Entry{
 	Name:         "Redacted",
 	IndexerURLs:  []string{"https://redacted.sh/"},
 	LegacyURLs:   []string{"https://redacted.ch/"},
-	Description:  "Redacted, also known as PassTheHeadphones, is a private tracker for music.",
+	Description:  "Redacted, also known as PassTheHeadphones, is a private Tracker for music.",
 	Privacy:      port.Private,
 	RateLimit:    3 * time.Second,
 	PageSize:     50,

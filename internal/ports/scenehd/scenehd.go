@@ -28,7 +28,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "scenehd",
 	Name:        "SceneHD",
-	Description: "SceneHD is a private tracker for HD movies and TV.",
+	Description: "SceneHD is a private Tracker for HD movies and TV.",
 	Language:    "en-US",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://scenehd.org/"},
