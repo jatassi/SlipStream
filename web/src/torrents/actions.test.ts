@@ -151,6 +151,18 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "The Node holding The Quiet Orchard is offline. Try again once it reconnects.",
   ],
   [
+    "an external client that isn't responding names it and its Node",
+    { code: "client_away", client: "Transmission", node: "Media server" },
+    "announce",
+    "Transmission on Media server isn't responding. Try again once it responds.",
+  ],
+  [
+    "an external client that is off says to turn it on",
+    { code: "client_off", client: "Transmission", node: "Media server" },
+    "recheck",
+    "SlipStream isn't checking Transmission while it's turned off. Turn it on, then try again.",
+  ],
+  [
     "a torrent its Node no longer holds",
     { code: "not_found" },
     "announce",

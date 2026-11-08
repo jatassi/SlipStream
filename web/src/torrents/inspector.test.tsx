@@ -261,3 +261,34 @@ test("a link to a torrent that is gone is not found", async () => {
   open("/activity/torrents/7a000000-0000-4000-8000-ffffffffffff");
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
 });
+
+test("an attached torrent's Inspector says a remove leaves it in its client, whose seeding rules apply", async () => {
+  const attached = torrent({
+    state: "seeding",
+    tabs: ["seeding", "all"],
+    workId: orchardId,
+    clientId: "7d3f9b1e-5a2c-4e8f-b6d0-1c3e5a7f9b2d",
+    clientName: "Transmission",
+    clientKind: "transmission",
+    attached: true,
+    deleteFiles: false,
+  });
+  renderApp({
+    path: `/activity/torrents/${attached.id}?tab=all`,
+    handlers: [
+      getGetWorkMockHandler(orchardTree),
+      ...liveServer().handlers,
+      ...torrentsServer([attached]).handlers,
+    ],
+  });
+  await expect
+    .element(
+      inspector().getByText(
+        "This torrent was in Transmission before SlipStream attached to it. Removing it here stops SlipStream tracking it and leaves it in Transmission.",
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(inspector().getByText("Transmission's own seeding rules apply to this torrent."))
+    .toBeVisible();
+});

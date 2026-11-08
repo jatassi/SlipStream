@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/works"
@@ -63,6 +64,10 @@ type downloaders struct {
 func (d *downloaders) InStep(n role.NodeID) bool              { return !d.away[n] }
 func (d *downloaders) WrittenOff(role.Name, role.NodeID) bool { return false }
 func (d *downloaders) Changed() <-chan struct{}               { return nil }
+func (d *downloaders) Holds(name role.Name, n role.NodeID) bool {
+	return slices.Contains(d.Serving(name), n)
+}
+
 func (d *downloaders) Serving(name role.Name) []role.NodeID {
 	if name != role.Downloading {
 		return nil
@@ -117,12 +122,14 @@ func serveWorld(t *testing.T) *world {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sealer := secrettest.Sealer(t)
 	w := &world{lib: lib, self: side.Self(), roster: &downloaders{serving: []role.NodeID{side.Self()}, away: map[role.NodeID]bool{}}, uses: uses{}, node: &node{}, facts: map[role.NodeID]*dlv1.Facts{}, heard: &heard{}, hashes: map[downloadclients.ID]string{}}
 	clients := downloadclients.New(downloadclients.Config{
 		Library: lib, Touch: func(n ...role.NodeID) { w.heard.touched = append(w.heard.touched, n...) }, Changed: torrentsChanged{},
 		CardsChanged: w.heard, Roster: w.roster, Uses: w.uses,
 		Facts:  func(n role.NodeID) (*dlv1.Facts, bool) { f, ok := w.facts[n]; return f, ok },
-		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return w.node },
+		Remote: func(n role.NodeID) downloadingv1connect.DownloadingServiceHandler { return calledOn{w.node, n} },
+		Sealer: sealer,
 		Live:   downloadclients.LiveConfig{Sample: time.Second},
 		Log:    slog.New(slog.DiscardHandler),
 	})

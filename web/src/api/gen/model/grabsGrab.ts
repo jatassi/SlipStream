@@ -1,6 +1,7 @@
 import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
 import type { GrabsFetchWait } from "./grabsFetchWait.ts";
+import type { GrabsGrabClient } from "./grabsGrabClient.ts";
 import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
 import type { GrabsMetadataSearch } from "./grabsMetadataSearch.ts";
@@ -8,6 +9,8 @@ import type { GrabsProgress } from "./grabsProgress.ts";
 
 export interface GrabsGrab {
   createdAt: string;
+  /** Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched */
+  downloadClient: GrabsGrabClient | null;
   /** The Edition it was grabbed to fill: any under any cut, else a cut key */
   edition: string;
   /** Why it failed, absent unless it did */

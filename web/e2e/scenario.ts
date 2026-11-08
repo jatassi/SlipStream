@@ -14,4 +14,5 @@ export type Scenario =
   | "cgnat-home"
   | "catalog-sites"
   | "indexers"
-  | "seedbox-nas";
+  | "seedbox-nas"
+  | "external-clients";

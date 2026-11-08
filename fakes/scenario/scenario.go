@@ -86,6 +86,9 @@ type Node struct {
 	// ChallengeSolver has the world set the Node's Challenge solver to its
 	// fake-challenge-solver front before it adds the library's Indexers.
 	ChallengeSolver bool `yaml:"challenge_solver,omitempty"`
+	// DownloadClients are the external clients the world adds to the Node
+	// with the library, before its Works.
+	DownloadClients []DownloadClient `yaml:"download_clients,omitempty"`
 }
 
 const MaxNodes = 31
@@ -256,6 +259,10 @@ func (s Scenario) checkNodes(add func(format string, args ...any)) []string {
 		case SetupNone:
 		}
 		n.checkRoles(add)
+		n.checkClients(add)
+		if len(n.DownloadClients) > 0 && s.Library == nil {
+			add("node %s has download clients, and no library adds them", n.Name)
+		}
 		if slices.Contains(n.Roles, role.Relaying) {
 			relaying = append(relaying, n.Name)
 		}

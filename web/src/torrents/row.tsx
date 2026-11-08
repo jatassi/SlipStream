@@ -147,5 +147,5 @@ export function TrackerCell({ row, clock }: CellProps) {
 }
 
 export function NodeCell({ row, names }: CellProps) {
-  return <Lines first={names.node(row.nodeId)} second="Built-in" />;
+  return <Lines first={names.node(row.nodeId)} second={row.clientName ?? "Built-in"} />;
 }

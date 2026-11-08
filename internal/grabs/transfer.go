@@ -60,29 +60,42 @@ func (gr *Grabs) cancelTransfer(ctx context.Context, tx *storage.Tx[file], id Gr
 // transferVerified is the Verified hook: a transferring Grab whose file
 // is verified moves to importing.
 func (gr *Grabs) transferVerified(ctx context.Context, tx *storage.Tx[file], t transfers.Transfer, _ string) error {
-	return gr.moveJob(ctx, tx, t.Job, advance{to: Importing})
+	return gr.moveJob(ctx, tx, t.Job, func(Grab) outcome { return advance{to: Importing} })
 }
 
 // transferFailed is the Failed hook. A Transfer rerouted onto the Node
 // that downloaded the file sends the Grab to importing, which links it
-// there. A source written off fails the Grab node_written_off, as the
-// write-off pass does. Any other failure fails it transfer_failed with the
-// Transfer's sentence.
+// there. A Grab whose Torrent is gone for a reason that fails it at any
+// stage fails by that reason, and a source written off fails it
+// node_written_off, as settleGone does. An external Torrent whose source
+// is gone moves nothing: its client's Node put the Vanished report in its
+// outbox before the file went, and settleGone fails the Grab once it
+// applies. Any other failure fails it transfer_failed with the Transfer's
+// sentence.
 func (gr *Grabs) transferFailed(ctx context.Context, tx *storage.Tx[file], t transfers.Transfer, f transfers.Failure) error {
-	var o outcome = fail{TransferFailed, f.Sentence}
-	switch f.Code {
-	case transfers.Rerouted:
-		o = advance{to: Importing}
-	case transfers.SourceWrittenOff:
-		o = fail{NodeWrittenOff, writtenOffWords}
-	case transfers.SourceGone, transfers.SourceFailed, transfers.Damaged:
-	}
-	return gr.moveJob(ctx, tx, t.Job, o)
+	return gr.moveJob(ctx, tx, t.Job, func(g Grab) outcome {
+		if gone, ok := g.goneAtAnyStage(); ok {
+			return failOfGone(gone)
+		}
+		switch f.Code {
+		case transfers.Rerouted:
+			return advance{to: Importing}
+		case transfers.SourceWrittenOff:
+			return fail{NodeWrittenOff, writtenOffWords}
+		case transfers.SourceGone:
+			if g.Torrent.Client != nil {
+				return nil
+			}
+		case transfers.SourceFailed, transfers.Damaged:
+		}
+		return fail{TransferFailed, f.Sentence}
+	})
 }
 
-// moveJob moves the Grab job names by o in tx, when it still transfers.
-// A Grab that left transferring is nothing to do.
-func (gr *Grabs) moveJob(ctx context.Context, tx *storage.Tx[file], job string, o outcome) error {
+// moveJob moves the Grab job names by what decide makes of it in tx, when
+// it still transfers and decide makes anything. A Grab that left
+// transferring is nothing to do.
+func (gr *Grabs) moveJob(ctx context.Context, tx *storage.Tx[file], job string, decide func(Grab) outcome) error {
 	id, err := storage.ParseUUID(job)
 	if err != nil {
 		return err
@@ -101,6 +114,10 @@ func (gr *Grabs) moveJob(ctx context.Context, tx *storage.Tx[file], job string, 
 	g, err := load(ctx, tx, row, rel)
 	if err != nil {
 		return err
+	}
+	o := decide(g)
+	if o == nil {
+		return nil
 	}
 	if _, err := gr.move(ctx, tx, g, o); err != nil {
 		return err

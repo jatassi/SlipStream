@@ -1,4 +1,6 @@
 export interface DownloadclientsClientsChanged {
-  /** The Nodes whose built-in client's card or settings changed */
+  /** The external clients whose settings or state changed */
+  clientIds: string[];
+  /** The Nodes whose card or settings changed */
   nodeIds: string[];
 }

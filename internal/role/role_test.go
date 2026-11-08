@@ -639,3 +639,43 @@ func TestTheRoleSetsPassTheAudit(t *testing.T) {
 	storagetest.AuditLibrary(t, []storage.Schema[storage.Library]{role.LibrarySchema(), roletest.Schema()})
 	storagetest.AuditLocal(t, []storage.Schema[storage.Local]{role.LocalSchema()})
 }
+
+// TestOutboxAppliesInSeqAcrossScopes reports from the probe and the wide
+// probe in turn while the Worker is cut off: once back in step, the
+// Controller applies them in the order they were reported, whichever
+// scope each is for.
+func TestOutboxAppliesInSeqAcrossScopes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.setWide(t, c.workerID, "wide")
+		c.assign(c.workerID, roletest.Name)
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+
+		if _, err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(partitioned)
+		for _, n := range []uint64{1, 2, 3, 4} {
+			p := w.probe
+			if n%2 == 0 {
+				p = w.wide
+			}
+			if err := p.Report(t.Context(), n); err != nil {
+				t.Fatal(err)
+			}
+		}
+		c.path().Clear("")
+		time.Sleep(redialed)
+		synctest.Wait()
+
+		got, err := roletest.Applied(t.Context(), c.lib, c.workerID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []uint64{1, 2, 3, 4}; !slices.Equal(got, want) {
+			t.Errorf("the Controller applied %v, want %v", got, want)
+		}
+	})
+}

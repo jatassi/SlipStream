@@ -1,6 +1,8 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
 import type { DownloadclientsFileDetail } from "./downloadclientsFileDetail.ts";
+import type { DownloadclientsTorrentDetailClientKind } from "./downloadclientsTorrentDetailClientKind.ts";
 import type { DownloadclientsTorrentDetailHold } from "./downloadclientsTorrentDetailHold.ts";
+import type { DownloadclientsTorrentDetailLastKnownCause } from "./downloadclientsTorrentDetailLastKnownCause.ts";
 import type { DownloadclientsTorrentDetailPending } from "./downloadclientsTorrentDetailPending.ts";
 import type { DownloadclientsTorrentDetailQuality } from "./downloadclientsTorrentDetailQuality.ts";
 import type { DownloadclientsTorrentDetailSeverity } from "./downloadclientsTorrentDetailSeverity.ts";
@@ -19,8 +21,18 @@ export interface DownloadclientsTorrentDetail {
   addedAt: string;
   /** The earliest every announce URL accepts an announce, set while live */
   announceAt?: string;
+  /** It was in its external client before SlipStream attached to it, so removing it only stops tracking it */
+  attached?: boolean;
+  /** Its external client; absent for its Node's built-in client */
+  clientId?: string;
+  /** Its external client's kind */
+  clientKind?: DownloadclientsTorrentDetailClientKind;
+  /** Its external client's name */
+  clientName?: string;
   /** The Content Type it was first grabbed for */
   contentType: string;
+  /** A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client */
+  deleteFiles: boolean;
   /**
    * Bytes done as its Node last reported them; torrents.live carries the live figure
    * @minimum 0
@@ -33,7 +45,7 @@ export interface DownloadclientsTorrentDetail {
   downloaded: number;
   /** Its newest Grab's Edition */
   edition?: string;
-  /** The engine's error message for the failure */
+  /** The engine's error message for the failure, or an external client's own words for its error */
   error?: string;
   /** The fault found in the release itself, once there is one */
   fault?: DownloadclientsFault;
@@ -41,13 +53,17 @@ export interface DownloadclientsTorrentDetail {
   files: DownloadclientsFileDetail[];
   /** The Grabs that used it, newest first */
   grabs: DownloadclientsTorrentGrab[];
-  /** Why its Node holds it back, as its Node last reported */
+  /** Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error */
   hold?: DownloadclientsTorrentDetailHold;
   id: string;
+  /** When a finished external torrent imports, set while its client's Import delay runs */
+  importAt?: string;
   /** The v1 info hash in hex */
   infoHash: string;
-  /** When its Node last reported it, set while the Node is out of step */
+  /** When its Node last reported it, set while the row is stale for lastKnownCause */
   lastKnown?: string;
+  /** Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off */
+  lastKnownCause?: DownloadclientsTorrentDetailLastKnownCause;
   /** Its Node responded, so announce URLs and files are live. Otherwise they are from its last report */
   live: boolean;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
@@ -87,6 +103,8 @@ export interface DownloadclientsTorrentDetail {
    */
   size: number;
   state: DownloadclientsTorrentDetailState;
+  /** Its external client stopped it at its seeding limit */
+  stoppedAtLimit?: boolean;
   /** The Torrents view's tabs it shows under */
   tabs: DownloadclientsTorrentDetailTabsItem[];
   /** Absent when its metainfo names no announce URL */

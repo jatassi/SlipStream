@@ -1,7 +1,7 @@
 import { Outlet, useMatch, useNavigate, useSearch } from "@tanstack/react-router";
 
 import { useShell } from "../ui/shell-context";
-import { menuFor } from "./actions";
+import { menuFor, subjectOf as subjectNamed } from "./actions";
 import { ActionsMenu } from "./actions-menu";
 import { BulkBar } from "./bulk";
 import type { Row } from "./model";
@@ -22,7 +22,7 @@ export function TorrentsPage() {
   if (useShell() === "phone" && selected !== undefined) {
     return <Outlet />;
   }
-  const subjectOf = (row: Row) => ({ id: row.id, name: names.work(row.workId) ?? row.name });
+  const subjectOf = (row: Row) => subjectNamed(row, names.work(row.workId) ?? row.name);
   return (
     <>
       <TorrentsView

@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
+	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -74,5 +76,51 @@ func TestRatio(t *testing.T) {
 		if got := dc.Ratio(c.tot, c.size); got != c.want {
 			t.Errorf("%s: Ratio = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+func clientTotals(rows ...*dlv1.ClientCounters) *dlv1.Report {
+	return &dlv1.Report{Kind: &dlv1.Report_ClientTotals{ClientTotals: &dlv1.ClientTotals{Rows: rows}}}
+}
+
+func TestAnExternalClientsCountersAddOnlyTheirRiseWhileTracked(t *testing.T) {
+	s := newMediaServer(t)
+	id := s.send(t, "Orchard")
+	counters := func(up, down, active, seeding int64) *dlv1.Report {
+		return clientTotals(&dlv1.ClientCounters{Id: id.Bytes(), Uploaded: up, Downloaded: down, ActiveSeconds: active, SeedingSeconds: seeding})
+	}
+	expect := func(when string, up, down int64, active, seeding time.Duration) {
+		t.Helper()
+		got := totalsOf(t, s.lib, id)
+		if got.Uploaded != up || got.Downloaded != down || got.Active != active || got.Seeding != seeding {
+			t.Errorf("%s: totals = %d up, %d down, %s active, %s seeding; want %d, %d, %s, %s",
+				when, got.Uploaded, got.Downloaded, got.Active, got.Seeding, up, down, active, seeding)
+		}
+	}
+
+	s.report(t, s.node, counters(9000, 4000, 7200, 3600))
+	expect("the first report, which counts what came before SlipStream tracked it", 0, 0, 0, 0)
+
+	s.report(t, s.node, counters(9500, 4600, 7260, 3660))
+	expect("a rise", 500, 600, time.Minute, time.Minute)
+
+	s.report(t, s.node, counters(9500, 4600, 7260, 3660))
+	expect("a replay", 500, 600, time.Minute, time.Minute)
+
+	s.report(t, s.node, counters(100, 4700, 7320, 3720))
+	expect("an uploaded counter that dropped as the torrent was added again", 500, 700, 2*time.Minute, 2*time.Minute)
+
+	s.report(t, s.node, counters(400, 4700, 7320, 3720))
+	expect("a rise from the new baseline", 800, 700, 2*time.Minute, 2*time.Minute)
+
+	s.report(t, addNode(t, s.lib, "Seedbox"), counters(90000, 90000, 90000, 90000))
+	expect("another Node's report", 800, 700, 2*time.Minute, 2*time.Minute)
+
+	m, raw := dotTorrent(t, "Harbor")
+	builtIn, _ := mustAttach(t, s.lib, dc.Want{Target: dc.Target{Node: s.node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	s.report(t, s.node, clientTotals(&dlv1.ClientCounters{Id: builtIn.Bytes(), Uploaded: 10, Downloaded: 10}))
+	s.report(t, s.node, clientTotals(&dlv1.ClientCounters{Id: builtIn.Bytes(), Uploaded: 900, Downloaded: 900}))
+	if got := totalsOf(t, s.lib, builtIn); got.Uploaded != 0 || got.Downloaded != 0 {
+		t.Errorf("raw counters for a built-in Torrent left its totals %d up, %d down, want them unchanged", got.Uploaded, got.Downloaded)
 	}
 }

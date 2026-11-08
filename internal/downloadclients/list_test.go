@@ -64,7 +64,7 @@ func newListed(t *testing.T) *listed {
 func (l *listed) add(t *testing.T, node role.NodeID, name string, r *dlv1.TorrentReport) dc.ID {
 	t.Helper()
 	m, raw := dotTorrent(t, name)
-	id, _ := mustAttach(t, l.lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	id, _ := mustAttach(t, l.lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	if r != nil {
 		apply(t, l.lib, node, id, r)
 	}

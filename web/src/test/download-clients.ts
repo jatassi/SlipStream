@@ -1,4 +1,4 @@
-import { HttpResponse, type JsonBodyType, http } from "msw";
+import { HttpResponse, http } from "msw";
 
 import type {
   DownloadclientsClientCard,
@@ -12,7 +12,9 @@ import type {
 } from "../api/gen/model";
 import { getListRootsMockHandler } from "../api/gen/query/roots/roots.msw";
 import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw";
+import { SetDownloadClientSettingsBody } from "../api/gen/zod/downloadclients/downloadclients.zod";
 import { CheckFolderBody } from "../api/gen/zod/roots/roots.zod";
+import { type Recorder, externalHandlers, kinds, passing } from "./external-clients";
 import { homeConfig } from "./node-system";
 import { homeId, seedboxId } from "./nodes";
 import { mediaVolume } from "./roots";
@@ -144,6 +146,7 @@ export const clientSettings: DownloadclientsSettings = {
     default: true,
   },
   stalledAfter: duration("downloading.stalledAfter", "Stalled after", 600, [60, 86_400, 60]),
+  grabsTo: null,
 };
 
 const limits = {
@@ -169,6 +172,8 @@ export const unbound = {
 export const homeCard: DownloadclientsClientCard = {
   nodeId: homeId,
   nodeName: "home",
+  grabsTo: null,
+  externals: [],
   inStep: true,
   client: { ...unbound, bound: "192.168.1.20:6881" },
   limits,
@@ -184,6 +189,8 @@ export const homeCard: DownloadclientsClientCard = {
 export const seedboxCard: DownloadclientsClientCard = {
   nodeId: seedboxId,
   nodeName: "seedbox",
+  grabsTo: null,
+  externals: [],
   inStep: true,
   client: {
     ...unbound,
@@ -239,26 +246,40 @@ export const withTorrent = (
   ],
 });
 
-export type ClientWrite = { path: string; body: JsonBodyType };
+export type ClientWrite = { path: string; body: unknown };
 
 /**
- * Serves the Download Clients list and each Node's client settings, and
- * records every PATCH. A test changes `state` to change what is served.
+ * Serves the Download Clients list, each Node's client settings and the
+ * external clients' operations, and records every write: a DELETE with a
+ * null body. A test changes `state` to change what is served, and
+ * `state.answers` to answer a write with a refusal.
  */
-export function downloadClients(list?: DownloadclientsClientsList) {
-  const state = { list: list ?? { cards: [homeCard], thresholds }, settings: clientSettings };
+export function downloadClients(list?: Partial<DownloadclientsClientsList>) {
+  const state = {
+    list: { cards: [homeCard], thresholds, orphans: [], kinds, ...list },
+    settings: clientSettings,
+    answers: passing(),
+  };
   const writes: ClientWrite[] = [];
+  const record: Recorder = async (request, path) => {
+    const body: unknown = request.method === "DELETE" ? null : await request.json();
+    writes.push({ path, body });
+    return body;
+  };
   const handlers = [
     http.get("*/api/v1/download-clients", () => HttpResponse.json(state.list)),
     http.patch("*/api/v1/download-clients/thresholds", async ({ request }) => {
-      writes.push({ path: "thresholds", body: await request.json() });
+      await record(request, "thresholds");
       return HttpResponse.json(state.list.thresholds);
     }),
     http.get("*/api/v1/download-clients/:nodeId/settings", () => HttpResponse.json(state.settings)),
     http.patch("*/api/v1/download-clients/:nodeId/settings", async ({ request, params }) => {
-      writes.push({ path: `${String(params["nodeId"])}/settings`, body: await request.json() });
-      return HttpResponse.json(state.settings);
+      const patch = SetDownloadClientSettingsBody.parse(
+        await record(request, `${String(params["nodeId"])}/settings`),
+      );
+      return HttpResponse.json({ ...state.settings, grabsTo: patch.grabsTo ?? null });
     }),
+    ...externalHandlers(() => state.answers, record),
   ];
   return { handlers, state, writes };
 }

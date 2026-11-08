@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloading"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -180,6 +181,8 @@ func (h *holder) lastFacts() *dlv1.Facts {
 
 // control is the Controller as the client fetches from it.
 type control struct {
+	downloadingv1connect.UnimplementedDownloadingControlServiceHandler
+
 	mu      sync.Mutex
 	answers map[storage.UUID]*dlv1.TorrentResponse
 	asked   []storage.UUID

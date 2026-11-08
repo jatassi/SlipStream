@@ -120,7 +120,7 @@ func TestKnownInfoReadsTheInfoDictionaryOfAnyTorrentOfTheHash(t *testing.T) {
 	if _, ok := known(m.InfoHash); ok {
 		t.Fatal("KnownInfo found an info dictionary before any Torrent of the hash")
 	}
-	id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: "movies", WrittenOff: noneWrittenOff})
+	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: "movies", WrittenOff: noneWrittenOff})
 	if info, ok := known(m.InfoHash); !ok || !bytes.Equal(info, m.RawInfo) {
 		t.Errorf("KnownInfo of a live Torrent's hash = %d bytes, %v; want its info dictionary", len(info), ok)
 	}

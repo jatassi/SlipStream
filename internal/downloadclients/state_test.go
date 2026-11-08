@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
+	tc "github.com/jatassi/slipstream/internal/torrent/clients"
 )
 
 func report(engine dc.EngineState, change func(*dc.Report)) *dc.Report {
@@ -26,6 +27,8 @@ func lines(statuses ...dc.TrackerStatus) func(*dc.Report) {
 }
 
 func complete(r *dc.Report) { r.Complete = true }
+
+func run(w dc.Wanted) func(*dc.Report) { return func(r *dc.Report) { r.Run = w } }
 
 func stalled(r *dc.Report) { r.Stalled = true }
 
@@ -49,6 +52,10 @@ func TestStateOf(t *testing.T) {
 		{"the resume hasn't reached the Node", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineSeeding, func(r *dc.Report) { complete(r); r.Hold = dc.HoldWanted })}, dc.StatePaused},
 		{"waiting out a window or the start spread", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, held(dc.HoldWindow))}, dc.StatePaused},
 		{"paused for disk", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, held(dc.HoldDiskFull))}, dc.StatePaused},
+		{"an error in Transmission", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, held(dc.HoldClientError))}, dc.StatePaused},
+		{"paused in Transmission before the Controller heard", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, run(dc.Paused))}, dc.StatePaused},
+		{"Transmission stopped it at its seeding limit", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineSeeding, func(r *dc.Report) { complete(r); r.Run, r.StoppedAtLimit = dc.Paused, true })}, dc.StatePaused},
+		{"running in Transmission", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, run(dc.Started))}, dc.StateDownloading},
 		{"wanted paused outranks checking", dc.Facts{Wanted: dc.Paused, Report: report(dc.EngineChecking, nil)}, dc.StatePaused},
 		{"a recheck that then resumes", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineChecking, func(r *dc.Report) { r.Until = time.Date(2026, 10, 19, 14, 32, 0, 0, time.UTC) })}, dc.StateChecking},
 		{"checking outranks waiting to check", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineChecking, held(dc.HoldCheckSlot))}, dc.StateChecking},
@@ -118,6 +125,8 @@ func TestSeverityOf(t *testing.T) {
 		{"stalled", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, stalled)}, dc.SeverityWarning},
 		{"paused for disk", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, held(dc.HoldDiskFull))}, dc.SeverityWarning},
 		{"held by the disk guard", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, held(dc.HoldDiskGuard))}, dc.SeverityWarning},
+		{"an error in Transmission", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, held(dc.HoldClientError))}, dc.SeverityWarning},
+		{"paused in Transmission", dc.Facts{Wanted: dc.Paused, Report: report(dc.EngineDownloading, run(dc.Paused))}, dc.SeverityNone},
 		{"paused by the Admin", dc.Facts{Wanted: dc.Paused, Report: report(dc.EngineDownloading, held(dc.HoldWanted))}, dc.SeverityNone},
 		{"waiting for a slot", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, held(dc.HoldSlot))}, dc.SeverityNone},
 		{"downloading", dc.Facts{Wanted: dc.Started, Report: report(dc.EngineDownloading, nil)}, dc.SeverityNone},
@@ -127,5 +136,34 @@ func TestSeverityOf(t *testing.T) {
 		if got := dc.SeverityOf(c.facts, dc.StateOf(c.facts)); got != c.want {
 			t.Errorf("%s: SeverityOf = %d, want %d", c.name, got, c.want)
 		}
+	}
+}
+
+func TestReachOf(t *testing.T) {
+	polled := func(state tc.PollState) *dc.Poll { return &dc.Poll{State: state, Since: reportedAt} }
+	reached := map[dc.ClientReach]bool{}
+	for _, c := range []struct {
+		name   string
+		client dc.External
+		inStep bool
+		want   dc.ClientReach
+	}{
+		{"answering polls", dc.External{On: true, Poll: polled(tc.Responding)}, true, dc.ReachResponding},
+		{"not answering", dc.External{On: true, Poll: polled(tc.NotResponding)}, true, dc.ReachNotResponding},
+		{"refusing the password", dc.External{On: true, Poll: polled(tc.SignInRefused)}, true, dc.ReachSignInRefused},
+		{"most torrents missing", dc.External{On: true, Poll: polled(tc.NeedsAttention)}, true, dc.ReachNeedsAttention},
+		{"no poll yet", dc.External{On: true}, true, dc.ReachUnchecked},
+		{"its Node offline, whatever it last said", dc.External{On: true, Poll: polled(tc.NotResponding)}, false, dc.ReachNodeOffline},
+		{"turned off on an offline Node", dc.External{Poll: polled(tc.Responding)}, false, dc.ReachOff},
+		{"turned off before a poll", dc.External{}, true, dc.ReachOff},
+	} {
+		got := dc.ReachOf(c.client, c.inStep)
+		if got != c.want {
+			t.Errorf("%s: ReachOf = %s, want %s", c.name, got, c.want)
+		}
+		reached[got] = true
+	}
+	if len(reached) != 7 {
+		t.Errorf("the cases reach %d of the 7 reaches", len(reached))
 	}
 }

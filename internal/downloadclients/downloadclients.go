@@ -1,5 +1,6 @@
 // Package downloadclients owns the Controller's record of every Torrent a
-// Node's built-in client holds. Grabs point at a Torrent and read its
+// Node's built-in client or external Download Clients hold, and of the
+// external clients themselves. Grabs point at a Torrent and read its
 // outcome; nothing here writes a Grab. A Torrent's state word, tabs and
 // severity are derived from its record at read time and never stored.
 package downloadclients
@@ -13,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -33,11 +35,16 @@ const (
 	Paused  Wanted = "paused"
 )
 
-// Torrent is one payload a Node's built-in client holds by info hash. It
-// outlives the Grabs that made it and the Works they were for.
+// Torrent is one payload a Node's client holds by info hash. It outlives
+// the Grabs that made it and the Works they were for.
 type Torrent struct {
-	ID       ID
-	Node     role.NodeID
+	ID   ID
+	Node role.NodeID
+	// Client is nil for the Node's built-in client.
+	Client *ClientRef
+	// Attached is nil until the Node first reports an external torrent:
+	// whether it was in its client before SlipStream attached to it.
+	Attached *bool
 	InfoHash bencode.InfoHash
 	// Name is the metainfo's name, how a Torrent whose Work is gone reads.
 	Name string
@@ -60,6 +67,13 @@ type Torrent struct {
 	Fault      *Fault
 }
 
+// ClientRef names a Torrent's external client for readers that show it.
+type ClientRef struct {
+	ID   ClientID
+	Kind clients.Kind
+	Name string
+}
+
 // Totals never go down: a merge keeps the larger of each counter.
 type Totals struct {
 	Uploaded, Downloaded int64
@@ -74,7 +88,15 @@ const (
 	ByAdmin        RemoveReason = "admin"
 	ByMarkFailed   RemoveReason = "mark_failed"
 	NodeWrittenOff RemoveReason = "node_written_off"
+	// ByClient is an external client that stopped listing the torrent.
+	ByClient RemoveReason = "client"
+	// ClientDeleted is the Admin deleting the torrent's client with Stop
+	// tracking.
+	ClientDeleted RemoveReason = "client_deleted"
 )
+
+// RemoveReasons is every RemoveReason, the list the schema's CHECK holds.
+var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted}
 
 // Removal is set when the Torrent leaves its Node's intent. It is Removing
 // until Parted: the Node confirmed, or a write-off ended the wait.
@@ -107,6 +129,18 @@ type Report struct {
 	Trackers []TrackerLine `json:"trackers,omitempty"`
 	// Done is the bytes done at the report, the last known progress.
 	Done int64 `json:"done"`
+	// Run is what an external client means to do with the torrent, ""
+	// for the built-in client, whose HoldWanted says the same.
+	Run Wanted `json:"run,omitempty"`
+	// ImportAt is when a finished external torrent imports, set while the
+	// Import delay runs.
+	ImportAt time.Time `json:"importAt,omitzero"`
+	// QueuePosition is its place in its external client's queue, from 1,
+	// 0 for none.
+	QueuePosition int `json:"queuePosition,omitempty"`
+	// StoppedAtLimit is an external torrent its client stopped at its
+	// seeding limit.
+	StoppedAtLimit bool `json:"stoppedAtLimit,omitempty"`
 }
 
 type EngineState string
@@ -135,6 +169,10 @@ const (
 	HoldDraining  Hold = "draining"
 	// HoldController is a Node out of step with the Controller.
 	HoldController Hold = "controller"
+	// HoldClientError is a local error in an external client, with the
+	// client's words in Report.Error. It clears when the client clears
+	// it, and it is never a release fault.
+	HoldClientError Hold = "client_error"
 )
 
 type TrackerLine struct {

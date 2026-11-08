@@ -9,4 +9,5 @@ export type NodesCheckReason =
   | "node_is_controller"
   | "node_holds_work"
   | "nothing_held"
-  | "keeps_role";
+  | "keeps_role"
+  | "keeps_config";

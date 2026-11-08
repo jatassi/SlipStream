@@ -20,6 +20,31 @@ sql:
               import: github.com/jatassi/slipstream/internal/indexers
               type: TrackerID
               pointer: true
+          - column: downloadclients_client.id
+            go_type:
+              type: ClientID
+          - column: downloadclients_torrent.client_id
+            go_type:
+              type: ClientID
+              pointer: true
+          - column: downloadclients_node.grabs_to
+            go_type:
+              type: ClientID
+              pointer: true
+          - column: downloadclients_client.kind
+            go_type:
+              import: github.com/jatassi/slipstream/internal/torrent/clients
+              type: Kind
+          - column: "*.*_sealed"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed
+          - column: downloadclients_client.is_on
+            go_type: bool
+          - column: downloadclients_client.poll_since
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
           - column: "*.node_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/role
@@ -70,4 +95,64 @@ sql:
           - column: downloadclients_torrent.fault
             go_type:
               type: string
+              pointer: true
+          - column: downloadclients_client.username
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_client.folder
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_client.daemon_host
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_client.poll_state
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_client.poll_problem
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_client.client_version
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_client.daemon_port
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_client.check_every_seconds
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_client.import_delay_seconds
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_client.poll_settings_version
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_torrent.attached
+            go_type:
+              type: bool
+              pointer: true
+          - column: downloadclients_torrent.raw_uploaded
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_torrent.raw_downloaded
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_torrent.raw_active_seconds
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_torrent.raw_seeding_seconds
+            go_type:
+              type: int64
               pointer: true

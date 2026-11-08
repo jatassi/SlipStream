@@ -94,6 +94,7 @@ func (r *roster) Route(role.Name, role.NodeID) (role.NodeID, error)  { return r.
 func (*roster) Away(role.Name, role.NodeID) (nodes.Absence, bool)    { return nodes.Absence{}, false }
 func (*roster) InStep(role.NodeID) bool                              { return true }
 func (*roster) WrittenOff(role.Name, role.NodeID) bool               { return false }
+func (*roster) Holds(role.Name, role.NodeID) bool                    { return true }
 func (r *roster) Holding(role.Name) []role.NodeID                    { return []role.NodeID{r.node} }
 func (*roster) Name(role.NodeID) string                              { return "home" }
 func (*roster) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role.NodeID{}, false }
@@ -454,7 +455,7 @@ func attachTorrent(t *testing.T, p *pipeline, raw []byte) {
 	}
 	err = p.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, _, err := downloadclients.Attach(ctx, tx, downloadclients.Want{
-			Node: p.node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false },
+			Target: downloadclients.Target{Node: p.node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: func(role.NodeID) bool { return false },
 		}, storage.Now())
 		return err
 	})

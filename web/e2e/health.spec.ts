@@ -89,10 +89,13 @@ async function calmPage(page: Page): Promise<void> {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label)).toContainText(`Nothing is wrong with ${phrase}.`);
   }
-  for (const label of ["Download Clients", "Indexers", "Scheduled tasks"]) {
+  for (const label of ["Indexers", "Scheduled tasks"]) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label).getByRole("button", { name: /^Check now/u })).toHaveCount(0);
   }
+  await expect(
+    category(page, "Download Clients").getByRole("button", { name: "Check now: Download Clients" }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Check all" }).click();
   await expect(checked(page)).toHaveText("Checked.");

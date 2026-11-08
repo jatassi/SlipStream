@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import type { DownloadclientsClientCard as Card } from "../api/gen/model";
 import { bytes, countWords, durationWords } from "../format";
 import { KeyValues } from "../routes/_app/nodes/-facts";
-import { Chip } from "../ui/chip";
 import { Details } from "../ui/details";
 import { rateWords } from "../ui/setting-rate";
 import { ClientVerdict, listenWords } from "./client-verdict";
@@ -46,16 +45,10 @@ const totalsWords = ({ torrents: held, totals }: Card): string =>
   `${countWords(held, torrents)}, ${bytes(totals.uploaded)} uploaded and ${bytes(totals.downloaded)} downloaded.`;
 
 /** A Node's built-in client: its verdict, its totals, and under Details its identity and limits. */
-export function ClientCard({ card }: { card: Card }) {
+export function BuiltInClient({ card }: { card: Card }) {
   return (
-    <article
-      aria-label={`Built-in client on ${card.nodeName}`}
-      className="flex flex-col gap-3 rounded-card bg-glass p-4 ring-1 ring-hairline ring-inset"
-    >
-      <header className="flex flex-wrap items-center gap-2">
-        <h3 className="font-semibold text-ink-1">Built-in client</h3>
-        <Chip look="outline">{card.nodeName}</Chip>
-      </header>
+    <article aria-label={`Built-in client on ${card.nodeName}`} className="flex flex-col gap-3">
+      <h4 className="font-semibold text-ink-1">Built-in client</h4>
       <ClientVerdict card={card} />
       <Details summary={totalsWords(card)}>
         <div className="mt-2 self-stretch">
