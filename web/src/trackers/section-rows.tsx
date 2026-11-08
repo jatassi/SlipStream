@@ -14,7 +14,7 @@ export function SectionCount({
   section: TrackerSection;
   tracker: TrackersTrackerItem;
 }) {
-  const count = section.count(tracker);
+  const count = section.count?.(tracker) ?? 0;
   const dot = section.dot?.(tracker);
   return count > 0 || dot !== undefined ? <Count value={count} {...(dot && { dot })} /> : null;
 }

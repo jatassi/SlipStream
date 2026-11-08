@@ -122,7 +122,7 @@ test("the Tracker page leads with its rule and standing, and its Torrents tab ho
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Torrents3 needs attention", "Seeding2 needs attention", "Indexers1"]);
+  ).toEqual(["Torrents3 needs attention", "Seeding2 needs attention", "Routing", "Indexers1"]);
   await expect
     .element(tabs().getByRole("link", { name: /^Torrents/u }))
     .toHaveAttribute("aria-current", "page");
@@ -223,7 +223,7 @@ test("on a phone the Tracker page lists its sections as rows, with no tab row", 
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Seeding2 needs attention", "Indexers1"]);
+  ).toEqual(["Seeding2 needs attention", "Routing", "Indexers1"]);
   await userEvent.click(sections.getByRole("link", { name: /^Seeding/u }));
   await expect.poll(() => router.state.location.pathname).toBe(`${trackerPage}/seeding`);
   const back = page.getByRole("banner").getByRole("link", { name: "seedpool" });

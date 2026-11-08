@@ -70,6 +70,7 @@ import { Route as AppSettingsIndexersNewRssRouteImport } from "./routes/_app/set
 import { Route as AppSettingsIndexersNewTorznabRouteImport } from "./routes/_app/settings/indexers.new.torznab";
 import { Route as AppSettingsTrackersTrackerIdTorrentsRouteRouteImport } from "./routes/_app/settings/trackers.$trackerId/_torrents/route";
 import { Route as AppSettingsTrackersTrackerIdIndexersRouteImport } from "./routes/_app/settings/trackers.$trackerId/indexers";
+import { Route as AppSettingsTrackersTrackerIdRoutingRouteImport } from "./routes/_app/settings/trackers.$trackerId/routing";
 import { Route as AppSettingsTrackersTrackerIdSeedingRouteImport } from "./routes/_app/settings/trackers.$trackerId/seeding";
 import { Route as AppSettingsIndexersNewCatalogDefinitionIdRouteImport } from "./routes/_app/settings/indexers.new.catalog.$definitionId";
 import { Route as AppSettingsTrackersTrackerIdTorrentsIndexRouteImport } from "./routes/_app/settings/trackers.$trackerId/_torrents/index";
@@ -391,6 +392,12 @@ const AppSettingsTrackersTrackerIdIndexersRoute =
     path: "/indexers",
     getParentRoute: () => AppSettingsTrackersTrackerIdRouteRoute,
   } as any);
+const AppSettingsTrackersTrackerIdRoutingRoute =
+  AppSettingsTrackersTrackerIdRoutingRouteImport.update({
+    id: "/routing",
+    path: "/routing",
+    getParentRoute: () => AppSettingsTrackersTrackerIdRouteRoute,
+  } as any);
 const AppSettingsTrackersTrackerIdSeedingRoute =
   AppSettingsTrackersTrackerIdSeedingRouteImport.update({
     id: "/seeding",
@@ -475,6 +482,7 @@ export interface FileRoutesByFullPath {
   "/settings/indexers/new/rss": typeof AppSettingsIndexersNewRssRoute;
   "/settings/indexers/new/torznab": typeof AppSettingsIndexersNewTorznabRoute;
   "/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
+  "/settings/trackers/$trackerId/routing": typeof AppSettingsTrackersTrackerIdRoutingRoute;
   "/settings/trackers/$trackerId/seeding": typeof AppSettingsTrackersTrackerIdSeedingRoute;
   "/settings/indexers/new/": typeof AppSettingsIndexersNewIndexRoute;
   "/settings/indexers/new/catalog/$definitionId": typeof AppSettingsIndexersNewCatalogDefinitionIdRoute;
@@ -534,6 +542,7 @@ export interface FileRoutesByTo {
   "/settings/indexers/new/rss": typeof AppSettingsIndexersNewRssRoute;
   "/settings/indexers/new/torznab": typeof AppSettingsIndexersNewTorznabRoute;
   "/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
+  "/settings/trackers/$trackerId/routing": typeof AppSettingsTrackersTrackerIdRoutingRoute;
   "/settings/trackers/$trackerId/seeding": typeof AppSettingsTrackersTrackerIdSeedingRoute;
   "/settings/indexers/new": typeof AppSettingsIndexersNewIndexRoute;
   "/settings/indexers/new/catalog/$definitionId": typeof AppSettingsIndexersNewCatalogDefinitionIdRoute;
@@ -601,6 +610,7 @@ export interface FileRoutesById {
   "/_app/settings/indexers/new/rss": typeof AppSettingsIndexersNewRssRoute;
   "/_app/settings/indexers/new/torznab": typeof AppSettingsIndexersNewTorznabRoute;
   "/_app/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
+  "/_app/settings/trackers/$trackerId/routing": typeof AppSettingsTrackersTrackerIdRoutingRoute;
   "/_app/settings/trackers/$trackerId/seeding": typeof AppSettingsTrackersTrackerIdSeedingRoute;
   "/_app/settings/indexers/new/": typeof AppSettingsIndexersNewIndexRoute;
   "/_app/settings/indexers/new/catalog/$definitionId": typeof AppSettingsIndexersNewCatalogDefinitionIdRoute;
@@ -668,6 +678,7 @@ export interface FileRouteTypes {
     | "/settings/indexers/new/rss"
     | "/settings/indexers/new/torznab"
     | "/settings/trackers/$trackerId/indexers"
+    | "/settings/trackers/$trackerId/routing"
     | "/settings/trackers/$trackerId/seeding"
     | "/settings/indexers/new/"
     | "/settings/indexers/new/catalog/$definitionId"
@@ -727,6 +738,7 @@ export interface FileRouteTypes {
     | "/settings/indexers/new/rss"
     | "/settings/indexers/new/torznab"
     | "/settings/trackers/$trackerId/indexers"
+    | "/settings/trackers/$trackerId/routing"
     | "/settings/trackers/$trackerId/seeding"
     | "/settings/indexers/new"
     | "/settings/indexers/new/catalog/$definitionId"
@@ -793,6 +805,7 @@ export interface FileRouteTypes {
     | "/_app/settings/indexers/new/rss"
     | "/_app/settings/indexers/new/torznab"
     | "/_app/settings/trackers/$trackerId/indexers"
+    | "/_app/settings/trackers/$trackerId/routing"
     | "/_app/settings/trackers/$trackerId/seeding"
     | "/_app/settings/indexers/new/"
     | "/_app/settings/indexers/new/catalog/$definitionId"
@@ -1244,6 +1257,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppSettingsTrackersTrackerIdIndexersRouteImport;
       parentRoute: typeof AppSettingsTrackersTrackerIdRouteRoute;
     };
+    "/_app/settings/trackers/$trackerId/routing": {
+      id: "/_app/settings/trackers/$trackerId/routing";
+      path: "/routing";
+      fullPath: "/settings/trackers/$trackerId/routing";
+      preLoaderRoute: typeof AppSettingsTrackersTrackerIdRoutingRouteImport;
+      parentRoute: typeof AppSettingsTrackersTrackerIdRouteRoute;
+    };
     "/_app/settings/trackers/$trackerId/seeding": {
       id: "/_app/settings/trackers/$trackerId/seeding";
       path: "/seeding";
@@ -1387,6 +1407,7 @@ const AppSettingsTrackersTrackerIdTorrentsRouteRouteWithChildren =
 interface AppSettingsTrackersTrackerIdRouteRouteChildren {
   AppSettingsTrackersTrackerIdTorrentsRouteRoute: typeof AppSettingsTrackersTrackerIdTorrentsRouteRouteWithChildren;
   AppSettingsTrackersTrackerIdIndexersRoute: typeof AppSettingsTrackersTrackerIdIndexersRoute;
+  AppSettingsTrackersTrackerIdRoutingRoute: typeof AppSettingsTrackersTrackerIdRoutingRoute;
   AppSettingsTrackersTrackerIdSeedingRoute: typeof AppSettingsTrackersTrackerIdSeedingRoute;
 }
 
@@ -1396,6 +1417,8 @@ const AppSettingsTrackersTrackerIdRouteRouteChildren: AppSettingsTrackersTracker
       AppSettingsTrackersTrackerIdTorrentsRouteRouteWithChildren,
     AppSettingsTrackersTrackerIdIndexersRoute:
       AppSettingsTrackersTrackerIdIndexersRoute,
+    AppSettingsTrackersTrackerIdRoutingRoute:
+      AppSettingsTrackersTrackerIdRoutingRoute,
     AppSettingsTrackersTrackerIdSeedingRoute:
       AppSettingsTrackersTrackerIdSeedingRoute,
   };
