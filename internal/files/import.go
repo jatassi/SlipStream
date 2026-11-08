@@ -35,6 +35,8 @@ type Incoming struct {
 	// Holding is root-relative, '/' separated; its extension is the file's.
 	Holding string
 	Size    int64
+	// Seen is what placing the bytes at Holding read of them.
+	Seen    storing.Seen
 	Media   media.Record
 	Quality release.Quality
 	GrabID  storage.UUID
@@ -122,7 +124,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	}
 	fresh := File{
 		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Cut: in.Cut, RootID: in.RootID, Path: in.Holding,
-		Size: in.Size, Media: in.Media, GrabID: in.GrabID, Quality: in.Quality,
+		Size: in.Size, Seen: &in.Seen, Media: in.Media, GrabID: in.GrabID, Quality: in.Quality,
 	}
 	after := before
 	after.files = append(slices.Clone(before.files), fresh)
