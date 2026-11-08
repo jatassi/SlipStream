@@ -14,7 +14,6 @@ function Content({ row, names }: { row: Row; names: Names }) {
   const inspected = useInspected(row.id);
   const { live, clock } = inspected;
   const node = names.node(row.nodeId);
-  const subject = { id: row.id, name: names.work(row.workId) ?? row.name };
   return (
     <>
       <InspectorSection>
@@ -25,7 +24,11 @@ function Content({ row, names }: { row: Row; names: Names }) {
             {row.fault.sentence}
           </p>
         )}
-        <Actions row={row} subject={subject} trackersAccept={inspected.trackersAccept} />
+        <Actions
+          row={row}
+          name={names.work(row.workId) ?? row.name}
+          trackersAccept={inspected.trackersAccept}
+        />
       </InspectorSection>
       <Sections row={row} names={names} node={node} clock={clock} inspected={inspected} />
     </>

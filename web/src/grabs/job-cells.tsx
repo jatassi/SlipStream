@@ -6,7 +6,7 @@ import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downlo
 import { useListTargetsSuspense } from "../api/gen/query/targets/targets";
 import { useQualityNames } from "../targets/quality-names";
 import { ActionsMenu } from "../torrents/actions-menu";
-import { type TorrentAction, menuFor } from "../torrents/actions";
+import { type TorrentAction, menuFor, subjectOf } from "../torrents/actions";
 import { Chip } from "../ui/chip";
 
 type Job = { readonly grab: GrabsGrab; readonly work: string };
@@ -41,7 +41,7 @@ export function JobMenu({ grab, work }: Job) {
     grab.stage === "downloading" ? menuFor(row).filter((action) => jobActions.has(action)) : [];
   return (
     <ActionsMenu
-      subject={{ id: row.id, name: work }}
+      subject={subjectOf(row, work)}
       actions={actions}
       extra={[
         {
