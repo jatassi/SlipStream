@@ -386,3 +386,11 @@ func TestURLKeepsThePathsEscapesAsWritten(t *testing.T) {
 		}
 	}
 }
+
+func TestIntKeepsALongsLow32BitsAsCSharpsCastDoes(t *testing.T) {
+	for n, want := range map[int64]int{0: 0, 42: 42, -7: -7, 1<<31 - 1: 1<<31 - 1, 1 << 31: -1 << 31, 1<<32 + 5: 5} {
+		if got := Int(n); got != want {
+			t.Errorf("Int(%d) = %d, want %d", n, got, want)
+		}
+	}
+}

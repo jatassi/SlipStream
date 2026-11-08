@@ -170,7 +170,7 @@ func parseResponse(ix *indexer, indexerResponse *port.IndexerResponse) ([]port.T
 
 		id := row.str("id")
 		details := ix.BaseURL.String() + "details.php?id=" + id
-		seeders := int(f.long(row, "seeders"))
+		seeders := f.integer(row, "seeders")
 
 		release := port.TorrentInfo{
 			MinimumRatio:         1,
@@ -184,13 +184,13 @@ func parseResponse(ix *indexer, indexerResponse *port.IndexerResponse) ([]port.T
 			Categories:           ix.Categories.FromTracker(strconv.FormatInt(f.long(row, "category"), 10)),
 			PublishDate:          datetimeutil.UnixTimestampToDateTime(f.long(row, "added"), ix.Clock),
 			Size:                 f.long(row, "size"),
-			Files:                int(f.long(row, "numfiles")),
+			Files:                f.integer(row, "numfiles"),
 			Seeders:              seeders,
-			Peers:                seeders + int(f.long(row, "leechers")),
-			Grabs:                int(f.long(row, "snatched")),
-			ImdbID:               int(f.long(row, "imdbId")),
-			TvdbID:               int(f.long(row, "tvdbId")),
-			TmdbID:               int(f.long(row, "tmdbId")),
+			Peers:                seeders + f.integer(row, "leechers"),
+			Grabs:                f.integer(row, "snatched"),
+			ImdbID:               f.integer(row, "imdbId"),
+			TvdbID:               f.integer(row, "tvdbId"),
+			TmdbID:               f.integer(row, "tmdbId"),
 		}
 		if f.err != nil {
 			return nil, port.IndexerError("read torrent %s of the Indexer's search response: %v", id, f.err)
@@ -234,6 +234,18 @@ func (f *fields) long(t jToken, key string) int64 {
 		f.err = fmt.Errorf("%s %q isn't a whole number", key, s)
 	}
 	return v
+}
+
+func (f *fields) integer(t jToken, key string) int {
+	s := t.str(key)
+	if s == "" {
+		return 0
+	}
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil && f.err == nil {
+		f.err = fmt.Errorf("%s %q isn't a whole number", key, s)
+	}
+	return int(v)
 }
 
 // SlipStream: Prowlarr's validator is the required flag on the API key.

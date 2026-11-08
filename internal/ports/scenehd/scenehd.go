@@ -141,10 +141,10 @@ func parseResponse(ix *indexer, indexerResponse *port.IndexerResponse) ([]port.T
 			Categories:           ix.Categories.FromTracker(item.str("category")),
 			PublishDate:          publishDate,
 			Size:                 f.long(item, "size"),
-			Grabs:                int(f.long(item, "times_completed")),
-			Files:                int(f.long(item, "numfiles")),
-			Seeders:              int(f.long(item, "seeders")),
-			Peers:                int(f.long(item, "leechers") + f.long(item, "seeders")),
+			Grabs:                f.integer(item, "times_completed"),
+			Files:                f.integer(item, "numfiles"),
+			Seeders:              f.integer(item, "seeders"),
+			Peers:                f.integer(item, "leechers") + f.integer(item, "seeders"),
 			ImdbID:               imdbID,
 			MinimumRatio:         1,
 			MinimumSeedTime:      0,
@@ -192,6 +192,18 @@ func (f *fields) long(t jToken, key string) int64 {
 		f.err = fmt.Errorf("%s %q isn't a whole number", key, s)
 	}
 	return v
+}
+
+func (f *fields) integer(t jToken, key string) int {
+	s := t.str(key)
+	if s == "" {
+		return 0
+	}
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil && f.err == nil {
+		f.err = fmt.Errorf("%s %q isn't a whole number", key, s)
+	}
+	return int(v)
 }
 
 // SlipStream: Prowlarr's validator is the required flag on the passkey.
