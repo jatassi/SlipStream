@@ -893,9 +893,20 @@ export const getListTorrentsResponseMock = (
     ...(faker.datatype.boolean() ? { queuePosition: faker.number.int({ min: 0 }) } : {}),
     ratio: faker.number.float({ min: 0, fractionDigits: 2 }),
     seeding: {
+      ...(faker.datatype.boolean()
+        ? { action: faker.helpers.arrayElement(["pause", "remove", "remove-delete"] as const) }
+        : {}),
       atRisk: faker.helpers.arrayElement(["no", "yes", "unknown"] as const),
       clears: faker.helpers.arrayElement(["none", "time", "ratio", "either", "both"] as const),
       combine: faker.helpers.arrayElement(["first", "both", "forever"] as const),
+      endless: faker.helpers.arrayElement([
+        "none",
+        "forever",
+        "resumed",
+        "no-tracker",
+        "no-rule",
+        "partial",
+      ] as const),
       goalMet: faker.datatype.boolean(),
       ...(faker.datatype.boolean()
         ? { owes: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) } }
@@ -908,6 +919,7 @@ export const getListTorrentsResponseMock = (
       state: faker.helpers.arrayElement(["none", "owing", "met", "missed", "released"] as const),
       time: {
         ...(faker.datatype.boolean() ? { goal: faker.number.int({ min: 0 }) } : {}),
+        ...(faker.datatype.boolean() ? { margin: faker.number.int({ min: 0 }) } : {}),
         ...(faker.datatype.boolean() ? { rule: faker.number.int({ min: 0 }) } : {}),
         value: faker.number.int({ min: 0 }),
       },
@@ -961,6 +973,34 @@ export const getActOnTorrentsResponseMock = (
             workId: faker.string.uuid(),
           })),
           frees: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+          hitAndRun: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            clears: faker.helpers.arrayElement([
+              "none",
+              "time",
+              "ratio",
+              "either",
+              "both",
+            ] as const),
+            ...(faker.datatype.boolean()
+              ? {
+                  owes: {
+                    bytes: faker.number.int({ min: 0 }),
+                    seconds: faker.number.int({ min: 0 }),
+                  },
+                }
+              : {}),
+            torrentId: faker.string.uuid(),
+            tracker: faker.helpers.arrayElement([
+              {
+                id: faker.string.uuid(),
+                name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+              null,
+            ]),
+          })),
           linked: faker.datatype.boolean(),
           stopSeeding: Array.from(
             { length: faker.number.int({ min: 1, max: 10 }) },
@@ -1115,9 +1155,20 @@ export const getGetTorrentResponseMock = (
     ? { saveFolder: faker.string.alpha({ length: { min: 10, max: 20 } }) }
     : {}),
   seeding: {
+    ...(faker.datatype.boolean()
+      ? { action: faker.helpers.arrayElement(["pause", "remove", "remove-delete"] as const) }
+      : {}),
     atRisk: faker.helpers.arrayElement(["no", "yes", "unknown"] as const),
     clears: faker.helpers.arrayElement(["none", "time", "ratio", "either", "both"] as const),
     combine: faker.helpers.arrayElement(["first", "both", "forever"] as const),
+    endless: faker.helpers.arrayElement([
+      "none",
+      "forever",
+      "resumed",
+      "no-tracker",
+      "no-rule",
+      "partial",
+    ] as const),
     goalMet: faker.datatype.boolean(),
     ...(faker.datatype.boolean()
       ? { owes: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) } }
@@ -1130,6 +1181,7 @@ export const getGetTorrentResponseMock = (
     state: faker.helpers.arrayElement(["none", "owing", "met", "missed", "released"] as const),
     time: {
       ...(faker.datatype.boolean() ? { goal: faker.number.int({ min: 0 }) } : {}),
+      ...(faker.datatype.boolean() ? { margin: faker.number.int({ min: 0 }) } : {}),
       ...(faker.datatype.boolean() ? { rule: faker.number.int({ min: 0 }) } : {}),
       value: faker.number.int({ min: 0 }),
     },

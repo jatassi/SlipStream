@@ -57,8 +57,10 @@ type Row struct {
 	Tracker *TrackerRef
 	// Seeding is its info hash's seeding, as the Seeder judged it.
 	Seeding seeding.View
-	Error   string
-	Fault   *Fault
+	// Plan is what its goal does now, as the Seeder judged it.
+	Plan  seeding.Plan
+	Error string
+	Fault *Fault
 	// LastKnown is when its Node last reported it, set only while the
 	// Node is out of step.
 	LastKnown time.Time
@@ -243,7 +245,7 @@ func (c *Clients) rowsOf(ctx context.Context, r storage.Reader[file], held []db.
 	}
 	for i := range rows {
 		j := judged[rows[i].ID]
-		rows[i].Tracker, rows[i].Seeding = j.Tracker, j.View
+		rows[i].Tracker, rows[i].Seeding, rows[i].Plan = j.Tracker, j.View, j.Plan
 		if j.View.GoalMet {
 			rows[i].Tabs |= TabGoalMet
 		}

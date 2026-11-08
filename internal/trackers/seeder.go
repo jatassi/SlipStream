@@ -32,8 +32,9 @@ func (s seeder) Judge(ctx context.Context, r storage.Reader[file], rows []downlo
 	out := make(map[downloadclients.ID]downloadclients.Judged, len(rows))
 	for _, row := range rows {
 		h := j.hashes[row.InfoHash]
-		judged := downloadclients.Judged{View: h.verdict.View}
-		i := slices.IndexFunc(h.facts, func(f downloadclients.HashFact) bool { return f.ID == row.ID })
+		mine := func(f downloadclients.HashFact) bool { return f.ID == row.ID }
+		judged := downloadclients.Judged{View: h.verdict.View, Plan: h.verdict.Plans[slices.IndexFunc(h.copies, mine)]}
+		i := slices.IndexFunc(h.facts, mine)
 		if t, ok := j.trackers[trackerOf(h.facts[i])]; ok {
 			judged.Tracker = &downloadclients.TrackerRef{ID: t.ID, Name: t.Name}
 		}

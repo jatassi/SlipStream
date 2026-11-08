@@ -70,6 +70,8 @@ export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
       atRisk: "no",
       goalMet: false,
       combine: "first",
+      action: "remove-delete",
+      endless: "none",
       clears: "none",
     },
     addedAt: `2026-10-12T09:${String(serial % 60).padStart(2, "0")}:00Z`,
@@ -124,7 +126,7 @@ export function detailOf(
  * unless `refuse` names a refusal for its id, and a dry run's preview.
  */
 export function actionsServer({
-  preview = { cancels: [], stopSeeding: [], frees: 0, linked: false },
+  preview = { cancels: [], stopSeeding: [], frees: 0, linked: false, hitAndRun: [] },
   refuse,
 }: {
   preview?: DownloadclientsPreview;

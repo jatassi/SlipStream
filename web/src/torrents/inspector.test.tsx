@@ -164,7 +164,7 @@ test("Pause and Announce now act on the torrent the Inspector shows", async () =
 test("a recheck of files the library shares asks first", async () => {
   const live = liveServer();
   const actions = actionsServer({
-    preview: { cancels: [], stopSeeding: [], frees: 0, linked: true },
+    preview: { cancels: [], stopSeeding: [], frees: 0, linked: true, hitAndRun: [] },
   });
   renderApp({
     path: `/activity/torrents/${orchard.id}?tab=all`,

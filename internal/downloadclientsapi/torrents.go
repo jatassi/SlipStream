@@ -74,6 +74,8 @@ type seedingView struct {
 	AtRisk  string    `json:"atRisk" enum:"no,yes,unknown" doc:"Whether a torrent that owes is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline"`
 	GoalMet bool      `json:"goalMet" doc:"Its seeding goal is met and it owes its Tracker nothing"`
 	Combine string    `json:"combine" enum:"first,both,forever" doc:"How its goal's ratio and seeding time combine. A forever goal seeds until an Admin removes it"`
+	Action  string    `json:"action,omitempty" enum:"pause,remove,remove-delete" doc:"What its goal does once met, absent for a forever goal"`
+	Endless string    `json:"endless" enum:"none,forever,resumed,no-tracker,no-rule,partial" doc:"Why its goal never acts on it, or none while its goal can act"`
 	Clears  string    `json:"clears" enum:"none,time,ratio,either,both" doc:"What meets the rule in force, or none while no rule is known"`
 }
 
@@ -84,9 +86,10 @@ type ratioLane struct {
 }
 
 type timeLane struct {
-	Value int64  `json:"value" minimum:"0" doc:"Seconds of seeding the goal counts: the Tracker's count for a private torrent, the torrent client's for a public one"`
-	Rule  *int64 `json:"rule,omitempty" minimum:"0" doc:"Seconds the rule needs plus the margin, absent when the rule doesn't count seeding time"`
-	Goal  *int64 `json:"goal,omitempty" minimum:"0" doc:"Seconds the goal needs, absent when the goal doesn't count seeding time"`
+	Value  int64  `json:"value" minimum:"0" doc:"Seconds of seeding the goal counts: the Tracker's count for a private torrent, the torrent client's for a public one"`
+	Rule   *int64 `json:"rule,omitempty" minimum:"0" doc:"Seconds the rule needs plus the margin, absent when the rule doesn't count seeding time"`
+	Goal   *int64 `json:"goal,omitempty" minimum:"0" doc:"Seconds the goal needs, absent when the goal doesn't count seeding time"`
+	Margin *int64 `json:"margin,omitempty" minimum:"0" doc:"Seconds of the margin the rule's mark includes, absent when the rule doesn't count seeding time"`
 }
 
 type owes struct {
@@ -94,10 +97,19 @@ type owes struct {
 	Bytes   int64 `json:"bytes" minimum:"0" doc:"Upload still needed, 0 when the rule doesn't count ratio or it is reached"`
 }
 
-func seedingOf(v seeding.View) seedingView {
+// endlessWords is each wait with no end of its own, by its API name.
+var endlessWords = map[seeding.Why]string{
+	seeding.SeedsForever: "forever", seeding.ResumedAfterPause: "resumed", seeding.NoTracker: "no-tracker",
+	seeding.NoRule: "no-rule", seeding.PartialOwesTime: "partial",
+}
+
+func seedingOf(v seeding.View, p seeding.Plan) seedingView {
 	out := seedingView{
 		Ratio: ratioLane{Value: v.Ratio.Value.Float()}, Time: timeLane{Value: seconds(v.Time.Value)},
-		State: "none", AtRisk: string(v.Risk), GoalMet: v.GoalMet, Combine: "forever", Clears: "none",
+		State: "none", AtRisk: string(v.Risk), GoalMet: v.GoalMet, Combine: "forever", Endless: "none", Clears: "none",
+	}
+	if w, ok := p.(seeding.Wait); ok && w.Why.Endless() {
+		out.Endless = endlessWords[w.Why]
 	}
 	if v.Ratio.Rule != nil {
 		out.Ratio.Rule = new(v.Ratio.Rule.Float())
@@ -106,7 +118,7 @@ func seedingOf(v seeding.View) seedingView {
 		out.Ratio.Goal = new(v.Ratio.Goal.Float())
 	}
 	if v.Time.Rule != nil {
-		out.Time.Rule = new(seconds(*v.Time.Rule))
+		out.Time.Rule, out.Time.Margin = new(seconds(*v.Time.Rule)), new(seconds(v.Margin))
 	}
 	if v.Time.Goal != nil {
 		out.Time.Goal = new(seconds(*v.Time.Goal))
@@ -118,7 +130,7 @@ func seedingOf(v seeding.View) seedingView {
 		out.Owes = &owes{Seconds: seconds(v.Owes.Time), Bytes: v.Owes.Bytes}
 	}
 	if f, ok := v.Goal.(seeding.Finite); ok {
-		out.Combine = string(f.Combine())
+		out.Combine, out.Action = string(f.Combine()), string(f.Then())
 	}
 	if v.Rule != nil {
 		out.Clears = string(v.Rule.Clears())
@@ -158,7 +170,7 @@ func rowOf(r downloadclients.Row) TorrentRow {
 		State: string(r.State), Hold: string(r.Hold), Until: when(r.Until), InLine: r.QueuePosition,
 		Severity: severityWords[r.Severity], Tabs: []string{}, Pending: pendingWords[r.Pending],
 		Size: r.Size, Done: r.Done, Uploaded: r.Totals.Uploaded, Ratio: downloadclients.Ratio(r.Totals, r.Size),
-		Seeding: int64(r.Totals.Seeding / time.Second), SeedingView: seedingOf(r.Seeding), Error: r.Error, LastKnown: when(r.LastKnown), AddedAt: r.AddedAt,
+		Seeding: int64(r.Totals.Seeding / time.Second), SeedingView: seedingOf(r.Seeding, r.Plan), Error: r.Error, LastKnown: when(r.LastKnown), AddedAt: r.AddedAt,
 	}
 	for _, t := range downloadclients.Tabs {
 		if r.Tabs&t != 0 {
@@ -417,10 +429,18 @@ type refusal struct {
 }
 
 type preview struct {
-	Cancels     []canceled `json:"cancels" nullable:"false" doc:"The Grabs at downloading that a remove fails"`
-	StopSeeding []string   `json:"stopSeeding" format:"uuid" nullable:"false" doc:"The Works whose complete Torrents stop seeding"`
-	Frees       *int64     `json:"frees" minimum:"0" doc:"Bytes deleting the download copies frees, null while a Node can't report it"`
-	Linked      bool       `json:"linked" doc:"Some file is also a library file, as a recheck reads it"`
+	Cancels     []canceled  `json:"cancels" nullable:"false" doc:"The Grabs at downloading that a remove fails"`
+	StopSeeding []string    `json:"stopSeeding" format:"uuid" nullable:"false" doc:"The Works whose complete Torrents stop seeding"`
+	Frees       *int64      `json:"frees" minimum:"0" doc:"Bytes deleting the download copies frees, null while a Node can't report it"`
+	Linked      bool        `json:"linked" doc:"Some file is also a library file, as a recheck reads it"`
+	HitAndRun   []hitAndRun `json:"hitAndRun" nullable:"false" doc:"The removed torrents whose removal counts as a hit and run, each the last copy of a torrent that still owes its Tracker"`
+}
+
+type hitAndRun struct {
+	TorrentID string                   `json:"torrentId" format:"uuid"`
+	Tracker   api.Nullable[trackerRef] `json:"tracker" doc:"The Tracker it owes, null while that Tracker isn't known"`
+	Owes      *owes                    `json:"owes,omitempty" doc:"What it still owes, absent while its Tracker's rule isn't known"`
+	Clears    string                   `json:"clears" enum:"none,time,ratio,either,both" doc:"What meets the rule it owes, or none while no rule is known"`
 }
 
 type canceled struct {
@@ -465,7 +485,17 @@ func previewOf(p *downloadclients.Preview) *preview {
 	if p == nil {
 		return nil
 	}
-	out := &preview{Cancels: []canceled{}, StopSeeding: []string{}, Frees: p.Frees, Linked: p.Linked}
+	out := &preview{Cancels: []canceled{}, StopSeeding: []string{}, Frees: p.Frees, Linked: p.Linked, HitAndRun: []hitAndRun{}}
+	for _, h := range p.HitAndRun {
+		hr := hitAndRun{TorrentID: h.ID.String(), Clears: "none"}
+		if t := h.Tracker; t != nil {
+			hr.Tracker = api.Some(trackerRef{ID: t.ID.String(), Name: t.Name})
+		}
+		if o := h.Owes; o != nil {
+			hr.Owes, hr.Clears = &owes{Seconds: seconds(o.Time), Bytes: o.Bytes}, string(o.Clears)
+		}
+		out.HitAndRun = append(out.HitAndRun, hr)
+	}
 	for _, u := range p.Cancels {
 		out.Cancels = append(out.Cancels, canceled{GrabID: u.Grab.String(), WorkID: u.Work.String(), Release: u.Release})
 	}

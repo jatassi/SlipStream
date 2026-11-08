@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -126,6 +127,18 @@ type Preview struct {
 	Frees *int64
 	// Linked is some file also being a library file: a recheck reads it.
 	Linked bool
+	// HitAndRun are the Torrents whose removal counts as a hit and run, in
+	// the action's order: each is the last live copy of an info hash that
+	// still owes its Tracker.
+	HitAndRun []HitAndRun
+}
+
+type HitAndRun struct {
+	ID ID
+	// Tracker is nil while the Tracker it owes isn't known.
+	Tracker *TrackerRef
+	// Owes is nil while its Tracker's rule isn't known.
+	Owes *seeding.Owes
 }
 
 // Act runs a on each of its Torrents and answers for each, in a's order,
@@ -224,7 +237,10 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 	if a.DryRun {
 		err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 			var err error
-			plan, err = c.planRemoval(ctx, r, a)
+			if plan, err = c.planRemoval(ctx, r, a); err != nil {
+				return err
+			}
+			plan.preview.HitAndRun, err = c.hitsAndRuns(ctx, r, plan)
 			return err
 		})
 		if err != nil {
@@ -260,6 +276,7 @@ type removal struct {
 	results []Result
 	ids     []ID
 	nodes   []role.NodeID
+	hashes  []bencode.InfoHash
 	preview *Preview
 }
 
@@ -282,7 +299,7 @@ func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], a Act
 		}
 		plan.results = append(plan.results, res)
 		if res.Refusal == nil {
-			plan.ids, plan.nodes = append(plan.ids, id), append(plan.nodes, rows[id].NodeID)
+			plan.ids, plan.nodes, plan.hashes = append(plan.ids, id), append(plan.nodes, rows[id].NodeID), append(plan.hashes, bencode.InfoHash(rows[id].InfoHash))
 			plan.preview.add(rows[id], uses[id])
 		}
 	}
@@ -306,6 +323,34 @@ func removable(row db.ListActedRow, uses []Use, kind ActionKind) (*Refusal, erro
 		return &Refusal{Code: RefusedNotStalled}, nil
 	}
 	return nil, nil
+}
+
+// hitsAndRuns is each Torrent plan removes that leaves its info hash with
+// no live copy while the hash owes its Tracker, once per hash.
+func (c *Clients) hitsAndRuns(ctx context.Context, r storage.Reader[file], plan removal) ([]HitAndRun, error) {
+	rows, err := c.Rows(ctx, r, Filter{Hashes: plan.hashes})
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[ID]Row, len(rows))
+	stays := map[bencode.InfoHash]bool{}
+	for _, row := range rows {
+		byID[row.ID] = row
+		if row.State != StateRemoving && !slices.Contains(plan.ids, row.ID) {
+			stays[row.InfoHash] = true
+		}
+	}
+	var out []HitAndRun
+	for _, id := range plan.ids {
+		row := byID[id]
+		w := row.Seeding.Window
+		if stays[row.InfoHash] || w == nil || w.State != seeding.Owing {
+			continue
+		}
+		stays[row.InfoHash] = true
+		out = append(out, HitAndRun{ID: id, Tracker: row.Tracker, Owes: row.Seeding.Owes})
+	}
+	return out, nil
 }
 
 // add counts a removed Torrent's Grabs into p: those downloading it are
