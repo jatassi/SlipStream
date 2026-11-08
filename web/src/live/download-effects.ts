@@ -5,6 +5,7 @@ import {
 } from "../api/gen/query/downloadclients/downloadclients";
 import { getGetTopologyQueryKey } from "../api/gen/query/nodes/nodes";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
+import { getPreviewSeedingGoalsQueryKey } from "../api/gen/query/trackers/trackers";
 import { torrentsSplicer } from "./torrents-splice";
 import { takeTorrents } from "./torrents";
 import { transferEffects } from "./transfer-effects";
@@ -17,6 +18,7 @@ export const downloadEffects = {
     refresh({ queryKey: getGetTopologyQueryKey() });
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh({ queryKey: getListDownloadClientsQueryKey() });
+    refresh({ queryKey: getPreviewSeedingGoalsQueryKey() });
   },
   "torrents.live": (data, { queryClient }) => {
     takeTorrents(queryClient, data);

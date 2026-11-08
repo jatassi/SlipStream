@@ -3,6 +3,7 @@ import { useNow } from "../tasks/use-now";
 import { StatusSentence } from "../ui/status-sentence";
 import { Browse, type Seams, type TorrentsSearch } from "./browse";
 import { NoTorrents } from "./empty";
+import { GoalMetPreview } from "./goal-met";
 import { useNames } from "./names";
 import { type Scope, scoped } from "./scope";
 import { Signals } from "./signals";
@@ -46,6 +47,7 @@ export function TorrentsView({
         onSearchChange={onSearchChange}
         names={names}
         clock={clock}
+        goalMet={<GoalMetPreview rows={list.rows} names={names} />}
         {...seams}
       />
     </>

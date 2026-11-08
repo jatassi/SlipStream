@@ -43,8 +43,29 @@ export function Numbers({
 
 const hostOf = (url: string) => (URL.canParse(url) ? new URL(url).host : url);
 
-function TrackerLine({ tracker, clock }: { tracker: DownloadclientsTrackerDetail; clock: Clock }) {
+const counted = (count: number | undefined, one: string, many: string) =>
+  count === undefined ? [] : [`${count} ${count === 1 ? one : many}`];
+
+/** "142 seeders and 3 leechers on seedpool.", or undefined when the response carried no counts. */
+function swarmSentence({ seeders, leechers }: DownloadclientsTrackerDetail, on: string) {
+  const counts = [
+    ...counted(seeders, "seeder", "seeders"),
+    ...counted(leechers, "leecher", "leechers"),
+  ];
+  return counts.length === 0 ? undefined : `${counts.join(" and ")} on ${on}.`;
+}
+
+function TrackerLine({
+  tracker,
+  named,
+  clock,
+}: {
+  tracker: DownloadclientsTrackerDetail;
+  named: string | undefined;
+  clock: Clock;
+}) {
   const host = hostOf(tracker.url);
+  const swarm = swarmSentence(tracker, named ?? host);
   const { status } = trackerLine({ host, ...tracker }, clock);
   const timing = [
     tracker.answeredAt === undefined
@@ -60,6 +81,7 @@ function TrackerLine({ tracker, clock }: { tracker: DownloadclientsTrackerDetail
         <span className="truncate font-semibold">{host}</span>
         <span className="shrink-0 text-ink-2">{status}</span>
       </span>
+      {swarm !== undefined && <span className="text-ink-2 tabular-nums">{swarm}</span>}
       <Details summary={<span className="text-meta text-ink-3">{timing}</span>}>
         <FactList
           facts={[
@@ -99,7 +121,12 @@ export function AnnounceUrls({
       ) : (
         <ul>
           {detail.trackers.map((tracker) => (
-            <TrackerLine key={tracker.url} tracker={tracker} clock={clock} />
+            <TrackerLine
+              key={tracker.url}
+              tracker={tracker}
+              named={detail.private ? detail.tracker?.name : undefined}
+              clock={clock}
+            />
           ))}
         </ul>
       )}
