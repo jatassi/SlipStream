@@ -1,5 +1,6 @@
 import type { ImportsHint } from "./importsHint.ts";
 import type { ImportsPendingFile } from "./importsPendingFile.ts";
+import type { ImportsRootLabel } from "./importsRootLabel.ts";
 import type { ImportsSuggestion } from "./importsSuggestion.ts";
 
 export interface ImportsEntry {
@@ -18,7 +19,7 @@ export interface ImportsEntry {
    * @nullable
    */
   ignoredAt: string | null;
-  rootId: string;
+  root: ImportsRootLabel;
   /** The best candidate; null when none matched */
   suggestion: ImportsSuggestion | null;
 }

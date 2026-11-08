@@ -3102,7 +3102,7 @@ export const ImportsEntry = zod.object({
     .datetime({ offset: true })
     .nullable()
     .describe("Null while it needs the Admin"),
-  rootId: zod.uuid(),
+  root: ImportsRootLabel,
   suggestion: zod
     .union([ImportsSuggestion, zod.null()])
     .describe("The best candidate; null when none matched"),

@@ -140,7 +140,7 @@ type pendingFile struct {
 
 type entry struct {
 	ID          string                   `json:"id" format:"uuid"`
-	RootID      string                   `json:"rootId" format:"uuid"`
+	Root        rootLabel                `json:"root"`
 	Folder      string                   `json:"folder" doc:"Its Work folder relative to the root, or the file's path when it sits loose at the root's top"`
 	ContentType string                   `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Hint        hint                     `json:"hint" doc:"What the folder or file name says"`
@@ -161,7 +161,7 @@ func (c converter) label(id roots.ID) rootLabel {
 
 func (c converter) entry(e imports.Entry) entry {
 	out := entry{
-		ID: e.ID.String(), RootID: e.Root.String(), Folder: e.Folder, ContentType: string(e.ContentType),
+		ID: e.ID.String(), Root: c.label(e.Root), Folder: e.Folder, ContentType: string(e.ContentType),
 		Hint: hintOf(e.Hint), FoundAt: e.FoundAt.Time(), Files: make([]pendingFile, len(e.Files)),
 	}
 	if e.Suggestion != nil {

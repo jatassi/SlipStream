@@ -114,7 +114,10 @@ export const getListPendingImportsResponseMock = (
         faker.date.past().toISOString().slice(0, 19) + "Z",
         null,
       ]),
-      rootId: faker.string.uuid(),
+      root: {
+        id: faker.string.uuid(),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
       suggestion: faker.helpers.arrayElement([
         {
           confident: faker.datatype.boolean(),
@@ -271,7 +274,10 @@ export const getImportPendingIntoResponseMock = (
         faker.date.past().toISOString().slice(0, 19) + "Z",
         null,
       ]),
-      rootId: faker.string.uuid(),
+      root: {
+        id: faker.string.uuid(),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
       suggestion: faker.helpers.arrayElement([
         {
           confident: faker.datatype.boolean(),
@@ -373,7 +379,7 @@ export const getMatchPendingImportResponseMock = (
   },
   id: faker.string.uuid(),
   ignoredAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
-  rootId: faker.string.uuid(),
+  root: { id: faker.string.uuid(), label: faker.string.alpha({ length: { min: 10, max: 20 } }) },
   suggestion: faker.helpers.arrayElement([
     {
       confident: faker.datatype.boolean(),

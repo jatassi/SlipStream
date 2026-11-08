@@ -266,9 +266,9 @@ func TestPendingImportsLeadWithEachScannedRootThenListTheEntries(t *testing.T) {
 	}
 
 	want := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"entries":[` +
-		`{"id":"id2","rootId":"id1","folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"foundAt":"T","ignoredAt":null,"files":[` +
+		`{"id":"id2","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"foundAt":"T","ignoredAt":null,"files":[` +
 		`{"path":"Halloween/Halloween.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"elsewhere","title":"Halloween","year":1978,"root":{"id":"id3","label":"Shelves library root on NAS"}}}]},` +
-		`{"id":"id4","rootId":"id1","folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},` +
+		`{"id":"id4","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},` +
 		`"suggestion":{"key":"w1","label":"Heat","year":1995,"posterUrl":null,"workId":null,"confident":true},"foundAt":"T","ignoredAt":null,"files":[` +
 		`{"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}},` +
 		`{"path":"Heat (1995)/Heat.sample.mkv","size":1073741824,"quality":null,"cut":"standard","itemIds":[],"reason":{"code":"unreadable","line":"Invalid data found when processing input"}}]}]}` + "\n"
@@ -276,7 +276,7 @@ func TestPendingImportsLeadWithEachScannedRootThenListTheEntries(t *testing.T) {
 		t.Errorf("listPendingImports = %s\nwant %s", got, want)
 	}
 	ignored := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"entries":[` +
-		`{"id":"id2","rootId":"id1","folder":"Brazil (1985)","contentType":"fixture","hint":{"title":"Brazil","year":1985,"ids":[]},"suggestion":null,"foundAt":"T","ignoredAt":"T","files":[` +
+		`{"id":"id2","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Brazil (1985)","contentType":"fixture","hint":{"title":"Brazil","year":1985,"ids":[]},"suggestion":null,"foundAt":"T","ignoredAt":"T","files":[` +
 		`{"path":"Brazil (1985)/Brazil.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}}]}]}` + "\n"
 	if got := s.entries(t, "?ignored=true"); got != ignored {
 		t.Errorf("listPendingImports?ignored=true = %s\nwant %s", got, ignored)
@@ -326,7 +326,7 @@ func TestMatchMakesARecordTheSuggestion(t *testing.T) {
 	s.stock("w2", "Heat")
 	id := s.pend(t, "Heat (1995)", nil, false, noMatch("Heat (1995)/Heat.mkv"))
 	s.Expect(t, http.MethodPost, "/api/v1/imports/pending/"+id+"/match", `{"key":"w2"}`, http.StatusOK,
-		`{"id":"id1","rootId":"id2","folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
+		`{"id":"id1","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
 			`"suggestion":{"key":"w2","label":"Heat","year":null,"posterUrl":null,"workId":null,"confident":false},"foundAt":"T","ignoredAt":null,"files":[`+
 			`{"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}}]}`)
 	s.Expect(t, http.MethodPost, "/api/v1/imports/pending/"+id+"/match", `{"key":"nowhere"}`, http.StatusNotFound,
@@ -353,7 +353,7 @@ func TestImportIntoAttachesTheChosenFilesToAWorkInTheEntrysRoot(t *testing.T) {
 		`{"status":409,"code":"pending_elsewhere","title":"The Work lives in another library root"}`)
 
 	s.Expect(t, http.MethodPost, url, into("Shelf/a.mkv", work.Items[0].ID, work.ID), http.StatusOK,
-		`{"entry":{"id":"id1","rootId":"id2","folder":"Shelf","contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
+		`{"entry":{"id":"id1","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
 			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"foundAt":"T","ignoredAt":null,"files":[`+
 			`{"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}}]}}`)
 	s.Expect(t, http.MethodPost, url, into("Shelf/b.mkv", work.Items[1].ID, work.ID), http.StatusOK, `{"entry":null}`)

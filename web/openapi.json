@@ -5695,9 +5695,8 @@
               "null"
             ]
           },
-          "rootId": {
-            "format": "uuid",
-            "type": "string"
+          "root": {
+            "$ref": "#/components/schemas/ImportsRootLabel"
           },
           "suggestion": {
             "anyOf": [
@@ -5713,7 +5712,7 @@
         },
         "required": [
           "id",
-          "rootId",
+          "root",
           "folder",
           "contentType",
           "hint",
