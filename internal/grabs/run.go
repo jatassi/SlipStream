@@ -240,7 +240,7 @@ func failOfGone(g downloadclients.Gone) fail {
 func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	video, ok := largestVideo(g.Torrent.Files)
 	if !ok {
-		return fail{NoVideoFile, "The download holds no mkv, mp4, m4v, avi or ts file"}
+		return fail{NoVideoFile, "The download holds no video file."}
 	}
 	probe, err := gr.cfg.Media.Probe(ctx, g.Node, g.Torrent.InfoHash, video.Index)
 	if err != nil {
@@ -291,12 +291,13 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	return advance{to: Transferring, plan: &p}
 }
 
-// largestVideo is the largest file with a video extension.
+// largestVideo is the largest file that counts as a video, so a sample
+// or a bonus feature is never the one imported.
 func largestVideo(fs []engine.File) (engine.File, bool) {
 	var best engine.File
 	found := false
 	for _, f := range fs {
-		if media.IsVideo(f.Path) && (!found || f.Size > best.Size) {
+		if media.Counts(f.Path) && (!found || f.Size > best.Size) {
 			best, found = f, true
 		}
 	}

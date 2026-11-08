@@ -10,10 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"path"
-	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -153,14 +150,4 @@ func (r Remote) Probe(ctx context.Context, node role.NodeID, h bencode.InfoHash,
 		Width:     int(res.GetWidth()),
 		Height:    int(res.GetHeight()),
 	}, nil
-}
-
-// videoExtensions are the extensions a probed file may have.
-var videoExtensions = []string{"mkv", "mp4", "m4v", "avi", "ts"}
-
-// IsVideo reports whether name, '/' separated, names a video file by its
-// extension.
-func IsVideo(name string) bool {
-	ext := strings.TrimPrefix(path.Ext(name), ".")
-	return slices.Contains(videoExtensions, strings.ToLower(ext))
 }

@@ -35,17 +35,6 @@ func TestParseFFprobeRefusesAFileWithoutVideo(t *testing.T) {
 	}
 }
 
-func TestIsVideo(t *testing.T) {
-	for name, want := range map[string]bool{
-		"a/Orchard.mkv": true, "Orchard.MP4": true, "x.m4v": true, "x.avi": true, "x.ts": true,
-		"x.nfo": false, "sample": false, "a.mkv/readme.txt": false,
-	} {
-		if got := media.IsVideo(name); got != want {
-			t.Errorf("IsVideo(%q) = %v, want %v", name, got, want)
-		}
-	}
-}
-
 type payloads map[bencode.InfoHash]string
 
 func (p payloads) Path(h bencode.InfoHash, index int) (string, error) {
