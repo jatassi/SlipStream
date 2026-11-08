@@ -50,13 +50,15 @@ export function adoptMerge(queryClient: QueryClient, from: string, kept: Tracker
   );
 }
 
-/** id is removed. */
+/** id is removed: the list drops it at once, and its page's data once the page has closed. */
 export function adoptRemoved(queryClient: QueryClient, id: string) {
-  queryClient.removeQueries({ queryKey: getGetTrackerQueryKey(id), exact: true });
   queryClient.setQueryData<TrackersTrackerList>(
     getListTrackersQueryKey(),
     (list) => list && { trackers: list.trackers.filter((shown) => shown.id !== id) },
   );
+  return () => {
+    queryClient.removeQueries({ queryKey: getGetTrackerQueryKey(id), exact: true });
+  };
 }
 
 export function adoptDefaultGoal(queryClient: QueryClient, goal: TrackersGoal) {

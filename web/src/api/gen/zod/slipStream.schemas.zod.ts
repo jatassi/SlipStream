@@ -19,7 +19,7 @@ export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
 export type AccountPatchInputBodyOutput = zod.output<typeof AccountPatchInputBody>;
 
 export const ActInputBody = zod.object({
-  action: zod.enum(["pause", "resume", "announce", "recheck", "mark-failed", "remove"]),
+  action: zod.enum(["pause", "resume", "announce", "recheck", "retry", "mark-failed", "remove"]),
   deleteFiles: zod.boolean().exactOptional().describe("remove: also delete each download copy"),
   dryRun: zod
     .boolean()
@@ -81,6 +81,7 @@ export const DownloadclientsRefusal = zod.object({
     "window",
     "not_running",
     "failed",
+    "not_retryable",
   ]),
   node: zod
     .string()
@@ -804,6 +805,22 @@ export const DownloadclientsRatioLane = zod.object({
 export type DownloadclientsRatioLane = zod.input<typeof DownloadclientsRatioLane>;
 export type DownloadclientsRatioLaneOutput = zod.output<typeof DownloadclientsRatioLane>;
 
+export const downloadclientsRetriedFoundMin = 0;
+
+export const DownloadclientsRetried = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  found: zod
+    .int()
+    .min(downloadclientsRetriedFoundMin)
+    .exactOptional()
+    .describe(
+      "The bytes its check found, absent until its Node checked; all of size means it seeds again",
+    ),
+});
+
+export type DownloadclientsRetried = zod.input<typeof DownloadclientsRetried>;
+export type DownloadclientsRetriedOutput = zod.output<typeof DownloadclientsRetried>;
+
 export const downloadclientsTimeLaneGoalMin = 0;
 
 export const downloadclientsTimeLaneMarginMin = 0;
@@ -1292,6 +1309,12 @@ export const DownloadclientsTorrentDetail = zod.object({
     .number()
     .min(downloadclientsTorrentDetailRatioMin)
     .describe("Uploaded over the larger of downloaded and size"),
+  retry: DownloadclientsRetried.exactOptional().describe("Its last Retry, absent before one"),
+  retryable: zod
+    .boolean()
+    .describe(
+      "It failed in its Node's built-in client after it completed, so retry can check its files again",
+    ),
   saveFolder: zod
     .string()
     .exactOptional()
@@ -1471,6 +1494,12 @@ export const DownloadclientsTorrentRow = zod.object({
     .number()
     .min(downloadclientsTorrentRowRatioMin)
     .describe("Uploaded over the larger of downloaded and size"),
+  retry: DownloadclientsRetried.exactOptional().describe("Its last Retry, absent before one"),
+  retryable: zod
+    .boolean()
+    .describe(
+      "It failed in its Node's built-in client after it completed, so retry can check its files again",
+    ),
   seeding: zod
     .union([DownloadclientsSeedingView, zod.null()])
     .describe(

@@ -2,6 +2,7 @@ package trackers_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -17,6 +18,14 @@ import (
 // runGoals runs every unit of the Seeding goals task once, in its order.
 func (l *library) runGoals() {
 	l.t.Helper()
+	if err := l.goals(); err != nil {
+		l.t.Fatal(err)
+	}
+}
+
+// goals runs every unit of the Seeding goals task once, in its order, and
+// answers the first unit's error.
+func (l *library) goals() error {
 	task := l.x.Task()
 	var units []tasks.Unit
 	err := l.lib.Read(l.t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
@@ -25,13 +34,14 @@ func (l *library) runGoals() {
 		return err
 	})
 	if err != nil {
-		l.t.Fatal(err)
+		return err
 	}
 	for _, u := range units {
 		if err := task.Run(l.t.Context(), u, nil); err != nil {
-			l.t.Fatalf("unit %s: %v", u.Label, err)
+			return fmt.Errorf("unit %s: %w", u.Label, err)
 		}
 	}
+	return nil
 }
 
 // host gives tracker the announce host h.

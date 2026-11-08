@@ -324,6 +324,28 @@ func (q *Queries) GetRetarget(ctx context.Context, id TorrentID) (GetRetargetRow
 	return i, err
 }
 
+const getRetry = `-- name: GetRetry :one
+SELECT retry, size FROM downloadclients_torrent
+WHERE id = ?1 AND node_id = ?2
+`
+
+type GetRetryParams struct {
+	ID     TorrentID
+	NodeID role.NodeID
+}
+
+type GetRetryRow struct {
+	Retry *string
+	Size  int64
+}
+
+func (q *Queries) GetRetry(ctx context.Context, arg GetRetryParams) (GetRetryRow, error) {
+	row := q.db.QueryRowContext(ctx, getRetry, arg.ID, arg.NodeID)
+	var i GetRetryRow
+	err := row.Scan(&i.Retry, &i.Size)
+	return i, err
+}
+
 const getThresholds = `-- name: GetThresholds :one
 SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds FROM downloadclients_settings WHERE id = 1
 `
@@ -626,7 +648,7 @@ const listHashFacts = `-- name: ListHashFacts :many
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
-       coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
+       t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.info_hash IN (/*SLICE:info_hashes*/?) AND t.client_id IS NULL
   AND (t.parted_at IS NULL OR t.id = (
@@ -664,6 +686,8 @@ type ListHashFactsRow struct {
 	FaultAt          storage.Time
 	ClientID         *ClientID
 	Attached         *bool
+	CompletedAt      storage.Time
+	Retry            *string
 	ClientKind       clients.Kind
 	ClientName       string
 	ClientOn         bool
@@ -718,6 +742,8 @@ func (q *Queries) ListHashFacts(ctx context.Context, infoHashes [][]byte) ([]Lis
 			&i.FaultAt,
 			&i.ClientID,
 			&i.Attached,
+			&i.CompletedAt,
+			&i.Retry,
 			&i.ClientKind,
 			&i.ClientName,
 			&i.ClientOn,
@@ -739,7 +765,7 @@ const listHeld = `-- name: ListHeld :many
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
-       coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
+       t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.parted_at IS NULL
   AND (NOT CAST(?1 AS INTEGER) OR t.tracker_id = ?2)
@@ -783,6 +809,8 @@ type ListHeldRow struct {
 	FaultAt          storage.Time
 	ClientID         *ClientID
 	Attached         *bool
+	CompletedAt      storage.Time
+	Retry            *string
 	ClientKind       clients.Kind
 	ClientName       string
 	ClientOn         bool
@@ -839,6 +867,8 @@ func (q *Queries) ListHeld(ctx context.Context, arg ListHeldParams) ([]ListHeldR
 			&i.FaultAt,
 			&i.ClientID,
 			&i.Attached,
+			&i.CompletedAt,
+			&i.Retry,
 			&i.ClientKind,
 			&i.ClientName,
 			&i.ClientOn,
@@ -919,7 +949,7 @@ func (q *Queries) ListHoldingNodes(ctx context.Context) ([]role.NodeID, error) {
 }
 
 const listIntent = `-- name: ListIntent :many
-SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files FROM downloadclients_torrent
+SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry FROM downloadclients_torrent
 WHERE node_id = ?1 AND parted_at IS NULL
 ORDER BY added_order
 `
@@ -932,6 +962,7 @@ type ListIntentRow struct {
 	AddedOrder  int64
 	RemovedAt   storage.Time
 	DeleteFiles int64
+	Retry       *string
 }
 
 func (q *Queries) ListIntent(ctx context.Context, nodeID role.NodeID) ([]ListIntentRow, error) {
@@ -951,6 +982,7 @@ func (q *Queries) ListIntent(ctx context.Context, nodeID role.NodeID) ([]ListInt
 			&i.AddedOrder,
 			&i.RemovedAt,
 			&i.DeleteFiles,
+			&i.Retry,
 		); err != nil {
 			return nil, err
 		}
@@ -1489,6 +1521,21 @@ func (q *Queries) SetReport(ctx context.Context, arg SetReportParams) (int64, er
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setRetry = `-- name: SetRetry :exec
+UPDATE downloadclients_torrent SET retry = ?1
+WHERE id = ?2 AND removed_at IS NULL
+`
+
+type SetRetryParams struct {
+	Retry *string
+	ID    TorrentID
+}
+
+func (q *Queries) SetRetry(ctx context.Context, arg SetRetryParams) error {
+	_, err := q.db.ExecContext(ctx, setRetry, arg.Retry, arg.ID)
+	return err
 }
 
 const setSaveFolder = `-- name: SetSaveFolder :exec

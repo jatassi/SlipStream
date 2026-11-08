@@ -35,15 +35,18 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
-// roster is every Node in step unless offline, and drains nothing.
-type roster struct{ offline *bool }
+// roster is every Node in step unless offline, and draining Downloading
+// while draining.
+type roster struct{ offline, draining *bool }
 
 func (r roster) InStep(role.NodeID) bool              { return !*r.offline }
 func (roster) WrittenOff(role.Name, role.NodeID) bool { return false }
 func (roster) Changed() <-chan struct{}               { return nil }
 func (roster) Serving(role.Name) []role.NodeID        { return nil }
-func (roster) Draining(role.Name, role.NodeID) bool   { return false }
-func (roster) Holds(role.Name, role.NodeID) bool      { return true }
+func (r roster) Draining(n role.Name, _ role.NodeID) bool {
+	return n == role.Downloading && *r.draining
+}
+func (roster) Holds(role.Name, role.NodeID) bool { return true }
 
 // late is the Trackers' seeder once they are made, after the clients.
 type late struct{ x **trackers.Trackers }
@@ -67,8 +70,11 @@ type library struct {
 	rerouted        int
 	// board is who holds Downloading, for routing.
 	board *board
-	// offline takes the library's Node out of step.
-	offline bool
+	// touched are the Nodes told their intent changed.
+	touched []role.NodeID
+	// offline takes the library's Node out of step, draining has it drain
+	// Downloading, and reconciling holds every goal.
+	offline, draining, reconciling bool
 	// node, work and item are what every planted Grab names.
 	node, work, item storage.UUID
 }
@@ -81,11 +87,16 @@ func newLibrary(t *testing.T) *library {
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
 		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(), board: &board{},
 	}
-	l.clients = downloadclients.New(downloadclients.Config{Library: l.lib, Roster: roster{&l.offline}, Uses: grabs.TorrentUses{}, Seeding: late{&l.x}})
+	nodeRoster := roster{&l.offline, &l.draining}
+	l.clients = downloadclients.New(downloadclients.Config{
+		Library: l.lib, Roster: nodeRoster, Uses: grabs.TorrentUses{}, Seeding: late{&l.x},
+		Touch: func(n ...role.NodeID) { l.touched = append(l.touched, n...) }, Changed: discard[downloadclients.Changed]{},
+	})
 	l.x = trackers.New(trackers.Config{
-		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: roster{&l.offline},
-		Routing: trackers.Routing{Roster: l.board}, Rerouted: func() { l.rerouted++ },
-		Soon: func() { l.soon++ }, Reconciling: trackers.NotReconciling, Changed: l.changed, TrackersChanged: l.trackersChanged,
+		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: nodeRoster,
+		Routing: trackers.Routing{Roster: l.board}, Rerouted: func() { l.rerouted++ }, Soon: func() { l.soon++ },
+		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return l.reconciling, nil },
+		Changed:     l.changed, TrackersChanged: l.trackersChanged,
 	})
 	l.exec(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, l.node)
 	l.exec(`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, l.work)

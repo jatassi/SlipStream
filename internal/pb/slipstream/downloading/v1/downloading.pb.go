@@ -919,7 +919,11 @@ type Torrent struct {
 	Order    int64                  `protobuf:"varint,4,opt,name=order,proto3" json:"order,omitempty"`
 	// client_id is the external client that holds it, empty for the
 	// built-in client.
-	ClientId      []byte `protobuf:"bytes,5,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ClientId []byte `protobuf:"bytes,5,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// retry_at_unix_ms is the Admin's Retry of a failed torrent while it is
+	// pending, 0 for none: the Node clears its failure and checks its files,
+	// and wanted is paused in the same intent.
+	RetryAtUnixMs int64 `protobuf:"varint,6,opt,name=retry_at_unix_ms,json=retryAtUnixMs,proto3" json:"retry_at_unix_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -987,6 +991,13 @@ func (x *Torrent) GetClientId() []byte {
 		return x.ClientId
 	}
 	return nil
+}
+
+func (x *Torrent) GetRetryAtUnixMs() int64 {
+	if x != nil {
+		return x.RetryAtUnixMs
+	}
+	return 0
 }
 
 type Discard struct {
@@ -2338,8 +2349,11 @@ type TorrentReport struct {
 	// stopped_at_limit is an external torrent its client stopped at its
 	// seeding limit.
 	StoppedAtLimit bool `protobuf:"varint,21,opt,name=stopped_at_limit,json=stoppedAtLimit,proto3" json:"stopped_at_limit,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// retry_checked_unix_ms is the Retry whose check ended, 0 before one
+	// did. done is what that check found.
+	RetryCheckedUnixMs int64 `protobuf:"varint,22,opt,name=retry_checked_unix_ms,json=retryCheckedUnixMs,proto3" json:"retry_checked_unix_ms,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *TorrentReport) Reset() {
@@ -2517,6 +2531,13 @@ func (x *TorrentReport) GetStoppedAtLimit() bool {
 		return x.StoppedAtLimit
 	}
 	return false
+}
+
+func (x *TorrentReport) GetRetryCheckedUnixMs() int64 {
+	if x != nil {
+		return x.RetryCheckedUnixMs
+	}
+	return 0
 }
 
 // WantedChange is the wanted state the Node saw change in the client,
@@ -4840,13 +4861,14 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"thresholds\x18\x05 \x01(\v2%.slipstream.downloading.v1.ThresholdsR\n" +
 	"thresholds\x120\n" +
 	"\x14sample_every_seconds\x18\x06 \x01(\x03R\x12sampleEverySeconds\x12;\n" +
-	"\aclients\x18\a \x03(\v2!.slipstream.downloading.v1.ClientR\aclients\"\xa4\x01\n" +
+	"\aclients\x18\a \x03(\v2!.slipstream.downloading.v1.ClientR\aclients\"\xcd\x01\n" +
 	"\aTorrent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x129\n" +
 	"\x06wanted\x18\x03 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x06wanted\x12\x14\n" +
 	"\x05order\x18\x04 \x01(\x03R\x05order\x12\x1b\n" +
-	"\tclient_id\x18\x05 \x01(\fR\bclientId\"v\n" +
+	"\tclient_id\x18\x05 \x01(\fR\bclientId\x12'\n" +
+	"\x10retry_at_unix_ms\x18\x06 \x01(\x03R\rretryAtUnixMs\"v\n" +
 	"\aDiscard\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x12!\n" +
@@ -4948,7 +4970,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x0fseeding_seconds\x18\x05 \x01(\x03R\x0eseedingSeconds\x12\x12\n" +
 	"\x04done\x18\x06 \x01(\x03R\x04done\"N\n" +
 	"\bTorrents\x12B\n" +
-	"\areports\x18\x01 \x03(\v2(.slipstream.downloading.v1.TorrentReportR\areports\"\xaa\a\n" +
+	"\areports\x18\x01 \x03(\v2(.slipstream.downloading.v1.TorrentReportR\areports\"\xdd\a\n" +
 	"\rTorrentReport\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1c\n" +
 	"\n" +
@@ -4975,7 +4997,8 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x03run\x18\x12 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x03run\x12)\n" +
 	"\x11import_at_unix_ms\x18\x13 \x01(\x03R\x0eimportAtUnixMs\x12%\n" +
 	"\x0equeue_position\x18\x14 \x01(\x05R\rqueuePosition\x12(\n" +
-	"\x10stopped_at_limit\x18\x15 \x01(\bR\x0estoppedAtLimit\"x\n" +
+	"\x10stopped_at_limit\x18\x15 \x01(\bR\x0estoppedAtLimit\x121\n" +
+	"\x15retry_checked_unix_ms\x18\x16 \x01(\x03R\x12retryCheckedUnixMs\"x\n" +
 	"\fWantedChange\x125\n" +
 	"\x04from\x18\x01 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x04from\x121\n" +
 	"\x02to\x18\x02 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x02to\"\xa8\x01\n" +

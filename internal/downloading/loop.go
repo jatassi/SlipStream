@@ -49,7 +49,7 @@ type loop struct {
 	// intended is set at the first intent and stays through a release.
 	intended bool
 	// rows is the local rows, read when the first run attaches.
-	rows   map[bencode.InfoHash]db.ListTorrentsRow
+	rows   map[bencode.InfoHash]db.DownloadingTorrent
 	intent role.Snapshot[*dlv1.Intent]
 
 	// parted are the confirmations to report, in order.
@@ -123,7 +123,12 @@ type torrent struct {
 	replied map[int]time.Time
 	state   plan.State
 	// failed is the engine's error text, "" while it holds the torrent.
+	// It is kept in the local row, so a restart keeps the torrent failed
+	// and out of the plan until the Admin's Retry.
 	failed string
+	// retried is the intent's Retry the torrent last acted on, in unix
+	// milliseconds, 0 for none.
+	retried int64
 	// fault is the release fault recorded on the torrent, nil for none.
 	fault *dlv1.Fault
 	// freed is the bytes its removal deletes.
@@ -318,7 +323,7 @@ func (l *loop) attach(run *attached, local *storage.DB[storage.Local]) {
 		if err != nil {
 			l.c.cfg.Log.Error("read the torrents this Node holds", "err", err.Error())
 		}
-		l.rows = map[bencode.InfoHash]db.ListTorrentsRow{}
+		l.rows = map[bencode.InfoHash]db.DownloadingTorrent{}
 		for _, r := range rows {
 			l.rows[bencode.InfoHash(r.InfoHash)] = r
 		}
@@ -346,6 +351,9 @@ func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	for _, it := range s.Intent.GetTorrents() {
 		t := l.list(it.GetId(), it.GetInfoHash())
 		t.Order, t.Paused, t.Discard = it.GetOrder(), it.GetWanted() == dlv1.Wanted_WANTED_PAUSED, plan.Kept
+		if at := it.GetRetryAtUnixMs(); at > t.retried {
+			l.retry(t, at)
+		}
 	}
 	for _, d := range s.Intent.GetDiscards() {
 		t := l.list(d.GetId(), d.GetInfoHash())
@@ -432,6 +440,9 @@ func (l *loop) list(id, hash []byte) *torrent {
 	t := l.torrents[h]
 	if t == nil {
 		t = &torrent{Torrent: plan.Torrent{Hash: h, Phase: plan.Fetching}, replied: map[int]time.Time{}}
+		if f := l.rows[h].Failed; f != nil {
+			t.failed = *f
+		}
 		l.torrents[h] = t
 		l.addFromResume(t)
 	}
@@ -479,7 +490,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	t.fetches = 0
 	m, err := bencode.DecodeMetainfo(res.GetMetainfo())
 	if err != nil {
-		t.fail(err, time.Now())
+		l.fail(t, err, time.Now())
 		return
 	}
 	t.Private, t.folder = m.Info.Private, res.GetSaveFolder()
@@ -508,7 +519,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 		},
 	})
 	if err != nil {
-		t.fail(err, time.Now())
+		l.fail(t, err, time.Now())
 		return
 	}
 	t.NeedsCheck = true
@@ -764,6 +775,9 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		t.Complete = true
 	case engine.Checked:
 		t.NeedsCheck = false
+		if t.retried != 0 {
+			l.found(t)
+		}
 	case engine.Paused:
 		switch {
 		case t.Phase == plan.Checking && !t.NeedsCheck, t.Phase == plan.Pausing, t.Phase == plan.Running:
@@ -773,7 +787,7 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		l.part(t)
 	case engine.TorrentFailed:
 		if !errors.Is(ev.Err, engine.ErrDiskFull) {
-			t.fail(ev.Err, time.Now())
+			l.fail(t, ev.Err, time.Now())
 		}
 	case engine.FileError:
 		if errors.Is(ev.Err, engine.ErrDiskFull) {
@@ -781,7 +795,7 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 			l.disk.full = &outOfSpace{at: time.Now()}
 			l.sampleVolume()
 		} else {
-			t.fail(ev.Err, time.Now())
+			l.fail(t, ev.Err, time.Now())
 		}
 	case engine.ResumeSaved:
 		l.resumeSaved(t, ev.Data)

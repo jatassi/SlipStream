@@ -28,32 +28,25 @@ func (q *Queries) DeleteTorrents(ctx context.Context) error {
 }
 
 const listTorrents = `-- name: ListTorrents :many
-SELECT info_hash, save_folder, private, resume, announced_seconds FROM downloading_torrent ORDER BY info_hash
+SELECT info_hash, save_folder, private, resume, announced_seconds, failed FROM downloading_torrent ORDER BY info_hash
 `
 
-type ListTorrentsRow struct {
-	InfoHash         []byte
-	SaveFolder       string
-	Private          bool
-	Resume           []byte
-	AnnouncedSeconds int64
-}
-
-func (q *Queries) ListTorrents(ctx context.Context) ([]ListTorrentsRow, error) {
+func (q *Queries) ListTorrents(ctx context.Context) ([]DownloadingTorrent, error) {
 	rows, err := q.db.QueryContext(ctx, listTorrents)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListTorrentsRow
+	var items []DownloadingTorrent
 	for rows.Next() {
-		var i ListTorrentsRow
+		var i DownloadingTorrent
 		if err := rows.Scan(
 			&i.InfoHash,
 			&i.SaveFolder,
 			&i.Private,
 			&i.Resume,
 			&i.AnnouncedSeconds,
+			&i.Failed,
 		); err != nil {
 			return nil, err
 		}
@@ -95,6 +88,20 @@ func (q *Queries) PutTorrent(ctx context.Context, arg PutTorrentParams) (int64, 
 	var announced_seconds int64
 	err := row.Scan(&announced_seconds)
 	return announced_seconds, err
+}
+
+const setFailed = `-- name: SetFailed :exec
+UPDATE downloading_torrent SET failed = ?1 WHERE info_hash = ?2
+`
+
+type SetFailedParams struct {
+	Failed   *string
+	InfoHash []byte
+}
+
+func (q *Queries) SetFailed(ctx context.Context, arg SetFailedParams) error {
+	_, err := q.db.ExecContext(ctx, setFailed, arg.Failed, arg.InfoHash)
+	return err
 }
 
 const setResume = `-- name: SetResume :exec

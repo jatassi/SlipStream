@@ -29,13 +29,16 @@ const trackerless tasks.UnitKey = "no-tracker"
 
 // Task is Seeding goals: a unit for the torrents with no known Tracker,
 // which runs first, then one per Tracker. Each unit writes the windows
-// of its info hashes whose window moved since it was stored.
+// of its info hashes whose window moved since it was stored, and acts on
+// each goal that is due.
 func (t *Trackers) Task() tasks.Task {
 	return tasks.Task{
 		ID:   TaskID,
 		Name: "Seeding goals",
 		About: "Reads each Tracker's seeding rule from its Releases, and finds the Tracker of each torrent that has none from its announce hosts. " +
-			"Then it records each private torrent's hit and run window: when it opens, when its Tracker's rule is met, and when a torrent that still owes stops seeding.",
+			"Then it records each private torrent's hit and run window: when it opens, when its Tracker's rule is met, and when a torrent that still owes stops seeding. " +
+			"Once a torrent's goal and its Tracker's rule with the margin are both met, it pauses the torrent, removes it, or removes it and deletes its download copy, as the goal sets. " +
+			"It keeps the download copy when a Grab on the torrent didn't import. On a Node draining Downloading, a goal that pauses removes the torrent and keeps its copy instead.",
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.Every{Interval: Cadence, AtStart: true},
 		Noun:    setting.Noun{One: "Tracker", Many: "Trackers"},
@@ -92,38 +95,36 @@ func (t *Trackers) run(ctx context.Context, u tasks.Unit, _ *tasks.Progress) err
 	return t.settle(ctx, hashes)
 }
 
-// settle writes the window of each of hashes that moved since it was
-// stored, judged again inside the Write, so a run after a crash or a
-// second run writes nothing new.
+// settle brings each of hashes to what its evaluation says, in one Write
+// per hash: it writes the window if it moved since it was stored, and has
+// each goal that is due act and records its goal run. Each hash is judged
+// again inside its Write, so a run after a crash or a second run neither
+// writes nor acts again.
 func (t *Trackers) settle(ctx context.Context, hashes []bencode.InfoHash) error {
-	var moved []bencode.InfoHash
+	var due []bencode.InfoHash
 	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		judged, err := t.movedIn(ctx, r, hashes)
-		for h := range judged {
-			moved = append(moved, h)
-		}
-		return err
-	})
-	if err != nil || len(moved) == 0 {
-		return err
-	}
-	changed := map[indexers.TrackerID]bool{}
-	err = t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		judged, err := t.movedIn(ctx, tx, moved)
-		if err != nil {
-			return err
-		}
-		q := db.New(tx)
-		for h, jh := range judged {
-			if err := q.SetWindow(ctx, windowRow(h, jh.tracker, *jh.verdict.View.Window)); err != nil {
-				return err
+		j, err := t.judge(ctx, r, hashes, t.cfg.Roster)
+		for h, jh := range j.hashes {
+			if jh.moved() || jh.acts() {
+				due = append(due, h)
 			}
-			changed[jh.tracker] = true
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return err
+	}
+	slices.SortFunc(due, func(a, b bencode.InfoHash) int { return slices.Compare(a[:], b[:]) })
+	changed := map[indexers.TrackerID]bool{}
+	for _, h := range due {
+		tracker, moved, herr := t.settleHash(ctx, h)
+		if herr != nil {
+			err = herr
+			break
+		}
+		if moved {
+			changed[tracker] = true
+		}
 	}
 	for id := range changed {
 		if id.IsZero() {
@@ -132,23 +133,101 @@ func (t *Trackers) settle(ctx context.Context, hashes []bencode.InfoHash) error 
 		}
 		t.publish(ctx, &id)
 	}
-	return nil
+	return err
 }
 
-// movedIn is each of hashes whose window moved since it was stored, judged
-// in r.
-func (t *Trackers) movedIn(ctx context.Context, r storage.Reader[file], hashes []bencode.InfoHash) (map[bencode.InfoHash]judgedHash, error) {
-	j, err := t.judge(ctx, r, hashes, t.cfg.Roster)
-	if err != nil {
-		return nil, err
-	}
-	out := map[bencode.InfoHash]judgedHash{}
-	for h, jh := range j.hashes {
-		if jh.moved() {
-			out[h] = jh
+// settleHash settles h in one Write, and answers its Tracker and whether
+// the Write changed anything.
+func (t *Trackers) settleHash(ctx context.Context, h bencode.InfoHash) (tracker indexers.TrackerID, changed bool, err error) {
+	var touched []downloadclients.Touched
+	err = t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		touched, changed = nil, false
+		j, err := t.judge(ctx, tx, []bencode.InfoHash{h}, t.cfg.Roster)
+		if err != nil {
+			return err
 		}
+		jh := j.hashes[h]
+		tracker = jh.tracker
+		if jh.moved() {
+			if err := db.New(tx).SetWindow(ctx, windowRow(h, jh.tracker, *jh.verdict.View.Window)); err != nil {
+				return err
+			}
+			changed = true
+		}
+		now := storage.Now()
+		for i, plan := range jh.verdict.Plans {
+			d, ok := deedOf(plan)
+			if !ok {
+				continue
+			}
+			id := jh.copies[i].ID
+			done, err := t.act(ctx, tx, id, d, j.ran[id], now)
+			if err != nil {
+				return err
+			}
+			touched, changed = append(touched, done), true
+		}
+		return nil
+	})
+	if err != nil {
+		return indexers.TrackerID{}, false, err
 	}
-	return out, nil
+	if len(touched) > 0 {
+		t.cfg.Clients.Touched(touched...)
+	}
+	return tracker, changed, nil
+}
+
+// deed is what a due Plan does to its Torrent, as its goal run records
+// it: pause it, or remove it with or without its download copy. kept is
+// why a remove keeps the copy a goal asked to delete, or a pause became a
+// remove.
+type deed struct {
+	action seeding.Action
+	kept   seeding.Downgrade
+}
+
+// deedOf is what plan does now; false for a Wait.
+func deedOf(plan seeding.Plan) (deed, bool) {
+	switch p := plan.(type) {
+	case seeding.Act:
+		return deed{action: p.Do}, true
+	case seeding.Keep:
+		return deed{action: seeding.Remove, kept: p.Why}, true
+	case seeding.Wait:
+	}
+	return deed{}, false
+}
+
+// act does d to Torrent id in tx and records its goal run. A Torrent a
+// goal already paused has that run rewritten to the kept remove.
+func (t *Trackers) act(ctx context.Context, tx *storage.Tx[file], id downloadclients.ID, d deed, ran seeding.Ran, now storage.Time) (downloadclients.Touched, error) {
+	ids := []downloadclients.ID{id}
+	var (
+		results []downloadclients.Result
+		touched downloadclients.Touched
+		err     error
+	)
+	if d.action == seeding.Pause {
+		results, touched, err = t.cfg.Clients.WantIn(ctx, tx, ids, downloadclients.Paused)
+	} else {
+		results, touched, err = t.cfg.Clients.RemoveIn(ctx, tx, ids, downloadclients.GoalMet, d.action == seeding.RemoveDelete)
+	}
+	if err != nil {
+		return downloadclients.Touched{}, err
+	}
+	if r := results[0].Refusal; r != nil {
+		return downloadclients.Touched{}, fmt.Errorf("the seeding goal's %s of torrent %s was refused with %s", d.action, id, r.Code)
+	}
+	var kept *string
+	if d.kept != "" {
+		kept = new(string(d.kept))
+	}
+	q := db.New(tx)
+	if ran == seeding.RanPause {
+		return touched, q.KeepGoalRun(ctx, db.KeepGoalRunParams{Kept: kept, ActedAt: now, TorrentID: id})
+	}
+	return touched, q.InsertGoalRun(ctx, db.InsertGoalRunParams{TorrentID: id, ActedAt: now, Action: string(d.action), Kept: kept})
 }
 
 func windowRow(h bencode.InfoHash, tracker indexers.TrackerID, w seeding.Window) db.SetWindowParams {

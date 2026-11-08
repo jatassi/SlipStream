@@ -8,7 +8,7 @@ import { useActing } from "./acting";
 import { actionIcons, menuItems } from "./actions-menu";
 import type { Row } from "./model";
 
-const onButtons = new Set<TorrentAction>(["pause", "resume", "remove"]);
+const onButtons = new Set<TorrentAction>(["pause", "resume", "retry", "remove"]);
 
 export function Actions({
   row,

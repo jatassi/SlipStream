@@ -120,6 +120,9 @@ func (t *torrent) report() *dlv1.TorrentReport {
 	if !t.state.Until.IsZero() {
 		r.UntilUnixMs = t.state.Until.UnixMilli()
 	}
+	if !t.NeedsCheck && !t.checking() {
+		r.RetryCheckedUnixMs = t.retried
+	}
 	for _, tr := range t.trackers {
 		r.Trackers = append(r.Trackers, trackerLine(tr))
 	}

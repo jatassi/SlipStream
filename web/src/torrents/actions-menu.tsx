@@ -5,6 +5,7 @@ import {
   PauseIcon,
   PlayIcon,
   RefreshIcon,
+  RepeatIcon,
   UnavailableIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -19,6 +20,7 @@ export const actionIcons: { readonly [A in TorrentAction]: IconSvgElement } = {
   resume: PlayIcon,
   announce: Megaphone01Icon,
   recheck: RefreshIcon,
+  retry: RepeatIcon,
   "mark-failed": UnavailableIcon,
   remove: Delete02Icon,
 };

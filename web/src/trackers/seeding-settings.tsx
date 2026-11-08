@@ -64,7 +64,9 @@ export function RuleSettings() {
         </SettingGroup>
         <p className="text-ink-2">
           The Seeding goals task reads each Tracker&apos;s rule and records what each of its
-          torrents still owes.
+          torrents still owes. Once a torrent has met its goal and its Tracker&apos;s rule with the
+          margin, the task pauses it, removes it, or removes it and deletes its download copy, as
+          the goal sets.
         </p>
         <KeyValues rows={[["Seeding goals", <TaskCadence key="goals" task="seeding-goals" />]]} />
       </div>

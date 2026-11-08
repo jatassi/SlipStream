@@ -36,6 +36,16 @@ function pendingSentence(row: Row, place: Place): string | undefined {
   }
 }
 
+/** What a Retry's check found when some of the data was gone, none otherwise. */
+function retrySentence(row: Row): string | undefined {
+  const found = row.retry?.found;
+  if (found === undefined || found >= row.size || row.done > found) {
+    return undefined;
+  }
+  const percent = Math.floor((found / row.size) * 100);
+  return `SlipStream checked its files and ${percent}% of its data was there. Resume it to download the rest.`;
+}
+
 function heldSentence(row: Row, { node, clock }: Place): string {
   switch (row.hold) {
     case "window":
@@ -60,7 +70,7 @@ function heldSentence(row: Row, { node, clock }: Place): string {
       return `${row.clientName} stopped this torrent with the error "${row.error}". Fix the cause in ${row.clientName} and the download carries on.`;
     case "wanted":
     case undefined:
-      return "Paused. It stays paused until you resume it.";
+      return retrySentence(row) ?? "Paused. It stays paused until you resume it.";
     default:
       return row.hold satisfies never;
   }
@@ -144,10 +154,15 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
     return `Finished. SlipStream imports it at ${sinceWords(row.importAt, place.clock)}, when the Import delay for ${row.clientName ?? "its client"} ends.`;
   }
   switch (row.state) {
-    case "failed":
-      return row.error === undefined
-        ? "The torrent client stopped it. Remove it, then search for another Release."
-        : `The torrent client stopped it with the error "${row.error}". Remove it, then search for another Release.`;
+    case "failed": {
+      const stopped =
+        row.error === undefined
+          ? "The torrent client stopped it."
+          : `The torrent client stopped it with the error "${row.error}".`;
+      return row.retryable
+        ? `${stopped} Retry it to check its files.`
+        : `${stopped} Remove it, then search for another Release.`;
+    }
     case "tracker-error":
       return trackerSentence(row, place);
     case "checking":

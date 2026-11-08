@@ -68,7 +68,13 @@ test.each<[string, Shape, boolean, string[]]>([
     accept,
     ["pause", "remove"],
   ],
-  ["a failed torrent offers only remove", { state: "failed" }, accept, ["remove"]],
+  ["a failed download offers only remove", { state: "failed" }, accept, ["remove"]],
+  [
+    "a seed that failed offers retry and remove",
+    { state: "failed", retryable: true },
+    accept,
+    ["retry", "remove"],
+  ],
   ["a removing torrent offers nothing", { state: "removing" }, accept, []],
 ])("%s", (_, shape, trackersAccept, offered) => {
   expect(menuFor(torrent(shape), trackersAccept)).toEqual(offered);
@@ -190,5 +196,23 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
   expect(outcomeWords([{ id: "a", done: false, refusal }], [orchard], context(action))).toEqual({
     done: undefined,
     refused: [sentence],
+  });
+});
+
+test("a refused Retry says which torrents a Retry checks", () => {
+  expect(
+    outcomeWords(
+      [
+        { id: "a", done: true },
+        { id: "b", done: false, refusal: { code: "not_retryable" } },
+      ],
+      [orchard, harvest],
+      context("retry"),
+    ),
+  ).toEqual({
+    done: "Checking the files of The Quiet Orchard.",
+    refused: [
+      "Orchard Harvest can't be retried. Retry checks only a torrent that failed after it finished downloading.",
+    ],
   });
 });

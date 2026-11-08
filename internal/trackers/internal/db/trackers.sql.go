@@ -102,6 +102,44 @@ func (q *Queries) GetSettings(ctx context.Context) (TrackersSetting, error) {
 	return i, err
 }
 
+const insertGoalRun = `-- name: InsertGoalRun :exec
+INSERT INTO trackers_goal_run (torrent_id, acted_at, action, kept)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertGoalRunParams struct {
+	TorrentID downloadclients.ID
+	ActedAt   storage.Time
+	Action    string
+	Kept      *string
+}
+
+func (q *Queries) InsertGoalRun(ctx context.Context, arg InsertGoalRunParams) error {
+	_, err := q.db.ExecContext(ctx, insertGoalRun,
+		arg.TorrentID,
+		arg.ActedAt,
+		arg.Action,
+		arg.Kept,
+	)
+	return err
+}
+
+const keepGoalRun = `-- name: KeepGoalRun :exec
+UPDATE trackers_goal_run SET action = 'remove', kept = ?1, acted_at = ?2
+WHERE torrent_id = ?3 AND action = 'pause'
+`
+
+type KeepGoalRunParams struct {
+	Kept      *string
+	ActedAt   storage.Time
+	TorrentID downloadclients.ID
+}
+
+func (q *Queries) KeepGoalRun(ctx context.Context, arg KeepGoalRunParams) error {
+	_, err := q.db.ExecContext(ctx, keepGoalRun, arg.Kept, arg.ActedAt, arg.TorrentID)
+	return err
+}
+
 const listGoalRunsOf = `-- name: ListGoalRunsOf :many
 SELECT torrent_id, acted_at, "action", kept FROM trackers_goal_run WHERE torrent_id IN (/*SLICE:torrent_ids*/?) ORDER BY torrent_id
 `

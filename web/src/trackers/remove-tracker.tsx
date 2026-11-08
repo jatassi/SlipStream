@@ -15,7 +15,7 @@ export function RemoveTrackerDialog({
 }: {
   tracker: TrackersTracker;
   onClose: () => void;
-  /** Runs before the Tracker leaves the caches, such as to leave its page. */
+  /** Runs before the Tracker's page data leaves the cache, such as to leave its page. */
   onRemoved?: (() => Promise<unknown>) | undefined;
 }) {
   const queryClient = useQueryClient();
@@ -36,8 +36,9 @@ export function RemoveTrackerDialog({
         } catch (error) {
           throw new Error(sentenceOf(error), { cause: error });
         }
+        const forget = adoptRemoved(queryClient, tracker.id);
         await onRemoved?.();
-        adoptRemoved(queryClient, tracker.id);
+        forget();
         toast(`Removed ${tracker.name}`);
       }}
     >

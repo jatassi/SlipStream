@@ -81,6 +81,15 @@ func (h *worlds) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine,
 	}
 }
 
+func (h *worlds) Fail(t *testing.T, _ engine.Engine, _ engine.Handle, meta []byte, _ string) func() {
+	m, err := bencode.DecodeMetainfo(meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.w.Fail(m.InfoHash, &engine.Error{Category: engine.CategorySystem, Code: 2, Text: "No such file or directory"})
+	return func() {}
+}
+
 func (h *worlds) TakePort(*testing.T) netip.AddrPort {
 	h.ports++
 	ap := netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), 7000+h.ports)

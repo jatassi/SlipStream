@@ -37,6 +37,10 @@ message Torrent {
   // client_id is the external client that holds it, empty for the
   // built-in client.
   bytes client_id = 5;
+  // retry_at_unix_ms is the Admin's Retry of a failed torrent while it is
+  // pending, 0 for none: the Node clears its failure and checks its files,
+  // and wanted is paused in the same intent.
+  int64 retry_at_unix_ms = 6;
 }
 
 enum Wanted {
@@ -312,6 +316,9 @@ message TorrentReport {
   // stopped_at_limit is an external torrent its client stopped at its
   // seeding limit.
   bool stopped_at_limit = 21;
+  // retry_checked_unix_ms is the Retry whose check ended, 0 before one
+  // did. done is what that check found.
+  int64 retry_checked_unix_ms = 22;
 }
 
 enum Origin {

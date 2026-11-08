@@ -148,13 +148,13 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 	orchardRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Orchard","contentType":"fixture","workId":"id3","edition":"any","quality":"webdl-1080p",` +
 		`"state":"queued","hold":"slot","queuePosition":1,"severity":"none","tabs":["downloading","all"],"size":1000,"done":250,"uploaded":0,` +
 		`"ratio":0,"seedingSeconds":0,"announce":{"host":"beacon.test","status":"not_contacted"},` +
-		unjudged + `,"addedAt":"T"}`
+		unjudged + `,"retryable":false,"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?tab=downloading", "", http.StatusOK, `{"rows":[`+orchardRow+`],`+counts("id2"))
 
 	harborRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"addedAt":"T"}`
+		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?ids="+harbor.String(), "", http.StatusOK, `{"rows":[`+harborRow+`],`+counts("id2"))
 
 	var got struct {
@@ -191,7 +191,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	want := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"addedAt":"T",` +
+		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"addedAt":"T",` +
 		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +

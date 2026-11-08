@@ -8,4 +8,5 @@ export type DownloadclientsRefusalCode =
   | "client_off"
   | "window"
   | "not_running"
-  | "failed";
+  | "failed"
+  | "not_retryable";

@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -28,5 +26,5 @@ type DownloadingTorrent struct {
 	Private          bool
 	Resume           []byte
 	AnnouncedSeconds int64
-	Failed           sql.NullString
+	Failed           *string
 }

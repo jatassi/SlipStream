@@ -96,6 +96,10 @@ sql:
             go_type:
               type: string
               pointer: true
+          - column: downloadclients_torrent.retry
+            go_type:
+              type: string
+              pointer: true
           - column: downloadclients_client.username
             go_type:
               type: string

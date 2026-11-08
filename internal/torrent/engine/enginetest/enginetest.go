@@ -175,13 +175,38 @@ func (w *World) DiskFull(full bool) {
 }
 
 // Fail has every engine holding a torrent with hash fail it with err, as
-// libtorrent fails a torrent it found an error in.
+// libtorrent fails a torrent it found an error in. Its status carries err
+// until a recheck clears it.
 func (w *World) Fail(h bencode.InfoHash, err *engine.Error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.each(func(t *torrent) bool { return t.meta.InfoHash == h }, func(t *torrent) {
+		t.err = err
 		t.e.emit(engine.TorrentFailed{Torrent: t.handle, Err: err})
 	})
+}
+
+// Lose cuts the last n bytes of the files of every torrent with hash from
+// the disk, as a drive that lost part of a download does. A later check
+// finds them missing.
+func (w *World) Lose(h bencode.InfoHash, n int64) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var err error
+	w.each(func(t *torrent) bool { return t.meta.InfoHash == h }, func(t *torrent) {
+		left := n
+		for _, f := range slices.Backward(t.files) {
+			cut := min(left, f.Size)
+			if cut == 0 {
+				break
+			}
+			if e := os.Truncate(t.path(f), f.Size-cut); e != nil && !errors.Is(e, os.ErrNotExist) {
+				err = errors.Join(err, e)
+			}
+			left -= cut
+		}
+	})
+	return err
 }
 
 // Incoming has a peer at from connect to the engine listening on to. An
@@ -284,6 +309,8 @@ type torrent struct {
 	lastPayload time.Time
 	// transfer fires when a paced download finishes.
 	transfer *time.Timer
+	// err is the error Fail failed it with, nil for none.
+	err *engine.Error
 }
 
 // fetch is a FetchMetadata torrent's search for its info dictionary.
@@ -529,9 +556,11 @@ func (e *Engine) Resume(h engine.Handle) error {
 
 // Recheck checks t's files at once while it stays paused: libtorrent's
 // check runs the torrent, so it sends Resumed first, and pauses it again.
+// It clears the error Fail left, as libtorrent's force_recheck does.
 func (e *Engine) Recheck(h engine.Handle) error {
 	return e.with(h, func(t *torrent) error {
 		e.emit(engine.Resumed{Torrent: h})
+		t.err = nil
 		t.setState(engine.StateCheckingFiles)
 		t.check()
 		e.emit(engine.Checked{Torrent: h})
@@ -831,7 +860,7 @@ func (t *torrent) status() engine.Status {
 	r := t.rates()
 	return engine.Status{
 		Torrent: t.handle, State: t.state, Paused: t.paused, Done: t.done, Wanted: t.wanted,
-		DownBps: r.down, UpBps: r.up, Totals: t.totals, LastPayload: t.lastPayload, NeedSave: t.needSave,
+		DownBps: r.down, UpBps: r.up, Totals: t.totals, LastPayload: t.lastPayload, NeedSave: t.needSave, Err: t.err,
 	}
 }
 
