@@ -1006,3 +1006,32 @@ func TestAWaitingFolderSuggestsOnlyAMovieItsReasonNames(t *testing.T) {
 		}
 	})
 }
+
+// TestAChangedFileIsCountedOnTheScanLine overwrites one recorded file with
+// other bytes and touches another: the next scan reads both again and the
+// root's line counts them, and the scan after reads nothing changed.
+func TestAChangedFileIsCountedOnTheScanLine(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		s := shelve(t, nil)
+		s.stock(films...)
+		s.scan()
+		s.probes.took()
+
+		s.put(fileOf(films[0]), 8192, sd)
+		later := time.Now().Add(time.Hour)
+		if err := os.Chtimes(s.path(fileOf(films[1])), later, later); err != nil {
+			t.Fatal(err)
+		}
+		expectScanned(t, s.scan(), "succeeded", succeeded)
+		s.expectReads("a scan of a changed and a touched file", "movies/"+fileOf(films[1]), "movies/"+fileOf(films[0]))
+		line := func() string { return simtest.RootAt(t, s.w.API(), s.dir).Scan.Summary }
+		if got := line(); got != "It found 2 changed files." {
+			t.Fatalf("the root's scan line reads %q, want it to count the two changed files", got)
+		}
+		s.scan()
+		if got := line(); got != "Nothing changed." {
+			t.Fatalf("the next scan's line reads %q, want Nothing changed.", got)
+		}
+	})
+}

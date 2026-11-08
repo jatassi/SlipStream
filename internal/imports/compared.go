@@ -86,16 +86,16 @@ func lineOf(c db.ImportsRoot) Line {
 		l.Summary = stoppedWords(*l.Stopped)
 		return l
 	}
-	l.Summary = foundWords(int(c.Found), int(c.Gone), int(c.Returned))
+	l.Summary = foundWords(int(c.Found), int(c.Changed), int(c.Gone), int(c.Returned))
 	return l
 }
 
-func foundWords(found, gone, returned int) string {
+func foundWords(found, changed, gone, returned int) string {
 	var parts []string
 	for _, p := range []struct {
 		n         int
 		one, many string
-	}{{found, "new file", "new files"}, {gone, "gone file", "gone files"}, {returned, "returned file", "returned files"}} {
+	}{{found, "new file", "new files"}, {changed, "changed file", "changed files"}, {gone, "gone file", "gone files"}, {returned, "returned file", "returned files"}} {
 		if p.n > 0 {
 			parts = append(parts, count(p.n, p.one, p.many))
 		}
@@ -141,9 +141,9 @@ func grouped(n int) string {
 // it.
 type Comparison struct {
 	// Place is the root's place the comparison read.
-	Place                        int64
-	Found, Gone, Returned, Added int
-	Stopped                      *scanning.Stopped
+	Place                                 int64
+	Found, Changed, Gone, Returned, Added int
+	Stopped                               *scanning.Stopped
 	// Consumed is the count Mark them gone confirmed that the comparison
 	// ran with, zero for none.
 	Consumed int
@@ -155,7 +155,7 @@ type Comparison struct {
 func record(ctx context.Context, tx *storage.Tx[file], root roots.ID, c Comparison, now storage.Time) error {
 	q := db.New(tx)
 	p := db.RecordComparisonParams{
-		RootID: root, Place: c.Place, ComparedAt: now, Found: int64(c.Found), Gone: int64(c.Gone), Returned: int64(c.Returned), Added: int64(c.Added),
+		RootID: root, Place: c.Place, ComparedAt: now, Found: int64(c.Found), Changed: int64(c.Changed), Gone: int64(c.Gone), Returned: int64(c.Returned), Added: int64(c.Added),
 	}
 	if c.Stopped != nil {
 		p.StoppedGone, p.StoppedOf = new(int64(c.Stopped.Gone)), new(int64(c.Stopped.Of))
