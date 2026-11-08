@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.2024.Audio.Editor.v5-FIXTURE",
+      "size": 157286400,
+      "published": "2024-11-07T17:50:00Z",
+      "seeders": 5,
+      "leechers": 1,
+      "grabs": 4,
+      "link": "https://dicmusic.fixture-site.fake.localhost/torrents.php?action=download\u0026id=140401",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4000,
+        100002
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://dicmusic.fixture-site.fake.localhost/torrents.php?id=51230\u0026torrentid=140401",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Juniper.Falls.2024.FLAC.Lossless.WEB-FIXTURE",
+      "size": 268435456,
+      "published": "2024-11-07T17:30:00Z",
+      "seeders": 11,
+      "leechers": 2,
+      "grabs": 9,
+      "link": "https://dicmusic.fixture-site.fake.localhost/torrents.php?action=download\u0026id=140398",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://dicmusic.fixture-site.fake.localhost/torrents.php?id=51229\u0026torrentid=140398",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

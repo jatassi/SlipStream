@@ -1,0 +1,41 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 1,
+    "results": [
+      {
+        "groupId": 51207,
+        "groupName": "The.Quiet.Orchard.2022.FLAC.Lossless.CD-FIXTURE",
+        "torrentId": 140322,
+        "category": "Music",
+        "fileCount": 13,
+        "groupTime": "1730972463",
+        "size": 389021696,
+        "snatches": 64,
+        "seeders": 52,
+        "leechers": 0,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      },
+      {
+        "groupId": "51206",
+        "groupName": "The.Quiet.Orchard.2022.FLAC.24bit.WEB-FIXTURE",
+        "torrentId": 140318,
+        "category": "Music",
+        "fileCount": 12,
+        "groupTime": "1730970768",
+        "size": "1063256064",
+        "snatches": 17,
+        "seeders": "15",
+        "leechers": "3",
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": true,
+        "canUseToken": false
+      }
+    ]
+  }
+}
