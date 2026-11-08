@@ -3938,6 +3938,7 @@
       "HealthCategoryID": {
         "enum": [
           "storage",
+          "library",
           "nodes",
           "download-clients",
           "indexers",
@@ -5230,6 +5231,21 @@
         "required": [
           "link",
           "url"
+        ],
+        "type": "object"
+      },
+      "ImportsChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "rootIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rootIds"
         ],
         "type": "object"
       },
@@ -22245,6 +22261,32 @@
                           "event"
                         ],
                         "title": "Event identity.sessions-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/ImportsChanged"
+                          },
+                          "event": {
+                            "const": "imports.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event imports.changed",
                         "type": "object"
                       },
                       {

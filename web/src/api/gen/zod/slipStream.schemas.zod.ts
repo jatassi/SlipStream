@@ -2101,6 +2101,7 @@ export type HealthActionOutput = zod.output<typeof HealthAction>;
 
 export const HealthCategoryID = zod.enum([
   "storage",
+  "library",
   "nodes",
   "download-clients",
   "indexers",
@@ -2749,6 +2750,13 @@ export const IdentitySignupLinkURL = zod.object({
 
 export type IdentitySignupLinkURL = zod.input<typeof IdentitySignupLinkURL>;
 export type IdentitySignupLinkURLOutput = zod.output<typeof IdentitySignupLinkURL>;
+
+export const ImportsChanged = zod.object({
+  rootIds: zod.array(zod.string()),
+});
+
+export type ImportsChanged = zod.input<typeof ImportsChanged>;
+export type ImportsChangedOutput = zod.output<typeof ImportsChanged>;
 
 export const indexersCaptchaAnswerAnswerMax = 64;
 
@@ -7593,6 +7601,14 @@ export type LiveEventIdentitySessionsChangedOutput = zod.output<
   typeof LiveEventIdentitySessionsChanged
 >;
 
+export const LiveEventImportsChanged = zod.object({
+  event: zod.enum(["imports.changed"]),
+  data: ImportsChanged,
+});
+
+export type LiveEventImportsChanged = zod.input<typeof LiveEventImportsChanged>;
+export type LiveEventImportsChangedOutput = zod.output<typeof LiveEventImportsChanged>;
+
 export const LiveEventIndexersCatalogChanged = zod.object({
   event: zod.enum(["indexers.catalog-changed"]),
   data: IndexersCatalogChanged,
@@ -7805,6 +7821,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventIdentityLinksChanged,
   LiveEventIdentityPasskeysChanged,
   LiveEventIdentitySessionsChanged,
+  LiveEventImportsChanged,
   LiveEventIndexersCatalogChanged,
   LiveEventIndexersChanged,
   LiveEventIndexersSettingsChanged,

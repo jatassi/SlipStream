@@ -16,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/housekeeping"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/link"
@@ -43,6 +45,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -80,6 +83,7 @@ type half struct {
 	roots    *roots.Roots
 	files    *files.Files
 	library  *library.Library
+	imports  *imports.Imports
 	grabs    *grabs.Grabs
 	clients  *downloadclients.Clients
 	tasks    *tasks.Scheduler
@@ -358,7 +362,23 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
-	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline})
+	var composer *library.Library
+	found := imports.New(imports.Config{
+		Library: lib.db,
+		Roots:   homes,
+		Files:   shelf,
+		Works:   tree,
+		Facets:  contenttype.Project(opened, func(t contenttype.Library) scanning.Facet { return t }),
+		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
+			return composer.Add(ctx, by, a)
+		},
+		Steps: func(task tasks.TaskID) (tasks.RunID, map[tasks.UnitKey]tasks.Step, bool) {
+			return scheduler.Steps(task)
+		},
+		Changed:      imports.ChangedEvent.Bind(n.hub),
+		FilesChanged: files.ChangedEvent.Bind(n.hub),
+	})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline, Leaver: found})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
@@ -397,6 +417,7 @@ func (n *Node) startController(ctx context.Context) error {
 		roots:     homes,
 		files:     shelf,
 		library:   composer,
+		imports:   found,
 		grabs:     pipeline,
 		clients:   clients,
 		tasks:     scheduler,

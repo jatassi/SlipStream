@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/healthapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexersapi"
 	"github.com/jatassi/slipstream/internal/live"
@@ -71,6 +72,7 @@ var Events = []live.Event{
 	indexers.SettingsChangedEvent,
 	indexers.TrackersEvent,
 	files.ChangedEvent,
+	imports.ChangedEvent,
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,
 	downloadclients.ChangedEvent,

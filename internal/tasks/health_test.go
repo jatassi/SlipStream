@@ -144,6 +144,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 		h, err := health.Open(t.Context(), health.Config{
 			Library: lib, Hub: hub, Changed: unheard{},
 			Categories: []health.Category{
+				{About: health.About{ID: health.LibraryID, Label: "Library", Phrase: "the library"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
@@ -163,7 +164,13 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			return r.Categories[4].Items
+			for _, c := range r.Categories {
+				if c.ID == health.ScheduledTasksID {
+					return c.Items
+				}
+			}
+			t.Fatal("Health has no Scheduled tasks category")
+			return nil
 		}
 		time.Sleep(time.Until(overdue) - time.Second)
 		synctest.Wait()

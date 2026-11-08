@@ -50,6 +50,7 @@ func serve(t *testing.T) *ownertest.Owner {
 			Remedy:  "add a library root on another volume",
 		}}},
 		Categories: []health.Category{
+			{About: health.About{ID: health.LibraryID, Label: "Library", Phrase: "the library"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: answer(health.Answer{})}},
@@ -88,6 +89,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`{"id":"storage","label":"Storage","phrase":"storage","level":"fail","canCheck":true,"items":[{"key":"v.id1.RDpc","level":"fail","subject":"D: (Media) on Media server",`+
 			`"text":"Free up space on D: (Media) on Media server, or add a library root on another volume. It has 10 GB left.","detail":[{"label":"Free","bytes":10737418240},{"label":"Total","bytes":1099511627776},`+
 			`{"label":"Warning level","text":"100 GB (global)"},{"label":"Error level","text":"20 GB (global)"},{"label":"Sampled","at":"T"}],"action":{"kind":"check"},"since":"T","changedAt":"T","unsure":false}]},`+
+			`{"id":"library","label":"Library","phrase":"the library","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"nodes","label":"Nodes","phrase":"Nodes","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"download-clients","label":"Download Clients","phrase":"download clients","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"indexers","label":"Indexers","phrase":"Indexers","level":null,"canCheck":false,"items":[]},`+
