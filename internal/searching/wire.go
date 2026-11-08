@@ -441,10 +441,14 @@ func ints(ids []int32) []int {
 }
 
 func season32(s *int) *int32 {
-	if s == nil || *s < math.MinInt32 || *s > math.MaxInt32 {
+	if s == nil {
 		return nil
 	}
-	return new(int32(*s))
+	n := *s
+	if n > math.MaxInt32 || n < math.MinInt32 {
+		return nil
+	}
+	return new(int32(n))
 }
 
 func seasonOf(q *searchv1.Query) *int {
