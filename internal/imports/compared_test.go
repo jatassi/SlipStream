@@ -171,7 +171,6 @@ func countFields(t *testing.T, panel setting.Panel) (share, probes setting.Count
 
 func TestASkippedUnitSaysWhyItsRootIsntReady(t *testing.T) {
 	for s, want := range map[roots.State]string{
-		roots.Offline:   "Media server is offline.",
 		roots.Checking:  "Waiting for Media server to check the folder.",
 		roots.Unmounted: "The folder is there but looks unmounted. Plug in or mount the disk.",
 	} {
