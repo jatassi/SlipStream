@@ -108,3 +108,18 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/release
               type: CutKey
+          - column: targets_format.id
+            go_type:
+              type: FormatID
+          - column: targets_format.include_when_renaming
+            go_type: bool
+          - column: targets_format.dialect
+            go_type:
+              import: github.com/jatassi/slipstream/internal/formats
+              type: Dialect
+          - column: targets_format_score.target_id
+            go_type:
+              type: TargetID
+          - column: targets_format_score.format_id
+            go_type:
+              type: FormatID

@@ -67,10 +67,10 @@ func (p Preset) Tiers() [][]release.Quality {
 }
 
 // Layout lays chosen out under p: p's tiers kept to chosen, empty tiers
-// dropped, every size at its floor. The cutoff is the top tier, or with
-// no upgrades the bottom one.
+// dropped, every size at its floor, every score 0 and the increment 1.
+// The cutoff is the top tier, or with no upgrades the bottom one.
 func Layout(p Preset, chosen []release.Quality, upgrades bool) Spec {
-	var s Spec
+	s := Spec{Scores: Scores{Increment: 1}}
 	for _, tier := range p.Tiers() {
 		if kept := slices.DeleteFunc(tier, func(q release.Quality) bool { return !slices.Contains(chosen, q) }); len(kept) > 0 {
 			s.Tiers = append(s.Tiers, kept)

@@ -3,7 +3,10 @@ package targets
 import (
 	"context"
 	"errors"
+	"maps"
+	"slices"
 
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets/internal/db"
@@ -57,6 +60,27 @@ type UpdateCut struct {
 	Spec CutSpec
 }
 
+// UpdateFormat replaces Custom Format ID's name, renaming flag and
+// conditions with Format's. It keeps its dialect and pasted document, and
+// its timeout count starts again.
+type UpdateFormat struct {
+	ID     formats.ID
+	Format formats.Format
+}
+
+// DeleteFormat deletes Custom Format ID and every Target's score for it.
+type DeleteFormat struct{ ID formats.ID }
+
+// AddFormats adds each of Add and replaces each format of Replace's ids,
+// all in Dialect. Each of Add carries the id NewFormatID minted. "New
+// Custom Format" is an Add of one, in the slipstream dialect. A replaced
+// format's timeout count starts again.
+type AddFormats struct {
+	Dialect formats.Dialect
+	Add     []formats.Format
+	Replace map[formats.ID]formats.Format
+}
+
 // Touched is what a Change may change, read before it applies: the Works
 // whose Goals it changes, the cuts whose files it renames and, for a
 // Profile's Edition change, how many Works keep their own list.
@@ -102,13 +126,20 @@ func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	case taken:
 		return ErrTargetNameTaken
 	}
-	if err := q.UpdateTarget(ctx, db.UpdateTargetParams{ID: t.ID, Name: t.Name, CutoffTier: int64(t.Cutoff)}); err != nil {
+	err = q.UpdateTarget(ctx, db.UpdateTargetParams{
+		ID: t.ID, Name: t.Name, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum), UpgradeUntil: int64(t.Scores.UpgradeUntil),
+		ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(),
+	})
+	if err != nil {
 		return err
 	}
 	if err := q.DeleteQualities(ctx, t.ID); err != nil {
 		return err
 	}
 	if err := q.DeleteFilters(ctx, t.ID); err != nil {
+		return err
+	}
+	if err := q.DeleteFormatScores(ctx, t.ID); err != nil {
 		return err
 	}
 	return insertRules(ctx, q, t)
@@ -298,6 +329,64 @@ func sameType(ctx context.Context, q *db.Queries, id ProfileID, typ works.TypeID
 		return err
 	case p.ContentType != typ:
 		return ErrProfileWrongType
+	}
+	return nil
+}
+
+// worksScoring is the Works whose Profiles hold a Target that scores one
+// of ids. A format no Target scores touches none, since no cell reads it.
+func worksScoring(ctx context.Context, q *db.Queries, ids ...formats.ID) (Touched, error) {
+	ws, err := q.ListWorksScoring(ctx, rowIDs(ids))
+	return Touched{Works: ws}, err
+}
+
+func (c UpdateFormat) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+	return worksScoring(ctx, q, c.ID)
+}
+
+func (c UpdateFormat) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	stored, err := formatIn(ctx, q, c.ID)
+	if err != nil {
+		return err
+	}
+	f := c.Format
+	f.ID, f.Dialect, f.Source = c.ID, stored.Dialect, stored.Source
+	return saveFormat(ctx, q, f, true)
+}
+
+func (c DeleteFormat) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+	return worksScoring(ctx, q, c.ID)
+}
+
+func (c DeleteFormat) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	switch n, err := q.DeleteFormat(ctx, rowID(c.ID)); {
+	case err != nil:
+		return err
+	case n == 0:
+		return ErrNoFormat
+	}
+	return nil
+}
+
+func (c AddFormats) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+	return worksScoring(ctx, q, slices.SortedFunc(maps.Keys(c.Replace), byFormatID)...)
+}
+
+// apply replaces before it adds, so an Add may take a name a Replace
+// gives up.
+func (c AddFormats) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	for _, id := range slices.SortedFunc(maps.Keys(c.Replace), byFormatID) {
+		f := c.Replace[id]
+		f.ID, f.Dialect = id, c.Dialect
+		if err := saveFormat(ctx, q, f, true); err != nil {
+			return err
+		}
+	}
+	for _, f := range c.Add {
+		f.Dialect = c.Dialect
+		if err := saveFormat(ctx, q, f, false); err != nil {
+			return err
+		}
 	}
 	return nil
 }

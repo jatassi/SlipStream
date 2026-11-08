@@ -155,7 +155,7 @@ func (l *library) profile(t testing.TB, name string, of ...targets.Target) targe
 // target creates a Target whose cutoff is its top tier.
 func (l *library) target(t testing.TB, name string, tiers ...[]release.Quality) targets.Target {
 	t.Helper()
-	target, err := l.targets.CreateTarget(t.Context(), admin, targets.Spec{Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
+	target, err := l.targets.CreateTarget(t.Context(), admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
 	if err != nil {
 		t.Fatal(err)
 	}

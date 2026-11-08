@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -25,6 +28,25 @@ type filter struct {
 	Values    []string `json:"values" nullable:"false" minItems:"1" uniqueItems:"true" doc:"The attribute's values by name; a language is an ISO 639 code or original"`
 }
 
+type formatScore struct {
+	FormatID string `json:"formatId" format:"uuid"`
+	Score    int    `json:"score" doc:"Added to a Release's score when it matches the Custom Format"`
+}
+
+type scores struct {
+	Formats      []formatScore `json:"formats" nullable:"false" doc:"Every Custom Format the Target scores; a format left out scores 0"`
+	Minimum      int           `json:"minimum" doc:"A Release scoring below it isn't grabbed"`
+	UpgradeUntil int           `json:"upgradeUntil" doc:"A file at or past the cutoff upgrades to better-scored Releases until it scores this"`
+	Increment    int           `json:"increment" minimum:"1" doc:"How far a Release's score must pass the file's to replace it in the same tier"`
+}
+
+type newScores struct {
+	Formats      []formatScore `json:"formats,omitempty" doc:"A Custom Format left out scores 0"`
+	Minimum      int           `json:"minimum,omitempty" doc:"A Release scoring below it isn't grabbed"`
+	UpgradeUntil int           `json:"upgradeUntil,omitempty" doc:"A file at or past the cutoff upgrades to better-scored Releases until it scores this"`
+	Increment    int           `json:"increment,omitempty" minimum:"1" default:"1" doc:"How far a Release's score must pass the file's to replace it in the same tier"`
+}
+
 type profileRef struct {
 	ID   string `json:"id" format:"uuid"`
 	Name string `json:"name"`
@@ -37,6 +59,8 @@ type target struct {
 	Cutoff    string       `json:"cutoff" doc:"The first quality of the tier at which a file is final"`
 	Filters   []filter     `json:"filters" nullable:"false" doc:"Every attribute that isn't Any, in attribute order"`
 	Sizes     []size       `json:"sizes" nullable:"false" doc:"Every accepted quality's size, in tier order"`
+	Scores    scores       `json:"scores"`
+	Propers   string       `json:"propers" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
 	Profiles  []profileRef `json:"profiles" nullable:"false" doc:"The Profiles holding it, by name"`
 	Contains  []string     `json:"contains" nullable:"false" format:"uuid" doc:"The other Targets every file of which also meets this one"`
 	CreatedAt time.Time    `json:"createdAt"`
@@ -46,8 +70,15 @@ func targetOf(t targets.Target) target {
 	s := t.Spec()
 	out := target{
 		ID: t.ID.String(), Name: t.Name, Tiers: keysOf(s.Tiers), Cutoff: s.Cutoff.String(), Filters: []filter{}, Sizes: []size{},
-		Profiles: []profileRef{}, Contains: []string{}, CreatedAt: t.CreatedAt.Time(),
+		Scores: scores{
+			Formats: []formatScore{}, Minimum: t.Scores.Minimum, UpgradeUntil: t.Scores.UpgradeUntil, Increment: t.Scores.Increment,
+		},
+		Propers: t.Propers.String(), Profiles: []profileRef{}, Contains: []string{}, CreatedAt: t.CreatedAt.Time(),
 	}
+	for id, score := range t.Scores.Formats {
+		out.Scores.Formats = append(out.Scores.Formats, formatScore{FormatID: id.String(), Score: score})
+	}
+	slices.SortFunc(out.Scores.Formats, func(a, b formatScore) int { return strings.Compare(a.FormatID, b.FormatID) })
 	for _, tier := range s.Tiers {
 		for _, q := range tier {
 			out.Sizes = append(out.Sizes, size{Quality: q.String(), Min: s.Sizes[q].Min, Max: s.Sizes[q].Max})
@@ -73,6 +104,8 @@ type newTarget struct {
 	Cutoff  string     `json:"cutoff" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"Any quality of the tier at which a file is final"`
 	Filters []filter   `json:"filters,omitempty" doc:"An attribute left out is Any"`
 	Sizes   []size     `json:"sizes,omitempty" doc:"An accepted quality left out takes its floor and no maximum"`
+	Scores  newScores  `json:"scores,omitempty" doc:"Left out, every score is 0 and the increment is 1"`
+	Propers string     `json:"propers,omitempty" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" default:"prefer_and_upgrade" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
 }
 
 // specOf parses a Target's body. Checks the document can't state answer
@@ -113,6 +146,15 @@ func specOf(in newTarget) (targets.Spec, error) {
 		}
 		s.Sizes[q] = targets.Size{Min: z.Min, Max: z.Max}
 	}
+	s.Scores = targets.Scores{Formats: map[formats.ID]int{}, Minimum: in.Scores.Minimum, UpgradeUntil: in.Scores.UpgradeUntil, Increment: in.Scores.Increment}
+	for i, fs := range in.Scores.Formats {
+		id, _ := targets.ParseFormatID(fs.FormatID)
+		if _, twice := s.Scores.Formats[id]; twice {
+			field(fmt.Sprintf("body.scores.formats[%d].formatId", i), errors.New("the Custom Format is listed twice"))
+		}
+		s.Scores.Formats[id] = fs.Score
+	}
+	s.Propers, _ = targets.ParsePropers(in.Propers)
 	if len(bad) > 0 {
 		return targets.Spec{}, api.Invalid.Fields(bad...)
 	}

@@ -5654,6 +5654,14 @@ export const TargetsFilter = zod.object({
 export type TargetsFilter = zod.input<typeof TargetsFilter>;
 export type TargetsFilterOutput = zod.output<typeof TargetsFilter>;
 
+export const TargetsFormatScore = zod.object({
+  formatId: zod.uuid(),
+  score: zod.int().describe("Added to a Release's score when it matches the Custom Format"),
+});
+
+export type TargetsFormatScore = zod.input<typeof TargetsFormatScore>;
+export type TargetsFormatScoreOutput = zod.output<typeof TargetsFormatScore>;
+
 export const targetsNewCutAliasesMax = 20;
 
 export const targetsNewCutNameMax = 100;
@@ -5688,6 +5696,27 @@ export const TargetsNewProfile = zod.object({
 
 export type TargetsNewProfile = zod.input<typeof TargetsNewProfile>;
 export type TargetsNewProfileOutput = zod.output<typeof TargetsNewProfile>;
+
+export const targetsNewScoresIncrementDefault = 1;
+
+export const TargetsNewScores = zod.object({
+  formats: zod.array(TargetsFormatScore).nullish().describe("A Custom Format left out scores 0"),
+  increment: zod
+    .int()
+    .min(1)
+    .default(targetsNewScoresIncrementDefault)
+    .describe("How far a Release's score must pass the file's to replace it in the same tier"),
+  minimum: zod.int().exactOptional().describe("A Release scoring below it isn't grabbed"),
+  upgradeUntil: zod
+    .int()
+    .exactOptional()
+    .describe(
+      "A file at or past the cutoff upgrades to better-scored Releases until it scores this",
+    ),
+});
+
+export type TargetsNewScores = zod.input<typeof TargetsNewScores>;
+export type TargetsNewScoresOutput = zod.output<typeof TargetsNewScores>;
 
 export const targetsSizeMaxMin = 0;
 
@@ -5726,6 +5755,8 @@ export type TargetsSizeOutput = zod.output<typeof TargetsSize>;
 
 export const targetsNewTargetNameMax = 100;
 
+export const targetsNewTargetPropersDefault = `prefer_and_upgrade`;
+
 export const TargetsNewTarget = zod.object({
   cutoff: zod
     .enum([
@@ -5751,6 +5782,15 @@ export const TargetsNewTarget = zod.object({
     .describe("Any quality of the tier at which a file is final"),
   filters: zod.array(TargetsFilter).nullish().describe("An attribute left out is Any"),
   name: zod.string().min(1).max(targetsNewTargetNameMax),
+  propers: zod
+    .enum(["prefer_and_upgrade", "prefer_no_upgrade", "dont_prefer"])
+    .default(targetsNewTargetPropersDefault)
+    .describe(
+      "prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores",
+    ),
+  scores: TargetsNewScores.exactOptional().describe(
+    "Left out, every score is 0 and the increment is 1",
+  ),
   sizes: zod
     .array(TargetsSize)
     .nullish()
@@ -5905,6 +5945,25 @@ export const TargetsQualityList = zod.object({
 export type TargetsQualityList = zod.input<typeof TargetsQualityList>;
 export type TargetsQualityListOutput = zod.output<typeof TargetsQualityList>;
 
+export const TargetsScores = zod.object({
+  formats: zod
+    .array(TargetsFormatScore)
+    .describe("Every Custom Format the Target scores; a format left out scores 0"),
+  increment: zod
+    .int()
+    .min(1)
+    .describe("How far a Release's score must pass the file's to replace it in the same tier"),
+  minimum: zod.int().describe("A Release scoring below it isn't grabbed"),
+  upgradeUntil: zod
+    .int()
+    .describe(
+      "A file at or past the cutoff upgrades to better-scored Releases until it scores this",
+    ),
+});
+
+export type TargetsScores = zod.input<typeof TargetsScores>;
+export type TargetsScoresOutput = zod.output<typeof TargetsScores>;
+
 export const TargetsTarget = zod.object({
   contains: zod
     .array(zod.uuid())
@@ -5915,6 +5974,12 @@ export const TargetsTarget = zod.object({
   id: zod.uuid(),
   name: zod.string(),
   profiles: zod.array(TargetsProfileRef).describe("The Profiles holding it, by name"),
+  propers: zod
+    .enum(["prefer_and_upgrade", "prefer_no_upgrade", "dont_prefer"])
+    .describe(
+      "prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores",
+    ),
+  scores: TargetsScores,
   sizes: zod.array(TargetsSize).describe("Every accepted quality's size, in tier order"),
   tiers: zod
     .array(zod.array(zod.string()).nullable())

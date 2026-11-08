@@ -299,6 +299,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Works:   tree,
 		Types:   contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
 		Changed: targets.ChangedEvent.Bind(n.hub),
+		Formats: n.cfg.Timings.Formats,
 	})
 	if err != nil {
 		return err

@@ -5,6 +5,7 @@ import "github.com/jatassi/slipstream/internal/storage"
 type (
 	TargetID  struct{ storage.UUID }
 	ProfileID struct{ storage.UUID }
+	FormatID  struct{ storage.UUID }
 )
 
 // Attribute is a fact a hard filter rules on.

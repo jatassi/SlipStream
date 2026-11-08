@@ -5,8 +5,9 @@ SELECT EXISTS (SELECT 1 FROM targets_target WHERE name = sqlc.arg(name));
 SELECT EXISTS (SELECT 1 FROM targets_target WHERE id = sqlc.arg(id));
 
 -- name: InsertTarget :exec
-INSERT INTO targets_target (id, name, created_at, cutoff_tier)
-VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(created_at), sqlc.arg(cutoff_tier));
+INSERT INTO targets_target (id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers)
+VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(created_at), sqlc.arg(cutoff_tier), sqlc.arg(min_score), sqlc.arg(upgrade_until),
+    sqlc.arg(score_increment), sqlc.arg(propers));
 
 -- name: InsertQuality :exec
 INSERT INTO targets_quality (target_id, quality, tier, position, min_mib_per_minute, max_mib_per_minute)
@@ -103,7 +104,9 @@ SELECT work_id FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) ORDER 
 SELECT EXISTS (SELECT 1 FROM targets_target WHERE name = sqlc.arg(name) AND id <> sqlc.arg(id));
 
 -- name: UpdateTarget :exec
-UPDATE targets_target SET name = sqlc.arg(name), cutoff_tier = sqlc.arg(cutoff_tier) WHERE id = sqlc.arg(id);
+UPDATE targets_target SET name = sqlc.arg(name), cutoff_tier = sqlc.arg(cutoff_tier), min_score = sqlc.arg(min_score),
+    upgrade_until = sqlc.arg(upgrade_until), score_increment = sqlc.arg(score_increment), propers = sqlc.arg(propers)
+WHERE id = sqlc.arg(id);
 
 -- name: DeleteQualities :exec
 DELETE FROM targets_quality WHERE target_id = sqlc.arg(target_id);

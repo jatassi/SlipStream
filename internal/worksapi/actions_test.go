@@ -198,7 +198,7 @@ func shelve(t *testing.T) *shelves {
 		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Grabs: noGrabs{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })
-	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})
+	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +517,7 @@ func TestSetMonitoringPublishesOnceAndAPreviewNothing(t *testing.T) {
 
 func TestSetProfileGivesEveryWorkOneImpactAndKeepsOwnLists(t *testing.T) {
 	s := shelve(t)
-	uhd, err := s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Name: "UHD", Tiers: [][]release.Quality{{release.Remux2160p}}, Cutoff: release.Remux2160p})
+	uhd, err := s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "UHD", Tiers: [][]release.Quality{{release.Remux2160p}}, Cutoff: release.Remux2160p})
 	if err != nil {
 		t.Fatal(err)
 	}

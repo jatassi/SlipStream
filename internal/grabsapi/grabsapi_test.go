@@ -174,7 +174,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
 	standard := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{
 		Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{{Target: hd.ID, Sourcing: targets.Download}},
 	}))

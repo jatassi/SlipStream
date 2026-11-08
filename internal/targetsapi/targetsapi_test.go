@@ -2,6 +2,7 @@ package targetsapi_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -49,6 +51,7 @@ type served struct {
 	changed *published
 	works   *works.Works
 	fx      *contenttypetest.Fixture
+	files   *files.Files
 	// starter and fixture are the ids of the starter Target and the
 	// fixture type's default Profile, which Open made.
 	starter, fixture string
@@ -81,7 +84,7 @@ func serve(t *testing.T) *served {
 	shelf := files.New(files.Config{
 		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
 	})
-	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx}
+	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx, files: shelf}
 	_, body := s.Call(t, http.MethodGet, "/api/v1/targets", "")
 	s.starter = ownertest.FirstID(body)
 	_, body = s.Call(t, http.MethodGet, "/api/v1/profiles", "")
@@ -94,7 +97,11 @@ const starterRules = `"tiers":[["bluray-1080p","remux-1080p"],["hdtv-1080p","web
 	`"cutoff":"bluray-1080p","filters":[],"sizes":[{"quality":"bluray-1080p","min":50.8,"max":null},{"quality":"remux-1080p","min":102,"max":null},` +
 	`{"quality":"hdtv-1080p","min":33.8,"max":null},{"quality":"webrip-1080p","min":12.5,"max":null},{"quality":"webdl-1080p","min":12.5,"max":null},` +
 	`{"quality":"bluray-720p","min":25.7,"max":null},{"quality":"hdtv-720p","min":17.1,"max":null},{"quality":"webrip-720p","min":12.5,"max":null},` +
-	`{"quality":"webdl-720p","min":12.5,"max":null}]`
+	`{"quality":"webdl-720p","min":12.5,"max":null}]` + unscored
+
+// unscored is the scores and propers setting of a Target made with
+// neither.
+const unscored = `,"scores":{"formats":[],"minimum":0,"upgradeUntil":0,"increment":1},"propers":"prefer_and_upgrade"`
 
 // profileBody is a createProfile body for Profile name of the fixture
 // type holding the Targets with ids, downloaded.
@@ -138,13 +145,13 @@ const (
 	hdRules = `"tiers":[["bluray-1080p","remux-1080p"],["webdl-1080p","webrip-1080p"]],"cutoff":"bluray-1080p",` +
 		`"filters":[{"attribute":"hdr","mode":"only","values":["SDR","HDR10"]},{"attribute":"language","mode":"not","values":["de"]}],` +
 		`"sizes":[{"quality":"bluray-1080p","min":50.8,"max":null},{"quality":"remux-1080p","min":102,"max":null},` +
-		`{"quality":"webdl-1080p","min":10,"max":40},{"quality":"webrip-1080p","min":12.5,"max":null}]`
+		`{"quality":"webdl-1080p","min":10,"max":40},{"quality":"webrip-1080p","min":12.5,"max":null}]` + unscored
 	webBody = `{"name":"Web","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p",` +
 		`"filters":[{"attribute":"hdr","mode":"only","values":["SDR"]},{"attribute":"language","mode":"not","values":["de","fr"]}],` +
 		`"sizes":[{"quality":"webdl-1080p","min":12,"max":30}]}`
 	webRules = `"tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p",` +
 		`"filters":[{"attribute":"hdr","mode":"only","values":["SDR"]},{"attribute":"language","mode":"not","values":["de","fr"]}],` +
-		`"sizes":[{"quality":"webdl-1080p","min":12,"max":30}]`
+		`"sizes":[{"quality":"webdl-1080p","min":12,"max":30}]` + unscored
 )
 
 func TestTargetsAreCreatedReadDuplicatedAndDeletedWithTheirRules(t *testing.T) {
@@ -395,4 +402,35 @@ func TestListCutsAnswersTheBuiltInCutsThenEachContentTypes(t *testing.T) {
 		`{"key":"ultimate","name":"Ultimate","aliases":["Ultimate","Ultimate Cut","Ultimate Edition"],"origin":"builtin"}`
 	s.Expect(t, http.MethodGet, "/api/v1/cuts", "", http.StatusOK, `{"cuts":[`+builtIn+
 		`,{"key":"superfan","name":"Superfan","aliases":["Superfan","Superfan Edition"],"origin":"type","contentType":"fixture"}]}`)
+}
+
+func TestATargetScoresCustomFormatsAndSetsHowItTakesPropers(t *testing.T) {
+	s := serve(t)
+	hdr := formats.Format{ID: targets.NewFormatID(), Name: "HDR", Conditions: []formats.Condition{
+		{Name: "HDR", Kind: formats.ReleaseTitle, Fields: json.RawMessage(`{"value":"HDR"}`)},
+	}}
+	must[files.Impact](t)(s.files.Change(t.Context(), identity.Admin{}, targets.AddFormats{Dialect: formats.SlipStream, Add: []formats.Format{hdr}}, files.Mode{}))
+	scored := `"scores":{"formats":[{"formatId":"` + hdr.ID.String() + `","score":25}],"minimum":-10,"upgradeUntil":100,"increment":5},"propers":"dont_prefer"`
+	_, body := s.Call(t, http.MethodPost, "/api/v1/targets", `{"name":"Scored","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p",`+
+		`"scores":{"formats":[{"formatId":"`+hdr.ID.String()+`","score":25},{"formatId":"`+targets.NewFormatID().String()+`","score":0}],"minimum":-10,"upgradeUntil":100,"increment":5},"propers":"dont_prefer"}`)
+	ids := map[string]string{"scored": ownertest.FirstID(body)}
+	get(t, s, "/api/v1/targets/"+ids["scored"], `{"id":"@scored","name":"Scored","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p","filters":[],`+
+		`"sizes":[{"quality":"webdl-1080p","min":12.5,"max":null}],`+scored+`,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
+
+	ghost := targets.NewFormatID().String()
+	for _, c := range []struct{ scores, want string }{
+		{
+			`{"formats":[{"formatId":"` + ghost + `","score":10}]}`,
+			`{"status":422,"code":"format_not_found","title":"No Custom Format has that id"}`,
+		},
+		{
+			`{"formats":[{"formatId":"` + hdr.ID.String() + `","score":10},{"formatId":"` + strings.ToUpper(hdr.ID.String()) + `","score":20}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.scores.formats[1].formatId","message":"the Custom Format is listed twice"}]}`,
+		},
+	} {
+		s.Expect(t, http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p","scores":`+c.scores+`}`, http.StatusUnprocessableEntity, c.want)
+	}
+	if code, _ := s.Call(t, http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p","scores":{"increment":0}}`); code != http.StatusUnprocessableEntity {
+		t.Fatalf("an increment of 0 = %d, want 422", code)
+	}
 }

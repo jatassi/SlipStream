@@ -59,10 +59,11 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
 	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{
-		Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
+		Scores: targets.Scores{Increment: 1},
+		Name:   "HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
 	}))
-	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}))
-	small := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "Small", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}))
+	small := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Small", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
 	standard := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{
 		{Target: hd.ID, Sourcing: targets.Download}, {Target: uhd.ID, Sourcing: targets.Download}, {Target: small.ID, Sourcing: targets.Download},
 	}}))

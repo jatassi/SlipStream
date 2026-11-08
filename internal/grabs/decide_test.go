@@ -24,7 +24,7 @@ import (
 )
 
 func target(name string, cutoff release.Quality, sizes map[release.Quality]targets.Size, tiers ...[]release.Quality) targets.Target {
-	t, err := targets.NewTarget(targets.Spec{Name: name, Tiers: tiers, Cutoff: cutoff, Sizes: sizes})
+	t, err := targets.NewTarget(targets.Spec{Scores: targets.Scores{Increment: 1}, Name: name, Tiers: tiers, Cutoff: cutoff, Sizes: sizes})
 	if err != nil {
 		panic(err)
 	}

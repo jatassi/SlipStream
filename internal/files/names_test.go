@@ -14,7 +14,7 @@ import (
 
 func newTarget(t *testing.T, name string, tiers ...[]release.Quality) targets.Target {
 	t.Helper()
-	target, err := targets.NewTarget(targets.Spec{Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
+	target, err := targets.NewTarget(targets.Spec{Scores: targets.Scores{Increment: 1}, Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
 	if err != nil {
 		t.Fatal(err)
 	}
