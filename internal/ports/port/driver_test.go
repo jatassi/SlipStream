@@ -381,6 +381,41 @@ func TestSpacingKeepsThePortsFloorOnTheFakeClock(t *testing.T) {
 	})
 }
 
+func TestARedirectedSignInWaitsItsTurnAndKeepsTheCookiesOnTheWay(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := lantern("lantern")
+		e.RateLimit = 5 * time.Second
+		w := &world{hosts: map[string]http.HandlerFunc{"lantern.test": func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/login.php":
+				setUID(w, "u1")
+				http.Redirect(w, r, "/index.php", http.StatusFound)
+			case "/index.php":
+				_, _ = w.Write([]byte("Welcome"))
+			case "/browse.php":
+				if _, err := r.Cookie("uid"); err != nil {
+					respond(w, listing{SignedOut: true})
+					return
+				}
+				respond(w, listing{Results: []item{{ID: "1", Title: "Orchard.2026.1080p", Down: 1, Up: 1}}})
+			}
+		}}}
+		a := run(t, node(w, formPort(e)), searching.Job{Port: "lantern", Settings: samAndPW, Call: movieSearch("orchard", nil)})
+		if result(a) != "ok" || len(a.Releases) != 1 {
+			t.Fatalf("a search behind a sign-in that redirects home = %v, %s; want its Release", titles(a.Releases), result(a))
+		}
+		hits := w.to("lantern.test")
+		if got, want := w.requests(), []string{"POST lantern.test/login.php", "GET lantern.test/index.php", "GET lantern.test/browse.php"}; !slices.Equal(got, want) {
+			t.Fatalf("requests = %v, want %v", got, want)
+		}
+		for i := 1; i < len(hits); i++ {
+			if gap := hits[i].at.Sub(hits[i-1].at); gap < e.RateLimit {
+				t.Errorf("%s came %s after the request before, want at least %s", hits[i], gap, e.RateLimit)
+			}
+		}
+	})
+}
+
 func TestCredentialHeadersReachOnlyTheIndexersHosts(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := &world{hosts: map[string]http.HandlerFunc{
@@ -641,6 +676,38 @@ func TestARefusedTokenSignsInAgainInsideAFetch(t *testing.T) {
 	})
 }
 
+func TestAFetchedTorrentOrMagnetNeverReadsAsLoggedOut(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := Define(lantern("lantern"), Impl[account]{
+			Login: FormLogin[account]{
+				DoLogin:            func(*SignIn[account]) error { return IndexerAuthError("signed in") },
+				CheckIfLoginNeeded: func(r *IndexerResponse) bool { return !strings.Contains(r.Content, "logout.php") },
+			},
+			Movie: browse[account], Basic: browse[account], Parse: parseListing[account],
+		})
+		magnetLink := "magnet:?xt=urn:btih:" + strings.Repeat("ab", 20)
+		w := &world{hosts: map[string]http.HandlerFunc{"lantern.test": func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/dl/2" {
+				http.Redirect(w, r, magnetLink, http.StatusFound)
+				return
+			}
+			_, _ = w.Write([]byte("d4:infod4:name1:aee"))
+		}}}
+		n := node(w, p)
+		a := run(t, n, searching.Job{Port: "lantern", Settings: samAndPW, Session: heldUID("u1"), Call: searching.FetchCall{Link: searching.LinkOf("https://lantern.test/dl/1")}})
+		if got, ok := a.Got.(searching.Torrent); !ok || string(got.Raw) != "d4:infod4:name1:aee" {
+			t.Errorf("a fetch of a .torrent with no logout.php in it = %+v, %s; want the .torrent", a.Got, result(a))
+		}
+		a = run(t, n, searching.Job{Port: "lantern", Settings: samAndPW, Session: heldUID("u1"), Call: searching.FetchCall{Link: searching.LinkOf("https://lantern.test/dl/2")}})
+		if got, ok := a.Got.(searching.Magnet); !ok || got.Link.Reveal() != magnetLink {
+			t.Errorf("a fetch redirected to a magnet link = %+v, %s; want the magnet link", a.Got, result(a))
+		}
+		if want := []string{"GET lantern.test/dl/1", "GET lantern.test/dl/2"}; !slices.Equal(w.requests(), want) {
+			t.Errorf("requests = %v, want %v and no sign-in", w.requests(), want)
+		}
+	})
+}
+
 func TestDeriveRunsOncePerRevisionOnANode(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		passkeys := 0
@@ -712,6 +779,9 @@ func TestEachPortErrorLandsInItsFamilysOutcome(t *testing.T) {
 				setUID(w, "u1")
 				return
 			}
+			if answer == "limit" {
+				w.Header().Set("Retry-After", "90")
+			}
 			respond(w, listing{Error: answer})
 		}}}
 		n := node(w, keyPort(lantern("lantern")), formPort(lantern("ferry")), cookiePort("marsh", false))
@@ -721,7 +791,7 @@ func TestEachPortErrorLandsInItsFamilysOutcome(t *testing.T) {
 			{"lantern", "auth", "*searching.Stopped the Indexer refused the account: Your key is wrong"},
 			{"ferry", "auth", "*searching.Stopped the site rejected the credentials: Your key is wrong"},
 			{"marsh", "auth", "*searching.Stopped the site's cookie expired"},
-			{"lantern", "limit", "*searching.Limited the Indexer limited requests"},
+			{"lantern", "limit", "*searching.Limited the Indexer limited requests for 1m30s"},
 			{"lantern", "Down for maintenance", "*searching.Failing Down for maintenance"},
 			{"brook", "", "*searching.Stopped SlipStream no longer supports the site: the site closed"},
 		} {

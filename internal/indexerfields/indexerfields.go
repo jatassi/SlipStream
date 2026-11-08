@@ -24,6 +24,9 @@ type Field struct {
 	// Min and Max bound a number, nil for no bound.
 	Min *int `json:",omitempty"`
 	Max *int `json:",omitempty"`
+	// Required is a ported site's credential, which an Indexer can't save
+	// empty.
+	Required bool `json:",omitempty"`
 }
 
 // Type is a setting's type.
@@ -135,7 +138,7 @@ func numberSentence(f Field) string {
 // sealed ones, on top of the plain and sealed values saved before. A
 // setting values leaves out keeps its saved value, as does a sealed one
 // sent empty. A setting with no value takes its default when the Node
-// runs it.
+// runs it, and a required one with no value fails.
 func Split(fields []Field, values, plainBefore, sealedBefore map[string]string) (plain, sealed map[string]string, err error) {
 	plain, sealed = map[string]string{}, map[string]string{}
 	byName := map[string]Field{}
@@ -166,5 +169,19 @@ func Split(fields []Field, values, plainBefore, sealedBefore map[string]string) 
 			sealed[name] = v
 		}
 	}
+	if err := filled(fields, plain, sealed); err != nil {
+		return nil, nil, err
+	}
 	return plain, sealed, nil
+}
+
+// filled refuses a required field that neither plain nor sealed holds a
+// value for.
+func filled(fields []Field, plain, sealed map[string]string) error {
+	for _, f := range fields {
+		if f.Required && plain[f.Name] == "" && sealed[f.Name] == "" {
+			return &ValueError{Field: f.Name, Sentence: f.Label + " is required."}
+		}
+	}
+	return nil
 }

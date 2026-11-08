@@ -2470,12 +2470,17 @@ export const IndexersDefinitionField = zod.object({
   help: zod
     .string()
     .nullable()
-    .describe("An info field's text, written by the definition's authors"),
+    .describe("An info field's text, written by the definition's authors, or a ported site's help"),
   label: zod.string(),
   max: zod.int().nullable().describe("A number's greatest value; null for none"),
   min: zod.int().nullable().describe("A number's least value; null for none"),
   name: zod.string().describe("May hold hyphens or start with a digit"),
   options: zod.array(IndexersOption).describe("A select's or a multiselect's choices, by value"),
+  required: zod
+    .boolean()
+    .describe(
+      "An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value",
+    ),
   sealed: zod.boolean().describe("Its saved value is never returned"),
   type: zod.enum([
     "text",
@@ -2563,6 +2568,9 @@ export const IndexersPin = zod.object({
     .datetime({ offset: true })
     .describe("When SlipStream downloaded the pinned version"),
   id: zod.string(),
+  sealed: zod
+    .array(zod.string())
+    .describe("The names of the sealed settings that hold a value, in order"),
   values: zod
     .record(zod.string(), zod.string())
     .describe("The settings saved in plain, by name. Sealed settings are never returned"),
@@ -2593,6 +2601,9 @@ export const IndexersPortPin = zod.object({
   baseAddress: zod.string(),
   id: zod.string(),
   name: zod.string().describe("The site's name"),
+  sealed: zod
+    .array(zod.string())
+    .describe("The names of the sealed settings that hold a value, in order"),
   synced: zod.iso
     .datetime({ offset: true })
     .nullable()

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -223,6 +224,49 @@ func TestACarryingCodeAnswersItsMemberAndDocumentsIt(t *testing.T) {
 	conflict := doc.Paths["/fixture"]["get"].Responses["409"].Content["application/problem+json"].Schema.AllOf
 	if len(conflict) != 2 || conflict[1].Properties["fresh"].Ref != "#/components/schemas/FixtureFresh" {
 		t.Fatalf("the 409 is documented as %+v, want the problem with fresh a FixtureFresh", conflict)
+	}
+}
+
+type fixtureRefusal struct {
+	Fresh *fixtureFresh `json:"fresh,omitempty"`
+	Cause string        `json:"cause" enum:"late,early"`
+}
+
+var fixtureRefused = NewCarryingMembers[fixtureRefusal](http.StatusConflict, "fixture_refused", "The fixture refused")
+
+func TestACodeCarryingMembersAnswersEachBesideItsOwnAndDocumentsThem(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureRefused.Code}},
+		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
+			return nil, fixtureRefused.Explained("Too late.", fixtureRefusal{Fresh: &fixtureFresh{Basis: "b2"}, Cause: "late"})
+		})
+	w := get(t, r.Handler(), "/api/v1/fixture")
+	want := `{"status":409,"code":"fixture_refused","title":"The fixture refused","detail":"Too late.","fresh":{"basis":"b2"},"cause":"late"}` + "\n"
+	if w.Code != http.StatusConflict || w.Body.String() != want {
+		t.Fatalf("got %d %q, want 409 %q", w.Code, w.Body, want)
+	}
+	var doc struct {
+		Paths map[string]map[string]struct {
+			Responses map[string]struct {
+				Content map[string]struct {
+					Schema struct {
+						AllOf []struct {
+							Properties map[string]struct {
+								Ref  string   `json:"$ref"`
+								Enum []string `json:"enum"`
+							} `json:"properties"`
+						} `json:"allOf"`
+					} `json:"schema"`
+				} `json:"content"`
+			} `json:"responses"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal(r.Document(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	conflict := doc.Paths["/fixture"]["get"].Responses["409"].Content["application/problem+json"].Schema.AllOf
+	if len(conflict) != 2 || conflict[1].Properties["fresh"].Ref != "#/components/schemas/FixtureFresh" || !slices.Equal(conflict[1].Properties["cause"].Enum, []string{"late", "early"}) {
+		t.Fatalf("the 409 is documented as %+v, want the problem with fresh a FixtureFresh and cause late or early", conflict)
 	}
 }
 

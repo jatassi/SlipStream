@@ -1,0 +1,30 @@
+{
+  "releases": [
+    {
+      "title": "Harbor Lights S02 1080p WEB-DL H264-FKW",
+      "size": 19756849561,
+      "published": "1999-12-29T00:00:00Z",
+      "seeders": 20,
+      "leechers": 4,
+      "grabs": 55,
+      "link": "https://iptorrents.fixture-site.fake.localhost/download.php/2010/Harbor.Lights.S02.1080p.WEB-DL.H264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100065
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "336h0m0s",
+      "details": "https://iptorrents.fixture-site.fake.localhost/t/2010",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

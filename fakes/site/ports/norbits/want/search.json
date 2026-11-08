@@ -1,0 +1,90 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW",
+      "size": 6002216796,
+      "published": "2026-06-01T10:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://norbits.fixture-site.fake.localhost/download.php?id=101\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        102084
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://norbits.fixture-site.fake.localhost/details.php?id=101\u0026hit=1",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW",
+      "size": 2995739688,
+      "published": "2026-01-15T07:30:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 9,
+      "link": "https://norbits.fixture-site.fake.localhost/download.php?id=102\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        102084
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://norbits.fixture-site.fake.localhost/details.php?id=102\u0026hit=1",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW",
+      "size": 1074266112,
+      "published": "2025-12-24T22:59:59Z",
+      "seeders": 0,
+      "leechers": 1,
+      "grabs": 1203,
+      "link": "https://norbits.fixture-site.fake.localhost/download.php?id=103\u0026passkey={{passkey}}",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        102084
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://norbits.fixture-site.fake.localhost/details.php?id=103\u0026hit=1",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

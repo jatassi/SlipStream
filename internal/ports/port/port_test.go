@@ -2,7 +2,9 @@ package port
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -77,6 +79,46 @@ func TestDefineDerivesTheFormAndTheWordsFromTheSettingsAndTheFamily(t *testing.T
 	}
 }
 
+type helpedSettings struct {
+	UserPass      `help.username:"Use the name you sign in with."`
+	PIDField      `help:"Find it on your profile."`
+	APIUserFields `help.apiKey:"Find it under Security."`
+	CookieField
+}
+
+func TestDefineRequiresTheCredentialsAndTakesTheSitesHelpForThem(t *testing.T) {
+	coded := Define(entry("lantern"), Impl[formSettings]{
+		Login: CodeLogin[formSettings]{DoLogin: doLogin[formSettings]}, Movie: search[formSettings], Basic: search[formSettings], Parse: parse[formSettings],
+	}).Entry()
+	helped := Define(entry("ferry"), Impl[helpedSettings]{Login: CookieLogin{}, Movie: search[helpedSettings], Basic: search[helpedSettings], Parse: parse[helpedSettings]}).Entry()
+	var got []string
+	for _, f := range coded.Fields {
+		got = append(got, fmt.Sprintf("%s:%t", f.Name, f.Required))
+	}
+	for _, f := range helped.Fields {
+		got = append(got, fmt.Sprintf("%s:%t:%s", f.Name, f.Required, f.Help))
+	}
+	want := []string{
+		"username:true", "password:true", "pin:true", "codecs:false", "sort:false", "pages:false", "freeleechOnly:false", "authenticatorKey:false",
+		"username:true:Use the name you sign in with.", "password:true:", "pid:true:Find it on your profile.",
+		"apiUser:true:", "apiKey:true:Find it under Security.", "cookie:false:",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("fields = %q\nwant     %q", got, want)
+	}
+}
+
+func TestATagThatIsntKeyValuePairsIsRefused(t *testing.T) {
+	for _, tag := range []reflect.StructTag{`help:"Find it`, `help"Find it"`, `help:Find`, `:"Find it"`, `help:"a" label`} {
+		if _, err := tagPairs(tag); err == nil {
+			t.Errorf("tagPairs(%s) passed", tag)
+		}
+	}
+	if got, err := tagPairs(`help:"Find it under \"Security\"."  help.apiKey:"Key"`); err != nil || got["help"] != `Find it under "Security".` || got["help.apiKey"] != "Key" {
+		t.Errorf("tagPairs = %v, %v", got, err)
+	}
+}
+
 func TestDecodeFillsTheSettingsFromTheValuesAndTheDefaults(t *testing.T) {
 	ss, err := settingsOf(reflect.TypeFor[formSettings]())
 	if err != nil {
@@ -118,6 +160,18 @@ type (
 	}
 	secret struct {
 		Token string `port:"token" label:"Token"`
+	}
+	helpOnAPair struct {
+		APIUserFields `help:"Find them under Security."`
+	}
+	helpForNoField struct {
+		APIUserFields `help.apikey:"Find it under Security."`
+	}
+	emptyHelp struct {
+		PasskeyField `help:""`
+	}
+	otherTag struct {
+		PasskeyField `label:"Key"`
 	}
 )
 
@@ -198,6 +252,18 @@ func TestDefinePanicsOnAMisdeclaredPort(t *testing.T) {
 		"a default not offered": func() {
 			Define(entry("x"), Impl[badDefault]{Login: NoLogin{}, Movie: search[badDefault], Basic: search[badDefault], Parse: parse[badDefault]})
 		},
+		"help on a struct of two fields": func() {
+			Define(entry("x"), Impl[helpOnAPair]{Login: NoLogin{}, Movie: search[helpOnAPair], Basic: search[helpOnAPair], Parse: parse[helpOnAPair]})
+		},
+		"help for no field of the struct": func() {
+			Define(entry("x"), Impl[helpForNoField]{Login: NoLogin{}, Movie: search[helpForNoField], Basic: search[helpForNoField], Parse: parse[helpForNoField]})
+		},
+		"empty help": func() {
+			Define(entry("x"), Impl[emptyHelp]{Login: NoLogin{}, Movie: search[emptyHelp], Basic: search[emptyHelp], Parse: parse[emptyHelp]})
+		},
+		"a label on an embedded struct": func() {
+			Define(entry("x"), Impl[otherTag]{Login: NoLogin{}, Movie: search[otherTag], Basic: search[otherTag], Parse: parse[otherTag]})
+		},
 		"an unknown tag option": func() {
 			Define(entry("x"), Impl[unknownFlag]{Login: NoLogin{}, Movie: search[unknownFlag], Basic: search[unknownFlag], Parse: parse[unknownFlag]})
 		},
@@ -251,7 +317,7 @@ func TestTheRegistryListsHidesAndRetires(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {
-				if recover() == nil {
+				if r := recover(); r == nil {
 					t.Error("NewRegistry took it")
 				}
 			}()

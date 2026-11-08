@@ -4697,7 +4697,7 @@
             ]
           },
           "help": {
-            "description": "An info field's text, written by the definition's authors",
+            "description": "An info field's text, written by the definition's authors, or a ported site's help",
             "type": [
               "string",
               "null"
@@ -4733,6 +4733,10 @@
             },
             "type": "array"
           },
+          "required": {
+            "description": "An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value",
+            "type": "boolean"
+          },
           "sealed": {
             "description": "Its saved value is never returned",
             "type": "boolean"
@@ -4764,7 +4768,8 @@
           "min",
           "max",
           "help",
-          "sealed"
+          "sealed",
+          "required"
         ],
         "type": "object"
       },
@@ -5583,6 +5588,13 @@
           "id": {
             "type": "string"
           },
+          "sealed": {
+            "description": "The names of the sealed settings that hold a value, in order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "values": {
             "additionalProperties": {
               "type": "string"
@@ -5600,7 +5612,8 @@
           "version",
           "fetchedAt",
           "baseAddress",
-          "values"
+          "values",
+          "sealed"
         ],
         "type": "object"
       },
@@ -5660,6 +5673,13 @@
             "description": "The site's name",
             "type": "string"
           },
+          "sealed": {
+            "description": "The names of the sealed settings that hold a value, in order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "synced": {
             "description": "When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site",
             "format": "date-time",
@@ -5681,7 +5701,8 @@
           "name",
           "synced",
           "baseAddress",
-          "values"
+          "values",
+          "sealed"
         ],
         "type": "object"
       },
@@ -25123,7 +25144,23 @@
                     {
                       "properties": {
                         "captcha": {
-                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                          "$ref": "#/components/schemas/IndexersCaptchaImage",
+                          "description": "A new captcha to answer, when the Test failed at a sign-in that shows one"
+                        },
+                        "cause": {
+                          "description": "The stop cause, when the Test stopped",
+                          "enum": [
+                            "credentials_rejected",
+                            "captcha_needed",
+                            "challenge_unsolved",
+                            "cookie_expired",
+                            "definition_unloadable",
+                            "account_refused",
+                            "request_rejected",
+                            "code_needed",
+                            "port_retired"
+                          ],
+                          "type": "string"
                         },
                         "code": {
                           "enum": [
@@ -25399,7 +25436,23 @@
                     {
                       "properties": {
                         "captcha": {
-                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                          "$ref": "#/components/schemas/IndexersCaptchaImage",
+                          "description": "A new captcha to answer, when the Test failed at a sign-in that shows one"
+                        },
+                        "cause": {
+                          "description": "The stop cause, when the Test stopped",
+                          "enum": [
+                            "credentials_rejected",
+                            "captcha_needed",
+                            "challenge_unsolved",
+                            "cookie_expired",
+                            "definition_unloadable",
+                            "account_refused",
+                            "request_rejected",
+                            "code_needed",
+                            "port_retired"
+                          ],
+                          "type": "string"
                         },
                         "code": {
                           "enum": [
@@ -25676,7 +25729,23 @@
                     {
                       "properties": {
                         "captcha": {
-                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                          "$ref": "#/components/schemas/IndexersCaptchaImage",
+                          "description": "A new captcha to answer, when the Test failed at a sign-in that shows one"
+                        },
+                        "cause": {
+                          "description": "The stop cause, when the Test stopped",
+                          "enum": [
+                            "credentials_rejected",
+                            "captcha_needed",
+                            "challenge_unsolved",
+                            "cookie_expired",
+                            "definition_unloadable",
+                            "account_refused",
+                            "request_rejected",
+                            "code_needed",
+                            "port_retired"
+                          ],
+                          "type": "string"
                         },
                         "code": {
                           "enum": [
@@ -26342,7 +26411,23 @@
                     {
                       "properties": {
                         "captcha": {
-                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                          "$ref": "#/components/schemas/IndexersCaptchaImage",
+                          "description": "A new captcha to answer, when the Test failed at a sign-in that shows one"
+                        },
+                        "cause": {
+                          "description": "The stop cause, when the Test stopped",
+                          "enum": [
+                            "credentials_rejected",
+                            "captcha_needed",
+                            "challenge_unsolved",
+                            "cookie_expired",
+                            "definition_unloadable",
+                            "account_refused",
+                            "request_rejected",
+                            "code_needed",
+                            "port_retired"
+                          ],
+                          "type": "string"
                         },
                         "code": {
                           "enum": [
@@ -26567,7 +26652,23 @@
                     {
                       "properties": {
                         "captcha": {
-                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                          "$ref": "#/components/schemas/IndexersCaptchaImage",
+                          "description": "A new captcha to answer, when the Test failed at a sign-in that shows one"
+                        },
+                        "cause": {
+                          "description": "The stop cause, when the Test stopped",
+                          "enum": [
+                            "credentials_rejected",
+                            "captcha_needed",
+                            "challenge_unsolved",
+                            "cookie_expired",
+                            "definition_unloadable",
+                            "account_refused",
+                            "request_rejected",
+                            "code_needed",
+                            "port_retired"
+                          ],
+                          "type": "string"
                         },
                         "code": {
                           "enum": [
@@ -27240,7 +27341,23 @@
                     {
                       "properties": {
                         "captcha": {
-                          "$ref": "#/components/schemas/IndexersCaptchaImage"
+                          "$ref": "#/components/schemas/IndexersCaptchaImage",
+                          "description": "A new captcha to answer, when the Test failed at a sign-in that shows one"
+                        },
+                        "cause": {
+                          "description": "The stop cause, when the Test stopped",
+                          "enum": [
+                            "credentials_rejected",
+                            "captcha_needed",
+                            "challenge_unsolved",
+                            "cookie_expired",
+                            "definition_unloadable",
+                            "account_refused",
+                            "request_rejected",
+                            "code_needed",
+                            "port_retired"
+                          ],
+                          "type": "string"
                         },
                         "code": {
                           "enum": [

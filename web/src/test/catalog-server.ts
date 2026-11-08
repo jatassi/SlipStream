@@ -2,8 +2,9 @@ import { HttpResponse, http } from "msw";
 
 import type { IndexersIndexerCatalog, TasksTask } from "../api/gen/model";
 import { SetCatalogAddressBody } from "../api/gen/zod/indexers/indexers.zod";
-import { catalog } from "./catalog";
+import { catalog, forms } from "./catalog";
 import { problem } from "./handlers";
+import { portForms } from "./ports";
 import { housekeeping, taskServer } from "./tasks";
 
 const hours = (count: number) => count * 3600;
@@ -67,7 +68,8 @@ export type CatalogWrite = { method: string; path: string; body?: unknown };
 export const readableAddress = "https://catalog.example.test/indexers";
 
 /**
- * The Indexer catalog with its address and custom definitions, and the two
+ * The Indexer catalog with its address, custom definitions and each
+ * definition's and port's form by id, and the two
  * tasks Settings > Indexers shows. Deleting `inUse` is refused as an
  * Indexer runs it; each write lands in writes.
  */
@@ -77,6 +79,12 @@ export function catalogServer({ inUse }: { inUse?: string } = {}) {
   const tasks = taskServer({ tasks: [catalogRefresh, healthCheck] });
   const handlers = [
     http.get("*/api/v1/indexer-catalog", () => HttpResponse.json(state.catalog)),
+    http.get("*/api/v1/indexer-catalog/:id", ({ params }) => {
+      const found = [...forms, ...portForms].find((form) => form.entry.id === params["id"]);
+      return found === undefined
+        ? problem(404, "definition_not_found", "No definition has that id")
+        : HttpResponse.json(found);
+    }),
     http.put("*/api/v1/indexer-catalog/address", async ({ request }) => {
       const body = SetCatalogAddressBody.parse(await request.json());
       writes.push({ method: "PUT", path: "address", body });

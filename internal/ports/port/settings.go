@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -32,9 +33,15 @@ import (
 //	[]T with Options()  multiselect, stored as comma-separated option values
 //
 // key marks the credentials account_refused names, signin the ones
-// credentials_rejected names. An embedded struct contributes its fields
-// in place, as a C# base settings class does. A port embeds the
-// credential structs below and never types a credential's label.
+// credentials_rejected names, and either makes the value required. An
+// embedded struct contributes its fields in place, as a C# base settings
+// class does. A port embeds the credential structs below and never types
+// a credential's label. It gives a credential the site's own help with a
+// tag on the embedded struct: help on a struct of one field, or
+// help.<name>, naming the stored value, on any:
+//
+//	port.PIDField      `help:"Find your PID on your My Account page."`
+//	port.APIUserFields `help.apiUser:"Find it under Edit Profile."`
 type (
 	Field  = indexerfields.Field
 	Option = indexerfields.Option
@@ -88,7 +95,7 @@ type PINField struct {
 
 // CookieField is a cookie a site's own settings take in place of its
 // sign-in form, as GreatPosterWall's does for an account with two-factor
-// sign-in.
+// sign-in, so it isn't required.
 type CookieField struct {
 	Cookie string `port:"cookie" label:"Cookie"`
 }
@@ -123,8 +130,11 @@ func settingsOf(t reflect.Type) ([]setting, error) {
 		sf := t.Field(i)
 		if sf.Anonymous && sf.Type.Kind() == reflect.Struct && sf.Tag.Get("port") == "" {
 			inner, err := settingsOf(sf.Type)
+			if err == nil {
+				err = helpOf(sf.Tag, inner)
+			}
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("settings field %s: %w", sf.Name, err)
 			}
 			for _, s := range inner {
 				s.index = append([]int{i}, s.index...)
@@ -163,6 +173,7 @@ func settingOf(sf reflect.StructField) (setting, error) {
 	if s.Name == "" || s.Label == "" {
 		return setting{}, errors.New("a setting needs a name and a label")
 	}
+	s.Required = s.key || s.signin
 	var err error
 	if s.Type, s.Options, err = typeOf(sf.Type); err != nil {
 		return setting{}, err
@@ -179,6 +190,73 @@ func settingOf(sf reflect.StructField) (setting, error) {
 		}
 	}
 	return s, nil
+}
+
+// helpOf sets the help that the tag of an embedded struct gives its
+// fields.
+func helpOf(tag reflect.StructTag, inner []setting) error {
+	pairs, err := tagPairs(tag)
+	if err != nil {
+		return err
+	}
+	for key, text := range pairs {
+		name, named := strings.CutPrefix(key, "help.")
+		i := 0
+		switch {
+		case key == "help" && len(inner) != 1:
+			return errors.New("a struct of more than one field takes help.<name> tags, not help")
+		case key != "help" && !named:
+			return fmt.Errorf("an embedded struct takes only help tags, not %s", key)
+		case text == "":
+			return fmt.Errorf("the %s tag is empty", key)
+		case named:
+			i = slices.IndexFunc(inner, func(s setting) bool { return s.Name == name })
+		}
+		if i < 0 {
+			return fmt.Errorf("the %s tag names no field of the struct", key)
+		}
+		inner[i].Help = text
+	}
+	return nil
+}
+
+// tagPairs is every key:"value" pair of tag. It fails where
+// reflect.StructTag.Lookup would stop reading.
+func tagPairs(tag reflect.StructTag) (map[string]string, error) {
+	out := map[string]string{}
+	malformed := fmt.Errorf("the tag %q isn't key:\"value\" pairs", tag)
+	rest := strings.TrimLeft(string(tag), " ")
+	for rest != "" {
+		key, after, ok := strings.Cut(rest, ":")
+		end := closingQuote(after)
+		if !ok || key == "" || strings.ContainsAny(key, " \"") || end < 0 {
+			return nil, malformed
+		}
+		v, err := strconv.Unquote(after[:end+1])
+		if err != nil {
+			return nil, malformed
+		}
+		out[key] = v
+		rest = strings.TrimLeft(after[end+1:], " ")
+	}
+	return out, nil
+}
+
+// closingQuote is the index of the quote that ends the quoted string s
+// starts with, -1 when s doesn't start with one or never ends it.
+func closingQuote(s string) int {
+	if !strings.HasPrefix(s, `"`) {
+		return -1
+	}
+	for i := 1; i < len(s); i++ {
+		switch s[i] {
+		case '\\':
+			i++
+		case '"':
+			return i
+		}
+	}
+	return -1
 }
 
 func typeOf(t reflect.Type) (indexerfields.Type, []Option, error) {

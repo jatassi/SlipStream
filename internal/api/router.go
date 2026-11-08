@@ -348,29 +348,31 @@ func (r *Router) logFailure(ctx context.Context, msg string, attrs ...any) {
 // operation answers.
 func errorResponses(registry huma.Registry, codes []*Code) map[string]*huma.Response {
 	byStatus := map[int][]any{}
-	carried := map[int]map[string]reflect.Type{}
+	carried := map[int]map[string]carriedMember{}
 	for _, c := range codes {
 		if !slices.Contains(byStatus[c.status], any(c.name)) {
 			byStatus[c.status] = append(byStatus[c.status], c.name)
 		}
-		if c.member == "" {
+		if c.carries == nil {
 			continue
 		}
 		if carried[c.status] == nil {
-			carried[c.status] = map[string]reflect.Type{}
+			carried[c.status] = map[string]carriedMember{}
 		}
-		if t, ok := carried[c.status][c.member]; ok && t != c.carries {
-			panic(fmt.Sprintf("api: two %d codes carry %s as %s and %s", c.status, c.member, t, c.carries))
+		for name, m := range membersOf(registry, c) {
+			if was, ok := carried[c.status][name]; ok && was.from != m.from {
+				panic(fmt.Sprintf("api: two %d codes carry %s from %s and %s", c.status, name, was.from, m.from))
+			}
+			carried[c.status][name] = m
 		}
-		carried[c.status][c.member] = c.carries
 	}
 	responses := map[string]*huma.Response{}
 	for _, status := range slices.Sorted(maps.Keys(byStatus)) {
 		names := byStatus[status]
 		slices.SortFunc(names, func(a, b any) int { return strings.Compare(fmt.Sprint(a), fmt.Sprint(b)) })
 		properties := map[string]*huma.Schema{"code": {Type: "string", Enum: names}}
-		for member, t := range carried[status] {
-			properties[member] = registry.Schema(t, true, "")
+		for name, m := range carried[status] {
+			properties[name] = m.schema
 		}
 		responses[strconv.Itoa(status)] = &huma.Response{
 			Description: http.StatusText(status),
@@ -381,6 +383,30 @@ func errorResponses(registry huma.Registry, codes []*Code) map[string]*huma.Resp
 		}
 	}
 	return responses
+}
+
+// carriedMember is one member a code's problem carries, and the type or
+// struct field it comes from, so two codes of a status never carry one
+// name two ways.
+type carriedMember struct {
+	from   string
+	schema *huma.Schema
+}
+
+// membersOf is each member c's problem carries by name.
+func membersOf(registry huma.Registry, c *Code) map[string]carriedMember {
+	if c.member != "" {
+		return map[string]carriedMember{c.member: {from: c.carries.String(), schema: registry.Schema(c.carries, true, "")}}
+	}
+	members := map[string]carriedMember{}
+	for _, f := range reflect.VisibleFields(c.carries) {
+		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if !f.IsExported() || name == "" || name == "-" {
+			continue
+		}
+		members[name] = carriedMember{from: c.carries.String() + "." + f.Name, schema: huma.SchemaFromField(registry, f, "")}
+	}
+	return members
 }
 
 // schemaName prefixes Huma's name with the owner a type belongs to, read

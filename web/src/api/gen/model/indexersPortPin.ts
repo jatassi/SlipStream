@@ -5,6 +5,8 @@ export interface IndexersPortPin {
   id: string;
   /** The site's name */
   name: string;
+  /** The names of the sealed settings that hold a value, in order */
+  sealed: string[];
   /**
    * When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site
    * @nullable

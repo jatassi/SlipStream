@@ -112,9 +112,9 @@ func TestAPortsFormAndCatalogEntry(t *testing.T) {
 	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-catalog/lantern", "", http.StatusOK,
 		`{"entry":{"id":"lantern","name":"Lantern","description":"Lantern is a fictional tracker for tests.","language":"en-US","privacy":"private","categories":[2000],"origin":"native","reason":null,"replacedByCustom":false,"version":"T"},`+
 			`"links":["https://lantern.test/","https://lantern-mirror.test/"],"fields":[`+
-			`{"name":"passkey","label":"Passkey","type":"text","default":null,"options":[],"min":null,"max":null,"help":null,"sealed":true},`+
-			`{"name":"codecs","label":"Codecs","type":"multiselect","default":null,"options":[{"value":"1","label":"H.264"},{"value":"5","label":"HEVC"}],"min":null,"max":null,"help":null,"sealed":false},`+
-			`{"name":"pages","label":"Pages","type":"number","default":"2","options":[],"min":1,"max":5,"help":null,"sealed":false}],`+
+			`{"name":"passkey","label":"Passkey","type":"text","default":null,"options":[],"min":null,"max":null,"help":null,"sealed":true,"required":true},`+
+			`{"name":"codecs","label":"Codecs","type":"multiselect","default":null,"options":[{"value":"1","label":"H.264"},{"value":"5","label":"HEVC"}],"min":null,"max":null,"help":null,"sealed":false,"required":false},`+
+			`{"name":"pages","label":"Pages","type":"number","default":"2","options":[],"min":1,"max":5,"help":null,"sealed":false,"required":false}],`+
 			`"session":false,"captcha":false,"solver":false,"cookie":false,"code":false,`+
 			`"port":{"userAgent":false,"searches":{"count":150,"per":"hour"},"grabs":{"count":0,"per":"hour"},"recent":true,"spacingSeconds":4.1,"synced":"T"}}`)
 	_, quill := s.owner.Call(t, http.MethodGet, "/api/v1/indexer-catalog/quill", "")
@@ -134,7 +134,7 @@ func TestANativeIndexerIsAddedFromItsPortAndShownWithIt(t *testing.T) {
 			`"searches":{"count":150,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},`+
 			`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},`+
 			`"sentence":"Lantern is working.","fix":null,"signsIn":false,"trackerIds":["id3"],"waits":null,"session":null,"feedHost":null,"definition":null,`+
-			`"port":{"id":"lantern","name":"Lantern","synced":"T","baseAddress":"https://lantern.test/","values":{"codecs":"1,5"}},`+
+			`"port":{"id":"lantern","name":"Lantern","synced":"T","baseAddress":"https://lantern.test/","values":{"codecs":"1,5"},"sealed":["passkey"]},`+
 			`"searchModes":[{"mode":"search","params":["q"]}],"notes":[],"revision":1,"createdAt":"T"}`)
 	if j := s.native.last(); j.Port != "lantern" || j.Settings["passkey"] != "pk1" {
 		t.Errorf("the Test ran %+v", j)
@@ -143,8 +143,9 @@ func TestANativeIndexerIsAddedFromItsPortAndShownWithIt(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
 		{`{"kind":"native","name":"Nowhere","port":"nowhere"}`, invalid + `"detail":"Choose one of the sites SlipStream includes.","errors":[{"location":"body.port","message":"Choose one of the sites SlipStream includes."}]}`},
 		{`{"kind":"native","name":"Bare","port":"lantern","baseAddress":"lantern.test"}`, invalid + `"detail":"Choose one of the site's addresses, or type one that starts with http:// or https://.","errors":[{"location":"body.baseAddress","message":"Choose one of the site's addresses, or type one that starts with http:// or https://."}]}`},
-		{`{"kind":"native","name":"Bad","port":"lantern","values":{"codecs":"1,9"}}`, invalid + `"detail":"Choose from the options for Codecs.","errors":[{"location":"body.values.codecs","message":"Choose from the options for Codecs."}]}`},
-		{`{"kind":"native","name":"Bad","port":"lantern","values":{"pages":"9"}}`, invalid + `"detail":"Pages is a whole number from 1 to 5.","errors":[{"location":"body.values.pages","message":"Pages is a whole number from 1 to 5."}]}`},
+		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":""}}`, invalid + `"detail":"Passkey is required.","errors":[{"location":"body.values.passkey","message":"Passkey is required."}]}`},
+		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":"pk","codecs":"1,9"}}`, invalid + `"detail":"Choose from the options for Codecs.","errors":[{"location":"body.values.codecs","message":"Choose from the options for Codecs."}]}`},
+		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":"pk","pages":"9"}}`, invalid + `"detail":"Pages is a whole number from 1 to 5.","errors":[{"location":"body.values.pages","message":"Pages is a whole number from 1 to 5."}]}`},
 		{`{"kind":"native","name":"Bad","port":"lantern","cookie":{"cookie":"a=b"}}`, invalid + `"detail":"Only a site that signs in with a browser cookie takes one.","errors":[{"location":"body.cookie","message":"Only a site that signs in with a browser cookie takes one."}]}`},
 		{`{"kind":"native","name":"Ported","address":"https://lantern.test/"}`, invalid + `"errors":[{"location":"body.port","message":"Choose the site."},{"location":"body.address","message":"A ported site takes its address as baseAddress."}]}`},
 	} {
@@ -166,11 +167,14 @@ func TestATwoFactorCodeGoesWithTheTestsAndTheEdit(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	body := `{"kind":"native","name":"Quill","port":"quill","values":{"username":"ada","password":"pw"}`
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/test", body+`}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Quill needs a two-factor code to sign in again. Type the current code and test again."}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Quill needs a two-factor code to sign in again. Type the current code and test again.","cause":"code_needed"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/test", body+`,"code":"123456"}`, http.StatusOK, `{"searchModes":[{"mode":"search","params":["q"]}],"items":0,"sources":[]}`)
 	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", body+`,"code":"123456"}`)
 	if code != http.StatusCreated {
 		t.Fatalf("createIndexer with the code = %d %s", code, reply)
+	}
+	if !strings.Contains(reply, `"values":{"username":"ada"},"sealed":["password"]`) {
+		t.Errorf("createIndexer answered %s, want the password sealed and set and the empty authenticator key not", reply)
 	}
 	id := ownertest.FirstID(reply)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/"+id+"/test", `{"code":"654321"}`, http.StatusOK, `{"searchModes":[{"mode":"search","params":["q"]}],"items":0,"sources":[]}`)

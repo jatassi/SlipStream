@@ -100,15 +100,16 @@ type option struct {
 }
 
 type definitionField struct {
-	Name    string   `json:"name" doc:"May hold hyphens or start with a digit"`
-	Label   string   `json:"label"`
-	Type    string   `json:"type" enum:"text,password,checkbox,select,number,multiselect,info,info_cookie,info_flaresolverr,info_useragent,info_category_8000,cardigannCaptcha"`
-	Default *string  `json:"default" doc:"Null when the field has none"`
-	Options []option `json:"options" nullable:"false" doc:"A select's or a multiselect's choices, by value"`
-	Min     *int     `json:"min" doc:"A number's least value; null for none"`
-	Max     *int     `json:"max" doc:"A number's greatest value; null for none"`
-	Help    *string  `json:"help" doc:"An info field's text, written by the definition's authors"`
-	Sealed  bool     `json:"sealed" doc:"Its saved value is never returned"`
+	Name     string   `json:"name" doc:"May hold hyphens or start with a digit"`
+	Label    string   `json:"label"`
+	Type     string   `json:"type" enum:"text,password,checkbox,select,number,multiselect,info,info_cookie,info_flaresolverr,info_useragent,info_category_8000,cardigannCaptcha"`
+	Default  *string  `json:"default" doc:"Null when the field has none"`
+	Options  []option `json:"options" nullable:"false" doc:"A select's or a multiselect's choices, by value"`
+	Min      *int     `json:"min" doc:"A number's least value; null for none"`
+	Max      *int     `json:"max" doc:"A number's greatest value; null for none"`
+	Help     *string  `json:"help" doc:"An info field's text, written by the definition's authors, or a ported site's help"`
+	Sealed   bool     `json:"sealed" doc:"Its saved value is never returned"`
+	Required bool     `json:"required" doc:"An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value"`
 }
 
 type definitionForm struct {
@@ -146,7 +147,7 @@ func formOf(f indexers.Form) definitionForm {
 	for _, field := range f.Fields {
 		d := definitionField{
 			Name: field.Name, Label: field.Label, Type: string(field.Type), Default: text(field.Default), Options: []option{},
-			Help: text(field.Help), Sealed: field.Sealed, Min: field.Min, Max: field.Max,
+			Help: text(field.Help), Sealed: field.Sealed, Required: field.Required, Min: field.Min, Max: field.Max,
 		}
 		for _, o := range field.Options {
 			d.Options = append(d.Options, option{Value: o.Value, Label: o.Label})

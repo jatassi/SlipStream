@@ -60,6 +60,17 @@ func TestScrubRefusesAFixtureHoldingEachKindOfRealValue(t *testing.T) {
 	}
 }
 
+func TestScrubPassesASubmitButtonNamedLogin(t *testing.T) {
+	for value, refused := range map[string]bool{"Log in!": false, "jdoe": true} {
+		f := cleanFixture(t)
+		f.Cases[3].Exchanges[1].Request.Form["login"] = value
+		found := Scrub(f)
+		if got := slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "login is") }); got != refused {
+			t.Errorf("Scrub of form login %q = %q, want refused %v", value, found, refused)
+		}
+	}
+}
+
 // cleanFixture is testport's fixture, which Scrub passes, with maps the
 // cases above write to.
 func cleanFixture(t *testing.T) Fixture {
@@ -111,5 +122,32 @@ func TestTheRewriteTurnsARecordingIntoWhatScrubPasses(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("the rewrite holds no %s:\n%s", want, got)
 		}
+	}
+}
+
+func TestAnEpisodeAloneEndsATitlesStem(t *testing.T) {
+	for title, want := range map[string]string{
+		"Harbor.Lights.E05.1080p.WEB-DL": "Harbor Lights",
+		"Harbor Lights E1234 720p":       "Harbor Lights",
+		"Harbor.Lights.S02E05.1080p":     "Harbor Lights",
+		"Evermore.1080p":                 "Evermore",
+	} {
+		if got := Stem(title); got != want {
+			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
+		}
+	}
+}
+
+func TestTheRewriteSwapsATitlesSlugInALink(t *testing.T) {
+	r := &Rewriter{Host: Host("lantern")}
+	out, err := r.Rewrite([]byte(`<a href="/torrent/7-the-night-of-2016-s01">The.Night.Of.2016.S01.1080p.BluRay</a>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	name := got[strings.Index(got, ">")+1 : strings.LastIndex(got, "<")]
+	slug := strings.ToLower(strings.ReplaceAll(Stem(name), " ", "-"))
+	if strings.Contains(got, "the-night-of") || !strings.Contains(got, "/torrent/7-"+slug+"-2016-s01") {
+		t.Errorf("the rewrite = %s, want the link's slug to be %s", got, slug)
 	}
 }

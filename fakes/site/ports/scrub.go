@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 )
 
 // FixtureUser is the one username a fixture holds, and FixtureEmail the
@@ -42,7 +43,7 @@ var credentialNames = []string{
 var userNames = []string{"username", "user", "login", "uname", "email"}
 
 // secretHeaders are the headers whose values must be placeholders.
-var secretHeaders = []string{"Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "Api-Key", "Apikey"}
+var secretHeaders = []string{"Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "Api-Key", "Apikey", "Apiuser"}
 
 // Scrub is the scrub check. It reports every value in f shaped like a
 // passkey, API key, token or cookie that isn't a placeholder, a username
@@ -107,11 +108,12 @@ func (s *scrubber) report(at, format string, args ...any) {
 	s.found = append(s.found, at+": "+fmt.Sprintf(format, args...))
 }
 
-// named checks a value by its name, then as text.
+// named checks a value by its name, then as text. A value with a space
+// is no username, such as a submit button's "Log in!" named login.
 func (s *scrubber) named(at, name, v string) {
 	lower := strings.ToLower(name)
 	switch {
-	case slices.Contains(userNames, lower):
+	case slices.Contains(userNames, lower) && !strings.ContainsFunc(v, unicode.IsSpace):
 		if v != FixtureUser && v != FixtureEmail {
 			s.report(at, "%s is %q, which isn't %s or %s", name, v, FixtureUser, FixtureEmail)
 		}

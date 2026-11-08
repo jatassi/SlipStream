@@ -5,7 +5,7 @@ import type { IndexersCaptchaImage } from "../../api/gen/model";
 import { clock } from "../../format";
 import { Button } from "../../ui/button";
 import { withFieldGroup } from "../../ui/form";
-import type { CaptchaStep } from "../add/use-add";
+import type { SignInStep } from "../add/use-add";
 
 function Reload({ look, onReload }: { look: "default" | "ghost"; onReload: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
@@ -26,10 +26,11 @@ function Reload({ look, onReload }: { look: "default" | "ghost"; onReload: () =>
   );
 }
 
-const panel =
+/** The frame of a sign-in step the Admin answers: the captcha, or the two-factor code. */
+export const panel =
   "flex flex-col items-start gap-3 rounded-card bg-glass p-4 ring-1 ring-hairline ring-inset";
 
-type Shown = Exclude<CaptchaStep, { kind: "none" }>;
+type Shown = Extract<SignInStep, { kind: "shown" | "expired" }>;
 
 type Reloads = { onReload?: (() => Promise<void>) | undefined };
 
@@ -118,6 +119,45 @@ export const CaptchaField = withFieldGroup({
           )}
         </group.AppField>
       </Image>
+    );
+  },
+});
+
+/**
+ * The code step of a sign-in that needs a two-factor code, in the captcha
+ * step's frame: one field for the code the Admin's authenticator app shows
+ * now, which goes with the next Test.
+ */
+export const CodeField = withFieldGroup({
+  defaultValues: { code: "" },
+  props: { name: "" },
+  render: function Code({ group, name }) {
+    return (
+      <div className={panel}>
+        <p className="text-ink-1">
+          {name} needs the current code from your authenticator app to sign in.
+        </p>
+        <div className="w-full max-w-80">
+          <group.AppField
+            name="code"
+            validators={{
+              onSubmit: ({ value }) =>
+                value.trim() === "" ? "Type the code your authenticator app shows." : undefined,
+            }}
+          >
+            {(field) => (
+              <field.TextField
+                label="Two-factor code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                spellCheck={false}
+                // oxlint-disable-next-line jsx-a11y/no-autofocus -- the code is the only thing left to type once the step shows
+                autoFocus
+              />
+            )}
+          </group.AppField>
+        </div>
+      </div>
     );
   },
 });

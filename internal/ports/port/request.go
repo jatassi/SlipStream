@@ -218,6 +218,7 @@ type Request struct {
 	json     []byte
 	err      error
 	noFollow bool
+	suppress []int
 }
 
 func Get(u *url.URL) *Request { return newRequest(http.MethodGet, u) }
@@ -260,6 +261,14 @@ func (r *Request) SetJSON(v any) *Request {
 // NoRedirect is AllowAutoRedirect = false: the response is the redirect.
 func (r *Request) NoRedirect() *Request {
 	r.noFollow = true
+	return r
+}
+
+// SuppressHTTPErrorStatusCodes is SuppressHttpErrorStatusCodes: a 429 or
+// 5xx with one of codes reaches the parser in place of the Node's limited
+// or failing.
+func (r *Request) SuppressHTTPErrorStatusCodes(codes ...int) *Request {
+	r.suppress = codes
 	return r
 }
 
@@ -332,12 +341,14 @@ type IndexerResponse struct {
 	// RedirectURL where it points.
 	HasHTTPRedirect bool
 	RedirectURL     string
+	setCookies      []*http.Cookie
 }
 
-// Cookies is GetCookies: the cookies the response set, by name.
+// Cookies is GetCookies: the cookies the response and every redirect it
+// followed set, by name, a later one's value over an earlier one's.
 func (r *IndexerResponse) Cookies() map[string]string {
 	out := map[string]string{}
-	for _, c := range (&http.Response{Header: r.Headers}).Cookies() {
+	for _, c := range r.setCookies {
 		out[c.Name] = c.Value
 	}
 	return out

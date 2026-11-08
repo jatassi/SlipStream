@@ -16,7 +16,7 @@ export function ChoiceSet({
   options: readonly { value: string; label: string }[];
   chosen: readonly string[];
   errors: readonly unknown[];
-  description?: string;
+  description?: string | undefined;
   onChange: (chosen: string[]) => void;
 }) {
   const error = errorText(errors);

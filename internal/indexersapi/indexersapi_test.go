@@ -200,7 +200,7 @@ func TestAnIndexerIsCreatedOnItsHomeNodeAndListed(t *testing.T) {
 func TestEachCreateErrorAnswersItsProblem(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.address(), "wrong"), http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.site.Address.URL("/elsewhere"), s.key), http.StatusUnprocessableEntity,
 		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site failed the Test with 'the Indexer responded with status 404'. Check the address and test again."}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body("ftp://example.test/torznab", "k"), http.StatusUnprocessableEntity,
@@ -249,7 +249,7 @@ func TestAPatchChangesOnlyWhatItSends(t *testing.T) {
 	}
 
 	s.owner.Expect(t, http.MethodPatch, path, `{"apiKey":"wrong"}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
 	s.owner.Expect(t, http.MethodGet, path, "", http.StatusOK, fresh(host, on, 25, 3, "null"))
 	s.owner.Expect(t, http.MethodPatch, path, `{"apiKey":"`+s.key+`","searches":{"count":5,"per":"day"}}`, http.StatusOK,
 		strings.Replace(fresh(host, on, 25, 4, "null"), `"searches":{"count":0,"per":"hour"`, `"searches":{"count":5,"per":"day"`, 1))
@@ -289,7 +289,7 @@ func TestATestReportsWhatItLearnedOrWhyItFailed(t *testing.T) {
 
 	stopped := s.plant(t, "Suspended Site", site.PlayKey(101))
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/"+stopped+"/test", "", http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Suspended Site refused the API key with 'Account suspended'. Check the account, then test again."}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Suspended Site refused the API key with 'Account suspended'. Check the account, then test again.","cause":"account_refused"}`)
 	_, v := s.owner.Call(t, http.MethodGet, "/api/v1/indexers/"+stopped, "")
 	if !strings.Contains(v, `"status":{"state":"stopped","cause":"account_refused","text":"Account suspended"`) ||
 		!strings.Contains(v, `"sentence":"Stopped because Suspended Site refused the API key with 'Account suspended'.","fix":"Check the account, then test the Indexer."`) ||

@@ -65,3 +65,35 @@ func TestSplitSealsEveryTextButTheUsernameAndKeepsWhatWasSaved(t *testing.T) {
 		t.Errorf("Split took a value for an info field: %v", err)
 	}
 }
+
+func TestARequiredValueCantBeSavedEmptyButASealedOneSentEmptyIsKept(t *testing.T) {
+	fields := []Field{
+		{Name: "username", Label: "Username", Type: Text, Required: true},
+		{Name: "password", Label: "Password", Type: Password, Required: true},
+		{Name: "cookie", Label: "Cookie", Type: Text},
+	}
+	for _, tc := range []struct {
+		name                string
+		values, plain, seal map[string]string
+		refused             string
+	}{
+		{"a new Indexer without a password", map[string]string{"username": "sam"}, nil, nil, "password"},
+		{"a new Indexer with an empty password", map[string]string{"username": "sam", "password": ""}, nil, nil, "password"},
+		{"a new Indexer with an empty username", map[string]string{"username": "", "password": "pw"}, nil, nil, "username"},
+		{"a new Indexer with both", map[string]string{"username": "sam", "password": "pw", "cookie": ""}, nil, nil, ""},
+		{"an edit that leaves the password empty", map[string]string{"username": "sam", "password": ""}, map[string]string{"username": "sam"}, map[string]string{"password": "old"}, ""},
+		{"an edit that leaves both out", nil, map[string]string{"username": "sam"}, map[string]string{"password": "old"}, ""},
+		{"an edit that clears the username", map[string]string{"username": ""}, map[string]string{"username": "sam"}, map[string]string{"password": "old"}, "username"},
+	} {
+		_, sealed, err := Split(fields, tc.values, tc.plain, tc.seal)
+		var ve *ValueError
+		switch {
+		case tc.refused == "" && err != nil:
+			t.Errorf("%s: Split = %v, want it saved", tc.name, err)
+		case tc.refused == "" && sealed["password"] == "":
+			t.Errorf("%s: sealed = %v, want a password", tc.name, sealed)
+		case tc.refused != "" && (!errors.As(err, &ve) || ve.Field != tc.refused):
+			t.Errorf("%s: Split = %v, want %s refused", tc.name, err, tc.refused)
+		}
+	}
+}

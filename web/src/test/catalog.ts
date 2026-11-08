@@ -82,6 +82,7 @@ function field(
     min: null,
     max: null,
     sealed: false,
+    required: false,
     ...over,
   } satisfies IndexersDefinitionField;
 }

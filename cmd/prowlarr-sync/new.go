@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jatassi/slipstream/fakes/site/ports"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/ports/provenance"
 )
 
@@ -19,13 +21,25 @@ const module = "github.com/jatassi/slipstream"
 
 var portID = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 
+// logins maps each --auth value, a Login family of port.Impl, to the
+// auth family it derives.
+var logins = map[string]port.Auth{
+	"none": port.StatelessKey, "form": port.FormCookie, "token": port.BearerToken, "cookie": port.PastedCookie, "code": port.FormWithCode,
+}
+
+const loginNames = "none, form, token, cookie or code"
+
 // newPort writes a port's boilerplate: one Go file per C# file, each
 // with its header and package clause, the upstream.json that maps them,
-// the registry file and an empty fixture with the cases every port
-// needs.
-func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.Tree, ref, site, id, family string) error {
+// the registry file and a fixture with every case its auth family
+// needs, each with a call and no exchanges yet.
+func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.Tree, ref, site, id, family, login string) error {
 	if site == "" {
 		return errors.New("new needs --site, the site's C# class")
+	}
+	auth, ok := logins[login]
+	if !ok {
+		return fmt.Errorf("new needs --auth, the port's Login family: %s", loginNames)
 	}
 	if id == "" {
 		id = strings.NewReplacer(" ", "", ".", "", "-", "").Replace(strings.ToLower(site))
@@ -61,25 +75,20 @@ func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.T
 	if err := writeNew(repo, "internal/ports/all/"+id+".go", fmt.Sprintf("package all\n\nimport \"%s/%s\"\n\nfunc init() { add(%s.Port) }\n", module, dir, id)); err != nil {
 		return err
 	}
-	if err := writeNew(repo, "fakes/site/ports/"+id+"/fixture.yaml", emptyFixture); err != nil {
+	fixture, err := ports.Skeleton(port.ID(id), auth).Marshal()
+	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(out, "Wrote %s from %s at %s. Translate each C# file into its Go file, then fill fakes/site/ports/%s/fixture.yaml.\n", dir, site, head.SHA, id)
+	if err := writeNew(repo, "fakes/site/ports/"+id+"/fixture.yaml", string(fixture)); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, `Wrote %[1]s from %[2]s at %[3]s.
+Translate each C# file into its Go file. Then give each case in fakes/site/ports/%[4]s/fixture.yaml its exchanges and bodies, and write the goldens:
+  eval "$(scripts/native-deps env)"
+  go test -p 2 ./fakes/site/ports -run 'TestPorts/%[4]s' -update
+`, dir, site, head.SHA, id)
 	return err //nolint:wrapcheck // the one write of the command's output
 }
-
-const emptyFixture = `source: synthetic
-settings: {}
-cases:
-  - name: search
-    exchanges: []
-  - name: empty
-    exchanges: []
-  - name: auth
-    exchanges: []
-  - name: limit
-    exchanges: []
-`
 
 // siteFiles are the site's C# files at commit: every file in its folder
 // under Definitions when it has one, else its one file.

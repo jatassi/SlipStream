@@ -259,8 +259,15 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
       - name: Run the repo-wide lint checks
         run: go run ./cmd/release lint -part repo
+      - name: Restore the native layers cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - name: Check each port's provenance against Prowlarr's history
         run: |
+          scripts/native-deps fetch > /dev/null
+          eval "$(scripts/native-deps env)"
           git clone --quiet --filter=blob:none --no-checkout https://github.com/Prowlarr/Prowlarr "$RUNNER_TEMP/prowlarr"
           go run ./cmd/prowlarr-sync check --prowlarr "$RUNNER_TEMP/prowlarr"
 

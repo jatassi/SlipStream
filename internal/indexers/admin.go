@@ -530,6 +530,9 @@ type View struct {
 	// Sentence is its status in words, and Fix what the Admin can do about
 	// it, "" when nothing.
 	Sentence, Fix string
+	// Sealed is the names of a catalog or native Indexer's sealed settings
+	// that hold a value, in order.
+	Sealed []string
 }
 
 // List is every Indexer by name, viewed.
@@ -599,9 +602,32 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 		_, v.Waits = gate(idx, st, v.Usage, x.cfg.Roster, UseSearch, now)
 		v.SignsIn, v.Trackers = holdsSession(idx), reach.trackers[idx.ID]
 		v.Sentence, v.Fix = x.words(v)
+		if v.Sealed, err = x.sealedSet(idx); err != nil {
+			return nil, err
+		}
 		out[i] = v
 	}
 	return out, nil
+}
+
+// sealedSet is the names of idx's sealed settings that hold a value, read
+// without the values leaving the Controller.
+func (x *Indexers) sealedSet(idx Indexer) ([]string, error) {
+	if _, feed := idx.Source.(Feed); feed {
+		return nil, nil
+	}
+	s, err := x.open(idx)
+	if err != nil {
+		return nil, err
+	}
+	var set []string
+	for name, v := range s.Fields {
+		if v != "" {
+			set = append(set, name)
+		}
+	}
+	slices.Sort(set)
+	return set, nil
 }
 
 // Queries is one page of Indexer id's query rows, newest first.

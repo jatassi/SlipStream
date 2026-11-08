@@ -65,6 +65,9 @@ func fits(t *testing.T, e port.Entry, f Fixture) {
 			t.Errorf("the fixture has no %s case, which every port of its family needs", name)
 		}
 	}
+	if _, ok := f.TVCase(); !ok && len(e.Capabilities.TvSearchParams) > 0 {
+		t.Error("the fixture has no TV search with a season and an episode, which every port with TV search needs")
+	}
 	for name := range f.Settings {
 		if !slices.ContainsFunc(e.Fields, func(fl port.Field) bool { return fl.Name == name }) {
 			t.Errorf("the fixture sets %s, which isn't one of the port's settings", name)
@@ -121,7 +124,7 @@ func runCase(t *testing.T, reg port.Registry, native searching.Driver, e port.En
 }
 
 // spaced fails two requests to one host closer than floor on the fake
-// clock.
+// clock, a followed redirect's included.
 func spaced(t *testing.T, hits []Hit, floor time.Duration) {
 	t.Helper()
 	last := map[string]time.Time{}
@@ -133,11 +136,13 @@ func spaced(t *testing.T, hits []Hit, floor time.Duration) {
 	}
 }
 
+// sessionOf is s as the Node holds it, earned an hour before the case
+// starts, so a session a sign-in earns during the case reads as changed.
 func sessionOf(s *Session, id port.ID) *searching.Session {
 	if s == nil {
 		return nil
 	}
-	out := &searching.Session{UserAgent: s.UserAgent, Token: s.Token, Pasted: s.Pasted, Earned: time.Now()}
+	out := &searching.Session{UserAgent: s.UserAgent, Token: s.Token, Pasted: s.Pasted, Earned: time.Now().Add(-time.Hour)}
 	for pair := range strings.SplitSeq(s.Cookie, ";") {
 		if name, value, ok := strings.Cut(strings.TrimSpace(pair), "="); ok {
 			out.Cookies = append(out.Cookies, searching.Cookie{Name: name, Value: value, Domain: Host(id), Path: "/", HostOnly: true})
@@ -156,6 +161,9 @@ func golden(t *testing.T, f Fixture, name string, w Want) {
 	got = append(got, '\n')
 	if *update {
 		path := filepath.Join(string(f.Port), "want", name+".json")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(path, got, 0o644); err != nil {
 			t.Fatal(err)
 		}

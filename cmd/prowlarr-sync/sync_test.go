@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/fakes/site/ports"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/ports/provenance"
 )
 
@@ -215,7 +217,7 @@ func TestBumpBringsAUnitUpToDate(t *testing.T) {
 
 func TestNewWritesAPortThatPassesTheCheck(t *testing.T) {
 	prowlarr, repo := history(t)
-	runSync(t, "new", "--repo", repo, "--prowlarr", prowlarr, "--site", "DesiGaane", "--family", "gazelle")
+	runSync(t, "new", "--repo", repo, "--prowlarr", prowlarr, "--site", "DesiGaane", "--family", "gazelle", "--auth", "form")
 	src, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash("internal/ports/desigaane/desigaane.go")))
 	if err != nil {
 		t.Fatal(err)
@@ -223,10 +225,24 @@ func TestNewWritesAPortThatPassesTheCheck(t *testing.T) {
 	if !strings.HasPrefix(string(src), "// Ported from Prowlarr's "+defs+"DesiGaane.cs\n") || !strings.HasSuffix(string(src), "\npackage desigaane\n") {
 		t.Errorf("desigaane.go =\n%s", src)
 	}
-	for _, f := range []string{"internal/ports/all/desigaane.go", "fakes/site/ports/desigaane/fixture.yaml"} {
-		if _, err := os.Stat(filepath.Join(repo, filepath.FromSlash(f))); err != nil {
-			t.Errorf("new didn't write %s: %v", f, err)
+	if _, err := os.Stat(filepath.Join(repo, filepath.FromSlash("internal/ports/all/desigaane.go"))); err != nil {
+		t.Errorf("new didn't write the registry file: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash("fakes/site/ports/desigaane/fixture.yaml")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := ports.Parse("desigaane", raw)
+	if err != nil {
+		t.Fatalf("the fixture new wrote doesn't parse: %v\n%s", err, raw)
+	}
+	for _, name := range append(ports.Required(port.FormCookie), "tv") {
+		if _, ok := f.Case(name); !ok {
+			t.Errorf("the fixture new wrote has no %s case:\n%s", name, raw)
 		}
+	}
+	if _, ok := f.TVCase(); !ok {
+		t.Errorf("the fixture new wrote has no TV search with a season and an episode:\n%s", raw)
 	}
 	report := runSync(t, "report", "--repo", repo, "--prowlarr", prowlarr)
 	if strings.Contains(report, "### new:DesiGaane@") {

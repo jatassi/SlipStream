@@ -1,0 +1,82 @@
+{
+  "releases": [
+    {
+      "title": "Salt.Meadow.2020.2160p.WEB-DL.H265-FKW",
+      "size": 20132659200,
+      "published": "2026-06-04T06:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 2,
+      "link": "https://torrentbytes.fixture-site.fake.localhost/download.php?id=3001\u0026SSL=1\u0026name=Salt.Meadow.2020.2160p.WEB-DL.H265-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2045,
+        100049
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://torrentbytes.fixture-site.fake.localhost/details.php?id=3001\u0026hit=1",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Harbor.Lights.S01.1080p.WEB-DL.H264-FKW",
+      "size": 22548578304,
+      "published": "2026-06-04T05:45:30Z",
+      "seeders": 15,
+      "leechers": 6,
+      "grabs": 11,
+      "link": "https://torrentbytes.fixture-site.fake.localhost/download.php?id=3002\u0026SSL=1\u0026name=Harbor.Lights.S01.1080p.WEB-DL.H264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100041
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://torrentbytes.fixture-site.fake.localhost/details.php?id=3002\u0026hit=1",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Juniper.Falls.2022.1080p.WEB-DL.H264-FKW",
+      "size": 4724464025,
+      "published": "2026-06-03T23:59:59Z",
+      "seeders": 1,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://torrentbytes.fixture-site.fake.localhost/download.php?id=3003\u0026SSL=1\u0026name=Juniper.Falls.2022.1080p.WEB-DL.H264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        8010,
+        100031
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://torrentbytes.fixture-site.fake.localhost/details.php?id=3003\u0026hit=1",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

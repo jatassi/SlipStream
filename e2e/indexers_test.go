@@ -68,6 +68,9 @@ func TestHomeDownloadsTheIndexerCatalogFromFakeCatalogAtStart(t *testing.T) {
 	}
 	reasons := map[string]string{}
 	for _, e := range c.Entries {
+		if e.Origin == "native" {
+			continue
+		}
 		reasons[e.ID] = "runs"
 		if e.Reason != nil {
 			reasons[e.ID] = *e.Reason

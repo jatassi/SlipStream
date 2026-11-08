@@ -384,7 +384,11 @@ func (j *job[S]) page(r *Request) ([]TorrentInfo, error) {
 	if res.HasHTTPRedirect && !r.noFollow {
 		return nil, &searching.Failing{Err: errors.New("the site redirected the search off the Indexer's hosts")}
 	}
-	return j.t.impl.Parse(j.ix, res)
+	infos, err := j.t.impl.Parse(j.ix, res)
+	if le, ok := errors.AsType[*LimitError](err); ok && le.After == 0 {
+		le.After = searching.RetryAfter(res.Headers.Get("Retry-After"), time.Now())
+	}
+	return infos, err
 }
 
 // download is Impl.Download, or by default a GET with the Indexer's
@@ -432,7 +436,7 @@ func (j *job[S]) send(r *Request) (*IndexerResponse, error) {
 	}
 	seen := j.site.Held()
 	res, err := j.do(r)
-	if err != nil || f.loggedOut == nil || !f.loggedOut(res) {
+	if err != nil || f.loggedOut == nil || j.got(res) || !f.loggedOut(res) {
 		return res, err
 	}
 	if f.signIn == nil {
@@ -445,6 +449,22 @@ func (j *job[S]) send(r *Request) (*IndexerResponse, error) {
 		return res, err
 	}
 	return nil, &searching.Failing{Err: errors.New("the site signed SlipStream out again right after it signed in")}
+}
+
+// got is a download's response that holds what it went for: a .torrent,
+// or a redirect the Site didn't follow, to a magnet link or off the
+// Indexer's hosts. A content check such as a missing logout.php link
+// would read either as logged out. Prowlarr reads no download as logged
+// out at all.
+func (j *job[S]) got(res *IndexerResponse) bool {
+	if j.purpose != searching.Download {
+		return false
+	}
+	if res.HasHTTPRedirect {
+		return true
+	}
+	_, err := bencode.Decode(res.Body)
+	return err == nil
 }
 
 func (j *job[S]) do(r *Request) (*IndexerResponse, error) {
@@ -504,7 +524,7 @@ func (j *job[S]) request(r *Request, credentials bool) (*http.Request, searching
 	if err != nil {
 		return nil, searching.Send{}, &searching.Failing{Err: fmt.Errorf("build the request: %w", searching.WithoutURL(err))}
 	}
-	o := searching.Send{Purpose: j.purpose, NoFollow: r.noFollow, Rotates: j.t.login.rotates}
+	o := searching.Send{Purpose: j.purpose, NoFollow: r.noFollow, Rotates: j.t.login.rotates, Suppress: r.suppress}
 	if on {
 		req.Header = r.Header.Clone()
 		o.Hosts = j.hosts
@@ -535,6 +555,7 @@ func (j *job[S]) body(r *Request) (body []byte, contentType string) {
 func (j *job[S]) response(r *Request, res *searching.Response) *IndexerResponse {
 	out := &IndexerResponse{
 		StatusCode: res.Status, Headers: res.Header, Body: res.Body, Content: j.t.charset.GetString(res.Body), URL: res.URL, Request: r,
+		setCookies: res.SetCookies,
 	}
 	if loc := res.Header.Get("Location"); loc != "" && res.Status >= http.StatusMultipleChoices && res.Status < http.StatusBadRequest {
 		out.HasHTTPRedirect = true

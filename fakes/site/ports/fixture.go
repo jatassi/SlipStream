@@ -25,6 +25,7 @@
 //	          method: POST
 //	          path: /api/torrents
 //	          json: {passkey: "{{passkey}}", imdb: {id: 1}}   # a subset match
+//	          noQuery: [freeleech]                              # parameters it must not carry
 //	        response:
 //	          status: 200
 //	          headers: {Content-Type: application/json}
@@ -32,7 +33,8 @@
 //
 // A call is one of search, recent, fetch (a link, relative to the
 // address) and test (with a typed code). A case may set its own session,
-// and session: {} starts it with none.
+// and session: {} starts it with none. A call that sends no request, such
+// as a TV search on a port with none, has exchanges: [].
 //
 // A request matches an exchange on method, host (the port's fixture host
 // when the exchange names none), path, and the headers and the query,
@@ -61,9 +63,10 @@ import (
 )
 
 // FS holds every port's fixture. testport's is always there, so the
-// patterns match with no port registered.
+// patterns match with no port registered. They name files, so an empty
+// bodies/ or want/ embeds nothing and breaks nothing.
 //
-//go:embed */fixture.yaml */bodies */want
+//go:embed */fixture.yaml */bodies/* */want/*
 var FS embed.FS
 
 // Source is where a fixture's exchanges came from.
@@ -104,7 +107,9 @@ type Case struct {
 	Name string `yaml:"name"`
 	Call Call   `yaml:"call"`
 	// Session replaces the fixture's for this case.
-	Session   *Session   `yaml:"session,omitempty"`
+	Session *Session `yaml:"session,omitempty"`
+	// Exchanges is every request the case sends in order, exchanges: []
+	// for a call that sends none.
 	Exchanges []Exchange `yaml:"exchanges"`
 }
 
@@ -136,13 +141,15 @@ type Exchange struct {
 }
 
 // Match is what a request must carry. Every field it names must be
-// there with that value. Others may be too.
+// there with that value. Others may be too, except the query parameters
+// NoQuery names.
 type Match struct {
 	Method  string            `yaml:"method,omitempty"`
 	Host    string            `yaml:"host,omitempty"`
 	Path    string            `yaml:"path"`
 	Headers map[string]string `yaml:"headers,omitempty"`
 	Query   map[string]string `yaml:"query,omitempty"`
+	NoQuery []string          `yaml:"noQuery,omitempty"`
 	Form    map[string]string `yaml:"form,omitempty"`
 	JSON    map[string]any    `yaml:"json,omitempty"`
 }
@@ -161,9 +168,10 @@ func Host(id port.ID) string { return string(id) + ".fixture-site.fake.localhost
 // Address is the base address a fixture's Indexer has.
 func Address(id port.ID) string { return "https://" + Host(id) + "/" }
 
-// Required are the cases every fixture of a port in family a has.
+// Required are the cases every fixture of a port in family a has. A port
+// with TV search also has a TV search with a season and an episode.
 func Required(a port.Auth) []string {
-	out := []string{"search", "empty", "auth", "limit"}
+	out := []string{"search", "empty", "recent", "auth", "limit"}
 	if a.HoldsSession() {
 		out = append(out, "loggedout")
 	}
@@ -171,6 +179,41 @@ func Required(a port.Auth) []string {
 		out = append(out, "code")
 	}
 	return out
+}
+
+// TVCase is a fixture's TV search with a season and an episode.
+func (f Fixture) TVCase() (Case, bool) {
+	i := slices.IndexFunc(f.Cases, func(c Case) bool {
+		s := c.Call.Search
+		return s != nil && s.Mode == "tvsearch" && s.Season != nil && *s.Season > 0 && s.Episode != ""
+	})
+	if i < 0 {
+		return Case{}, false
+	}
+	return f.Cases[i], true
+}
+
+// Skeleton is the fixture prowlarr-sync new writes for a port of family
+// a: every case Required names and a TV search, each with a call and no
+// exchanges yet.
+func Skeleton(id port.ID, a port.Auth) Fixture {
+	calls := map[string]Call{
+		"search": {Search: &Search{Mode: "search", Text: "The Quiet Orchard"}},
+		"empty":  {Search: &Search{Mode: "search", Text: "Juniper Falls"}},
+		"tv":     {Search: &Search{Mode: "tvsearch", Text: "Harbor Lights", Season: new(2), Episode: "3"}},
+	}
+	f := Fixture{Port: id, Source: Synthetic, Settings: map[string]string{}}
+	for _, name := range append(Required(a), "tv") {
+		c := Case{Name: name, Call: Call{Recent: &struct{}{}}, Exchanges: []Exchange{}}
+		if call, ok := calls[name]; ok {
+			c.Call = call
+		}
+		if a.HoldsSession() && (name == "auth" || name == "code") {
+			c.Session = &Session{}
+		}
+		f.Cases = append(f.Cases, c)
+	}
+	return f
 }
 
 // Load reads port id's fixture from fsys, strictly: every case has one
@@ -225,8 +268,8 @@ func Parse(id port.ID, raw []byte) (Fixture, error) {
 		if n := c.Call.count(); n != 1 {
 			errs = append(errs, fmt.Errorf("fixture %s, case %s: a call is one of search, recent, fetch and test, and this one sets %d", id, c.Name, n))
 		}
-		if len(c.Exchanges) == 0 {
-			errs = append(errs, fmt.Errorf("fixture %s, case %s: a case needs at least one exchange", id, c.Name))
+		if c.Exchanges == nil {
+			errs = append(errs, fmt.Errorf("fixture %s, case %s: the case lists no exchanges, and one that sends no request says exchanges: []", id, c.Name))
 		}
 	}
 	return f, errors.Join(errs...)
