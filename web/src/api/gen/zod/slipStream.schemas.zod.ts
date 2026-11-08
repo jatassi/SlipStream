@@ -338,6 +338,19 @@ export const DownloadclientsPollProblem = zod.object({
 export type DownloadclientsPollProblem = zod.input<typeof DownloadclientsPollProblem>;
 export type DownloadclientsPollProblemOutput = zod.output<typeof DownloadclientsPollProblem>;
 
+export const DownloadclientsRoutedTracker = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+  stored: zod
+    .boolean()
+    .describe(
+      "An Admin picked this client for the Tracker's Grabs from some home Node; false while they come here by default",
+    ),
+});
+
+export type DownloadclientsRoutedTracker = zod.input<typeof DownloadclientsRoutedTracker>;
+export type DownloadclientsRoutedTrackerOutput = zod.output<typeof DownloadclientsRoutedTracker>;
+
 export const downloadclientsExternalClientTorrentsMin = 0;
 
 export const DownloadclientsExternalClient = zod.object({
@@ -388,6 +401,9 @@ export const DownloadclientsExternalClient = zod.object({
     .nullable()
     .describe("When its poll state began; null before its Node first polled it"),
   torrents: zod.int().min(downloadclientsExternalClientTorrentsMin).describe("Its live Torrents"),
+  trackers: zod
+    .array(DownloadclientsRoutedTracker)
+    .describe("The private Trackers whose Grabs download on it now, by name"),
   username: zod.string().describe("Empty when it signs in with none"),
   webUi: zod.string().nullable().describe("The client's own web UI; null for a kind with none"),
 });
@@ -470,6 +486,9 @@ export const DownloadclientsClientCard = zod.object({
     .min(downloadclientsClientCardTorrentsMin)
     .describe("The built-in client's live Torrents"),
   totals: DownloadclientsTotals.describe("Added up over the built-in client's live Torrents"),
+  trackers: zod
+    .array(DownloadclientsRoutedTracker)
+    .describe("The private Trackers whose Grabs download on the built-in client now, by name"),
 });
 
 export type DownloadclientsClientCard = zod.input<typeof DownloadclientsClientCard>;
@@ -6381,6 +6400,17 @@ export const TrackersAttention = zod.object({
 export type TrackersAttention = zod.input<typeof TrackersAttention>;
 export type TrackersAttentionOutput = zod.output<typeof TrackersAttention>;
 
+export const TrackersChoice = zod.object({
+  builtInOn: zod
+    .uuid()
+    .exactOptional()
+    .describe("A Node, for its built-in client; set this or clientId"),
+  clientId: zod.uuid().exactOptional().describe("An external client; set this or builtInOn"),
+});
+
+export type TrackersChoice = zod.input<typeof TrackersChoice>;
+export type TrackersChoiceOutput = zod.output<typeof TrackersChoice>;
+
 export const trackersCountsAtRiskMin = 0;
 
 export const trackersCountsGoalMetMin = 0;
@@ -6497,6 +6527,51 @@ export const TrackersOwed = zod.object({
 
 export type TrackersOwed = zod.input<typeof TrackersOwed>;
 export type TrackersOwedOutput = zod.output<typeof TrackersOwed>;
+
+export const TrackersTarget = zod.object({
+  clientId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The external client; absent for the Node's built-in client"),
+  nodeId: zod.uuid(),
+});
+
+export type TrackersTarget = zod.input<typeof TrackersTarget>;
+export type TrackersTargetOutput = zod.output<typeof TrackersTarget>;
+
+export const TrackersRoute = zod.object({
+  default: zod
+    .union([TrackersTarget, zod.null()])
+    .describe("The home Node's built-in client; null while the home Node doesn't hold Downloading"),
+  homeNodeId: zod.uuid().describe("The home Node of the Indexers that find the Grabs"),
+  skipped: zod
+    .boolean()
+    .describe(
+      "True while the stored client can't take a Grab because it is off or deleted, or its Node doesn't hold Downloading",
+    ),
+  stored: zod
+    .union([TrackersChoice, zod.null()])
+    .describe("The client an Admin picked; null for none"),
+  to: zod
+    .union([TrackersTarget, zod.null()])
+    .describe(
+      "Where the Grabs download now: the stored client while it can take them, else the default; null while they download where the Work's library root is",
+    ),
+});
+
+export type TrackersRoute = zod.input<typeof TrackersRoute>;
+export type TrackersRouteOutput = zod.output<typeof TrackersRoute>;
+
+export const TrackersRouteList = zod.object({
+  routes: zod
+    .array(TrackersRoute)
+    .describe(
+      "One for each home Node of the Tracker's Indexers, by Node name; empty unless the Tracker is private",
+    ),
+});
+
+export type TrackersRouteList = zod.input<typeof TrackersRouteList>;
+export type TrackersRouteListOutput = zod.output<typeof TrackersRouteList>;
 
 export const TrackersRule = zod.object({
   clears: zod

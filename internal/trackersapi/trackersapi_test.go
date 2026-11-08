@@ -47,6 +47,15 @@ func (roster) Serving(role.Name) []role.NodeID        { return nil }
 func (roster) Draining(role.Name, role.NodeID) bool   { return false }
 func (roster) Holds(role.Name, role.NodeID) bool      { return true }
 
+// holding is the roster with the Nodes assigned Downloading as a test
+// sets them.
+type holding struct {
+	roster
+	nodes []role.NodeID
+}
+
+func (h *holding) Holding(role.Name) []role.NodeID { return h.nodes }
+
 // late is the Trackers' seeder once they are made, after the clients.
 type late struct{ x **trackers.Trackers }
 
@@ -59,8 +68,9 @@ func (l late) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library
 }
 
 type served struct {
-	owner *ownertest.Owner
-	lib   *storage.DB[storage.Library]
+	owner   *ownertest.Owner
+	lib     *storage.DB[storage.Library]
+	holding *holding
 }
 
 func serve(t *testing.T) *served {
@@ -73,12 +83,14 @@ func serve(t *testing.T) *served {
 			Repoints: []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
 		}),
 	}
+	h := &holding{}
 	clients := downloadclients.New(downloadclients.Config{Library: lib, Roster: roster{}, Uses: grabs.TorrentUses{}, Seeding: late{&r.trackers}})
 	r.trackers = trackers.New(trackers.Config{
 		Library: lib, Clients: clients, Grabs: grabs.TrackerFacts{}, Roster: roster{},
 		Soon: func() {}, Reconciling: trackers.NotReconciling, Changed: discard[trackers.SeedingChanged]{}, TrackersChanged: discard[indexers.TrackerChanged]{},
+		Routing: trackers.Routing{Roster: h}, Rerouted: func() {},
 	})
-	return &served{owner: ownertest.Serve(t, lib, func(router *api.Router) { trackersapi.Routes(router, r) }), lib: lib}
+	return &served{owner: ownertest.Serve(t, lib, func(router *api.Router) { trackersapi.Routes(router, r) }), lib: lib, holding: h}
 }
 
 // tracker adds a Tracker named name reached by no Indexer.
@@ -130,7 +142,7 @@ func TestTheTrackerOperationsAnswerAsBeforeTheMove(t *testing.T) {
 func TestAPublicTrackerRefusesARule(t *testing.T) {
 	s := serve(t)
 	nyaa := s.tracker(t, "Nyaa", indexers.Public)
-	refused := `{"status":409,"code":"tracker_public","title":"Public Trackers have no seeding rule","detail":"Nyaa is public, so its torrents follow your seeding goal alone."}`
+	refused := `{"status":409,"code":"tracker_public","title":"This Tracker is public","detail":"Nyaa is public, so its torrents follow your seeding goal alone."}`
 	s.owner.Expect(t, http.MethodPut, "/api/v1/trackers/"+nyaa+"/rule", `{"clears":"time","ratio":null,"seedSeconds":3600}`, http.StatusConflict, refused)
 	s.owner.Expect(t, http.MethodDelete, "/api/v1/trackers/"+nyaa+"/rule", "", http.StatusConflict, refused)
 	if code, got := s.owner.Call(t, http.MethodPut, "/api/v1/trackers/"+nyaa+"/goal", `{"combine":"forever","ratio":null,"seedSeconds":null,"action":null}`); code != http.StatusOK ||

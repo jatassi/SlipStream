@@ -16,6 +16,7 @@ import type {
   SettingWindowField,
   TrackersGoal,
   TrackersGoalsPreview,
+  TrackersRouteList,
   TrackersSettings,
   TrackersTracker,
   TrackersTrackerList,
@@ -1102,6 +1103,105 @@ export const getMergeTrackerResponseMock = (
   ...overrideResponse,
 });
 
+export const getListTrackerRoutesResponseMock = (
+  overrideResponse: Partial<Extract<TrackersRouteList, object>> = {},
+): TrackersRouteList => ({
+  routes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      default: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+          nodeId: faker.string.uuid(),
+        },
+        null,
+      ]),
+      homeNodeId: faker.string.uuid(),
+      skipped: faker.datatype.boolean(),
+      stored: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { builtInOn: faker.string.uuid() } : {}),
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+        },
+        null,
+      ]),
+      to: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+          nodeId: faker.string.uuid(),
+        },
+        null,
+      ]),
+    }),
+  ),
+  ...overrideResponse,
+});
+
+export const getClearTrackerRouteResponseMock = (
+  overrideResponse: Partial<Extract<TrackersRouteList, object>> = {},
+): TrackersRouteList => ({
+  routes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      default: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+          nodeId: faker.string.uuid(),
+        },
+        null,
+      ]),
+      homeNodeId: faker.string.uuid(),
+      skipped: faker.datatype.boolean(),
+      stored: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { builtInOn: faker.string.uuid() } : {}),
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+        },
+        null,
+      ]),
+      to: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+          nodeId: faker.string.uuid(),
+        },
+        null,
+      ]),
+    }),
+  ),
+  ...overrideResponse,
+});
+
+export const getSetTrackerRouteResponseMock = (
+  overrideResponse: Partial<Extract<TrackersRouteList, object>> = {},
+): TrackersRouteList => ({
+  routes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      default: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+          nodeId: faker.string.uuid(),
+        },
+        null,
+      ]),
+      homeNodeId: faker.string.uuid(),
+      skipped: faker.datatype.boolean(),
+      stored: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { builtInOn: faker.string.uuid() } : {}),
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+        },
+        null,
+      ]),
+      to: faker.helpers.arrayElement([
+        {
+          ...(faker.datatype.boolean() ? { clientId: faker.string.uuid() } : {}),
+          nodeId: faker.string.uuid(),
+        },
+        null,
+      ]),
+    }),
+  ),
+  ...overrideResponse,
+});
+
 export const getClearTrackerRuleResponseMock = (
   overrideResponse: Partial<Extract<TrackersTracker, object>> = {},
 ): TrackersTracker => ({
@@ -1511,6 +1611,78 @@ export const getMergeTrackerMockHandler = (
   );
 };
 
+export const getListTrackerRoutesMockHandler = (
+  overrideResponse?:
+    | TrackersRouteList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<TrackersRouteList> | TrackersRouteList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/trackers/:id/routes",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListTrackerRoutesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getClearTrackerRouteMockHandler = (
+  overrideResponse?:
+    | TrackersRouteList
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0],
+      ) => Promise<TrackersRouteList> | TrackersRouteList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/trackers/:id/routes/:nodeId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getClearTrackerRouteResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetTrackerRouteMockHandler = (
+  overrideResponse?:
+    | TrackersRouteList
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<TrackersRouteList> | TrackersRouteList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/trackers/:id/routes/:nodeId",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetTrackerRouteResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getClearTrackerRuleMockHandler = (
   overrideResponse?:
     | TrackersTracker
@@ -1595,6 +1767,9 @@ export const getTrackersMock = () => [
   getClearTrackerGoalMockHandler(),
   getSetTrackerGoalMockHandler(),
   getMergeTrackerMockHandler(),
+  getListTrackerRoutesMockHandler(),
+  getClearTrackerRouteMockHandler(),
+  getSetTrackerRouteMockHandler(),
   getClearTrackerRuleMockHandler(),
   getSetTrackerRuleMockHandler(),
   getListTrackerWindowsMockHandler(),

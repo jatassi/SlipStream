@@ -120,6 +120,7 @@ export const attic: DownloadclientsExternalClient = {
   problem: null,
   torrents: 3,
   actions: [...acts],
+  trackers: [],
 };
 
 export const atticAway: DownloadclientsExternalClient = {

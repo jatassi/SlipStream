@@ -3,8 +3,10 @@ import * as zod from "zod";
 import {
   MergeTrackerInputBody,
   RenameTrackerInputBody,
+  TrackersChoice,
   TrackersGoal,
   TrackersGoalsPreview,
+  TrackersRouteList,
   TrackersRuleBody,
   TrackersSettings,
   TrackersSettingsChange,
@@ -107,6 +109,37 @@ export const MergeTrackerParams = zod.object({
 export const MergeTrackerBody = MergeTrackerInputBody;
 
 export const MergeTrackerResponse = TrackersTracker;
+
+/**
+ * @summary List where a private Tracker's Grabs download from the home Node of each of its Indexers
+ */
+export const ListTrackerRoutesParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const ListTrackerRoutesResponse = TrackersRouteList;
+
+/**
+ * @summary Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.
+ */
+export const ClearTrackerRouteParams = zod.object({
+  id: zod.uuid(),
+  nodeId: zod.uuid().describe("The home Node"),
+});
+
+export const ClearTrackerRouteResponse = TrackersRouteList;
+
+/**
+ * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.
+ */
+export const SetTrackerRouteParams = zod.object({
+  id: zod.uuid(),
+  nodeId: zod.uuid().describe("The home Node"),
+});
+
+export const SetTrackerRouteBody = TrackersChoice;
+
+export const SetTrackerRouteResponse = TrackersRouteList;
 
 /**
  * @summary Delete the seeding rule an Admin set for a Tracker, so the latest rule its Releases state is in force

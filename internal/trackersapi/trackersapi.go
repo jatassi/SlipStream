@@ -47,7 +47,7 @@ var (
 	trackerNotFound     = api.NewCode(http.StatusNotFound, "tracker_not_found", "That Tracker no longer exists. It may have been removed or merged into another Tracker.")
 	trackerNameTaken    = api.NewCode(http.StatusConflict, "tracker_name_taken", "Another Tracker has that name")
 	trackerMergeSelf    = api.NewCode(http.StatusUnprocessableEntity, "tracker_merge_self", "A Tracker can't be merged into itself")
-	trackerPublic       = api.NewCode(http.StatusConflict, "tracker_public", "Public Trackers have no seeding rule")
+	trackerPublic       = api.NewCode(http.StatusConflict, "tracker_public", "This Tracker is public")
 	seedingValueRefused = api.NewCode(http.StatusUnprocessableEntity, "seeding_value_refused", "A seeding value is out of range")
 	trackerInUse        = api.NewCode(http.StatusConflict, "tracker_in_use", "This Tracker is still in use")
 )
@@ -309,6 +309,33 @@ func Routes(r *api.Router, registry Registry) {
 		ID: "listTrackerWindows", Method: http.MethodGet, Path: "/trackers/{id}/windows", Summary: "List a Tracker's hit and run windows", Status: http.StatusOK,
 		Errors: []*api.Code{trackerNotFound},
 	}, h.listWindows)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listTrackerRoutes",
+		Method:  http.MethodGet,
+		Path:    "/trackers/{id}/routes",
+		Summary: "List where a private Tracker's Grabs download from the home Node of each of its Indexers",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{trackerNotFound},
+	}, h.listRoutes)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setTrackerRoute",
+		Method:  http.MethodPut,
+		Path:    "/trackers/{id}/routes/{nodeId}",
+		Summary: "Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{trackerNotFound, trackerPublic, nodeNotFound, routeNotAHome, clientNotFound, clientRefused, nodeNotDownloading},
+	}, h.setRoute)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "clearTrackerRoute",
+		Method:  http.MethodDelete,
+		Path:    "/trackers/{id}/routes/{nodeId}",
+		Summary: "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{trackerNotFound, trackerPublic, nodeNotFound, routeNotAHome},
+	}, h.clearRoute)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "previewSeedingGoals",

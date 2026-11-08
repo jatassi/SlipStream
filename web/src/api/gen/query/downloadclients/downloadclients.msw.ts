@@ -178,6 +178,14 @@ export const getListDownloadClientsResponseMock = (
           null,
         ]),
         torrents: faker.number.int({ min: 0 }),
+        trackers: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          id: faker.string.uuid(),
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          stored: faker.datatype.boolean(),
+        })),
         username: faker.string.alpha({ length: { min: 10, max: 20 } }),
         webUi: faker.helpers.arrayElement([
           faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -206,6 +214,13 @@ export const getListDownloadClientsResponseMock = (
       seedingSeconds: faker.number.int({ min: 0 }),
       uploaded: faker.number.int({ min: 0 }),
     },
+    trackers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        stored: faker.datatype.boolean(),
+      }),
+    ),
   })),
   kinds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     actions: faker.helpers.arrayElements(["pause", "resume", "recheck", "announce"] as const),
@@ -342,6 +357,13 @@ export const getListDownloadClientsResponseMock = (
       settingsVersion: faker.number.int({ min: 1 }),
       since: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
       torrents: faker.number.int({ min: 0 }),
+      trackers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          id: faker.string.uuid(),
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          stored: faker.datatype.boolean(),
+        }),
+      ),
       username: faker.string.alpha({ length: { min: 10, max: 20 } }),
       webUi: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1149,6 +1171,13 @@ export const getCreateDownloadClientResponseMock = (
   settingsVersion: faker.number.int({ min: 1 }),
   since: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   torrents: faker.number.int({ min: 0 }),
+  trackers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.uuid(),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      stored: faker.datatype.boolean(),
+    }),
+  ),
   username: faker.string.alpha({ length: { min: 10, max: 20 } }),
   webUi: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   ...overrideResponse,
@@ -1283,6 +1312,13 @@ export const getUpdateDownloadClientResponseMock = (
   settingsVersion: faker.number.int({ min: 1 }),
   since: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
   torrents: faker.number.int({ min: 0 }),
+  trackers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.uuid(),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      stored: faker.datatype.boolean(),
+    }),
+  ),
   username: faker.string.alpha({ length: { min: 10, max: 20 } }),
   webUi: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   ...overrideResponse,
