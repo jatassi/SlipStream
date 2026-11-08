@@ -662,6 +662,28 @@
         ],
         "type": "object"
       },
+      "DownloadclientsOwes": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "Upload still needed, 0 when the rule doesn't count ratio or it is reached",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seconds": {
+            "description": "Seeding time still needed, 0 when the rule doesn't count it or it is reached",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seconds",
+          "bytes"
+        ],
+        "type": "object"
+      },
       "DownloadclientsPreview": {
         "additionalProperties": false,
         "properties": {
@@ -702,6 +724,30 @@
         ],
         "type": "object"
       },
+      "DownloadclientsRatioLane": {
+        "additionalProperties": false,
+        "properties": {
+          "goal": {
+            "description": "The goal's ratio, absent when the goal doesn't count ratio",
+            "format": "double",
+            "type": "number"
+          },
+          "rule": {
+            "description": "The rule's ratio, absent when the rule doesn't count ratio",
+            "format": "double",
+            "type": "number"
+          },
+          "value": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
       "DownloadclientsRefusal": {
         "additionalProperties": false,
         "properties": {
@@ -731,6 +777,75 @@
         },
         "required": [
           "code"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsSeedingView": {
+        "additionalProperties": false,
+        "properties": {
+          "atRisk": {
+            "description": "Whether a torrent that owes is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline",
+            "enum": [
+              "no",
+              "yes",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "clears": {
+            "description": "What meets the rule in force, or none while no rule is known",
+            "enum": [
+              "none",
+              "time",
+              "ratio",
+              "either",
+              "both"
+            ],
+            "type": "string"
+          },
+          "combine": {
+            "description": "How its goal's ratio and seeding time combine. A forever goal seeds until an Admin removes it",
+            "enum": [
+              "first",
+              "both",
+              "forever"
+            ],
+            "type": "string"
+          },
+          "goalMet": {
+            "description": "Its seeding goal is met and it owes its Tracker nothing",
+            "type": "boolean"
+          },
+          "owes": {
+            "$ref": "#/components/schemas/DownloadclientsOwes",
+            "description": "What it still needs to meet its Tracker's rule and the margin, absent unless it owes under a known rule"
+          },
+          "ratio": {
+            "$ref": "#/components/schemas/DownloadclientsRatioLane"
+          },
+          "state": {
+            "description": "Its hit and run window's state, or none while it owes no Tracker",
+            "enum": [
+              "none",
+              "owing",
+              "met",
+              "missed",
+              "released"
+            ],
+            "type": "string"
+          },
+          "time": {
+            "$ref": "#/components/schemas/DownloadclientsTimeLane"
+          }
+        },
+        "required": [
+          "ratio",
+          "time",
+          "state",
+          "atRisk",
+          "goalMet",
+          "combine",
+          "clears"
         ],
         "type": "object"
       },
@@ -879,6 +994,7 @@
               "downloading",
               "seeding",
               "problems",
+              "goal-met",
               "all"
             ],
             "type": "string"
@@ -945,6 +1061,33 @@
         },
         "type": "object"
       },
+      "DownloadclientsTimeLane": {
+        "additionalProperties": false,
+        "properties": {
+          "goal": {
+            "description": "Seconds the goal needs, absent when the goal doesn't count seeding time",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rule": {
+            "description": "Seconds the rule needs plus the margin, absent when the rule doesn't count seeding time",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "value": {
+            "description": "Seconds of seeding the goal counts: the Tracker's count for a private torrent, the torrent client's for a public one",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
       "DownloadclientsTorrentDetail": {
         "additionalProperties": false,
         "properties": {
@@ -957,6 +1100,10 @@
           "addedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "announce": {
+            "$ref": "#/components/schemas/DownloadclientsTrackerCell",
+            "description": "Absent when its metainfo names no announce URL"
           },
           "announceAt": {
             "description": "The earliest every announce URL accepts an announce, set while live",
@@ -1101,6 +1248,10 @@
             "description": "Where its Node keeps it, absent until its Node reports it",
             "type": "string"
           },
+          "seeding": {
+            "$ref": "#/components/schemas/DownloadclientsSeedingView",
+            "description": "Its seeding against its Tracker's rule and its seeding goal"
+          },
           "seedingSeconds": {
             "description": "All-time seconds seeded",
             "format": "int64",
@@ -1142,6 +1293,7 @@
                 "downloading",
                 "seeding",
                 "problems",
+                "goal-met",
                 "all"
               ],
               "type": "string"
@@ -1149,16 +1301,15 @@
             "type": "array"
           },
           "tracker": {
-            "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no announce URL"
-          },
-          "trackerId": {
-            "description": "The Tracker its Grab's Release reached, null when no Grab named one",
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTrackerRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Tracker its first Grab's Release reached, null when none did"
           },
           "trackers": {
             "description": "In its metainfo's order",
@@ -1190,7 +1341,6 @@
           "infoHash",
           "pieceSize",
           "private",
-          "trackerId",
           "trackers",
           "files",
           "grabs",
@@ -1207,6 +1357,8 @@
           "uploaded",
           "ratio",
           "seedingSeconds",
+          "tracker",
+          "seeding",
           "addedAt"
         ],
         "type": "object"
@@ -1275,6 +1427,10 @@
           "addedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "announce": {
+            "$ref": "#/components/schemas/DownloadclientsTrackerCell",
+            "description": "Absent when its metainfo names no announce URL"
           },
           "contentType": {
             "description": "The Content Type it was first grabbed for",
@@ -1373,6 +1529,10 @@
             "minimum": 0,
             "type": "number"
           },
+          "seeding": {
+            "$ref": "#/components/schemas/DownloadclientsSeedingView",
+            "description": "Its seeding against its Tracker's rule and its seeding goal"
+          },
           "seedingSeconds": {
             "description": "All-time seconds seeded",
             "format": "int64",
@@ -1414,6 +1574,7 @@
                 "downloading",
                 "seeding",
                 "problems",
+                "goal-met",
                 "all"
               ],
               "type": "string"
@@ -1421,8 +1582,15 @@
             "type": "array"
           },
           "tracker": {
-            "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no announce URL"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTrackerRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Tracker its first Grab's Release reached, null when none did"
           },
           "until": {
             "description": "When a window hold starts it, or a check resumes it",
@@ -1454,6 +1622,8 @@
           "uploaded",
           "ratio",
           "seedingSeconds",
+          "tracker",
+          "seeding",
           "addedAt"
         ],
         "type": "object"
@@ -1582,6 +1752,23 @@
           "url",
           "tier",
           "status"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTrackerRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       },
@@ -6984,9 +7171,11 @@
             "format": "int64",
             "type": "integer"
           },
-          "endless": {
-            "description": "The Node can't finish it on its own, so it stays until it is moved or written off",
-            "type": "boolean"
+          "endlessUnits": {
+            "description": "How many units the Node can't finish on its own, which stay until they are removed, moved or written off",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "noun": {
             "description": "The noun that fits units: torrent, torrents",
@@ -7001,7 +7190,7 @@
           "units",
           "noun",
           "bytes",
-          "endless"
+          "endlessUnits"
         ],
         "type": "object"
       },
@@ -12287,6 +12476,47 @@
         ],
         "type": "object"
       },
+      "TrackersCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "atRisk": {
+            "description": "The ones that owe it seeding and aren't seeding",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "goalMet": {
+            "description": "The ones whose seeding goal is met",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owing": {
+            "description": "The ones that still owe it seeding",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seeding": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "torrents": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "torrents",
+          "seeding",
+          "owing",
+          "atRisk",
+          "goalMet"
+        ],
+        "type": "object"
+      },
       "TrackersGoal": {
         "additionalProperties": false,
         "properties": {
@@ -12466,6 +12696,63 @@
         ],
         "type": "object"
       },
+      "TrackersStats": {
+        "additionalProperties": false,
+        "properties": {
+          "downloaded": {
+            "description": "Bytes, counting each torrent once, live or removed",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "grabs30d": {
+            "description": "Its Grabs in the last 30 days",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owing": {
+            "description": "Its torrents that still owe it seeding",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ratio": {
+            "description": "Uploaded over downloaded, or over size where a torrent's size is larger",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "seedingBytes": {
+            "description": "The size of its torrents that are seeding",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "torrents": {
+            "description": "Its torrents, live or being removed",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "uploaded": {
+            "description": "Bytes, counting each torrent once, live or removed",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uploaded",
+          "downloaded",
+          "ratio",
+          "torrents",
+          "seedingBytes",
+          "grabs30d",
+          "owing"
+        ],
+        "type": "object"
+      },
       "TrackersTracker": {
         "additionalProperties": false,
         "properties": {
@@ -12541,19 +12828,179 @@
         ],
         "type": "object"
       },
+      "TrackersTrackerItem": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/TrackersCounts",
+            "description": "Its torrents, live or being removed, as Activity \u003e Torrents counts them"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersGoal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its own seeding goal; null while it follows the default goal"
+          },
+          "hosts": {
+            "description": "The announce hosts of its private torrents",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "indexerIds": {
+            "description": "The Indexers that reach it, by name",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keys": {
+            "description": "How a Release finds it: definition:\u003cid\u003e, prowlarr:\u003cfeed Indexer\u003e:\u003csource id\u003e or named:\u003cIndexer\u003e",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "privacy": {
+            "enum": [
+              "private",
+              "semi-private",
+              "public",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersRule"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its seeding rule in force; null while none is known, and always for a public Tracker"
+          }
+        },
+        "required": [
+          "counts",
+          "id",
+          "name",
+          "privacy",
+          "hosts",
+          "keys",
+          "indexerIds",
+          "rule",
+          "goal"
+        ],
+        "type": "object"
+      },
       "TrackersTrackerList": {
         "additionalProperties": false,
         "properties": {
           "trackers": {
             "description": "By name",
             "items": {
-              "$ref": "#/components/schemas/TrackersTracker"
+              "$ref": "#/components/schemas/TrackersTrackerItem"
             },
             "type": "array"
           }
         },
         "required": [
           "trackers"
+        ],
+        "type": "object"
+      },
+      "TrackersTrackerPage": {
+        "additionalProperties": false,
+        "properties": {
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersGoal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its own seeding goal; null while it follows the default goal"
+          },
+          "hosts": {
+            "description": "The announce hosts of its private torrents",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "indexerIds": {
+            "description": "The Indexers that reach it, by name",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keys": {
+            "description": "How a Release finds it: definition:\u003cid\u003e, prowlarr:\u003cfeed Indexer\u003e:\u003csource id\u003e or named:\u003cIndexer\u003e",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "privacy": {
+            "enum": [
+              "private",
+              "semi-private",
+              "public",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersRule"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its seeding rule in force; null while none is known, and always for a public Tracker"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/TrackersStats",
+            "description": "SlipStream's own sums over its torrents"
+          }
+        },
+        "required": [
+          "stats",
+          "id",
+          "name",
+          "privacy",
+          "hosts",
+          "keys",
+          "indexerIds",
+          "rule",
+          "goal"
         ],
         "type": "object"
       },
@@ -46366,8 +46813,20 @@
                 "downloading",
                 "seeding",
                 "problems",
+                "goal-met",
                 "all"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only the Torrents of this Tracker",
+            "explode": false,
+            "in": "query",
+            "name": "tracker",
+            "schema": {
+              "description": "Only the Torrents of this Tracker",
+              "format": "uuid",
               "type": "string"
             }
           },
@@ -47890,7 +48349,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrackersTracker"
+                  "$ref": "#/components/schemas/TrackersTrackerPage"
                 }
               }
             },

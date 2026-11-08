@@ -372,7 +372,7 @@ export type DownloadclientsStateCountOutput = zod.output<typeof DownloadclientsS
 export const downloadclientsTabCountTorrentsMin = 0;
 
 export const DownloadclientsTabCount = zod.object({
-  tab: zod.enum(["downloading", "seeding", "problems", "all"]),
+  tab: zod.enum(["downloading", "seeding", "problems", "goal-met", "all"]),
   torrents: zod.int().min(downloadclientsTabCountTorrentsMin),
 });
 
@@ -441,6 +441,99 @@ export const DownloadclientsLiveTick = zod.object({
 
 export type DownloadclientsLiveTick = zod.input<typeof DownloadclientsLiveTick>;
 export type DownloadclientsLiveTickOutput = zod.output<typeof DownloadclientsLiveTick>;
+
+export const downloadclientsOwesBytesMin = 0;
+
+export const downloadclientsOwesSecondsMin = 0;
+
+export const DownloadclientsOwes = zod.object({
+  bytes: zod
+    .int()
+    .min(downloadclientsOwesBytesMin)
+    .describe("Upload still needed, 0 when the rule doesn't count ratio or it is reached"),
+  seconds: zod
+    .int()
+    .min(downloadclientsOwesSecondsMin)
+    .describe("Seeding time still needed, 0 when the rule doesn't count it or it is reached"),
+});
+
+export type DownloadclientsOwes = zod.input<typeof DownloadclientsOwes>;
+export type DownloadclientsOwesOutput = zod.output<typeof DownloadclientsOwes>;
+
+export const downloadclientsRatioLaneValueMin = 0;
+
+export const DownloadclientsRatioLane = zod.object({
+  goal: zod
+    .number()
+    .exactOptional()
+    .describe("The goal's ratio, absent when the goal doesn't count ratio"),
+  rule: zod
+    .number()
+    .exactOptional()
+    .describe("The rule's ratio, absent when the rule doesn't count ratio"),
+  value: zod.number().min(downloadclientsRatioLaneValueMin),
+});
+
+export type DownloadclientsRatioLane = zod.input<typeof DownloadclientsRatioLane>;
+export type DownloadclientsRatioLaneOutput = zod.output<typeof DownloadclientsRatioLane>;
+
+export const downloadclientsTimeLaneGoalMin = 0;
+
+export const downloadclientsTimeLaneRuleMin = 0;
+
+export const downloadclientsTimeLaneValueMin = 0;
+
+export const DownloadclientsTimeLane = zod.object({
+  goal: zod
+    .int()
+    .min(downloadclientsTimeLaneGoalMin)
+    .exactOptional()
+    .describe("Seconds the goal needs, absent when the goal doesn't count seeding time"),
+  rule: zod
+    .int()
+    .min(downloadclientsTimeLaneRuleMin)
+    .exactOptional()
+    .describe(
+      "Seconds the rule needs plus the margin, absent when the rule doesn't count seeding time",
+    ),
+  value: zod
+    .int()
+    .min(downloadclientsTimeLaneValueMin)
+    .describe(
+      "Seconds of seeding the goal counts: the Tracker's count for a private torrent, the torrent client's for a public one",
+    ),
+});
+
+export type DownloadclientsTimeLane = zod.input<typeof DownloadclientsTimeLane>;
+export type DownloadclientsTimeLaneOutput = zod.output<typeof DownloadclientsTimeLane>;
+
+export const DownloadclientsSeedingView = zod.object({
+  atRisk: zod
+    .enum(["no", "yes", "unknown"])
+    .describe(
+      "Whether a torrent that owes is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline",
+    ),
+  clears: zod
+    .enum(["none", "time", "ratio", "either", "both"])
+    .describe("What meets the rule in force, or none while no rule is known"),
+  combine: zod
+    .enum(["first", "both", "forever"])
+    .describe(
+      "How its goal's ratio and seeding time combine. A forever goal seeds until an Admin removes it",
+    ),
+  goalMet: zod.boolean().describe("Its seeding goal is met and it owes its Tracker nothing"),
+  owes: DownloadclientsOwes.exactOptional().describe(
+    "What it still needs to meet its Tracker's rule and the margin, absent unless it owes under a known rule",
+  ),
+  ratio: DownloadclientsRatioLane,
+  state: zod
+    .enum(["none", "owing", "met", "missed", "released"])
+    .describe("Its hit and run window's state, or none while it owes no Tracker"),
+  time: DownloadclientsTimeLane,
+});
+
+export type DownloadclientsSeedingView = zod.input<typeof DownloadclientsSeedingView>;
+export type DownloadclientsSeedingViewOutput = zod.output<typeof DownloadclientsSeedingView>;
 
 export const SettingNoun = zod.object({
   many: zod.string(),
@@ -599,17 +692,6 @@ export type DownloadclientsThresholdsPatchOutput = zod.output<
   typeof DownloadclientsThresholdsPatch
 >;
 
-export const DownloadclientsTorrentGrab = zod.object({
-  id: zod.uuid(),
-  itemId: zod.uuid(),
-  release: zod.string(),
-  stage: zod.enum(["downloading", "importing", "imported", "failed"]),
-  workId: zod.uuid(),
-});
-
-export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrentGrab>;
-export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
-
 export const DownloadclientsTrackerCell = zod.object({
   host: zod.string().describe("Empty when its announce URLs are unknown"),
   message: zod
@@ -625,6 +707,25 @@ export const DownloadclientsTrackerCell = zod.object({
 
 export type DownloadclientsTrackerCell = zod.input<typeof DownloadclientsTrackerCell>;
 export type DownloadclientsTrackerCellOutput = zod.output<typeof DownloadclientsTrackerCell>;
+
+export const DownloadclientsTorrentGrab = zod.object({
+  id: zod.uuid(),
+  itemId: zod.uuid(),
+  release: zod.string(),
+  stage: zod.enum(["downloading", "importing", "imported", "failed"]),
+  workId: zod.uuid(),
+});
+
+export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrentGrab>;
+export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
+
+export const DownloadclientsTrackerRef = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type DownloadclientsTrackerRef = zod.input<typeof DownloadclientsTrackerRef>;
+export type DownloadclientsTrackerRefOutput = zod.output<typeof DownloadclientsTrackerRef>;
 
 export const downloadclientsTrackerDetailMinIntervalSecondsMin = 0;
 
@@ -686,6 +787,9 @@ export const DownloadclientsTorrentDetail = zod.object({
     .min(downloadclientsTorrentDetailActiveSecondsMin)
     .describe("All-time seconds it ran"),
   addedAt: zod.iso.datetime({ offset: true }),
+  announce: DownloadclientsTrackerCell.exactOptional().describe(
+    "Absent when its metainfo names no announce URL",
+  ),
   announceAt: zod.iso
     .datetime({ offset: true })
     .exactOptional()
@@ -776,6 +880,9 @@ export const DownloadclientsTorrentDetail = zod.object({
     .string()
     .exactOptional()
     .describe("Where its Node keeps it, absent until its Node reports it"),
+  seeding: DownloadclientsSeedingView.describe(
+    "Its seeding against its Tracker's rule and its seeding goal",
+  ),
   seedingSeconds: zod
     .int()
     .min(downloadclientsTorrentDetailSeedingSecondsMin)
@@ -794,15 +901,11 @@ export const DownloadclientsTorrentDetail = zod.object({
     "seeding",
   ]),
   tabs: zod
-    .array(zod.enum(["downloading", "seeding", "problems", "all"]))
+    .array(zod.enum(["downloading", "seeding", "problems", "goal-met", "all"]))
     .describe("The Torrents view's tabs it shows under"),
-  tracker: DownloadclientsTrackerCell.exactOptional().describe(
-    "Absent when its metainfo names no announce URL",
-  ),
-  trackerId: zod
-    .uuid()
-    .nullable()
-    .describe("The Tracker its Grab's Release reached, null when no Grab named one"),
+  tracker: zod
+    .union([DownloadclientsTrackerRef, zod.null()])
+    .describe("The Tracker its first Grab's Release reached, null when none did"),
   trackers: zod.array(DownloadclientsTrackerDetail).describe("In its metainfo's order"),
   until: zod.iso
     .datetime({ offset: true })
@@ -835,6 +938,9 @@ export const downloadclientsTorrentRowUploadedMin = 0;
 
 export const DownloadclientsTorrentRow = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  announce: DownloadclientsTrackerCell.exactOptional().describe(
+    "Absent when its metainfo names no announce URL",
+  ),
   contentType: zod.string().describe("The Content Type it was first grabbed for"),
   done: zod
     .int()
@@ -903,6 +1009,9 @@ export const DownloadclientsTorrentRow = zod.object({
     .number()
     .min(downloadclientsTorrentRowRatioMin)
     .describe("Uploaded over the larger of downloaded and size"),
+  seeding: DownloadclientsSeedingView.describe(
+    "Its seeding against its Tracker's rule and its seeding goal",
+  ),
   seedingSeconds: zod
     .int()
     .min(downloadclientsTorrentRowSeedingSecondsMin)
@@ -921,11 +1030,11 @@ export const DownloadclientsTorrentRow = zod.object({
     "seeding",
   ]),
   tabs: zod
-    .array(zod.enum(["downloading", "seeding", "problems", "all"]))
+    .array(zod.enum(["downloading", "seeding", "problems", "goal-met", "all"]))
     .describe("The Torrents view's tabs it shows under"),
-  tracker: DownloadclientsTrackerCell.exactOptional().describe(
-    "Absent when its metainfo names no announce URL",
-  ),
+  tracker: zod
+    .union([DownloadclientsTrackerRef, zod.null()])
+    .describe("The Tracker its first Grab's Release reached, null when none did"),
   until: zod.iso
     .datetime({ offset: true })
     .exactOptional()
@@ -3523,11 +3632,16 @@ export const NodesProbe = zod.object({
 export type NodesProbe = zod.input<typeof NodesProbe>;
 export type NodesProbeOutput = zod.output<typeof NodesProbe>;
 
+export const nodesHeldEndlessUnitsMin = 0;
+
 export const NodesHeld = zod.object({
   bytes: zod.int().describe("0 when sizes don't apply"),
-  endless: zod
-    .boolean()
-    .describe("The Node can't finish it on its own, so it stays until it is moved or written off"),
+  endlessUnits: zod
+    .int()
+    .min(nodesHeldEndlessUnitsMin)
+    .describe(
+      "How many units the Node can't finish on its own, which stay until they are removed, moved or written off",
+    ),
   noun: zod.string().describe("The noun that fits units: torrent, torrents"),
   units: zod.int(),
 });
@@ -5753,6 +5867,30 @@ export const TasksTaskPatch = zod.object({
 export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
 export type TasksTaskPatchOutput = zod.output<typeof TasksTaskPatch>;
 
+export const trackersCountsAtRiskMin = 0;
+
+export const trackersCountsGoalMetMin = 0;
+
+export const trackersCountsOwingMin = 0;
+
+export const trackersCountsSeedingMin = 0;
+
+export const trackersCountsTorrentsMin = 0;
+
+export const TrackersCounts = zod.object({
+  atRisk: zod
+    .int()
+    .min(trackersCountsAtRiskMin)
+    .describe("The ones that owe it seeding and aren't seeding"),
+  goalMet: zod.int().min(trackersCountsGoalMetMin).describe("The ones whose seeding goal is met"),
+  owing: zod.int().min(trackersCountsOwingMin).describe("The ones that still owe it seeding"),
+  seeding: zod.int().min(trackersCountsSeedingMin),
+  torrents: zod.int().min(trackersCountsTorrentsMin),
+});
+
+export type TrackersCounts = zod.input<typeof TrackersCounts>;
+export type TrackersCountsOutput = zod.output<typeof TrackersCounts>;
+
 export const TrackersGoal = zod.object({
   action: zod
     .union([
@@ -5854,6 +5992,45 @@ export const TrackersSettingsChange = zod.object({
 export type TrackersSettingsChange = zod.input<typeof TrackersSettingsChange>;
 export type TrackersSettingsChangeOutput = zod.output<typeof TrackersSettingsChange>;
 
+export const trackersStatsDownloadedMin = 0;
+
+export const trackersStatsGrabs30dMin = 0;
+
+export const trackersStatsOwingMin = 0;
+
+export const trackersStatsRatioMin = 0;
+
+export const trackersStatsSeedingBytesMin = 0;
+
+export const trackersStatsTorrentsMin = 0;
+
+export const trackersStatsUploadedMin = 0;
+
+export const TrackersStats = zod.object({
+  downloaded: zod
+    .int()
+    .min(trackersStatsDownloadedMin)
+    .describe("Bytes, counting each torrent once, live or removed"),
+  grabs30d: zod.int().min(trackersStatsGrabs30dMin).describe("Its Grabs in the last 30 days"),
+  owing: zod.int().min(trackersStatsOwingMin).describe("Its torrents that still owe it seeding"),
+  ratio: zod
+    .number()
+    .min(trackersStatsRatioMin)
+    .describe("Uploaded over downloaded, or over size where a torrent's size is larger"),
+  seedingBytes: zod
+    .int()
+    .min(trackersStatsSeedingBytesMin)
+    .describe("The size of its torrents that are seeding"),
+  torrents: zod.int().min(trackersStatsTorrentsMin).describe("Its torrents, live or being removed"),
+  uploaded: zod
+    .int()
+    .min(trackersStatsUploadedMin)
+    .describe("Bytes, counting each torrent once, live or removed"),
+});
+
+export type TrackersStats = zod.input<typeof TrackersStats>;
+export type TrackersStatsOutput = zod.output<typeof TrackersStats>;
+
 export const TrackersTracker = zod.object({
   goal: zod
     .union([TrackersGoal, zod.null()])
@@ -5878,12 +6055,64 @@ export const TrackersTracker = zod.object({
 export type TrackersTracker = zod.input<typeof TrackersTracker>;
 export type TrackersTrackerOutput = zod.output<typeof TrackersTracker>;
 
+export const TrackersTrackerItem = zod.object({
+  counts: TrackersCounts.describe(
+    "Its torrents, live or being removed, as Activity > Torrents counts them",
+  ),
+  goal: zod
+    .union([TrackersGoal, zod.null()])
+    .describe("Its own seeding goal; null while it follows the default goal"),
+  hosts: zod.array(zod.string()).describe("The announce hosts of its private torrents"),
+  id: zod.uuid(),
+  indexerIds: zod.array(zod.string()).describe("The Indexers that reach it, by name"),
+  keys: zod
+    .array(zod.string())
+    .describe(
+      "How a Release finds it: definition:<id>, prowlarr:<feed Indexer>:<source id> or named:<Indexer>",
+    ),
+  name: zod.string(),
+  privacy: zod.enum(["private", "semi-private", "public", "unknown"]),
+  rule: zod
+    .union([TrackersRule, zod.null()])
+    .describe(
+      "Its seeding rule in force; null while none is known, and always for a public Tracker",
+    ),
+});
+
+export type TrackersTrackerItem = zod.input<typeof TrackersTrackerItem>;
+export type TrackersTrackerItemOutput = zod.output<typeof TrackersTrackerItem>;
+
 export const TrackersTrackerList = zod.object({
-  trackers: zod.array(TrackersTracker).describe("By name"),
+  trackers: zod.array(TrackersTrackerItem).describe("By name"),
 });
 
 export type TrackersTrackerList = zod.input<typeof TrackersTrackerList>;
 export type TrackersTrackerListOutput = zod.output<typeof TrackersTrackerList>;
+
+export const TrackersTrackerPage = zod.object({
+  goal: zod
+    .union([TrackersGoal, zod.null()])
+    .describe("Its own seeding goal; null while it follows the default goal"),
+  hosts: zod.array(zod.string()).describe("The announce hosts of its private torrents"),
+  id: zod.uuid(),
+  indexerIds: zod.array(zod.string()).describe("The Indexers that reach it, by name"),
+  keys: zod
+    .array(zod.string())
+    .describe(
+      "How a Release finds it: definition:<id>, prowlarr:<feed Indexer>:<source id> or named:<Indexer>",
+    ),
+  name: zod.string(),
+  privacy: zod.enum(["private", "semi-private", "public", "unknown"]),
+  rule: zod
+    .union([TrackersRule, zod.null()])
+    .describe(
+      "Its seeding rule in force; null while none is known, and always for a public Tracker",
+    ),
+  stats: TrackersStats.describe("SlipStream's own sums over its torrents"),
+});
+
+export type TrackersTrackerPage = zod.input<typeof TrackersTrackerPage>;
+export type TrackersTrackerPageOutput = zod.output<typeof TrackersTrackerPage>;
 
 export const TransfersChanged = zod.object({
   nodeIds: zod.array(zod.string()),

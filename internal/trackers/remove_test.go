@@ -24,9 +24,9 @@ func (l *library) indexer(name string, tracker indexers.TrackerID) {
 	l.exec(`INSERT INTO indexers_reach (indexer_id, tracker_id) VALUES (?, ?)`, id, tracker)
 }
 
-// torrent plants a Torrent of tracker's, removed or live, and answers its
+// torrentOf plants a Torrent of tracker's, removed or live, and answers its
 // ID.
-func (l *library) torrent(tracker indexers.TrackerID, removed bool) storage.UUID {
+func (l *library) torrentOf(tracker indexers.TrackerID, removed bool) storage.UUID {
 	l.t.Helper()
 	id := storage.NewUUID()
 	var removedAt, reason any
@@ -90,8 +90,8 @@ func TestEachBlockerRefusesTheRemoval(t *testing.T) {
 			l.indexer("seedpool (RSS)", id)
 		}, trackers.InUseError{Name: "seedpool", Indexers: 2}},
 		{"a live torrent names it", func(l *library, id indexers.TrackerID) {
-			l.torrent(id, false)
-			l.torrent(id, true)
+			l.torrentOf(id, false)
+			l.torrentOf(id, true)
 		}, trackers.InUseError{Name: "seedpool", Torrents: 1}},
 		{"a Grab neither imported nor failed names it", func(l *library, id indexers.TrackerID) {
 			l.grabAt(id, "fetching", nil)
@@ -99,7 +99,7 @@ func TestEachBlockerRefusesTheRemoval(t *testing.T) {
 		}, trackers.InUseError{Name: "seedpool", Grabs: 1}},
 		{"all three", func(l *library, id indexers.TrackerID) {
 			l.indexer("seedpool", id)
-			torrent := l.torrent(id, false)
+			torrent := l.torrentOf(id, false)
 			l.grabAt(id, "downloading", &torrent)
 		}, trackers.InUseError{Name: "seedpool", Indexers: 1, Torrents: 1, Grabs: 1}},
 	} {
@@ -131,11 +131,11 @@ func TestAFreeTrackerIsRemovedAndItsHistoryKeepsItsRows(t *testing.T) {
 		l.exec(`INSERT INTO indexers_tracker_host (tracker_id, host) VALUES (?, hex(?) || '.test')`, id, id)
 	}
 
-	removed := l.torrent(seedpool, true)
+	removed := l.torrentOf(seedpool, true)
 	imported := l.grabAt(seedpool, "imported", &removed)
 	failed := l.grabAt(seedpool, "failed", nil)
 	l.history(seedpool, removed)
-	other := l.torrent(aither, true)
+	other := l.torrentOf(aither, true)
 	l.history(aither, other)
 
 	if err := l.x.Remove(t.Context(), admin, seedpool); err != nil {

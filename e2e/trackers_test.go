@@ -70,8 +70,10 @@ type trackedGrab struct {
 }
 
 type trackedTorrent struct {
-	TrackerID *string `json:"trackerId"`
-	Trackers  []struct {
+	Tracker *struct {
+		ID string `json:"id"`
+	} `json:"tracker"`
+	Trackers []struct {
 		URL string `json:"url"`
 	} `json:"trackers"`
 }
@@ -84,13 +86,13 @@ func (w *walked) trackedBy(t *testing.T, id string) (grab, torrent string, annou
 		t.Fatalf("Grab %s has Tracker %v and Torrent %v, want both", id, g.TrackerID, g.TorrentID)
 	}
 	tr := decode(t, "getTorrent", w.a.Admin("home", http.MethodGet, "/api/v1/torrents/"+*g.TorrentID, ""), &trackedTorrent{})
-	if tr.TrackerID == nil {
+	if tr.Tracker == nil {
 		t.Fatalf("Torrent %s names no Tracker", *g.TorrentID)
 	}
 	for _, a := range tr.Trackers {
 		announce = append(announce, must(url.Parse(a.URL)).Hostname())
 	}
-	return *g.TrackerID, *tr.TrackerID, announce
+	return *g.TrackerID, tr.Tracker.ID, announce
 }
 
 // TestATorznabSourceBecomesATrackerAtItsFirstGrabAndMergesWithItsGrabAndTorrent

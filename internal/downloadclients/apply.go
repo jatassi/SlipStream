@@ -41,10 +41,11 @@ type Config struct {
 	// Facts is a Node's latest client facts, false while it has none.
 	Facts func(role.NodeID) (*dlv1.Facts, bool)
 	// Remote is a Node's client as the Controller calls it.
-	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
-	Roster Roster
-	Uses   Uses
-	Live   LiveConfig
+	Remote  func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
+	Roster  Roster
+	Uses    Uses
+	Seeding Seeder
+	Live    LiveConfig
 	// Hub wakes Run when the storage levels the disk guard follows change.
 	Hub Hub
 	Log *slog.Logger

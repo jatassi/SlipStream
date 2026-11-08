@@ -9,8 +9,10 @@ import (
 	"embed"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers/seeding"
@@ -50,6 +52,14 @@ type Grabs interface {
 	Unfinished(ctx context.Context, r storage.Reader[file], id indexers.TrackerID) (int, error)
 	// Forget sets tracker_id NULL on every Grab naming id, in its removal.
 	Forget(ctx context.Context, tx *storage.Tx[file], id indexers.TrackerID) error
+	// Grabbed is how many Grabs of each Tracker were made since since.
+	Grabbed(ctx context.Context, r storage.Reader[file], since time.Time) (map[indexers.TrackerID]int, error)
+}
+
+// Roster is what judging a Torrent's seeding reads of the Nodes.
+type Roster interface {
+	InStep(node role.NodeID) bool
+	Draining(r role.Name, node role.NodeID) bool
 }
 
 // Stated is the rule one Grab's Release stated, and when the Grab was made.
@@ -60,13 +70,25 @@ type Stated struct {
 
 type Config struct {
 	Library *storage.DB[file]
+	// Clients is read for each Torrent's seeding facts, and for the rows
+	// a Tracker's counts and stats sum.
+	Clients *downloadclients.Clients
 	Grabs   Grabs
+	Roster  Roster
 	// Soon asks the Seeding goals task for a run soon.
-	Soon    func()
-	Changed Publisher[SeedingChanged]
+	Soon func()
+	// Reconciling is whether the library is being reconciled after a
+	// restore, which holds every goal. It reads the snapshot each goal is
+	// judged in.
+	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
+	Changed     Publisher[SeedingChanged]
 	// TrackersChanged publishes trackers.changed when a Tracker is removed.
 	TrackersChanged Publisher[indexers.TrackerChanged]
 }
+
+// NotReconciling is Reconciling until S49 (Backups and restore) stores a
+// restore's state.
+func NotReconciling(context.Context, storage.Reader[file]) (bool, error) { return false, nil }
 
 type Trackers struct{ cfg Config }
 

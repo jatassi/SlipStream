@@ -12,6 +12,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -34,6 +35,8 @@ type Use struct {
 	// probed one.
 	File    *int
 	Created time.Time
+	// Floor is the seeding rule its Release stated, nil for none.
+	Floor seeding.Rule
 }
 
 type UseStage string

@@ -60,3 +60,9 @@ UPDATE trackers_window SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sql
 
 -- name: DeleteGoalRuns :exec
 DELETE FROM trackers_goal_run WHERE torrent_id IN (sqlc.slice(torrent_ids));
+
+-- name: ListWindowsOf :many
+SELECT * FROM trackers_window WHERE info_hash IN (sqlc.slice(info_hashes)) ORDER BY info_hash;
+
+-- name: ListGoalRunsOf :many
+SELECT * FROM trackers_goal_run WHERE torrent_id IN (sqlc.slice(torrent_ids)) ORDER BY torrent_id;

@@ -1,24 +1,12 @@
 package trackersapi_test
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/storage"
 )
-
-func (s *served) exec(t *testing.T, sql string, args ...any) {
-	t.Helper()
-	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, sql, args...)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 // blockers plants reach Indexers reaching tracker, torrents live Torrents
 // and grabs fetching Grabs naming it.

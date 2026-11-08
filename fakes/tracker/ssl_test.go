@@ -97,11 +97,11 @@ func world(t *testing.T, payload []byte) (torrentFile, caFile string, records fu
 	at := fake.Address{AddrPort: tf.Addr(), TLS: true}
 
 	s := scenario.Scenario{Seed: "ssl"}
-	passkey := releases.Passkey(s)
+	passkey := releases.Passkey(s, "torznab")
 	torrentFile, hash := writeTorrent(t, dir, at.URL("/announce/"+passkey), payload)
 
 	env := fake.NewEnv(s, tracker.Fake, logger, plan, log)
-	env.Releases = &releases.Catalog{Passkey: passkey, Releases: []releases.Release{{Release: scenario.Release{Name: "payload"}, InfoHash: hash}}}
+	env.Releases = &releases.Catalog{Releases: []releases.Release{{Release: scenario.Release{Name: "payload"}, InfoHash: hash}}}
 	env.Fronts = fake.Fronts{{Target: seedFront.Target, Node: seedFront.Origin, Address: fake.Address{AddrPort: sf.Addr()}}}
 	server, err := tracker.Fake.New(s, env)
 	if err != nil {

@@ -20,7 +20,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 ## Proof standards
 
 - Capture the action and the resulting state: an ARIA snapshot and a screenshot before and after, under `proof/<feature>/<sub-feature>/`.
-- Prove each side effect where it lands: `fs match` for files, `announces` for the tracker, `sse` for the live stream, and an API read for stored state.
+- Prove each side effect where it lands: `fs match` for files, `announces` and `seeding` for the tracker, `sse` for the live stream, and an API read for stored state.
 - Drive the real user path. Cues and fault rules act on the world outside every Node and never on a Node's database or files.
 - Record the sub-feature id and the entry point with each proof by its proof dir.
 - Report an entry point you couldn't drive with the command you tried and the precondition it lacked, never as verified through another one.

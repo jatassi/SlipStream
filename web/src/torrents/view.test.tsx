@@ -25,7 +25,7 @@ const downloading: DownloadclientsTorrentRow = torrent({
   quality: "webdl-1080p",
   name: "The.Quiet.Orchard.2021.1080p.WEB-DL",
   done: 250_000_000,
-  tracker: { host: "beacon.example", status: "working" },
+  announce: { host: "beacon.example", status: "working" },
 });
 
 const seeding = torrent({
@@ -46,7 +46,7 @@ const unregistered = torrent({
   tabs: ["seeding", "problems", "all"],
   name: "Gone.Release.2020.1080p",
   done: 1_000_000_000,
-  tracker: { host: "beacon.example", status: "unregistered" },
+  announce: { host: "beacon.example", status: "unregistered" },
 });
 
 const sentence = () => page.getByRole("paragraph").filter({ hasText: "seeding" });
@@ -282,6 +282,7 @@ test("on a phone the tabs lead with All, which shows first, and rows become card
     "Downloading1",
     "Seeding1",
     "Problems0",
+    "Goal met0",
   ]);
   await expect.poll(() => table().getByRole("row").all()).toHaveLength(2);
   await expect.element(page.getByRole("columnheader", { name: "Work" })).not.toBeInTheDocument();

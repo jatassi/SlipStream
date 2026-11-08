@@ -719,21 +719,23 @@ func (q *Queries) ListGrabsOfIndexer(ctx context.Context, arg ListGrabsOfIndexer
 }
 
 const listGrabsOfTorrents = `-- name: ListGrabsOfTorrents :many
-SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, created_at FROM grabs_grab
+SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, min_ratio, min_seed_seconds, created_at FROM grabs_grab
 WHERE torrent_id IN (/*SLICE:torrent_ids*/?)
 ORDER BY created_at, id
 `
 
 type ListGrabsOfTorrentsRow struct {
-	ID           GrabID
-	TorrentID    downloadclients.ID
-	WorkID       works.WorkID
-	ItemID       works.ItemID
-	Edition      targets.Edition
-	ReleaseTitle string
-	Stage        Stage
-	FileIndex    *int64
-	CreatedAt    storage.Time
+	ID             GrabID
+	TorrentID      downloadclients.ID
+	WorkID         works.WorkID
+	ItemID         works.ItemID
+	Edition        targets.Edition
+	ReleaseTitle   string
+	Stage          Stage
+	FileIndex      *int64
+	MinRatio       *float64
+	MinSeedSeconds *int64
+	CreatedAt      storage.Time
 }
 
 func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []downloadclients.ID) ([]ListGrabsOfTorrentsRow, error) {
@@ -764,6 +766,8 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 			&i.ReleaseTitle,
 			&i.Stage,
 			&i.FileIndex,
+			&i.MinRatio,
+			&i.MinSeedSeconds,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

@@ -1647,9 +1647,14 @@ type TotalsRow struct {
 	ActiveSeconds  int64                  `protobuf:"varint,4,opt,name=active_seconds,json=activeSeconds,proto3" json:"active_seconds,omitempty"`
 	SeedingSeconds int64                  `protobuf:"varint,5,opt,name=seeding_seconds,json=seedingSeconds,proto3" json:"seeding_seconds,omitempty"`
 	// done is the bytes done, sent only while incomplete.
-	Done          int64 `protobuf:"varint,6,opt,name=done,proto3" json:"done,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Done int64 `protobuf:"varint,6,opt,name=done,proto3" json:"done,omitempty"`
+	// announced_seconds is the seed time the torrent's trackers credited it
+	// by UNIT3D's rule, counted on the Node from its accepted announces. The
+	// Node keeps it in memory, so it starts again from 0 when the Node
+	// restarts.
+	AnnouncedSeconds int64 `protobuf:"varint,7,opt,name=announced_seconds,json=announcedSeconds,proto3" json:"announced_seconds,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *TotalsRow) Reset() {
@@ -1720,6 +1725,13 @@ func (x *TotalsRow) GetSeedingSeconds() int64 {
 func (x *TotalsRow) GetDone() int64 {
 	if x != nil {
 		return x.Done
+	}
+	return 0
+}
+
+func (x *TotalsRow) GetAnnouncedSeconds() int64 {
+	if x != nil {
+		return x.AnnouncedSeconds
 	}
 	return 0
 }
@@ -3276,7 +3288,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\n" +
 	"at_unix_ms\x18\x02 \x01(\x03R\batUnixMs\"B\n" +
 	"\x06Totals\x128\n" +
-	"\x04rows\x18\x01 \x03(\v2$.slipstream.downloading.v1.TotalsRowR\x04rows\"\xbb\x01\n" +
+	"\x04rows\x18\x01 \x03(\v2$.slipstream.downloading.v1.TotalsRowR\x04rows\"\xe8\x01\n" +
 	"\tTotalsRow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1a\n" +
 	"\buploaded\x18\x02 \x01(\x03R\buploaded\x12\x1e\n" +
@@ -3285,7 +3297,8 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"downloaded\x12%\n" +
 	"\x0eactive_seconds\x18\x04 \x01(\x03R\ractiveSeconds\x12'\n" +
 	"\x0fseeding_seconds\x18\x05 \x01(\x03R\x0eseedingSeconds\x12\x12\n" +
-	"\x04done\x18\x06 \x01(\x03R\x04done\".\n" +
+	"\x04done\x18\x06 \x01(\x03R\x04done\x12+\n" +
+	"\x11announced_seconds\x18\a \x01(\x03R\x10announcedSeconds\".\n" +
 	"\x06Parted\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x14\n" +
 	"\x05freed\x18\x02 \x01(\x03R\x05freed\"\x84\x01\n" +

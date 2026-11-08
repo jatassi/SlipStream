@@ -7,6 +7,10 @@ export type ListTorrentsParams = {
    */
   ids?: string[] | null;
   tab?: ListTorrentsTab;
+  /**
+   * Only the Torrents of this Tracker
+   */
+  tracker?: string;
   nodeId?: string;
   contentType?: string;
   /**

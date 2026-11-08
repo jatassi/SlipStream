@@ -110,6 +110,7 @@ func (n *Node) startController(ctx context.Context) error {
 		side         *nodes.Service
 		cluster      *rpc.Cluster
 		homes        *roots.Roots
+		seeding      *trackers.Trackers
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -120,8 +121,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
-		Roster: openedRoster{&side},
-		Uses:   grabs.TorrentUses{},
+		Roster:  openedRoster{&side},
+		Uses:    grabs.TorrentUses{},
+		Seeding: lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -129,6 +131,17 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Hub: n.hub,
 		Log: n.rootLog.With("subsystem", "downloadclients"),
+	})
+	var scheduler *tasks.Scheduler
+	seeding = trackers.New(trackers.Config{
+		Library:         lib.db,
+		Clients:         clients,
+		Grabs:           grabs.TrackerFacts{},
+		Roster:          openedRoster{&side},
+		Soon:            func() { scheduler.Soon(trackers.TaskID) },
+		Reconciling:     trackers.NotReconciling,
+		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
+		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
@@ -163,7 +176,7 @@ func (n *Node) startController(ctx context.Context) error {
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads, stored, transferring}, n.env.Test.Served...),
-		Owners:          owners(),
+		Owners:          owners(clients),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
@@ -267,14 +280,6 @@ func (n *Node) startController(ctx context.Context) error {
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
-	var scheduler *tasks.Scheduler
-	seeding := trackers.New(trackers.Config{
-		Library:         lib.db,
-		Grabs:           grabs.TrackerFacts{},
-		Soon:            func() { scheduler.Soon(trackers.TaskID) },
-		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
-		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
-	})
 	registry := indexers.New(indexers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -434,8 +439,9 @@ func (n *Node) startController(ctx context.Context) error {
 	return nil
 }
 
-// openedRoster is the nodes service once it opens: the download clients'
-// owner is made before it, since the service reads that owner.
+// openedRoster is the nodes service once it opens: the download clients
+// and the Trackers are made before it, since the service reads the
+// clients' owner, which reads the Trackers.
 type openedRoster struct{ side **nodes.Service }
 
 func (r openedRoster) InStep(node role.NodeID) bool { return (*r.side).InStep(node) }
@@ -447,6 +453,23 @@ func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
 func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
 
 func (r openedRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Serving(name) }
+
+func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
+	return (*r.side).Draining(name, node)
+}
+
+// lateSeeder is the Trackers' seeder once they are made: the download
+// clients are made before them, since the Trackers read Torrents through
+// them.
+type lateSeeder struct{ trackers **trackers.Trackers }
+
+func (s lateSeeder) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
+	return (*s.trackers).Seeder().Judge(ctx, r, rows)
+}
+
+func (s lateSeeder) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (int64, error) {
+	return (*s.trackers).Seeder().EndlessUnits(ctx, r, node)
+}
 
 // today is the time now in the Controller's zone.
 func (n *Node) today() time.Time {
@@ -620,10 +643,10 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 }
 
 // owners is each Role's owner: the feature that keeps its work.
-func owners() []nodes.Owner {
+func owners(clients *downloadclients.Clients) []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
-		downloadclients.DownloadingOwner,
+		clients.DownloadingOwner(),
 		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
 		nodes.Unowned(role.Subtitles),

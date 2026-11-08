@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -36,6 +37,26 @@ func (r registry) Indexers() (*indexers.Indexers, bool) { return r.indexers, tru
 
 func (r registry) Trackers() (*trackers.Trackers, bool) { return r.trackers, true }
 
+// roster is every Node in step, and drains nothing.
+type roster struct{}
+
+func (roster) InStep(role.NodeID) bool                { return true }
+func (roster) WrittenOff(role.Name, role.NodeID) bool { return false }
+func (roster) Changed() <-chan struct{}               { return nil }
+func (roster) Serving(role.Name) []role.NodeID        { return nil }
+func (roster) Draining(role.Name, role.NodeID) bool   { return false }
+
+// late is the Trackers' seeder once they are made, after the clients.
+type late struct{ x **trackers.Trackers }
+
+func (l late) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
+	return (*l.x).Seeder().Judge(ctx, r, rows)
+}
+
+func (l late) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (int64, error) {
+	return (*l.x).Seeder().EndlessUnits(ctx, r, node)
+}
+
 type served struct {
 	owner *ownertest.Owner
 	lib   *storage.DB[storage.Library]
@@ -50,9 +71,12 @@ func serve(t *testing.T) *served {
 			Library: lib, Trackers: discard[indexers.TrackerChanged]{},
 			Repoints: []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
 		}),
-		trackers: trackers.New(trackers.Config{Library: lib, Grabs: grabs.TrackerFacts{}, Soon: func() {}, Changed: discard[trackers.SeedingChanged]{},
-			TrackersChanged: discard[indexers.TrackerChanged]{}}),
 	}
+	clients := downloadclients.New(downloadclients.Config{Library: lib, Roster: roster{}, Uses: grabs.TorrentUses{}, Seeding: late{&r.trackers}})
+	r.trackers = trackers.New(trackers.Config{
+		Library: lib, Clients: clients, Grabs: grabs.TrackerFacts{}, Roster: roster{},
+		Soon: func() {}, Reconciling: trackers.NotReconciling, Changed: discard[trackers.SeedingChanged]{}, TrackersChanged: discard[indexers.TrackerChanged]{},
+	})
 	return &served{owner: ownertest.Serve(t, lib, func(router *api.Router) { trackersapi.Routes(router, r) }), lib: lib}
 }
 
@@ -79,7 +103,8 @@ func TestTheTrackerOperationsAnswerAsBeforeTheMove(t *testing.T) {
 	}
 	_, list := s.owner.Call(t, http.MethodGet, "/api/v1/trackers", "")
 	item := func(name string) string {
-		return `{"id":"` + ids[name] + `","name":"` + name + `","privacy":"private","hosts":[],"keys":[],"indexerIds":[],"rule":null,"goal":null}`
+		return `{"id":"` + ids[name] + `","name":"` + name + `","privacy":"private","hosts":[],"keys":[],"indexerIds":[],"rule":null,"goal":null,` +
+			`"counts":{"torrents":0,"seeding":0,"owing":0,"atRisk":0,"goalMet":0}}`
 	}
 	if want := `{"trackers":[` + item("aither") + `,` + item("Orphan") + `,` + item("TorrentLeech") + `]}` + "\n"; list != want {
 		t.Fatalf("listTrackers = %s, want %s", list, want)
@@ -149,7 +174,7 @@ func TestATwoDecimalRatioRoundTrips(t *testing.T) {
 	if code, got := s.owner.Call(t, http.MethodPut, "/api/v1/trackers/"+seedpool+"/goal", own); code != http.StatusOK || !strings.Contains(got, ruled+`,"goal":`+own+`}`) {
 		t.Fatalf("setTrackerGoal = %d %s, want 200 with %s", code, got, own)
 	}
-	if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, ""); !strings.Contains(got, ruled+`,"goal":`+own+`}`) {
+	if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, ""); !strings.Contains(got, ruled+`,"goal":`+own+`,"stats":`) {
 		t.Fatalf("getTracker = %s, want the rule and goal it was given", got)
 	}
 	if _, got := s.owner.Call(t, http.MethodDelete, "/api/v1/trackers/"+seedpool+"/rule", ""); !strings.Contains(got, `"rule":null`) {
@@ -176,7 +201,7 @@ func TestAGoalWithOnePartRoundTrips(t *testing.T) {
 		if code, got := s.owner.Call(t, http.MethodPut, "/api/v1/trackers/"+seedpool+"/goal", own); code != http.StatusOK || !strings.Contains(got, `"goal":`+own+`}`) {
 			t.Fatalf("setTrackerGoal = %d %s, want 200 with %s", code, got, own)
 		}
-		if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, ""); !strings.Contains(got, `"goal":`+own+`}`) {
+		if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, ""); !strings.Contains(got, `"goal":`+own+`,"stats":`) {
 			t.Fatalf("getTracker = %s, want the goal it was given", got)
 		}
 		s.owner.Expect(t, http.MethodPut, "/api/v1/trackers/default-goal", own, http.StatusOK, own)
@@ -193,5 +218,55 @@ func TestTheSeedingSettingsReadAndChangeByKey(t *testing.T) {
 	if code, got := s.owner.Call(t, http.MethodPatch, "/api/v1/trackers/settings", `{"values":{"trackers.goal":1}}`); code != http.StatusUnprocessableEntity ||
 		!strings.Contains(got, `"code":"unknown_setting"`) {
 		t.Fatalf("updateSeedingSettings with an unknown key = %d %s, want unknown_setting", code, got)
+	}
+}
+
+func (s *served) exec(t *testing.T, sql string, args ...any) {
+	t.Helper()
+	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, sql, args...)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTheListCountsATrackersTorrentsAndItsPageSumsThem(t *testing.T) {
+	s := serve(t)
+	seedpool := s.tracker(t, "seedpool", indexers.Private)
+	tracker, err := storage.ParseUUID(seedpool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, work, item := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	s.exec(t, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'seedbox', 0)`, node)
+	s.exec(t, `INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, work)
+	s.exec(t, `INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'i1', 'Orchard', 1)`, item, work)
+	now := storage.Now()
+	held := func(name, wanted, report string, up, down int64) storage.UUID {
+		t.Helper()
+		id := storage.NewUUID()
+		s.exec(t, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id,
+			wanted, added_order, added_at, uploaded, downloaded, report, reported_at)
+			VALUES (?, ?, randomblob(20), x'00', ?, 4294967296, 1, '[]', 'fixture', ?, ?,
+			(SELECT coalesce(max(added_order), 0) + 1 FROM downloadclients_torrent), ?, ?, ?, ?, ?)`,
+			id, node, name, tracker, wanted, now, up, down, report, now)
+		return id
+	}
+	paused := `{"at":"2026-11-08T00:00:00Z","engine":"seeding","hold":"wanted","complete":true,"done":0}`
+	held("Orchard", "paused", paused, 1<<30, 4<<30)
+	gone := held("Harbor", "started", paused, 8<<30, 4<<30)
+	s.exec(t, `UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = 'admin', parted_at = ?, freed = 0 WHERE id = ?`, now, now, gone)
+	s.exec(t, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, tracker_id, node_id, release_title, release_size, release_magnet,
+		stage, created_at, updated_at) VALUES (?, ?, ?, 'any', 'search', ?, ?, 'Orchard.1080p', 1, 'magnet:?xt=urn:btih:00', 'fetching', ?, ?)`,
+		storage.NewUUID(), work, item, tracker, node, now, now)
+
+	if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers", ""); !strings.Contains(got, `"counts":{"torrents":1,"seeding":1,"owing":1,"atRisk":1,"goalMet":0}`) {
+		t.Errorf("listTrackers = %s, want seedpool counting its paused Orchard, which owes it and is at risk", got)
+	}
+	want := `"stats":{"uploaded":9663676416,"downloaded":8589934592,"ratio":1.12,"torrents":1,"seedingBytes":4294967296,"grabs30d":1,"owing":1}`
+	if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, ""); !strings.Contains(got, want) {
+		t.Errorf("getTracker = %s, want %s: removed Harbor's upload counts, and only live Orchard seeds and owes", got, want)
 	}
 }

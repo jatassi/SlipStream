@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
+	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -58,14 +59,20 @@ func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", 
 
 func spec(rels []site.Release) fake.Spec {
 	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, Endpoints: site.Fake.Endpoints, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-		return fake.HTTP(env, site.Routes(s, rels, func(string) (string, error) { return announce, nil })), nil
+		return fake.HTTP(env, site.Routes(s, rels, func(string, string) (string, error) { return announce, nil })), nil
 	}}
 }
 
 // get fetches path from the Torznab site.
 func get(t *testing.T, f faketest.Served, path string) string {
 	t.Helper()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, site.Origin(f.Address, site.Torznab)+path, http.NoBody)
+	return getAt(t, f, site.Torznab, path)
+}
+
+// getAt fetches path from the site labeled label.
+func getAt(t *testing.T, f faketest.Served, label, path string) string {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, site.Origin(f.Address, label)+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,15 +360,21 @@ func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
 	}
 }
 
-// job runs call on the site at f as a Torznab Indexer with key, on a Node
-// that spaces nothing.
+// job runs call on the Torznab site at f as a Torznab Indexer with key,
+// on a Node that spaces nothing.
 func job(t *testing.T, f faketest.Served, key string, call searching.Call) searching.Answer {
+	t.Helper()
+	return jobAt(t, f, site.Torznab, key, call)
+}
+
+// jobAt runs call on the Torznab site labeled label.
+func jobAt(t *testing.T, f faketest.Served, label, key string, call searching.Call) searching.Answer {
 	t.Helper()
 	timings := searching.DefaultTimings()
 	timings.Floor = 0
 	node := searching.RemoteOf(searching.New(searching.Config{HTTP: f.Client, Timings: timings, Log: slog.New(slog.DiscardHandler)}))
 	poll, err := node.Run(t.Context(), searching.Job{
-		ID: storage.NewUUID().String(), Indexer: "fixture", Kind: searching.Torznab, Address: site.URL(f.Address), APIKey: key, Call: call,
+		ID: storage.NewUUID().String(), Indexer: "fixture", Kind: searching.Torznab, Address: site.Origin(f.Address, label) + site.TorznabPath, APIKey: key, Call: call,
 	})
 	if err != nil || poll.Answer == nil {
 		t.Fatalf("Run = %+v, %v; want an answer within the hold", poll, err)
@@ -424,7 +437,7 @@ func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog := &releases.Catalog{Passkey: "p4ss", Releases: []releases.Release{{Release: scenario.Release{Name: "orchard"}, Metainfo: meta, InfoHash: hash}}}
+	catalog := &releases.Catalog{Releases: []releases.Release{{Release: scenario.Release{Name: "orchard"}, Metainfo: meta, InfoHash: hash}}}
 	fronts := fake.Fronts{
 		{Target: "tracker", Node: "home", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7001"), TLS: true}},
 		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
@@ -438,7 +451,7 @@ func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "https://127.0.0.1:7002/announce/p4ss"; served.Announce != want {
+	if want := "https://127.0.0.1:7002/announce/" + tracker.Passkey(s, site.Torznab); served.Announce != want {
 		t.Fatalf("the .torrent announces to %s, want seedbox's tracker front %s", served.Announce, want)
 	}
 	if served.InfoHash != hash {
@@ -448,7 +461,7 @@ func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
 
 func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 	s := scenarioWithSeed()
-	catalog := &releases.Catalog{Passkey: "p4ss", Releases: []releases.Release{
+	catalog := &releases.Catalog{Releases: []releases.Release{
 		{Release: scenario.Release{Name: "Harbor.Lights", Link: scenario.MagnetLink}, InfoHash: bencode.InfoHash{1}},
 		{Release: scenario.Release{Name: "Salt.Meadow", Link: scenario.MagnetLink, Trackerless: true, Public: true}, InfoHash: bencode.InfoHash{2}},
 		{Release: scenario.Release{Name: "Quiet.Orchard", Link: scenario.RedirectLink}, InfoHash: bencode.InfoHash{3}},
@@ -459,9 +472,10 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 	}
 	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
 	origin := site.Origin(f.Address, site.Torznab)
-	harbor := "magnet:?xt=urn:btih:" + bencode.InfoHash{1}.String() + "&amp;dn=Harbor.Lights&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
+	passkey := tracker.Passkey(s, site.Torznab)
+	harbor := "magnet:?xt=urn:btih:" + bencode.InfoHash{1}.String() + "&amp;dn=Harbor.Lights&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2F" + passkey
 	meadow := "magnet:?xt=urn:btih:" + bencode.InfoHash{2}.String() + "&amp;dn=Salt.Meadow"
-	orchard := "magnet:?xt=urn:btih:" + bencode.InfoHash{3}.String() + "&amp;dn=Quiet.Orchard&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2Fp4ss"
+	orchard := "magnet:?xt=urn:btih:" + bencode.InfoHash{3}.String() + "&amp;dn=Quiet.Orchard&amp;tr=https%3A%2F%2F127.0.0.1%3A7002%2Fannounce%2F" + passkey
 	body := get(t, f, site.TorznabPath+"/api?apikey="+site.APIKey(s)+"&t=search&q=")
 	for _, want := range []string{
 		"<link>" + harbor + "</link>",
@@ -490,5 +504,87 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 	_ = res.Body.Close()
 	if want := strings.ReplaceAll(orchard, "&amp;", "&"); res.StatusCode != http.StatusFound || res.Header.Get("Location") != want {
 		t.Fatalf("GET the redirect release's .torrent = %d to %q, want 302 to %s", res.StatusCode, res.Header.Get("Location"), want)
+	}
+}
+
+func TestEachPrivateSiteStatesItsRule(t *testing.T) {
+	tenDays := 10 * 24 * time.Hour
+	short := scenarioWithSeed()
+	short.Tracker.Sites = map[string]scenario.SiteRule{site.Heron: {MinSeedTime: 3 * time.Minute}}
+	for _, c := range []struct {
+		s     scenario.Scenario
+		label string
+		want  searching.Floor
+	}{
+		{scenarioWithSeed(), site.Torznab, searching.Floor{MinRatio: 1, MinSeed: 48 * time.Hour}},
+		{scenarioWithSeed(), site.Heron, searching.Floor{MinSeed: tenDays}},
+		{scenarioWithSeed(), site.Tamarack, searching.Floor{MinRatio: 1, MinSeed: tenDays}},
+		{short, site.Heron, searching.Floor{MinSeed: 3 * time.Minute}},
+	} {
+		f := faketest.Loopback(t, spec(listing), c.s)
+		a := jobAt(t, f, c.label, site.APIKey(c.s), searching.SearchCall{Query: searching.Query{Mode: "search", Text: "orchard"}})
+		if a.Outcome != nil || len(a.Releases) == 0 {
+			t.Fatalf("a search on %s = %d Releases, %v", c.label, len(a.Releases), a.Outcome)
+		}
+		for _, r := range a.Releases {
+			if r.Floor != c.want {
+				t.Errorf("%s with %v lists %s asking %+v, want %+v", c.label, c.s.Tracker.Sites, r.Title, r.Floor, c.want)
+			}
+		}
+	}
+}
+
+func TestEachSitesTorrentsAnnounceWithItsOwnPasskey(t *testing.T) {
+	s := scenarioWithSeed()
+	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := &releases.Catalog{Releases: []releases.Release{{Release: scenario.Release{Name: "orchard"}, Metainfo: meta, InfoHash: hash}}}
+	fronts := fake.Fronts{{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}}}
+	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
+	passkeys := map[string]string{}
+	for _, label := range []string{site.Torznab, site.Prowlarr, site.Heron, site.Tamarack} {
+		status, body, _ := strings.Cut(getAt(t, f, label, "/download/"+hash.String()+".torrent"), " OK ")
+		if status != "200" {
+			t.Fatalf("GET the .torrent from %s = %s %s", label, status, body)
+		}
+		served, err := bencode.DecodeMetainfo([]byte(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		passkey, ok := strings.CutPrefix(served.Announce, "https://127.0.0.1:7002/announce/")
+		if !ok || passkey != tracker.Passkey(s, label) {
+			t.Errorf("%s's .torrent announces to %s, want seedbox's tracker front with %s's passkey", label, served.Announce, label)
+		}
+		passkeys[passkey] = label
+	}
+	if len(passkeys) != 4 || passkeys[tracker.Passkey(s, releases.Seeders)] != "" {
+		t.Errorf("the sites' passkeys %v share one, or one is the seeders'", passkeys)
+	}
+}
+
+func TestAReleaseListsOnlyOnItsSites(t *testing.T) {
+	s := scenarioWithSeed()
+	only := []site.Release{
+		{Name: "Heron.Only.2021.1080p", Size: 10, InfoHash: hash1080, TMDBID: 9000001, Torrent: []byte(torrent), Sites: []string{site.Heron}},
+		{Name: "Everywhere.2021.1080p", Size: 10, InfoHash: hash720, TMDBID: 9000001, Torrent: []byte(torrent)},
+	}
+	f := faketest.Loopback(t, spec(only), s)
+	for label, want := range map[string][]string{
+		site.Heron:    {"Heron.Only.2021.1080p", "Everywhere.2021.1080p"},
+		site.Tamarack: {"Everywhere.2021.1080p"},
+	} {
+		a := jobAt(t, f, label, site.APIKey(s), searching.SearchCall{Query: searching.Query{Mode: "search", Text: "2021"}})
+		var got []string
+		for _, r := range a.Releases {
+			got = append(got, r.Title)
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("a search on %s lists %v, want %v", label, got, want)
+		}
+	}
+	if got := getAt(t, f, site.Tamarack, "/download/"+hash1080+".torrent"); !strings.HasPrefix(got, "404") {
+		t.Errorf("GET Heron's release from Tamarack = %s, want 404", got)
 	}
 }

@@ -7,3 +7,9 @@ WHERE g.tracker_id IS NOT NULL AND (g.min_ratio IS NOT NULL OR g.min_seed_second
             AND (n.created_at > g.created_at OR (n.created_at = g.created_at AND n.id > g.id))
     )
 ORDER BY g.tracker_id;
+
+-- name: CountGrabsSince :many
+SELECT tracker_id, count(*) AS grabs FROM grabs_grab
+WHERE tracker_id IS NOT NULL AND created_at >= sqlc.arg(since)
+GROUP BY tracker_id
+ORDER BY tracker_id;

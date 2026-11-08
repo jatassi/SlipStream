@@ -18,6 +18,7 @@ import type {
   TrackersSettings,
   TrackersTracker,
   TrackersTrackerList,
+  TrackersTrackerPage,
 } from "../../model";
 
 export const getListTrackersResponseMock = (
@@ -25,6 +26,13 @@ export const getListTrackersResponseMock = (
 ): TrackersTrackerList => ({
   trackers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
+      counts: {
+        atRisk: faker.number.int({ min: 0 }),
+        goalMet: faker.number.int({ min: 0 }),
+        owing: faker.number.int({ min: 0 }),
+        seeding: faker.number.int({ min: 0 }),
+        torrents: faker.number.int({ min: 0 }),
+      },
       goal: faker.helpers.arrayElement([
         {
           action: faker.helpers.arrayElement([
@@ -836,8 +844,8 @@ export const getUpdateSeedingSettingsResponseMock = (
 });
 
 export const getGetTrackerResponseMock = (
-  overrideResponse: Partial<Extract<TrackersTracker, object>> = {},
-): TrackersTracker => ({
+  overrideResponse: Partial<Extract<TrackersTrackerPage, object>> = {},
+): TrackersTrackerPage => ({
   goal: faker.helpers.arrayElement([
     {
       action: faker.helpers.arrayElement([
@@ -871,6 +879,15 @@ export const getGetTrackerResponseMock = (
     },
     null,
   ]),
+  stats: {
+    downloaded: faker.number.int({ min: 0 }),
+    grabs30d: faker.number.int({ min: 0 }),
+    owing: faker.number.int({ min: 0 }),
+    ratio: faker.number.float({ min: 0, fractionDigits: 2 }),
+    seedingBytes: faker.number.int({ min: 0 }),
+    torrents: faker.number.int({ min: 0 }),
+    uploaded: faker.number.int({ min: 0 }),
+  },
   ...overrideResponse,
 });
 
@@ -1249,10 +1266,10 @@ export const getRemoveTrackerMockHandler = (
 
 export const getGetTrackerMockHandler = (
   overrideResponse?:
-    | TrackersTracker
+    | TrackersTrackerPage
     | ((
         info: Parameters<Parameters<typeof http.get>[1]>[0],
-      ) => Promise<TrackersTracker> | TrackersTracker),
+      ) => Promise<TrackersTrackerPage> | TrackersTrackerPage),
   options?: RequestHandlerOptions,
 ) => {
   return http.get(

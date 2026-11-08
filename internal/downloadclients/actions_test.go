@@ -9,6 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -16,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -88,6 +90,35 @@ func (r *roster) leave(node role.NodeID) {
 
 // uses is the Grabs of each Torrent as a test sets them.
 type uses map[dc.ID][]dc.Use
+
+// seeder judges a row by its info hash's view in views, else as one that
+// owes nothing and seeds forever, names the Tracker trackers gives its
+// row, and counts endless Torrents on any Node.
+type seeder struct {
+	views    map[bencode.InfoHash]seeding.View
+	trackers map[dc.ID]dc.TrackerRef
+	endless  int64
+}
+
+func (s seeder) Judge(_ context.Context, _ storage.Reader[storage.Library], rows []dc.Row) (map[dc.ID]dc.Judged, error) {
+	out := map[dc.ID]dc.Judged{}
+	for _, row := range rows {
+		v, ok := s.views[row.InfoHash]
+		if !ok {
+			v = seeding.View{Goal: seeding.Forever{}, Risk: seeding.Safe}
+		}
+		j := dc.Judged{View: v}
+		if t, ok := s.trackers[row.ID]; ok {
+			j.Tracker = &t
+		}
+		out[row.ID] = j
+	}
+	return out, nil
+}
+
+func (s seeder) EndlessUnits(context.Context, storage.Reader[storage.Library], role.NodeID) (int64, error) {
+	return s.endless, nil
+}
 
 func (u uses) Of(_ context.Context, _ storage.Reader[storage.Library], ids []dc.ID) (map[dc.ID][]dc.Use, error) {
 	out := map[dc.ID][]dc.Use{}
@@ -178,7 +209,7 @@ func newClients(lib library, r *roster, u uses, node *client) (*dc.Clients, *hea
 		node = &client{}
 	}
 	return dc.New(dc.Config{
-		Library: lib, Touch: h.touch, Changed: h, Roster: r, Uses: u, Log: slog.New(slog.DiscardHandler),
+		Library: lib, Touch: h.touch, Changed: h, Roster: r, Uses: u, Seeding: seeder{}, Log: slog.New(slog.DiscardHandler),
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node },
 		Live:   dc.LiveConfig{Watched: func() []role.NodeID { return nil }, Event: &admin{}, Sample: liveSample},
 		Hub:    levels{},
@@ -217,7 +248,7 @@ func heldOn(t *testing.T, lib library, node role.NodeID) nodes.Held {
 	var held nodes.Held
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		held, err = dc.DownloadingOwner.Held(ctx, r, node)
+		held, err = dc.New(dc.Config{Seeding: seeder{}}).DownloadingOwner().Held(ctx, r, node)
 		return err
 	})
 	if err != nil {
@@ -439,7 +470,7 @@ func TestARemovingTorrentHoldsItsNodeUntilParted(t *testing.T) {
 	for _, id := range []dc.ID{s.orchard, s.attic, s.harbor} {
 		removeTorrent(t, s.lib, id, dc.ByAdmin)
 	}
-	if held := heldOn(t, s.lib, s.box); held.Units != 3 || held.Endless {
+	if held := heldOn(t, s.lib, s.box); held.Units != 3 || held.EndlessUnits != 0 {
 		t.Fatalf("with every Torrent Removing seedbox holds %+v, want 3 it will finish", held)
 	}
 	for _, id := range []dc.ID{s.orchard, s.attic, s.harbor} {

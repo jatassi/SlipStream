@@ -69,7 +69,7 @@ func StorageOwner(c Contents) nodes.Owner {
 		for _, u := range use {
 			bytes += u.Bytes
 		}
-		return nodes.Held{Units: int64(len(rows)), Noun: nodes.Noun{One: "root", Many: "roots"}, Bytes: bytes, Endless: true}, nil
+		return nodes.Held{Units: int64(len(rows)), Noun: nodes.Noun{One: "root", Many: "roots"}, Bytes: bytes, EndlessUnits: int64(len(rows))}, nil
 	}}
 }
 

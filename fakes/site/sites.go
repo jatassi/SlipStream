@@ -215,12 +215,12 @@ func (s *site) serving(label string, h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// found are the releases the feeds list whose IMDb id is query, or whose
+// found are the releases r's site lists whose IMDb id is query, or whose
 // name holds every word of it.
-func (s *site) found(query string) []Release {
+func (s *site) found(r *http.Request, query string) []Release {
 	var out []Release
 	for _, rel := range s.releases {
-		if !s.shown(rel) {
+		if !s.shown(labelOf(r), rel) {
 			continue
 		}
 		if strings.HasPrefix(query, "tt") && rel.IMDbID == query || matches(rel.Name, query) {
@@ -230,9 +230,9 @@ func (s *site) found(query string) []Release {
 	return out
 }
 
-// byHash is the release whose info hash is hash.
-func (s *site) byHash(hash string) (Release, bool) {
-	i := slices.IndexFunc(s.releases, func(rel Release) bool { return rel.InfoHash == hash })
+// byHash is the release on r's site whose info hash is hash.
+func (s *site) byHash(r *http.Request, hash string) (Release, bool) {
+	i := slices.IndexFunc(s.releases, func(rel Release) bool { return rel.InfoHash == hash && rel.On(labelOf(r)) })
 	if i < 0 {
 		return Release{}, false
 	}

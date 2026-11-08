@@ -89,6 +89,7 @@ import type {
   TrackersSettingsChange,
   TrackersTracker,
   TrackersTrackerList,
+  TrackersTrackerPage,
   UpdateSeedingSettings401,
   UpdateSeedingSettings403,
   UpdateSeedingSettings409,
@@ -832,8 +833,8 @@ export const getGetTrackerUrl = (id: string) => {
 export const getTracker = async (
   id: string,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<TrackersTracker> => {
-  return apiFetch<TrackersTracker>(getGetTrackerUrl(id), {
+): Promise<TrackersTrackerPage> => {
+  return apiFetch<TrackersTrackerPage>(getGetTrackerUrl(id), {
     ...options,
     method: "GET",
   });

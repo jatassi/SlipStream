@@ -124,11 +124,20 @@ func reportOf(stored *string) (*Report, error) {
 
 // DownloadingOwner counts the Torrents a Node holds until it parts from
 // them: a Removing one too, so a drain lasts until the Node confirms each
-// removal. Live Torrents seed until seeding goals exist, so a Node never
-// finishes them on its own.
-var DownloadingOwner = nodes.Owner{Role: role.Downloading, Held: held}
+// removal. A live Torrent's goal removes it, or pauses it, which a drain
+// turns into a remove. One whose goal never acts is endless.
+func (c *Clients) DownloadingOwner() nodes.Owner {
+	return nodes.Owner{Role: role.Downloading, Held: c.held}
+}
 
-func held(ctx context.Context, r storage.Reader[file], node role.NodeID) (nodes.Held, error) {
+func (c *Clients) held(ctx context.Context, r storage.Reader[file], node role.NodeID) (nodes.Held, error) {
 	row, err := db.New(r).CountHeld(ctx, node)
-	return nodes.Held{Units: row.Torrents, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: row.Bytes, Endless: row.Live > 0}, err
+	if err != nil {
+		return nodes.Held{}, err
+	}
+	endless, err := c.cfg.Seeding.EndlessUnits(ctx, r, node)
+	if err != nil {
+		return nodes.Held{}, err
+	}
+	return nodes.Held{Units: row.Torrents, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: row.Bytes, EndlessUnits: endless}, nil
 }

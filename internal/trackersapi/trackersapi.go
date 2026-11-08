@@ -64,7 +64,8 @@ func trackerAnswer(err error) error {
 	return err
 }
 
-type tracker struct {
+// Tracker is a Tracker as every /trackers response shows it.
+type Tracker struct {
 	ID         string             `json:"id" format:"uuid"`
 	Name       string             `json:"name"`
 	Privacy    string             `json:"privacy" enum:"private,semi-private,public,unknown"`
@@ -75,8 +76,8 @@ type tracker struct {
 	Goal       api.Nullable[goal] `json:"goal" doc:"Its own seeding goal; null while it follows the default goal"`
 }
 
-func trackerOf(s trackers.Summary) tracker {
-	out := tracker{
+func trackerOf(s trackers.Summary) Tracker {
+	out := Tracker{
 		ID: s.ID.String(), Name: s.Name, Privacy: string(s.Privacy),
 		Hosts: append([]string{}, s.Hosts...), Keys: append([]string{}, s.Keys...), IndexerIDs: []string{},
 		Rule: ruleOf(s.Rules),
@@ -90,8 +91,25 @@ func trackerOf(s trackers.Summary) tracker {
 	return out
 }
 
+type trackerItem struct {
+	Tracker
+	Counts counts `json:"counts" doc:"Its torrents, live or being removed, as Activity > Torrents counts them"`
+}
+
+type counts struct {
+	Torrents int `json:"torrents" minimum:"0"`
+	Seeding  int `json:"seeding" minimum:"0"`
+	Owing    int `json:"owing" minimum:"0" doc:"The ones that still owe it seeding"`
+	AtRisk   int `json:"atRisk" minimum:"0" doc:"The ones that owe it seeding and aren't seeding"`
+	GoalMet  int `json:"goalMet" minimum:"0" doc:"The ones whose seeding goal is met"`
+}
+
+func countsOf(c trackers.Counts) counts {
+	return counts{Torrents: c.Torrents, Seeding: c.Seeding, Owing: c.Owing, AtRisk: c.AtRisk, GoalMet: c.GoalMet}
+}
+
 type trackerList struct {
-	Trackers []tracker `json:"trackers" nullable:"false" doc:"By name"`
+	Trackers []trackerItem `json:"trackers" nullable:"false" doc:"By name"`
 }
 
 type trackerListOutput struct{ Body trackerList }
@@ -101,18 +119,35 @@ func (h handlers) listTrackers(ctx context.Context, by identity.Admin, _ *struct
 	if err != nil {
 		return nil, err
 	}
-	out := trackerList{Trackers: []tracker{}}
-	for _, s := range list {
-		out.Trackers = append(out.Trackers, trackerOf(s))
+	out := trackerList{Trackers: []trackerItem{}}
+	for _, l := range list {
+		out.Trackers = append(out.Trackers, trackerItem{Tracker: trackerOf(l.Summary), Counts: countsOf(l.Counts)})
 	}
 	return &trackerListOutput{Body: out}, nil
 }
+
+type trackerPage struct {
+	Tracker
+	Stats stats `json:"stats" doc:"SlipStream's own sums over its torrents"`
+}
+
+type stats struct {
+	Uploaded     int64   `json:"uploaded" minimum:"0" doc:"Bytes, counting each torrent once, live or removed"`
+	Downloaded   int64   `json:"downloaded" minimum:"0" doc:"Bytes, counting each torrent once, live or removed"`
+	Ratio        float64 `json:"ratio" minimum:"0" doc:"Uploaded over downloaded, or over size where a torrent's size is larger"`
+	Torrents     int     `json:"torrents" minimum:"0" doc:"Its torrents, live or being removed"`
+	SeedingBytes int64   `json:"seedingBytes" minimum:"0" doc:"The size of its torrents that are seeding"`
+	Grabs30d     int     `json:"grabs30d" minimum:"0" doc:"Its Grabs in the last 30 days"`
+	Owing        int     `json:"owing" minimum:"0" doc:"Its torrents that still owe it seeding"`
+}
+
+type trackerPageOutput struct{ Body trackerPage }
 
 type trackerInput struct {
 	ID string `path:"id" format:"uuid"`
 }
 
-type trackerOutput struct{ Body tracker }
+type trackerOutput struct{ Body Tracker }
 
 func parseTrackerID(raw string) (indexers.TrackerID, error) {
 	id, err := storage.ParseUUID(raw)
@@ -122,12 +157,20 @@ func parseTrackerID(raw string) (indexers.TrackerID, error) {
 	return indexers.TrackerID{UUID: id}, nil
 }
 
-func (h handlers) getTracker(ctx context.Context, by identity.Admin, in *trackerInput) (*trackerOutput, error) {
+func (h handlers) getTracker(ctx context.Context, by identity.Admin, in *trackerInput) (*trackerPageOutput, error) {
 	id, err := parseTrackerID(in.ID)
 	if err != nil {
 		return nil, err
 	}
-	return h.trackerReply(ctx, by, id)
+	p, err := h.trackers().Page(ctx, by, id)
+	if err != nil {
+		return nil, trackerAnswer(err)
+	}
+	st := p.Stats
+	return &trackerPageOutput{Body: trackerPage{Tracker: trackerOf(p.Summary), Stats: stats{
+		Uploaded: st.Uploaded, Downloaded: st.Downloaded, Ratio: st.Ratio.Float(), Torrents: st.Torrents,
+		SeedingBytes: st.SeedingBytes, Grabs30d: st.Grabs30d, Owing: st.Owing,
+	}}}, nil
 }
 
 func (h handlers) trackerReply(ctx context.Context, by identity.Admin, id indexers.TrackerID) (*trackerOutput, error) {
