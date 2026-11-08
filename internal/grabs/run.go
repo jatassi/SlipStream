@@ -398,7 +398,7 @@ func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ 
 	if err != nil {
 		return release.Facts{}, err
 	}
-	read := release.File(g.Release.Title, gr.cfg.Names[typ], known.For(typ))
+	read := release.Title(g.Release.Title, gr.cfg.Names[typ], known.For(typ))
 	return read.Facts.WithProbe(release.Probed{Resolution: release.Known(p.Resolution())}), nil
 }
 
