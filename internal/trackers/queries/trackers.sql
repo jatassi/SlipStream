@@ -95,3 +95,11 @@ DELETE FROM trackers_route WHERE tracker_id = sqlc.arg(tracker_id) AND home_node
 
 -- name: RepointRoutes :exec
 UPDATE OR IGNORE trackers_route SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
+
+-- name: InsertGoalRun :exec
+INSERT INTO trackers_goal_run (torrent_id, acted_at, action, kept)
+VALUES (sqlc.arg(torrent_id), sqlc.arg(acted_at), sqlc.arg(action), sqlc.narg(kept));
+
+-- name: KeepGoalRun :exec
+UPDATE trackers_goal_run SET action = 'remove', kept = sqlc.arg(kept), acted_at = sqlc.arg(acted_at)
+WHERE torrent_id = sqlc.arg(torrent_id) AND action = 'pause';

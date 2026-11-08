@@ -76,10 +76,12 @@ func (steady) InStep(role.NodeID) bool { return true }
 
 func (steady) Draining(role.Name, role.NodeID) bool { return false }
 
-// judgment is info hashes' Verdicts, and the Trackers they name.
+// judgment is info hashes' Verdicts, the Trackers they name, and what
+// the goal runs of their Torrents did.
 type judgment struct {
 	hashes   map[bencode.InfoHash]judgedHash
 	trackers map[indexers.TrackerID]Summary
+	ran      map[downloadclients.ID]seeding.Ran
 }
 
 type judgedHash struct {
@@ -97,6 +99,14 @@ type judgedHash struct {
 // its Tracker included.
 func (h judgedHash) moved() bool {
 	return h.verdict.Write || h.verdict.View.Window != nil && h.stored != h.tracker
+}
+
+// acts reports whether a goal acts on one of the hash's Torrents now.
+func (h judgedHash) acts() bool {
+	return slices.ContainsFunc(h.verdict.Plans, func(p seeding.Plan) bool {
+		_, ok := deedOf(p)
+		return ok
+	})
 }
 
 // judge evaluates each of hashes in r's snapshot, its Nodes as nodes
@@ -127,7 +137,7 @@ func (t *Trackers) judge(ctx context.Context, r storage.Reader[file], hashes []b
 	for _, run := range runs {
 		ran[run.TorrentID] = ranOf(seeding.Action(run.Action))
 	}
-	j := judgment{hashes: make(map[bencode.InfoHash]judgedHash, len(facts)), trackers: in.trackers}
+	j := judgment{hashes: make(map[bencode.InfoHash]judgedHash, len(facts)), trackers: in.trackers, ran: ran}
 	for h, fs := range facts {
 		jh := judgedHash{facts: fs, stored: in.windows[h].TrackerID}
 		hash, tracker, err := hashOf(in, fs, ran, in.windows[h], nodes)
