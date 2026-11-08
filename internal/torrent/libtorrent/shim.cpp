@@ -1088,7 +1088,9 @@ int lts_close(lts_session* s, lts_error* err) {
 			}
 		}
 		// An announce ends within tracker_completion_timeout, and its answer
-		// wakes the wait sooner.
+		// wakes the wait sooner. The wait also outlasts each stopped the
+		// pauses sent: an abort closes the UDP socket a UDP tracker's
+		// response would arrive on, and then waits out stop_tracker_timeout.
 		auto const answer = lt::seconds(s->ses.get_settings().get_int(sp::tracker_completion_timeout));
 		for (;;) {
 			{
@@ -1097,7 +1099,8 @@ int lts_close(lts_session* s, lts_error* err) {
 				for (auto const& t : s->turning) waiting.push_back(t.first);
 				for (auto const& p : s->parting) waiting.push_back(p.first);
 				for (lt::torrent_handle const& h : waiting) settle(s, h);
-				if (s->turning.empty() && s->parting.empty()) break;
+				std::vector<lt::torrent_handle> const held = s->ses.get_torrents();
+				if (s->turning.empty() && s->parting.empty() && std::none_of(held.begin(), held.end(), awaits_answer)) break;
 			}
 			s->ses.wait_for_alert(answer);
 			s->ses.pop_alerts(&s->popped);
