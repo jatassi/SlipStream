@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer's response is \"text/html; charset=UTF-8\", which isn't JSON"
+  },
+  "sessionChanged": false
+}

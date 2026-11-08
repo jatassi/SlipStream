@@ -1,0 +1,34 @@
+{
+  "releases": [
+    {
+      "title": "The Copper Bell 2013 1080p BluRay AVC DTS-HD MA 5.1-PublicHD",
+      "size": 22355890076,
+      "published": "2021-03-18T11:09:34Z",
+      "seeders": 5,
+      "leechers": 0,
+      "grabs": 3,
+      "link": "https://cinemaz.fixture-site.fake.localhost/rss/download/123456789/78486-798a28c73de6212789019a8c59183cd774f9dd95.torrent",
+      "magnet": "",
+      "infoHash": "798a28c73de6212789019a8c59183cd774f9dd95",
+      "categories": [
+        2040
+      ],
+      "ids": {
+        "imdbid": "tt1838520",
+        "tmdbid": "157351"
+      },
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "113h38m27s",
+      "details": "https://cinemaz.fixture-site.fake.localhost/torrent/78486-the-copper-bell-2013-1080p-bluray-avc-dts-hd-ma-51-publichd",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

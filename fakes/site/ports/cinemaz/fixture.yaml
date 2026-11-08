@@ -1,0 +1,110 @@
+# Synthetic, written from CinemaZ.cs and AvistazBase. Prowlarr has no CinemaZ recording, and
+# CinemaZ answers with the same API as PrivateHD, so the bodies are PrivateHD's on CinemaZ's host.
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+  pid: "{{pid}}"
+session: {token: "{{token}}"}
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt1838520}}}
+    exchanges:
+      - request:
+          path: /api/v1/jackett/torrents
+          headers: {Authorization: "Bearer {{token}}", Accept: application/json}
+          query: {in: "1", type: "0", limit: "50", imdb: tt1838520}
+          noQuery: [search, tmdb]
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: tv
+    call: {search: {mode: tvsearch, ids: {imdbid: tt0000002}, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /api/v1/jackett/torrents
+          query: {in: "1", type: "0", limit: "50", imdb: tt0000002, search: S02E03}
+          noQuery: [tvdb]
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: empty
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /api/v1/jackett/torrents
+          query: {in: "1", type: "0", limit: "50", imdb: tt0000001}
+        response: {status: 404}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /api/v1/jackett/torrents
+          headers: {Authorization: "Bearer {{token}}"}
+          query: {in: "1", type: "0", limit: "50", search: ""}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/v1/jackett/auth
+          headers: {Accept: application/json}
+          form: {username: fixture-user, password: "{{password}}", pid: "{{pid}}"}
+        response: {status: 401, headers: {Content-Type: application/json}, body: refused.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/v1/jackett/torrents}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: maintenance
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/v1/jackett/torrents}
+        response: {headers: {Content-Type: text/html; charset=UTF-8}, body: maintenance.html}
+  - name: loggedout
+    call: {recent: {}}
+    session: {token: "{{expiredToken}}"}
+    exchanges:
+      - request:
+          path: /api/v1/jackett/torrents
+          headers: {Authorization: "Bearer {{expiredToken}}"}
+        response: {status: 412, headers: {Content-Type: application/json}, body: signedout.json}
+      - request:
+          method: POST
+          path: /api/v1/jackett/auth
+          form: {username: fixture-user, password: "{{password}}", pid: "{{pid}}"}
+        response: {headers: {Content-Type: application/json}, body: signedin.json}
+      - request:
+          path: /api/v1/jackett/torrents
+          headers: {Authorization: "Bearer {{token}}"}
+          query: {search: ""}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: grab
+    call: {fetch: "/rss/download/(removed)/(removed).torrent"}
+    session: {token: "{{expiredToken}}"}
+    exchanges:
+      - request:
+          path: "/rss/download/(removed)/(removed).torrent"
+          headers: {Authorization: "Bearer {{expiredToken}}"}
+        response: {status: 401, headers: {Content-Type: application/json}, body: signedout.json}
+      - request:
+          method: POST
+          path: /api/v1/jackett/auth
+          form: {username: fixture-user, password: "{{password}}", pid: "{{pid}}"}
+        response: {headers: {Content-Type: application/json}, body: signedin.json}
+      - request:
+          path: "/rss/download/(removed)/(removed).torrent"
+          headers: {Authorization: "Bearer {{token}}"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}
+  - name: test
+    call: {test: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /api/v1/jackett/auth
+          form: {username: fixture-user, password: "{{password}}", pid: "{{pid}}"}
+        response: {headers: {Content-Type: application/json}, body: signedin.json}
+      - request:
+          path: /api/v1/jackett/torrents
+          headers: {Authorization: "Bearer {{token}}"}
+          query: {search: ""}
+        response: {headers: {Content-Type: application/json}, body: recent.json}
