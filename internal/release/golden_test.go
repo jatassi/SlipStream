@@ -141,7 +141,12 @@ func group(r golden.Row) error {
 }
 
 func noGroup(r golden.Row) error {
-	return golden.Same("group", titleFacts(r.String("title")).Group, release.Fact[string]{})
+	want := release.Fact[string]{}
+	var read string
+	if r.Reads(&read) {
+		want = release.Known(read)
+	}
+	return golden.Same("group", titleFacts(r.String("title")).Group, want)
 }
 
 func TestGoldenSonarrQuality(t *testing.T) {
