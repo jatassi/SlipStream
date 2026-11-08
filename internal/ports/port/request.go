@@ -7,6 +7,7 @@ package port
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -166,6 +167,19 @@ func (q SearchCriteria) EpisodeSearchString() string {
 		return fmt.Sprintf("S%02dE%02d", season, ep)
 	}
 	return fmt.Sprintf("S%02dE%s", season, q.Episode)
+}
+
+// Int is C#'s unchecked (int) cast of a long, which keeps its low 32
+// bits.
+func Int(n int64) int {
+	low := n & math.MaxUint32
+	if low > math.MaxInt32 {
+		low -= math.MaxUint32 + 1
+	}
+	if low < math.MinInt32 || low > math.MaxInt32 {
+		return 0
+	}
+	return int(low)
 }
 
 // Interpolated is $"{n}" of a C# int?: "" for null.
