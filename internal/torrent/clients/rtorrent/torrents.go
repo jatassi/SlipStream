@@ -3,6 +3,7 @@ package rtorrent
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -108,6 +109,17 @@ func (v *values) num(method string) int64 {
 	return n
 }
 
+func (v *values) count(method string) int {
+	n := v.num(method)
+	if n < 0 || n > math.MaxInt32 {
+		if v.err == nil {
+			v.err = fmt.Errorf("%s is %d, not a count", method, n)
+		}
+		return 0
+	}
+	return int(n)
+}
+
 // status is a torrent in SlipStream's terms. d.state 0 is stopped, and a
 // started torrent that is neither active nor hashing is paused. rTorrent
 // has no queue and no moving state, so d.complete alone is finished.
@@ -121,7 +133,7 @@ func status(v *values) clients.Status {
 		Counters: clients.Counters{Uploaded: v.num("d.up.total"), Downloaded: v.num("d.down.total")},
 		Rates: clients.Rates{
 			Down: v.num("d.down.rate"), Up: v.num("d.up.rate"),
-			Peers: int(v.num("d.peers_connected")), Seeds: int(v.num("d.peers_complete")),
+			Peers: v.count("d.peers_connected"), Seeds: v.count("d.peers_complete"),
 		},
 	}
 	hashing := v.num("d.hashing") != 0

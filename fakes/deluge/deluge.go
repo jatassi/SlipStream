@@ -328,7 +328,7 @@ func (w *web) newSession(rw http.ResponseWriter) {
 }
 
 func (w *web) setCookie(rw http.ResponseWriter, value string) {
-	http.SetCookie(rw, &http.Cookie{Name: "_session_id", Value: value, Path: "/json", Expires: time.Now().Add(w.timeout())}) //nolint:gosec // Deluge's own cookie
+	http.SetCookie(rw, &http.Cookie{Name: "_session_id", Value: value, Path: "/json", Expires: time.Now().Add(w.timeout()), HttpOnly: true}) //nolint:gosec // Deluge's own cookie, Secure only behind HTTPS
 }
 
 func checksum(id string) int {
