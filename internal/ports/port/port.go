@@ -15,8 +15,9 @@
 //
 // A site's package lives at internal/ports/<id>, a family's at
 // internal/ports/internal/<family>. Either imports this package,
-// internal/newznab, internal/indexerfields and internal/prowlarr/...
-// only, never net/http's client, net's dialers, internal/searching,
+// internal/newznab, internal/indexerfields, internal/prowlarr/... and
+// github.com/dlclark/regexp2 for a .NET regex Go's regexp can't read,
+// never net/http's client, net's dialers, internal/searching,
 // internal/cardigann or another site (lint rule ports-confined).
 //
 // Vocabulary map, C# to Go, for whoever ports an upstream diff:
