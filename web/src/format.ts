@@ -167,6 +167,21 @@ export function atWords(iso: string, reading: Clock): string {
   return `${days < 7 ? formats.weekday.format(at) : formats.date.format(at)} at ${time}`;
 }
 
+const ago = new Intl.RelativeTimeFormat("en", { numeric: "always" });
+
+/** How long ago a past time was, to the minute: "just now", "2 hours ago", "3 days ago". */
+export function agoWords(iso: string, now: Date): string {
+  const minutes = Math.floor((now.getTime() - Date.parse(iso)) / (minute * 1000));
+  if (minutes < 1) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return ago.format(-minutes, "minute");
+  }
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? ago.format(-hours, "hour") : ago.format(-Math.floor(hours / 24), "day");
+}
+
 export function inWords(iso: string, now: Date): string {
   const minutes = Math.ceil((Date.parse(iso) - now.getTime()) / (minute * 1000));
   if (minutes <= 0) {

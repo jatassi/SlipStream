@@ -48,10 +48,11 @@ export function RootsGroup({
       ) : (
         <Table
           label={`${type.name} roots`}
-          columns={rootColumns(type, nodes, volumes, onAct)}
+          columns={rootColumns({ type, roots }, nodes, volumes, onAct)}
           rows={roots}
           rowKey={(root) => root.id}
-          lines={roots.some((root) => root.state !== "ready" || root.rehome !== undefined) ? 2 : 1}
+          anchor={(root) => `root-${root.id}`}
+          lines={2}
           tone={(root) => (stateWords[root.state].tone === "warn" ? "warn" : undefined)}
           stackBelow={640}
         />

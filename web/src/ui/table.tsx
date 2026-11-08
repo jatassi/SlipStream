@@ -101,49 +101,61 @@ function Head({
   );
 }
 
+function RowTarget<Row>({
+  row,
+  first,
+  selection,
+}: {
+  row: Row;
+  first: Column<Row>;
+  selection: { selected: boolean; onSelect: (row: Row) => void };
+}) {
+  return (
+    <button
+      type="button"
+      {...{ [rowTarget]: "" }}
+      aria-pressed={selection.selected}
+      onClick={() => {
+        selection.onSelect(row);
+      }}
+      onKeyDown={(event) => {
+        moveBetweenRows(event)?.click();
+      }}
+      className="text-left after:absolute after:inset-0 focus-visible:shadow-none focus-visible:outline-none"
+    >
+      {selection.selected && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-2 left-0 w-[3px] rounded-capsule bg-solid shadow-live-glow"
+        />
+      )}
+      {first.cell(row)}
+    </button>
+  );
+}
+
 function Row<Row>({
   row,
   columns: [first, ...rest],
   lines,
   tone,
+  anchor,
   selection,
 }: {
   row: Row;
   columns: readonly [Column<Row>, ...Column<Row>[]];
   lines: 1 | 2;
   tone: RowTone | undefined;
+  anchor: string | undefined;
   selection: { selected: boolean; onSelect: (row: Row) => void } | undefined;
 }) {
   return (
-    <tr data-tone={tone} className={rowLook}>
+    <tr id={anchor} data-tone={tone} className={`${rowLook} scroll-mt-20`}>
       <Cell
         column={first}
         row={row}
         lines={lines}
-        target={
-          selection && (
-            <button
-              type="button"
-              {...{ [rowTarget]: "" }}
-              aria-pressed={selection.selected}
-              onClick={() => {
-                selection.onSelect(row);
-              }}
-              onKeyDown={(event) => {
-                moveBetweenRows(event)?.click();
-              }}
-              className="text-left after:absolute after:inset-0 focus-visible:shadow-none focus-visible:outline-none"
-            >
-              {selection.selected && (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-y-2 left-0 w-[3px] rounded-capsule bg-solid shadow-live-glow"
-                />
-              )}
-              {first.cell(row)}
-            </button>
-          )
-        }
+        target={selection && <RowTarget row={row} first={first} selection={selection} />}
       />
       {rest.map((column) => (
         <Cell key={column.id} column={column} row={row} lines={lines} target={undefined} />
@@ -160,6 +172,7 @@ export function Table<Row>({
   lines = 1,
   stackBelow,
   tone,
+  anchor,
   selection,
 }: {
   label: string;
@@ -169,6 +182,8 @@ export function Table<Row>({
   lines?: 1 | 2;
   stackBelow?: number;
   tone?: (row: Row) => RowTone | undefined;
+  /** The row's id, so a link to the page can land on it. */
+  anchor?: (row: Row) => string;
   selection?: Selection<Row>;
 }) {
   const id = useId();
@@ -186,6 +201,7 @@ export function Table<Row>({
                 columns={columns}
                 lines={lines}
                 tone={tone?.(row)}
+                anchor={anchor?.(row)}
                 selection={
                   selection && { ...selection, selected: selection.selected === rowKey(row) }
                 }
