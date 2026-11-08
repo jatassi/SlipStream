@@ -17,6 +17,9 @@ type TrackerRules struct {
 	// Warning, when set, is a warning message every successful answer
 	// carries.
 	Warning string
+	// Swarm, when set, is the seeders and leechers every successful answer
+	// carries.
+	Swarm *engine.Swarm
 	// HoldStarted holds each answer to started, HoldRegular each answer to
 	// a regular announce, and HoldStopped each answer to stopped, until the
 	// tracker is told to answer.
@@ -119,7 +122,9 @@ type announcing struct {
 	endpoints int
 	message   string
 	lastErr   *engine.Error
-	timer     *time.Timer
+	// swarm is the counts the last answer carried.
+	swarm *engine.Swarm
+	timer *time.Timer
 }
 
 func (a *announcing) tracker() *tracker { return a.t.e.w.trackers[a.t.meta.Announce] }
@@ -216,7 +221,7 @@ func (a *announcing) answer(tr *tracker, event string) {
 		a.completeSent = a.completeSent || event == "completed"
 		a.fails = 0
 		a.next, a.min = now.Add(max(tr.rules.Interval, a.t.e.floor)), now.Add(tr.rules.MinInterval)
-		a.message, a.lastErr = tr.rules.Warning, nil
+		a.message, a.lastErr, a.swarm = tr.rules.Warning, nil, tr.rules.Swarm
 		if a.t.e.holds(a.t) {
 			if tr.rules.Warning != "" {
 				a.t.e.emit(engine.TrackerWarned{Torrent: a.t.handle, Message: tr.rules.Warning})
@@ -261,7 +266,7 @@ func (a *announcing) list() []engine.Tracker {
 	if len(out) > 0 {
 		out[0] = engine.Tracker{
 			URL: out[0].URL, Endpoints: a.endpoints, NextAnnounce: a.next, MinAnnounce: a.min,
-			Message: a.message, LastError: a.lastErr, Fails: a.fails, Updating: a.updating, StartSent: a.startSent,
+			Message: a.message, LastError: a.lastErr, Fails: a.fails, Updating: a.updating, StartSent: a.startSent, Swarm: a.swarm,
 		}
 	}
 	return out

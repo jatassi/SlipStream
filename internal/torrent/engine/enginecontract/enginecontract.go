@@ -85,6 +85,7 @@ func Run(t *testing.T, h Harness) {
 		{"TrackerListCarriesNextAndMinAnnounce", trackerListCarriesNextAndMinAnnounce},
 		{"TheAnnounceFloorLengthensAShortInterval", theAnnounceFloorLengthensAShortInterval},
 		{"AWarningIsReportedAndListed", aWarningIsReportedAndListed},
+		{"SwarmCountsFollowTheResponse", swarmCountsFollowTheResponse},
 		{"AFailureWithoutIntervalWaits1800s", aFailureWithoutIntervalWaits1800s},
 		{"ReannounceMovesMinAnnounce", reannounceMovesMinAnnounce},
 		{"ReannounceIgnoringMinIntervalAnnouncesNow", reannounceIgnoringMinIntervalAnnouncesNow},
@@ -388,6 +389,27 @@ func aWarningIsReportedAndListed(t *testing.T, h Harness) {
 	await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
 	if got := onlyTracker(t, trackerList(t, h, e, r, th)); got.Message != warning || got.LastError != nil {
 		t.Fatalf("the tracker that warned %q lists %+v", warning, got)
+	}
+}
+
+func swarmCountsFollowTheResponse(t *testing.T, h Harness) {
+	counted := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, Swarm: &engine.Swarm{Seeders: 142, Leechers: 3}})
+	uncounted := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	for _, tc := range []struct {
+		name string
+		url  string
+		want *engine.Swarm
+	}{
+		{"Counted", counted.URL, &engine.Swarm{Seeders: 142, Leechers: 3}},
+		{"Uncounted", uncounted.URL, nil},
+	} {
+		th := running(t, e, tc.name, tc.url)
+		await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+		if got := onlyTracker(t, trackerList(t, h, e, r, th)).Swarm; !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("the tracker at %s answered counts %v, and its tracker list holds %v", tc.url, tc.want, got)
+		}
 	}
 }
 

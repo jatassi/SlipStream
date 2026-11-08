@@ -130,7 +130,8 @@ typedef struct {
 
 /* One tracker of TRACKER_LIST, its announce state that of its first endpoint.
    url and message point into the alert's payload. Times are Unix
-   milliseconds, 0 for never. */
+   milliseconds, 0 for never. seeders and leechers are the counts the last
+   announce response carried, -1 while none did. */
 typedef struct {
 	const char* url;
 	const char* message;
@@ -142,6 +143,8 @@ typedef struct {
 	int32_t fails;
 	int32_t updating;
 	int32_t start_sent;
+	int32_t seeders;
+	int32_t leechers;
 } lts_tracker;
 
 /* payload is shim-owned until lts_free_alert: the bytes of RESUME_SAVED, the

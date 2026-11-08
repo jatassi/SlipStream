@@ -650,6 +650,9 @@ func goTracker(index int, t *C.lts_tracker) engine.Tracker {
 	if t.last_error.category != 0 {
 		out.LastError = goError(&t.last_error)
 	}
+	if t.seeders >= 0 && t.leechers >= 0 {
+		out.Swarm = &engine.Swarm{Seeders: int(t.seeders), Leechers: int(t.leechers)}
+	}
 	return out
 }
 
