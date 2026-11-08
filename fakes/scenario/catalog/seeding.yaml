@@ -8,8 +8,10 @@ description: >-
   through a Transfer. The private sites heron and tamarack each list one
   release: heron states a seed time of 3 minutes, as seedpool does, and
   tamarack a ratio of 1 or 3 minutes, as TorrentLeech does. Fixture Site
-  lists a public release. fake-tracker answers every 5 seconds and seedbox
-  reports its torrents' totals every 5 seconds. The seeding margin is 1
+  lists a public release. fake-tracker answers every 5 seconds, seedbox
+  announces at most 5 seconds past that, and it reports its torrents'
+  totals every 5 seconds, so heron's rule and the margin are met about 4
+  minutes into seeding. The seeding margin is 1
   minute, Health warns after 1 minute and the Seeding goals task runs
   every minute.
 seed: seeding
@@ -32,6 +34,8 @@ timings:
     stop_deadline: 5s
   downloading:
     totals_report: 5s
+    announce_floor: 5s
+    announce_jitter: 5s
 tmdb:
   movies:
     - id: 9000001

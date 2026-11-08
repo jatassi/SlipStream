@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+
+	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
 type seedingRule struct {
@@ -99,4 +101,38 @@ func TestSeedingGoalsReadEachSiteShapeOfRuleAndAnAdminRuleSticksThroughANewGrab(
 	cleared := decode(t, "clearTrackerRule", w.a.Admin("home", http.MethodDelete, "/api/v1/trackers/"+tamarack.ID+"/rule", ""), &ruledTracker{})
 	expectRule(t, "once the Admin's rule is deleted", *cleared, `{"clears":"either","ratio":1,"seedSeconds":180,"source":"releases"}`)
 	expectRule(t, "after both Grabs", w.ruled(t)["Heron"], `{"clears":"time","ratio":null,"seedSeconds":180,"source":"releases"}`)
+}
+
+type timedTorrent struct {
+	Seeding struct {
+		State string `json:"state"`
+		Time  struct {
+			Value int64  `json:"value"`
+			Rule  *int64 `json:"rule"`
+		} `json:"time"`
+	} `json:"seeding"`
+}
+
+// TestATimeRuleIsMetOnceTheTrackerCreditsItsSeedTimeAndTheMargin grabs The
+// Quiet Orchard from heron, whose rule is 3 minutes of seeding. Its window
+// owes until the seed time seedbox counts from heron's answers passes the
+// rule and the 1-minute margin, and then reads met.
+func TestATimeRuleIsMetOnceTheTrackerCreditsItsSeedTimeAndTheMargin(t *testing.T) {
+	t.Parallel()
+	w := begin(t, "seeding")
+	torrent := *decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+w.grabWork(t), ""), &trackedGrab{}).TorrentID
+	w.torrentIn(t, torrent, "seeding")
+	var got timedTorrent
+	decode(t, "getTorrent", w.a.Admin("home", http.MethodGet, "/api/v1/torrents/"+torrent, ""), &got)
+	if got.Seeding.State != "owing" || got.Seeding.Time.Rule == nil || *got.Seeding.Time.Rule != 240 {
+		t.Fatalf("seeding Orchard reads %+v, want owing heron's 3 minutes and the 1-minute margin", got.Seeding)
+	}
+
+	worldtest.Until(t, "Orchard's window is met", func() (bool, error) {
+		decode(t, "getTorrent", w.a.Admin("home", http.MethodGet, "/api/v1/torrents/"+torrent, ""), &got)
+		return got.Seeding.State == "met", nil
+	})
+	if got.Seeding.Time.Value < 240 {
+		t.Fatalf("met Orchard reads %d seconds of seeding, want at least the rule's and the margin's 240", got.Seeding.Time.Value)
+	}
 }
