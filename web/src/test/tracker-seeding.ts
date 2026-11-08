@@ -127,7 +127,8 @@ export const seedpoolWindows: TrackersWindow[] = [
   }),
 ];
 
-const planned = (row: DownloadclientsTorrentRow | undefined) => ({
+/** A torrent row as the goals preview names it. */
+export const planned = (row: DownloadclientsTorrentRow | undefined) => ({
   id: row?.id ?? "",
   name: row?.name ?? "",
   tracker: row?.tracker ?? null,
