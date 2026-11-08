@@ -159,7 +159,7 @@ func expectPlaced(t *testing.T, w *sim.World) {
 	synctest.Wait()
 	dir := w.Manifest().MediaDir
 	var got []string
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(filepath.Join(dir, "movies"), func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -169,7 +169,7 @@ func expectPlaced(t *testing.T, w *sim.World) {
 	})
 	want := []string{"movies/" + storing.MarkerName, placed}
 	if err != nil || !slices.Equal(got, want) {
-		t.Fatalf("the media dir holds %v, %v; want exactly %v", got, err, want)
+		t.Fatalf("the movies root holds %v, %v; want exactly %v", got, err, want)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(placed)))
 	if err != nil {

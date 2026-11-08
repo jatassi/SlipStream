@@ -28,8 +28,8 @@
             "r_frame_rate": "24/1",
             "avg_frame_rate": "24/1",
             "time_base": "1/1000",
-            "duration_ts": 42,
-            "duration": "0.042000",
+            "start_pts": 0,
+            "start_time": "0.000000",
             "extradata_size": 2446,
             "disposition": {
                 "default": 0,
@@ -54,7 +54,7 @@
             },
             "tags": {
                 "ENCODER": "Lavc libx265",
-                "DURATION": "00:00:00.042000000"
+                "DURATION": "00:00:01.000000000"
             }
         }
     ],
@@ -65,9 +65,10 @@
         "nb_stream_groups": 0,
         "format_name": "matroska,webm",
         "format_long_name": "Matroska / WebM",
-        "duration": "0.042000",
-        "size": "6067",
-        "bit_rate": "1155619",
+        "start_time": "0.000000",
+        "duration": "1.000000",
+        "size": "29117",
+        "bit_rate": "232936",
         "probe_score": 100,
         "tags": {
             "encoder": "Lavf"

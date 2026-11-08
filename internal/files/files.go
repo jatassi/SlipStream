@@ -130,6 +130,10 @@ type Changed struct {
 
 var ChangedEvent = live.AdminEvent[Changed]("files.changed")
 
+type Publisher interface {
+	Publish(ctx context.Context, c Changed)
+}
+
 // Add records f, whose bytes are already at its Path, filling each of
 // fills for its Item at the Edition its cut fills, and labels it after
 // the first of them in its Work's Profile order. It trusts fills: an
@@ -283,7 +287,9 @@ type Config struct {
 	// decides which Items are out.
 	Today func() time.Time
 	// Disk is what the disk queue moves and removes files with.
-	Disk    Disk
+	Disk Disk
+	// Changed publishes files.changed for each Work whose files Forget deletes.
+	Changed Publisher
 	Timings Timings
 	Rand    *rand.Rand
 	Log     *slog.Logger

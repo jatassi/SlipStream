@@ -2196,6 +2196,139 @@
           "required": [
             "content_type"
           ]
+        },
+        "folders": {
+          "items": {
+            "properties": {
+              "folder": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "files": {
+                "items": {
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "video": {
+                      "properties": {
+                        "width": {
+                          "type": "integer",
+                          "multipleOf": 2,
+                          "maximum": 7680,
+                          "minimum": 64
+                        },
+                        "height": {
+                          "type": "integer",
+                          "multipleOf": 2,
+                          "maximum": 4320,
+                          "minimum": 64
+                        },
+                        "seconds": {
+                          "type": "integer",
+                          "maximum": 10,
+                          "minimum": 1
+                        },
+                        "hdr": {
+                          "type": "string",
+                          "enum": [
+                            "sdr",
+                            "hdr10",
+                            "hdr10plus",
+                            "hlg",
+                            "dv5",
+                            "dv8"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "width",
+                        "height",
+                        "seconds",
+                        "hdr"
+                      ]
+                    },
+                    "audio": {
+                      "items": {
+                        "properties": {
+                          "codec": {
+                            "type": "string",
+                            "enum": [
+                              "aac",
+                              "ac3",
+                              "eac3",
+                              "truehd",
+                              "flac"
+                            ]
+                          },
+                          "channels": {
+                            "type": "integer",
+                            "enum": [
+                              1,
+                              2,
+                              6,
+                              8
+                            ]
+                          },
+                          "language": {
+                            "type": "string"
+                          },
+                          "default": {
+                            "type": "boolean"
+                          },
+                          "title": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "codec",
+                          "channels"
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "subtitles": {
+                      "items": {
+                        "properties": {
+                          "language": {
+                            "type": "string"
+                          },
+                          "forced": {
+                            "type": "boolean"
+                          },
+                          "default": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "video"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "folder",
+              "files"
+            ]
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -13,12 +14,16 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/library"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -149,6 +154,8 @@ type row struct {
 	Bytes       int64           `json:"bytes"`
 	Files       int             `json:"files"`
 	Kept        int             `json:"kept"`
+	GoneFiles   int             `json:"goneFiles"`
+	AddedBy     string          `json:"addedBy"`
 	Status      *string         `json:"status"`
 	Cells       map[string]int  `json:"cells"`
 	Failed      int             `json:"failed"`
@@ -206,7 +213,7 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 	root := str(s.root.ID.String())
 	want := row{
 		ID: heat.ID.String(), Label: "Heat", Monitored: "all", ProfileID: s.archive.ID.String(), RootID: root, PosterURL: str(minter.URL(photo)),
-		Rating: json.RawMessage(`{"source":"tmdb","value":7.9,"scale":10}`), AvailableOn: str("2000-01-01"), Bytes: 4500, Files: 3, Kept: 1,
+		Rating: json.RawMessage(`{"source":"tmdb","value":7.9,"scale":10}`), AvailableOn: str("2000-01-01"), Bytes: 4500, Files: 3, Kept: 1, AddedBy: "admin",
 		Status: str("met"), Cells: map[string]int{"met": 2}, Items: 1, ItemStatus: map[string]int{"met": 1},
 		Values: json.RawMessage(`{"origin":"Los Angeles","tags":["Crime","Drama"]}`),
 	}
@@ -235,7 +242,7 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 
 	unmonitored := row{
 		ID: fargo.ID.String(), Label: "Fargo", Monitored: "none", ProfileID: s.one.ID.String(), RootID: root,
-		Rating: json.RawMessage("null"), AvailableOn: str("2000-01-01"), Cells: map[string]int{}, ItemStatus: map[string]int{}, Values: json.RawMessage("{}"),
+		Rating: json.RawMessage("null"), AvailableOn: str("2000-01-01"), AddedBy: "admin", Cells: map[string]int{}, ItemStatus: map[string]int{}, Values: json.RawMessage("{}"),
 	}
 	if !reflect.DeepEqual(got[5], unmonitored) {
 		t.Fatalf("Fargo's row is\n%+v\nwant\n%+v: an unmonitored Work counts nothing, so it reads no status, though its download failed", got[5], unmonitored)
@@ -310,24 +317,103 @@ func (s *shelved) needsYou(t *testing.T, w works.Tree) string {
 	return string(out.NeedsYou)
 }
 
-func TestListWorkFilesListsFillingFilesInProfileOrderThenKeptOnes(t *testing.T) {
+// rescan records a library scan of s's root over w: each file at a path
+// read names is read again as it gives, at today's modification time,
+// and each file at a path in gone is missing.
+func (s *shelved) rescan(t *testing.T, w works.Tree, read map[string]files.Probe, gone ...string) {
+	t.Helper()
+	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		on, err := files.OnRoot(ctx, tx, s.root.ID)
+		if err != nil {
+			return err
+		}
+		sc := files.Scan{Work: w.ID, Root: s.root.ID, Probes: map[storing.Rel]files.Probe{}}
+		for _, rec := range on.Files {
+			if p, ok := read[rec.Path.String()]; ok {
+				at := storing.Walked{Path: rec.Path, Size: rec.Size, Seen: storing.Seen{Modified: today, ID: storing.FileID{Volume: "v1", File: rec.Path.String()}}}
+				sc.Share.Same = append(sc.Share.Same, scanning.Same{Rec: rec, At: at, Reprobe: scanning.Stale})
+				sc.Probes[rec.Path] = p
+			}
+			if slices.Contains(gone, rec.Path.String()) {
+				sc.Share.Gone = append(sc.Share.Gone, rec)
+			}
+		}
+		_, err = s.files.Scan(ctx, tx, sc)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+var goneAt = regexp.MustCompile(`"goneAt":"\d{4}-[0-9-]+T[0-9:.]+Z"`)
+
+func TestListWorkFilesListsFillingFilesInProfileOrderThenTheRest(t *testing.T) {
 	s := stock(t, true)
 	heat := s.add(t, "heat", "Heat", `,"preset":"all"`, "Heat")
 	uhd := s.place(t, heat, "Heat/Heat - 2160p.mkv", release.WEBDL2160p, 3000, s.uhd.ID)
 	kept := s.place(t, heat, "Heat/Heat - HD (extra 1).mkv", release.WEBDL1080p, 500)
 	hd := s.place(t, heat, "Heat/Heat - HD.mkv", release.Bluray1080p, 1000, s.hd.ID)
-	item := heat.Items[0].ID.String()
-	expect(t, s.server, http.MethodGet, "/api/v1/works/"+heat.ID.String()+"/files", "", http.StatusOK, `{"folder":"Heat","files":[`+
-		`{"id":"`+hd.String()+`","path":"Heat/Heat - HD.mkv","size":1000,"quality":"bluray-1080p","probe":{"width":0,"height":0},"folder":"Heat","kept":false,`+
-		`"fills":[{"itemId":"`+item+`","edition":"any","targetId":"`+s.hd.ID.String()+`"}]},`+
-		`{"id":"`+uhd.String()+`","path":"Heat/Heat - 2160p.mkv","size":3000,"quality":"webdl-2160p","probe":{"width":0,"height":0},"folder":"Heat","kept":false,`+
-		`"fills":[{"itemId":"`+item+`","edition":"any","targetId":"`+s.uhd.ID.String()+`"}]},`+
-		`{"id":"`+kept.String()+`","path":"Heat/Heat - HD (extra 1).mkv","size":500,"quality":"webdl-1080p","probe":{"width":0,"height":0},"folder":"Heat","kept":true,"fills":[]}]}`)
+	read := media.Record{
+		Version: media.Version, Container: "matroska,webm", Duration: 2*time.Hour + 30*time.Second + 400*time.Millisecond, Bitrate: 18_000_000,
+		Video: media.Video{
+			Codec: "hevc", Profile: "Main 10", Width: 1920, Height: 1080, BitDepth: 10, FrameRate: media.Rate{Num: 24000, Den: 1001},
+			HDR: []release.HDR{"DV", "HDR10"}, DolbyVision: &media.DolbyVision{Profile: 8, Level: 6, Compatibility: 1},
+		},
+		Audio: []media.Audio{
+			{Codec: "truehd", Profile: "Dolby TrueHD + Dolby Atmos", Atmos: true, Channels: 8, Layout: "7.1", Language: "en", Default: true},
+			{Codec: "ac3", Channels: 2, Layout: "stereo", Title: "Commentary"},
+		},
+		Subtitles: []media.Subtitle{{Codec: "hdmv_pgs_subtitle", Image: true, Language: "en", Forced: true}, {Codec: "subrip", Language: "fr"}},
+	}
+	s.rescan(t, heat, map[string]files.Probe{
+		"Heat/Heat - HD.mkv":    {Media: read},
+		"Heat/Heat - 2160p.mkv": {Error: "Invalid data found when processing input"},
+	}, "Heat/Heat - HD (extra 1).mkv")
+
+	code, body := s.call(t, http.MethodGet, "/api/v1/works/"+heat.ID.String()+"/files", "")
+	item, modified := heat.Items[0].ID.String(), `"`+today.Format(time.RFC3339)+`"`
+	want := `{"folder":"Heat","files":[` +
+		`{"id":"` + hd.String() + `","path":"Heat/Heat - HD.mkv","folder":"Heat","size":1000,"quality":"bluray-1080p","codec":"x265","cut":"standard","label":"HD","kept":false,` +
+		`"fills":[{"itemId":"` + item + `","edition":"any","targetId":"` + s.hd.ID.String() + `"}],"modifiedAt":` + modified + `,"goneAt":null,"probeError":null,` +
+		`"media":{"container":"matroska,webm","durationSeconds":7230,"bitrate":18000000,` +
+		`"video":{"codec":"hevc","profile":"Main 10","width":1920,"height":1080,"bitDepth":10,"frameRate":23.976,"hdr":["DV","HDR10"],"dolbyVision":{"profile":8,"level":6,"compatibility":1}},` +
+		`"audio":[{"codec":"truehd","profile":"Dolby TrueHD + Dolby Atmos","atmos":true,"channels":8,"layout":"7.1","language":"en","default":true,"title":""},` +
+		`{"codec":"ac3","profile":"","atmos":false,"channels":2,"layout":"stereo","language":null,"default":false,"title":"Commentary"}],` +
+		`"subtitles":[{"codec":"hdmv_pgs_subtitle","image":true,"language":"en","forced":true,"default":false},{"codec":"subrip","image":false,"language":"fr","forced":false,"default":false}]}},` +
+		`{"id":"` + uhd.String() + `","path":"Heat/Heat - 2160p.mkv","folder":"Heat","size":3000,"quality":"webdl-2160p","codec":null,"cut":"standard","label":"2160p","kept":false,` +
+		`"fills":[{"itemId":"` + item + `","edition":"any","targetId":"` + s.uhd.ID.String() + `"}],"modifiedAt":` + modified + `,"goneAt":null,` +
+		`"probeError":"Invalid data found when processing input","media":null},` +
+		`{"id":"` + kept.String() + `","path":"Heat/Heat - HD (extra 1).mkv","folder":"Heat","size":500,"quality":"webdl-1080p","codec":null,"cut":"standard","label":"HD","kept":false,` +
+		`"fills":[],"modifiedAt":null,"goneAt":"T","probeError":null,"media":null}]}` + "\n"
+	if got := goneAt.ReplaceAllString(body, `"goneAt":"T"`); code != http.StatusOK || got != want {
+		t.Fatalf("listWorkFiles = %d\n%s\nwant\n%s", code, got, want)
+	}
 
 	arrival := s.add(t, "arrival", "Arrival", "", "Arrival")
 	expect(t, s.server, http.MethodGet, "/api/v1/works/"+arrival.ID.String()+"/files", "", http.StatusOK, `{"folder":"Arrival","files":[]}`)
 	expect(t, s.server, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String()+"/files", "", http.StatusNotFound,
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
+}
+
+func TestALibraryRowCountsItsGoneFilesAndWhoAddedIt(t *testing.T) {
+	s := stock(t, true)
+	heat := s.add(t, "heat", "Heat", `,"preset":"all"`, "Heat", "Heat 2")
+	s.place(t, heat, "Heat/Heat - HD.mkv", release.Bluray1080p, 1000, s.hd.ID)
+	s.placeAt(t, heat.Items[1], heat, "Heat/Heat 2 - HD.mkv", release.Bluray1080p, 2000, s.hd.ID)
+	s.rescan(t, heat, nil, "Heat/Heat - HD.mkv")
+	s.fx.Put("arrival", contenttypetest.Record{Tree: works.Fetched{Label: "Arrival", Children: []works.Entry{{Key: "b1", Label: "Box", Children: []works.Entry{{Key: "c1", Label: "Arrival"}}}}}})
+	if _, err := s.library.Add(t.Context(), identity.Admin{}, library.Adding{Type: contenttypetest.ID, Key: "arrival", Root: &s.root.ID, By: works.AddedByScan}); err != nil {
+		t.Fatal(err)
+	}
+
+	got := s.rows(t, "")
+	if len(got) != 2 || got[0].Label != "Arrival" || got[0].AddedBy != "scan" || got[0].GoneFiles != 0 {
+		t.Fatalf("listLibrary answered %+v, want Arrival first, added by a scan, with no gone file", got)
+	}
+	if h := got[1]; h.AddedBy != "admin" || h.GoneFiles != 1 || h.Files != 1 || h.Bytes != 2000 {
+		t.Fatalf("Heat's row is %+v, want it added by an Admin, with 1 gone file left out of its 1 file of 2000 bytes", h)
+	}
 }
 
 func TestGetWorkAnswersItsProfileAndRoot(t *testing.T) {

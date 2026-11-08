@@ -278,6 +278,11 @@ export const getListWorkFilesResponseMock = (
   overrideResponse: Partial<Extract<FilesFileList, object>> = {},
 ): FilesFileList => ({
   files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    codec: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["x264", "x265", "AV1", "VP9", "XviD", "MPEG2"] as const),
+      null,
+    ]),
+    cut: faker.string.alpha({ length: { min: 10, max: 20 } }),
     fills: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -286,10 +291,72 @@ export const getListWorkFilesResponseMock = (
       }),
     ),
     folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    goneAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
     id: faker.string.uuid(),
     kept: faker.datatype.boolean(),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    media: faker.helpers.arrayElement([
+      {
+        audio: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            atmos: faker.datatype.boolean(),
+            channels: faker.number.int({ min: 0 }),
+            codec: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            default: faker.datatype.boolean(),
+            language: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+            layout: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            profile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
+        bitrate: faker.number.int({ min: 0 }),
+        container: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        durationSeconds: faker.number.int({ min: 0 }),
+        subtitles: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          codec: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          default: faker.datatype.boolean(),
+          forced: faker.datatype.boolean(),
+          image: faker.datatype.boolean(),
+          language: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+        })),
+        video: {
+          bitDepth: faker.number.int({ min: 0 }),
+          codec: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          dolbyVision: faker.helpers.arrayElement([
+            {
+              compatibility: faker.number.int({ min: 0 }),
+              level: faker.number.int({ min: 0 }),
+              profile: faker.number.int({ min: 0 }),
+            },
+            null,
+          ]),
+          frameRate: faker.number.float({ min: 0, fractionDigits: 2 }),
+          hdr: faker.helpers.arrayElements(["DV", "HDR10+", "HDR10", "HLG", "SDR"] as const),
+          height: faker.number.int({ min: 0 }),
+          profile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int({ min: 0 }),
+        },
+      },
+      null,
+    ]),
+    modifiedAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
     path: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
+    probeError: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     quality: faker.helpers.arrayElement([
       "sdtv",
       "dvd",
@@ -315,6 +382,25 @@ export const getListWorkFilesResponseMock = (
   folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 });
+
+export const getForgetFilesMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/files/forget",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
 
 export const getGetWorkCellsMockHandler = (
   overrideResponse?:
@@ -363,4 +449,8 @@ export const getListWorkFilesMockHandler = (
     options,
   );
 };
-export const getFilesMock = () => [getGetWorkCellsMockHandler(), getListWorkFilesMockHandler()];
+export const getFilesMock = () => [
+  getForgetFilesMockHandler(),
+  getGetWorkCellsMockHandler(),
+  getListWorkFilesMockHandler(),
+];

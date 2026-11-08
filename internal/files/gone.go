@@ -2,8 +2,10 @@ package files
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -141,49 +143,68 @@ func LeftIn(ctx context.Context, r storage.Reader[file], ws []works.WorkID) ([]F
 	return out, nil
 }
 
-// NotGoneError is a Forget naming files a scan hasn't found gone.
-type NotGoneError struct{ Live int }
+// ErrNoFile is a Forget naming an id no file has.
+var ErrNoFile = errors.New("no file has that id")
+
+// NotGoneError is a Forget naming files a scan hasn't found gone: the
+// paths of those files.
+type NotGoneError struct{ Paths []string }
 
 func (e *NotGoneError) Error() string {
-	if e.Live == 1 {
-		return "1 file isn't gone"
+	if len(e.Paths) == 1 {
+		return e.Paths[0] + " isn't gone"
 	}
-	return fmt.Sprintf("%d files aren't gone", e.Live)
+	return strings.Join(e.Paths, ", ") + " aren't gone"
 }
 
-// Forget deletes the gone files ids name in one Write and answers their
-// Works. An id no file has is already forgotten. A live file among them
-// refuses them all with a *NotGoneError.
-func (f *Files) Forget(ctx context.Context, _ identity.Admin, ids []ID) ([]works.WorkID, error) {
-	var out []works.WorkID
+// Forget deletes the gone files ids name in one Write and tells each of
+// their Works' pages. An id no file has refuses them all with ErrNoFile,
+// and a live file among them with a *NotGoneError.
+func (f *Files) Forget(ctx context.Context, _ identity.Admin, ids []ID) error {
+	var touched []works.WorkID
 	err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		out = nil
-		q := db.New(tx)
-		rows, err := q.ListFilesByID(ctx, ids)
-		if err != nil {
-			return err
-		}
-		live := 0
-		for _, row := range rows {
-			if row.GoneAt.IsZero() {
-				live++
-			}
-		}
-		if live > 0 {
-			return &NotGoneError{Live: live}
-		}
-		for _, row := range rows {
-			if err := q.DeleteFile(ctx, row.ID); err != nil {
-				return err
-			}
-			if !slices.Contains(out, row.WorkID) {
-				out = append(out, row.WorkID)
-			}
-		}
-		return nil
+		var err error
+		touched, err = forgetGone(ctx, db.New(tx), ids)
+		return err
 	})
+	if err != nil {
+		return err
+	}
+	for _, w := range touched {
+		f.cfg.Changed.Publish(ctx, Changed{WorkID: w.String()})
+	}
+	return nil
+}
+
+func forgetGone(ctx context.Context, q *db.Queries, ids []ID) ([]works.WorkID, error) {
+	rows, err := q.ListFilesByID(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	named := map[ID]bool{}
+	for _, id := range ids {
+		named[id] = true
+	}
+	if len(rows) < len(named) {
+		return nil, ErrNoFile
+	}
+	var live []string
+	for _, row := range rows {
+		if row.GoneAt.IsZero() {
+			live = append(live, row.Path)
+		}
+	}
+	if len(live) > 0 {
+		return nil, &NotGoneError{Paths: live}
+	}
+	var touched []works.WorkID
+	for _, row := range rows {
+		if err := q.DeleteFile(ctx, row.ID); err != nil {
+			return nil, err
+		}
+		if !slices.Contains(touched, row.WorkID) {
+			touched = append(touched, row.WorkID)
+		}
+	}
+	return touched, nil
 }

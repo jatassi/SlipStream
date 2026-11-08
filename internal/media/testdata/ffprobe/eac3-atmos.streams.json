@@ -28,8 +28,6 @@
             "time_base": "1/1000",
             "start_pts": 0,
             "start_time": "0.000000",
-            "duration_ts": 42,
-            "duration": "0.042000",
             "bits_per_raw_sample": "8",
             "extradata_size": 38,
             "disposition": {
@@ -55,7 +53,7 @@
             },
             "tags": {
                 "ENCODER": "Lavc libx264",
-                "DURATION": "00:00:00.042000000"
+                "DURATION": "00:00:01.000000000"
             }
         },
         {
@@ -108,7 +106,7 @@
             "tags": {
                 "language": "eng",
                 "ENCODER": "Lavc eac3",
-                "DURATION": "00:00:00.032000000"
+                "DURATION": "00:00:01.000000000"
             }
         }
     ],
@@ -120,9 +118,9 @@
         "format_name": "matroska,webm",
         "format_long_name": "Matroska / WebM",
         "start_time": "0.000000",
-        "duration": "0.042000",
-        "size": "10024",
-        "bit_rate": "1909333",
+        "duration": "1.000000",
+        "size": "132976",
+        "bit_rate": "1063808",
         "probe_score": 100,
         "tags": {
             "encoder": "Lavf"

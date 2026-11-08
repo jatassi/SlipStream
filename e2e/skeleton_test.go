@@ -305,13 +305,29 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	}
 }
 
-// holdsOnly waits for the media dir to hold exactly paths: an import
-// commits before the disk queue gives the file its name.
+// holdsOnly waits for the media dir, but for the Scenario's library
+// folders, to hold exactly paths: an import commits before the disk queue
+// gives the file its name.
 func holdsOnly(t *testing.T, m world.Manifest, paths ...string) {
 	t.Helper()
+	data, err := os.ReadFile(filepath.Join(m.RunDir, "scenario.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := scenario.Parse(m.Scenario.Name, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var folders []string
+	for _, f := range s.Library.Folders {
+		folders = append(folders, f.Folder)
+	}
 	var got []string
 	worldtest.Until(t, "the media dir holds exactly "+strings.Join(paths, ", "), func() (bool, error) {
-		got = filesUnder(t, m.MediaDir)
+		got = slices.DeleteFunc(filesUnder(t, m.MediaDir), func(p string) bool {
+			folder, _, _ := strings.Cut(p, "/")
+			return slices.Contains(folders, folder)
+		})
 		return slices.Equal(got, paths), nil
 	})
 }

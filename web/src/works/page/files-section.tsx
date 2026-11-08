@@ -45,7 +45,9 @@ function FileRow({
         <span className="flex items-center gap-2 text-meta">
           {file.kept && <Chip look="outline">Kept file</Chip>}
           <Data>
-            {quality(file.quality)} · {file.probe.width}×{file.probe.height} · {bytes(file.size)}
+            {quality(file.quality)} ·{" "}
+            {file.media && `${file.media.video.width}×${file.media.video.height} · `}
+            {bytes(file.size)}
           </Data>
         </span>
       }

@@ -103,6 +103,14 @@ $FW exec $RUN --proof <f>/<s> -- $FW fs match {runDir} '{mediaDir}/movies/<folde
 
 `stat` prints `{path, size, links, blake3}`. `match` exits 0 when the file's size and BLAKE3 equal the manifest's release, which proves a placed file from the receiving side. Both refuse a path outside the run dir and the scratch dir. Tokens expand only inside `exec`, hence the second form.
 
+```sh
+$FW fs rm $RUN 'shelf-movies/Copper Kettle (2012).mkv'
+$FW fs mv $RUN shelf-movies/Nightfall 'shelf-movies/Nightfall (2014)'
+$FW fs cp $RUN 'shelf-movies/Saltmarsh Radio (2018)' 'movies/Saltmarsh Radio (2018)'
+```
+
+`rm`, `mv` and `cp` change the library on disk as a person would, as journaled steps, so a replay repeats them. A path is relative to the media dir or absolute inside it, and each prints the path it removed or made. `mv` and `cp` take a file or a folder and refuse a destination that exists. A Scenario's `library.folders` are on disk before any root exists: `home` holds `shelf-movies` and `shelf-series`, which no root names, with real media the bundled tools made.
+
 ## Summary and replay
 
 - `fakeworld summary <run>` writes `summary.md`: the build stamp, the Scenario, the last doctor result, every step with its exit and proof dir, the fault and cue timeline, every `node.error` with its step, and the proof file list. Text only, from the run dir alone.

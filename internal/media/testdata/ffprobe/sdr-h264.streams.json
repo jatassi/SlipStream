@@ -114,8 +114,8 @@
         "format_long_name": "Matroska / WebM",
         "start_time": "0.000000",
         "duration": "1.021000",
-        "size": "92171",
-        "bit_rate": "722201",
+        "size": "92113",
+        "bit_rate": "721747",
         "probe_score": 100,
         "tags": {
             "encoder": "Lavf"

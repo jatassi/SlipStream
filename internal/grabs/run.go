@@ -328,7 +328,7 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return storageOutcome(ctx, err, until)
 		}
-		imported.file.Size = placed.Size
+		imported.file.Size, imported.file.Seen = placed.Size, placed.Seen
 		return imported
 	}
 	t, verified, err := gr.staged(ctx, g)
@@ -345,7 +345,7 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 		}
 		return storageOutcome(ctx, err, until)
 	}
-	imported.file.Size = moved.Size
+	imported.file.Size, imported.file.Seen = moved.Size, moved.Seen
 	imported.placed = &t
 	return imported
 }
