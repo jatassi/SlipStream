@@ -71,6 +71,15 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	return out, nil
 }
 
+func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	rows, err := db.New(r).ListReleaseTitles(ctx)
+	out := make(map[storage.UUID]string, len(rows))
+	for _, row := range rows {
+		out[row.ID.UUID] = row.ReleaseTitle
+	}
+	return out, err
+}
+
 // awayClients is each unfinished Grab whose Torrent an away client holds.
 func (g GrabCells) awayClients(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]bool, error) {
 	open, err := db.New(r).ListOpenGrabs(ctx)

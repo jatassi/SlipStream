@@ -104,7 +104,10 @@ func seeded(b *testing.B, count int) *library.Library {
 		}
 	}
 	b.Logf("seeded %d Works in %s", count, time.Since(start).Round(time.Millisecond))
-	shelf := files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	shelf, err := files.Open(b.Context(), files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	if err != nil {
+		b.Fatal(err)
+	}
 	return library.New(library.Config{Library: lib, Works: w, Targets: goals, Files: shelf})
 }
 

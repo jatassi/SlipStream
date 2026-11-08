@@ -30,7 +30,7 @@ var ErrNameClash = errors.New("two files of the Work would take one name")
 // and cut's name are unchanged keeps its path; one that changes keeps its
 // folder and takes the template's name, its cut tagging it unless
 // Standard. Two files on one path is ErrNameClash.
-func names(w world, fills map[CellKey]ID) (map[ID]name, error) {
+func names(w world, fills map[CellKey]Fill) (map[ID]name, error) {
 	out, err := labels(w, fills)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func names(w world, fills map[CellKey]ID) (map[ID]name, error) {
 // labels gives every file of w its label and N under fills, with no path.
 // Kept files keep their N first, in id order, then the rest take the
 // lowest free.
-func labels(w world, fills map[CellKey]ID) (map[ID]name, error) {
+func labels(w world, fills map[CellKey]Fill) (map[ID]name, error) {
 	out := make(map[ID]name, len(w.files))
 	taken := map[string]map[int64]bool{}
 	folders := map[ID]string{}
@@ -118,10 +118,10 @@ func renamed(w world, f File, nm name) bool {
 }
 
 // filledBy is the first Target in Profile order f fills.
-func filledBy(g targets.Goals, fills map[CellKey]ID, f File) (string, bool) {
+func filledBy(g targets.Goals, fills map[CellKey]Fill, f File) (string, bool) {
 	e := g.Editions.Filling(f.Cut)
 	for _, t := range g.Targets {
-		if fills[CellKey{Item: f.ItemID, Edition: e, Target: t.ID}] == f.ID {
+		if fills[CellKey{Item: f.ItemID, Edition: e, Target: t.ID}].File == f.ID {
 			return t.Name, true
 		}
 	}

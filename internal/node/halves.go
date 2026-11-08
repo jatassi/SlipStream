@@ -328,7 +328,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	shelf := files.New(files.Config{
+	shelf, err := files.Open(ctx, files.Config{
 		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep}, Transfers: transfers.LiveIn,
 		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
@@ -338,6 +338,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
 	})
+	if err != nil {
+		return err
+	}
 	pipeline := grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,

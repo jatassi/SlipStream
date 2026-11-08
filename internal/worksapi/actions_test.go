@@ -185,7 +185,7 @@ func shelve(t *testing.T) *shelves {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.queue = files.New(files.Config{
+	s.queue, err = files.Open(t.Context(), files.Config{
 		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{}, Transfers: transfers.LiveIn,
 		Naming:  map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx},
 		Today:   func() time.Time { return time.Date(2030, time.January, 1, 9, 0, 0, 0, time.UTC) },
@@ -194,6 +194,9 @@ func shelve(t *testing.T) *shelves {
 		Rand:    rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:     slog.New(slog.DiscardHandler),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{
 		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Grabs: noGrabs{},
 	})}

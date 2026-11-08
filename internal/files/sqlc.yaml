@@ -43,6 +43,12 @@ sql:
           - column: files_file.probe
             go_type:
               type: Probe
+          - column: files_file.release_name
+            go_type:
+              type: string
+          - column: files_file.title_read
+            go_type:
+              type: Reading
           - column: files_file.grab_id
             go_type:
               import: github.com/jatassi/slipstream/internal/storage

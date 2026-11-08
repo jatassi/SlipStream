@@ -81,9 +81,12 @@ func serve(t *testing.T) *served {
 		t.Fatalf("Open on a fresh library published %d times, want once", changed.n)
 	}
 	changed.n = 0
-	shelf := files.New(files.Config{
+	shelf, err := files.Open(t.Context(), files.Config{
 		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx, files: shelf}
 	_, body := s.Call(t, http.MethodGet, "/api/v1/targets", "")
 	s.starter = ownertest.FirstID(body)
