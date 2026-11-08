@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -568,6 +569,36 @@ func SetStorageLevels(ctx context.Context, c *http.Client, baseURL, apiKey strin
 			ErrorBelow amount `json:"errorBelow"`
 		}{amount{int64(l.WarnBelow), "bytes"}, amount{int64(l.ErrorBelow), "bytes"}}, want: http.StatusOK,
 	}, &settings)
+}
+
+// SetSeeding saves the seeding settings and the Seeding goals task's
+// cadence that sd sets, each in whole seconds.
+func SetSeeding(ctx context.Context, c *http.Client, baseURL, apiKey string, sd scenario.LibrarySeeding) error {
+	values := map[string]int64{}
+	if sd.Margin > 0 {
+		values["trackers.margin"] = int64(sd.Margin / time.Second)
+	}
+	if sd.WarnAfter > 0 {
+		values["trackers.warnAfter"] = int64(sd.WarnAfter / time.Second)
+	}
+	if len(values) > 0 {
+		var settings struct{}
+		err := call(ctx, c, request{
+			what: "save the seeding settings", method: http.MethodPatch, url: baseURL + "/api/v1/trackers/settings",
+			header: apiKeyHeader(apiKey), body: map[string]any{"values": values}, want: http.StatusOK,
+		}, &settings)
+		if err != nil {
+			return err
+		}
+	}
+	if sd.Cadence == 0 {
+		return nil
+	}
+	var task struct{}
+	return call(ctx, c, request{
+		what: "set the Seeding goals cadence", method: http.MethodPatch, url: baseURL + "/api/v1/tasks/seeding-goals",
+		header: apiKeyHeader(apiKey), body: map[string]int64{"cadence": int64(sd.Cadence / time.Second)}, want: http.StatusOK,
+	}, &task)
 }
 
 // SetMetadataKey saves key as the Admin's key for provider, which a holder

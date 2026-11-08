@@ -29,7 +29,8 @@ const tvdbKey = "fake-world-tvdb-key"
 // with the Controller's API key: its Storage levels, the TVDB key when it
 // has a tvdb catalog, each root's folder under mediaDir and the root on
 // its Node, which shares the machine and so the media dir, then the
-// Targets and Profiles as goals makes them, then each Node's Challenge
+// Targets and Profiles as goals makes them, then its seeding settings,
+// then each Node's Challenge
 // solver at the address solvers names for it, and the Indexers on the
 // site fakes at sites, as an Admin would.
 func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address, solvers map[string]string) error {
@@ -55,6 +56,11 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 	}
 	if err := goals(ctx, c, s.Library, controller, apiKey); err != nil {
 		return err
+	}
+	if sd := s.Library.Seeding; sd != nil {
+		if err := nodeapi.SetSeeding(ctx, c, controller, apiKey, *sd); err != nil {
+			return err
+		}
 	}
 	for i, n := range s.Nodes {
 		if n.ChallengeSolver {
