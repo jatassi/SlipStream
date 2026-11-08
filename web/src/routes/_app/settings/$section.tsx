@@ -12,6 +12,9 @@ import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/$section")({
   staticData: { title: loaderTitle },
+  // A Release's "Open in tester" names it, for the Custom Formats tester to read.
+  validateSearch: (search: Record<string, unknown>): { release?: string } =>
+    typeof search["release"] === "string" ? { release: search["release"] } : {},
   loader: async ({ context, params }) => {
     const section = sectionOf(params.section);
     await Promise.all([
