@@ -45,7 +45,7 @@ cases:
           headers:
             Content-Type: application/x-www-form-urlencoded
             Referer: "https://toloka.fixture-site.fake.localhost/login.php"
-          form: {username: fixture-user, password: "{{password}}", autologin: "on", ssl: "on", redirect: ""}
+          form: {username: fixture-user, password: "{{password}}", autologin: "on", ssl: "on", redirect: "", login: Вхід}
         response: {headers: {Content-Type: text/html; charset=utf-8}, body: loginfailed.html}
   - name: limit
     call: {recent: {}}

@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"encoding/base64"
 	"slices"
 	"strings"
 	"testing"
@@ -61,12 +62,52 @@ func TestScrubRefusesAFixtureHoldingEachKindOfRealValue(t *testing.T) {
 }
 
 func TestScrubPassesASubmitButtonNamedLogin(t *testing.T) {
-	for value, refused := range map[string]bool{"Log in!": false, "jdoe": true} {
+	for value, refused := range map[string]bool{"Log in!": false, "Login": false, "submit": false, "Вхід": false, "jdoe": true} {
 		f := cleanFixture(t)
 		f.Cases[3].Exchanges[1].Request.Form["login"] = value
 		found := Scrub(f)
 		if got := slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "login is") }); got != refused {
 			t.Errorf("Scrub of form login %q = %q, want refused %v", value, found, refused)
+		}
+	}
+}
+
+func TestScrubReadsAFormsUIDAsItsUsername(t *testing.T) {
+	for value, refused := range map[string]bool{FixtureUser: false, "jdoe": true} {
+		f := cleanFixture(t)
+		f.Cases[3].Exchanges[1].Request.Form["uid"] = value
+		found := Scrub(f)
+		if got := len(found) > 0; got != refused {
+			t.Errorf("Scrub of form uid %q = %q, want refused %v", value, found, refused)
+		}
+	}
+	f := cleanFixture(t)
+	f.Cases[0].Exchanges[0].Request.Query["uid"] = FixtureUser
+	if found := Scrub(f); !slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "is a credential") }) {
+		t.Errorf("Scrub of query uid %q = %q, want it refused as a credential", FixtureUser, found)
+	}
+}
+
+func TestScrubReadsTheCredentialABasicHeaderEncodes(t *testing.T) {
+	for credential, refused := range map[string]bool{
+		FixtureUser + ":{{passkey}}": false,
+		FixtureUser + ":hunter2":     true,
+		"jdoe:{{passkey}}":           true,
+	} {
+		f := cleanFixture(t)
+		f.Cases[0].Exchanges[0].Request.Headers["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(credential))
+		if found := Scrub(f); (len(found) > 0) != refused {
+			t.Errorf("Scrub of Basic %q = %q, want refused %v", credential, found, refused)
+		}
+	}
+}
+
+func TestScrubPassesGazelleGamesDummyAuthkeyOnly(t *testing.T) {
+	for value, refused := range map[string]bool{"prowlarr": false, "9b74c9897bac": true} {
+		f := cleanFixture(t)
+		f.Cases[0].Exchanges[0].Request.Query["authkey"] = value
+		if found := Scrub(f); (len(found) > 0) != refused {
+			t.Errorf("Scrub of query authkey %q = %q, want refused %v", value, found, refused)
 		}
 	}
 }

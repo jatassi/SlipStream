@@ -59,7 +59,7 @@ cases:
           method: POST
           path: /takelogin.php
           headers: {Cookie: "PHPSESSID={{sid}}"}
-          form: {username: fixture-user, password: "{{password}}", login_pin: "{{pin}}", returnto: "%2F"}
+          form: {username: fixture-user, password: "{{password}}", login_pin: "{{pin}}", returnto: "%2F", login: Login}
         response:
           headers: {Content-Type: text/html; charset=iso-8859-1}
           body: loginfailed.html

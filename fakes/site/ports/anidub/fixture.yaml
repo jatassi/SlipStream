@@ -52,7 +52,7 @@ cases:
           method: POST
           path: /index.php
           headers: {Cookie: "PHPSESSID={{phpsessid}}", Content-Type: application/x-www-form-urlencoded}
-          form: {login_name: fixture-user, login_password: "{{password}}"}
+          form: {login_name: fixture-user, login_password: "{{password}}", login: submit}
         response: {headers: {Content-Type: text/html; charset=utf-8}, body: loginfailed.html}
   - name: limit
     call: {recent: {}}
@@ -77,7 +77,7 @@ cases:
       - request:
           method: POST
           path: /index.php
-          form: {login_name: fixture-user, login_password: "{{password}}"}
+          form: {login_name: fixture-user, login_password: "{{password}}", login: submit}
         response:
           headers:
             Content-Type: text/html; charset=utf-8
