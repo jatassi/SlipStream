@@ -15,11 +15,60 @@ import type {
   SettingSwitchField,
   SettingWindowField,
   TrackersGoal,
+  TrackersGoalsPreview,
   TrackersSettings,
   TrackersTracker,
   TrackersTrackerList,
   TrackersTrackerPage,
+  TrackersWindowList,
 } from "../../model";
+
+export const getPreviewSeedingGoalsResponseMock = (
+  overrideResponse: Partial<Extract<TrackersGoalsPreview, object>> = {},
+): TrackersGoalsPreview => ({
+  acts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    action: faker.helpers.arrayElement(["pause", "remove", "remove-delete"] as const),
+    torrent: {
+      id: faker.string.uuid(),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      tracker: {
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    },
+  })),
+  kept: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    torrent: {
+      id: faker.string.uuid(),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      tracker: {
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    },
+    why: faker.helpers.arrayElement(["not-imported", "draining"] as const),
+  })),
+  waits: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    torrent: {
+      id: faker.string.uuid(),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      tracker: {
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    },
+    why: faker.helpers.arrayElement([
+      "removing",
+      "resumed",
+      "ran",
+      "incomplete",
+      "grab-downloading",
+      "grab-importing",
+      "reconciling",
+    ] as const),
+  })),
+  ...overrideResponse,
+});
 
 export const getListTrackersResponseMock = (
   overrideResponse: Partial<Extract<TrackersTrackerList, object>> = {},
@@ -846,6 +895,12 @@ export const getUpdateSeedingSettingsResponseMock = (
 export const getGetTrackerResponseMock = (
   overrideResponse: Partial<Extract<TrackersTrackerPage, object>> = {},
 ): TrackersTrackerPage => ({
+  attention: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      level: faker.helpers.arrayElement(["warn", "info"] as const),
+      text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
   goal: faker.helpers.arrayElement([
     {
       action: faker.helpers.arrayElement([
@@ -1124,6 +1179,66 @@ export const getSetTrackerRuleResponseMock = (
   ]),
   ...overrideResponse,
 });
+
+export const getListTrackerWindowsResponseMock = (
+  overrideResponse: Partial<Extract<TrackersWindowList, object>> = {},
+): TrackersWindowList => ({
+  nextOffset: faker.helpers.arrayElement([faker.number.int(), null]),
+  windows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      atRisk: faker.helpers.arrayElement(["no", "yes", "unknown"] as const),
+      closedAt: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      infoHash: faker.helpers.fromRegExp("^[0-9a-f]{40}$"),
+      metAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      openedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      owed: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) },
+      owes: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) },
+      quietSince: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      regrabbedAt: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      rule: {
+        clears: faker.helpers.arrayElement(["time", "ratio", "either", "both"] as const),
+        ratio: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+        seedSeconds: faker.helpers.arrayElement([faker.number.int(), null]),
+      },
+      state: faker.helpers.arrayElement(["owing", "met", "missed", "released"] as const),
+    }),
+  ),
+  ...overrideResponse,
+});
+
+export const getPreviewSeedingGoalsMockHandler = (
+  overrideResponse?:
+    | TrackersGoalsPreview
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<TrackersGoalsPreview> | TrackersGoalsPreview),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/torrents/goals/preview",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getPreviewSeedingGoalsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 
 export const getListTrackersMockHandler = (
   overrideResponse?:
@@ -1431,7 +1546,32 @@ export const getSetTrackerRuleMockHandler = (
     options,
   );
 };
+
+export const getListTrackerWindowsMockHandler = (
+  overrideResponse?:
+    | TrackersWindowList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<TrackersWindowList> | TrackersWindowList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/trackers/:id/windows",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListTrackerWindowsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getTrackersMock = () => [
+  getPreviewSeedingGoalsMockHandler(),
   getListTrackersMockHandler(),
   getGetDefaultGoalMockHandler(),
   getSetDefaultGoalMockHandler(),
@@ -1445,4 +1585,5 @@ export const getTrackersMock = () => [
   getMergeTrackerMockHandler(),
   getClearTrackerRuleMockHandler(),
   getSetTrackerRuleMockHandler(),
+  getListTrackerWindowsMockHandler(),
 ];

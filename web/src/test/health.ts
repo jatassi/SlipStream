@@ -82,6 +82,25 @@ export const stoppedIndexer: HealthItem = {
   },
 };
 
+export const seedpoolId = "7d1e4c2a-58b3-4f0e-9a61-2c8f0b3d5e74";
+
+/** Two of seedpool's torrents stopped seeding while they owe it, linking to its Torrents on Problems. */
+export const atRiskTorrents: HealthItem = {
+  key: `${seedpoolId}.at-risk`,
+  subject: "Torrents on seedpool",
+  level: "warn",
+  text: "2 torrents on seedpool stopped seeding before seedpool's rule was met. Resume or retry them before seedpool counts a hit and run.",
+  since: minutesAgo(10),
+  changedAt: minutesAgo(10),
+  unsure: false,
+  detail: [{ label: "Not seeding since", at: minutesAgo(370) }],
+  action: {
+    kind: "link",
+    href: `/settings/trackers/${seedpoolId}?tab=problems`,
+    label: "Open seedpool's torrents",
+  },
+};
+
 export const failedTask: HealthItem = {
   key: "housekeeping",
   subject: "Housekeeping",
@@ -109,21 +128,24 @@ const category = (
   items: HealthItem[],
 ): HealthCategory => ({ id, label, phrase, canCheck, level: worst(items), items });
 
-/** A report in registry order: Storage, Nodes, Indexers, then Scheduled tasks. */
+/** A report in registry order: Storage, Nodes, Seeding, Indexers, then Scheduled tasks. */
 export function reportOf({
   storage = [],
   nodes = [],
+  seeding = [],
   indexers = [],
   tasks = [],
 }: {
   storage?: HealthItem[];
   nodes?: HealthItem[];
+  seeding?: HealthItem[];
   indexers?: HealthItem[];
   tasks?: HealthItem[];
 } = {}): HealthReport {
   const categories = [
     category("storage", "Storage", "storage", true, storage),
     category("nodes", "Nodes", "Nodes", true, nodes),
+    category("seeding", "Seeding", "torrents that still owe a Tracker", false, seeding),
     category("indexers", "Indexers", "Indexers", false, indexers),
     category("scheduled-tasks", "Scheduled tasks", "scheduled tasks", false, tasks),
   ];

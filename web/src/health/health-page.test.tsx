@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import {
+  atRiskTorrents,
   awayNode,
   failedTask,
   fillingVolume,
@@ -11,6 +12,7 @@ import {
   healthServer,
   minutesAgo,
   reportOf,
+  seedpoolId,
   stoppedIndexer,
 } from "../test/health";
 import { larkspurId } from "../test/indexers";
@@ -38,13 +40,21 @@ test("with nothing wrong the page says everything is working and names what it c
   renderApp({ path: "/health", handlers: healthServer(reportOf()).handlers });
   await expect.element(page.getByText("Everything is working.")).toBeVisible();
   await expect
-    .element(page.getByText("Checked storage, Nodes, Indexers and scheduled tasks"))
+    .element(
+      page.getByText(
+        "Checked storage, Nodes, torrents that still owe a Tracker, Indexers and scheduled tasks",
+      ),
+    )
     .toBeVisible();
   await expect.element(region("Storage").getByText("Nothing is wrong with storage.")).toBeVisible();
   await expect
     .element(region("Storage").getByRole("button", { name: "Check now: Storage" }))
     .toBeVisible();
   await expect.element(region("Nodes")).toHaveTextContent("Nothing is wrong with Nodes.Check now");
+  await expect
+    .element(region("Seeding"))
+    .toHaveTextContent("Nothing is wrong with torrents that still owe a Tracker.");
+  expect(region("Seeding").getByRole("button").query()).toBeNull();
   await expect.element(region("Indexers")).toHaveTextContent("Nothing is wrong with Indexers.");
   expect(region("Indexers").getByRole("button").query()).toBeNull();
   await expect
@@ -75,6 +85,7 @@ test("categories with errors come first, then warnings, then the quiet ones", as
   expect([...document.querySelectorAll("section[id]")].map((section) => section.id)).toEqual([
     "nodes",
     "storage",
+    "seeding",
     "indexers",
     "scheduled-tasks",
   ]);
@@ -170,6 +181,19 @@ test("a link with a fragment lands on that part of the page", async () => {
   await expect
     .poll(() => ({ path: router.state.location.pathname, hash: router.state.location.hash }))
     .toEqual({ path: `/settings/indexers/${larkspurId}`, hash: "allow-failover" });
+});
+
+test("a link with a query string keeps it as the page's search", async () => {
+  atHealthNow();
+  const { router } = renderApp({
+    path: "/health",
+    handlers: healthServer(reportOf({ seeding: [atRiskTorrents] })).handlers,
+  });
+  await userEvent.click(rowOf(atRiskTorrents.subject));
+  await userEvent.click(page.getByRole("button", { name: "Open seedpool's torrents" }));
+  await expect
+    .poll(() => ({ path: router.state.location.pathname, search: router.state.location.search }))
+    .toEqual({ path: `/settings/trackers/${seedpoolId}`, search: { tab: "problems" } });
 });
 
 test("Check all and a category's Check now post their checks", async () => {

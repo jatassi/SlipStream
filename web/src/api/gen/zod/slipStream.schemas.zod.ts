@@ -1846,6 +1846,7 @@ export const HealthCategoryID = zod.enum([
   "storage",
   "nodes",
   "download-clients",
+  "seeding",
   "indexers",
   "scheduled-tasks",
 ]);
@@ -5904,6 +5905,39 @@ export const TasksTaskPatch = zod.object({
 export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
 export type TasksTaskPatchOutput = zod.output<typeof TasksTaskPatch>;
 
+export const TrackersTrackerRef = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type TrackersTrackerRef = zod.input<typeof TrackersTrackerRef>;
+export type TrackersTrackerRefOutput = zod.output<typeof TrackersTrackerRef>;
+
+export const TrackersPlannedTorrent = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+  tracker: TrackersTrackerRef.describe("null for a torrent with no known Tracker"),
+});
+
+export type TrackersPlannedTorrent = zod.input<typeof TrackersPlannedTorrent>;
+export type TrackersPlannedTorrentOutput = zod.output<typeof TrackersPlannedTorrent>;
+
+export const TrackersAct = zod.object({
+  action: zod.enum(["pause", "remove", "remove-delete"]),
+  torrent: TrackersPlannedTorrent,
+});
+
+export type TrackersAct = zod.input<typeof TrackersAct>;
+export type TrackersActOutput = zod.output<typeof TrackersAct>;
+
+export const TrackersAttention = zod.object({
+  level: zod.enum(["warn", "info"]),
+  text: zod.string().describe("One sentence"),
+});
+
+export type TrackersAttention = zod.input<typeof TrackersAttention>;
+export type TrackersAttentionOutput = zod.output<typeof TrackersAttention>;
+
 export const trackersCountsAtRiskMin = 0;
 
 export const trackersCountsGoalMetMin = 0;
@@ -5958,6 +5992,69 @@ export const TrackersGoal = zod.object({
 export type TrackersGoal = zod.input<typeof TrackersGoal>;
 export type TrackersGoalOutput = zod.output<typeof TrackersGoal>;
 
+export const TrackersKept = zod.object({
+  torrent: TrackersPlannedTorrent,
+  why: zod
+    .enum(["not-imported", "draining"])
+    .describe(
+      "not-imported: a Grab on it didn't import, so removing it keeps the download copy; draining: its Node is draining Downloading, so it is removed keeping its download copy in place of a pause",
+    ),
+});
+
+export type TrackersKept = zod.input<typeof TrackersKept>;
+export type TrackersKeptOutput = zod.output<typeof TrackersKept>;
+
+export const TrackersWait = zod.object({
+  torrent: TrackersPlannedTorrent,
+  why: zod
+    .enum([
+      "removing",
+      "resumed",
+      "ran",
+      "incomplete",
+      "grab-downloading",
+      "grab-importing",
+      "reconciling",
+    ])
+    .describe(
+      "What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; reconciling, SlipStream is reconciling the library after a restore",
+    ),
+});
+
+export type TrackersWait = zod.input<typeof TrackersWait>;
+export type TrackersWaitOutput = zod.output<typeof TrackersWait>;
+
+export const TrackersGoalsPreview = zod.object({
+  acts: zod.array(TrackersAct).describe("The torrents whose goal acts, in added order"),
+  kept: zod
+    .array(TrackersKept)
+    .describe("The torrents removed keeping their download copy, in added order"),
+  waits: zod
+    .array(TrackersWait)
+    .describe("The torrents whose goal is met and waits, in added order"),
+});
+
+export type TrackersGoalsPreview = zod.input<typeof TrackersGoalsPreview>;
+export type TrackersGoalsPreviewOutput = zod.output<typeof TrackersGoalsPreview>;
+
+export const trackersOwedBytesMin = 0;
+
+export const trackersOwedSecondsMin = 0;
+
+export const TrackersOwed = zod.object({
+  bytes: zod
+    .int()
+    .min(trackersOwedBytesMin)
+    .describe("Upload still needed, 0 when the rule doesn't count ratio or it is reached"),
+  seconds: zod
+    .int()
+    .min(trackersOwedSecondsMin)
+    .describe("Seeding time still needed, 0 when the rule doesn't count it or it is reached"),
+});
+
+export type TrackersOwed = zod.input<typeof TrackersOwed>;
+export type TrackersOwedOutput = zod.output<typeof TrackersOwed>;
+
 export const TrackersRule = zod.object({
   clears: zod
     .enum(["time", "ratio", "either", "both"])
@@ -5997,12 +6094,24 @@ export const TrackersRuleBody = zod.object({
 export type TrackersRuleBody = zod.input<typeof TrackersRuleBody>;
 export type TrackersRuleBodyOutput = zod.output<typeof TrackersRuleBody>;
 
+export const TrackersRuleShape = zod.object({
+  clears: zod.enum(["time", "ratio", "either", "both"]),
+  ratio: zod.number().nullable().describe("null when the rule doesn't count ratio"),
+  seedSeconds: zod
+    .int()
+    .nullable()
+    .describe("Seconds; null when the rule doesn't count seeding time"),
+});
+
+export type TrackersRuleShape = zod.input<typeof TrackersRuleShape>;
+export type TrackersRuleShapeOutput = zod.output<typeof TrackersRuleShape>;
+
 export const TrackersSeedingChanged = zod.object({
   trackerId: zod
     .uuid()
     .nullable()
     .describe(
-      "The Tracker whose seeding changed; null for the default goal and the seeding settings",
+      "The Tracker whose seeding changed; null for the default goal, the seeding settings and torrents with no known Tracker",
     ),
 });
 
@@ -6127,6 +6236,7 @@ export type TrackersTrackerList = zod.input<typeof TrackersTrackerList>;
 export type TrackersTrackerListOutput = zod.output<typeof TrackersTrackerList>;
 
 export const TrackersTrackerPage = zod.object({
+  attention: zod.array(TrackersAttention).describe("What needs a look on its page, worst first"),
   goal: zod
     .union([TrackersGoal, zod.null()])
     .describe("Its own seeding goal; null while it follows the default goal"),
@@ -6150,6 +6260,52 @@ export const TrackersTrackerPage = zod.object({
 
 export type TrackersTrackerPage = zod.input<typeof TrackersTrackerPage>;
 export type TrackersTrackerPageOutput = zod.output<typeof TrackersTrackerPage>;
+
+export const trackersWindowInfoHashRegExp = new RegExp("^[0-9a-f]{40}$");
+
+export const TrackersWindow = zod.object({
+  atRisk: zod
+    .enum(["no", "yes", "unknown"])
+    .describe(
+      "Whether it is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline",
+    ),
+  closedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Its latest miss or release; a regrab keeps it"),
+  infoHash: zod.string().regex(trackersWindowInfoHashRegExp),
+  metAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When its Tracker's rule and the margin were met; null unless met"),
+  name: zod.string().describe("Its latest torrent's name"),
+  openedAt: zod.iso.datetime({ offset: true }).describe("Its torrent's first downloaded byte"),
+  owed: TrackersOwed.describe("What its latest miss still owed; null before a miss"),
+  owes: TrackersOwed.describe(
+    "What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule",
+  ),
+  quietSince: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When it stopped seeding while it owes; null while it seeds"),
+  regrabbedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a torrent of it came back after a miss"),
+  rule: TrackersRuleShape.describe("The rule it snapshot when it opened; null while none is known"),
+  state: zod.enum(["owing", "met", "missed", "released"]),
+});
+
+export type TrackersWindow = zod.input<typeof TrackersWindow>;
+export type TrackersWindowOutput = zod.output<typeof TrackersWindow>;
+
+export const TrackersWindowList = zod.object({
+  nextOffset: zod.int().nullable().describe("The offset of the next page; null on the last"),
+  windows: zod.array(TrackersWindow).describe("Newest opened first, each as it reads now"),
+});
+
+export type TrackersWindowList = zod.input<typeof TrackersWindowList>;
+export type TrackersWindowListOutput = zod.output<typeof TrackersWindowList>;
 
 export const TransfersChanged = zod.object({
   nodeIds: zod.array(zod.string()),
