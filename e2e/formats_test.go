@@ -297,7 +297,7 @@ func TestTheTesterReadsNamesAndJudgesThemAtEachTargetThroughTheAPI(t *testing.T)
 		"target 1080p 51 true",
 		"target HD 0 true",
 	}, {
-		"Reads as Bluray-1080p from FKW. It matches no Work and would fill 1080p and HD.",
+		"Reads as Bluray-1080p from FKW. It matches no Work. 1080p and HD accept it.",
 		"Bluray-1080p · FKW",
 		"bluray-1080p FKW [] x264 [] [] 1987",
 		"format FLUX false FLUX false",
