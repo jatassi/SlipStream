@@ -74,9 +74,12 @@ func serve(t *testing.T) *served {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shelf := files.New(files.Config{
+	shelf, err := files.Open(ctx, files.Config{
 		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) {
 		targetsapi.Routes(r, goals{svc, shelf})
 		formatsapi.Routes(r, goals{svc, shelf})
