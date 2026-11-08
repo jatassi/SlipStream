@@ -70,6 +70,7 @@ type parsedName struct {
 		Reasons   []struct {
 			Code  string `json:"code"`
 			Value string `json:"value"`
+			Words string `json:"words"`
 		} `json:"reasons"`
 	} `json:"targets"`
 }
@@ -133,12 +134,15 @@ func TestANameThatMatchesNoWorkIsJudgedAtEveryTargetWithNoHeldFile(t *testing.T)
 	s := serve(t)
 	got := s.parse(t, `{"names":["Nothing.2020.2160p.WEB-DL-GRP","The.Attic.1990.1080p.WEB-DL-GRP"]}`)
 	for i, want := range []struct{ sentence, codes string }{
-		{"Reads as WEBDL-2160p from GRP. It matches no Work and would fill no Target. 1080p doesn't accept WEBDL-2160p.", "quality_not_in_target=webdl-2160p"},
-		{"Reads as WEBDL-1080p from GRP. It matches no Work and would fill 1080p.", "size_not_checked="},
+		{"Reads as WEBDL-2160p from GRP. It matches no Work. No Target accepts it. 1080p doesn't accept WEBDL-2160p.", "quality_not_in_target=webdl-2160p"},
+		{"Reads as WEBDL-1080p from GRP. It matches no Work. 1080p accepts it.", "size_not_checked="},
 	} {
 		if got[i].Sentence != want.sentence || len(got[i].Works) != 0 || len(got[i].Covers) != 0 || got[i].codes() != want.codes {
 			t.Errorf("name %d = %q, works %q, covers %v, reasons %q\nwant %q, reasons %q", i, got[i].Sentence, got[i].labels(), got[i].Covers, got[i].codes(), want.sentence, want.codes)
 		}
+	}
+	if words := got[0].Targets[0].Reasons[0].Words; words != "1080p doesn't accept WEBDL-2160p." {
+		t.Errorf("the refusal reads %q", words)
 	}
 }
 

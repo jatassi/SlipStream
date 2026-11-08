@@ -137,7 +137,7 @@ func tried(t *testing.T, g *grabs.Grabs, trial grabs.Trial) grabs.Tried {
 func TestTryJudgesEveryTargetWithNoHeldFileWhenANameMatchesSeveralWorks(t *testing.T) {
 	g, _, _ := tester(t, "w1", "w2")
 	got := tried(t, g, grabs.Trial{Names: []string{"The.Attic.2020.1080p.BluRay.x264-GRP"}})
-	if want := "Reads as Bluray-1080p from GRP. It matches The Attic and The Attic and would fill 1080p."; got.Sentence != want {
+	if want := "Reads as Bluray-1080p from GRP. It matches The Attic and The Attic. 1080p accepts it."; got.Sentence != want {
 		t.Errorf("sentence = %q, want %q", got.Sentence, want)
 	}
 	if len(got.Works) != 2 || len(got.Covers) != 0 || len(got.Targets) != 1 || !got.Targets[0].WouldFill {
@@ -160,7 +160,7 @@ func TestTryRefusesANameThatCoversNoneOfTheGivenWorksItems(t *testing.T) {
 func TestTryReadsANameWithNoGroupOrQualityInWords(t *testing.T) {
 	g, _, _ := tester(t, "w1")
 	got := tried(t, g, grabs.Trial{Names: []string{"Something"}})
-	if want := "Reads no Quality. It matches no Work and would fill no Target. 1080p doesn't accept a release with no Quality."; got.Sentence != want {
+	if want := "Reads no Quality. It matches no Work. No Target accepts it. 1080p doesn't accept a release with no Quality."; got.Sentence != want {
 		t.Errorf("sentence = %q, want %q", got.Sentence, want)
 	}
 }

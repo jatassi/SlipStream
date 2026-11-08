@@ -24,7 +24,7 @@ type parse struct {
 	Names  []string `json:"names" minItems:"1" maxItems:"100" doc:"Release names, or file paths when kind is file"`
 	WorkID string   `json:"workId,omitempty" format:"uuid" doc:"The Work to judge every name against; left out, each name is matched to the Works whose titles it gives, read as each Content Type in turn"`
 	Draft  *draft   `json:"draft,omitempty" doc:"A Custom Format matched as if saved, in place of formatId's"`
-	Kind   string   `json:"kind,omitempty" enum:"release,file" default:"release" doc:"release reads each name as a release title; file reads it as a file path, with its folder's name when the file's gives no title"`
+	Kind   string   `json:"kind,omitempty" enum:"release,file" default:"release" doc:"How each name is read. release reads it as a release title. file reads it as a file path, and reads its folder's name when the file name gives no title."`
 }
 
 type parseInput struct{ Body parse }
@@ -79,12 +79,17 @@ type explained struct {
 	Conditions []evaluated `json:"conditions" nullable:"false"`
 }
 
+type triedReason struct {
+	grabsapi.Reason
+	Words string `json:"words" doc:"The reason as a sentence"`
+}
+
 type triedTarget struct {
-	TargetID  string            `json:"targetId" format:"uuid"`
-	Name      string            `json:"name"`
-	Score     int               `json:"score"`
-	WouldFill bool              `json:"wouldFill" doc:"An automatic search would grab it for this Target"`
-	Reasons   []grabsapi.Reason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at"`
+	TargetID  string        `json:"targetId" format:"uuid"`
+	Name      string        `json:"name"`
+	Score     int           `json:"score"`
+	WouldFill bool          `json:"wouldFill" doc:"An automatic search would grab it for this Target"`
+	Reasons   []triedReason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at"`
 }
 
 type parsed struct {
@@ -176,7 +181,11 @@ func parsedOf(t grabs.Tried, d *formats.Format) parsed {
 		out.Formats[i] = x
 	}
 	for i, tt := range t.Targets {
-		out.Targets[i] = triedTarget{TargetID: tt.Target.ID.String(), Name: tt.Target.Name, Score: tt.Score, WouldFill: tt.WouldFill, Reasons: grabsapi.ReasonsOf(tt.Reasons)}
+		x := triedTarget{TargetID: tt.Target.ID.String(), Name: tt.Target.Name, Score: tt.Score, WouldFill: tt.WouldFill, Reasons: make([]triedReason, len(tt.Reasons))}
+		for j, r := range grabsapi.ReasonsOf(tt.Reasons) {
+			x.Reasons[j] = triedReason{Reason: r, Words: grabs.ReasonWords(tt.Reasons[j], tt.Target, t.Read.Facts)}
+		}
+		out.Targets[i] = x
 	}
 	return out
 }

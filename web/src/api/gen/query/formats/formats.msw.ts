@@ -372,6 +372,7 @@ export const getParseReleasesResponseMock = (
             ...(faker.datatype.boolean()
               ? { value: faker.string.alpha({ length: { min: 10, max: 20 } }) }
               : {}),
+            words: faker.string.alpha({ length: { min: 10, max: 20 } }),
           })),
           score: faker.number.int(),
           targetId: faker.string.uuid(),

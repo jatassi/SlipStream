@@ -243,7 +243,7 @@ func (tr trier) againstEvery(name string, rd release.Read, ws []works.Summary) T
 		v := verdict{target: target.ID, wanted: true, v: targets.Judge(target, s, nil)}
 		t.Targets = append(t.Targets, TriedTarget{Target: target, Score: v.v.Score(), WouldFill: v.grabbable(), Reasons: v.reasons()})
 	}
-	t.Sentence = sentence(t)
+	t.Sentence = acceptance(t)
 	return t
 }
 
@@ -258,10 +258,41 @@ func scoredOf(rd release.Read, es []formats.Explained) targets.Scored {
 	return targets.Scored{Facts: rd.Facts, Formats: matched}
 }
 
-// sentence is t in words: "Reads as WEBDL-1080p from FLUX. It matches
-// Heat (1995) and would fill 1080p." A name that would fill no Target
-// ends with the first reason a Target gives, in Profile order.
+// sentence is t, judged against one Work, in words: "Reads as
+// WEBDL-1080p from FLUX. It matches Heat (1995) and would fill 1080p." A
+// name that would fill no Target ends with the first reason a Target
+// gives, in Profile order.
 func sentence(t Tried) string {
+	read := readWords(t)
+	fills := targetNames(t)
+	if len(fills) > 0 {
+		return read + " and would fill " + joinWords(fills) + "."
+	}
+	return read + " and would fill no Target. " + whyNot(t)
+}
+
+// acceptance is t, judged at every Target with no held file because it
+// matches several Works or none, in words: "Reads as WEBDL-1080p from
+// FLUX. It matches no Work. 1080p and HD accept it." With no Work there
+// is no cell to fill, so it says which Targets accept the name.
+func acceptance(t Tried) string {
+	read := readWords(t) + "."
+	if len(t.Targets) == 0 {
+		return read + " No Target is set up. Add a Target in Settings."
+	}
+	switch accept := targetNames(t); len(accept) {
+	case 0:
+		return read + " No Target accepts it. " + whyNot(t)
+	case 1:
+		return read + " " + accept[0] + " accepts it."
+	default:
+		return read + " " + joinWords(accept) + " accept it."
+	}
+}
+
+// readWords is what t reads as and the Works it matches: "Reads as
+// WEBDL-1080p from FLUX. It matches Heat (1995)".
+func readWords(t Tried) string {
 	f := t.Read.Facts
 	read := "Reads no Quality"
 	if q, ok := f.Quality.Get(); ok {
@@ -270,36 +301,37 @@ func sentence(t Tried) string {
 	if g, ok := f.Group.Get(); ok {
 		read += " from " + g
 	}
+	if len(t.Works) == 0 {
+		return read + ". It matches no Work"
+	}
 	labels := make([]string, len(t.Works))
 	for i, w := range t.Works {
 		labels[i] = w.Label
 	}
-	matches := "no Work"
-	if len(labels) > 0 {
-		matches = joinWords(labels)
-	}
-	var fills []string
+	return read + ". It matches " + joinWords(labels)
+}
+
+// targetNames is the names of the Targets t would fill.
+func targetNames(t Tried) []string {
+	var names []string
 	for _, tt := range t.Targets {
 		if tt.WouldFill {
-			fills = append(fills, tt.Target.Name)
+			names = append(names, tt.Target.Name)
 		}
 	}
-	if len(fills) > 0 {
-		return read + ". It matches " + matches + " and would fill " + joinWords(fills) + "."
-	}
-	return read + ". It matches " + matches + " and would fill no Target. " + whyNot(t)
+	return names
 }
 
 // whyNot is the first reason a Target of t gives that isn't a note, in
 // words.
 func whyNot(t Tried) string {
 	if len(t.Targets) == 0 {
-		return "No Target is set up."
+		return "No Target is set up. Add a Target in Settings."
 	}
 	for _, tt := range t.Targets {
 		for _, r := range tt.Reasons {
 			if r.Code != targets.SizeNotChecked {
-				return reasonWords(r, tt.Target, t.Read.Facts)
+				return ReasonWords(r, tt.Target, t.Read.Facts)
 			}
 		}
 	}
@@ -311,9 +343,9 @@ var attributeWords = map[targets.Attribute]string{
 	targets.Channels: "channels", targets.Language: "language",
 }
 
-// reasonWords is r, a reason at t about a name whose facts are f, as a
+// ReasonWords is r, a reason at t about a name whose facts are f, as a
 // sentence.
-func reasonWords(r Reason, t targets.Target, f release.Facts) string {
+func ReasonWords(r Reason, t targets.Target, f release.Facts) string {
 	switch r.Code {
 	case targets.WrongWork:
 		return "An id in the name belongs to another Work."
