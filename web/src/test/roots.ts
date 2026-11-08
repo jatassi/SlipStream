@@ -7,6 +7,7 @@ import type {
   RootsNewRoot,
   RootsNodeVolumes,
   RootsRoot,
+  RootsScan,
   RootsVerdict,
   RootsVolume,
   SettingDurationField,
@@ -20,6 +21,9 @@ import {
 import type { liveServer } from "./live-server";
 import { home, seedbox } from "./nodes";
 import { worker } from "./worker";
+
+/** The scan line of a root no library scan has read yet. */
+export const notScanned: RootsScan = { lastAt: null, summary: "", stopped: null, running: null };
 
 /** The Controller, holding Storage as well as its other Roles. */
 export const media: NodesNode = {
@@ -40,6 +44,7 @@ export const filmsRoot: RootsRoot = {
   volumeId: "sda1",
   works: 12,
   fileBytes: 910 * 1024 ** 3,
+  scan: notScanned,
 };
 
 export const archiveRoot: RootsRoot = {
@@ -51,6 +56,7 @@ export const archiveRoot: RootsRoot = {
   state: "unmounted",
   works: 3,
   fileBytes: 0,
+  scan: notScanned,
 };
 
 export const mediaVolume: RootsVolume = {
@@ -132,6 +138,7 @@ function madeFrom(world: RootsWorld, body: RootsNewRoot, count: number): RootsRo
       body.makeDefault === true ||
       !world.roots.some((root) => root.contentType === body.contentType),
     state: "checking",
+    scan: notScanned,
     works: 0,
     fileBytes: 0,
   };
