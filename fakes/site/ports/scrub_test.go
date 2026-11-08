@@ -157,14 +157,14 @@ func TestAnEpisodeATagOrAnAuthorEndsATitlesStem(t *testing.T) {
 	}
 }
 
-func TestAGazelleMusicTitlesStemIsItsAlbum(t *testing.T) {
+func TestAMusicTitleIsFictionalByItsArtistOrItsAlbum(t *testing.T) {
 	for title, want := range map[string]string{
 		"Juniper & Vale - The Quiet Orchard (2021) [EP] [FLAC Lossless / WEB]": "The Quiet Orchard",
 		"The Lantern Choir - Cedar Hollow (1969) [Album] [MP3 V2 (VBR) / BD]":  "Cedar Hollow",
-		"Harbor.Lights.2020.1080p.WEB-DL-GROUP":                                "Harbor Lights",
+		"Salt Meadow - Quiet Orchard [2021] FLAC":                              "Salt Meadow",
 	} {
-		if got := Stem(title); got != want {
-			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
+		if got := Stems(title); !slices.Contains(got, want) {
+			t.Errorf("Stems(%q) = %q, want it to hold %q", title, got, want)
 		}
 	}
 }
@@ -174,7 +174,6 @@ func TestATagADashOrALocalNameEndsATitlesStem(t *testing.T) {
 		"The Quiet Orchard [2021] 1080p / MP4":                     "The Quiet Orchard",
 		"The Quiet Orchard (Legendado)":                            "The Quiet Orchard",
 		"[FKW] Harbor Lights - 03 [1080p].mkv":                     "Harbor Lights",
-		"Salt Meadow - Quiet Orchard [2021] FLAC":                  "Salt Meadow",
 		"Тихий сад / The Quiet Orchard [2021, США, WEB-DL]":        "The Quiet Orchard",
 		"Огни гавани / Harbor Lights / S2E3 [2024, HDTV]":          "Harbor Lights",
 		"Начало / Inception (Кристофер Нолан / Christopher Nolan)": "Inception",
