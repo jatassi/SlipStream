@@ -66,16 +66,18 @@ func group(n release.Read, want string) error {
 	return golden.Same("group", n.Facts.Group, release.Known(want))
 }
 
-func has(langs ...string) golden.Check {
+func languages(check func(release.Fact[[]release.Language]) error) golden.Check {
 	return func(r golden.Row) error {
-		return golden.HasLanguages(title(r.String("postTitle")).Facts.Languages, langs...)
+		return golden.LanguageCheck(r, title(r.String("postTitle")).Facts.Languages, check)
 	}
 }
 
+func has(langs ...string) golden.Check {
+	return languages(func(got release.Fact[[]release.Language]) error { return golden.HasLanguages(got, langs...) })
+}
+
 func exactly(langs ...string) golden.Check {
-	return func(r golden.Row) error {
-		return golden.Languages(title(r.String("postTitle")).Facts.Languages, langs...)
-	}
+	return languages(func(got release.Fact[[]release.Language]) error { return golden.Languages(got, langs...) })
 }
 
 func season(r golden.Row) error {

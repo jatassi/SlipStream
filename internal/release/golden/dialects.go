@@ -96,6 +96,16 @@ func language(name string) (release.Language, bool) {
 	return l, true
 }
 
+// LanguageCheck is check on got, or, where an override says what
+// SlipStream reads, whether got is exactly that.
+func LanguageCheck(r Row, got release.Fact[[]release.Language], check func(release.Fact[[]release.Language]) error) error {
+	var ours []string
+	if r.Reads(&ours) {
+		return Languages(got, ours...)
+	}
+	return check(got)
+}
+
 // HasLanguages is nil when got holds each of names. Upstream's Unknown
 // means got is unknown.
 func HasLanguages(got release.Fact[[]release.Language], names ...string) error {

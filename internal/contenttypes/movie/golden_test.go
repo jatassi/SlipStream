@@ -48,17 +48,8 @@ func idTag(kind string, value func(golden.Row) string) golden.Check {
 	}
 }
 
-// languages is check on what the name reads as, or, where an override
-// says what SlipStream reads, whether it reads exactly that.
 func languages(check func(release.Fact[[]release.Language]) error) golden.Check {
-	return func(r golden.Row) error {
-		got := postTitle(r).Facts.Languages
-		var ours []string
-		if r.Reads(&ours) {
-			return golden.Languages(got, ours...)
-		}
-		return check(got)
-	}
+	return func(r golden.Row) error { return golden.LanguageCheck(r, postTitle(r).Facts.Languages, check) }
 }
 
 func has(langs ...string) golden.Check {
