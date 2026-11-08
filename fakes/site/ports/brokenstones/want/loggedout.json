@@ -1,0 +1,109 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.2024.v5.2.macOS-FIXTURE",
+      "size": 524288000,
+      "published": "2024-11-07T18:00:00Z",
+      "seeders": 4,
+      "leechers": 6,
+      "grabs": 3,
+      "link": "https://brokenstones.fixture-site.fake.localhost/torrents.php?action=download\u0026id=71900",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4030,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://brokenstones.fixture-site.fake.localhost/torrents.php?id=30420\u0026torrentid=71900",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Juniper.Falls.2023.Sound.Pack-FIXTURE",
+      "size": 1073741824,
+      "published": "2024-11-07T12:00:00Z",
+      "seeders": 15,
+      "leechers": 1,
+      "grabs": 20,
+      "link": "https://brokenstones.fixture-site.fake.localhost/torrents.php?action=download\u0026id=71888",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100006
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://brokenstones.fixture-site.fake.localhost/torrents.php?id=30418\u0026torrentid=71888",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Cedar.Hollow.2022.Puzzle.Collection.macOS-FIXTURE",
+      "size": 3221225472,
+      "published": "2024-11-06T13:33:20Z",
+      "seeders": 40,
+      "leechers": 3,
+      "grabs": 77,
+      "link": "https://brokenstones.fixture-site.fake.localhost/torrents.php?action=download\u0026id=71870",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4030,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://brokenstones.fixture-site.fake.localhost/torrents.php?id=30417\u0026torrentid=71870",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Salt.Meadow.2021.Typography.Course-FIXTURE",
+      "size": 2147483648,
+      "published": "2024-11-05T09:46:40Z",
+      "seeders": 6,
+      "leechers": 0,
+      "grabs": 5,
+      "link": "https://brokenstones.fixture-site.fake.localhost/torrents.php?action=download\u0026id=71866",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4030,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://brokenstones.fixture-site.fake.localhost/torrents.php?id=30416\u0026torrentid=71866",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": true
+}

@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2024.v3.1.macOS.Universal-FIXTURE",
+      "size": 214748364,
+      "published": "2024-11-07T17:20:00Z",
+      "seeders": 31,
+      "leechers": 2,
+      "grabs": 58,
+      "link": "https://brokenstones.fixture-site.fake.localhost/torrents.php?action=download\u0026id=71840",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4030,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://brokenstones.fixture-site.fake.localhost/torrents.php?id=30412\u0026torrentid=71840",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.2024.v3.0.iOS.arm64-FIXTURE",
+      "size": 96468992,
+      "published": "2024-10-30T08:05:12Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 12,
+      "link": "https://brokenstones.fixture-site.fake.localhost/torrents.php?action=download\u0026id=71802",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        4060,
+        100003
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://brokenstones.fixture-site.fake.localhost/torrents.php?id=30409\u0026torrentid=71802",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}
