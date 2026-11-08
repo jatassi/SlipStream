@@ -17,15 +17,15 @@ CREATE TABLE trackers_rule (
     CHECK ((clears IN ('time', 'either', 'both')) = (seed_seconds IS NOT NULL))
 ) STRICT, WITHOUT ROWID;
 
--- A row only while the Tracker's goal differs from the default goal.
+-- A row only while the Tracker's goal differs from the default goal. A
+-- goal that ends counts a ratio, a seeding time or both.
 CREATE TABLE trackers_goal (
     tracker_id BLOB PRIMARY KEY NOT NULL REFERENCES indexers_tracker (id) ON DELETE CASCADE,
     combine TEXT NOT NULL CHECK (combine IN ('first', 'both', 'forever')),
     ratio_centi INTEGER CHECK (ratio_centi > 0),
     seed_seconds INTEGER CHECK (seed_seconds > 0),
     action TEXT CHECK (action IN ('pause', 'remove', 'remove-delete')),
-    CHECK ((combine = 'forever') = (ratio_centi IS NULL)),
-    CHECK ((combine = 'forever') = (seed_seconds IS NULL)),
+    CHECK ((combine = 'forever') = (ratio_centi IS NULL AND seed_seconds IS NULL)),
     CHECK ((combine = 'forever') = (action IS NULL))
 ) STRICT, WITHOUT ROWID;
 
@@ -82,8 +82,7 @@ CREATE TABLE trackers_settings (
     goal_seed_seconds INTEGER CHECK (goal_seed_seconds > 0),
     goal_action TEXT CHECK (goal_action IN ('pause', 'remove', 'remove-delete')),
     CHECK (goal_combine IS NOT NULL OR (goal_ratio_centi IS NULL AND goal_seed_seconds IS NULL AND goal_action IS NULL)),
-    CHECK (goal_combine IS NULL OR (goal_combine = 'forever') = (goal_ratio_centi IS NULL)),
-    CHECK (goal_combine IS NULL OR (goal_combine = 'forever') = (goal_seed_seconds IS NULL)),
+    CHECK (goal_combine IS NULL OR (goal_combine = 'forever') = (goal_ratio_centi IS NULL AND goal_seed_seconds IS NULL)),
     CHECK (goal_combine IS NULL OR (goal_combine = 'forever') = (goal_action IS NULL))
 ) STRICT;
 

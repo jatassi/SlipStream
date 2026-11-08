@@ -54,8 +54,8 @@ func (l *library) windowsOf(tracker indexers.TrackerID) int {
 
 func TestAMergeKeepsTheAdminRuleThenTheKeptTrackersRuleAndGoal(t *testing.T) {
 	start := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
-	keptGoal := seeding.Finite{Combine: seeding.First, Ratio: 150, Seed: 20 * day, Then: seeding.Pause}
-	mergedGoal := seeding.Finite{Combine: seeding.Both, Ratio: 300, Seed: 40 * day, Then: seeding.Remove}
+	keptGoal := seeding.MustFinite(seeding.First, 150, 20*day, seeding.Pause)
+	mergedGoal := seeding.MustFinite(seeding.Both, 300, 40*day, seeding.Remove)
 	mergedRule := seeding.TimeRule{Seed: 4 * day}
 	keptRule := seeding.RatioRule{Ratio: 120}
 	for _, c := range []struct {

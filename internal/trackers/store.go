@@ -23,7 +23,7 @@ func (e *PublicError) Error() string { return "a public Tracker has no seeding r
 // InitialGoal is the default goal until an Admin sets one: whichever first
 // of ratio 2.0 or 14 days, then remove the torrent and delete its download
 // copy.
-var InitialGoal seeding.Goal = seeding.Finite{Combine: seeding.First, Ratio: 200, Seed: 14 * 24 * time.Hour, Then: seeding.RemoveDelete}
+var InitialGoal seeding.Goal = seeding.MustFinite(seeding.First, 200, 14*24*time.Hour, seeding.RemoveDelete)
 
 // Source is where a Tracker's rule came from.
 type Source string
@@ -284,7 +284,9 @@ func summariesIn(ctx context.Context, r storage.Reader[file]) ([]Summary, error)
 		}
 	}
 	for _, row := range goals {
-		at[row.TrackerID].Goal = goalOf(&row.Combine, row.RatioCenti, row.SeedSeconds, row.Action)
+		if at[row.TrackerID].Goal, err = goalOf(&row.Combine, row.RatioCenti, row.SeedSeconds, row.Action); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }
@@ -297,7 +299,7 @@ func defaultGoalIn(ctx context.Context, r storage.Reader[file]) (seeding.Goal, e
 	if s.GoalCombine == nil {
 		return InitialGoal, nil
 	}
-	return goalOf(s.GoalCombine, s.GoalRatioCenti, s.GoalSeedSeconds, s.GoalAction), nil
+	return goalOf(s.GoalCombine, s.GoalRatioCenti, s.GoalSeedSeconds, s.GoalAction)
 }
 
 func ruleOf(clears string, ratio, seed *int64) (seeding.Rule, error) {
@@ -327,14 +329,15 @@ func partsOf(r seeding.Ratio, d time.Duration) (ratio, seed *int64) {
 
 const forever = "forever"
 
-func goalOf(combine *string, ratio, seed *int64, action *string) seeding.Goal {
+func goalOf(combine *string, ratio, seed *int64, action *string) (seeding.Goal, error) {
 	if *combine == forever {
-		return seeding.Forever{}
+		return seeding.Forever{}, nil
 	}
-	return seeding.Finite{
-		Combine: seeding.Combine(*combine), Ratio: seeding.Ratio(*ratio),
-		Seed: time.Duration(*seed) * time.Second, Then: seeding.Action(*action),
+	g, err := seeding.NewFinite(seeding.Combine(*combine), seeding.Ratio(deref(ratio)), time.Duration(deref(seed))*time.Second, seeding.Action(*action))
+	if err != nil {
+		return nil, fmt.Errorf("read a stored goal: %w", err)
 	}
+	return g, nil
 }
 
 // goalColumns is a goal as trackers_goal and trackers_settings store it.
@@ -349,8 +352,8 @@ func goalColumnsOf(g seeding.Goal) goalColumns {
 		c := forever
 		return goalColumns{combine: &c}
 	}
-	combine, action := string(f.Combine), string(f.Then)
-	ratio, seed := partsOf(f.Ratio, f.Seed)
+	combine, action := string(f.Combine()), string(f.Then())
+	ratio, seed := partsOf(f.Parts())
 	return goalColumns{combine: &combine, action: &action, ratio: ratio, seed: seed}
 }
 

@@ -128,11 +128,12 @@ func TestSeedingValuesOutOfRangeAreRefused(t *testing.T) {
 		{"/goal", `{"combine":"forever","ratio":null,"seedSeconds":null,"action":"pause"}`, "combine", "Leave out the ratio, seeding time and action of a goal that seeds forever."},
 		{"/goal", `{"combine":"first","ratio":2,"seedSeconds":3600,"action":null}`, "action", "Choose what happens to a torrent once the goal is met."},
 		{"/goal", `{"combine":"both","ratio":2.001,"seedSeconds":3600,"action":"remove"}`, "ratio", "Use a ratio of 0.01 or more with at most two decimals."},
+		{"/goal", `{"combine":"both","ratio":null,"seedSeconds":null,"action":"remove"}`, "ratio", "Give the goal a ratio, a seeding time or both."},
 	} {
 		s.owner.Expect(t, http.MethodPut, "/api/v1/trackers/"+seedpool+c.path, c.body, http.StatusUnprocessableEntity, refused(c.field, c.detail))
 	}
-	s.owner.Expect(t, http.MethodPut, "/api/v1/trackers/default-goal", `{"combine":"first","ratio":null,"seedSeconds":3600,"action":"remove"}`,
-		http.StatusUnprocessableEntity, refused("ratio", "Give the goal's ratio."))
+	s.owner.Expect(t, http.MethodPut, "/api/v1/trackers/default-goal", `{"combine":"first","ratio":null,"seedSeconds":null,"action":"remove"}`,
+		http.StatusUnprocessableEntity, refused("ratio", "Give the goal a ratio, a seeding time or both."))
 }
 
 func TestATwoDecimalRatioRoundTrips(t *testing.T) {
@@ -161,6 +162,24 @@ func TestATwoDecimalRatioRoundTrips(t *testing.T) {
 	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/default-goal", "", http.StatusOK, changed)
 	if _, got := s.owner.Call(t, http.MethodPut, "/api/v1/trackers/"+seedpool+"/goal", changed); !strings.Contains(got, `"goal":null`) {
 		t.Fatalf("setTrackerGoal to the default = %s, want it following the default", got)
+	}
+}
+
+func TestAGoalWithOnePartRoundTrips(t *testing.T) {
+	s := serve(t)
+	seedpool := s.tracker(t, "seedpool", indexers.Private)
+	for _, own := range []string{
+		`{"combine":"both","ratio":1.5,"seedSeconds":null,"action":"pause"}`,
+		`{"combine":"first","ratio":null,"seedSeconds":86400,"action":"remove"}`,
+	} {
+		if code, got := s.owner.Call(t, http.MethodPut, "/api/v1/trackers/"+seedpool+"/goal", own); code != http.StatusOK || !strings.Contains(got, `"goal":`+own+`}`) {
+			t.Fatalf("setTrackerGoal = %d %s, want 200 with %s", code, got, own)
+		}
+		if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, ""); !strings.Contains(got, `"goal":`+own+`}`) {
+			t.Fatalf("getTracker = %s, want the goal it was given", got)
+		}
+		s.owner.Expect(t, http.MethodPut, "/api/v1/trackers/default-goal", own, http.StatusOK, own)
+		s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/default-goal", "", http.StatusOK, own)
 	}
 }
 

@@ -5768,10 +5768,16 @@ export const TrackersGoal = zod.object({
   combine: zod
     .enum(["first", "both", "forever"])
     .describe(
-      "first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent",
+      "first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent. A goal that ends counts a ratio, a seeding time or both, and with only one of them first and both each wait for it",
     ),
-  ratio: zod.number().nullable().describe("At most two decimals; null when combine is forever"),
-  seedSeconds: zod.int().nullable().describe("Seconds; null when combine is forever"),
+  ratio: zod
+    .number()
+    .nullable()
+    .describe("At most two decimals; null when combine is forever or the goal doesn't count ratio"),
+  seedSeconds: zod
+    .int()
+    .nullable()
+    .describe("Seconds; null when combine is forever or the goal doesn't count seeding time"),
 });
 
 export type TrackersGoal = zod.input<typeof TrackersGoal>;

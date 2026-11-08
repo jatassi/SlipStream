@@ -111,7 +111,7 @@ func TestAPublicTrackerHasNoRule(t *testing.T) {
 func TestAGoalEqualToTheDefaultFollowsTheDefault(t *testing.T) {
 	l := newLibrary(t)
 	seedpool := l.tracker("seedpool", indexers.Private)
-	own := seeding.Finite{Combine: seeding.Both, Ratio: 300, Seed: 30 * day, Then: seeding.Pause}
+	own := seeding.MustFinite(seeding.Both, 300, 30*day, seeding.Pause)
 	s, err := l.x.SetGoal(t.Context(), admin, seedpool, own)
 	if err != nil {
 		t.Fatal(err)
@@ -145,11 +145,33 @@ func TestAGoalEqualToTheDefaultFollowsTheDefault(t *testing.T) {
 	}
 }
 
+func TestATrackersGoalWithOnePartRoundTrips(t *testing.T) {
+	l := newLibrary(t)
+	seedpool := l.tracker("seedpool", indexers.Private)
+	for _, g := range []seeding.Goal{
+		seeding.MustFinite(seeding.Both, 300, 0, seeding.Pause),
+		seeding.MustFinite(seeding.First, 0, 30*day, seeding.Remove),
+	} {
+		if _, err := l.x.SetGoal(t.Context(), admin, seedpool, g); err != nil {
+			t.Fatal(err)
+		}
+		s, err := l.x.Tracker(t.Context(), admin, seedpool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s.Goal != g {
+			t.Fatalf("seedpool's goal saved as %#v reads %#v", g, s.Goal)
+		}
+	}
+}
+
 func TestTheDefaultGoalRoundTrips(t *testing.T) {
 	l := newLibrary(t)
 	for _, g := range []seeding.Goal{
 		trackers.InitialGoal,
-		seeding.Finite{Combine: seeding.Both, Ratio: 125, Seed: 36 * time.Hour, Then: seeding.Remove},
+		seeding.MustFinite(seeding.Both, 125, 36*time.Hour, seeding.Remove),
+		seeding.MustFinite(seeding.Both, 125, 0, seeding.Pause),
+		seeding.MustFinite(seeding.First, 0, 36*time.Hour, seeding.RemoveDelete),
 		seeding.Forever{},
 		trackers.InitialGoal,
 	} {
@@ -164,7 +186,7 @@ func TestTheDefaultGoalRoundTrips(t *testing.T) {
 			t.Fatalf("the default goal saved as %#v reads %#v", g, got)
 		}
 	}
-	l.saved(4, nil)
+	l.saved(6, nil)
 }
 
 func TestTheSeedingSettingsChangeAllOrNone(t *testing.T) {

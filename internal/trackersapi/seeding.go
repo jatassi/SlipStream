@@ -65,9 +65,9 @@ func parseRule(b ruleBody) (seeding.Rule, error) {
 }
 
 type goal struct {
-	Combine     string   `json:"combine" enum:"first,both,forever" doc:"first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent"`
-	Ratio       *float64 `json:"ratio" doc:"At most two decimals; null when combine is forever"`
-	SeedSeconds *int64   `json:"seedSeconds" doc:"Seconds; null when combine is forever"`
+	Combine     string   `json:"combine" enum:"first,both,forever" doc:"first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent. A goal that ends counts a ratio, a seeding time or both, and with only one of them first and both each wait for it"`
+	Ratio       *float64 `json:"ratio" doc:"At most two decimals; null when combine is forever or the goal doesn't count ratio"`
+	SeedSeconds *int64   `json:"seedSeconds" doc:"Seconds; null when combine is forever or the goal doesn't count seeding time"`
 	Action      *string  `json:"action" enum:"pause,remove,remove-delete" doc:"What happens to the torrent once the goal is met, where remove-delete also deletes its download copy; null when combine is forever"`
 }
 
@@ -76,9 +76,9 @@ func goalOf(g seeding.Goal) goal {
 	if !ok {
 		return goal{Combine: "forever"}
 	}
-	ratio, seed := partsOf(f.Ratio, f.Seed)
-	action := string(f.Then)
-	return goal{Combine: string(f.Combine), Ratio: ratio, SeedSeconds: seed, Action: &action}
+	ratio, seed := partsOf(f.Parts())
+	action := string(f.Then())
+	return goal{Combine: string(f.Combine()), Ratio: ratio, SeedSeconds: seed, Action: &action}
 }
 
 func parseGoal(b goal) (seeding.Goal, error) {
@@ -88,17 +88,8 @@ func parseGoal(b goal) (seeding.Goal, error) {
 		}
 		return seeding.Forever{}, nil
 	}
-	for _, missing := range []struct {
-		absent         bool
-		field, mistake string
-	}{
-		{b.Ratio == nil, "ratio", "Give the goal's ratio."},
-		{b.SeedSeconds == nil, "seedSeconds", "Give the goal's seeding time."},
-		{b.Action == nil, "action", "Choose what happens to a torrent once the goal is met."},
-	} {
-		if missing.absent {
-			return nil, seedingValueRefused.On(missing.field, missing.mistake)
-		}
+	if b.Action == nil {
+		return nil, seedingValueRefused.On("action", "Choose what happens to a torrent once the goal is met.")
 	}
 	ratio, err := parseRatio(b.Ratio)
 	if err != nil {
@@ -108,7 +99,11 @@ func parseGoal(b goal) (seeding.Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	return seeding.Finite{Combine: seeding.Combine(b.Combine), Ratio: ratio, Seed: seed, Then: seeding.Action(*b.Action)}, nil
+	g, err := seeding.NewFinite(seeding.Combine(b.Combine), ratio, seed, seeding.Action(*b.Action))
+	if err != nil {
+		return nil, seedingValueRefused.On("ratio", "Give the goal a ratio, a seeding time or both.")
+	}
+	return g, nil
 }
 
 func parseRatio(v *float64) (seeding.Ratio, error) {
