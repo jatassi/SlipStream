@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "id": 30101,
+      "url": "https://animez.fixture-site.fake.localhost/torrent/30101-harbor-lights-s02e03-1080p-web-dl-aac-h264-nogroup",
+      "download": "https://animez.fixture-site.fake.localhost/rss/download/123456789/30101-47d36600e66c6444a7ff188d5bcfac26e6af4d9a.torrent",
+      "category": {
+        "1": "Anime"
+      },
+      "info_hash": "47d36600e66c6444a7ff188d5bcfac26e6af4d9a",
+      "file_name": "[NOGROUP] Harbor Lights - 15 (1080p).mkv",
+      "release_title": "Harbor Lights S02E03 1080p WEB-DL AAC H.264-NOGROUP",
+      "file_size": 1468006400,
+      "file_count": 1,
+      "seed": 42,
+      "leech": 3,
+      "completed": 120,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "video_quality": "1080p",
+      "type": "TV-Show",
+      "format": "TV",
+      "created_at_iso": "2026-10-30T18:20:00+09:00",
+      "movie_tv": {
+        "imdb": null,
+        "tmdb": null,
+        "tvdb": "2"
+      }
+    }
+  ]
+}
