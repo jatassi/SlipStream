@@ -144,3 +144,49 @@ func TestLibraryWorksNeedTheMoviesAndARoot(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateChecksTheLibraryFolders(t *testing.T) {
+	ok := MediaVideo{Width: 320, Height: 180, Seconds: 1, HDR: "sdr"}
+	s := Scenario{Name: "x", Nodes: []Node{{Name: "home", Setup: SetupController}}, Admin: &Admin{Email: "a@example.test", DisplayName: "A", PIN: "1234"}, Library: &Library{
+		Folders: []LibraryFolder{
+			{Folder: "Shelf", Files: []MediaFile{{Path: "a.mkv", Video: ok}}},
+			{Folder: "shelf", Files: []MediaFile{
+				{Path: "Heat (1995)/Heat.mkv", Video: ok},
+				{Path: "heat (1995)/heat.MKV", Video: ok},
+				{Path: "heat (1995)/heat.mkv", Video: ok},
+				{Path: "/abs.mkv", Video: ok},
+				{Path: "up/../down.mkv", Video: ok},
+				{Path: `Heat: Director's Cut.mkv`, Video: ok},
+				{Path: "Heat.mp4", Video: ok},
+				{Path: "odd.mkv", Video: MediaVideo{Width: 321, Height: 32, Seconds: 11, HDR: "dolby"}},
+				{Path: "tracks.mkv", Video: ok, Audio: []MediaAudio{{Codec: "dts", Channels: 6}, {Codec: "eac3", Channels: 8, Language: "xx"}}, Subtitles: []MediaSubtitle{{Language: "klingon"}}},
+			}},
+			{Folder: "shelf"},
+		},
+	}}
+	want := []string{
+		`scenario x: library folder "Shelf" does not match ^[a-z0-9][a-z0-9._-]*$`,
+		"scenario x: library folder shelf file heat (1995)/heat.MKV is not a .mkv file",
+		"scenario x: library folder shelf file heat (1995)/heat.mkv is listed twice",
+		`scenario x: library folder shelf file /abs.mkv is not a relative path of '/' separated names without \:*?"<>|`,
+		`scenario x: library folder shelf file up/../down.mkv is not a relative path of '/' separated names without \:*?"<>|`,
+		`scenario x: library folder shelf file Heat: Director's Cut.mkv is not a relative path of '/' separated names without \:*?"<>|`,
+		"scenario x: library folder shelf file Heat.mp4 is not a .mkv file",
+		"scenario x: library folder shelf file odd.mkv video is 321x32; width and height are even, from 64x64 up to 7680x4320",
+		"scenario x: library folder shelf file odd.mkv video lasts 11 seconds; it lasts 1 to 10",
+		`scenario x: library folder shelf file odd.mkv video hdr is "dolby", not one of sdr, hdr10, hdr10plus, hlg, dv5, dv8`,
+		`scenario x: library folder shelf file tracks.mkv audio 1 codec is "dts", not aac, ac3, eac3, truehd or flac`,
+		"scenario x: library folder shelf file tracks.mkv audio 2 is eac3 with 8 channels; eac3 encodes [1 2 6]",
+		`scenario x: library folder shelf file tracks.mkv audio 2 language: "xx" is not an ISO 639 language`,
+		`scenario x: library folder shelf file tracks.mkv subtitle 1 language: "klingon" is not an ISO 639 language`,
+		"scenario x: library has two folders named shelf",
+		"scenario x: library folder shelf has no files",
+	}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("Validate passed")
+	}
+	if got := strings.Split(err.Error(), "\n"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Validate =\n%s\nwant\n%s", err, strings.Join(want, "\n"))
+	}
+}
