@@ -204,3 +204,11 @@ SELECT id, removed_at IS NULL AS live FROM downloadclients_torrent WHERE tracker
 
 -- name: ForgetTracker :exec
 UPDATE downloadclients_torrent SET tracker_id = NULL WHERE tracker_id = sqlc.arg(tracker_id) AND removed_at IS NOT NULL;
+
+-- name: ListTrackerless :many
+-- Every Torrent with no Tracker, live or removed. Its metainfo comes only
+-- when its trackers were never stored, as for one added before S28.
+SELECT id, info_hash, trackers, CAST(CASE WHEN trackers = '[]' THEN metainfo END AS BLOB) AS metainfo
+FROM downloadclients_torrent
+WHERE tracker_id IS NULL
+ORDER BY added_order;
