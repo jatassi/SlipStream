@@ -1,6 +1,7 @@
 package formats
 
 import (
+	"maps"
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/release"
@@ -108,10 +109,8 @@ const (
 )
 
 var languagesWithoutISO = map[string]release.Language{
-	"Unknown":  unknownLanguage,
-	"Original": release.Original,
-	"Any":      anyLanguage,
-	"Flemish":  "nl",
+	"Unknown": unknownLanguage,
+	"Any":     anyLanguage,
 }
 
 // dialect is one app's numbering of each kind's values, keyed by the
@@ -132,14 +131,14 @@ var dialects = map[Dialect]*dialect{
 		sources:     numbered(radarrQualitySource, radarrSources),
 		resolutions: numbered(radarrResolution, resolutions),
 		modifiers:   numbered(radarrModifier, radarrModifiers),
-		languages:   numbered(radarrLanguage, isoLanguages(radarrIsoLanguages)),
+		languages:   upstreamLanguages(radarrLanguage),
 		flags:       numbered(radarrIndexerFlags, radarrFlags),
 	},
 	Sonarr: {
 		name:        Sonarr,
 		sources:     numbered(sonarrQualitySource, sonarrSources),
 		resolutions: numbered(sonarrResolution, resolutions),
-		languages:   numbered(sonarrLanguage, isoLanguages(sonarrIsoLanguages)),
+		languages:   upstreamLanguages(sonarrLanguage),
 		flags:       numbered(sonarrIndexerFlags, sonarrFlags),
 		spans:       numbered(sonarrReleaseType, sonarrSpans),
 	},
@@ -166,22 +165,16 @@ func numbered[T any](enum []upstreamValue, byName map[string]T) map[string]T {
 	return m
 }
 
-// isoLanguages reads each upstream language as the two-letter code of its
-// first IsoLanguages row.
-func isoLanguages(rows []upstreamIsoLanguage) map[string]release.Language {
-	m := make(map[string]release.Language, len(rows)+len(languagesWithoutISO))
-	for name, l := range languagesWithoutISO {
-		m[name] = l
-	}
-	for _, row := range rows {
-		if _, ok := m[row.Language]; ok {
-			continue
-		}
-		if l, err := release.ParseLanguage(row.Args[0]); err == nil {
-			m[row.Language] = l
+// upstreamLanguages keys an upstream Language enum's languages by
+// number, as release.UpstreamLanguage reads each name.
+func upstreamLanguages(enum []upstreamValue) map[string]release.Language {
+	byName := maps.Clone(languagesWithoutISO)
+	for _, v := range enum {
+		if l, ok := release.UpstreamLanguage(v.Name); ok {
+			byName[v.Name] = l
 		}
 	}
-	return m
+	return numbered(enum, byName)
 }
 
 type key interface {

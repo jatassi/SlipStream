@@ -80,7 +80,7 @@ func ownerReads(p pins) map[string]map[string][]string {
 	for _, e := range p.Dialects.Enums {
 		read(formats, e.From, e.File)
 	}
-	for _, f := range slices.Concat(p.Dialects.Languages, p.Dialects.Iso) {
+	for _, f := range p.Dialects.Languages {
 		read(formats, f.From, f.File)
 	}
 	for _, f := range p.Trash.Readers {

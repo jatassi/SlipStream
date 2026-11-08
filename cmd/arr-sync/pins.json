@@ -118,7 +118,11 @@
     {
       "from": "sonarr",
       "file": "src/NzbDrone.Core/Parser/LanguageParser.cs",
-      "owner": "internal/release"
+      "owner": "internal/release",
+      "adds": [
+        "ParseLanguages",
+        "RegexLanguage"
+      ]
     },
     {
       "from": "sonarr",
@@ -140,6 +144,12 @@
       "strings": [
         "FileExtensions"
       ]
+    },
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/Parser/IsoLanguages.cs",
+      "owner": "internal/release",
+      "iso_languages": true
     },
     {
       "from": "radarr",
@@ -175,12 +185,21 @@
     {
       "from": "radarr",
       "file": "src/NzbDrone.Core/Parser/LanguageParser.cs",
-      "owner": "internal/release"
+      "owner": "internal/release",
+      "adds": [
+        "ParseLanguages"
+      ]
     },
     {
       "from": "radarr",
       "file": "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs",
       "owner": "internal/release"
+    },
+    {
+      "from": "radarr",
+      "file": "src/NzbDrone.Core/Parser/IsoLanguages.cs",
+      "owner": "internal/release",
+      "iso_languages": true
     }
   ],
   "fixtures": [
@@ -288,16 +307,6 @@
       {
         "from": "radarr",
         "file": "src/NzbDrone.Core/Languages/Language.cs"
-      }
-    ],
-    "iso_languages": [
-      {
-        "from": "sonarr",
-        "file": "src/NzbDrone.Core/Parser/IsoLanguages.cs"
-      },
-      {
-        "from": "radarr",
-        "file": "src/NzbDrone.Core/Parser/IsoLanguages.cs"
       }
     ]
   },

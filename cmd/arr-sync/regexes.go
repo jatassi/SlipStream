@@ -15,6 +15,10 @@ type regexDecl struct {
 	// list, when set, makes the declaration a []string table of a
 	// field's string literals instead of a pattern.
 	list []string
+	// adds, when set, makes the declaration a []Adds table.
+	adds []addsEntry
+	// isos, when set, makes the declaration an []IsoLanguage table.
+	isos []isoLanguage
 }
 
 type regexItem struct {

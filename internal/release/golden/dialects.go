@@ -85,37 +85,11 @@ func (q Quality) Read(f release.Facts) error {
 	return errors.Join(errs...)
 }
 
-// languages are upstream's Language values by name, as the ISO 639-1 code
-// of the first entry upstream's IsoLanguages gives each. Unknown is
-// absent: it reads as no language.
-var languages = func() map[string]release.Language {
-	codes := map[string]string{
-		"Afrikaans": "af", "Albanian": "sq", "Arabic": "ar", "Azerbaijani": "az", "Bengali": "bn", "Bulgarian": "bg",
-		"Catalan": "ca", "Chinese": "zh", "Czech": "cs", "Danish": "da", "Dutch": "nl", "English": "en", "Finnish": "fi",
-		"Flemish": "nl", "French": "fr", "Georgian": "ka", "German": "de", "Greek": "el", "Hebrew": "he", "Hindi": "hi",
-		"Hungarian": "hu", "Icelandic": "is", "Irish": "ga", "Italian": "it", "Japanese": "ja", "Kannada": "kn",
-		"Korean": "ko", "Latvian": "lv", "Lithuanian": "lt", "Malayalam": "ml", "Marathi": "mr", "Mongolian": "mn",
-		"Norwegian": "no", "Persian": "fa", "Polish": "pl", "Portuguese": "pt", "PortugueseBR": "pt",
-		"PortugueseBrazil": "pt", "Romanian": "ro", "Romansh": "rm", "Russian": "ru", "Slovak": "sk", "Spanish": "es",
-		"SpanishLatino": "es", "Swedish": "sv", "Tagalog": "tl", "Telugu": "te", "Thai": "th", "Turkish": "tr",
-		"Ukrainian": "uk", "Urdu": "ur", "Uzbek": "uz", "Vietnamese": "vi", "Original": string(release.Original),
-	}
-	m := make(map[string]release.Language, len(codes))
-	for name, code := range codes {
-		l, err := release.ParseLanguage(code)
-		if err != nil {
-			panic(err)
-		}
-		m[name] = l
-	}
-	return m
-}()
-
 func language(name string) (release.Language, bool) {
 	if name == "Unknown" {
 		return "", false
 	}
-	l, ok := languages[name]
+	l, ok := release.UpstreamLanguage(name)
 	if !ok {
 		panic(fmt.Sprintf("upstream's Language.%s has no reading here", name))
 	}

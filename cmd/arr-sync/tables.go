@@ -95,6 +95,20 @@ func groupPatterns(groups map[tableKey][]regexDecl, counts map[string]int, pf pa
 		}
 		decls = append(decls, regexDecl{name: name, list: list})
 	}
+	if pf.IsoLanguages {
+		isos, err := readIsoLanguages(s)
+		if err != nil {
+			return err
+		}
+		decls = append(decls, regexDecl{name: "All", isos: isos})
+	}
+	for _, method := range pf.Adds {
+		tables, err := readAdds(s, method)
+		if err != nil {
+			return err
+		}
+		decls = append(decls, tables...)
+	}
 	seen := map[string]bool{}
 	for _, d := range decls {
 		seen[d.name] = true
@@ -129,6 +143,30 @@ func writeDecl(b *strings.Builder, p pins, owner, app, file string, d regexDecl)
 			quoted[i] = strconv.Quote(v)
 		}
 		fmt.Fprintf(b, "\t%s = []string{%s}\n", ident, strings.Join(quoted, ", "))
+		return
+	}
+	if d.isos != nil {
+		fmt.Fprintf(b, "\t%s = []IsoLanguage{\n", ident)
+		for _, iso := range d.isos {
+			quoted := make([]string, len(iso.args))
+			for i, c := range iso.args {
+				quoted[i] = strconv.Quote(c)
+			}
+			fmt.Fprintf(b, "\t\t{[]string{%s}, %q},\n", strings.Join(quoted, ", "), strings.TrimPrefix(iso.language, "Language."))
+		}
+		b.WriteString("\t}\n")
+		return
+	}
+	if d.adds != nil {
+		fmt.Fprintf(b, "\t%s = []Adds{\n", ident)
+		for _, a := range d.adds {
+			quoted := make([]string, len(a.words))
+			for i, v := range a.words {
+				quoted[i] = strconv.Quote(v)
+			}
+			fmt.Fprintf(b, "\t\t{[]string{%s}, %s},\n", strings.Join(quoted, ", "), strconv.Quote(a.value))
+		}
+		b.WriteString("\t}\n")
 		return
 	}
 	elem := "Pattern"
@@ -278,6 +316,21 @@ type Pattern struct {
 type Replace struct {
 	Pattern
 	With string
+}
+
+// Adds is one upstream if-statement that adds the enum member Value when
+// the text holds any of Words, or when a match's group named by one of
+// Words succeeded.
+type Adds struct {
+	Words []string
+	Value string
+}
+
+// IsoLanguage is one upstream IsoLanguages row: its string arguments in
+// upstream's order, the two-letter code first, and its Language member.
+type IsoLanguage struct {
+	Args     []string
+	Language string
 }
 
 // Options are .NET's RegexOptions, by their .NET values.
