@@ -158,13 +158,6 @@ func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], run Search)
 			return nil, err
 		}
 	}
-	candidates, err := gr.candidates(ctx, tx, run, releases)
-	if err != nil {
-		return nil, err
-	}
-	for i, row := range rows {
-		candidates[i].at = int(row.Position)
-	}
 	tree, err := gr.cfg.Works.TreeIn(ctx, tx, run.WorkID)
 	if err != nil {
 		return nil, err
@@ -172,6 +165,13 @@ func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], run Search)
 	terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, tx, run.ItemID)
 	if err != nil {
 		return nil, err
+	}
+	candidates, err := gr.candidates(ctx, tx, run, terms, releases)
+	if err != nil {
+		return nil, err
+	}
+	for i, row := range rows {
+		candidates[i].at = int(row.Position)
 	}
 	picks, _, err := gr.decision(ctx, tx, run, terms, dedupe(candidates))
 	if err != nil {

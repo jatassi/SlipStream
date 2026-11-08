@@ -329,7 +329,7 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, t
 		}
 		releases = append(releases, a.Releases...)
 	}
-	candidates, err := gr.candidates(ctx, tx, run, releases)
+	candidates, err := gr.candidates(ctx, tx, run, terms, releases)
 	if err != nil {
 		return nil, err
 	}
@@ -376,8 +376,8 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, t
 }
 
 // candidates is releases as run's Item's candidates, each at its position
-// in the run.
-func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Search, releases []indexers.Release) ([]candidate, error) {
+// in the run, covering what terms' Covers answers.
+func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Search, terms indexers.Terms, releases []indexers.Release) ([]candidate, error) {
 	tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
 	if err != nil {
 		return nil, err
@@ -392,7 +392,7 @@ func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Sea
 	}
 	out := make([]candidate, len(releases))
 	for i, rel := range releases {
-		out[i] = candidateOf(rel, known.For(tree.ContentType), run.ItemID, timings[run.ItemID].Runtime)
+		out[i] = candidateOf(rel, gr.cfg.Names[tree.ContentType], known.For(tree.ContentType), terms.Covers, timings[run.ItemID].Runtime)
 		out[i].at = i
 	}
 	return out, nil
@@ -403,7 +403,7 @@ func (gr *Grabs) candidates(ctx context.Context, r storage.Reader[file], run Sea
 // Item alone.
 func sight(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, candidates []candidate) error {
 	for _, c := range candidates {
-		if wrongWork(c.Release, terms) || terms.Covers(c.Release.Title).Kind != indexers.CoversItem {
+		if _, ok := uncovered(run.ItemID, c); ok || wrongWork(c.Release, terms) {
 			continue
 		}
 		if err := targets.See(ctx, tx, run.ItemID, c.Facts.Cut, releaseKey(c.Release)); err != nil {
@@ -426,7 +426,7 @@ func (gr *Grabs) decision(ctx context.Context, r storage.Reader[file], run Searc
 			item = append(item, c)
 		}
 	}
-	picks, refused := decide(item, terms, candidates)
+	picks, refused := decide(item, run.ItemID, terms, candidates)
 	return picks, refused, nil
 }
 

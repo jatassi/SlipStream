@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -433,8 +434,8 @@ func searchEpisode(t *testing.T, caps string, season int, episode string) search
 		t.Fatal(err)
 	}
 	terms := indexers.Terms{
-		Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1001"}, Query: "The Lantern Keepers",
-		Season: &season, Episode: episode, Covers: indexers.CoversOnly,
+		Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}}},
+		Mode:   "tvsearch", Query: "The Lantern Keepers", Season: &season, Episode: episode,
 	}
 	if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan()}); err != nil {
 		t.Fatal(err)

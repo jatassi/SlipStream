@@ -1,6 +1,10 @@
 package release_test
 
 import (
+	"encoding/json"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/release"
@@ -73,8 +77,11 @@ var titleQualities = map[string]string{
 
 func TestTitleQuality(t *testing.T) {
 	for title, want := range titleQualities {
-		if got := qualityKey(release.Title(title, release.BuiltIn()).Quality); got != want {
+		if got := qualityKey(release.Title(title, release.TitleOnly{}, release.BuiltIn()).Facts.Quality); got != want {
 			t.Errorf("Title(%q) quality = %q, want %q", title, got, want)
+		}
+		if got := qualityKey(release.QualityIn(title)); got != want {
+			t.Errorf("QualityIn(%q) = %q, want %q", title, got, want)
 		}
 	}
 }
@@ -94,7 +101,7 @@ func TestFileQualityTakesTheProbedResolution(t *testing.T) {
 		{"The.Quiet.Orchard.2021.1080p.TELESYNC.mkv", release.R1080p, "cam"},
 		{"Pirates.of.the.Orchard.2021.mkv", release.R480p, "sdtv"},
 	} {
-		if got := qualityKey(release.File(c.name, release.BuiltIn(), c.probed).Quality); got != c.want {
+		if got := qualityKey(release.File(c.name, release.TitleOnly{}, release.BuiltIn()).Facts.WithProbe(release.Probed{Resolution: release.Known(c.probed)}).Quality); got != c.want {
 			t.Errorf("File(%q, %s) quality = %q, want %q", c.name, c.probed, got, c.want)
 		}
 	}
@@ -138,14 +145,14 @@ func TestCut(t *testing.T) {
 		"The.Quiet.Orchard.2021.Remastered.Theatrical.1080p":        "remastered",
 		"The.Quiet.Orchard.2021.Theatrical.Remastered.1080p":        "theatrical",
 	} {
-		if got := release.Title(title, cuts).Cut; got != want {
+		if got := release.Title(title, release.TitleOnly{}, cuts).Facts.Cut; got != want {
 			t.Errorf("Title(%q) cut = %q, want %q", title, got, want)
 		}
-		if got := release.File(title, cuts, release.R1080p).Cut; got != want {
+		if got := release.File(title, release.TitleOnly{}, cuts).Facts.Cut; got != want {
 			t.Errorf("File(%q) cut = %q, want %q", title, got, want)
 		}
 	}
-	if got := release.Title("The.Quiet.Orchard.2021.Extended.1080p", nil).Cut; got != release.Standard {
+	if got := release.Title("The.Quiet.Orchard.2021.Extended.1080p", release.TitleOnly{}, nil).Facts.Cut; got != release.Standard {
 		t.Errorf("Title with no cuts known = %q, want standard", got)
 	}
 }
@@ -186,5 +193,87 @@ func TestACustomCutsSlugAndPhraseAreTheWordsATitleReads(t *testing.T) {
 	}
 	if !release.SamePhrase("Fan's Cut", "FANS-CUT") || release.SamePhrase("Fan Cut", "Fan Cuts") {
 		t.Error("SamePhrase must match the same words, case and marks aside, and nothing more")
+	}
+}
+
+// titled reads every name as Title, then a year, then the tail.
+type titled struct{ release.TitleOnly }
+
+func (titled) ReadName(p release.Prepared) release.Name {
+	title, tail, _ := strings.Cut(p.Title, ".2019.")
+	return release.Name{Titles: []string{title}, Year: release.Known(2019), Tail: tail}
+}
+
+func TestTheCutIsReadAfterTheTitle(t *testing.T) {
+	r := release.Title("Uncut.Gems.2019.Directors.Cut.1080p.WEB-DL", titled{}, release.BuiltIn())
+	if r.Facts.Cut != "directors-cut" || !slices.Equal(r.Name.Titles, []string{"Uncut.Gems"}) || r.Given != "Uncut.Gems.2019.Directors.Cut.1080p.WEB-DL" {
+		t.Fatalf("Title read %+v, want the type's title and a Director's Cut", r)
+	}
+	if got := release.Title("Uncut.Gems.2019.1080p.WEB-DL", titled{}, release.BuiltIn()).Facts.Cut; got != release.Standard {
+		t.Errorf("Uncut Gems reads as the %s cut, want standard: its title names no cut", got)
+	}
+	if got := release.Title("Uncut.Gems.2019.1080p.WEB-DL", release.TitleOnly{}, release.BuiltIn()).Facts.Cut; got != "uncut" {
+		t.Errorf("with no title read, Uncut Gems reads as the %s cut, want uncut", got)
+	}
+}
+
+func TestAReadStoresAsJSON(t *testing.T) {
+	r := release.Title("The.Quiet.Orchard.2021.1080p.BDREMUX", release.TitleOnly{}, release.BuiltIn())
+	r.Facts.Size = release.Known(int64(9_876_543_210))
+	r.Facts.Flags = []release.Flag{release.Freeleech}
+	r.Name.Span = release.One
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"Quality":"remux-1080p"`, `"Source":"bluray"`, `"Modifier":"remux"`, `"Resolution":"1080p"`, `"Group":null`, `"Span":"one"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("%s lacks %s", b, want)
+		}
+	}
+	var back release.Read
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(back, r) {
+		t.Fatalf("%s reads back as %+v, want %+v", b, back, r)
+	}
+}
+
+func TestAProbeWinsOverTheName(t *testing.T) {
+	f := release.Title("The.Quiet.Orchard.2021.2160p.HDTV", release.TitleOnly{}, nil).Facts
+	if got := qualityKey(f.WithProbe(release.Probed{}).Quality); got != "hdtv-2160p" {
+		t.Errorf("with nothing probed the quality is %q, want the name's hdtv-2160p", got)
+	}
+	probed := f.WithProbe(release.Probed{Resolution: release.Known(release.R480p), Video: release.Known[release.VideoCodec]("x265")})
+	if v, _ := probed.Video.Get(); qualityKey(probed.Quality) != "sdtv" || v != "x265" {
+		t.Errorf("probed at 480p in x265, the file reads as %q in %q, want sdtv in x265", qualityKey(probed.Quality), v)
+	}
+}
+
+func TestRevisionsCompareRealThenVersion(t *testing.T) {
+	for _, c := range []struct {
+		a, b release.Revision
+		want int
+	}{
+		{release.Revision{}, release.Revision{Version: 1}, 0},
+		{release.Revision{Version: 2}, release.Revision{Version: 1, Repack: true}, 1},
+		{release.Revision{Version: 1, Real: 1}, release.Revision{Version: 3}, 1},
+		{release.Revision{Version: 2, Repack: true}, release.Revision{Version: 2}, 0},
+	} {
+		if got := c.a.Compare(c.b); got != c.want {
+			t.Errorf("%+v.Compare(%+v) = %d, want %d", c.a, c.b, got, c.want)
+		}
+	}
+}
+
+func TestEveryFlagParses(t *testing.T) {
+	for _, f := range release.Flags() {
+		if got, ok := release.ParseFlag(string(f)); !ok || got != f {
+			t.Errorf("ParseFlag(%q) = %q, %v", f, got, ok)
+		}
+	}
+	if _, ok := release.ParseFlag("g_freeleech"); ok {
+		t.Error("ParseFlag read a name no Flag has")
 	}
 }

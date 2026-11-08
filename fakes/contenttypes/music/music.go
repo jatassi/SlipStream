@@ -80,7 +80,8 @@ type Source struct {
 func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.covers} }
 
 // Music is the library half.
-type Music struct{}
+// Music reads a name as one title: it numbers nothing.
+type Music struct{ release.TitleOnly }
 
 func (*Music) Describe() works.Description { return Description }
 
@@ -273,6 +274,11 @@ func (*Music) NamingTokens(ctx context.Context, r storage.Reader[file], item wor
 
 func (*Music) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Edition} {Target}"}
+}
+
+// Expect answers indexers' empty answer: music isn't searched.
+func (*Music) Expect(context.Context, storage.Reader[file], works.WorkID) (indexers.Expect, error) {
+	return indexers.Expect{}, nil
 }
 
 // SearchTerms answers indexers' empty answer: music isn't searched.

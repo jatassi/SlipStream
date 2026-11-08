@@ -194,6 +194,27 @@ func (*Movie) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
 }
 
+// Expect is the movie's TMDB and IMDb ids, and covers its one Item.
+func (*Movie) Expect(ctx context.Context, r storage.Reader[file], work works.WorkID) (indexers.Expect, error) {
+	mv, err := db.New(r).GetMovie(ctx, work)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	items, err := works.ItemsOf(ctx, r, works.Only([]works.WorkID{work}))
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	return expect(mv, items[work][0].ID), nil
+}
+
+func expect(mv db.MovieMovie, item works.ItemID) indexers.Expect {
+	ids := map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}
+	if mv.ImdbID != nil {
+		ids["imdbid"] = string(*mv.ImdbID)
+	}
+	return indexers.Expect{Claim: release.Claim{IDs: ids}, Covers: indexers.CoversOnly(item)}
+}
+
 // SearchTerms searches by the movie's TMDB and IMDb ids, else by its
 // English title and year.
 func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item works.ItemID) (indexers.Terms, error) {
@@ -205,10 +226,7 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	if err != nil {
 		return indexers.Terms{}, err
 	}
-	t := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}, Query: mv.TitleEnglish, Covers: indexers.CoversOnly}
-	if mv.ImdbID != nil {
-		t.IDs["imdbid"] = string(*mv.ImdbID)
-	}
+	t := indexers.Terms{Expect: expect(mv, item), Mode: "movie", Query: mv.TitleEnglish}
 	if mv.Year != nil {
 		t.Query += " " + strconv.FormatInt(*mv.Year, 10)
 	}

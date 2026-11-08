@@ -242,7 +242,8 @@ func checkQualities(t *testing.T, lib *storage.DB[storage.Library], want map[str
 				return fmt.Errorf("read a file: %w", err)
 			}
 			s := want[path]
-			q, _ := release.File(s.title, nil, release.ResolutionOf(s.probe.Width, s.probe.Height)).Quality.Get()
+			probed := release.Probed{Resolution: release.Known(release.ResolutionOf(s.probe.Width, s.probe.Height))}
+			q, _ := release.File(s.title, release.TitleOnly{}, nil).Facts.WithProbe(probed).Quality.Get()
 			if got != q.String() {
 				t.Errorf("a %dx%d file of %q migrated as %s, release.File says %s", s.probe.Width, s.probe.Height, s.title, got, q)
 			}

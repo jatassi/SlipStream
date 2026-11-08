@@ -2,17 +2,38 @@ package series
 
 import (
 	"context"
-	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/jatassi/slipstream/internal/contenttypes/series/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+// Expect is the series' TVDB id, and covers the stored episodes a name's
+// marks name.
+func (*Series) Expect(ctx context.Context, r storage.Reader[file], work works.WorkID) (indexers.Expect, error) {
+	q := db.New(r)
+	row, err := q.GetSeries(ctx, work)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	return expect(ctx, q, row)
+}
+
+func expect(ctx context.Context, q *db.Queries, row db.SeriesSeries) (indexers.Expect, error) {
+	eps, err := q.ListEpisodes(ctx, row.WorkID)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	return indexers.Expect{
+		Claim:  release.Claim{IDs: map[string]string{"tvdbid": strconv.FormatInt(int64(row.TvdbID), 10)}},
+		Covers: episodesOf(tvdb.Order(row.EpisodeOrder), eps).covered,
+	}, nil
+}
 
 // SearchTerms search tvsearch by the series' TVDB id with the episode's
 // season and number, else by its English title, which the free-text search
@@ -31,14 +52,17 @@ func (*Series) SearchTerms(ctx context.Context, r storage.Reader[file], item wor
 	if err != nil {
 		return indexers.Terms{}, err
 	}
+	ex, err := expect(ctx, q, row)
+	if err != nil {
+		return indexers.Terms{}, err
+	}
 	at := searchedAs(tvdb.Order(row.EpisodeOrder), e)
 	return indexers.Terms{
+		Expect:  ex,
 		Mode:    "tvsearch",
-		IDs:     map[string]string{"tvdbid": strconv.FormatInt(int64(row.TvdbID), 10)},
 		Query:   row.EnglishTitle,
 		Season:  new(at.season),
 		Episode: strconv.Itoa(at.episode),
-		Covers:  at.covers,
 	}, nil
 }
 
@@ -60,25 +84,37 @@ func searchedAs(order tvdb.Order, e db.SeriesEpisode) episodeAt {
 	return episodeAt{int(e.SeasonNumber), int(e.EpisodeNumber)}
 }
 
-// marker is a title's first season and episode marker: S01E03, a
-// multi-episode S01E03E04 or S01E03-E04, or a season pack's S01.
-var marker = regexp.MustCompile(`(?i)\bS(\d{1,4})(?:E(\d{1,4})((?:-?E\d{1,4})*))?\b`)
+// episodes are a series' stored episodes as releases name them.
+type episodes struct {
+	at      map[episodeAt]works.ItemID
+	seasons map[int][]works.ItemID
+}
 
-// covers judges a release title against e: e alone, another episode or
-// none, or more than one episode, by the title's first marker.
-func (e episodeAt) covers(title string) indexers.Covering {
-	m := marker.FindStringSubmatch(title)
-	if m == nil {
-		return indexers.Covering{Kind: indexers.CoversOther}
+func episodesOf(order tvdb.Order, eps []db.SeriesEpisode) episodes {
+	e := episodes{at: map[episodeAt]works.ItemID{}, seasons: map[int][]works.ItemID{}}
+	for _, ep := range eps {
+		at := searchedAs(order, ep)
+		e.at[at] = ep.ItemID
+		e.seasons[at.season] = append(e.seasons[at.season], ep.ItemID)
 	}
-	names := strings.ToUpper(m[0])
-	if m[2] == "" || m[3] != "" {
-		return indexers.Covering{Kind: indexers.CoversMore, Names: names}
+	return e
+}
+
+// covered is the stored episodes n's marks name: a season pack's every
+// episode, or each episode first to last.
+func (e episodes) covered(n release.Name) []works.ItemID {
+	var out []works.ItemID
+	for _, mk := range n.Marks {
+		m := markedBy(mk.Key)
+		if m.first == 0 {
+			out = append(out, e.seasons[m.season]...)
+			continue
+		}
+		for ep := m.first; ep <= m.last; ep++ {
+			if id, ok := e.at[episodeAt{m.season, ep}]; ok {
+				out = append(out, id)
+			}
+		}
 	}
-	season, _ := strconv.Atoi(m[1])
-	episode, _ := strconv.Atoi(m[2])
-	if (episodeAt{season, episode}) != e {
-		return indexers.Covering{Kind: indexers.CoversOther, Names: names}
-	}
-	return indexers.Covering{Kind: indexers.CoversItem}
+	return out
 }

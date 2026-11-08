@@ -1,6 +1,9 @@
 package release
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 // CutKey names a cut: a built-in's key, a Content Type's, or a custom
 // cut's slug. Never "any".
@@ -45,3 +48,44 @@ func Slug(name string) CutKey {
 // SamePhrase reports whether a and b read as the same words in a title,
 // so no two cuts can claim one phrase.
 func SamePhrase(a, b string) bool { return words(a) == words(b) }
+
+// Titles are read as words: apostrophes are dropped, ASCII letters fold
+// to lower case, and every other ASCII mark or space splits words. A
+// phrase matches whole words only, so a bare "ts" never matches inside
+// "Pirates".
+const (
+	separators = " !\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~"
+	apostrophe = '\''
+	rightQuote = '’'
+)
+
+// words is s as space-separated words with a space at each end, so
+// " "+phrase+" " finds a phrase on word boundaries.
+func words(s string) string {
+	var b strings.Builder
+	b.WriteByte(' ')
+	split := true
+	for _, r := range s {
+		switch {
+		case r == apostrophe || r == rightQuote:
+			continue
+		case r < utf8.RuneSelf && strings.ContainsRune(separators, r):
+			if !split {
+				b.WriteByte(' ')
+				split = true
+			}
+		default:
+			if 'A' <= r && r <= 'Z' {
+				r += 'a' - 'A'
+			}
+			b.WriteRune(r)
+			split = false
+		}
+	}
+	if !split {
+		b.WriteByte(' ')
+	}
+	return b.String()
+}
+
+func phrase(w string) string { return " " + w + " " }

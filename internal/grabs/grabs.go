@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/searching"
@@ -177,8 +178,10 @@ type Config struct {
 	Files    *files.Files
 	Indexers *indexers.Indexers
 	// Sealer seals each Grab's release link.
-	Sealer    *secret.Sealer
-	Terms     map[works.TypeID]indexers.Facet
+	Sealer *secret.Sealer
+	Terms  map[works.TypeID]indexers.Facet
+	// Names read each Content Type's release titles.
+	Names     map[works.TypeID]release.Names
 	Roster    Roster
 	Downloads Downloads
 	Media     media.Remote

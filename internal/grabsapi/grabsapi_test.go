@@ -59,6 +59,10 @@ func (p pipeline) Grabs() (*grabs.Grabs, bool) { return p.g, true }
 // terms is a Content Type's search terms, empty until set.
 type terms struct{ t indexers.Terms }
 
+func (s *terms) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
+	return s.t.Expect, nil
+}
+
 func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
 	return s.t, nil
 }
@@ -214,7 +218,8 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 	g := grabs.New(grabs.Config{
 		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now}),
 		Indexers: xs,
-		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
+		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]release.Names{contenttypetest.ID: fx},
+		Roster: roster, Downloads: roster, Roots: library,
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
@@ -257,7 +262,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"not_searchable","title":"The Work's Content Type can't be searched"}`)
-	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic", Covers: indexers.CoversOnly}
+	f.terms.t = indexers.Terms{Expect: indexers.Expect{Covers: indexers.CoversOnly(f.tree.Items[0].ID)}, Mode: "search", Query: "The Attic"}
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_indexer","title":"No Indexer is set up"}`)
 
@@ -391,7 +396,7 @@ func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit ind
 		m.stopped = better.String()
 	}
 	f = searchable(t, m)
-	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic", Covers: indexers.CoversOnly}
+	f.terms.t = indexers.Terms{Expect: indexers.Expect{Covers: indexers.CoversOnly(f.tree.Items[0].ID)}, Mode: "search", Query: "The Attic"}
 	err := f.lib.Write(f.ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := nodestest.Insert(ctx, tx, f.home, "home"); err != nil {
 			return err
@@ -479,13 +484,15 @@ func TestASearchTakesTheSameReleaseFromAnotherIndexerWhenTheBetterOneIsAtItsGrab
 	}
 }
 
-// spring covers The Attic's Item with every title but one naming Spring,
-// which is another Item.
-func spring(title string) indexers.Covering {
-	if strings.Contains(title, ".Spring.") {
-		return indexers.Covering{Kind: indexers.CoversOther, Names: "Spring"}
+// spring covers item with every title but one naming Spring, which is
+// another Item.
+func spring(item works.ItemID) func(release.Name) []works.ItemID {
+	return func(n release.Name) []works.ItemID {
+		if strings.Contains(n.Titles[0], ".Spring.") {
+			return nil
+		}
+		return []works.ItemID{item}
 	}
-	return indexers.Covering{Kind: indexers.CoversItem}
 }
 
 func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
@@ -512,7 +519,7 @@ func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
 
 func TestSightingNeedsCoverage(t *testing.T) {
 	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.Spring.Extended.1080p.WEB", false, indexers.Edit{})
-	f.terms.t.Covers = spring
+	f.terms.t.Covers = spring(f.tree.Items[0].ID)
 	f.searchAttic(t)
 	f.failed(t, 1)
 	var seen map[works.ItemID][]release.CutKey
@@ -531,7 +538,7 @@ func TestSightingNeedsCoverage(t *testing.T) {
 
 func TestRerunRedecidesWithCoverage(t *testing.T) {
 	f, stopping, _ := mirrored(t, "The.Attic.1080p.WEB-STOP", "The.Attic.Spring.1080p.WEB", true, indexers.Edit{})
-	f.terms.t.Covers = spring
+	f.terms.t.Covers = spring(f.tree.Items[0].ID)
 	f.searchAttic(t)
 	if g, ok := f.failed(t, 1)[stopping.String()]; !ok || g.Failure.Code != "indexer_stopped" {
 		t.Fatalf("the failed Grab is %+v, want Better Site's dropped indexer_stopped", g)
