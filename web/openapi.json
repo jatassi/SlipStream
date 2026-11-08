@@ -3562,6 +3562,32 @@
         ],
         "type": "object"
       },
+      "GrabsClientWait": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsGrabClient"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The external client; null for the Node's built-in client"
+          },
+          "nodeId": {
+            "description": "The client's Node, which is offline",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "client"
+        ],
+        "type": "object"
+      },
       "GrabsEntered": {
         "additionalProperties": false,
         "properties": {
@@ -3806,6 +3832,10 @@
               "string",
               "null"
             ]
+          },
+          "waitsFor": {
+            "$ref": "#/components/schemas/GrabsClientWait",
+            "description": "The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"
           },
           "workId": {
             "format": "uuid",

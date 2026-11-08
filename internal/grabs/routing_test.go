@@ -54,7 +54,8 @@ func (p *pipeline) addNode(name string) role.NodeID {
 // of step while Controller covers it. A public Tracker's Grab downloads on
 // Controller. A private Tracker's Grab waits at fetching for home and never
 // moves on its own, and the Admin's send to Controller's built-in client
-// fetches and downloads it there.
+// fetches and downloads it there. Until then its view names home's
+// built-in client as the one it waits for.
 func TestAPrivateGrabWaitsForItsOfflineHomeUntilSentWhileAPublicOneGoesToTheCover(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		public, private := releaseNamed(t, "Public.Release"), releaseNamed(t, "Private.Release")
@@ -69,8 +70,11 @@ func TestAPrivateGrabWaitsForItsOfflineHomeUntilSentWhileAPublicOneGoesToTheCove
 		if v := p.view(pub); v.Stage != grabs.Downloading || v.Node != controller {
 			t.Fatalf("with home away the public Grab is %s on %v (%+v), want downloading on Controller", v.Stage, v.Node, v.Failed)
 		}
-		if v := p.view(priv); v.Stage != grabs.Fetching || v.Torrent != nil {
-			t.Fatalf("with home away the private Grab is %s with %+v, want fetching and waiting for home", v.Stage, v.Torrent)
+		if v := p.view(priv); v.Stage != grabs.Fetching || v.Torrent != nil || v.WaitsFor == nil || v.WaitsFor.Node != p.node || v.WaitsFor.Client != nil {
+			t.Fatalf("with home away the private Grab is %s with %+v waiting for %+v, want fetching and waiting for home's built-in client", v.Stage, v.Torrent, v.WaitsFor)
+		}
+		if v := p.view(pub); v.WaitsFor != nil {
+			t.Fatalf("the public Grab waits for %+v, want no client", v.WaitsFor)
 		}
 		if calls := p.swarm.asked(); len(calls) != 1 || calls[0].link.InfoHash != public.link.InfoHash || calls[0].node != controller {
 			t.Fatalf("the Nodes were asked for %+v, want only Controller for the public release", calls)
@@ -80,8 +84,8 @@ func TestAPrivateGrabWaitsForItsOfflineHomeUntilSentWhileAPublicOneGoesToTheCove
 			t.Fatal(err)
 		}
 		time.Sleep(2 * hold)
-		if v := p.view(priv); v.Stage != grabs.Downloading || v.Node != controller || v.Torrent == nil || v.Torrent.InfoHash != private.link.InfoHash {
-			t.Fatalf("once sent the private Grab is %s on %v with %+v, want downloading its release on Controller", v.Stage, v.Node, v.Torrent)
+		if v := p.view(priv); v.Stage != grabs.Downloading || v.Node != controller || v.Torrent == nil || v.Torrent.InfoHash != private.link.InfoHash || v.WaitsFor != nil {
+			t.Fatalf("once sent the private Grab is %s on %v with %+v waiting for %+v, want downloading its release on Controller", v.Stage, v.Node, v.Torrent, v.WaitsFor)
 		}
 		if calls := p.swarm.asked(); len(calls) != 2 || calls[1].node != controller {
 			t.Fatalf("the Nodes were asked for %+v, want Controller for the private release second", calls)
