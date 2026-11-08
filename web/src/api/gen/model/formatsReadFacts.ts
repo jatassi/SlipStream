@@ -1,6 +1,5 @@
 import type { FormatsReadFactsIds } from "./formatsReadFactsIds.ts";
 import type { FormatsReadFactsSpan } from "./formatsReadFactsSpan.ts";
-import type { FormatsRevision } from "./formatsRevision.ts";
 
 export interface FormatsReadFacts {
   /** Audio codecs, best first */
@@ -19,26 +18,33 @@ export interface FormatsReadFacts {
    * @nullable
    */
   group: string | null;
-  /** Best first */
+  /** In words, such as Dolby Vision, best first */
   hdr: string[];
   /** The id tags the name carries, by Torznab's names: tmdbid, imdbid, tvdbid */
   ids: FormatsReadFactsIds;
-  /** ISO 639 codes */
+  /** In words, such as French */
   languages: string[];
   /** What the name numbers, such as S01E02, in words */
   marks: string[];
-  /** @nullable */
+  /**
+   * The quality modifier in words, such as Remux
+   * @nullable
+   */
   modifier: string | null;
   /**
-   * The Quality key, such as webdl-1080p; null when the name gives none
+   * The Quality's name, such as WEBDL-1080p; null when the name gives none
    * @nullable
    */
   quality: string | null;
   /** @nullable */
   resolution: string | null;
-  revision: FormatsRevision;
   /**
-   * The fine source, such as webdl
+   * The revision in words, such as v2 REPACK; null for the original release
+   * @nullable
+   */
+  revision: string | null;
+  /**
+   * The fine source in words, such as WEB-DL
    * @nullable
    */
   source: string | null;

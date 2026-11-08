@@ -99,8 +99,8 @@ test("the tester reads each pasted name, matches it to a Work by its title and s
   await expect(first.getByRole("definition")).toHaveText([
     "The Quiet Orchard",
     "2021",
-    "webdl-1080p",
-    "webdl",
+    "WEBDL-1080p",
+    "WEB-DL",
     "1080p",
     "FKW",
     "x264",

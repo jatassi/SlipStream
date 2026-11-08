@@ -39,7 +39,7 @@ const wrongTitle: GrabsWordedReason = {
   code: "wrong_title",
   soft: true,
   value: "Heat (1986)",
-  words: "Title doesn't match: Heat (1986).",
+  words: "Its name gives Heat (1986), which isn't this Work.",
 };
 const note: GrabsWordedReason = {
   code: "size_not_checked",

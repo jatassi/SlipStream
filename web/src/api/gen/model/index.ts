@@ -812,7 +812,6 @@ export * from "./formatsPastedFormatOutcome.ts";
 export * from "./formatsReadFacts.ts";
 export * from "./formatsReadFactsIds.ts";
 export * from "./formatsReadFactsSpan.ts";
-export * from "./formatsRevision.ts";
 export * from "./formatsSchema.ts";
 export * from "./formatsTargetRef.ts";
 export * from "./formatsTriedTarget.ts";

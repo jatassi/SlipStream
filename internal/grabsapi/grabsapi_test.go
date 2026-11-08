@@ -614,7 +614,7 @@ func TestARefusalSaysWhetherAManualSearchCanGrabPastIt(t *testing.T) {
 			refused = append(refused, r.Title+" "+string(r.Reasons))
 		}
 	}
-	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true,"words":"Title doesn't match: Another.Film.1080p.WEB."},` +
+	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true,"words":"Its name gives Another.Film.1080p.WEB, which isn't this Work."},` +
 		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false,` +
 		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}]`
 	if !slices.Equal(refused, []string{want}) {

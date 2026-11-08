@@ -293,11 +293,10 @@ export const getParseReleasesResponseMock = (
           faker.string.alpha({ length: { min: 10, max: 20 } }),
           null,
         ]),
-        revision: {
-          real: faker.number.int({ min: 0 }),
-          repack: faker.datatype.boolean(),
-          version: faker.number.int({ min: 1 }),
-        },
+        revision: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         source: faker.helpers.arrayElement([
           faker.string.alpha({ length: { min: 10, max: 20 } }),
           null,
@@ -380,6 +379,10 @@ export const getParseReleasesResponseMock = (
         }),
       ),
       words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      work: faker.helpers.arrayElement([
+        { id: faker.string.uuid(), label: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+        null,
+      ]),
       works: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           id: faker.string.uuid(),

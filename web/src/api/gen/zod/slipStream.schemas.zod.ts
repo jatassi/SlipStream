@@ -2207,37 +2207,29 @@ export const FormatsParse = zod.object({
 export type FormatsParse = zod.input<typeof FormatsParse>;
 export type FormatsParseOutput = zod.output<typeof FormatsParse>;
 
-export const formatsRevisionRealMin = 0;
-
-export const FormatsRevision = zod.object({
-  real: zod.int().min(formatsRevisionRealMin),
-  repack: zod.boolean(),
-  version: zod.int().min(1),
-});
-
-export type FormatsRevision = zod.input<typeof FormatsRevision>;
-export type FormatsRevisionOutput = zod.output<typeof FormatsRevision>;
-
 export const FormatsReadFacts = zod.object({
   audio: zod.array(zod.string()).describe("Audio codecs, best first"),
   channels: zod.array(zod.string()).describe("Channel layouts, best first"),
   cut: zod.string().describe("The cut's key, standard when the name names none"),
   edition: zod.string().nullable().describe("The edition text as the name gives it"),
   group: zod.string().nullable().describe("The release group"),
-  hdr: zod.array(zod.string()).describe("Best first"),
+  hdr: zod.array(zod.string()).describe("In words, such as Dolby Vision, best first"),
   ids: zod
     .record(zod.string(), zod.string())
     .describe("The id tags the name carries, by Torznab's names: tmdbid, imdbid, tvdbid"),
-  languages: zod.array(zod.string()).describe("ISO 639 codes"),
+  languages: zod.array(zod.string()).describe("In words, such as French"),
   marks: zod.array(zod.string()).describe("What the name numbers, such as S01E02, in words"),
-  modifier: zod.string().nullable(),
+  modifier: zod.string().nullable().describe("The quality modifier in words, such as Remux"),
   quality: zod
     .string()
     .nullable()
-    .describe("The Quality key, such as webdl-1080p; null when the name gives none"),
+    .describe("The Quality's name, such as WEBDL-1080p; null when the name gives none"),
   resolution: zod.string().nullable(),
-  revision: FormatsRevision,
-  source: zod.string().nullable().describe("The fine source, such as webdl"),
+  revision: zod
+    .string()
+    .nullable()
+    .describe("The revision in words, such as v2 REPACK; null for the original release"),
+  source: zod.string().nullable().describe("The fine source in words, such as WEB-DL"),
   span: zod
     .enum(["", "one", "several", "level", "levels"])
     .describe(
@@ -2341,7 +2333,12 @@ export const FormatsParsed = zod.object({
   words: zod
     .string()
     .describe(
-      "The facts in words, joined with a middle dot: Quality, HDR, audio and channels, release group and size",
+      "The facts in words, joined with a middle dot: Quality, the revision when it isn't the original, HDR, audio and channels, release group and size",
+    ),
+  work: zod
+    .union([FormatsWorkRef, zod.null()])
+    .describe(
+      "The one Work the name is judged against: the given Work, or the only Work it matches; null when it matches several or none",
     ),
   works: zod
     .array(FormatsWorkRef)

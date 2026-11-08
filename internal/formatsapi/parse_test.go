@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -54,7 +55,21 @@ func (claims) Categories() []newznab.ID { return nil }
 type parsedName struct {
 	Sentence string `json:"sentence"`
 	Words    string `json:"words"`
-	Works    []struct {
+	Facts    struct {
+		Quality    string   `json:"quality"`
+		Source     string   `json:"source"`
+		Resolution string   `json:"resolution"`
+		Modifier   string   `json:"modifier"`
+		Revision   string   `json:"revision"`
+		HDR        []string `json:"hdr"`
+		Audio      []string `json:"audio"`
+		Channels   []string `json:"channels"`
+		Languages  []string `json:"languages"`
+	} `json:"facts"`
+	Work *struct {
+		Label string `json:"label"`
+	} `json:"work"`
+	Works []struct {
 		Label string `json:"label"`
 	} `json:"works"`
 	Covers  []string `json:"covers"`
@@ -111,8 +126,11 @@ func TestTheTesterJudgesEachNameAgainstTheGivenWorksHeldFile(t *testing.T) {
 	for i, want := range []struct{ sentence, works, codes string }{
 		{"Reads as Bluray-1080p from GRP. It matches The Attic and would fill 1080p.", "The Attic", "size_not_checked="},
 		{"Reads as WEBDL-1080p from GRP. It matches The Attic and would fill no Target. It isn't an upgrade of the file at 1080p.", "The Attic", "size_not_checked= not_an_upgrade="},
-		{"Reads as Bluray-1080p from GRP. It matches no Work and would fill no Target. Title doesn't match: The Cellar (2019).", "", "wrong_title=The Cellar (2019) size_not_checked="},
+		{"Reads as Bluray-1080p from GRP. Its name gives The Cellar (2019), which isn't this Work. It would fill no Target.", "", "wrong_title=The Cellar (2019) size_not_checked="},
 	} {
+		if got[i].Work == nil || got[i].Work.Label != "The Attic" {
+			t.Errorf("name %d is judged against %+v, want The Attic", i, got[i].Work)
+		}
 		if got[i].Sentence != want.sentence || got[i].labels() != want.works || got[i].codes() != want.codes || len(got[i].Covers) != 1 {
 			t.Errorf("name %d = %q, works %q, reasons %q, covers %v\nwant %q, works %q, reasons %q", i, got[i].Sentence, got[i].labels(), got[i].codes(), got[i].Covers, want.sentence, want.works, want.codes)
 		}
@@ -193,5 +211,15 @@ func TestAFileNameReadsWithItsFolderWhenItGivesNoTitle(t *testing.T) {
 	asRelease := s.parse(t, `{"names":["`+path+`"]}`)[0]
 	if asRelease.labels() != "" {
 		t.Errorf("kind release matches %q", asRelease.labels())
+	}
+}
+
+func TestTheTesterGivesEachFactInWords(t *testing.T) {
+	s := serve(t)
+	f := s.parse(t, `{"names":["The.Attic.2020.REPACK.1080p.BluRay.REMUX.DDP5.1.Atmos.DV.HDR10.FRENCH-GRP"]}`)[0].Facts
+	got := []string{f.Quality, f.Source, f.Resolution, f.Modifier, f.Revision, strings.Join(f.HDR, ", "), strings.Join(f.Audio, ", "), strings.Join(f.Channels, ", "), strings.Join(f.Languages, ", ")}
+	want := []string{"Remux-1080p", "Bluray", "1080p", "Remux", "v2 REPACK", "Dolby Vision, HDR10", "DD+", "5.1", "French"}
+	if !slices.Equal(got, want) {
+		t.Errorf("facts read %q, want %q", got, want)
 	}
 }

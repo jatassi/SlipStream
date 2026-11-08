@@ -4008,8 +4008,19 @@
             "type": "array"
           },
           "words": {
-            "description": "The facts in words, joined with a middle dot: Quality, HDR, audio and channels, release group and size",
+            "description": "The facts in words, joined with a middle dot: Quality, the revision when it isn't the original, HDR, audio and channels, release group and size",
             "type": "string"
+          },
+          "work": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormatsWorkRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The one Work the name is judged against: the given Work, or the only Work it matches; null when it matches several or none"
           },
           "works": {
             "description": "The given Work when the name matches it, else every Work whose title and year it gives",
@@ -4024,6 +4035,7 @@
           "sentence",
           "words",
           "facts",
+          "work",
           "works",
           "covers",
           "formats",
@@ -4161,7 +4173,7 @@
             ]
           },
           "hdr": {
-            "description": "Best first",
+            "description": "In words, such as Dolby Vision, best first",
             "items": {
               "type": "string"
             },
@@ -4175,7 +4187,7 @@
             "type": "object"
           },
           "languages": {
-            "description": "ISO 639 codes",
+            "description": "In words, such as French",
             "items": {
               "type": "string"
             },
@@ -4189,13 +4201,14 @@
             "type": "array"
           },
           "modifier": {
+            "description": "The quality modifier in words, such as Remux",
             "type": [
               "string",
               "null"
             ]
           },
           "quality": {
-            "description": "The Quality key, such as webdl-1080p; null when the name gives none",
+            "description": "The Quality's name, such as WEBDL-1080p; null when the name gives none",
             "type": [
               "string",
               "null"
@@ -4208,10 +4221,14 @@
             ]
           },
           "revision": {
-            "$ref": "#/components/schemas/FormatsRevision"
+            "description": "The revision in words, such as v2 REPACK; null for the original release",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "source": {
-            "description": "The fine source, such as webdl",
+            "description": "The fine source in words, such as WEB-DL",
             "type": [
               "string",
               "null"
@@ -4269,30 +4286,6 @@
           "year",
           "marks",
           "span"
-        ],
-        "type": "object"
-      },
-      "FormatsRevision": {
-        "additionalProperties": false,
-        "properties": {
-          "real": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "repack": {
-            "type": "boolean"
-          },
-          "version": {
-            "format": "int64",
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version",
-          "real",
-          "repack"
         ],
         "type": "object"
       },

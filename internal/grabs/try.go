@@ -37,8 +37,11 @@ type Tried struct {
 	// Sentence is what the name reads as, the Works it matches and the
 	// Targets it would fill, or why it would fill none.
 	Sentence string
-	// Works are the Works it matches: the given Work, or each Work whose
-	// title it gives.
+	// Work is the one Work it is judged against: the given Work, or the
+	// only Work it matches. Nil when it matches several Works or none.
+	Work *works.Summary
+	// Works are the Works it matches: the given Work when the name names
+	// it, or each Work whose title it gives.
 	Works []works.Summary
 	// Covers are the Items it names of the one Work it is judged against.
 	Covers  []works.ItemID
@@ -215,7 +218,7 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 		}
 	}
 	judged := judge(c, a)
-	t := Tried{Name: name, Read: a.read, Covers: a.covers, Formats: tr.catalog.Explain(a.read)}
+	t := Tried{Name: name, Read: a.read, Work: &w, Covers: a.covers, Formats: tr.catalog.Explain(a.read)}
 	if a.namesTheWork() {
 		t.Works = []works.Summary{w}
 	}
@@ -238,7 +241,7 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 		tt.Reasons = worded(reasons, &target, a.read.Facts)
 		t.Targets = append(t.Targets, tt)
 	}
-	t.Sentence = sentence(t)
+	t.Sentence = sentence(t, worded(a.refusals, nil, a.read.Facts))
 	return t, nil
 }
 
@@ -269,9 +272,13 @@ func scoredOf(rd release.Read, es []formats.Explained) targets.Scored {
 // sentence is t, judged against one Work, in words: "Reads as
 // WEBDL-1080p from FLUX. It matches Heat (1995) and would fill 1080p." A
 // name that would fill no Target ends with the first reason a Target
-// gives, in Profile order.
-func sentence(t Tried) string {
-	read := readWords(t)
+// gives, in Profile order. A name that doesn't name the Work says why
+// with the first of own, its own refusals.
+func sentence(t Tried, own []Worded) string {
+	if len(t.Works) == 0 {
+		return readWords(t) + ". " + own[0].Words + " It would fill no Target."
+	}
+	read := readWords(t) + ". " + matchWords(t)
 	fills := targetNames(t)
 	if len(fills) > 0 {
 		return read + " and would fill " + joinWords(fills) + "."
@@ -284,7 +291,7 @@ func sentence(t Tried) string {
 // FLUX. It matches no Work. 1080p and HD accept it." With no Work there
 // is no cell to fill, so it says which Targets accept the name.
 func acceptance(t Tried) string {
-	read := readWords(t) + "."
+	read := readWords(t) + ". " + matchWords(t) + "."
 	if len(t.Targets) == 0 {
 		return read + " No Target is set up. Add a Target in Settings."
 	}
@@ -298,8 +305,7 @@ func acceptance(t Tried) string {
 	}
 }
 
-// readWords is what t reads as and the Works it matches: "Reads as
-// WEBDL-1080p from FLUX. It matches Heat (1995)".
+// readWords is what t reads as: "Reads as WEBDL-1080p from FLUX".
 func readWords(t Tried) string {
 	f := t.Read.Facts
 	read := "Reads no Quality"
@@ -309,14 +315,19 @@ func readWords(t Tried) string {
 	if g, ok := f.Group.Get(); ok {
 		read += " from " + g
 	}
+	return read
+}
+
+// matchWords is the Works t matches: "It matches Heat (1995)".
+func matchWords(t Tried) string {
 	if len(t.Works) == 0 {
-		return read + ". It matches no Work"
+		return "It matches no Work"
 	}
 	labels := make([]string, len(t.Works))
 	for i, w := range t.Works {
 		labels[i] = w.Label
 	}
-	return read + ". It matches " + joinWords(labels)
+	return "It matches " + joinWords(labels)
 }
 
 // targetNames is the names of the Targets t would fill.
@@ -382,9 +393,9 @@ func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
 		return "It holds more than one Item."
 	case targets.WrongTitle:
 		if r.Value == "" {
-			return "Title doesn't match."
+			return "Its name gives no title."
 		}
-		return "Title doesn't match: " + r.Value + "."
+		return "Its name gives " + r.Value + ", which isn't this Work."
 	case targets.CutNotWanted:
 		return "The Work doesn't want the " + r.Value + " cut at " + at + "."
 	case targets.QualityNotInTarget:

@@ -183,6 +183,13 @@ func TestAReleaseWhoseNameGivesAnotherYearIsRefusedAsWrongTitle(t *testing.T) {
 		release+" grabbed score 0 score 0",
 	)
 	w.holds(t, release)
+	var parsed struct {
+		Results []tried `json:"results"`
+	}
+	decode(t, "parseReleases", w.a.Admin("home", http.MethodPost, "/api/v1/releases/parse", `{"names":["`+otherYear+`"],"workId":"`+w.work+`"}`), &parsed)
+	if got, want := parsed.Results[0].Sentence, "Reads as Bluray-1080p from FKW. Its name gives The Quiet Orchard (1987), which isn't this Work. It would fill no Target."; got != want {
+		t.Fatalf("the tester against the Work reads %q, want %q", got, want)
+	}
 }
 
 func TestARepackFromTheHeldFilesGroupReplacesItAndOneFromAnotherGroupDoesnt(t *testing.T) {
@@ -290,7 +297,7 @@ func TestTheTesterReadsNamesAndJudgesThemAtEachTargetThroughTheAPI(t *testing.T)
 	want := [][]string{{
 		"Reads as WEBDL-1080p from FLUX. It matches The Quiet Orchard and would fill 1080p and HD.",
 		"WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX",
-		"webdl-1080p FLUX [DV HDR10] x265 [DD+] [5.1] 2021",
+		"WEBDL-1080p FLUX [Dolby Vision HDR10] x265 [DD+] [5.1] 2021",
 		"work The Quiet Orchard",
 		"format FLUX true FLUX true",
 		"format Not FKW true FKW true",
@@ -299,7 +306,7 @@ func TestTheTesterReadsNamesAndJudgesThemAtEachTargetThroughTheAPI(t *testing.T)
 	}, {
 		"Reads as Bluray-1080p from FKW. It matches no Work. 1080p and HD accept it.",
 		"Bluray-1080p · FKW",
-		"bluray-1080p FKW [] x264 [] [] 1987",
+		"Bluray-1080p FKW [] x264 [] [] 1987",
 		"format FLUX false FLUX false",
 		"format Not FKW false FKW false",
 		"target 1080p 0 true",
