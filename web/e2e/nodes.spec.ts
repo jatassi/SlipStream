@@ -54,7 +54,7 @@ test("an offline seedbox lights the Nodes dot, its Indexer's search says what it
 
   await workSearch(page).click();
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
-    /^Found nothing acceptable0 Releases foundFixture SiteWaiting for seedbox/u,
+    /^Found nothing acceptable0 Releases found · .+Fixture SiteWaiting for seedbox/u,
   );
 
   await expectNodesRow(page, " failed", 150_000);
