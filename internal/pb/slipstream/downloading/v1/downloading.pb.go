@@ -2858,8 +2858,8 @@ type TotalsRow struct {
 	Done int64 `protobuf:"varint,6,opt,name=done,proto3" json:"done,omitempty"`
 	// announced_seconds is the seed time the torrent's trackers credited it
 	// by UNIT3D's rule, counted on the Node from its accepted announces. The
-	// Node keeps it in memory, so it starts again from 0 when the Node
-	// restarts.
+	// Node stores it in the Write that queues the row, so a restart counts
+	// on from it.
 	AnnouncedSeconds int64 `protobuf:"varint,7,opt,name=announced_seconds,json=announcedSeconds,proto3" json:"announced_seconds,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
