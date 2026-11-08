@@ -54,8 +54,8 @@ func TestAStoppedIndexerRaisesOneItemTheHealthCheckSkipsAndATestClears(t *testin
 
 	w.refuse(t, 101)
 	worldtest.Expect(t, "testIndexer while the site refuses the account", w.a.Admin("home", http.MethodPost, "/api/v1/indexers/"+fixture+"/test", ""),
-		problemBecause(http.StatusUnprocessableEntity, "indexer_test_failed", "The Indexer's Test failed",
-			"Fixture Site refused the API key with 'Account suspended'. Check the account, then test again."))
+		worldtest.Reply{Status: http.StatusUnprocessableEntity, Body: `{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed",` +
+			`"detail":"Fixture Site refused the API key with 'Account suspended'. Check the account, then test again.","cause":"account_refused"}` + "\n"})
 	stopped := "stopped." + fixture
 	worldtest.Until(t, "the stop and the movies raise their items", func() (bool, error) {
 		return len(healthItems(t, w.a, "indexers")) == 2, nil
