@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -104,7 +105,7 @@ func decodeReply(t *testing.T, w *world, path string, v any) {
 
 func maskedReply(reply string) string { return strings.TrimSuffix(ownertest.Masked(reply), "\n") }
 
-func seeding() *dlv1.TorrentReport {
+func unregisteredSeeding() *dlv1.TorrentReport {
 	return &dlv1.TorrentReport{
 		AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_SEEDING, Complete: true,
 		Completion: &dlv1.Completion{Files: []*dlv1.File{{Index: 0, Path: "Harbor/Harbor.mkv", Size: 1000}}},
@@ -122,7 +123,7 @@ func queuedReport() *dlv1.TorrentReport {
 func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) {
 	w := serveWorld(t)
 	orchard := w.hold(t, "Orchard", queuedReport())
-	harbor := w.hold(t, "Harbor", seeding())
+	harbor := w.hold(t, "Harbor", unregisteredSeeding())
 	work := works.WorkID{UUID: storage.NewUUID()}
 	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Edition: "any", Release: orchardRelease, Stage: downloadclients.UseDownloading}}
 
@@ -130,17 +131,18 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 		return `"counts":{"byState":[{"state":"removing","torrents":0},{"state":"failed","torrents":0},{"state":"tracker-error","torrents":1},` +
 			`{"state":"paused","torrents":0},{"state":"checking","torrents":0},{"state":"queued","torrents":1},{"state":"stalled","torrents":0},` +
 			`{"state":"downloading","torrents":0},{"state":"seeding","torrents":0}],` +
-			`"byTab":[{"tab":"downloading","torrents":1},{"tab":"seeding","torrents":0},{"tab":"problems","torrents":1},{"tab":"all","torrents":2}],` +
+			`"byTab":[{"tab":"downloading","torrents":1},{"tab":"seeding","torrents":0},{"tab":"problems","torrents":1},{"tab":"goal-met","torrents":0},{"tab":"all","torrents":2}],` +
 			`"byNode":[{"nodeId":"` + node + `","torrents":2}]}}`
 	}
 	orchardRow := `{"id":"id1","nodeId":"id2","name":"Orchard","contentType":"fixture","workId":"id3","edition":"any","quality":"webdl-1080p",` +
 		`"state":"queued","hold":"slot","queuePosition":1,"severity":"none","tabs":["downloading","all"],"size":1000,"done":250,"uploaded":0,` +
-		`"ratio":0,"seedingSeconds":0,"tracker":{"host":"beacon.test","status":"not_contacted"},"addedAt":"T"}`
+		`"ratio":0,"seedingSeconds":0,"announce":{"host":"beacon.test","status":"not_contacted"},` +
+		unjudged + `,"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?tab=downloading", "", http.StatusOK, `{"rows":[`+orchardRow+`],`+counts("id2"))
 
 	harborRow := `{"id":"id1","nodeId":"id2","name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
-		`"tracker":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
+		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
 		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?ids="+harbor.String(), "", http.StatusOK, `{"rows":[`+harborRow+`],`+counts("id2"))
 
@@ -157,9 +159,14 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?nodeId="+storage.NewUUID().String(), "", http.StatusOK, `{"rows":[],`+counts("id1"))
 }
 
+// unjudged is the seeding of a private torrent with no Tracker that has
+// downloaded nothing, on the initial default goal.
+const unjudged = `"tracker":null,"seeding":{"ratio":{"value":0,"goal":2},"time":{"value":0,"goal":1209600},` +
+	`"state":"none","atRisk":"no","goalMet":false,"combine":"first","clears":"none"}`
+
 func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	w := serveWorld(t)
-	harbor := w.hold(t, "Harbor", seeding())
+	harbor := w.hold(t, "Harbor", unregisteredSeeding())
 	answered := reportedAt.Add(-time.Minute)
 	w.node.inspected = map[downloadclients.ID]*dlv1.InspectResponse{harbor: {
 		Files:            []*dlv1.FileProgress{{Index: 0, Done: 1000}},
@@ -172,9 +179,9 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	_, reply := w.o.Call(t, http.MethodGet, "/api/v1/torrents/"+harbor.String(), "")
 	want := `{"id":"id1","nodeId":"id2","name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
-		`"tracker":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
+		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
 		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"addedAt":"T",` +
-		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,"trackerId":null,` +
+		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +
 		`"files":[{"index":0,"path":"Harbor/Harbor.mkv","size":1000,"done":1000,"itemId":"id4"}],` +
@@ -189,7 +196,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 func TestActionsAnswerForEachTorrent(t *testing.T) {
 	w := serveWorld(t)
 	orchard := w.hold(t, "Orchard", queuedReport())
-	harbor := w.hold(t, "Harbor", seeding())
+	harbor := w.hold(t, "Harbor", unregisteredSeeding())
 	unknown := storage.NewUUID().String()
 	work := works.WorkID{UUID: storage.NewUUID()}
 	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Release: orchardRelease, Stage: downloadclients.UseDownloading}}
@@ -222,7 +229,7 @@ func TestActionsAnswerForEachTorrent(t *testing.T) {
 
 func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.T) {
 	w := serveWorld(t)
-	w.hold(t, "Harbor", seeding())
+	w.hold(t, "Harbor", unregisteredSeeding())
 	w.facts[w.self] = &dlv1.Facts{
 		Libtorrent: "2.0.11.0", PeerIdPrefix: "-LT20B0-", UserAgent: "libtorrent/2.0.11.0", Listen: "0.0.0.0:6881", Bound: "192.0.2.4:6881",
 		IncomingAtUnixMs: reportedAt.UnixMilli(),
@@ -254,5 +261,54 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 	_, reply = w.o.Call(t, http.MethodGet, "/api/v1/download-clients", "")
 	if !strings.Contains(reply, `"inStep":false,"limits"`) {
 		t.Errorf("listDownloadClients with the Node out of step = %s, want its card with no client", reply)
+	}
+}
+
+func TestARowShowsItsTrackerAndItsSeedingAndListsByTrackerAndGoalMet(t *testing.T) {
+	w := serveWorld(t)
+	tracker := func(name, privacy string) storage.UUID {
+		id := storage.NewUUID()
+		w.exec(t, `INSERT INTO indexers_tracker (id, name, privacy, created_at) VALUES (?, ?, ?, 0)`, id, name, privacy)
+		return id
+	}
+	seedpool, nyaa := tracker("seedpool", "private"), tracker("Nyaa", "public")
+	complete := &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_SEEDING, Complete: true}
+	orchard, harbor := w.hold(t, "Orchard", complete), w.hold(t, "Harbor", complete)
+	w.exec(t, `UPDATE downloadclients_torrent SET tracker_id = ?, uploaded = 250, downloaded = 1000 WHERE id = ?`, seedpool, orchard)
+	w.exec(t, `UPDATE downloadclients_torrent SET tracker_id = ?, uploaded = 3000, downloaded = 1000 WHERE id = ?`, nyaa, harbor)
+	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Release: orchardRelease, Stage: downloadclients.UseImported, Floor: seeding.RatioRule{Ratio: 100}}}
+
+	type row struct {
+		ID      string          `json:"id"`
+		Tracker json.RawMessage `json:"tracker"`
+		Seeding json.RawMessage `json:"seeding"`
+	}
+	var got struct {
+		Rows []row `json:"rows"`
+	}
+	decodeReply(t, w, "/api/v1/torrents?tracker="+seedpool.String(), &got)
+	want := row{
+		ID: orchard.String(), Tracker: json.RawMessage(`{"id":"` + seedpool.String() + `","name":"seedpool"}`),
+		Seeding: json.RawMessage(`{"ratio":{"value":0.25,"rule":1,"goal":2},"time":{"value":0,"goal":1209600},"state":"owing",` +
+			`"owes":{"seconds":0,"bytes":750},"atRisk":"no","goalMet":false,"combine":"first","clears":"ratio"}`),
+	}
+	if len(got.Rows) != 1 || string(got.Rows[0].Tracker) != string(want.Tracker) || string(got.Rows[0].Seeding) != string(want.Seeding) {
+		t.Errorf("seedpool's torrents = %+v, want only Orchard owing seedpool 750 bytes of upload: %s %s", got.Rows, want.Tracker, want.Seeding)
+	}
+
+	decodeReply(t, w, "/api/v1/torrents?tab=goal-met", &got)
+	if len(got.Rows) != 1 || got.Rows[0].ID != harbor.String() {
+		t.Errorf("the Goal met tab = %+v, want public Harbor past ratio 2", got.Rows)
+	}
+}
+
+func (w *world) exec(t *testing.T, sql string, args ...any) {
+	t.Helper()
+	err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, sql, args...)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

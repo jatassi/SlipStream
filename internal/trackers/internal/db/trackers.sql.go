@@ -7,7 +7,9 @@ package db
 
 import (
 	"context"
+	"strings"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -64,6 +66,48 @@ func (q *Queries) GetSettings(ctx context.Context) (TrackersSetting, error) {
 		&i.GoalAction,
 	)
 	return i, err
+}
+
+const listGoalRunsOf = `-- name: ListGoalRunsOf :many
+SELECT torrent_id, acted_at, "action", kept FROM trackers_goal_run WHERE torrent_id IN (/*SLICE:torrent_ids*/?) ORDER BY torrent_id
+`
+
+func (q *Queries) ListGoalRunsOf(ctx context.Context, torrentIds []downloadclients.ID) ([]TrackersGoalRun, error) {
+	query := listGoalRunsOf
+	var queryParams []interface{}
+	if len(torrentIds) > 0 {
+		for _, v := range torrentIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", strings.Repeat(",?", len(torrentIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TrackersGoalRun
+	for rows.Next() {
+		var i TrackersGoalRun
+		if err := rows.Scan(
+			&i.TorrentID,
+			&i.ActedAt,
+			&i.Action,
+			&i.Kept,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listGoals = `-- name: ListGoals :many
@@ -155,6 +199,58 @@ func (q *Queries) ListRulesOf(ctx context.Context, trackerID indexers.TrackerID)
 			&i.SeedSeconds,
 			&i.StatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWindowsOf = `-- name: ListWindowsOf :many
+SELECT info_hash, tracker_id, state, rule_clears, rule_ratio_centi, rule_seed_seconds, opened_at, met_at, closed_at, regrabbed_at, owed_clears, owed_seconds, owed_bytes, quiet_since FROM trackers_window WHERE info_hash IN (/*SLICE:info_hashes*/?) ORDER BY info_hash
+`
+
+func (q *Queries) ListWindowsOf(ctx context.Context, infoHashes [][]byte) ([]TrackersWindow, error) {
+	query := listWindowsOf
+	var queryParams []interface{}
+	if len(infoHashes) > 0 {
+		for _, v := range infoHashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", strings.Repeat(",?", len(infoHashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TrackersWindow
+	for rows.Next() {
+		var i TrackersWindow
+		if err := rows.Scan(
+			&i.InfoHash,
+			&i.TrackerID,
+			&i.State,
+			&i.RuleClears,
+			&i.RuleRatioCenti,
+			&i.RuleSeedSeconds,
+			&i.OpenedAt,
+			&i.MetAt,
+			&i.ClosedAt,
+			&i.RegrabbedAt,
+			&i.OwedClears,
+			&i.OwedSeconds,
+			&i.OwedBytes,
+			&i.QuietSince,
 		); err != nil {
 			return nil, err
 		}

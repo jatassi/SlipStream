@@ -12,6 +12,41 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const countGrabsSince = `-- name: CountGrabsSince :many
+SELECT tracker_id, count(*) AS grabs FROM grabs_grab
+WHERE tracker_id IS NOT NULL AND created_at >= ?1
+GROUP BY tracker_id
+ORDER BY tracker_id
+`
+
+type CountGrabsSinceRow struct {
+	TrackerID indexers.TrackerID
+	Grabs     int64
+}
+
+func (q *Queries) CountGrabsSince(ctx context.Context, since storage.Time) ([]CountGrabsSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, countGrabsSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountGrabsSinceRow
+	for rows.Next() {
+		var i CountGrabsSinceRow
+		if err := rows.Scan(&i.TrackerID, &i.Grabs); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStatedFloors = `-- name: ListStatedFloors :many
 SELECT g.tracker_id, g.min_ratio, g.min_seed_seconds, g.created_at FROM grabs_grab g
 WHERE g.tracker_id IS NOT NULL AND (g.min_ratio IS NOT NULL OR g.min_seed_seconds IS NOT NULL)

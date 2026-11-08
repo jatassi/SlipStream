@@ -15,6 +15,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -27,6 +28,8 @@ var ErrNotFound = errors.New("no Torrent has this id")
 type Row struct {
 	ID          ID
 	Node        role.NodeID
+	InfoHash    bencode.InfoHash
+	Private     bool
 	Name        string
 	Size        int64
 	ContentType works.TypeID
@@ -47,8 +50,13 @@ type Row struct {
 	// Done is the bytes done as its Node last reported them.
 	Done   int64
 	Totals Totals
-	// Tracker is nil for a Torrent whose metainfo names no tracker.
-	Tracker *TrackerCell
+	// Announce is nil for a Torrent whose metainfo names no tracker.
+	Announce *TrackerCell
+	// Tracker is the Tracker its first Grab's Release reached, nil for
+	// none.
+	Tracker *TrackerRef
+	// Seeding is its info hash's seeding, as the Seeder judged it.
+	Seeding seeding.View
 	Error   string
 	Fault   *Fault
 	// LastKnown is when its Node last reported it, set only while the
@@ -58,8 +66,14 @@ type Row struct {
 	report *Report
 }
 
-// TrackerCell is the tracker a row names: a working one when any works,
-// else the one in the worst state.
+// TrackerRef is a Tracker as a row names it.
+type TrackerRef struct {
+	ID   indexers.TrackerID
+	Name string
+}
+
+// TrackerCell is the announce URL a row names: a working one when any
+// works, else the one in the worst state.
 type TrackerCell struct {
 	// Host is "" when the Torrent's tracker list is unknown.
 	Host    string
@@ -68,7 +82,9 @@ type TrackerCell struct {
 	RetryAt time.Time
 }
 
-// Filter narrows List. Each zero field lets every Torrent through.
+// Filter narrows List and Rows. Each zero field lets every Torrent
+// through. Rows reads only the Torrents Tracker, NoTracker and Hashes let
+// through.
 type Filter struct {
 	IDs  []ID
 	Tab  Tab
@@ -76,7 +92,11 @@ type Filter struct {
 	Type works.TypeID
 	// Search matches the Torrent's name, its Grabs' release titles and
 	// their Works' labels, ignoring case.
-	Search string
+	Search    string
+	Tracker   *indexers.TrackerID
+	NoTracker bool
+	// Hashes is nil for every info hash.
+	Hashes []bencode.InfoHash
 }
 
 // Listing is the rows a Filter lets through, and counts of every Torrent
@@ -93,14 +113,14 @@ type Counts struct {
 }
 
 // Tabs is each of the Torrents view's tabs, in its order.
-var Tabs = []Tab{TabDownloading, TabSeeding, TabProblems, TabAll}
+var Tabs = []Tab{TabDownloading, TabSeeding, TabProblems, TabGoalMet, TabAll}
 
 // List is every Torrent live or Removing, in added order, as f narrows
 // it.
 func (c *Clients) List(ctx context.Context, f Filter) (Listing, error) {
 	var out Listing
 	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		rows, err := c.rows(ctx, r)
+		rows, err := c.Rows(ctx, r, Filter{})
 		if err != nil {
 			return err
 		}
@@ -126,7 +146,10 @@ func (f Filter) lets(row Row, labels map[works.WorkID]string) bool {
 	case f.IDs != nil && !slices.Contains(f.IDs, row.ID),
 		f.Tab != 0 && row.Tabs&f.Tab == 0,
 		!f.Node.IsZero() && row.Node != f.Node,
-		f.Type != "" && row.ContentType != f.Type:
+		f.Type != "" && row.ContentType != f.Type,
+		f.Tracker != nil && (row.Tracker == nil || row.Tracker.ID != *f.Tracker),
+		f.NoTracker && row.Tracker != nil,
+		f.Hashes != nil && !slices.Contains(f.Hashes, row.InfoHash):
 		return false
 	}
 	if f.Search == "" {
@@ -163,12 +186,36 @@ func countsOf(rows []Row) Counts {
 	return c
 }
 
-// rows is every Torrent live or Removing, in added order.
-func (c *Clients) rows(ctx context.Context, r storage.Reader[file]) ([]Row, error) {
-	held, err := db.New(r).ListHeld(ctx)
+// Rows is every Torrent live or Removing that f's Tracker, NoTracker and
+// Hashes let through, in added order, judged by the Seeder in r's
+// snapshot. A row whose goal is met gains TabGoalMet, and one at risk of
+// a hit and run gains TabProblems. QueuePosition counts only the rows
+// read. Every reader of a Torrent's seeding reads it here, so the
+// Torrents view, a Tracker's page and the goals agree.
+func (c *Clients) Rows(ctx context.Context, r storage.Reader[file], f Filter) ([]Row, error) {
+	held, err := db.New(r).ListHeld(ctx, f.listHeld())
 	if err != nil {
 		return nil, err
 	}
+	return c.rowsOf(ctx, r, held)
+}
+
+func (f Filter) listHeld() db.ListHeldParams {
+	p := db.ListHeldParams{ByTracker: flag(f.Tracker != nil), TrackerID: f.Tracker, NoTracker: flag(f.NoTracker), ByHash: flag(f.Hashes != nil)}
+	for _, h := range f.Hashes {
+		p.InfoHashes = append(p.InfoHashes, h[:])
+	}
+	return p
+}
+
+func flag(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func (c *Clients) rowsOf(ctx context.Context, r storage.Reader[file], held []db.ListHeldRow) ([]Row, error) {
 	ids := make([]ID, len(held))
 	for i, h := range held {
 		ids[i] = h.ID
@@ -190,6 +237,20 @@ func (c *Clients) rows(ctx context.Context, r storage.Reader[file]) ([]Row, erro
 		}
 		rows[i] = row
 	}
+	judged, err := c.cfg.Seeding.Judge(ctx, r, rows)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		j := judged[rows[i].ID]
+		rows[i].Tracker, rows[i].Seeding = j.Tracker, j.View
+		if j.View.GoalMet {
+			rows[i].Tabs |= TabGoalMet
+		}
+		if j.View.Risk == seeding.AtRisk {
+			rows[i].Tabs |= TabProblems
+		}
+	}
 	return rows, nil
 }
 
@@ -205,9 +266,9 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	facts := Facts{Removing: !h.RemovedAt.IsZero(), Wanted: Wanted(h.Wanted), Report: rep}
 	state := StateOf(facts)
 	row := Row{
-		ID: h.ID, Node: h.NodeID, Name: h.Name, Size: h.Size, ContentType: h.ContentType, AddedAt: h.AddedAt.Time(),
+		ID: h.ID, Node: h.NodeID, InfoHash: bencode.InfoHash(h.InfoHash), Private: h.Private == 1, Name: h.Name, Size: h.Size, ContentType: h.ContentType, AddedAt: h.AddedAt.Time(),
 		Uses: uses, State: state, Severity: SeverityOf(facts, state), Tabs: TabsOf(facts, state),
-		Done: rep.done(h.Size), Tracker: cellOf(hosts, rep), report: rep,
+		Done: rep.done(h.Size), Announce: cellOf(hosts, rep), report: rep,
 		Totals: Totals{
 			Uploaded: h.Uploaded, Downloaded: h.Downloaded,
 			Active: time.Duration(h.ActiveSeconds) * time.Second, Seeding: time.Duration(h.SeedingSeconds) * time.Second,
@@ -274,15 +335,11 @@ func cellOf(hosts []string, rep *Report) *TrackerCell {
 // facts, and its trackers and files, live from its Node while it answers.
 type Detail struct {
 	Row
-	InfoHash bencode.InfoHash
 	// SaveFolder is "" until its Node reports one.
 	SaveFolder string
 	PieceSize  int64
-	Private    bool
-	// Tracker is the Tracker its Grab's Release reached, nil for none.
-	Tracker  *indexers.TrackerID
-	Trackers []TrackerDetail
-	Files    []FileDetail
+	Trackers   []TrackerDetail
+	Files      []FileDetail
 	// Live: its Node answered, so Trackers, Files and AnnounceAt are its
 	// word now rather than its last report.
 	Live bool
@@ -331,7 +388,7 @@ func (c *Clients) Get(ctx context.Context, id ID) (Detail, error) {
 		if err != nil {
 			return err
 		}
-		rows, err := c.rows(ctx, r)
+		rows, err := c.Rows(ctx, r, Filter{})
 		if err != nil {
 			return err
 		}
@@ -354,7 +411,7 @@ func detailOf(row Row, details db.GetDetailsRow) (Detail, error) {
 	if err != nil {
 		return Detail{}, fmt.Errorf("torrent %s: %w", row.ID, err)
 	}
-	d := Detail{Row: row, InfoHash: m.InfoHash, PieceSize: m.Info.PieceLength, Private: details.Private == 1, Tracker: details.TrackerID}
+	d := Detail{Row: row, PieceSize: m.Info.PieceLength}
 	if details.SaveFolder != nil {
 		d.SaveFolder = *details.SaveFolder
 	}

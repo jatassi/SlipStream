@@ -85,6 +85,7 @@ const (
 	TabSeeding
 	TabProblems
 	TabAll
+	TabGoalMet
 )
 
 var (

@@ -27,9 +27,9 @@ type Held struct {
 	Noun  Noun
 	// Bytes is 0 when sizes don't apply.
 	Bytes int64
-	// Endless: the holder can't finish this work on its own, so it stays
-	// until it is moved or written off.
-	Endless bool
+	// EndlessUnits is how many Units the holder can't finish on its own,
+	// which stay until they are removed, moved or written off.
+	EndlessUnits int64
 }
 
 type NodeRole struct {
