@@ -4,13 +4,20 @@ import {
   MergeTrackerInputBody,
   RenameTrackerInputBody,
   TrackersGoal,
+  TrackersGoalsPreview,
   TrackersRuleBody,
   TrackersSettings,
   TrackersSettingsChange,
   TrackersTracker,
   TrackersTrackerList,
   TrackersTrackerPage,
+  TrackersWindowList,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary List what the next Seeding goals run would do: the torrents whose goal acts, the ones it removes keeping their download copy, and the ones whose goal is met but waits
+ */
+export const PreviewSeedingGoalsResponse = TrackersGoalsPreview;
 
 /**
  * @summary List the Trackers and the Indexers that reach each
@@ -120,3 +127,26 @@ export const SetTrackerRuleParams = zod.object({
 export const SetTrackerRuleBody = TrackersRuleBody;
 
 export const SetTrackerRuleResponse = TrackersTracker;
+
+/**
+ * @summary List a Tracker's hit and run windows
+ */
+export const ListTrackerWindowsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const listTrackerWindowsQueryOffsetMin = 0;
+
+export const ListTrackerWindowsQueryParams = zod.object({
+  state: zod
+    .enum(["owing", "met", "missed", "released"])
+    .exactOptional()
+    .describe("Only windows in this state; every state when absent"),
+  offset: zod
+    .int()
+    .min(listTrackerWindowsQueryOffsetMin)
+    .exactOptional()
+    .describe("How many of the newest to skip"),
+});
+
+export const ListTrackerWindowsResponse = TrackersWindowList;

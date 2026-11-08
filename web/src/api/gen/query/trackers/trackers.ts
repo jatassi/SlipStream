@@ -42,6 +42,13 @@ import type {
   GetTracker409,
   GetTracker422,
   GetTracker500,
+  ListTrackerWindows401,
+  ListTrackerWindows403,
+  ListTrackerWindows404,
+  ListTrackerWindows409,
+  ListTrackerWindows422,
+  ListTrackerWindows500,
+  ListTrackerWindowsParams,
   ListTrackers401,
   ListTrackers403,
   ListTrackers409,
@@ -53,6 +60,10 @@ import type {
   MergeTracker422,
   MergeTracker500,
   MergeTrackerInputBody,
+  PreviewSeedingGoals401,
+  PreviewSeedingGoals403,
+  PreviewSeedingGoals409,
+  PreviewSeedingGoals500,
   RemoveTracker401,
   RemoveTracker403,
   RemoveTracker404,
@@ -84,12 +95,14 @@ import type {
   SetTrackerRule422,
   SetTrackerRule500,
   TrackersGoal,
+  TrackersGoalsPreview,
   TrackersRuleBody,
   TrackersSettings,
   TrackersSettingsChange,
   TrackersTracker,
   TrackersTrackerList,
   TrackersTrackerPage,
+  TrackersWindowList,
   UpdateSeedingSettings401,
   UpdateSeedingSettings403,
   UpdateSeedingSettings409,
@@ -116,6 +129,147 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getPreviewSeedingGoalsUrl = () => {
+  return `/api/v1/torrents/goals/preview`;
+};
+
+/**
+ * @summary List what the next Seeding goals run would do: the torrents whose goal acts, the ones it removes keeping their download copy, and the ones whose goal is met but waits
+ */
+export const previewSeedingGoals = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TrackersGoalsPreview> => {
+  return apiFetch<TrackersGoalsPreview>(getPreviewSeedingGoalsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getPreviewSeedingGoalsQueryKey = () => {
+  return [`/api/v1/torrents/goals/preview`] as const;
+};
+
+export const getPreviewSeedingGoalsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof previewSeedingGoals>>,
+  TError = ErrorType<
+    | PreviewSeedingGoals401
+    | PreviewSeedingGoals403
+    | PreviewSeedingGoals409
+    | PreviewSeedingGoals500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewSeedingGoals>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getPreviewSeedingGoalsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof previewSeedingGoals>>> = ({ signal }) =>
+    previewSeedingGoals({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewSeedingGoals>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type PreviewSeedingGoalsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewSeedingGoals>>
+>;
+export type PreviewSeedingGoalsSuspenseQueryError = ErrorType<
+  PreviewSeedingGoals401 | PreviewSeedingGoals403 | PreviewSeedingGoals409 | PreviewSeedingGoals500
+>;
+
+export function usePreviewSeedingGoalsSuspense<
+  TData = Awaited<ReturnType<typeof previewSeedingGoals>>,
+  TError = ErrorType<
+    | PreviewSeedingGoals401
+    | PreviewSeedingGoals403
+    | PreviewSeedingGoals409
+    | PreviewSeedingGoals500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewSeedingGoals>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function usePreviewSeedingGoalsSuspense<
+  TData = Awaited<ReturnType<typeof previewSeedingGoals>>,
+  TError = ErrorType<
+    | PreviewSeedingGoals401
+    | PreviewSeedingGoals403
+    | PreviewSeedingGoals409
+    | PreviewSeedingGoals500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewSeedingGoals>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function usePreviewSeedingGoalsSuspense<
+  TData = Awaited<ReturnType<typeof previewSeedingGoals>>,
+  TError = ErrorType<
+    | PreviewSeedingGoals401
+    | PreviewSeedingGoals403
+    | PreviewSeedingGoals409
+    | PreviewSeedingGoals500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewSeedingGoals>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List what the next Seeding goals run would do: the torrents whose goal acts, the ones it removes keeping their download copy, and the ones whose goal is met but waits
+ */
+
+export function usePreviewSeedingGoalsSuspense<
+  TData = Awaited<ReturnType<typeof previewSeedingGoals>>,
+  TError = ErrorType<
+    | PreviewSeedingGoals401
+    | PreviewSeedingGoals403
+    | PreviewSeedingGoals409
+    | PreviewSeedingGoals500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof previewSeedingGoals>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getPreviewSeedingGoalsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getListTrackersUrl = () => {
   return `/api/v1/trackers`;
@@ -1673,3 +1827,184 @@ export const useSetTrackerRule = <
 > => {
   return useMutation(getSetTrackerRuleMutationOptions(options), queryClient);
 };
+export const getListTrackerWindowsUrl = (id: string, params?: ListTrackerWindowsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/trackers/${id}/windows?${stringifiedParams}`
+    : `/api/v1/trackers/${id}/windows`;
+};
+
+/**
+ * @summary List a Tracker's hit and run windows
+ */
+export const listTrackerWindows = async (
+  id: string,
+  params?: ListTrackerWindowsParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TrackersWindowList> => {
+  return apiFetch<TrackersWindowList>(getListTrackerWindowsUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTrackerWindowsQueryKey = (id: string, params?: ListTrackerWindowsParams) => {
+  return [`/api/v1/trackers/${id}/windows`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTrackerWindowsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrackerWindows>>,
+  TError = ErrorType<
+    | ListTrackerWindows401
+    | ListTrackerWindows403
+    | ListTrackerWindows404
+    | ListTrackerWindows409
+    | ListTrackerWindows422
+    | ListTrackerWindows500
+  >,
+>(
+  id: string,
+  params?: ListTrackerWindowsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerWindows>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTrackerWindowsQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrackerWindows>>> = ({ signal }) =>
+    listTrackerWindows(id, params, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerWindows>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListTrackerWindowsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrackerWindows>>
+>;
+export type ListTrackerWindowsSuspenseQueryError = ErrorType<
+  | ListTrackerWindows401
+  | ListTrackerWindows403
+  | ListTrackerWindows404
+  | ListTrackerWindows409
+  | ListTrackerWindows422
+  | ListTrackerWindows500
+>;
+
+export function useListTrackerWindowsSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerWindows>>,
+  TError = ErrorType<
+    | ListTrackerWindows401
+    | ListTrackerWindows403
+    | ListTrackerWindows404
+    | ListTrackerWindows409
+    | ListTrackerWindows422
+    | ListTrackerWindows500
+  >,
+>(
+  id: string,
+  params: undefined | ListTrackerWindowsParams,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerWindows>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListTrackerWindowsSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerWindows>>,
+  TError = ErrorType<
+    | ListTrackerWindows401
+    | ListTrackerWindows403
+    | ListTrackerWindows404
+    | ListTrackerWindows409
+    | ListTrackerWindows422
+    | ListTrackerWindows500
+  >,
+>(
+  id: string,
+  params?: ListTrackerWindowsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerWindows>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListTrackerWindowsSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerWindows>>,
+  TError = ErrorType<
+    | ListTrackerWindows401
+    | ListTrackerWindows403
+    | ListTrackerWindows404
+    | ListTrackerWindows409
+    | ListTrackerWindows422
+    | ListTrackerWindows500
+  >,
+>(
+  id: string,
+  params?: ListTrackerWindowsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerWindows>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List a Tracker's hit and run windows
+ */
+
+export function useListTrackerWindowsSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerWindows>>,
+  TError = ErrorType<
+    | ListTrackerWindows401
+    | ListTrackerWindows403
+    | ListTrackerWindows404
+    | ListTrackerWindows409
+    | ListTrackerWindows422
+    | ListTrackerWindows500
+  >,
+>(
+  id: string,
+  params?: ListTrackerWindowsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerWindows>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListTrackerWindowsSuspenseQueryOptions(id, params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

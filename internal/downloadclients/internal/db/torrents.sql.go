@@ -886,6 +886,50 @@ func (q *Queries) ListTrackerHashes(ctx context.Context, trackerID *indexers.Tra
 	return items, nil
 }
 
+const listTrackerless = `-- name: ListTrackerless :many
+SELECT id, info_hash, trackers, CAST(CASE WHEN trackers = '[]' THEN metainfo END AS BLOB) AS metainfo
+FROM downloadclients_torrent
+WHERE tracker_id IS NULL
+ORDER BY added_order
+`
+
+type ListTrackerlessRow struct {
+	ID       TorrentID
+	InfoHash []byte
+	Trackers string
+	Metainfo []byte
+}
+
+// Every Torrent with no Tracker, live or removed. Its metainfo comes only
+// when its trackers were never stored, as for one added before S28.
+func (q *Queries) ListTrackerless(ctx context.Context) ([]ListTrackerlessRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTrackerless)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrackerlessRow
+	for rows.Next() {
+		var i ListTrackerlessRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InfoHash,
+			&i.Trackers,
+			&i.Metainfo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnparted = `-- name: ListUnparted :many
 SELECT id FROM downloadclients_torrent WHERE node_id = ?1 AND parted_at IS NULL ORDER BY id
 `

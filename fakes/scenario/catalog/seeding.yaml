@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  Three Nodes for seeding rules and goals. The Controller home holds
+  neither Searching, Downloading nor Storage. The Worker seedbox pairs by
+  Join Code and holds Searching and Downloading, so every Indexer searches
+  from it and every Grab downloads there. The Worker den pairs by Join
+  Code and holds Storage with the Movies root, so each Grab reaches den
+  through a Transfer. The private sites heron and tamarack each list one
+  release: heron states a seed time of 3 minutes, as seedpool does, and
+  tamarack a ratio of 1 or 3 minutes, as TorrentLeech does. Fixture Site
+  lists a public release. fake-tracker answers every 5 seconds and seedbox
+  reports its torrents' totals every 5 seconds. The seeding margin is 1
+  minute, Health warns after 1 minute and the Seeding goals task runs
+  every minute.
+seed: seeding
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+  - name: den
+    setup: join
+    roles: [storage]
+timings:
+  node:
+    stop_deadline: 5s
+  downloading:
+    totals_report: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000002
+      imdb_id: tt9000002
+      title: Harbor Lights
+      released: 2019-09-06
+      runtime: 98m
+    - id: 9000003
+      imdb_id: tt9000003
+      title: Salt Meadow
+      released: 2020-02-14
+      runtime: 91m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 8.2GiB
+    sites: [heron]
+  - name: Harbor.Lights.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000002
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 7.6GiB
+    sites: [tamarack]
+  - name: Salt.Meadow.2020.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000003
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 7.1GiB
+    public: true
+    sites: [torznab]
+tracker:
+  interval: 5s
+  prewarn: 3m
+  grace: 3m
+  sites:
+    heron: {min_seed_time: 3m}
+    tamarack: {min_ratio: 1, min_seed_time: 3m}
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies, node: den}]
+  indexers:
+    - {name: Heron, kind: torznab, site: heron, home: seedbox}
+    - {name: Tamarack, kind: torznab, site: tamarack, home: seedbox}
+    - {name: Fixture Site, kind: torznab, site: torznab, home: seedbox}
+  seeding: {margin: 1m, warn_after: 1m, cadence: 1m}

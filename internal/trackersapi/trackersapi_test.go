@@ -266,7 +266,20 @@ func TestTheListCountsATrackersTorrentsAndItsPageSumsThem(t *testing.T) {
 		t.Errorf("listTrackers = %s, want seedpool counting its paused Orchard, which owes it and is at risk", got)
 	}
 	want := `"stats":{"uploaded":9663676416,"downloaded":8589934592,"ratio":1.12,"torrents":1,"seedingBytes":4294967296,"grabs30d":1,"owing":1}`
-	if _, got := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, ""); !strings.Contains(got, want) {
-		t.Errorf("getTracker = %s, want %s: removed Harbor's upload counts, and only live Orchard seeds and owes", got, want)
+	_, page := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool, "")
+	if !strings.Contains(page, want) {
+		t.Errorf("getTracker = %s, want %s: removed Harbor's upload counts, and only live Orchard seeds and owes", page, want)
 	}
+	attention := `"attention":[{"level":"warn","text":"No torrents are seeding. 1 still owes seedpool, and it isn't seeding."},` +
+		`{"level":"info","text":"seedpool's Releases don't state a seeding rule. Set one so its seeding goal can run."}]`
+	if !strings.Contains(page, attention) {
+		t.Errorf("getTracker = %s, want %s", page, attention)
+	}
+	_, owing := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?state=owing", "")
+	if !strings.Contains(owing, `"name":"Orchard","state":"owing","rule":null,`) || !strings.Contains(owing, `"owed":null,"owes":null,"atRisk":"yes","quietSince":`) ||
+		!strings.HasSuffix(owing, `"nextOffset":null}`+"\n") {
+		t.Errorf("listTrackerWindows owing = %s, want Orchard's window alone, owing with no rule known and at risk", owing)
+	}
+	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?state=met", "", http.StatusOK, `{"windows":[],"nextOffset":null}`)
+	s.owner.Expect(t, http.MethodGet, "/api/v1/torrents/goals/preview", "", http.StatusOK, `{"acts":[],"kept":[],"waits":[]}`)
 }

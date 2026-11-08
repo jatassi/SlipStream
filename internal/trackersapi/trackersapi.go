@@ -128,7 +128,8 @@ func (h handlers) listTrackers(ctx context.Context, by identity.Admin, _ *struct
 
 type trackerPage struct {
 	Tracker
-	Stats stats `json:"stats" doc:"SlipStream's own sums over its torrents"`
+	Stats     stats       `json:"stats" doc:"SlipStream's own sums over its torrents"`
+	Attention []attention `json:"attention" nullable:"false" doc:"What needs a look on its page, worst first"`
 }
 
 type stats struct {
@@ -170,7 +171,7 @@ func (h handlers) getTracker(ctx context.Context, by identity.Admin, in *tracker
 	return &trackerPageOutput{Body: trackerPage{Tracker: trackerOf(p.Summary), Stats: stats{
 		Uploaded: st.Uploaded, Downloaded: st.Downloaded, Ratio: st.Ratio.Float(), Torrents: st.Torrents,
 		SeedingBytes: st.SeedingBytes, Grabs30d: st.Grabs30d, Owing: st.Owing,
-	}}}, nil
+	}, Attention: attentionOf(p.Attention)}}, nil
 }
 
 func (h handlers) trackerReply(ctx context.Context, by identity.Admin, id indexers.TrackerID) (*trackerOutput, error) {
@@ -303,6 +304,19 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{trackerNotFound, trackerInUse},
 	}, h.removeTracker)
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "listTrackerWindows", Method: http.MethodGet, Path: "/trackers/{id}/windows", Summary: "List a Tracker's hit and run windows", Status: http.StatusOK,
+		Errors: []*api.Code{trackerNotFound},
+	}, h.listWindows)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "previewSeedingGoals",
+		Method:  http.MethodGet,
+		Path:    "/torrents/goals/preview",
+		Summary: "List what the next Seeding goals run would do: the torrents whose goal acts, the ones it removes keeping their download copy, and the ones whose goal is met but waits",
+		Status:  http.StatusOK,
+	}, h.previewGoals)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "setTrackerRule",

@@ -66,3 +66,15 @@ SELECT * FROM trackers_window WHERE info_hash IN (sqlc.slice(info_hashes)) ORDER
 
 -- name: ListGoalRunsOf :many
 SELECT * FROM trackers_goal_run WHERE torrent_id IN (sqlc.slice(torrent_ids)) ORDER BY torrent_id;
+
+-- name: SetWindow :exec
+INSERT INTO trackers_window (info_hash, tracker_id, state, rule_clears, rule_ratio_centi, rule_seed_seconds, opened_at, met_at,
+    closed_at, regrabbed_at, owed_clears, owed_seconds, owed_bytes, quiet_since)
+VALUES (sqlc.arg(info_hash), sqlc.narg(tracker_id), sqlc.arg(state), sqlc.narg(rule_clears), sqlc.narg(rule_ratio_centi),
+    sqlc.narg(rule_seed_seconds), sqlc.arg(opened_at), sqlc.narg(met_at), sqlc.narg(closed_at), sqlc.narg(regrabbed_at),
+    sqlc.narg(owed_clears), sqlc.narg(owed_seconds), sqlc.narg(owed_bytes), sqlc.narg(quiet_since))
+ON CONFLICT (info_hash) DO UPDATE SET
+    tracker_id = excluded.tracker_id, state = excluded.state, rule_clears = excluded.rule_clears,
+    rule_ratio_centi = excluded.rule_ratio_centi, rule_seed_seconds = excluded.rule_seed_seconds, opened_at = excluded.opened_at,
+    met_at = excluded.met_at, closed_at = excluded.closed_at, regrabbed_at = excluded.regrabbed_at, owed_clears = excluded.owed_clears,
+    owed_seconds = excluded.owed_seconds, owed_bytes = excluded.owed_bytes, quiet_since = excluded.quiet_since;

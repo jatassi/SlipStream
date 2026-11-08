@@ -390,7 +390,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}), append(registry.Tasks(), n.env.Test.tasks(started)...)...),
+		}), append(append(registry.Tasks(), seeding.Task()), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,

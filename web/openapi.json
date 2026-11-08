@@ -3454,6 +3454,7 @@
           "storage",
           "nodes",
           "download-clients",
+          "seeding",
           "indexers",
           "scheduled-tasks"
         ],
@@ -12553,6 +12554,48 @@
         ],
         "type": "object"
       },
+      "TrackersAct": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "pause",
+              "remove",
+              "remove-delete"
+            ],
+            "type": "string"
+          },
+          "torrent": {
+            "$ref": "#/components/schemas/TrackersPlannedTorrent"
+          }
+        },
+        "required": [
+          "torrent",
+          "action"
+        ],
+        "type": "object"
+      },
+      "TrackersAttention": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "enum": [
+              "warn",
+              "info"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "description": "One sentence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "text"
+        ],
+        "type": "object"
+      },
       "TrackersCounts": {
         "additionalProperties": false,
         "properties": {
@@ -12643,6 +12686,103 @@
         ],
         "type": "object"
       },
+      "TrackersGoalsPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "acts": {
+            "description": "The torrents whose goal acts, in added order",
+            "items": {
+              "$ref": "#/components/schemas/TrackersAct"
+            },
+            "type": "array"
+          },
+          "kept": {
+            "description": "The torrents removed keeping their download copy, in added order",
+            "items": {
+              "$ref": "#/components/schemas/TrackersKept"
+            },
+            "type": "array"
+          },
+          "waits": {
+            "description": "The torrents whose goal is met and waits, in added order",
+            "items": {
+              "$ref": "#/components/schemas/TrackersWait"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "acts",
+          "kept",
+          "waits"
+        ],
+        "type": "object"
+      },
+      "TrackersKept": {
+        "additionalProperties": false,
+        "properties": {
+          "torrent": {
+            "$ref": "#/components/schemas/TrackersPlannedTorrent"
+          },
+          "why": {
+            "description": "not-imported: a Grab on it didn't import, so removing it keeps the download copy; draining: its Node is draining Downloading, so it is removed keeping its download copy in place of a pause",
+            "enum": [
+              "not-imported",
+              "draining"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "torrent",
+          "why"
+        ],
+        "type": "object"
+      },
+      "TrackersOwed": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "Upload still needed, 0 when the rule doesn't count ratio or it is reached",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seconds": {
+            "description": "Seeding time still needed, 0 when the rule doesn't count it or it is reached",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seconds",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "TrackersPlannedTorrent": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tracker": {
+            "$ref": "#/components/schemas/TrackersTrackerRef",
+            "description": "null for a torrent with no known Tracker"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "tracker"
+        ],
+        "type": "object"
+      },
       "TrackersRule": {
         "additionalProperties": false,
         "properties": {
@@ -12726,11 +12866,47 @@
         ],
         "type": "object"
       },
+      "TrackersRuleShape": {
+        "additionalProperties": false,
+        "properties": {
+          "clears": {
+            "enum": [
+              "time",
+              "ratio",
+              "either",
+              "both"
+            ],
+            "type": "string"
+          },
+          "ratio": {
+            "description": "null when the rule doesn't count ratio",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "seedSeconds": {
+            "description": "Seconds; null when the rule doesn't count seeding time",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "clears",
+          "ratio",
+          "seedSeconds"
+        ],
+        "type": "object"
+      },
       "TrackersSeedingChanged": {
         "additionalProperties": false,
         "properties": {
           "trackerId": {
-            "description": "The Tracker whose seeding changed; null for the default goal and the seeding settings",
+            "description": "The Tracker whose seeding changed; null for the default goal, the seeding settings and torrents with no known Tracker",
             "format": "uuid",
             "type": [
               "string",
@@ -13004,6 +13180,13 @@
       "TrackersTrackerPage": {
         "additionalProperties": false,
         "properties": {
+          "attention": {
+            "description": "What needs a look on its page, worst first",
+            "items": {
+              "$ref": "#/components/schemas/TrackersAttention"
+            },
+            "type": "array"
+          },
           "goal": {
             "anyOf": [
               {
@@ -13070,6 +13253,7 @@
         },
         "required": [
           "stats",
+          "attention",
           "id",
           "name",
           "privacy",
@@ -13078,6 +13262,169 @@
           "indexerIds",
           "rule",
           "goal"
+        ],
+        "type": "object"
+      },
+      "TrackersTrackerRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "TrackersWait": {
+        "additionalProperties": false,
+        "properties": {
+          "torrent": {
+            "$ref": "#/components/schemas/TrackersPlannedTorrent"
+          },
+          "why": {
+            "description": "What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; reconciling, SlipStream is reconciling the library after a restore",
+            "enum": [
+              "removing",
+              "resumed",
+              "ran",
+              "incomplete",
+              "grab-downloading",
+              "grab-importing",
+              "reconciling"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "torrent",
+          "why"
+        ],
+        "type": "object"
+      },
+      "TrackersWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "atRisk": {
+            "description": "Whether it is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline",
+            "enum": [
+              "no",
+              "yes",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "closedAt": {
+            "description": "Its latest miss or release; a regrab keeps it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "infoHash": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "metAt": {
+            "description": "When its Tracker's rule and the margin were met; null unless met",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Its latest torrent's name",
+            "type": "string"
+          },
+          "openedAt": {
+            "description": "Its torrent's first downloaded byte",
+            "format": "date-time",
+            "type": "string"
+          },
+          "owed": {
+            "$ref": "#/components/schemas/TrackersOwed",
+            "description": "What its latest miss still owed; null before a miss"
+          },
+          "owes": {
+            "$ref": "#/components/schemas/TrackersOwed",
+            "description": "What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule"
+          },
+          "quietSince": {
+            "description": "When it stopped seeding while it owes; null while it seeds",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regrabbedAt": {
+            "description": "When a torrent of it came back after a miss",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rule": {
+            "$ref": "#/components/schemas/TrackersRuleShape",
+            "description": "The rule it snapshot when it opened; null while none is known"
+          },
+          "state": {
+            "enum": [
+              "owing",
+              "met",
+              "missed",
+              "released"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "infoHash",
+          "name",
+          "state",
+          "rule",
+          "openedAt",
+          "metAt",
+          "closedAt",
+          "regrabbedAt",
+          "owed",
+          "owes",
+          "atRisk",
+          "quietSince"
+        ],
+        "type": "object"
+      },
+      "TrackersWindowList": {
+        "additionalProperties": false,
+        "properties": {
+          "nextOffset": {
+            "description": "The offset of the next page; null on the last",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "windows": {
+            "description": "Newest opened first, each as it reads now",
+            "items": {
+              "$ref": "#/components/schemas/TrackersWindow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "windows",
+          "nextOffset"
         ],
         "type": "object"
       },
@@ -47286,6 +47633,140 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/torrents/goals/preview": {
+      "get": {
+        "operationId": "previewSeedingGoals",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackersGoalsPreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List what the next Seeding goals run would do: the torrents whose goal acts, the ones it removes keeping their download copy, and the ones whose goal is met but waits",
+        "tags": [
+          "trackers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/torrents/{id}": {
       "get": {
         "operationId": "getTorrent",
@@ -49806,6 +50287,229 @@
           }
         ],
         "summary": "Set a Tracker's seeding rule. Rules its Releases state never replace it.",
+        "tags": [
+          "trackers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/trackers/{id}/windows": {
+      "get": {
+        "operationId": "listTrackerWindows",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only windows in this state; every state when absent",
+            "explode": false,
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "description": "Only windows in this state; every state when absent",
+              "enum": [
+                "owing",
+                "met",
+                "missed",
+                "released"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many of the newest to skip",
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "description": "How many of the newest to skip",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackersWindowList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "tracker_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List a Tracker's hit and run windows",
         "tags": [
           "trackers"
         ],

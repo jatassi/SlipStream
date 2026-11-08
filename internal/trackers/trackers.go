@@ -30,9 +30,10 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("trackers", 
 const TaskID tasks.TaskID = "seeding-goals"
 
 // SeedingChanged names the Tracker whose seeding rule, goal or windows
-// changed, nil for the default goal and the seeding settings.
+// changed, nil for the default goal, the seeding settings and the windows
+// of torrents with no known Tracker.
 type SeedingChanged struct {
-	TrackerID *string `json:"trackerId" format:"uuid" doc:"The Tracker whose seeding changed; null for the default goal and the seeding settings"`
+	TrackerID *string `json:"trackerId" format:"uuid" doc:"The Tracker whose seeding changed; null for the default goal, the seeding settings and torrents with no known Tracker"`
 }
 
 var SeedingChangedEvent = live.AdminEvent[SeedingChanged]("trackers.seeding-changed")

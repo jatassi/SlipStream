@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -22,6 +23,9 @@ type Library struct {
 	Targets       []LibraryTarget  `yaml:"targets,omitempty"`
 	Profiles      []LibraryProfile `yaml:"profiles,omitempty"`
 	Indexers      []LibraryIndexer `yaml:"indexers,omitempty"`
+	// Seeding is the seeding settings and the Seeding goals task's cadence
+	// the world sets, so a Scenario's windows and Health move in minutes.
+	Seeding *LibrarySeeding `yaml:"seeding,omitempty"`
 	// Works are added last, after the Indexers.
 	Works *LibraryWorks `yaml:"works,omitempty"`
 }
@@ -177,6 +181,29 @@ func isFixtureSite(label string) bool {
 	return false
 }
 
+// LibrarySeeding is the seeding settings the world sets. Each zero keeps
+// its default.
+type LibrarySeeding struct {
+	// Margin is added to every rule's seeding time.
+	Margin time.Duration `yaml:"margin,omitempty"`
+	// WarnAfter is how long a torrent that owes may go without seeding
+	// before Health warns.
+	WarnAfter time.Duration `yaml:"warn_after,omitempty"`
+	// Cadence is how often the Seeding goals task runs.
+	Cadence time.Duration `yaml:"cadence,omitempty"`
+}
+
+func (s LibrarySeeding) check(add func(format string, args ...any)) {
+	if s.Margin < 0 {
+		add("library seeding margin %s is negative", s.Margin)
+	}
+	for name, d := range map[string]time.Duration{"warn_after": s.WarnAfter, "cadence": s.Cadence} {
+		if d != 0 && (d < time.Minute || d%time.Second != 0) {
+			add("library seeding %s %s is under a minute or not whole seconds", name, d)
+		}
+	}
+}
+
 var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
 func (l Library) check(add func(format string, args ...any)) {
@@ -184,6 +211,9 @@ func (l Library) check(add func(format string, args ...any)) {
 	l.checkTargets(add)
 	l.checkProfiles(add)
 	l.checkIndexers(add)
+	if l.Seeding != nil {
+		l.Seeding.check(add)
+	}
 }
 
 func (l Library) checkRoots(add func(format string, args ...any)) {

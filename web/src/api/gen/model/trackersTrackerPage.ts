@@ -1,9 +1,12 @@
+import type { TrackersAttention } from "./trackersAttention.ts";
 import type { TrackersGoal } from "./trackersGoal.ts";
 import type { TrackersRule } from "./trackersRule.ts";
 import type { TrackersStats } from "./trackersStats.ts";
 import type { TrackersTrackerPagePrivacy } from "./trackersTrackerPagePrivacy.ts";
 
 export interface TrackersTrackerPage {
+  /** What needs a look on its page, worst first */
+  attention: TrackersAttention[];
   /** Its own seeding goal; null while it follows the default goal */
   goal: TrackersGoal | null;
   /** The announce hosts of its private torrents */

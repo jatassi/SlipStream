@@ -2,6 +2,7 @@ package downloadclients
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -94,4 +95,52 @@ func TrackerHashes(ctx context.Context, r storage.Reader[file], tracker indexers
 		out[i] = bencode.InfoHash(h)
 	}
 	return out, nil
+}
+
+// Trackerless is a Torrent no Tracker is known for, with its announce
+// hosts.
+type Trackerless struct {
+	ID       ID
+	InfoHash bencode.InfoHash
+	Hosts    []string
+}
+
+// TrackerlessIn is every Torrent with no Tracker, live or removed, in
+// added order. A Torrent added before its trackers were stored reads its
+// hosts from its metainfo.
+func TrackerlessIn(ctx context.Context, r storage.Reader[file]) ([]Trackerless, error) {
+	rows, err := db.New(r).ListTrackerless(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Trackerless, len(rows))
+	for i, row := range rows {
+		hosts, err := hostsOf(row)
+		if err != nil {
+			return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
+		}
+		out[i] = Trackerless{ID: row.ID, InfoHash: bencode.InfoHash(row.InfoHash), Hosts: hosts}
+	}
+	return out, nil
+}
+
+func hostsOf(row db.ListTrackerlessRow) ([]string, error) {
+	if row.Metainfo == nil {
+		var hosts []string
+		if err := json.Unmarshal([]byte(row.Trackers), &hosts); err != nil {
+			return nil, fmt.Errorf("decode the trackers: %w", err)
+		}
+		return hosts, nil
+	}
+	m, err := bencode.DecodeMetainfo(row.Metainfo)
+	if err != nil {
+		return nil, fmt.Errorf("decode the metainfo: %w", err)
+	}
+	return HostsOf(m.Trackers()), nil
+}
+
+// AssignTracker names tracker as Torrent id's Tracker while it names none,
+// inside tx.
+func AssignTracker(ctx context.Context, tx *storage.Tx[file], id ID, tracker indexers.TrackerID) error {
+	return db.New(tx).SetTrackerIfNone(ctx, db.SetTrackerIfNoneParams{TrackerID: &tracker, ID: id})
 }
