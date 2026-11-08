@@ -36,7 +36,7 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 		Cut:       readCut(tail, cuts),
 		Edition:   readEdition(tail, s),
 		Languages: readLanguages(tail),
-		IDs:       readIDs(p),
+		IDs:       readIDs(masked, s),
 	}
 	readQuality(p, s, &f)
 	readStream(p, &f)
