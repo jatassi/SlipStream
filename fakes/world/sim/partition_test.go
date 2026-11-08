@@ -65,7 +65,7 @@ func TestPartitionThenRedial(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithProbe())
 		a := w.API()
 		synctest.Wait()
-		stalled := time.Now()
+		stalled := time.Now().UTC()
 		flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
@@ -86,7 +86,7 @@ func TestPartitionThenRedial(t *testing.T) {
 		heal := down.Add(time.Minute)
 		time.Sleep(time.Until(heal))
 		w.Path("home", "seedbox").Clear("")
-		redial := redialAt("home/seedbox", down, heal)
+		redial := redialAt("home/seedbox", down, heal).UTC()
 		if want := "2000-01-01T00:01:38.400755643Z"; redial.Format(time.RFC3339Nano) != want {
 			t.Fatalf("seedbox's link stream re-dials at %s, want %s", redial.Format(time.RFC3339Nano), want)
 		}

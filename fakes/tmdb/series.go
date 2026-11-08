@@ -146,11 +146,15 @@ func (s *server) tv(w http.ResponseWriter, r *http.Request) {
 	for _, c := range t.Creators {
 		out.CreatedBy = append(out.CreatedBy, creatorJSON{
 			ID: c.ID, CreditID: fmt.Sprintf("%024x", hash("creator", strconv.FormatInt(t.ID, 10), strconv.FormatInt(c.ID, 10))),
-			Name: c.Name, OriginalName: c.Name, ProfilePath: file("person", strconv.FormatInt(c.ID, 10), ".jpg"),
+			Name: c.Name, OriginalName: c.Name, ProfilePath: profile(c.ID, c.Profile),
 		})
 	}
 	if n := t.Network; n != nil {
-		out.Networks = append(out.Networks, networkJSON{ID: n.ID, Name: n.Name, LogoPath: file("network", strconv.FormatInt(n.ID, 10), ".png"), OriginCountry: "US"})
+		logo := file("network", strconv.FormatInt(n.ID, 10), ".png")
+		if n.Logo != "" {
+			logo = &n.Logo
+		}
+		out.Networks = append(out.Networks, networkJSON{ID: n.ID, Name: n.Name, LogoPath: logo, OriginCountry: "US"})
 	}
 	imageLanguages := languagesParam(q.Get("include_image_language"), lang, true)
 	videoLanguages := languagesParam(q.Get("include_video_language"), lang, false)

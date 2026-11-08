@@ -53,6 +53,7 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 		Web:            web.Dist,
 		TrustedOrigins: cfg.HTTP.TrustedOrigins,
 		TrustedProxies: cfg.HTTP.TrustedProxies,
+		Zone:           n.zone(),
 		Log:            log,
 	})
 	surface.Mount(r, s)

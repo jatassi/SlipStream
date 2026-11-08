@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -30,9 +31,15 @@ type Owner struct {
 	Log     *bytes.Buffer
 }
 
-// Serve claims a Controller over lib, which holds at least the secret
-// and identity schemas, and mounts the owner's Routes.
+// Serve claims a Controller in UTC over lib, which holds at least the
+// secret and identity schemas, and mounts the owner's Routes.
 func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Router)) *Owner {
+	t.Helper()
+	return ServeIn(t, lib, time.UTC, routes)
+}
+
+// ServeIn is Serve on a Controller in zone.
+func ServeIn(t *testing.T, lib *storage.DB[storage.Library], zone *time.Location, routes func(*api.Router)) *Owner {
 	t.Helper()
 	logged := &bytes.Buffer{}
 	log := slog.New(slog.NewTextHandler(logged, &slog.HandlerOptions{ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
@@ -64,7 +71,7 @@ func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Rout
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
+	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Zone: zone, Log: log})
 	routes(r)
 	return &Owner{handler: r.Handler(), apiKey: identitytest.APIKey(t, lib), session: admin.Cookie, Log: logged}
 }

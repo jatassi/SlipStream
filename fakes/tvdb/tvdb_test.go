@@ -282,3 +282,89 @@ func TestTheFakeConforms(t *testing.T) {
 		})
 	})
 }
+
+// withRecorded adds a series recorded from TVDB beside the fictional ones.
+func withRecorded(s scenario.Scenario) scenario.Scenario {
+	tv := *s.TVDB
+	tv.Series = append(slices.Clone(tv.Series), scenario.TVDBSeries{
+		ID: 5001, Name: "오징어 게임", English: "Squid Game", Status: "ended", Network: "Netflix",
+		Overview: "Hundreds of cash-strapped players play children's games.", Genres: []string{"Drama", "Thriller"},
+		OriginalLanguage: "kor", OriginalCountry: "kor", Image: "/banners/v4/series/5001/posters/sg.jpg",
+		Seasons: []scenario.TVDBSeason{
+			{Number: 0, Episodes: []scenario.TVDBEpisode{{ID: 5100, Number: 1, Name: "Behind the Games"}}},
+			{Number: 1, Name: "Season One", Image: "/banners/v4/season/5101/posters/s1.jpg", Episodes: []scenario.TVDBEpisode{
+				{ID: 5101, Number: 1, Name: "Red Light, Green Light", Aired: "2021-09-17", Overview: "Gi-hun plays a game.", Image: "/banners/v4/episode/5101/screencap/e1.jpg"},
+			}},
+		},
+	})
+	s.TVDB = &tv
+	return s
+}
+
+func TestARecordedSeriesAnswersItsRecord(t *testing.T) {
+	inBothTiers(t, withRecorded(load(t)), func(t *testing.T, f faketest.Served) {
+		c := client(f)
+		got, err := c.Series(t.Context(), ask(""), 5001)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Name != "Squid Game" || got.Original != "오징어 게임" || got.OriginalLanguage != "kor" || got.Country != "kor" ||
+			got.Overview != "Hundreds of cash-strapped players play children's games." || !slices.Equal(got.Genres, []string{"Drama", "Thriller"}) ||
+			got.Poster != "/banners/v4/series/5001/posters/sg.jpg" {
+			t.Errorf("the recorded series = %+v, want its recorded name, language, country, overview, genres and poster", got)
+		}
+		seasons := map[int]provider.Season{}
+		for _, s := range got.Seasons {
+			seasons[s.Number] = s
+		}
+		if s := seasons[1]; s.Name != "Season One" || s.Poster != "/banners/v4/season/5101/posters/s1.jpg" {
+			t.Errorf("season 1 = %+v, want its recorded name and poster", s)
+		}
+		if s := seasons[0]; s.Name != "Specials" || !strings.HasPrefix(s.Poster, "/banners/v4/seasons/") {
+			t.Errorf("season 0 = %+v, want Specials with a made-up poster", s)
+		}
+		episodes := aired(t, c, 5001)
+		if e := episodes[1]; e.Overview != "Gi-hun plays a game." || e.Still != "/banners/v4/episode/5101/screencap/e1.jpg" {
+			t.Errorf("S01E01 = %+v, want its recorded overview and still", e)
+		}
+		if e := episodes[0]; e.Overview != "Behind the Games, an episode of Squid Game." || !strings.HasPrefix(e.Still, "/banners/v4/episodes/5100/") {
+			t.Errorf("S00E01 = %+v, want a made-up overview and still", e)
+		}
+	})
+}
+
+func TestAFictionalSeriesBesideARecordedOneIsUnchanged(t *testing.T) {
+	inBothTiers(t, withRecorded(load(t)), func(t *testing.T, f faketest.Served) {
+		fictional, err := client(f).Series(t.Context(), ask(""), 1001)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fictional.Overview != "The Lantern Keepers is a fictional series." || fictional.OriginalLanguage != "eng" || fictional.Country != "usa" ||
+			len(fictional.Genres) != 2 || !strings.HasPrefix(fictional.Poster, "/banners/v4/series/1001/posters/") {
+			t.Errorf("the fictional series = %+v, want its made-up overview, language, country, genres and poster", fictional)
+		}
+	})
+}
+
+func TestARecordedSeriesNamesItsOriginalLanguageInSearch(t *testing.T) {
+	inBothTiers(t, withRecorded(load(t)), func(t *testing.T, f faketest.Served) {
+		_, token := login(t, f, `{"apikey":"key"}`)
+		status, body := send(t, f, http.MethodGet, "/v4/search?query=squid&type=series", token, nil)
+		var found struct {
+			Data []struct {
+				ImageURL        string `json:"image_url"`
+				Thumbnail       string `json:"thumbnail"`
+				PrimaryLanguage string `json:"primary_language"`
+				Country         string `json:"country"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &found); status != http.StatusOK || err != nil || len(found.Data) != 1 {
+			t.Fatalf("GET /v4/search?query=squid = %d %s: %v", status, body, err)
+		}
+		hit := found.Data[0]
+		if hit.ImageURL != "https://artworks.thetvdb.com/banners/v4/series/5001/posters/sg.jpg" || hit.Thumbnail != "https://artworks.thetvdb.com/banners/v4/series/5001/posters/sg_t.jpg" ||
+			hit.PrimaryLanguage != "kor" || hit.Country != "kor" {
+			t.Errorf("the search hit = %+v, want the recorded poster, its thumbnail, language and country", hit)
+		}
+	})
+}

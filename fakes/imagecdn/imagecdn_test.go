@@ -32,7 +32,12 @@ type reply struct {
 
 func get(t *testing.T, f faketest.Served, path string) reply {
 	t.Helper()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL(imagecdn.Root+path), http.NoBody)
+	return fetch(t, f, imagecdn.Root+path)
+}
+
+func fetch(t *testing.T, f faketest.Served, path string) reply {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL(path), http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}

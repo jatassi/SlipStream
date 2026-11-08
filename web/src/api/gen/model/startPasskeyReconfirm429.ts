@@ -3,4 +3,5 @@ import type { StartPasskeyReconfirm429Code } from "./startPasskeyReconfirm429Cod
 
 export type StartPasskeyReconfirm429 = Problem & {
   code?: StartPasskeyReconfirm429Code;
+  until?: string;
 };

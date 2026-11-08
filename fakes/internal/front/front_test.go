@@ -201,7 +201,7 @@ func TestATLSRulePicksTheLeaf(t *testing.T) {
 	}
 }
 
-func TestARefusedFrontBindsItsPortAgainWhenCleared(t *testing.T) {
+func TestARefusedFrontRefusesOnceTheRuleIsSetAndListensOnceItClears(t *testing.T) {
 	f := fault.Front{Target: "seeders/a", Origin: "home", Layers: fault.Conn}
 	plan, set, _ := newSet(t, f)
 	upstream := echoServer(t)
@@ -213,23 +213,16 @@ func TestARefusedFrontBindsItsPortAgainWhenCleared(t *testing.T) {
 	if _, err := plan.Set(fault.Rule{ID: "down", Target: "seeders", Fault: fault.Refuse{}}); err != nil {
 		t.Fatal(err)
 	}
-	until(t, "the front refuses", func() bool {
-		c, err := dial(t, fr.Addr())
-		if err == nil {
-			_ = c.Close()
-		}
-		return errors.Is(err, connRefused)
-	})
+	c, err := dial(t, fr.Addr())
+	if err == nil {
+		_ = c.Close()
+	}
+	if !errors.Is(err, connRefused) {
+		t.Fatalf("a dial once the refuse rule is set = %v, want connection refused", err)
+	}
 	plan.Clear("down")
-	until(t, "the front listens again", func() bool {
-		c, err := dial(t, fr.Addr())
-		if err == nil {
-			_ = c.Close()
-		}
-		return err == nil
-	})
 	if got := roundTrip(t, fr.Addr(), "two"); got != "two" {
-		t.Fatalf("echo after the refuse cleared = %q", got)
+		t.Fatalf("echo once the refuse cleared = %q", got)
 	}
 }
 
@@ -305,15 +298,4 @@ func roundTrip(t *testing.T, addr netip.AddrPort, s string) string {
 		t.Fatal(err)
 	}
 	return string(b)
-}
-
-func until(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("waiting until %s", what)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
 }

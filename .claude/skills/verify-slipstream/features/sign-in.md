@@ -11,7 +11,7 @@ A person signs in on the Controller with their email and four-digit PIN, or with
 - `sign-out` `Sign out` asks `Sign out of this device?`, then lands on `/sign-in?reason=signed-out` with the status `You signed out.` (P-011)
 - `sign-in-member` a Member's sign-in lands on the portal's Home at `/portal`, and `bin/sign-in.ts {runDir} member <shell>` saves Grace's state (P-233).
 - `sign-in-remembered-email` the email that last signed in fills the Email field on the next visit (P-233).
-- `sign-in-pin-wait` past the wrong-PIN limit the alert names when to try again, and the right PIN waits too (P-238).
+- `sign-in-pin-wait` past the wrong-PIN limit the API answers 429 `pin_wait` with `Retry-After`, the detail `You can try again at <HH:MM>.` in the Node's zone and the time in `until`; the alert names that time in the browser's zone, and the right PIN waits too (P-238).
 - `sign-in-per-address` past the per-address limit every sign-in from that address reads `Too many failed attempts from this address. Wait before trying again.` with the time (P-238).
 
 ## How to get to it (user POV)
