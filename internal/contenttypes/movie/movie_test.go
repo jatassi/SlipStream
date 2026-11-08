@@ -199,6 +199,7 @@ func provider(c *http.Client, tmdbAPI, omdbAPI string) metadata.Source {
 		TMDB: tmdb.New(lines, tmdb.Endpoints{API: endpoint.MustParseURL(tmdbAPI)}, tmdb.DefaultTimings()),
 		OMDb: omdb.New(lines, omdb.Endpoints{API: endpoint.MustParseURL(omdbAPI)}, omdb.DefaultTimings()),
 		Log:  slog.New(slog.DiscardHandler),
+		Now:  time.Now,
 	}, nil)
 }
 

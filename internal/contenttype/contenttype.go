@@ -43,6 +43,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -78,6 +79,9 @@ type ProviderDeps struct {
 	// own.
 	Lines *metadata.Lines
 	Log   *slog.Logger
+	// Now is the Node's clock, which a search reads to tell a year in a
+	// query from a number in a title.
+	Now func() time.Time
 }
 
 // Testers are the providers' tests, in the order status lists them.
