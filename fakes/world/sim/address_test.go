@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/pairing"
 )
@@ -21,7 +22,7 @@ import (
 // Welcome.
 func TestAMovedControllerIsFollowed(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		h, box := w.Node("home"), w.Node("seedbox")
 		homeKey, boxKey := key(t, w, "home"), key(t, w, "seedbox")
 		before := h.Ready().Listeners.Link

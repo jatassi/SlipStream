@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -41,107 +42,12 @@ import (
 const (
 	release = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW"
 	placed  = "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv"
-	// settled is longer than any wait the walk takes in fake time.
-	settled = 10 * time.Minute
 )
 
-var walked = []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}
-
-type grabView struct {
-	ID          string `json:"id"`
-	NodeID      string `json:"nodeId"`
-	FetchNodeID string `json:"fetchNodeId"`
-	InfoHash    string `json:"infoHash"`
-	Stage       string `json:"stage"`
-	Failure     *struct {
-		Stage   string `json:"stage"`
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"failure"`
-	History []struct {
-		Stage string `json:"stage"`
-	} `json:"history"`
-	Progress *struct {
-		Total int64 `json:"total"`
-	} `json:"progress"`
-}
-
-func (g grabView) stages() []string {
-	var out []string
-	for _, e := range g.History {
-		out = append(out, e.Stage)
-	}
-	return out
-}
-
-func decode[T any](t *testing.T, what string, r worldtest.Reply) T {
-	t.Helper()
-	var v T
-	if r.Status != http.StatusOK {
-		t.Fatalf("%s = %d %s, want 200", what, r.Status, r.Body)
-	}
-	if err := json.Unmarshal([]byte(r.Body), &v); err != nil {
-		t.Fatalf("%s = %s: %v", what, r.Body, err)
-	}
-	return v
-}
-
-// addOrchard adds the Scenario's movie monitored and returns its Work.
-func addOrchard(t *testing.T, w *sim.World) string {
-	t.Helper()
-	added := decode[struct {
-		Work struct {
-			ID string `json:"id"`
-		} `json:"work"`
-	}](t, "addWork", w.API().Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","preset":"all"}`))
-	return added.Work.ID
-}
-
-// search presses Search on work and returns its one run.
-func search(t *testing.T, w *sim.World, work string) string {
-	t.Helper()
-	reply := w.API().Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", "")
-	var started struct {
-		SearchIDs []string `json:"searchIds"`
-	}
-	if err := json.Unmarshal([]byte(reply.Body), &started); err != nil || reply.Status != http.StatusAccepted || len(started.SearchIDs) != 1 {
-		t.Fatalf("searchWork = %d %s, want 202 with one search", reply.Status, reply.Body)
-	}
-	return started.SearchIDs[0]
-}
-
-func grabsListed(t *testing.T, w *sim.World) []grabView {
-	t.Helper()
-	return decode[struct {
-		Grabs []grabView `json:"grabs"`
-	}](t, "listGrabs", w.API().Admin("home", http.MethodGet, "/api/v1/grabs", "")).Grabs
-}
-
-// await waits in fake time until the world's one Grab is done, and
-// returns it.
-func await(t *testing.T, w *sim.World) grabView {
-	t.Helper()
-	for range settled / time.Second {
-		if gs := grabsListed(t, w); len(gs) == 1 && (gs[0].Stage == "imported" || gs[0].Stage == "failed") {
-			return gs[0]
-		}
-		time.Sleep(time.Second)
-	}
-	t.Fatalf("no Grab finished within %s: %+v", settled, grabsListed(t, w))
-	return grabView{}
-}
-
-func expectImported(t *testing.T, g grabView) {
-	t.Helper()
-	if g.Stage != "imported" || !slices.Equal(g.stages(), walked) {
-		t.Fatalf("the Grab ended %s with %+v after %v, want imported after %v", g.Stage, g.Failure, g.stages(), walked)
-	}
-}
-
-func expectFailed(t *testing.T, g grabView, stage, code, message string) {
+func expectFailed(t *testing.T, g simtest.GrabView, stage, code, message string) {
 	t.Helper()
 	if g.Stage != "failed" || g.Failure == nil || g.Failure.Stage != stage || g.Failure.Code != code || g.Failure.Message != message {
-		t.Fatalf("the Grab ended %s with %+v after %v, want failed at %s with %s: %s", g.Stage, g.Failure, g.stages(), stage, code, message)
+		t.Fatalf("the Grab ended %s with %+v after %v, want failed at %s with %s: %s", g.Stage, g.Failure, g.Stages(), stage, code, message)
 	}
 }
 
@@ -208,14 +114,6 @@ func watermarks(t *testing.T, w *sim.World) []int64 {
 	return out
 }
 
-func onSeedbox(edit func(e *node.Env)) sim.Option {
-	return sim.Edit(func(name string, e *node.Env) {
-		if name == "seedbox" {
-			edit(e)
-		}
-	})
-}
-
 // stageHold stops a walk once at stage: before home runs its step, or,
 // for transferring, at the first chunk seedbox sends, which waits until
 // restarted closes.
@@ -261,15 +159,15 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 		t.Run(string(stage), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				held := newStageHold(stage)
-				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(held.edit))
-				search(t, w, addOrchard(t, w))
+				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(held.edit))
+				simtest.Search(t, w, simtest.AddOrchard(t, w))
 				<-held.reached
 				h := w.Node("home")
 				link := h.Ready().Listeners.Link
 				h.Stop()
 				h.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_LINK_LISTEN="+link.String()) })
 				close(held.restarted)
-				expectImported(t, await(t, w))
+				simtest.ExpectImported(t, simtest.Await(t, w))
 				expectPlaced(t, w)
 			})
 		})
@@ -320,19 +218,19 @@ func (h *holding) Close() error {
 func TestAResultMadeWhileTheWorkersLinkIsDownLandsOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		finished, release := make(chan struct{}), make(chan struct{})
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = holdAt[engine.Finished](e.Engine, finished, release) }))
-		search(t, w, addOrchard(t, w))
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = holdAt[engine.Finished](e.Engine, finished, release) }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-finished
 		path := w.Path("home", "seedbox")
-		flip(t, path, fault.Stall{})
+		simtest.Flip(t, path, fault.Stall{})
 		time.Sleep(partitioned)
 		close(release)
 		synctest.Wait()
-		if gs := grabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
+		if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
 			t.Fatalf("while partitioned the Grabs are %+v, want one downloading", gs)
 		}
 		path.Clear("")
-		expectImported(t, await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		if got := watermarks(t, w); len(got) != 1 {
 			t.Fatalf("home applied seedbox's results through %v, want one epoch's: each result applied once", got)
 		}
@@ -367,23 +265,23 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var mu sync.Mutex
 		var added []string
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
 			open := e.Engine
 			e.Engine = func(cfg engine.Config) (engine.Engine, error) {
 				eng, err := open(cfg)
 				return adds{eng, &mu, &added}, err
 			}
 		}))
-		search(t, w, addOrchard(t, w))
-		before := await(t, w)
-		expectImported(t, before)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		before := simtest.Await(t, w)
+		simtest.ExpectImported(t, before)
 		first := watermarks(t, w)
 		if len(first) != 1 {
 			t.Fatalf("home applied seedbox's results through %v, want one epoch's", first)
 		}
 
 		path := w.Path("home", "seedbox")
-		flip(t, path, fault.Stall{})
+		simtest.Flip(t, path, fault.Stall{})
 		time.Sleep(partitioned)
 		box := w.Node("seedbox")
 		box.Stop()
@@ -403,7 +301,7 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 		if got := watermarks(t, w); len(got) != 1 || got[0] <= first[0] {
 			t.Fatalf("home applied seedbox's results through %v, want past %v: the restarted Node's reports applied", got, first)
 		}
-		after := await(t, w)
+		after := simtest.Await(t, w)
 		if !slices.Equal(after.History, before.History) || after.Stage != "imported" {
 			t.Fatalf("after the second Completed the Grab is %s after %+v, want unchanged %+v", after.Stage, after.History, before.History)
 		}
@@ -465,14 +363,14 @@ func TestATransferResumes(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				var cut atomic.Bool
 				counted := &sends{by: map[int]int{}, flip: tc.flip}
-				w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
 					e.Test.Transfers = transfers.Hooks{
 						Read: func(r io.ReaderAt) io.ReaderAt { return failedRead{ReaderAt: r, cut: tc.cut, done: &cut} },
 						Sent: counted.sent,
 					}
 				}))
-				search(t, w, addOrchard(t, w))
-				expectImported(t, await(t, w))
+				simtest.Search(t, w, simtest.AddOrchard(t, w))
+				simtest.ExpectImported(t, simtest.Await(t, w))
 				if got := counted.counts(); !maps.Equal(got, tc.sent) {
 					t.Fatalf("seedbox sent chunks %v times, want %v", got, tc.sent)
 				}
@@ -487,11 +385,11 @@ func TestATransferResumes(t *testing.T) {
 // waits for seedbox, and the run finds nothing and makes no Grab.
 func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk())
-		work := addOrchard(t, w)
-		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
+		work := simtest.AddOrchard(t, w)
+		simtest.Flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		time.Sleep(partitioned)
-		run := search(t, w, work)
+		run := simtest.Search(t, w, work)
 		time.Sleep(time.Minute)
 		var searches struct {
 			Searches []struct {
@@ -511,7 +409,7 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 			`","startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID +
 			`","name":"Fixture Site","outcome":"waiting","releases":0,"sentence":"Waiting for seedbox"}],"finishedAt":"` + *s.FinishedAt +
 			`","outcome":"nothing_acceptable","candidates":0,"refused":[],"grabId":null,"notes":[]}]}` + "\n"})
-		if gs := grabsListed(t, w); len(gs) != 0 {
+		if gs := simtest.GrabsListed(t, w); len(gs) != 0 {
 			t.Fatalf("listGrabs = %+v, want none", gs)
 		}
 	})
@@ -519,7 +417,7 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 
 func itemOf(t *testing.T, w *sim.World, work string) string {
 	t.Helper()
-	return decode[struct {
+	return simtest.Decode[struct {
 		Items []struct {
 			ID string `json:"id"`
 		} `json:"items"`
@@ -531,11 +429,11 @@ func itemOf(t *testing.T, w *sim.World, work string) string {
 func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		wrong := strings.Repeat("ab", 20)
-		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Listed(func(r *site.Release) { r.InfoHash = wrong }))
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Listed(func(r *site.Release) { r.InfoHash = wrong }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
 		expectFailed(t, g, "fetching", "infohash_mismatch", "The .torrent's info hash is "+w.InfoHash(release).String()+" and the Indexer's is "+wrong)
-		if got := g.stages(); !slices.Equal(got, []string{"fetching", "failed"}) {
+		if got := g.Stages(); !slices.Equal(got, []string{"fetching", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching failed]", got)
 		}
 	})
@@ -548,14 +446,14 @@ func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) 
 func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var asked atomic.Bool
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
 			e.Media = mediatest.Prober{Of: map[string]media.Record{release + ".mkv": {Container: "matroska,webm", Video: media.Video{Codec: "h264", Width: 640, Height: 480}}}}
 			e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) { asked.Store(true) }
 		}))
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
 		expectFailed(t, g, "probing", "fills_nothing", "a SDTV file fills no Target the Work still wants")
-		if got := g.stages(); !slices.Equal(got, []string{"fetching", "downloading", "probing", "failed"}) {
+		if got := g.Stages(); !slices.Equal(got, []string{"fetching", "downloading", "probing", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching downloading probing failed]", got)
 		}
 		if asked.Load() {
@@ -584,11 +482,11 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 // offline grace the Test waits for it, so createIndexer answers 502.
 func TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Library.Indexers = nil
 		w := sim.Launch(t, s, sim.WithWalk(), inUTC)
 		synctest.Wait()
-		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		simtest.Flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/install"
@@ -36,14 +37,14 @@ func homeHolds(t *testing.T, a *worldtest.API) []string {
 // seedbox is back and has settled, home lets Searching go again.
 func TestHomeCoversSearchingForALapsedSeedbox(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		a := w.API()
 		synctest.Wait()
 		own := homeHolds(t, a)
 		if slices.Contains(own, "searching") || slices.Contains(own, "downloading") {
 			t.Fatalf("home holds %v with seedbox in step, want neither Searching nor Downloading", own)
 		}
-		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		simtest.Flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
@@ -91,7 +92,7 @@ func TestHomeCoversSearchingForALapsedSeedbox(t *testing.T) {
 // beating seedbox keeps its one session.
 func TestAWorkerSilentOnSyncLosesItsLink(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		a := w.API()
 		synctest.Wait()
 		stall := node.Defaults(contenttype.Set{}, install.Dev).Timings.Role.Stall

@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -126,7 +127,7 @@ type shelf struct {
 
 func shelve(t *testing.T, edit func(*scenario.Scenario), opts ...sim.Option) *shelf {
 	t.Helper()
-	s := home(t)
+	s := simtest.Home(t)
 	s.TMDB.Movies = append(s.TMDB.Movies, films...)
 	if edit != nil {
 		edit(&s)
@@ -199,7 +200,7 @@ func (s *shelf) back(rel string) { s.rename(s.aside(rel), s.path(rel)) }
 
 func (s *shelf) rootID() roots.ID {
 	s.t.Helper()
-	id, err := storage.ParseUUID(rootAt(s.t, s.w.API(), s.dir).ID)
+	id, err := storage.ParseUUID(simtest.RootAt(s.t, s.w.API(), s.dir).ID)
 	if err != nil {
 		s.t.Fatal(err)
 	}
@@ -209,8 +210,8 @@ func (s *shelf) rootID() roots.ID {
 // idle waits until Library scan has run at least once and runs no more.
 func (s *shelf) idle() {
 	s.t.Helper()
-	eventually(s.t, "Library scan is idle after a run", func() bool {
-		d := getTask(s.t, s.w.API(), "library-scan")
+	simtest.Eventually(s.t, "Library scan is idle after a run", func() bool {
+		d := simtest.GetTask(s.t, s.w.API(), "library-scan")
 		return d.Task.State.Kind != "running" && len(d.Runs) > 0
 	})
 }
@@ -218,7 +219,7 @@ func (s *shelf) idle() {
 // scan is Run now on Library scan, once it has ended.
 func (s *shelf) scan() scanned {
 	s.t.Helper()
-	runNow(s.t, s.w.API(), "library-scan")
+	simtest.RunNow(s.t, s.w.API(), "library-scan")
 	s.idle()
 	return s.last()
 }
@@ -231,8 +232,8 @@ type scanned struct {
 
 func (s *shelf) last() scanned {
 	s.t.Helper()
-	d := getTask(s.t, s.w.API(), "library-scan")
-	return scanned{trigger: d.Runs[0].Trigger, result: d.Runs[0].Result, units: d.units()}
+	d := simtest.GetTask(s.t, s.w.API(), "library-scan")
+	return scanned{trigger: d.Runs[0].Trigger, result: d.Runs[0].Result, units: d.UnitLines()}
 }
 
 func expectScanned(t *testing.T, got scanned, result string, units ...string) {
@@ -246,7 +247,7 @@ func expectScanned(t *testing.T, got scanned, result string, units ...string) {
 func (s *shelf) works() map[string]string {
 	s.t.Helper()
 	type row struct{ ID, Label string }
-	rows := decode[struct{ Rows []row }](s.t, "listLibrary", s.w.API().Admin("home", http.MethodGet, "/api/v1/library?contentType=movie", "")).Rows
+	rows := simtest.Decode[struct{ Rows []row }](s.t, "listLibrary", s.w.API().Admin("home", http.MethodGet, "/api/v1/library?contentType=movie", "")).Rows
 	out := map[string]string{}
 	for _, r := range rows {
 		out[r.Label] = r.ID
@@ -276,7 +277,7 @@ func (s *shelf) filled(m scenario.TMDBMovie) string {
 		File  *struct{ Path string }
 	}
 	work := s.works()[m.Title]
-	cells := decode[struct{ Cells []cell }](s.t, "getWorkCells", s.w.API().Admin("home", http.MethodGet, "/api/v1/works/"+work+"/cells", "")).Cells
+	cells := simtest.Decode[struct{ Cells []cell }](s.t, "getWorkCells", s.w.API().Admin("home", http.MethodGet, "/api/v1/works/"+work+"/cells", "")).Cells
 	if len(cells) != 1 {
 		s.t.Fatalf("%s has cells %+v, want one", m.Title, cells)
 	}
@@ -299,7 +300,7 @@ func (s *shelf) expectFilled(ms ...scenario.TMDBMovie) {
 func (s *shelf) health() []string {
 	s.t.Helper()
 	out := []string{}
-	for _, it := range healthItems(s.t, s.w.API(), "library") {
+	for _, it := range simtest.HealthItems(s.t, s.w.API(), "library") {
 		out = append(out, it.Level+": "+it.Subject+": "+it.Text)
 	}
 	slices.Sort(out)
@@ -418,7 +419,7 @@ func TestAMassVanishStopsUntilMarkThemGone(t *testing.T) {
 		expectScanned(t, s.scan(), "skipped", onHome+"|home|skipped|"+stopped(2))
 		s.expectFilled(films...)
 		s.expectHealth("fail: " + onHome + ": " + stopped(2))
-		if items := healthItems(t, s.w.API(), "scheduled-tasks"); len(items) != 0 {
+		if items := simtest.HealthItems(t, s.w.API(), "scheduled-tasks"); len(items) != 0 {
 			t.Fatalf("a stopped scan raised Scheduled tasks items %+v, want none", items)
 		}
 
@@ -463,11 +464,11 @@ func TestAnUnmountedRootIsSkippedAndItsFilesStay(t *testing.T) {
 		s.scan()
 
 		lift := s.w.Disk("home", s.dir, fault.Unmounted{})
-		checkStorage(t, s.w.API(), "")
+		simtest.CheckStorage(t, s.w.API(), "")
 		expectScanned(t, s.scan(), "skipped", onHome+"|home|skipped|The folder is there but looks unmounted. Plug in or mount the disk.")
 		s.expectHealth()
 		lift()
-		checkStorage(t, s.w.API(), "")
+		simtest.CheckStorage(t, s.w.API(), "")
 		expectScanned(t, s.scan(), "succeeded", succeeded)
 		s.expectFilled(films...)
 	})
@@ -532,7 +533,7 @@ func TestCancelMidWalkStopsTheWorkersWalk(t *testing.T) {
 		s := shelve(t, func(sc *scenario.Scenario) {
 			sc.Nodes[1].Roles = append(sc.Nodes[1].Roles, "storage")
 			sc.Library.Roots = append(sc.Library.Roots, scenario.LibraryRoot{ContentType: "movie", Folder: "films", Node: "seedbox"})
-		}, onSeedbox(func(e *node.Env) {
+		}, simtest.OnSeedbox(func(e *node.Env) {
 			disk := e.Disk
 			e.Disk = func(data string) (storing.Disk, error) {
 				base, err := disk(data)
@@ -547,7 +548,7 @@ func TestCancelMidWalkStopsTheWorkersWalk(t *testing.T) {
 		films.put("Paper Lanterns (2019)/Paper Lanterns (2019).mkv", 4096, hd)
 		d.hold(films.path("Paper Lanterns (2019)"))
 
-		run := runNow(t, s.w.API(), "library-scan")
+		run := simtest.RunNow(t, s.w.API(), "library-scan")
 		<-d.reached
 		cancel(t, s, run)
 		s.idle()
@@ -572,7 +573,7 @@ func TestCancelWhileSettlingKeepsTheFoldersWritten(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films[:3]...)
 		reached := s.probes.holding(fileOf(films[0]))
-		run := runNow(t, s.w.API(), "library-scan")
+		run := simtest.RunNow(t, s.w.API(), "library-scan")
 		<-reached
 		cancel(t, s, run)
 		s.idle()
@@ -601,7 +602,7 @@ func TestACrashMidScanConverges(t *testing.T) {
 		s := shelve(t, nil)
 		s.stock(films[:3]...)
 		reached := s.probes.holding(fileOf(films[0]))
-		runNow(t, s.w.API(), "library-scan")
+		simtest.RunNow(t, s.w.API(), "library-scan")
 		<-reached
 		h := s.w.Node("home")
 		h.Stop()
@@ -743,18 +744,18 @@ func TestAScanDuringAnImportChangesNothing(t *testing.T) {
 		if deleted.Status != http.StatusOK {
 			t.Fatalf("deleteWorks = %d %s", deleted.Status, deleted.Body)
 		}
-		eventually(t, "the deleted Work's file waits in the disk queue", func() bool {
+		simtest.Eventually(t, "the deleted Work's file waits in the disk queue", func() bool {
 			return s.count("SELECT count(*) FROM files_doomed") == 1
 		})
 
 		grab.arm()
-		search(t, s.w, addOrchard(t, s.w))
+		simtest.Search(t, s.w, simtest.AddOrchard(t, s.w))
 		<-grab.reached
 		scan.arm()
-		runNow(t, s.w.API(), "library-scan")
+		simtest.RunNow(t, s.w.API(), "library-scan")
 		<-scan.reached
 		close(grab.open)
-		expectImported(t, await(t, s.w))
+		simtest.ExpectImported(t, simtest.Await(t, s.w))
 		close(scan.open)
 		s.idle()
 
@@ -781,8 +782,8 @@ func TestAScanDuringAnImportChangesNothing(t *testing.T) {
 // and answers its file's path in the root, which reads as hd.
 func importOrchard(t *testing.T, s *shelf) string {
 	t.Helper()
-	search(t, s.w, addOrchard(t, s.w))
-	expectImported(t, await(t, s.w))
+	simtest.Search(t, s.w, simtest.AddOrchard(t, s.w))
+	simtest.ExpectImported(t, simtest.Await(t, s.w))
 	var path string
 	if err := s.w.Node("home").Half().Library.QueryRowContext(t.Context(), "SELECT path FROM files_file WHERE gone_at IS NULL AND path LIKE 'The Quiet Orchard%'").Scan(&path); err != nil {
 		t.Fatal(err)
@@ -849,8 +850,8 @@ func TestAGoneFilesCellIsFilledByTheNextImport(t *testing.T) {
 			t.Fatalf("The Quiet Orchard's cell holds %s with its file gone, want missing", got)
 		}
 
-		search(t, s.w, s.works()[orchard.Title])
-		expectImported(t, await(t, s.w))
+		simtest.Search(t, s.w, s.works()[orchard.Title])
+		simtest.ExpectImported(t, simtest.Await(t, s.w))
 		if got := s.filled(orchard); got == "missing" || got == fileOf(orchard) {
 			t.Fatalf("The Quiet Orchard's cell holds %s after the import, want the imported file", got)
 		}
@@ -895,10 +896,10 @@ func TestARootOnAnOfflineWorkerIsSkippedThenScannedOnReturn(t *testing.T) {
 			sc.Library.Roots = append(sc.Library.Roots, scenario.LibraryRoot{ContentType: "movie", Folder: "films", Node: "seedbox"})
 		})
 		s.on("films").stock(films[0])
-		down := partition(t, s.w)
+		down := simtest.Partition(t, s.w)
 		expectScanned(t, s.scan(), "partial", succeeded, filmsOnSeedbox+"|seedbox|skipped|seedbox is offline")
-		heal(s.w, down)
-		eventually(t, "seedbox's unit runs on its return", func() bool {
+		simtest.Heal(s.w, down)
+		simtest.Eventually(t, "seedbox's unit runs on its return", func() bool {
 			got := s.last()
 			return got.trigger == "returned" && got.result != ""
 		})

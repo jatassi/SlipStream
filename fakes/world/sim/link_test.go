@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node"
@@ -52,7 +53,7 @@ func (p pings) Ping(context.Context, *rpctestv1.PingRequest) (*rpctestv1.PingRes
 // the raw Hello POST (TestMismatchedPeersServeOnlyTheFrozenPackage).
 func TestMismatch(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithProbe(), sim.Build("0.0.0-a"))
+		w := sim.Launch(t, simtest.Home(t), sim.WithProbe(), sim.Build("0.0.0-a"))
 		synctest.Wait()
 		box := nodeID(t, w, "seedbox")
 		err := w.Node("home").Half().Library.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -187,7 +188,7 @@ func logged(t *testing.T, n *sim.Node, msg string) []map[string]any {
 // it, and a Join Code home mints later is ignored.
 func TestRepairSupersedes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Name = "repair"
 		s.Nodes = append(s.Nodes, scenario.Node{Name: "office"})
 		w := sim.Launch(t, s)

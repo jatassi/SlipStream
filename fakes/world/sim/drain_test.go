@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/media"
@@ -112,19 +113,7 @@ func forfeits(t *testing.T, w *sim.World) int64 {
 func writeOff(t *testing.T, a *worldtest.API, id string) worldtest.Outcome {
 	t.Helper()
 	r := a.Admin("home", http.MethodPost, "/api/v1/nodes/"+id+"/write-offs", `{"roles":["downloading"]}`)
-	return decode[worldtest.Outcome](t, "writeOff", r)
-}
-
-// eventually waits in fake time until ok, failing with what.
-func eventually(t *testing.T, what string, ok func() bool) {
-	t.Helper()
-	for range settled / time.Second {
-		if ok() {
-			return
-		}
-		time.Sleep(time.Second)
-	}
-	t.Fatalf("not within %s: %s", settled, what)
+	return simtest.Decode[worldtest.Outcome](t, "writeOff", r)
 }
 
 // expectDownloadKept checks seedbox's downloads folder still holds the
@@ -156,9 +145,9 @@ func expectDownloadKept(t *testing.T, w *sim.World) {
 func TestAnUntickedDownloadingRoleDrainsUntilItIsWrittenOff(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
-		search(t, w, addOrchard(t, w))
-		expectImported(t, await(t, w))
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		a := w.API()
 		id := seedbox(t, a).ID
 
@@ -179,7 +168,7 @@ func TestAnUntickedDownloadingRoleDrainsUntilItIsWrittenOff(t *testing.T) {
 		if kinds := wrote.Effects; len(kinds) != 1 || kinds[0].Kind != "writes-off" {
 			t.Fatalf("the write-off answers %+v, want one writes-off effect", wrote.Effects)
 		}
-		eventually(t, "seedbox's engine lets the torrent go and the forfeit settles", func() bool {
+		simtest.Eventually(t, "seedbox's engine lets the torrent go and the forfeit settles", func() bool {
 			row := seedbox(t, a)
 			return box.torrents() == 0 && forfeits(t, w) == 0 && stateOf(row, "downloading") == "none" &&
 				row.Facts != nil && !slices.Contains(row.Facts.Running, "downloading")
@@ -198,7 +187,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 		box := &engines{}
 		reached := make(chan struct{})
 		var held atomic.Bool
-		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
 			switch name {
 			case "seedbox":
 				e.Engine = box.wrap(e.Engine)
@@ -211,7 +200,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 				}
 			}
 		}))
-		search(t, w, addOrchard(t, w))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-reached
 		a := w.API()
 		id := seedbox(t, a).ID
@@ -219,10 +208,10 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 		w.Node("seedbox").Stop()
 
 		writeOff(t, a, id)
-		var failed grabView
-		eventually(t, "the Grab fails and the forfeit settles", func() bool {
-			gs := decode[struct {
-				Grabs []grabView `json:"grabs"`
+		var failed simtest.GrabView
+		simtest.Eventually(t, "the Grab fails and the forfeit settles", func() bool {
+			gs := simtest.Decode[struct {
+				Grabs []simtest.GrabView `json:"grabs"`
 			}](t, "listGrabs", a.Admin("home", http.MethodGet, "/api/v1/grabs", "")).Grabs
 			if len(gs) == 1 {
 				failed = gs[0]
@@ -233,7 +222,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 
 		w.Node("seedbox").Start()
 		a = w.API()
-		eventually(t, "seedbox is back in step and its engine holds no torrent", func() bool {
+		simtest.Eventually(t, "seedbox is back in step and its engine holds no torrent", func() bool {
 			row := seedbox(t, a)
 			return row.Link.State == "up" && row.Facts != nil && !slices.Contains(row.Facts.Assigned, "downloading") &&
 				!slices.Contains(row.Facts.Running, "downloading") && box.torrents() == 0
@@ -267,13 +256,13 @@ func (p *failsOnce) Probe(ctx context.Context, path string) (media.Record, error
 func TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
 			e.Engine = box.wrap(e.Engine)
 			e.Media = &failsOnce{Prober: e.Media}
 		}))
-		work := addOrchard(t, w)
-		search(t, w, work)
-		first := await(t, w)
+		work := simtest.AddOrchard(t, w)
+		simtest.Search(t, w, work)
+		first := simtest.Await(t, w)
 		if first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
 			t.Fatalf("seedbox's first Grab ended %s with %+v, want failed at probing", first.Stage, first.Failure)
 		}
@@ -291,10 +280,10 @@ func TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds(t *testing.T) {
 			t.Fatalf("unticked, seedbox stands %s in Downloading with %d torrents, want draining the 1 it seeds", st, box.torrents())
 		}
 
-		search(t, w, work)
-		var next grabView
-		eventually(t, "the second Grab imports", func() bool {
-			gs := grabsListed(t, w)
+		simtest.Search(t, w, work)
+		var next simtest.GrabView
+		simtest.Eventually(t, "the second Grab imports", func() bool {
+			gs := simtest.GrabsListed(t, w)
 			if len(gs) == 2 {
 				next = gs[0]
 			}
